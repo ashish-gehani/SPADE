@@ -39,11 +39,13 @@
             } ]
           }
         } ],
-        "doc" : "list of identifiers, such as serial number, IMEI number"
+        "doc" : "list of identifiers, such as serial number, IMEI number",
+        "default" : null
       }, {
         "name" : "osDetails",
         "type" : [ "null", "string" ],
-        "doc" : "OS level details revealed by tools such as uname -a"
+        "doc" : "OS level details revealed by tools such as uname -a",
+        "default" : null
       }, {
         "name" : "hostType",
         "type" : {
@@ -72,11 +74,13 @@
               "type" : [ "null", {
                 "type" : "array",
                 "items" : "string"
-              } ]
+              } ],
+              "default" : null
             } ]
           }
         } ],
-        "doc" : "names and addresses of network interfaces"
+        "doc" : "names and addresses of network interfaces",
+        "default" : null
       } ]
     }, {
       "type" : "record",
@@ -111,7 +115,8 @@
           "type" : "array",
           "items" : "string"
         } ],
-        "doc" : "The ids of the groups which this user is part of"
+        "doc" : "The ids of the groups which this user is part of",
+        "default" : null
       }, {
         "name" : "properties",
         "type" : [ "null", {
@@ -235,7 +240,8 @@
       }, {
         "name" : "startTimestampNanos",
         "type" : [ "null", "long" ],
-        "doc" : "* The start time of the subject\n         * A timestamp stores the number of nanoseconds from the unix epoch, 1 January 1970 00:00:00.000000 UTC.\n         *\n         * This attribute is optional because there are times when the\n         * subject's start time may not be known. This happens when\n         * the subject was started before TC instrumentation software\n         * was started. Otherwise, the timestamp SHOULD be included."
+        "doc" : "* The start time of the subject\n         * A timestamp stores the number of nanoseconds from the unix epoch, 1 January 1970 00:00:00.000000 UTC.\n         *\n         * This attribute is optional because there are times when the\n         * subject's start time may not be known. This happens when\n         * the subject was started before TC instrumentation software\n         * was started. Otherwise, the timestamp SHOULD be included.",
+        "default" : null
       }, {
         "name" : "unitId",
         "type" : [ "null", "int" ],
@@ -405,7 +411,7 @@
           "type" : "enum",
           "name" : "IpcObjectType",
           "doc" : "* These types enumerate the types of IpcObjects",
-          "symbols" : [ "IPC_OBJECT_PIPE_NAMED", "IPC_OBJECT_PIPE_UNNAMED", "IPC_OBJECT_SOCKET_ABSTRACT", "IPC_OBJECT_SOCKET_PAIR", "IPC_OBJECT_SOCKET_PATHNAME", "IPC_OBJECT_SOCKET_UNNAMED", "IPC_OBJECT_WINDOWS_ALPC", "IPC_OBJECT_WINDOWS_MAILSLOT" ]
+          "symbols" : [ "IPC_OBJECT_PIPE_NAMED", "IPC_OBJECT_PIPE_UNNAMED", "IPC_OBJECT_SOCKET_ABSTRACT", "IPC_OBJECT_SOCKET_PAIR", "IPC_OBJECT_SOCKET_PATHNAME", "IPC_OBJECT_SOCKET_UNNAMED", "IPC_OBJECT_WINDOWS_ALPC", "IPC_OBJECT_WINDOWS_MAILSLOT", "IPC_OBJECT_SOCKET_NETLINK" ]
         },
         "doc" : "The type of IpcObject"
       }, {
@@ -614,19 +620,23 @@
       }, {
         "name" : "localAddress",
         "type" : [ "null", "string" ],
-        "doc" : "* The local IP address for this flow. Optional for when not\n         * obtained initially."
+        "doc" : "* The local IP address for this flow. Optional for when not\n         * obtained initially.",
+        "default" : null
       }, {
         "name" : "localPort",
         "type" : [ "null", "int" ],
-        "doc" : "* The local network port for this flow. Optional for AF_UNIX\n         * sockets (unnamed and abstract), or for when not obtained\n         * initially."
+        "doc" : "* The local network port for this flow. Optional for AF_UNIX\n         * sockets (unnamed and abstract), or for when not obtained\n         * initially.",
+        "default" : null
       }, {
         "name" : "remoteAddress",
         "type" : [ "null", "string" ],
-        "doc" : "* The remote IP address for this flow. Optional for binds\n         * that are a listening action and not a full connection, or\n         * for when not obtained initially."
+        "doc" : "* The remote IP address for this flow. Optional for binds\n         * that are a listening action and not a full connection, or\n         * for when not obtained initially.",
+        "default" : null
       }, {
         "name" : "remotePort",
         "type" : [ "null", "int" ],
-        "doc" : "* The remote network port for this flow. Optional for binds\n         * that are a listening action and not a full connection. Also\n         * optional for AF_UNIX sockets (unnamed and abstract) and for\n         * when not obtained intially."
+        "doc" : "* The remote network port for this flow. Optional for binds\n         * that are a listening action and not a full connection. Also\n         * optional for AF_UNIX sockets (unnamed and abstract) and for\n         * when not obtained intially.",
+        "default" : null
       }, {
         "name" : "ipProtocol",
         "type" : [ "null", "int" ],
