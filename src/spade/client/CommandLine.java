@@ -151,10 +151,12 @@ public class CommandLine
                         clientOutputStream.println(line);
                         break;
                     }
-                    else if(AbstractQuery.getCurrentStorage() == null)
+                    else if(line.toLowerCase().startsWith("set"))
                     {
-                        System.out.println("No storage set for querying. Use command: 'set storage <storage_name>'");
-                        continue;
+                        // set storage for querying
+                        clientOutputStream.println(line);
+                        String output = (String) clientInputStream.readObject();
+                        System.out.println(output);
                     }
                     else if(line.equals(QueryCommands.QUERY_LIST_CONSTRAINTS.value))
                     {
@@ -223,11 +225,6 @@ public class CommandLine
                         // save export path for next answer's dot file
                         parseExport(line);
                     }
-                    else if(line.toLowerCase().startsWith("set"))
-                    {
-                        // set storage for querying
-                        parseSetStorage(line);
-                    }
                     else
                     {
                         System.out.println("Invalid input!");
@@ -242,34 +239,6 @@ public class CommandLine
         catch (IOException ex)
         {
             System.err.println(CommandLine.class.getName() + " Error in CommandLine Client! " + ex);
-        }
-    }
-
-    private static void parseSetStorage(String line)
-    {
-        try
-        {
-            String[] tokens = line.split("\\s+");
-            String setCommand = tokens[0].toLowerCase().trim();
-            String storageCommand = tokens[1].toLowerCase().trim();
-            String storageName = tokens[2].toLowerCase().trim();
-            if(setCommand.equals("set") && storageCommand.equals("storage"))
-            {
-                AbstractStorage storage = Kernel.getStorage(storageName);
-                if(storage != null)
-                {
-                    AbstractQuery.setCurrentStorage(storage);
-                    System.out.println("Storage '" + storageName + "' successfully set for querying.");
-                }
-                else
-                {
-                    System.out.println("Storage '" + tokens[2] + "' not found");
-                }
-            }
-        }
-        catch(Exception ex)
-        {
-            System.err.println(CommandLine.class.getName() + " Error setting storages!");
         }
     }
 

@@ -30,35 +30,43 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.reporter.audit.OPMConstants;
+import spade.utility.CommonFunctions;
 
 /**
  * A storage implementation that writes data to a DOT file.
  *
  * @author Dawood Tariq
  */
-public class Graphviz extends AbstractStorage {
+public class Graphviz extends AbstractStorage
+{
 
     private FileWriter outputFile;
     private final int TRANSACTION_LIMIT = 1000;
     private int transaction_count;
-    private String filePath;
+    private String outputFilePath;
 
     @Override
-    public boolean initialize(String arguments) {
-        try {
-            if (arguments == null) {
+    public boolean initialize(String arguments)
+    {
+        try
+        {
+            if(arguments == null)
+            {
                 return false;
             }
-
-            filePath = arguments;
-            outputFile = new FileWriter(filePath, false);
+            Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+            outputFilePath = (argsMap.get("outputFilePath") != null) ? argsMap.get("outputFilePath") :
+                    databaseConfigs.getProperty("outputFilePath");
+            outputFile = new FileWriter(outputFilePath, false);
             transaction_count = 0;
             outputFile.write("digraph spade2dot {\n"
                     + "graph [rankdir = \"RL\"];\n"
                     + "node [fontname=\"Helvetica\" fontsize=\"8\" style=\"filled\" margin=\"0.0,0.0\"];\n"
                     + "edge [fontname=\"Helvetica\" fontsize=\"8\"];\n");
             return true;
-        } catch (Exception exception) {
+        }
+        catch(Exception exception)
+        {
             Logger.getLogger(Graphviz.class.getName()).log(Level.SEVERE, null, exception);
             return false;
         }
@@ -70,7 +78,7 @@ public class Graphviz extends AbstractStorage {
             try {
                 outputFile.flush();
                 outputFile.close();
-                outputFile = new FileWriter(filePath, true);
+                outputFile = new FileWriter(outputFilePath, true);
                 transaction_count = 0;
             } catch (Exception exception) {
                 Logger.getLogger(Graphviz.class.getName()).log(Level.SEVERE, null, exception);

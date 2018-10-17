@@ -20,6 +20,7 @@ import spade.client.QueryMetaData;
 import spade.core.AbstractAnalyzer;
 import spade.core.AbstractEdge;
 import spade.core.AbstractQuery;
+import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Kernel;
@@ -192,6 +193,13 @@ public class CommandLine extends AbstractAnalyzer
                     {
                         break;
                     }
+                    else if(line.toLowerCase().startsWith("set"))
+                    {
+                        // set storage for querying
+                        String output = parseSetStorage(line);
+                        logger.log(Level.INFO, output);
+                        queryOutputStream.writeObject(output);
+                    }
                     else
                     {
                         try
@@ -308,7 +316,6 @@ public class CommandLine extends AbstractAnalyzer
                             queryOutputStream.writeObject("Error");
                         }
                     }
-
                 }
                 queryInputStream.close();
                 queryOutputStream.close();
@@ -383,6 +390,38 @@ public class CommandLine extends AbstractAnalyzer
                 logger.log(Level.SEVERE, "Error modifying graph result!", ex);
             }
         }
+
+        private String parseSetStorage(String line)
+        {
+            String output = null;
+            try
+            {
+                String[] tokens = line.split("\\s+");
+                String setCommand = tokens[0].toLowerCase().trim();
+                String storageCommand = tokens[1].toLowerCase().trim();
+                String storageName = tokens[2].toLowerCase().trim();
+                if(setCommand.equals("set") && storageCommand.equals("storage"))
+                {
+                    AbstractStorage storage = Kernel.getStorage(storageName);
+                    if(storage != null)
+                    {
+                        AbstractQuery.setCurrentStorage(storage);
+                        output = "Storage '" + storageName + "' successfully set for querying.";
+                    }
+                    else
+                    {
+                        output = "Storage '" + tokens[2] + "' not found";
+                    }
+                }
+            }
+            catch(Exception ex)
+            {
+                logger.log(Level.SEVERE, " Error setting storages!", ex);
+            }
+
+            return output;
+        }
+
 
         @Override
         public boolean parseQuery(String query_line)
