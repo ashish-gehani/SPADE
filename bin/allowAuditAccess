@@ -4,3 +4,4 @@ sudo chmod ug+s `which iptables`
 sudo chmod ug+s `which kmod`
 sudo chown root lib/spadeAuditBridge
 sudo chmod ug+s lib/spadeAuditBridge
+sudo sed -i "s/active = no/active = yes/" /etc/audisp/plugins.d/af_unix.conf
