@@ -72,11 +72,11 @@ import java.util.logging.SimpleFormatter;
 public class Kernel
 {
 
-	static
+    static
     {
-		System.setProperty("java.util.logging.manager", spade.utility.LogManager.class.getName());
-		System.setProperty("java.util.logging.SimpleFormatter.format", "%1$tb %1$td, %1$tY %1$tl:%1$tM:%1$tS %1$Tp %2$s %4$s: %5$s%6$s%n");
-	}
+        System.setProperty("java.util.logging.manager", spade.utility.LogManager.class.getName());
+        System.setProperty("java.util.logging.SimpleFormatter.format", "%1$tb %1$td, %1$tY %1$tl:%1$tM:%1$tS %1$Tp %2$s %4$s: %5$s%6$s%n");
+    }
 
     public static final String SPADE_ROOT = Settings.getProperty("spade_root");
 
@@ -91,7 +91,7 @@ public class Kernel
     /**
      * Path to configuration files.
      */
-     public static final String CONFIG_PATH = SPADE_ROOT + FILE_SEPARATOR + "cfg";
+    public static final String CONFIG_PATH = SPADE_ROOT + FILE_SEPARATOR + "cfg";
     /**
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
@@ -1321,48 +1321,30 @@ public class Kernel
                     {
                         AbstractStorage storage = storageIterator.next();
                         if(storage != null){
-	                        // Search for the given storage in the storages set.
-	                        if (storage.getClass().getSimpleName().equals(className))
-	                        {
-	                            boolean updateCurrentStorage = false;
-	                            if(storage.equals(AbstractQuery.getCurrentStorage()))
-	                            {
-	                                updateCurrentStorage = true;
-	                            }
-	                            // Mark the storage for removal by adding it to the removeStorages set.
-	                            // This will enable the main SPADE thread to safely commit any transactions
-	                            // and then remove the storage.
-	                            long vertexCount = storage.vertexCount;
-	                            long edgeCount = storage.edgeCount;
-	                            removeStorages.add(storage);
-	                            found = true;
-	                            logger.log(Level.INFO, "Shutting down storage: {0}", className);
-	                            outputStream.print("Shutting down storage " + className + "... ");
-	
-	                            while (removeStorages.contains(storage))
-	                            {
-	                                // Wait for other thread to safely remove storage
-	                                Thread.sleep(REMOVE_WAIT_DELAY);
-	                            }
-	                            storageIterator.remove();
-	                            if(updateCurrentStorage)
-	                            {
-	                                if(storageIterator.hasNext())
-	                                {
-	                                    AbstractStorage nextStorage = storageIterator.next();
-	                                    AbstractQuery.setCurrentStorage(nextStorage);
-	                                    logger.log(Level.INFO, "currentStorage updated to " + nextStorage.getClass().getName());
-	                                }
-	                                else
-	                                {
-	                                    AbstractQuery.setCurrentStorage(null);
-	                                }
-	                            }
-	                            logger.log(Level.INFO, "Storage shut down: {0} ({1} vertices and {2} edges were added)",
-	                                    new Object[]{className, vertexCount, edgeCount});
-	                            outputStream.println("done (" + vertexCount + " vertices and " + edgeCount + " edges added)");
-	                            break;
-	                        }
+                            // Search for the given storage in the storages set.
+                            if(storage.getClass().getSimpleName().equals(className))
+                            {
+                                // Mark the storage for removal by adding it to the removeStorages set.
+                                // This will enable the main SPADE thread to safely commit any transactions
+                                // and then remove the storage.
+                                long vertexCount = storage.vertexCount;
+                                long edgeCount = storage.edgeCount;
+                                removeStorages.add(storage);
+                                found = true;
+                                logger.log(Level.INFO, "Shutting down storage: {0}", className);
+                                outputStream.print("Shutting down storage " + className + "... ");
+
+                                while(removeStorages.contains(storage))
+                                {
+                                    // Wait for other thread to safely remove storage
+                                    Thread.sleep(REMOVE_WAIT_DELAY);
+                                }
+                                storageIterator.remove();
+                                logger.log(Level.INFO, "Storage shut down: {0} ({1} vertices and {2} edges were added)",
+                                        new Object[]{className, vertexCount, edgeCount});
+                                outputStream.println("done (" + vertexCount + " vertices and " + edgeCount + " edges added)");
+                                break;
+                            }
                         }
                     }
                     if (!found)
@@ -1645,4 +1627,3 @@ final class NullStream
         public void write(int b) {}
     });
 }
-

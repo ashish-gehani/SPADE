@@ -60,7 +60,7 @@ public class Control {
     private static KeyStore clientKeyStorePrivate;
     private static KeyStore serverKeyStorePublic;
     private static SSLSocketFactory sslSocketFactory;
-    
+
     private static final Object SPADEControlInLock = new Object(); //an object to synchronize on and to wait until SPADEControlIn has been initialized
 
     private static void setupKeyStores() throws Exception
@@ -122,24 +122,25 @@ public class Control {
                     InputStream inStream = remoteSocket.getInputStream();
                     SPADEControlOut = new BufferedReader(new InputStreamReader(inStream));
                     SPADEControlIn = new PrintStream(outStream);
-                    
+
                     synchronized (SPADEControlInLock)
                     {
-                    	//notify the main thread that it is safe to use spadeControlIn now.
-                    	SPADEControlInLock.notify();
-        		    }
+                        //notify the main thread that it is safe to use spadeControlIn now.
+                        SPADEControlInLock.notify();
+                    }
 
                     while (!shutdown)
                     {
+
                         // This thread keeps reading from the output pipe and
                         // printing to the current output stream.
                         String outputLine = SPADEControlOut.readLine();
-                        
+
                         if(shutdown)
                         {
-                        	break;
+                            break;
                         }
-                        
+
                         if (outputLine == null)
                         {
                             System.err.println("Error connecting to SPADE Kernel!");
@@ -149,12 +150,12 @@ public class Control {
                         {
                             outputStream.println(outputLine);
                         }
-                        
+
                         if ("".equals(outputLine))
                         {
                             outputStream.print(COMMAND_PROMPT);
                         }
-                        
+
                         Thread.sleep(THREAD_SLEEP_DELAY);
                     }
                     SPADEControlOut.close();
@@ -174,32 +175,32 @@ public class Control {
 
         try
         {
-    
-        	//wait for the spadeControlIn object to be initialized in the other thread
-        	synchronized (SPADEControlInLock)
+
+            //wait for the spadeControlIn object to be initialized in the other thread
+            synchronized(SPADEControlInLock)
             {
-        		while(SPADEControlIn == null)
+                while(SPADEControlIn == null)
                 {
-            		try
+                    try
                     {
-            			SPADEControlInLock.wait();
-            		}
-            		catch(Exception exception)
+                        SPADEControlInLock.wait();
+                    }
+                    catch(Exception exception)
                     {
                         System.err.println(Control.class.getName() + " Error waiting for spadeControlIn object! " + exception);
-            		}
-            	}
-			}        	
-        	
-        	outputStream.println("");
+                    }
+                }
+            }
+
+            outputStream.println("");
             outputStream.println("SPADE 3.0 Control Client");
             outputStream.println("");
-            
-            SPADEControlIn.println(""); 
-        	
+
+            SPADEControlIn.println("");
+
             // Set up command history and tab completion.
             ConsoleReader commandReader = new ConsoleReader();
-            
+
             try
             {
                 commandReader.getHistory().setHistoryFile(new File(historyFile));
@@ -236,7 +237,7 @@ public class Control {
             completors.add(new ArgumentCompletor(configArguments));
 
             commandReader.addCompletor(new MultiCompletor(completors));
-            
+
             while (true)
             {
                 String line = commandReader.readLine();
@@ -247,10 +248,10 @@ public class Control {
                     break;
                 }
                 else
-                    {
+                {
                     SPADEControlIn.println(line);
                 }
-            }   
+            }
         }
         catch (Exception exception)
         {

@@ -30,7 +30,6 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.reporter.audit.OPMConstants;
-import spade.utility.CommonFunctions;
 
 /**
  * A storage implementation that writes data to a DOT file.
@@ -43,7 +42,7 @@ public class Graphviz extends AbstractStorage
     private FileWriter outputFile;
     private final int TRANSACTION_LIMIT = 1000;
     private int transaction_count;
-    private String outputFilePath;
+    private String filePath;
 
     @Override
     public boolean initialize(String arguments)
@@ -54,10 +53,9 @@ public class Graphviz extends AbstractStorage
             {
                 return false;
             }
-            Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
-            outputFilePath = (argsMap.get("outputFilePath") != null) ? argsMap.get("outputFilePath") :
-                    databaseConfigs.getProperty("outputFilePath");
-            outputFile = new FileWriter(outputFilePath, false);
+
+            filePath = arguments;
+            outputFile = new FileWriter(filePath, false);
             transaction_count = 0;
             outputFile.write("digraph spade2dot {\n"
                     + "graph [rankdir = \"RL\"];\n"
@@ -78,7 +76,7 @@ public class Graphviz extends AbstractStorage
             try {
                 outputFile.flush();
                 outputFile.close();
-                outputFile = new FileWriter(outputFilePath, true);
+                outputFile = new FileWriter(filePath, true);
                 transaction_count = 0;
             } catch (Exception exception) {
                 Logger.getLogger(Graphviz.class.getName()).log(Level.SEVERE, null, exception);
