@@ -24,16 +24,31 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 
 /**
  * @author raza
  */
-public class GetEdge extends PostgreSQL<Set<AbstractEdge>, Map<String, List<String>>>
+public class GetEdge extends PostgreSQL<Set<AbstractEdge>>
 {
     public GetEdge()
     {
         register();
+    }
+
+    @Override
+    public Set<AbstractEdge> execute(String argument_string)
+    {
+        Pattern argument_pattern = Pattern.compile(",");
+        String[] arguments = argument_pattern.split(argument_string);
+        String constraints = arguments[0].trim();
+        Map<String, List<String>> parameters = parseConstraints(constraints);
+        Integer limit = null;
+        if(arguments.length > 1)
+            limit = Integer.parseInt(arguments[1].trim());
+
+        return execute(parameters, limit);
     }
 
     @Override

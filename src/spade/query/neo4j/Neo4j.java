@@ -37,7 +37,7 @@ import static spade.storage.Neo4j.convertRelationshipToEdge;
 /**
  * @author raza
  */
-public abstract class Neo4j<R, P> extends AbstractQuery<R, P>
+public abstract class Neo4j<R> extends AbstractQuery<R>
 {
     // vertex alias to use while querying
     protected static final String VERTEX_ALIAS = "v";

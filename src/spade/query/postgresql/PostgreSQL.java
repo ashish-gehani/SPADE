@@ -47,13 +47,10 @@ import static spade.storage.SQL.stripDashes;
 /**
  * @author raza
  */
-public abstract class PostgreSQL<R, P> extends AbstractQuery<R, P>
+public abstract class PostgreSQL<R> extends AbstractQuery<R>
 {
     public static final String VERTEX_TABLE = "vertex";
     public static final String EDGE_TABLE = "edge";
-
-    @Override
-    public abstract R execute(P parameters, Integer limit);
 
     public static Set<AbstractVertex> prepareVertexSetFromSQLResult(String query)
     {

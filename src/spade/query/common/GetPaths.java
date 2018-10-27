@@ -22,6 +22,7 @@ import spade.core.Graph;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import static spade.core.AbstractStorage.DIRECTION_ANCESTORS;
 import static spade.core.AbstractStorage.DIRECTION_DESCENDANTS;
@@ -30,7 +31,7 @@ import static spade.core.AbstractStorage.PRIMARY_KEY;
 /**
  * @author raza
  */
-public class GetPaths extends AbstractQuery<Graph, Map<String, List<String>>>
+public class GetPaths extends AbstractQuery<Graph>
 {
     public GetPaths()
     {
@@ -38,17 +39,29 @@ public class GetPaths extends AbstractQuery<Graph, Map<String, List<String>>>
     }
 
     @Override
-    public Graph execute(Map<String, List<String>> parameters, Integer limit)
+    public Graph execute(String argument_string)
     {
-        // Implicit assumption that 'sourceVertexHash' and 'destinationVertexHash' keys are present
+        Pattern argument_pattern = Pattern.compile(",");
+        String[] arguments = argument_pattern.split(argument_string);
+        String constraints = arguments[0].trim();
+        int maxLength = Integer.parseInt(arguments[1].trim());
+        String direction = arguments[2].trim();
+        Map<String, List<String>> parameters = parseConstraints(constraints);
+        // assumption that 'sourceVertexHash' and 'destinationVertexHash' keys are present
         GetLineage getLineage = new GetLineage();
         parameters.put(PRIMARY_KEY, parameters.get("sourceVertexHash"));
         parameters.put("direction", Collections.singletonList(DIRECTION_ANCESTORS));
-        Graph ancestorLineage = getLineage.execute(parameters, limit);
+        Graph ancestorLineage = getLineage.execute(parameters, direction, maxLength);
         parameters.put("direction", Collections.singletonList(DIRECTION_DESCENDANTS));
         parameters.put(PRIMARY_KEY, parameters.get("destinationVertexHash"));
-        Graph descendantLineage = getLineage.execute(parameters, limit);
+        Graph descendantLineage = getLineage.execute(parameters, direction, maxLength);
 
         return Graph.union(ancestorLineage, descendantLineage);
+    }
+
+    @Override
+    public Graph execute(Map<String, List<String>> parameters, Integer limit)
+    {
+        return null;
     }
 }

@@ -33,8 +33,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
+import static spade.core.AbstractAnalyzer.USE_SCAFFOLD;
 import static spade.core.AbstractAnalyzer.setRemoteResolutionRequired;
+import static spade.core.AbstractStorage.BUILD_SCAFFOLD;
 import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
 import static spade.core.AbstractStorage.DIRECTION;
 import static spade.core.AbstractStorage.DIRECTION_ANCESTORS;
@@ -42,11 +45,12 @@ import static spade.core.AbstractStorage.DIRECTION_BOTH;
 import static spade.core.AbstractStorage.DIRECTION_DESCENDANTS;
 import static spade.core.AbstractStorage.MAX_DEPTH;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
+import static spade.core.AbstractStorage.scaffold;
 
 /**
  * @author raza
  */
-public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
+public class GetLineage extends AbstractQuery<Graph>
 {
     private AbstractQuery getVertex = null;
     private AbstractQuery getEdge = null;
@@ -60,15 +64,26 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
     }
 
     @Override
-    public Graph execute(Map<String, List<String>> parameters, Integer limit)
+    public Graph execute(String argument_string)
     {
+        Pattern argument_pattern = Pattern.compile(",");
+        String[] arguments = argument_pattern.split(argument_string);
+        String constraints = arguments[0].trim();
+        Map<String, List<String>> parameters = parseConstraints(constraints);
+        int maxDepth = Integer.parseInt(arguments[1].trim());
+        String direction = arguments[2].trim();
+
+        Graph result = new Graph();
+        if(USE_SCAFFOLD && BUILD_SCAFFOLD)
+        {
+            result = scaffold.queryManager(parameters);
+            return result;
+        }
+
         try
         {
-            Graph result = new Graph();
             String storage = currentStorage.getClass().getSimpleName().toLowerCase();
             String class_prefix = "spade.query." + storage;
-            String direction = parameters.get("direction").get(0);
-            Integer maxDepth = Integer.parseInt(parameters.get("maxDepth").get(0));
             result.setMaxDepth(maxDepth);
 
             getVertex = (AbstractQuery) Class.forName(class_prefix + ".GetVertex").newInstance();
@@ -76,20 +91,17 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
             getChildren = (AbstractQuery) Class.forName(class_prefix + ".GetChildren").newInstance();
             getParents = (AbstractQuery) Class.forName(class_prefix + ".GetParents").newInstance();
 
-            if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
+            if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()) ||
+                    DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase()))
             {
-                result = execute(parameters, maxDepth, direction, limit);
-            }
-            else if(DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase()))
-            {
-                result = execute(parameters, maxDepth, direction, limit);
+                result = execute(parameters, direction, maxDepth);
             }
             else if(DIRECTION_BOTH.startsWith(direction.toLowerCase()))
             {
                 direction = DIRECTION_ANCESTORS;
-                result = execute(parameters, maxDepth, direction, limit);
+                result = execute(parameters, direction, maxDepth);
                 direction = DIRECTION_DESCENDANTS;
-                result = Graph.union(result, execute(parameters, maxDepth, direction, limit));
+                result = Graph.union(result, execute(parameters, direction, maxDepth));
             }
             else
             {
@@ -105,7 +117,13 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
         }
     }
 
-    private Graph execute(Map<String, List<String>> parameters, int maxDepth, String direction, Integer limit)
+    @Override
+    public Graph execute(Map<String, List<String>> parameters, Integer limit)
+    {
+        return null;
+    }
+
+    Graph execute(Map<String, List<String>> parameters, String direction, int maxDepth)
     {
         Graph result = new Graph();
         try
@@ -114,6 +132,7 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
             vertexParams.remove(DIRECTION);
             vertexParams.remove(MAX_DEPTH);
             int current_depth = 0;
+            Integer limit = null;
             Set<String> remainingVertices = new HashSet<>();
             Set<String> visitedVertices = new HashSet<>();
             Set<AbstractVertex> startingVertexSet = (Set<AbstractVertex>) getVertex.execute(vertexParams, limit);

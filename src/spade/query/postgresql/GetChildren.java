@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
@@ -14,11 +15,24 @@ import static spade.core.AbstractStorage.PRIMARY_KEY;
 /**
  * @author raza
  */
-public class GetChildren extends PostgreSQL<Graph, Map<String, List<String>>>
+public class GetChildren extends PostgreSQL<Graph>
 {
     public GetChildren()
     {
         register();
+    }
+
+    @Override
+    public Graph execute(String argument_string)
+    {
+        Pattern argument_pattern = Pattern.compile(",");
+        String[] arguments = argument_pattern.split(argument_string);
+        String constraints = arguments[0].trim();
+        Map<String, List<String>> parameters = parseConstraints(constraints);
+        Integer limit = null;
+        if(arguments.length > 1)
+            limit = Integer.parseInt(arguments[1].trim());
+        return execute(parameters, limit);
     }
 
     @Override
@@ -64,4 +78,5 @@ public class GetChildren extends PostgreSQL<Graph, Map<String, List<String>>>
 
         return children;
     }
+
 }

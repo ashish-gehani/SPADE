@@ -25,14 +25,29 @@ import spade.core.Graph;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import static spade.storage.Neo4j.convertNodeToVertex;
 
 /**
  * @author raza
  */
-public class GetParentsCypher extends Neo4j<Graph, Map<String, List<String>>>
+public class GetParentsCypher extends Neo4j<Graph>
 {
+    @Override
+    public Graph execute(String argument_string)
+    {
+        Pattern argument_pattern = Pattern.compile(",");
+        String[] arguments = argument_pattern.split(argument_string);
+        String constraints = arguments[0].trim();
+        Map<String, List<String>> parameters = parseConstraints(constraints);
+        Integer limit = null;
+        if(arguments.length > 1)
+            limit = Integer.parseInt(arguments[1].trim());
+
+        return execute(parameters, limit);
+    }
+
     @Override
     public Graph execute(Map<String, List<String>> parameters, Integer limit)
     {

@@ -16,7 +16,6 @@
  */
 package spade.analyzer;
 
-import com.google.common.annotations.VisibleForTesting;
 import spade.client.QueryMetaData;
 import spade.core.AbstractAnalyzer;
 import spade.core.AbstractEdge;
@@ -28,7 +27,6 @@ import spade.core.Kernel;
 import spade.resolver.Recursive;
 
 import java.io.BufferedReader;
-import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.ObjectOutputStream;
@@ -42,14 +40,10 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
-
-import static spade.core.AbstractStorage.BUILD_SCAFFOLD;
-import static spade.core.AbstractStorage.scaffold;
 
 /**
  * @author raza
@@ -230,37 +224,27 @@ public class CommandLine extends AbstractAnalyzer
                     }
                     else
                     {
-                        line = prepareQuery(line);
+                        line = replaceConstraintNames(line.trim());
                         try
                         {
-                            boolean parse_successful = parseQuery(line.trim());
-                            if(!parse_successful)
+                            boolean success = parseQuery(line);
+                            if(!success)
                             {
-                                String message = "Querying parsing not successful! Make sure you follow the guidelines";
+                                String message = "Function name not valid! Make sure you follow the guidelines";
                                 throw new Exception(message);
                             }
                             AbstractQuery queryClass;
                             Class<?> returnType;
                             Object result;
-                            if( (functionName.equalsIgnoreCase("GetLineage") ||
-                                    functionName.equalsIgnoreCase("GetPaths") )
-                                    && USE_SCAFFOLD && BUILD_SCAFFOLD)
+                            String functionClassName = getFunctionClassName(functionName);
+                            if(functionClassName == null)
                             {
-                                result = scaffold.queryManager(queryParameters);
-                                returnType = Graph.class;
+                                String message = "Required query class not available!";
+                                throw new Exception(message);
                             }
-                            else
-                            {
-                                String functionClassName = getFunctionClassName(functionName);
-                                if(functionClassName == null)
-                                {
-                                    String message = "Required query class not available!";
-                                    throw new Exception(message);
-                                }
-                                queryClass = (AbstractQuery) Class.forName(functionClassName).newInstance();
-                                returnType = Class.forName(getReturnType(functionName));
-                                result = queryClass.execute(queryParameters, resultLimit);
-                            }
+                            queryClass = (AbstractQuery) Class.forName(functionClassName).newInstance();
+                            returnType = Class.forName(getReturnType(functionName));
+                            result = queryClass.execute(functionArguments);
                             if(result != null && returnType.isAssignableFrom(result.getClass()))
                             {
                                 if(result instanceof Graph)
@@ -317,7 +301,6 @@ public class CommandLine extends AbstractAnalyzer
                                     result = ((Graph) result).exportGraph();
                                     EXPORT_RESULT = false;
                                 }
-
                             }
                             else
                             {
@@ -364,147 +347,30 @@ public class CommandLine extends AbstractAnalyzer
             }
         }
 
-        @VisibleForTesting
-        // For the purpose of testing in discrepancy detection
-        private void modifyResult(Graph result)
-        {
-            try
-            {
-                Properties props = new Properties();
-                props.load(new FileInputStream("modifications.txt"));
-                int vertices = Integer.parseInt(props.getProperty("vertices"));
-                int edges = Integer.parseInt(props.getProperty("edges"));
-
-                int removedVerticesCount = 0;
-                String removedVertices = "";
-                List<AbstractVertex> verticesToRemove = new ArrayList<>();
-                for(AbstractVertex vertex: result.vertexSet())
-                {
-                    if(removedVerticesCount >= vertices)
-                        break;
-                    removedVertices =  removedVertices + vertex.bigHashCode() + ", ";
-                    verticesToRemove.add(vertex);
-                    removedVerticesCount++;
-                }
-                logger.log(Level.INFO, "removedVertices: " + removedVertices);
-                for(int i = 0; i < verticesToRemove.size(); i++)
-                {
-                    result.vertexSet().remove(verticesToRemove.get(i));
-                }
-
-                int removedEdgesCount = 0;
-                String removedEdges = "";
-                List<AbstractEdge> edgesToRemove = new ArrayList<>();
-                for(AbstractEdge edge: result.edgeSet())
-                {
-                    if(removedEdgesCount >= edges)
-                        break;
-                    removedEdges = removedEdges + edge.bigHashCode() + ", ";
-                    edgesToRemove.add(edge);
-                    removedEdgesCount++;
-                }
-                logger.log(Level.INFO, "removedEdges: " + removedEdges);
-                for(int i = 0; i < edgesToRemove.size(); i++)
-                {
-                    result.edgeSet().remove(edgesToRemove.get(i));
-                }
-
-            }
-            catch(Exception ex)
-            {
-                logger.log(Level.SEVERE, "Error modifying graph result!", ex);
-            }
-        }
-
-        @Override
         public boolean parseQuery(String query_line)
         {
+            functionName = null;
             if(query_line.startsWith("export"))
             {
                 query_line = query_line.substring(query_line.indexOf("export") + "export".length());
                 EXPORT_RESULT = true;
             }
-            queryParameters = new LinkedHashMap<>();
             try
             {
-                // Step1: get the function name
+                // get the function name
                 Pattern token_pattern = Pattern.compile("\\(");
                 String[] tokens = token_pattern.split(query_line);
                 functionName = tokens[0].trim();
-                String argument_string = tokens[1].substring(0, tokens[1].length() - 1);
-                Pattern argument_pattern = Pattern.compile(",");
-                String[] arguments = argument_pattern.split(argument_string);
-                String constraints = arguments[0].trim();
-                switch(functionName)
-                {
-                    case "GetLineage":
-                        maxLength = arguments[1].trim();
-                        direction = arguments[2].trim();
-                        break;
-                    case "GetPaths":
-                        maxLength = arguments[1].trim();
-                        break;
-                    default:
-                        if(arguments.length > 1)
-                            resultLimit = Integer.parseInt(arguments[1].trim());
-                        break;
-                }
+                String arguments_string = tokens[1].substring(0, tokens[1].length() - 1);
+                functionArguments = replaceConstraintNames(arguments_string);
 
-                // Step2: get the argument expression(s), split by the boolean operators
-                // The format for one argument is:
-                // <key> COMPARISON_OPERATOR <value> [BOOLEAN_OPERATOR]
-                Pattern constraints_pattern = Pattern.compile("((?i)(?<=(\\b" + BOOLEAN_OPERATORS + "\\b))|" +
-                        "((?=(\\b" + BOOLEAN_OPERATORS + "\\b))))");
-                String[] expressions = constraints_pattern.split(constraints);
-
-                // extract the key value pairs
-                int i = 0;
-                while(i < expressions.length)
-                {
-                    String expression = expressions[i];
-                    Pattern expression_pattern = Pattern.compile("((?<=(" + COMPARISON_OPERATORS + "))|" +
-                            "(?=(" + COMPARISON_OPERATORS + ")))");
-                    String[] operands = expression_pattern.split(expression);
-                    String key = operands[0].trim();
-                    String operator = operands[1].trim();
-                    String value = operands[2].trim();
-
-                    List<String> values = new ArrayList<>();
-                    values.add(operator);
-                    values.add(value);
-                    i++;
-                    // if boolean operator is present
-                    if(i < expressions.length &&
-                            BOOLEAN_OPERATORS.toLowerCase().contains(expressions[i].toLowerCase()))
-                    {
-                        String bool_operator = expressions[i].trim();
-                        values.add(bool_operator);
-                        i++;
-                    }
-                    else
-                    {
-                        values.add(null);
-                    }
-
-                    queryParameters.put(key, values);
-                }
-                if(functionName.equals("GetLineage"))
-                {
-                    queryParameters.put("direction", Collections.singletonList(direction));
-                    queryParameters.put("maxDepth", Collections.singletonList(maxLength));
-                }
-                else if(functionName.equals("GetPaths"))
-                {
-                    queryParameters.put("direction", Collections.singletonList(direction));
-                    queryParameters.put("maxLength", Collections.singletonList(maxLength));
-                }
+                return true;
             }
             catch(Exception ex)
             {
                 Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Error in parsing query: \n" + query_line, ex);
-                return false;
             }
-            return true;
+            return false;
         }
 
         private Map<String, Object> getQueryMetaData(Graph result)
@@ -527,31 +393,38 @@ public class CommandLine extends AbstractAnalyzer
 
     private static String createConstraint(String line)
     {
-        String[] tokens = line.split(":");
-        String constraint_name = tokens[0].trim();
-        String constraint_expression = tokens[1].trim();
-        constraints.put(constraint_name, constraint_expression);
-        String output = "Constraint '" + constraint_name + "' created.";
+        String output;
+        try
+        {
+            String[] tokens = line.split(":");
+            String constraint_name = tokens[0].trim();
+            String constraint_expression = tokens[1].trim();
+            constraints.put(constraint_name, constraint_expression);
+            output = "Constraint '" + constraint_name + "' created.";
+        }
+        catch(Exception ex)
+        {
+            output = "Unable to create constraint!";
+            logger.log(Level.SEVERE, output, ex);
+        }
 
         return output;
     }
 
-    private static String prepareQuery(String line)
+    private static String replaceConstraintNames(String arguments_string)
     {
-        int start_index = line.indexOf('(') + 1;
-        int end_index = line.indexOf(')');
-        String query = line.substring(start_index, end_index);
+        String arguments = arguments_string.trim();
         for(Map.Entry<String, String> constraint : constraints.entrySet())
         {
             String constraint_name = constraint.getKey();
             String constraint_expression = constraint.getValue();
-            if(query.contains(constraint_name))
+            if(arguments.contains(constraint_name))
             {
-                query = query.replaceAll("\\b" + Pattern.quote(constraint_name) + "\\b", constraint_expression);
+                arguments = arguments.replaceAll("\\b" + Pattern.quote(constraint_name) + "\\b", constraint_expression);
             }
         }
 
-        return line.replace(line.substring(start_index, end_index), query);
+        return arguments;
     }
 
     private static String parseSetStorage(String line)
@@ -579,7 +452,8 @@ public class CommandLine extends AbstractAnalyzer
         }
         catch(Exception ex)
         {
-            output = CommandLine.class.getName() + " Error setting storages!";
+            output = "Error setting storage!";
+            logger.log(Level.SEVERE, output, ex);
         }
 
         return output;

@@ -217,8 +217,8 @@ public abstract class AbstractAnalyzer
     {
         protected Socket querySocket;
         protected Map<String, List<String>> queryParameters;
-        protected String queryConstraints;
         protected String functionName;
+        protected String functionArguments;
         protected String queryStorage;
         protected Integer resultLimit = null;
         protected String direction = null;
