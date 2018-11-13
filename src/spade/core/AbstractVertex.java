@@ -168,17 +168,6 @@ public abstract class AbstractVertex implements Serializable
         return DigestUtils.md5(this.toString());
     }
 
-    @Override
-    public boolean equals(Object obj)
-    {
-        if(this == obj) return true;
-        if(!(obj instanceof AbstractVertex)) return false;
-
-        AbstractVertex vertex = (AbstractVertex) obj;
-
-        return annotations.equals(vertex.annotations);
-    }
-
     public boolean isCompleteNetworkVertex()
     {
         String subtype = this.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE);
@@ -202,7 +191,7 @@ public abstract class AbstractVertex implements Serializable
 
         return false;
     }
-
+    
     /**
      * Computes a function of the annotations in the vertex.
      *
@@ -211,14 +200,30 @@ public abstract class AbstractVertex implements Serializable
      * @return An integer-valued hash code.
      */
     @Override
-    public int hashCode()
-    {
-        final int seed1 = 67;
-        int hashCode = 3;
-        hashCode = seed1 * hashCode + (this.annotations != null ? this.annotations.hashCode() : 0);
-        return hashCode;
-    }
+	public int hashCode(){
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((annotations == null) ? 0 : annotations.hashCode());
+		return result;
+	}
 
+	@Override
+	public boolean equals(Object obj){
+		if(this == obj)
+			return true;
+		if(obj == null)
+			return false;
+		if(getClass() != obj.getClass())
+			return false;
+		AbstractVertex other = (AbstractVertex) obj;
+		if(annotations == null){
+			if(other.annotations != null)
+				return false;
+		}else if(!annotations.equals(other.annotations))
+			return false;
+		return true;
+	}
+	
     @Override
     public String toString()
     {

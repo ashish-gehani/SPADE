@@ -201,17 +201,31 @@ public abstract class AbstractEdge implements Serializable
     }
 
     @Override
-    public boolean equals(Object o)
-    {
-        if(this == o) return true;
-        if(!(o instanceof AbstractEdge)) return false;
-
-        AbstractEdge that = (AbstractEdge) o;
-
-        if(!annotations.equals(that.annotations)) return false;
-        if(!childVertex.equals(that.childVertex)) return false;
-        return parentVertex.equals(that.parentVertex);
-    }
+	public boolean equals(Object obj){
+		if(this == obj)
+			return true;
+		if(obj == null)
+			return false;
+		if(getClass() != obj.getClass())
+			return false;
+		AbstractEdge other = (AbstractEdge) obj;
+		if(annotations == null){
+			if(other.annotations != null)
+				return false;
+		}else if(!annotations.equals(other.annotations))
+			return false;
+		if(childVertex == null){
+			if(other.childVertex != null)
+				return false;
+		}else if(!childVertex.equals(other.childVertex))
+			return false;
+		if(parentVertex == null){
+			if(other.parentVertex != null)
+				return false;
+		}else if(!parentVertex.equals(other.parentVertex))
+			return false;
+		return true;
+	}    
 
     /**
      * Computes a function of the annotations in the edge and the vertices it is incident upon.
@@ -221,13 +235,14 @@ public abstract class AbstractEdge implements Serializable
      * @return An integer-valued hash code.
      */
     @Override
-    public int hashCode()
-    {
-        int result = annotations.hashCode();
-        result = 31 * result + childVertex.hashCode();
-        result = 31 * result + parentVertex.hashCode();
-        return result;
-    }
+	public int hashCode(){
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((annotations == null) ? 0 : annotations.hashCode());
+		result = prime * result + ((childVertex == null) ? 0 : childVertex.hashCode());
+		result = prime * result + ((parentVertex == null) ? 0 : parentVertex.hashCode());
+		return result;
+	}
 
     @Override
     public String toString()
