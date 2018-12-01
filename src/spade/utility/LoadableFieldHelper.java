@@ -159,7 +159,7 @@ public class LoadableFieldHelper{
 			changedAccessible = true;
 			field.setAccessible(true);
 		}
-		field.get(object);
+		value = field.get(object);
 		if(changedAccessible){
 			field.setAccessible(false);
 		}
@@ -296,18 +296,51 @@ public class LoadableFieldHelper{
 	 * @throws LoadableFieldParseException
 	 */
 	public static void loadAllLoadableFieldsFromMap(Object object, Map<String, String> keyValues) throws LoadableFieldIllegalAssignmentException, 
-													LoadableFieldFieldSetException, LoadableFieldParseException{
+													LoadableFieldFieldSetException, LoadableFieldParseException, LoadableFieldsNotSpecifiedForKeys{
+		Set<String> loadableFieldNames = new HashSet<String>();
 		Class<?> enclosingClass = object.getClass();
 		Set<Field> loadableFields = getAllLoadableFields(enclosingClass);
 		if(loadableFields != null){
 			for(Field loadableField : loadableFields){
 				LoadableField loadableFieldAnnotation = loadableField.getDeclaredAnnotation(LoadableField.class);
 				String name = loadableFieldAnnotation.name();
+				loadableFieldNames.add(name);
 				boolean isValuePresent = keyValues.containsKey(name);
 				String value = keyValues.get(name);
 				loadField(object, loadableField, value, isValuePresent, loadableFieldAnnotation);
 			}
 		}
+		if(!loadableFieldNames.containsAll(keyValues.keySet())){
+			Set<String> unspecifiedKeys = new HashSet<String>(keyValues.keySet());
+			unspecifiedKeys.removeAll(loadableFieldNames);
+			throw new LoadableFieldsNotSpecifiedForKeys(enclosingClass, unspecifiedKeys);
+		}
+	}
+	
+	public static String allLoadableFieldsToString(Object object) throws Exception{
+		StringBuffer string = new StringBuffer();
+		Class<?> enclosingClass = object.getClass();
+		Set<Field> loadableFields = getAllLoadableFields(enclosingClass);
+		if(loadableFields != null){
+			for(Field loadableField : loadableFields){
+				LoadableField loadableFieldAnnotation = loadableField.getDeclaredAnnotation(LoadableField.class);
+				String name = loadableFieldAnnotation.name();
+				Object value = getFieldValue(object, loadableField);
+				if(value == null){
+					string.append(name).append("=").append("(null)").append(" ");
+				}else{
+					if(loadableField.getType().isArray()){
+						string.append(name).append("=").append(Arrays.toString((Object[])value)).append(" ");
+					}else{
+						string.append(name).append("=").append(value).append(" ");
+					}
+				}
+			}
+		}
+		if(string.length() > 0){
+			string = string.deleteCharAt(string.length() - 1);
+		}
+		return string.toString();
 	}
 	
 	//////////////////////////////////////////////////////////////////
@@ -407,7 +440,7 @@ public class LoadableFieldHelper{
 			String lowereCaseValue = value.toLowerCase();
 			switch(lowereCaseValue){
 				case "on": case "yes": case "1": case "true": return new ParseResult(true);
-				case "no": case "off": case "0": case "false": return new ParseResult(true);
+				case "no": case "off": case "0": case "false": return new ParseResult(false);
 				default: return new ParseResult(String.format("Value '%s' for '%s' not recognized as boolean", value, name), null);
 			}
 		}
@@ -485,6 +518,20 @@ public class LoadableFieldHelper{
 			this.errorMessage = errorMessage;
 			this.exception = exception;
 			this.result = null;
+		}
+	}
+	
+	/**
+	 * Thrown when unspecified key(s) seen to set the value of a loadable field
+	 */
+	public static class LoadableFieldsNotSpecifiedForKeys extends Exception{
+		private static final long serialVersionUID = -6036715092626261693L;
+		/**
+		 * @param enclosingClass Class that contains the field for which the value was being parsed
+		 * @param unspecifiedKeys keys that were asked to be parsed but no loadable field matched for them
+		 */
+		private LoadableFieldsNotSpecifiedForKeys(Class<?> enclosingClass, Set<String> unspecifiedKeys){
+			super(String.format("No LoadableField in enclosing class '%s' with name(s) %s (passed in arguments)", enclosingClass.getName(), unspecifiedKeys));
 		}
 	}
 	
