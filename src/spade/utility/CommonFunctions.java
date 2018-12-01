@@ -34,6 +34,8 @@ import java.util.regex.Pattern;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
 
+import spade.core.Settings;
+
 public class CommonFunctions {
 
 	private static final Logger logger = Logger.getLogger(CommonFunctions.class.getName());
@@ -66,6 +68,44 @@ public class CommonFunctions {
         }
         return keyValPairs;
     }
+    
+    /**
+     * Gets the default config file path by class.
+     * Reads the config file as key value map (if the file exists)
+     * Overwrites the config key values by key value specified in arguments
+     * Returns the final map if success
+     * 
+     * @param clazz the class to get the default config file for
+     * @param arguments arguments as key value (can be null or empty)
+     * @return map
+     * @throws Exception 1) Failed to read config file, 2) Failed to check if file exists, 3) Failed to check if file is regular, 4) Failed to create file object
+     */
+    public static Map<String, String> getGlobalsMapFromConfigAndArguments(Class<?> clazz, String arguments) throws Exception{
+		Map<String, String> map = new HashMap<String, String>();
+		String configFilePath = Settings.getDefaultConfigFilePath(clazz);
+		try{
+			File configFile = new File(configFilePath);
+			try{
+				if(configFile.exists() && configFile.isFile()){
+					try{
+						map.putAll(FileUtility.readConfigFileAsKeyValueMap(configFilePath, "="));
+					}catch(Exception e){
+						throw new Exception("Failed to read config file: " + configFilePath, e);
+					}
+				}
+			}catch(Exception e){
+				throw new Exception("Failed to check if file exists, and is regular file: " + configFilePath, e);
+			}
+		}catch(Exception e){
+			throw new Exception("Failed to create file object: " + configFilePath, e);
+		}
+		
+		if(arguments != null){
+			map.putAll(parseKeyValPairs(arguments));
+		}
+		
+		return map;
+	}
     
     /**
      * Convenience wrapper function for Integer.parseInt. Suppresses the exception and returns

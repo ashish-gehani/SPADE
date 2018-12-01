@@ -50,7 +50,7 @@ ifneq (, $(findstring CYGWIN, $(OS_NAME)))
 endif
  
 # -------- Default Build Configuration -----
-REPORTERS = Graphviz DSL Network LLVM Facebook Bitcoin StraceLinux JSON CDM
+REPORTERS = Graphviz DSL Network LLVM Facebook Bitcoin StraceLinux JSON CDM CamFlow
 # -------------------------------------------
  
 .PHONY: build prepare-dirs core reporters filters query analyzers clients utilities storages android-build
