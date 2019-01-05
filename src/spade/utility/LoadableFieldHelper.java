@@ -103,7 +103,7 @@ public class LoadableFieldHelper{
 			throws LoadableFieldParseException{
 		Class<?> componentType = fieldType.getComponentType();
 		String splitBy = loadableFieldAnnotation.splitBy();
-		String tokens[] = value.split(splitBy);
+		String tokens[] = value.split(splitBy, Integer.MAX_VALUE);
 		int tokensLength = tokens.length; // Will always be at least 1.
 		Object[] array = (Object[])Array.newInstance(componentType, tokensLength);
 		for(int i = 0; i < tokensLength; i++){
