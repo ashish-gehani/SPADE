@@ -6,7 +6,7 @@ if [ -a quickstep/source ]; then
   echo "Note: Quickstep repository already exists. Skipping the download stage."
 else
   # Clone Quickstep repository and checkout the trace-dev branch.
-  git clone https://github.com/apache/incubator-quickstep -b trace-dev --recursive quickstep/source
+  git clone https://github.com/UWQuickstep/quickstep.git -b trace-dev --recursive quickstep/source
 
   # Download third party libraries.
   cd quickstep/source/third_party && ./download_and_patch_prerequisites.sh

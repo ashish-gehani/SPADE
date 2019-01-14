@@ -40,6 +40,7 @@ public class QuickstepExecutor {
   private Future<String> queryFuture;
   private Logger logger;
   private Consumer<String> prioritizedLogger;
+  private int numRetriesOnFailure;
 
   /**
    * Query instance that can be scheduled by ExecutorService.
@@ -54,26 +55,38 @@ public class QuickstepExecutor {
     }
 
     @Override
-    public String call() throws Exception {
+    public String call() {
       if (query.length() < 256) {
         logInfo("[Quickstep query]\n" + query);
       } else {
         logInfo("[Quickstep query]\n" + query.substring(0, 64).replace("\n", "\\n") + " ...");
       }
 
-      try {
-        final long queryStartTime = System.currentTimeMillis();
-        QuickstepResponse response = client.requestForResponse(query, data);
-        final String stdout = response.getStdout();
-        final String stderr = response.getStderr();
-        logOutput(response.getStdout(), "output");
-        logOutput(response.getStderr(), "error");
-        logInfo("[Done] " + (System.currentTimeMillis() - queryStartTime) + "ms");
-        return stderr.isEmpty() ? stdout : stderr;
-      } catch (IOException e) {
-        log(Level.SEVERE, "Failed executing Quickstep query", e);
+      int numRetries = 0;
+      QuickstepFailure failure = null;
+
+      while (numRetries <= numRetriesOnFailure) {
+        if (numRetries > 0) {
+          logInfo("[Retry " + numRetries + "]");
+        }
+        try {
+          final long queryStartTime = System.currentTimeMillis();
+          QuickstepResponse response = client.requestForResponse(query, data);
+          final String stdout = response.getStdout();
+          final String stderr = response.getStderr();
+          logOutput(response.getStdout(), "output");
+          logOutput(response.getStderr(), "error");
+          logInfo("[Done] " + (System.currentTimeMillis() - queryStartTime) + "ms");
+          if (stderr.isEmpty()) {
+            return stdout;
+          }
+          failure = new QuickstepFailure(stderr);
+        } catch (IOException e) {
+          failure = new QuickstepFailure(e.getMessage());
+        }
+        ++numRetries;
       }
-      return null;
+      throw failure;
     }
 
     private void logOutput(String output, String kind) {
@@ -85,19 +98,21 @@ public class QuickstepExecutor {
         }
       }
     }
-
-    private void log(Level level, String msg, Exception e) {
-      if (logger != null) {
-        logger.log(level, msg, e);
-      }
-    }
   }
 
   private Lock transactionLock = new ReentrantLock();
 
   public QuickstepExecutor(QuickstepClient client) {
     this.client = client;
+    this.numRetriesOnFailure = 0;
     queryExecutor = Executors.newSingleThreadExecutor();
+  }
+
+  /**
+   * Shutdown this executor.
+   */
+  public void shutdown() {
+    queryExecutor.shutdown();
   }
 
   /**
@@ -149,9 +164,10 @@ public class QuickstepExecutor {
       try {
         result = queryFuture.get();
       } catch (InterruptedException | ExecutionException e) {
-        logger.log(Level.SEVERE, e.getMessage());
+        throw new RuntimeException(e);
+      } finally {
+        queryFuture = null;
       }
-      queryFuture = null;
     }
     return result;
   }
@@ -197,5 +213,19 @@ public class QuickstepExecutor {
   public void finalizeTransction() {
     // May need better handling of error recovery.
     transactionLock.unlock();
+  }
+
+  /**
+   * Get number of retries on Quickstep execution failure.
+   */
+  public int getNumRetriesOnFailure() {
+    return numRetriesOnFailure;
+  }
+
+  /**
+   * Set number of retries on Quickstep execution failure.
+   */
+  public void setNumRetriesOnFailure(final int numRetries) {
+    this.numRetriesOnFailure = numRetries;
   }
 }

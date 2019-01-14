@@ -28,22 +28,42 @@ import spade.core.AbstractVertex;
  * Encapsulation of a batch of vertices/edges.
  */
 public class GraphBatch {
-  private static long batchIDCounter = 0;
-  private long batchID = 0;
+  private long batchID = 1;
   private ArrayList<AbstractVertex> vertices = new ArrayList<AbstractVertex>();
   private ArrayList<AbstractEdge> edges = new ArrayList<AbstractEdge>();
-
-  public GraphBatch() {
-    batchID = ++batchIDCounter;
-  }
 
   /**
    * Clear batch buffer and increase batch ID counter.
    */
   public void reset() {
-    batchID = ++batchIDCounter;
     vertices.clear();
     edges.clear();
+  }
+
+  /**
+   * Swap buffer with another batch.
+   */
+  public void swap(GraphBatch other) {
+    ArrayList<AbstractVertex> tmpVertices = vertices;
+    vertices = other.vertices;
+    other.vertices = tmpVertices;
+    ArrayList<AbstractEdge> tmpEdges = edges;
+    edges = other.edges;
+    other.edges = tmpEdges;
+  }
+
+  /**
+   * Increase current batch ID by 1.
+   */
+  public void increaseBatchID() {
+    ++batchID;
+  }
+
+  /**
+   * Set current batch ID.
+   */
+  public void setBatchID(final long batchID) {
+    this.batchID = batchID;
   }
 
   /**
