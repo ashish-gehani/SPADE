@@ -63,7 +63,7 @@ public class H2 extends SQL
      *
      * @param arguments A string of 3 space-separated tokens for making a successful connection
      *                  to the database, could be provided in the following format:
-     *                  'databasePath databaseUser databasePassword'
+     *                  'database databaseUser databasePassword'
      *
      *                  Example argument strings are as follows:
      *                  /tmp/spade.sql sa null
@@ -78,15 +78,15 @@ public class H2 extends SQL
         try
         {
             Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
-            // These arguments could be provided: databasePath databaseUsername databasePassword
-            String databasePath = (argsMap.get("databasePath") != null) ? argsMap.get("databasePath") :
-                    databaseConfigs.getProperty("databasePath");
+            // These arguments could be provided: database databaseUsername databasePassword
+            String database = (argsMap.get("database") != null) ? argsMap.get("database") :
+                    databaseConfigs.getProperty("database");
             String databaseUsername = (argsMap.get("databaseUsername") != null) ? argsMap.get("databaseUsername") :
                     databaseConfigs.getProperty("databaseUsername");
             String databasePassword = (argsMap.get("databasePassword") != null) ? argsMap.get("databasePassword") :
                     databaseConfigs.getProperty("databasePassword");
 
-            String databaseURL = databaseConfigs.getProperty("databaseURLPrefix") + databasePath;
+            String databaseURL = databaseConfigs.getProperty("databaseURLPrefix") + database;
 
             Class.forName(databaseConfigs.getProperty("databaseDriver")).newInstance();
             dbConnection = DriverManager.getConnection(databaseURL, databaseUsername, databasePassword);

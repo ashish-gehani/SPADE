@@ -19,7 +19,9 @@
  */
 package spade.storage;
 
+import java.io.FileInputStream;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -30,6 +32,10 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.reporter.audit.OPMConstants;
+import spade.utility.CommonFunctions;
+
+import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.FILE_SEPARATOR;
 
 /**
  * A storage implementation that writes data to a DOT file.
@@ -42,20 +48,32 @@ public class Graphviz extends AbstractStorage
     private FileWriter outputFile;
     private final int TRANSACTION_LIMIT = 1000;
     private int transaction_count;
-    private String filePath;
+    private String output;
+
+    public Graphviz()
+    {
+        String configFile = CONFIG_PATH + FILE_SEPARATOR + "spade.storage.Graphviz.config";
+        try
+        {
+            databaseConfigs.load(new FileInputStream(configFile));
+        }
+        catch(IOException ex)
+        {
+            String msg = "Loading Graphviz configurations from file unsuccessful! Unexpected behavior might follow";
+            logger.log(Level.SEVERE, msg, ex);
+        }
+    }
 
     @Override
     public boolean initialize(String arguments)
     {
         try
         {
-            if(arguments == null)
-            {
-                return false;
-            }
+            Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+            output = (argsMap.get("output") != null) ? argsMap.get("output") :
+                    databaseConfigs.getProperty("output");
 
-            filePath = arguments;
-            outputFile = new FileWriter(filePath, false);
+            outputFile = new FileWriter(output, false);
             transaction_count = 0;
             outputFile.write("digraph spade2dot {\n"
                     + "graph [rankdir = \"RL\"];\n"
@@ -76,7 +94,7 @@ public class Graphviz extends AbstractStorage
             try {
                 outputFile.flush();
                 outputFile.close();
-                outputFile = new FileWriter(filePath, true);
+                outputFile = new FileWriter(output, true);
                 transaction_count = 0;
             } catch (Exception exception) {
                 Logger.getLogger(Graphviz.class.getName()).log(Level.SEVERE, null, exception);

@@ -37,8 +37,8 @@ then
     echo "Successfully created user '${vars[databaseUsername]}'"
     sudo sed -i -e '1ilocal   all   spade   trust\'  /etc/postgresql/9.5/main/pg_hba.conf
     sudo service postgresql restart
-    sudo  createdb ${vars[databasePath]} --no-password --owner=${vars[databaseUsername]} --username=${vars[databaseUsername]}
-    echo "Successfully created database '${vars[databasePath]}' for user '${vars[databaseUsername]}'"
+    sudo  createdb ${vars[database]} --no-password --owner=${vars[databaseUsername]} --username=${vars[databaseUsername]}
+    echo "Successfully created database '${vars[database]}' for user '${vars[databaseUsername]}'"
   else
     sudo dnf install https://download.postgresql.org/pub/repos/yum/9.5/fedora/fedora-28-x86_64/pgdg-fedora95-9.5-5.noarch.rpm
     sudo dnf install postgresql95 postgresql95-server
@@ -52,8 +52,8 @@ then
     echo "Successfully created user '${vars[databaseUsername]}'"
     sudo sed -i -e '1ilocal   all   spade   trust\'  /var/lib/pgsql/9.5/data/pg_hba.conf
     sudo systemctl restart postgresql-9.5
-    sudo createdb ${vars[databasePath]} --no-password --owner=${vars[databaseUsername]} --username=${vars[databaseUsername]}
-    echo "Successfully created database '${vars[databasePath]}' for user '${vars[databaseUsername]}'"
+    sudo createdb ${vars[database]} --no-password --owner=${vars[databaseUsername]} --username=${vars[databaseUsername]}
+    echo "Successfully created database '${vars[database]}' for user '${vars[databaseUsername]}'"
   fi
 elif [ $OS_NAME == "Darwin" ]
 then

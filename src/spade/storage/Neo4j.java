@@ -79,7 +79,7 @@ import static spade.core.Kernel.FILE_SEPARATOR;
 /**
  * Neo4j storage implementation.
  *
- * @author Dawood Tariq and Hasanat Kazmi
+ * @author Dawood Tariq, Hasanat Kazmi and Raza Ahmad
  */
 public class Neo4j extends AbstractStorage
 {
@@ -100,7 +100,8 @@ public class Neo4j extends AbstractStorage
 
     public enum RelationshipTypes implements RelationshipType { EDGE }
     public enum NodeTypes implements Label { VERTEX }
-    private String databasePath;
+
+    private String database;
 
     public final String HASHCODE_LABEL = "hashCode";
     private double falsePositiveProbability = 0.0001;
@@ -176,12 +177,12 @@ public class Neo4j extends AbstractStorage
         try
         {
             Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
-            databasePath = argsMap.get("databasePath");
-            if (databasePath == null)
+            database = argsMap.get("database");
+            if(database == null)
             {
-                databasePath = databaseConfigs.getProperty("databasePath");
+                database = databaseConfigs.getProperty("database");
             }
-            File databaseFile = new File(databasePath);
+            File databaseFile = new File(database);
             GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(databaseFile);
             try
             {
@@ -226,8 +227,8 @@ public class Neo4j extends AbstractStorage
     private BloomFilter loadBloomFilter(String fileName) {
 
     	try {
-    		File filePath = new File(databasePath, fileName);
-    		if (filePath.exists()) {
+            File filePath = new File(database, fileName);
+            if (filePath.exists()) {
 	    		FileInputStream fileInputStream = new FileInputStream(
 	    			filePath.toString()
 				);
@@ -249,8 +250,8 @@ public class Neo4j extends AbstractStorage
 
     	try {
     		FileOutputStream fileOutputStream = new FileOutputStream(
-    			new File(databasePath, fileName).toString()
-			);
+                    new File(database, fileName).toString()
+            );
     		ObjectOutputStream objectOutputStream = new ObjectOutputStream(fileOutputStream);
     		objectOutputStream.writeObject(bloomFilter);
     		objectOutputStream.close();
