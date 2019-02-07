@@ -19,15 +19,6 @@
  */
 package spade.core;
 
-import spade.filter.FinalCommitFilter;
-import spade.utility.LogManager;
-
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLServerSocket;
-import javax.net.ssl.SSLServerSocketFactory;
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManagerFactory;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -61,6 +52,16 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManagerFactory;
+
+import spade.filter.FinalCommitFilter;
+import spade.utility.LogManager;
 
 /**
  * The SPADE kernel containing the control client and
@@ -940,28 +941,31 @@ public class Kernel
                     return;
                 }
 
-                filter.initialize(arguments);
-                filter.arguments = arguments;
-                // The argument is the index at which the filter is to be inserted.
-                if (index >= filters.size())
-                {
-                    outputStream.println("error: Invalid position");
-                    return;
+                if(filter.initialize(arguments)){
+	                filter.arguments = arguments;
+	                // The argument is the index at which the filter is to be inserted.
+	                if (index >= filters.size())
+	                {
+	                    outputStream.println("error: Invalid position");
+	                    return;
+	                }
+	                // Set the next filter of this newly added filter.
+	                filter.setNextFilter((AbstractFilter) filters.get(index));
+	                if (index > 0)
+	                {
+	                    // If the newly added filter is not the first in the list, then
+	                    // then configure the previous filter in the list to point to
+	                    // this
+	                    // newly added filter as its next.
+	                    ((AbstractFilter) filters.get(index - 1)).setNextFilter(filter);
+	                }
+	
+	                filters.add(index, filter);
+	                logger.log(Level.INFO, "Filter added: {0}", className + " " + arguments);
+	                outputStream.println("done");
+                }else{
+                	outputStream.println("failed");
                 }
-                // Set the next filter of this newly added filter.
-                filter.setNextFilter((AbstractFilter) filters.get(index));
-                if (index > 0)
-                {
-                    // If the newly added filter is not the first in the list, then
-                    // then configure the previous filter in the list to point to
-                    // this
-                    // newly added filter as its next.
-                    ((AbstractFilter) filters.get(index - 1)).setNextFilter(filter);
-                }
-
-                filters.add(index, filter);
-                logger.log(Level.INFO, "Filter added: {0}", className + " " + arguments);
-                outputStream.println("done");
 
                 break;
 

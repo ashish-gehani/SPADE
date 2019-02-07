@@ -2440,9 +2440,12 @@ public class Audit extends AbstractReporter {
 			flagsArgs = flagsArgs.substring(0, flagsArgs.length() - 1);
 		}
 
+		String modeAnnotation = null;
+		
 		if(isCreate){
 			artifactManager.artifactCreated(artifactIdentifier);
 			syscall = SYSCALL.CREATE;
+			modeAnnotation = Long.toOctalString(modeArg);
 		}
 		
 		if((flags & O_WRONLY) == O_WRONLY || 
@@ -2473,7 +2476,9 @@ public class Audit extends AbstractReporter {
 		}
 		
 		if(edge != null){
-			edge.addAnnotation(OPMConstants.EDGE_MODE, Long.toOctalString(modeArg));
+			if(modeAnnotation != null){
+				edge.addAnnotation(OPMConstants.EDGE_MODE, modeAnnotation);
+			}
 			if(!flagsArgs.isEmpty()){
 				edge.addAnnotation(OPMConstants.EDGE_FLAGS, flagsArgs);
 			}
