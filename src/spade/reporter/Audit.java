@@ -46,6 +46,7 @@ import spade.core.Settings;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
+import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.audit.AuditEventReader;
 import spade.reporter.audit.Globals;
 import spade.reporter.audit.MalformedAuditDataException;
@@ -117,6 +118,47 @@ public class Audit extends AbstractReporter {
 	// Source: https://elixir.bootlin.com/linux/latest/source/include/linux/socket.h#L162
 	private final int AF_UNIX = 1, AF_LOCAL = 1, AF_INET = 2, AF_INET6 = 10;
 	private final int PF_UNIX = AF_UNIX, PF_LOCAL = AF_LOCAL, PF_INET = AF_INET, PF_INET6 = AF_INET6;
+	
+
+//	https://elixir.bootlin.com/linux/latest/source/include/uapi/linux/ptrace.h
+	private static final int PTRACE_POKETEXT = 4, PTRACE_POKEDATA = 5, PTRACE_POKEUSER = 6,
+//			https://elixir.bootlin.com/linux/latest/source/arch/ia64/include/uapi/asm/ptrace.h#L244
+			PTRACE_SETREGS = 13, 
+//			https://elixir.bootlin.com/linux/latest/source/arch/mips/include/uapi/asm/ptrace.h#L54
+			PTRACE_SETFPREGS = 15,
+			PTRACE_SETREGSET = 16901, PTRACE_SETSIGINFO = 16899, PTRACE_SETSIGMASK = 16907, 
+//			https://elixir.bootlin.com/linux/latest/source/arch/mips/include/uapi/asm/ptrace.h#L61
+			PTRACE_SET_THREAD_AREA = 26,
+			// Non-data flow constants below
+			PTRACE_SETOPTIONS = 16896, PTRACE_CONT = 7, PTRACE_SYSCALL = 24, PTRACE_SINGLESTEP = 9,
+//			https://elixir.bootlin.com/linux/latest/source/arch/x86/include/uapi/asm/ptrace-abi.h
+			PTRACE_SYSEMU = 31, PTRACE_SYSEMU_SINGLESTEP = 32,
+			PTRACE_LISTEN = 16904, PTRACE_KILL = 8, PTRACE_INTERRUPT = 16903, PTRACE_ATTACH = 16, PTRACE_DETACH = 17;
+	
+	private static final Map<Integer, String> ptraceActions = new HashMap<Integer, String>();
+	
+	static{
+		ptraceActions.put(PTRACE_POKETEXT, "PTRACE_POKETEXT");
+		ptraceActions.put(PTRACE_POKEDATA, "PTRACE_POKEDATA");
+		ptraceActions.put(PTRACE_POKEUSER, "PTRACE_POKEUSER");
+		ptraceActions.put(PTRACE_SETREGS, "PTRACE_SETREGS");
+		ptraceActions.put(PTRACE_SETFPREGS, "PTRACE_SETFPREGS");
+		ptraceActions.put(PTRACE_SETREGSET, "PTRACE_SETREGSET");
+		ptraceActions.put(PTRACE_SETSIGINFO, "PTRACE_SETSIGINFO");
+		ptraceActions.put(PTRACE_SETSIGMASK, "PTRACE_SETSIGMASK");
+		ptraceActions.put(PTRACE_SET_THREAD_AREA, "PTRACE_SET_THREAD_AREA");
+		ptraceActions.put(PTRACE_SETOPTIONS, "PTRACE_SETOPTIONS");
+		ptraceActions.put(PTRACE_CONT, "PTRACE_CONT");
+		ptraceActions.put(PTRACE_SYSCALL, "PTRACE_SYSCALL");
+		ptraceActions.put(PTRACE_SINGLESTEP, "PTRACE_SINGLESTEP");
+		ptraceActions.put(PTRACE_SYSEMU, "PTRACE_SYSEMU");
+		ptraceActions.put(PTRACE_SYSEMU_SINGLESTEP, "PTRACE_SYSEMU_SINGLESTEP");
+		ptraceActions.put(PTRACE_LISTEN, "PTRACE_LISTEN");
+		ptraceActions.put(PTRACE_KILL, "PTRACE_KILL");
+		ptraceActions.put(PTRACE_INTERRUPT, "PTRACE_INTERRUPT");
+		ptraceActions.put(PTRACE_ATTACH, "PTRACE_ATTACH");
+		ptraceActions.put(PTRACE_DETACH, "PTRACE_DETACH");
+	}
 	/********************** LINUX CONSTANTS - END *************************/
 
 	/********************** PROCESS STATE - START *************************/
@@ -1471,6 +1513,7 @@ public class Audit extends AbstractReporter {
 					auditRuleWithSuccess += "-S init_module -S finit_module ";
 					auditRuleWithSuccess += "-S tee -S splice -S vmsplice ";
 					auditRuleWithSuccess += "-S socketpair ";
+					auditRuleWithSuccess += "-S ptrace ";
 					
 					auditRuleWithSuccess += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
 
@@ -1885,6 +1928,9 @@ public class Audit extends AbstractReporter {
 			}
 
 			switch (syscall) {
+			case PTRACE:
+				handlePtrace(eventData, syscall);
+				break;
 			case SOCKETPAIR:
 				handleSocketPair(eventData, syscall);
 				break;
@@ -3198,6 +3244,39 @@ public class Audit extends AbstractReporter {
 		WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 		wgb.addAnnotation(OPMConstants.EDGE_MODE, mode);
 		putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
+	}
+	
+	private void handlePtrace(Map<String, String> eventData, SYSCALL syscall){
+		// ptrace() receives the following message(s):
+		// - SYSCALL
+		// - EOE
+		String targetPid = eventData.get(AuditEventReader.ARG1);
+		Process targetProcess = processManager.getVertex(targetPid);
+		
+		// If the target process hasn't been seen yet then can't draw an edge because don't 
+		// have enough annotations for the target process.
+		if(targetProcess != null){
+			String actionString = eventData.get(AuditEventReader.ARG0);
+			Integer action = CommonFunctions.parseInt(actionString, null);
+			
+			// If the action argument is valid only then can continue because only handling some
+			if(action != null){
+				String actionAnnotation = ptraceActions.get(action);
+				// If this is one of the actions that needs to be handled then it won't be null
+				if(actionAnnotation != null){
+					Process actingProcess = processManager.handleProcessFromSyscall(eventData);
+					
+					String time = eventData.get(AuditEventReader.TIME);
+					String eventId = eventData.get(AuditEventReader.EVENT_ID);
+					String operation = getOperation(syscall);
+					
+					WasTriggeredBy edge = new WasTriggeredBy(targetProcess, actingProcess);
+					edge.addAnnotation(OPMConstants.EDGE_REQUEST, actionAnnotation);
+					
+					putEdge(edge, operation, time, eventId, AUDIT_SYSCALL_SOURCE);
+				}
+			}
+		}
 	}
 	
 	private void handleSocketPair(Map<String, String> eventData, SYSCALL syscall){

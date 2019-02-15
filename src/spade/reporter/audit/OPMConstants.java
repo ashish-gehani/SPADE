@@ -133,6 +133,7 @@ public class OPMConstants {
 			EDGE_PROTECTION = "protection",
 			EDGE_SIZE = ARTIFACT_SIZE,
 			EDGE_TIME = "time",
+			EDGE_REQUEST = "request",
 			
 			// All operations
 			OPERATION_ACCEPT = "accept",
@@ -154,6 +155,7 @@ public class OPMConstants {
 			OPERATION_MPROTECT = "mprotect",
 			OPERATION_OPEN = "open",
 			OPERATION_PIPE = "pipe",
+			OPERATION_PTRACE = "ptrace",
 			OPERATION_READ = "read",
 			OPERATION_RECV = "recv",
 			OPERATION_RENAME = "rename",
@@ -201,6 +203,7 @@ public class OPMConstants {
 		addSyscallsToOperations(OPERATION_MPROTECT, SYSCALL.MPROTECT);
 		addSyscallsToOperations(OPERATION_OPEN, SYSCALL.OPEN, SYSCALL.OPENAT);
 		addSyscallsToOperations(OPERATION_PIPE, SYSCALL.PIPE, SYSCALL.PIPE2);
+		addSyscallsToOperations(OPERATION_PTRACE, SYSCALL.PTRACE);
 		addSyscallsToOperations(OPERATION_READ, SYSCALL.READ, SYSCALL.READV, SYSCALL.PREAD, SYSCALL.PREADV);
 		addSyscallsToOperations(OPERATION_RECV, SYSCALL.RECV, SYSCALL.RECVFROM, SYSCALL.RECVMSG);
 		addSyscallsToOperations(OPERATION_RENAME, SYSCALL.RENAME, SYSCALL.RENAMEAT);
