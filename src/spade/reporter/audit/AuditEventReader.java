@@ -555,6 +555,37 @@ public class AuditEventReader {
 		return unitsKeyValues;
 	}
 	
+	private String _parseAuditString(String originalRecord, String key){
+		int keyStartIndex = originalRecord.indexOf(key);
+		if(keyStartIndex < 0){
+			return null;
+		}else{
+			int valueStartIndex = keyStartIndex + key.length();
+			if(valueStartIndex >= originalRecord.length()){
+				return null;
+			}else{
+				char valueFirstChar = originalRecord.charAt(valueStartIndex);
+				if(valueFirstChar == '"'){
+					// is quoted string
+					int valueEndIndex = originalRecord.indexOf('"', valueStartIndex + 1);
+					if(valueEndIndex < 0){
+						return null;
+					}else{
+						return originalRecord.substring(valueStartIndex+1, valueEndIndex);
+					}
+				}else{
+					// is hex string
+					int valueEndIndex = originalRecord.indexOf(' ', valueStartIndex + 1);
+					if(valueEndIndex < 0){
+						valueEndIndex = originalRecord.length();
+					}
+					String hexValue = originalRecord.substring(valueStartIndex, valueEndIndex);
+					return CommonFunctions.decodeHex(hexValue);
+				}
+			}
+		}
+	}
+	
 	/**
 	 * Creates a map with key values as needed by the Audit reporter from audit records of an event
 	 * 
@@ -632,6 +663,8 @@ public class AuditEventReader {
 			String msgData = line.substring(line.indexOf(" ppid="));
 			auditRecordKeyValues.putAll(CommonFunctions.parseKeyValPairs(msgData));
 			
+			String comm = _parseAuditString(line, " comm=");
+			auditRecordKeyValues.put(COMM, comm);
 		}else{
 		
 			Matcher event_start_matcher = pattern_message_start.matcher(line);
@@ -657,56 +690,38 @@ public class AuditEventReader {
 					}
 				}else if (type.equals(RECORD_TYPE_SYSCALL)) {
 					Map<String, String> eventData = CommonFunctions.parseKeyValPairs(messageData);
-					if(messageData.contains(COMM + "=") && !messageData.contains(COMM + "=\"")
-							&& !"(null)".equals(eventData.get(COMM))){ // comm has a hex encoded value
-						// decode and replace value
-						eventData.put(COMM, CommonFunctions.decodeHex(eventData.get(COMM)));
-					}
+					String commValue = _parseAuditString(line, " comm=");
+					eventData.put(COMM, commValue);
 					eventData.put(TIME, time);
 					auditRecordKeyValues.putAll(eventData);
 				} else if (type.equals(RECORD_TYPE_CWD)) {
-					Matcher cwd_matcher = pattern_cwd.matcher(messageData);
-					if (cwd_matcher.find()) {
-						String cwd = cwd_matcher.group(1);
-						cwd = cwd.trim();
-						if(cwd.startsWith("\"") && cwd.endsWith("\"")){ //is a string path
-							cwd = cwd.substring(1, cwd.length()-1);
-						}else{ //is in hex format
-							try{
-								cwd = CommonFunctions.decodeHex(cwd);
-							}catch(Exception e){
-								//failed to parse
-							}
-						}                    
-						auditRecordKeyValues.put(CWD, cwd);
-					}
+					String cwd = _parseAuditString(line, " cwd=");
+					auditRecordKeyValues.put(CWD, cwd);
 				} else if (type.equals(RECORD_TYPE_PATH)) {
 					Map<String, String> pathKeyValues = CommonFunctions.parseKeyValPairs(messageData);
 					String itemNumber = pathKeyValues.get("item");
-					String name = pathKeyValues.get("name");
 					String mode = pathKeyValues.get("mode");
 					mode = mode == null ? "0" : mode;
 					String nametype = pathKeyValues.get("nametype");
 					
-					name = name.trim();
-					if(messageData.contains(" name=") && 
-							!messageData.contains(" name=\"") &&
-							!messageData.contains(" name=(null)")){ 
-						//is a hex path if the value of the key name doesn't start with double quotes
-						try{
-							name = CommonFunctions.decodeHex(name);
-						}catch(Exception e){
-							//failed to parse
-						}
-					}
+					String name = _parseAuditString(line, " name=");
 					
 					auditRecordKeyValues.put(PATH_PREFIX + itemNumber, name);
 					auditRecordKeyValues.put(NAMETYPE_PREFIX + itemNumber, nametype);
 					auditRecordKeyValues.put(MODE_PREFIX + itemNumber, mode);
 				} else if (type.equals(RECORD_TYPE_EXECVE)) {
-					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-					while (key_value_matcher.find()) {
-						auditRecordKeyValues.put(EXECVE_PREFIX + key_value_matcher.group(1), key_value_matcher.group(2));
+					Map<String, String> tempKeyValues = CommonFunctions.parseKeyValPairs(line);
+					String argcString = tempKeyValues.get("argc");
+					auditRecordKeyValues.put(EXECVE_ARGC, argcString);
+					Integer argc = CommonFunctions.parseInt(argcString, null);
+					if(argc != null){
+						for(int i = 0; i < argc; i++){
+							String key = "a"+i;
+							String keyForGettingValue = " " + key + "=";
+							String value = _parseAuditString(line, keyForGettingValue);
+							String prefixedKey = EXECVE_PREFIX + key;
+							auditRecordKeyValues.put(prefixedKey, value);
+						}
 					}
 				} else if (type.equals(RECORD_TYPE_FD_PAIR)) {
 					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
