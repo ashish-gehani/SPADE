@@ -204,6 +204,7 @@ public class Graphviz extends AbstractStorage
                         case "EVENT_EXECUTE":
                         case "EVENT_CHANGE_PRINCIPAL":
                         case "EVENT_UNIT":
+                        case "EVENT_MODIFY_PROCESS":
                             color = "blue";
                             break;
                         case "EVENT_CLOSE":

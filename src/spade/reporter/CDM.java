@@ -453,6 +453,7 @@ public class CDM extends AbstractReporter{
 				case EVENT_EXECUTE:
 				case EVENT_CLONE:
 				case EVENT_CHANGE_PRINCIPAL:
+				case EVENT_MODIFY_PROCESS:
 				{
 					src1 = event.getPredicateObject();
 					dst1 = event.getSubject();

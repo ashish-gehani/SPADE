@@ -264,6 +264,8 @@ public class CDM extends Kafka {
 						EventType.EVENT_OTHER); // init_module
 		rulesToEventType.put(getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_FINIT_MODULE)), 
 						EventType.EVENT_OTHER); // finit_module
+		rulesToEventType.put(getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_PTRACE)), 
+						EventType.EVENT_MODIFY_PROCESS); // ptrace
 		rulesToEventType.put(
 				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_MMAP),
 						new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
