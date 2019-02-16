@@ -37,6 +37,7 @@ import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.json.JSONObject;
 
@@ -67,17 +68,20 @@ public class HostInfo{
 			Host host = new Host();
 			String serialNumber = readSerialNumberFromDbusFile();
 			if(serialNumber != null){
-				host.serialNumber = serialNumber;
-				host.hostType = OPMConstants.ARTIFACT_HOST_TYPE_DESKTOP;
-				String unameLine = readUnameOutput();
-				if(unameLine != null){
-					String unameTokens[] = unameLine.split("\\s+");
-					host.hostName = unameTokens[1];
-					host.operationSystem = unameTokens[3] + " - " + unameTokens[2];
-					List<Interface> interfaces = readInterfaces();
-					if(interfaces != null){
-						host.interfaces = interfaces;
-						return host;
+				String ta1Version = readTA1Version();
+				if(ta1Version != null){
+					host.serialNumber = serialNumber;
+					host.hostType = OPMConstants.ARTIFACT_HOST_TYPE_DESKTOP;
+					String unameLine = readUnameOutput();
+					if(unameLine != null){
+						String unameTokens[] = unameLine.split("\\s+");
+						host.hostName = unameTokens[1];
+						host.operationSystem = unameTokens[3] + " - " + unameTokens[2];
+						List<Interface> interfaces = readInterfaces();
+						if(interfaces != null){
+							host.interfaces = interfaces;
+							return host;
+						}
 					}
 				}
 			}
@@ -108,6 +112,7 @@ public class HostInfo{
 			
 			Host host = new Host();
 			host.serialNumber = unNullify(readSerialNumberFromDbusFile());
+			host.ta1Version = unNullify(readTA1Version());
 			host.hostType = OPMConstants.ARTIFACT_HOST_TYPE_DESKTOP;
 			host.hostName = hostName;
 			host.operationSystem = operatingSystem;
@@ -220,6 +225,45 @@ public class HostInfo{
 							return null;
 						}else{
 							return lines.get(0);
+						}
+					}catch(Exception e){
+						logger.log(Level.SEVERE, "Failed to read file: " + filepath, e);
+						return null;
+					}
+				}else{
+					logger.log(Level.SEVERE, "File is not readable: " + filepath);
+					return null;
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to check if file is readable: " + filepath, e);
+				return null;
+			}
+		}
+		
+		/**
+		 * Read '/etc/tc-version' file
+		 * 
+		 * @return null or the ta1version computed from the above mentioned file
+		 */
+		private static String readTA1Version(){
+			String filepath = "/etc/tc-version";
+			try{
+				if(FileUtility.isFileReadable(filepath)){
+					try{
+						List<String> lines = FileUtility.readLines(filepath);
+						if(lines == null || lines.isEmpty()){
+							logger.log(Level.SEVERE, "NULL/Empty lines in file: " + filepath);
+							return null;
+						}else{
+							String linesString = "";
+							for(String line : lines){
+								linesString += line + ",";
+							}
+							String hash = DigestUtils.sha256Hex(linesString);
+							/*
+							 * TODO
+							 */
+							return hash;
 						}
 					}catch(Exception e){
 						logger.log(Level.SEVERE, "Failed to read file: " + filepath, e);
@@ -525,7 +569,7 @@ public class HostInfo{
 		
 		private static final long serialVersionUID = -5990891430891823447L;
 		// Everything initialized to empty values to avoid NPE
-		private String serialNumber = "", hostType = "", hostName = "", operationSystem = "";
+		private String serialNumber = "", hostType = "", hostName = "", operationSystem = "", ta1Version = "";
 		private List<Interface> interfaces = new ArrayList<Interface>();
 		
 		@Override
@@ -536,7 +580,8 @@ public class HostInfo{
 		@Override
 		public String toString() {
 			return "Host [serialNumber=" + serialNumber + ", hostType=" + hostType + ", hostName=" + hostName
-					+ ", operationSystem=" + operationSystem + ", interfaces=" + interfaces + "]";
+					+ ", operationSystem=" + operationSystem + ", ta1Version=" + ta1Version + ", "
+							+ "interfaces=" + interfaces + "]";
 		}
 
 		private static String hostToHexString(Host host){
@@ -563,6 +608,7 @@ public class HostInfo{
 		
 		private static Map<String, String> hostToMap(Host host){
 			Map<String, String> map = new HashMap<String, String>();
+			map.put(OPMConstants.ARTIFACT_HOST_TA1_VERSION, unNullify(host.ta1Version));
 			map.put(OPMConstants.ARTIFACT_HOST_NETWORK_NAME, unNullify(host.hostName));
 			map.put(OPMConstants.ARTIFACT_HOST_TYPE, unNullify(host.hostType));
 			map.put(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER, unNullify(host.serialNumber));
@@ -588,6 +634,7 @@ public class HostInfo{
 		private static Host mapToHost(Map<String, String> map){
 			Host host = new Host();
 			host.hostName = unNullify(map.get(OPMConstants.ARTIFACT_HOST_NETWORK_NAME));
+			host.ta1Version = unNullify(map.get(OPMConstants.ARTIFACT_HOST_TA1_VERSION));
 			host.hostType = unNullify(map.get(OPMConstants.ARTIFACT_HOST_TYPE));
 			host.serialNumber = unNullify(map.get(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER));
 			host.operationSystem = unNullify(map.get(OPMConstants.ARTIFACT_HOST_OPERATING_SYSTEM));

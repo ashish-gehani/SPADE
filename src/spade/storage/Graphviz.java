@@ -207,6 +207,8 @@ public class Graphviz extends AbstractStorage
                         case "EVENT_MODIFY_PROCESS":
                             color = "blue";
                             break;
+                        case "EVENT_TEE":
+                        case "EVENT_SPLICE":
                         case "EVENT_CLOSE":
                         case "EVENT_OPEN":
                         case "EVENT_CREATE_OBJECT":
@@ -216,6 +218,7 @@ public class Graphviz extends AbstractStorage
                         case "EVENT_UPDATE":
                             color = "violet";
                             break;
+                        case "EVENT_VMSPLICE":
                         case "EVENT_UNLINK":
                         case "EVENT_WRITE":
                         case "EVENT_SENDMSG":
@@ -225,6 +228,8 @@ public class Graphviz extends AbstractStorage
                         case "EVENT_MODIFY_FILE_ATTRIBUTES":
                             color = "red";
                             break;
+                        case "EVENT_INIT_MODULE":
+                        case "EVENT_FINIT_MODULE":
                         case "EVENT_LOADLIBRARY":
                         case "EVENT_READ":
                         case "EVENT_RECVMSG":

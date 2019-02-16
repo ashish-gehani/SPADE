@@ -39,26 +39,26 @@ import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.commons.codec.binary.Hex;
 
-import com.bbn.tc.schema.avro.cdm19.AbstractObject;
-import com.bbn.tc.schema.avro.cdm19.Event;
-import com.bbn.tc.schema.avro.cdm19.EventType;
-import com.bbn.tc.schema.avro.cdm19.FileObject;
-import com.bbn.tc.schema.avro.cdm19.Host;
-import com.bbn.tc.schema.avro.cdm19.HostIdentifier;
-import com.bbn.tc.schema.avro.cdm19.InstrumentationSource;
-import com.bbn.tc.schema.avro.cdm19.Interface;
-import com.bbn.tc.schema.avro.cdm19.IpcObject;
-import com.bbn.tc.schema.avro.cdm19.IpcObjectType;
-import com.bbn.tc.schema.avro.cdm19.MemoryObject;
-import com.bbn.tc.schema.avro.cdm19.NetFlowObject;
-import com.bbn.tc.schema.avro.cdm19.Principal;
-import com.bbn.tc.schema.avro.cdm19.RecordType;
-import com.bbn.tc.schema.avro.cdm19.SHORT;
-import com.bbn.tc.schema.avro.cdm19.SrcSinkObject;
-import com.bbn.tc.schema.avro.cdm19.Subject;
-import com.bbn.tc.schema.avro.cdm19.TCCDMDatum;
-import com.bbn.tc.schema.avro.cdm19.UUID;
-import com.bbn.tc.schema.avro.cdm19.UnitDependency;
+import com.bbn.tc.schema.avro.cdm20.AbstractObject;
+import com.bbn.tc.schema.avro.cdm20.Event;
+import com.bbn.tc.schema.avro.cdm20.EventType;
+import com.bbn.tc.schema.avro.cdm20.FileObject;
+import com.bbn.tc.schema.avro.cdm20.Host;
+import com.bbn.tc.schema.avro.cdm20.HostIdentifier;
+import com.bbn.tc.schema.avro.cdm20.InstrumentationSource;
+import com.bbn.tc.schema.avro.cdm20.Interface;
+import com.bbn.tc.schema.avro.cdm20.IpcObject;
+import com.bbn.tc.schema.avro.cdm20.IpcObjectType;
+import com.bbn.tc.schema.avro.cdm20.MemoryObject;
+import com.bbn.tc.schema.avro.cdm20.NetFlowObject;
+import com.bbn.tc.schema.avro.cdm20.Principal;
+import com.bbn.tc.schema.avro.cdm20.RecordType;
+import com.bbn.tc.schema.avro.cdm20.SHORT;
+import com.bbn.tc.schema.avro.cdm20.SrcSinkObject;
+import com.bbn.tc.schema.avro.cdm20.Subject;
+import com.bbn.tc.schema.avro.cdm20.TCCDMDatum;
+import com.bbn.tc.schema.avro.cdm20.UUID;
+import com.bbn.tc.schema.avro.cdm20.UnitDependency;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
@@ -371,45 +371,30 @@ public class CDM extends AbstractReporter{
 			String opm = null;
 		
 			switch(type){
-				case EVENT_OTHER:
+				case EVENT_TEE:
+				case EVENT_SPLICE:
 				{
-					String operation = edgeMap.get(OPMConstants.EDGE_OPERATION);
-					if(operation != null){
-						switch(operation){
-							case OPMConstants.OPERATION_TEE:
-							case OPMConstants.OPERATION_SPLICE:
-							{
-								src1 = event.getSubject();
-								dst1 = event.getPredicateObject();
-								
-								src2 = event.getPredicateObject2();
-								dst2 = event.getSubject();
-								
-								src3 = event.getPredicateObject2();
-								dst3 = event.getPredicateObject();
-							}
-							break;
-							case OPMConstants.OPERATION_VMSPLICE:
-							{
-								src1 = event.getPredicateObject();
-								dst1 = event.getSubject();
-							}
-							break;
-							case OPMConstants.OPERATION_FINIT_MODULE:
-							case OPMConstants.OPERATION_INIT_MODULE:
-							{
-								src1 = event.getSubject();
-								dst1 = event.getPredicateObject();
-							}
-							break;
-							default:
-								logger.log(Level.WARNING, "Unexpected 'operation' in event: " + event);
-								return;
-						}
-					}else{
-						logger.log(Level.WARNING, "NULL 'operation' for event: " + event);
-						return;
-					}
+					src1 = event.getSubject();
+					dst1 = event.getPredicateObject();
+					
+					src2 = event.getPredicateObject2();
+					dst2 = event.getSubject();
+					
+					src3 = event.getPredicateObject2();
+					dst3 = event.getPredicateObject();
+				}
+				break;
+				case EVENT_VMSPLICE:
+				{
+					src1 = event.getPredicateObject();
+					dst1 = event.getSubject();
+				}
+				break;
+				case EVENT_INIT_MODULE:
+				case EVENT_FINIT_MODULE:
+				{
+					src1 = event.getSubject();
+					dst1 = event.getPredicateObject();
 				}
 				break;
 				case EVENT_OPEN:
@@ -524,6 +509,7 @@ public class CDM extends AbstractReporter{
 		addAnnotationIfNotNull(vertex, "hostName", host.getHostName());
 		addAnnotationIfNotNull(vertex, "osDetails", host.getOsDetails());
 		addAnnotationIfNotNull(vertex, "hostType", host.getHostType());
+		addAnnotationIfNotNull(vertex, "ta1Version", host.getTa1Version());
 		
 		List<HostIdentifier> hostIdentifiers = host.getHostIdentifiers();
 		if(hostIdentifiers != null){

@@ -39,33 +39,33 @@ import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.config.SslConfigs;
 
-import com.bbn.tc.schema.avro.cdm19.AbstractObject;
-import com.bbn.tc.schema.avro.cdm19.EndMarker;
-import com.bbn.tc.schema.avro.cdm19.Event;
-import com.bbn.tc.schema.avro.cdm19.EventType;
-import com.bbn.tc.schema.avro.cdm19.FileObject;
-import com.bbn.tc.schema.avro.cdm19.FileObjectType;
-import com.bbn.tc.schema.avro.cdm19.Host;
-import com.bbn.tc.schema.avro.cdm19.HostIdentifier;
-import com.bbn.tc.schema.avro.cdm19.HostType;
-import com.bbn.tc.schema.avro.cdm19.InstrumentationSource;
-import com.bbn.tc.schema.avro.cdm19.Interface;
-import com.bbn.tc.schema.avro.cdm19.IpcObject;
-import com.bbn.tc.schema.avro.cdm19.IpcObjectType;
-import com.bbn.tc.schema.avro.cdm19.MemoryObject;
-import com.bbn.tc.schema.avro.cdm19.NetFlowObject;
-import com.bbn.tc.schema.avro.cdm19.Principal;
-import com.bbn.tc.schema.avro.cdm19.PrincipalType;
-import com.bbn.tc.schema.avro.cdm19.RecordType;
-import com.bbn.tc.schema.avro.cdm19.SHORT;
-import com.bbn.tc.schema.avro.cdm19.SrcSinkObject;
-import com.bbn.tc.schema.avro.cdm19.SrcSinkType;
-import com.bbn.tc.schema.avro.cdm19.Subject;
-import com.bbn.tc.schema.avro.cdm19.SubjectType;
-import com.bbn.tc.schema.avro.cdm19.TCCDMDatum;
-import com.bbn.tc.schema.avro.cdm19.TimeMarker;
-import com.bbn.tc.schema.avro.cdm19.UUID;
-import com.bbn.tc.schema.avro.cdm19.UnitDependency;
+import com.bbn.tc.schema.avro.cdm20.AbstractObject;
+import com.bbn.tc.schema.avro.cdm20.EndMarker;
+import com.bbn.tc.schema.avro.cdm20.Event;
+import com.bbn.tc.schema.avro.cdm20.EventType;
+import com.bbn.tc.schema.avro.cdm20.FileObject;
+import com.bbn.tc.schema.avro.cdm20.FileObjectType;
+import com.bbn.tc.schema.avro.cdm20.Host;
+import com.bbn.tc.schema.avro.cdm20.HostIdentifier;
+import com.bbn.tc.schema.avro.cdm20.HostType;
+import com.bbn.tc.schema.avro.cdm20.InstrumentationSource;
+import com.bbn.tc.schema.avro.cdm20.Interface;
+import com.bbn.tc.schema.avro.cdm20.IpcObject;
+import com.bbn.tc.schema.avro.cdm20.IpcObjectType;
+import com.bbn.tc.schema.avro.cdm20.MemoryObject;
+import com.bbn.tc.schema.avro.cdm20.NetFlowObject;
+import com.bbn.tc.schema.avro.cdm20.Principal;
+import com.bbn.tc.schema.avro.cdm20.PrincipalType;
+import com.bbn.tc.schema.avro.cdm20.RecordType;
+import com.bbn.tc.schema.avro.cdm20.SHORT;
+import com.bbn.tc.schema.avro.cdm20.SrcSinkObject;
+import com.bbn.tc.schema.avro.cdm20.SrcSinkType;
+import com.bbn.tc.schema.avro.cdm20.Subject;
+import com.bbn.tc.schema.avro.cdm20.SubjectType;
+import com.bbn.tc.schema.avro.cdm20.TCCDMDatum;
+import com.bbn.tc.schema.avro.cdm20.TimeMarker;
+import com.bbn.tc.schema.avro.cdm20.UUID;
+import com.bbn.tc.schema.avro.cdm20.UnitDependency;
 import com.bbn.tc.schema.serialization.AvroConfig;
 
 import spade.core.AbstractEdge;
@@ -250,20 +250,20 @@ public class CDM extends Kafka {
 								OPMConstants.buildOperation(OPMConstants.OPERATION_TEE, OPMConstants.OPERATION_WRITE)),
 						new TypeOperation(OPMConstants.USED, 
 								OPMConstants.buildOperation(OPMConstants.OPERATION_TEE, OPMConstants.OPERATION_READ))),
-						EventType.EVENT_OTHER); // tee
+						EventType.EVENT_TEE); // tee
 		rulesToEventType.put(
 				getSet(new TypeOperation(OPMConstants.WAS_DERIVED_FROM, OPMConstants.OPERATION_SPLICE),
 						new TypeOperation(OPMConstants.WAS_GENERATED_BY, 
 								OPMConstants.buildOperation(OPMConstants.OPERATION_SPLICE, OPMConstants.OPERATION_WRITE)),
 						new TypeOperation(OPMConstants.USED, 
 								OPMConstants.buildOperation(OPMConstants.OPERATION_SPLICE, OPMConstants.OPERATION_READ))),
-						EventType.EVENT_OTHER); // splice
+						EventType.EVENT_SPLICE); // splice
 		rulesToEventType.put(getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_VMSPLICE)),
-						EventType.EVENT_OTHER); // vmsplice
+						EventType.EVENT_VMSPLICE); // vmsplice
 		rulesToEventType.put(getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_INIT_MODULE)), 
-						EventType.EVENT_OTHER); // init_module
+						EventType.EVENT_INIT_MODULE); // init_module
 		rulesToEventType.put(getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_FINIT_MODULE)), 
-						EventType.EVENT_OTHER); // finit_module
+						EventType.EVENT_FINIT_MODULE); // finit_module
 		rulesToEventType.put(getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_PTRACE)), 
 						EventType.EVENT_MODIFY_PROCESS); // ptrace
 		rulesToEventType.put(
@@ -553,6 +553,7 @@ public class CDM extends Kafka {
 		if(vertex != null){
 			UUID uuid = getUuid(vertex);
 			String hostName = vertex.getAnnotation(OPMConstants.ARTIFACT_HOST_NETWORK_NAME);
+			String ta1Version = vertex.getAnnotation(OPMConstants.ARTIFACT_HOST_TA1_VERSION);
 			String serialNumber = vertex.getAnnotation(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER);
 			HostIdentifier hostIdentifier = new HostIdentifier(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER, serialNumber);
 			List<HostIdentifier> hostIdentifiers = Arrays.asList(hostIdentifier);
@@ -573,7 +574,8 @@ public class CDM extends Kafka {
 					interfaces.add(interfaze);
 				}
 			}
-			Host host = new Host(uuid, hostName, hostIdentifiers, operatingSystem, hostType, interfaces);
+
+			Host host = new Host(uuid, hostName, ta1Version, hostIdentifiers, operatingSystem, hostType, interfaces);
 			if(publishRecords(Arrays.asList(buildTcCDMDatum(host, InstrumentationSource.SOURCE_LINUX_SYSCALL_TRACE))) > 0){
 				return true;
 			}else{
@@ -622,7 +624,7 @@ public class CDM extends Kafka {
 
 					tccdmObject = new NetFlowObject(getUuid(vertex), baseObject, 
 							srcAddress, CommonFunctions.parseInt(srcPort, 0), 
-							destAddress, CommonFunctions.parseInt(destPort, 0), protocol, null);
+							destAddress, CommonFunctions.parseInt(destPort, 0), protocol, null, null);
 
 				}else if(OPMConstants.SUBTYPE_MEMORY_ADDRESS.equals(artifactType)){
 

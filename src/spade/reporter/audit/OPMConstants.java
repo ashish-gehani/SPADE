@@ -101,6 +101,7 @@ public class OPMConstants {
 			ARTIFACT_HOST_TYPE = "host type",
 			ARTIFACT_HOST_TYPE_DESKTOP = "desktop",
 			ARTIFACT_HOST_NETWORK_NAME = "host name",
+			ARTIFACT_HOST_TA1_VERSION = "ta1 version",
 			ARTIFACT_HOST_OPERATING_SYSTEM = "host operating system",
 			ARTIFACT_HOST_SERIAL_NUMBER = "serial number",
 			ARTIFACT_HOST_INTERFACES_COUNT = "interface count",
