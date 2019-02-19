@@ -37,7 +37,6 @@ import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.codec.digest.DigestUtils;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.json.JSONObject;
 
@@ -259,11 +258,10 @@ public class HostInfo{
 							for(String line : lines){
 								linesString += line + ",";
 							}
-							String hash = DigestUtils.sha256Hex(linesString);
-							/*
-							 * TODO
-							 */
-							return hash;
+							if(!linesString.isEmpty()){
+								linesString = linesString.substring(0, linesString.length()-1);
+							}
+							return linesString;
 						}
 					}catch(Exception e){
 						logger.log(Level.SEVERE, "Failed to read file: " + filepath, e);
