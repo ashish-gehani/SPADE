@@ -804,7 +804,6 @@ public class Audit extends AbstractReporter {
 				FileUtils.forceDelete(new File(auditShutdownPipe));
 			}catch(Exception e){
 				logger.log(Level.SEVERE, "Failed to delete: " + auditShutdownPipe, e);
-				return false;
 			}
 			
 			String command = "mkfifo -m 600 " + auditShutdownPipe;
