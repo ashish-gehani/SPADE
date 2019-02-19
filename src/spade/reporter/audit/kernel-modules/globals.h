@@ -28,6 +28,7 @@
 MODULE_LICENSE("GPL");
 
 #define MAX_FIELDS 64
+#define NO_KEY "0"
 
 static int syscall_success = -1;
 static int net_io = 0;
@@ -35,15 +36,19 @@ static int ignore_uids = 1;
 static int pids_ignore[MAX_FIELDS];
 static int ppids_ignore[MAX_FIELDS];
 static int uids[MAX_FIELDS];
+static int harden_tgids[MAX_FIELDS];
+
+static char* key = NO_KEY; // means not set
 
 static int pids_ignore_len = 0;
 static int ppids_ignore_len = 0;
 static int uids_len = 0;
+static int harden_tgids_len = 0;
 
 void print_args(const char*);
-int hashes_equal(char* h1, char* h2); // 1 = equal, 0 = not equal
+int str_equal(const char* h1, const char* h2); // 1 = equal, 0 = not equal
 
-int hashes_equal(char* h1, char* h2){
+int str_equal(const char* h1, const char* h2){
 	if(h1 == NULL && h2 == NULL){
 		return 1;
 	}else if((h1 == NULL && h2 != NULL) || (h1 != NULL && h2 == NULL)){
@@ -83,8 +88,17 @@ void print_args(const char* module_name){
 		args_string_index += sprintf(&args_string[args_string_index], "%d,", uids[a]);
 	}
 	args_string_index--; // delete comma
+	args_string_index += sprintf(&args_string[args_string_index], " ], harden_tgids = [ ");
+	
+	for(a = 0; a<harden_tgids_len; a++){
+		args_string_index += sprintf(&args_string[args_string_index], "%d,", harden_tgids[a]);
+	}
+	args_string_index--; // delete comma
 	args_string_index += sprintf(&args_string[args_string_index], " ]\n");
 	
-	printk(KERN_EMERG "%s", &args_string[0]);	
+	printk(KERN_EMERG "%s", &args_string[0]);
+	
+	// TODO remove
+	// printk(KERN_EMERG "[%s] DEBUG. key = '%s', keylen = '%ld'\n", module_name, key, strlen(key));	
 }
 

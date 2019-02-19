@@ -1660,6 +1660,7 @@ int UBSI_buffer(const char *buf)
 void UBSI_sig_handler(int signo)
 {
 		if(waitForEnd == FALSE) {
+				fprintf(stderr, "Flushing buffer before stopping\n");
 				UBSI_buffer_flush();
 				exit(0);
 		} else {

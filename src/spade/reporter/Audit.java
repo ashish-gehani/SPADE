@@ -23,6 +23,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.math.BigInteger;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -37,6 +38,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 
 import spade.core.AbstractEdge;
@@ -73,6 +75,7 @@ import spade.reporter.audit.process.ProcessWithAgentManager;
 import spade.reporter.audit.process.ProcessWithoutAgentManager;
 import spade.utility.CommonFunctions;
 import spade.utility.Execute;
+import spade.utility.Execute.Output;
 import spade.utility.FileUtility;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
@@ -228,8 +231,49 @@ public class Audit extends AbstractReporter {
 	// Handle the flag below with care!
 	private Boolean HANDLE_KM_RECORDS = null; // Default value set where flags are being initialized from arguments (unlike the variables above).
 	private Integer mergeUnit = null;
+	private String HARDEN_KEY = "harden";
+	private boolean HARDEN = true;
+	
+	private String deleteModuleBinaryPath = null;
 	/********************** BEHAVIOR FLAGS - END *************************/
-
+	
+//	private String auditShutdownPipe = "audit.shutdown.pipe";
+//	private final Thread shutdownListener = new Thread(new Runnable(){
+//		public void run(){
+//			BufferedReader shutdownReader = null;
+//			try{
+//				shutdownReader = new BufferedReader(new FileReader(new File(auditShutdownPipe)));
+//				String line = null;
+//				while((line = shutdownReader.readLine()) != null){
+//					if(line.equals("shutdown")){
+//						PrintWriter writer = null;
+//						try{
+//							writer = new PrintWriter(auditShutdownPipe);
+//							if(shutdown()){
+//								writer.println("1");
+//							}else{
+//								writer.println("0");
+//							}
+//						}catch(Exception e){
+//							logger.log(Level.SEVERE, "Failed to write to audit shutdown pipe", e);
+//						}finally{
+//							if(writer != null){
+//								try{ writer.close(); }catch(Exception e){}
+//							}
+//						}
+//					}
+//				}
+//			}catch(Exception e){
+//				logger.log(Level.SEVERE, "Failed to create/read from audit shutdown pipe", e);
+//			}
+//		}
+//	});
+	
+	/*
+	 * Must be less than 40 for now! TODO
+	 */
+	private String kernelModuleKey = null;
+	
 	private Set<String> namesOfProcessesToIgnoreFromConfig = new HashSet<String>();
 	
 	private String spadeAuditBridgeProcessPid = null;
@@ -488,6 +532,14 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 		
+		argValue = args.get(HARDEN_KEY);
+		if(isValidBoolean(argValue)){
+			HARDEN = parseBoolean(argValue, HARDEN);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for '"+HARDEN_KEY+"': " + argValue);
+			return false;
+		}
+		
 		// Setting default values here instead of where variables are defined because default values for KM vars depend
 		// on whether the data is live or playback.
 		boolean logPlayback = argsSpecifyLogPlayback(args);
@@ -552,12 +604,12 @@ public class Audit extends AbstractReporter {
 			}else{
 				// Logging only relevant flags now for debugging
 				logger.log(Level.INFO, "Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
-                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}",
+                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}",
 						new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, 
 								"units", CREATE_BEEP_UNITS, "waitForLog", WAIT_FOR_LOG_END, "netfilter", NETFILTER_RULES, 
 								"refineNet", REFINE_NET, ADD_KM_KEY, ADD_KM, 
 								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS, "failfast", FAIL_FAST,
-								mergeUnitKey, mergeUnit});
+								mergeUnitKey, mergeUnit, HARDEN_KEY, HARDEN});
 				logger.log(Level.INFO, globals.toString());
 				return true;
 			}
@@ -666,9 +718,6 @@ public class Audit extends AbstractReporter {
 			if(NETFILTER_RULES){
 				removeIptablesRules(iptablesRules);
 			}
-			if(ADD_KM){
-				removeControllerNetworkKernelModule();
-			}
 		}else{
 			try{
 				if(FileUtility.doesPathExist(logListFile)){
@@ -734,6 +783,36 @@ public class Audit extends AbstractReporter {
 		// Init boolean flags from the arguments
 		if(!initFlagsFromArguments(argsMap)){
 			return false;
+		}
+		
+		if(HARDEN){
+			deleteModuleBinaryPath = configMap.get("deleteModule");
+			try{
+				if(!FileUtility.isFileReadable(deleteModuleBinaryPath)){
+					logger.log(Level.SEVERE, "File specified in config by 'deleteModule' key is not readable: " +
+							deleteModuleBinaryPath);
+					return false;
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to check if file specified in config by 'deleteModule' key is readable: " +
+						deleteModuleBinaryPath, e);
+				return false;
+			}
+			
+			
+//			String command = "mkfifo -m 600 " + auditShutdownPipe;
+//			try{
+//				Output output = Execute.getOutput(command);
+//				if(output.hasError()){
+//					output.log();
+//					return false;
+//				}else{
+//					// start listener thread
+//				}
+//			}catch(Exception e){
+//				logger.log(Level.SEVERE, "Failed to create shutdown listener pipe using command: ", e);
+//				return false;
+//			}
 		}
 		
 		// Check if the outputLog argument is valid or not
@@ -1003,7 +1082,7 @@ public class Audit extends AbstractReporter {
 								
 								if(ADD_KM){
 									success = addNetworkKernelModule(kernelModulePath, kernelModuleControllerPath, 
-											uid, ignoreUid, pidsToIgnore, ppidsToIgnore, USE_SOCK_SEND_RCV);
+											uid, ignoreUid, pidsToIgnore, ppidsToIgnore, USE_SOCK_SEND_RCV, HARDEN);
 								}
 								if(success){
 									if(NETFILTER_RULES){
@@ -1276,8 +1355,16 @@ public class Audit extends AbstractReporter {
 				logger.log(Level.SEVERE, "Run 'grep netio <dmesg-logs> | tail -5' to check for exact error.");
 				return false;
 			}else{
-				logger.log(Level.INFO, "Command \"{0}\" succeeded with output: {1}.", new Object[]{
-						command, output.getStdOut()});
+				if(HARDEN){ // hide the key
+					int endIndex = command.indexOf(" key=");
+					endIndex = endIndex != -1 ? endIndex : command.length();
+					command = command.substring(0, endIndex);
+					logger.log(Level.INFO, "Command \"{0}\" succeeded with output: {1}.", new Object[]{
+							command, output.getStdOut()});
+				}else{
+					logger.log(Level.INFO, "Command \"{0}\" succeeded with output: {1}.", new Object[]{
+							command, output.getStdOut()});
+				}
 				return true;
 			}
 		}catch(Exception e){
@@ -1287,12 +1374,14 @@ public class Audit extends AbstractReporter {
 	}
 	
 	private boolean addNetworkKernelModule(String kernelModulePath, String kernelModuleControllerPath, 
-			String uid, boolean ignoreUid, List<String> ignorePids, List<String> ignorePpids, boolean interceptSendRecv){
+			String uid, boolean ignoreUid, List<String> ignorePids, List<String> ignorePpids, boolean interceptSendRecv,
+			boolean harden){
 		if(uid == null || uid.isEmpty() || ignorePids == null || ignorePids.isEmpty()
 				|| ignorePpids == null || ignorePpids.isEmpty()){
 			logger.log(Level.SEVERE, "Invalid args. uid={0}, pids={1}, ppids={2}", new Object[]{uid, ignorePids, ignorePpids});
 			return false;
 		}else{
+			String hardenTgidsArgumentList = null;
 			try{
 				if(!FileUtility.isFileReadable(kernelModulePath)){
 					logger.log(Level.SEVERE, "Kernel module path not readable: " + kernelModulePath);
@@ -1311,6 +1400,35 @@ public class Audit extends AbstractReporter {
 				logger.log(Level.SEVERE, "Failed to check if controller kernel module path is readable: " + kernelModuleControllerPath, e);
 				return false;
 			}
+			
+			if(harden){
+				Set<String> tgidsToHarden = null;
+				try{
+					tgidsToHarden = getTgidsOfProcessesToHarden();
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to get tgids of processes to harden", e);
+					return false;
+				}
+				
+				if(tgidsToHarden != null && !tgidsToHarden.isEmpty()){
+					hardenTgidsArgumentList = "";
+					try{
+						for(String tgidToHarden : tgidsToHarden){
+							hardenTgidsArgumentList += tgidToHarden + ",";
+						}
+						if(!hardenTgidsArgumentList.isEmpty()){
+							hardenTgidsArgumentList = hardenTgidsArgumentList.substring(0, hardenTgidsArgumentList.length() - 1);
+						}
+					}catch(Exception e){
+						logger.log(Level.SEVERE, "Failed to get tgids of processes to harden", e);
+						return false;
+					}
+				}
+				
+				String data = String.valueOf(System.nanoTime()) + "&" + String.valueOf(Math.random());
+				kernelModuleKey = DigestUtils.md5Hex(data);
+			}
+			
 			String kernelModuleName = getKernelModuleName(kernelModulePath);
 			if(kernelModuleName != null){
 				String kernelModuleControllerName = getKernelModuleName(kernelModuleControllerPath);
@@ -1349,6 +1467,13 @@ public class Audit extends AbstractReporter {
 										kernelModuleControllerPath, uid, pids, ppids,
 										interceptSendRecv ? "1" : "0", ignoreUidsArg);
 								
+								if(harden){
+									kernelModuleControllerAddCommand += " key=\""+kernelModuleKey+"\"";
+									if(hardenTgidsArgumentList != null && !hardenTgidsArgumentList.isEmpty()){
+										kernelModuleControllerAddCommand += " harden_tgids=\""+hardenTgidsArgumentList+"\"";
+									}
+								}
+								
 								if(!addKernelModule(kernelModuleControllerAddCommand)){
 									return false;
 								}else{
@@ -1361,6 +1486,89 @@ public class Audit extends AbstractReporter {
 			}
 		}
 		return false;
+	}
+	
+	private boolean removeModuleByRmmodUtility(String moduleName){
+		String command = "rmmod " + moduleName;
+		try{
+			Execute.Output output = Execute.getOutput(command);
+			output.log();
+			return !output.hasError();
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to execute command: " + command, e);
+			return false;
+		}
+	}
+	
+	private boolean removeModuleByDeleteModuleUtility(String moduleName){
+		try{
+			final java.lang.Process process = Runtime.getRuntime().exec(deleteModuleBinaryPath);
+			
+			Thread stdoutReaderThread = new Thread(new Runnable(){
+				public void run(){
+					try{
+						InputStream stdout = process.getInputStream();
+						BufferedReader br = new BufferedReader(new InputStreamReader(stdout));
+						String line = null;
+						while((line = br.readLine()) != null){
+							logger.log(Level.INFO, deleteModuleBinaryPath + " output: " + line);
+						}
+					}catch(Exception e){
+						logger.log(Level.SEVERE, "Failed to read standard out for process: " + deleteModuleBinaryPath, e);
+					}
+				}
+			});
+			
+			Thread stderrReaderThread = new Thread(new Runnable(){
+				public void run(){
+					try{
+						InputStream stderr = process.getErrorStream();
+						BufferedReader br = new BufferedReader(new InputStreamReader(stderr));
+						String line = null;
+						while((line = br.readLine()) != null){
+							logger.log(Level.SEVERE, deleteModuleBinaryPath + " error: " + line);
+						}
+					}catch(Exception e){
+						logger.log(Level.SEVERE, "Failed to read standard error for process: " + deleteModuleBinaryPath, e);
+					}
+				}
+			});
+			
+			try{
+				stdoutReaderThread.start();
+				stderrReaderThread.start();
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to start readers for process '"+deleteModuleBinaryPath+"'", e);
+				return false;
+			}
+			
+			try{
+				PrintWriter stdInWriter = new PrintWriter(process.getOutputStream());
+				stdInWriter.println(moduleName);
+				stdInWriter.flush();
+				stdInWriter.close();
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to write key to process '"+deleteModuleBinaryPath+"'");
+				return false;
+			}
+			
+			try{
+				int resultValue = process.waitFor();
+				if(resultValue == 0){ // success
+					logger.log(Level.INFO, "Successfully removed netio_controller module using deleteModule");
+					return true;
+				}else{
+					logger.log(Level.SEVERE, "Process '"+deleteModuleBinaryPath+"' executed with error code: " + resultValue);
+					return false;
+				}
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Error in process execution '"+deleteModuleBinaryPath+"'", e);
+				return false;
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to remove module by syscall", e);
+			return false;
+		}
 	}
 	
 	private boolean removeControllerNetworkKernelModule(){
@@ -1379,13 +1587,10 @@ public class Audit extends AbstractReporter {
 					if(controllerModuleExists ==  false){
 						logger.log(Level.INFO, "Controller kernel module not added : " + controllerModuleName);
 					}else{
-						String command = "rmmod " + controllerModuleName;
-						try{
-							Execute.Output output = Execute.getOutput(command);
-							output.log();
-							return !output.hasError();
-						}catch(Exception e){
-							logger.log(Level.SEVERE, "Failed to controller module with command: " + command, e);
+						if(!HARDEN){
+							return removeModuleByRmmodUtility(controllerModuleName);
+						}else{
+							return removeModuleByDeleteModuleUtility(kernelModuleKey);
 						}
 					}
 				}
@@ -1393,6 +1598,7 @@ public class Audit extends AbstractReporter {
 		}
 		return false;
 	}
+	
 	private boolean setAuditControlRules(String rulesType, String uid, boolean ignoreUid, List<String> ignorePids, 
 			List<String> ignorePpids, boolean kmAdded){
 		try {
@@ -1563,7 +1769,67 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 	}
-
+	
+	private static Set<String> getTgidsOfProcessesToHarden() throws Exception{
+		Set<String> tgids = new HashSet<String>();
+		String processNames[] = {"auditd", "audispd", "kauditd", "spadeAuditBridge"};
+		for(String processName : processNames){
+			Set<String> pids = pidOf(processName);
+			for(String pid : pids){
+				String tgid = getTgid(pid);
+				tgids.add(tgid);
+			}
+		}
+		tgids.add(getSelfTgid());
+		return tgids;
+	}
+	
+	private static Set<String> pidOf(String processName) throws Exception{
+		String command = "pidof " + processName;
+		Output output = Execute.getOutput(command);
+		if(output.hasError()){
+			throw new Exception("Command failed: " + command);
+		}else{
+			Set<String> pids = new HashSet<String>();
+			List<String> lines = output.getStdOut();
+			if(lines.isEmpty()){
+				throw new Exception("No output for command: " + command);
+			}else{
+				String pidsLine = lines.get(0);
+				String pidsArray[] = pidsLine.split("\\s+");
+				if(pidsArray.length == 0){
+					throw new Exception("Empty output for command: " + command);
+				}else{
+					for(String pid : pidsArray){
+						pids.add(pid);
+					}
+					return pids;
+				}
+			}
+		}
+	}
+	
+	private static String getSelfTgid() throws Exception{
+		return getTgid("self");
+	}
+	
+	private static String getTgid(String pid) throws Exception{
+		String procPath = "/proc/"+pid+"/status";
+		List<String> lines = FileUtility.readLines(procPath);
+		for(String line : lines){
+			line = line.toLowerCase().trim();
+			String tokens[] = line.split(":");
+			if(tokens.length >= 2){
+				String name = tokens[0].trim();
+				String value = tokens[1].trim();
+				if(name.equals("tgid") && !value.isEmpty()){
+					return value;
+				}
+			}
+		}
+		throw new Exception("No 'tgid' key found in file: " + procPath);
+	}
+	
 	private List<String> listOfPidsToIgnore(String ignoreProcesses){
 //		ignoreProcesses argument is a string of process names separated by blank space
 		BufferedReader pidReader = null;
@@ -1666,12 +1932,20 @@ public class Audit extends AbstractReporter {
 	@Override
 	public boolean shutdown() {
 		
+		// Remove the kernel module first because we need to kill spadeAuditBridge
+		// because it might be hardened
+		if(ADD_KM){
+			removeControllerNetworkKernelModule();
+		}
+		
 		// Send an interrupt to the spadeAuditBridgeProcess
 		
 		sendSignalToPid(spadeAuditBridgeProcessPid, "2");
 		
 		// Return. The event reader thread and the error reader thread will exit on their own.
 		// The event reader thread will do the state cleanup
+		
+		logger.log(Level.INFO, "Going to wait for event reader thread to finish");
 		
 		while(eventReaderThreadRunning){
 			// Wait while the event reader thread is still running i.e. buffer being emptied

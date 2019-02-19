@@ -31,12 +31,16 @@ module_param_array(ppids_ignore, int, &ppids_ignore_len, 0000);
 MODULE_PARM_DESC(ppids_ignore, "Comma-separated ppids to ignore");
 module_param_array(uids, int, &uids_len, 0000);
 MODULE_PARM_DESC(uids, "Comma-separated uids list (to ignore or capture)");
+module_param(key, charp, 0000);
+MODULE_PARM_DESC(key, "Optional key for preventing SPADE from dying");
+module_param_array(harden_tgids, int, &harden_tgids_len, 0000);
+MODULE_PARM_DESC(harden_tgids, "Comma-separated tgids list to harden");
 
-extern int netio_logging_start(char* caller_build_hash, int, int, int, int[], int, int[], int, int[], int); // starts logging
+extern int netio_logging_start(char* caller_build_hash, int, int, int, int[], int, int[], int, int[], int, char*, int, int[]); // starts logging
 extern void netio_logging_stop(char* caller_build_hash); // stops logging
 
 static int __init onload(void){
-	char* module_name = "netio_controller";
+	char* module_name = CONTROLLER_MODULE_NAME;
 	int success = 0;
 	int total_fields = pids_ignore_len + ppids_ignore_len + uids_len;
 	if(total_fields >= MAX_FIELDS){
@@ -67,6 +71,14 @@ static int __init onload(void){
 		printk(KERN_EMERG "[%s] SEVERE uids_ignore_len (%d) should be less than %d\n", module_name, uids_len, MAX_FIELDS);
 		success = -1;
 	}
+	if(harden_tgids_len >= MAX_FIELDS){
+		printk(KERN_EMERG "[%s] SEVERE harden_tgids_len (%d) should be less than %d\n", module_name, harden_tgids_len, MAX_FIELDS);
+		success = -1;
+	}
+	
+	if(strlen(key) == 0){
+		key = NO_KEY;
+	}
 	
 	print_args(module_name);
 	
@@ -74,7 +86,7 @@ static int __init onload(void){
 		return -1;
 	}else{
 		if(netio_logging_start(BUILD_HASH, net_io, syscall_success, pids_ignore_len, pids_ignore,
-						ppids_ignore_len, ppids_ignore, uids_len, uids, ignore_uids) == 1){
+						ppids_ignore_len, ppids_ignore, uids_len, uids, ignore_uids, key, harden_tgids_len, harden_tgids) == 1){
 			return 0;
 		}else{
 			return -1;

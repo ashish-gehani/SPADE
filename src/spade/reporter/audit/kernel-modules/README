@@ -37,6 +37,10 @@ USAGE:
 		   'recvfrom', 'recvmsg', and 'recvmmsg' syscalls.
 			a) '0' for NOT intercepting the above-mentioned syscalls
 			b) '1' for intercepting the above-mentioned syscalls
+		6) 'key'. If passed then 'delete_module', 'kill', 'tgkill', 'tkill' syscalls 
+			prevent SPADE kernel module from being removed, and SPADE related processes to be 
+			killed.
+		7) 'harden_tgids'. Array of tgids to prevent from being killed if key used.
 
 ADD MODULES (directly):
 	+ Example command to ADD the 'netio' module directly:

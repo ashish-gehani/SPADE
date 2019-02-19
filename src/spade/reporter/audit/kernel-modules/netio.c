@@ -43,6 +43,7 @@
  * hence ensuring no concurrent updates.
  */
 static volatile int stop = 1;
+static volatile int usingKey = 0;
 
 static unsigned long syscall_table_address = 0;
 
@@ -62,6 +63,9 @@ asmlinkage long (*original_sendmmsg)(int, struct mmsghdr*, unsigned int, unsigne
 asmlinkage long (*original_recvfrom)(int, void*, size_t, int, struct sockaddr*, uint32_t*);
 asmlinkage long (*original_recvmsg)(int, struct msghdr*, int);
 asmlinkage long (*original_recvmmsg)(int, struct mmsghdr*, unsigned int, unsigned int, struct timespec*);
+asmlinkage long (*original_delete_module)(const char *name, int flags);
+asmlinkage long (*original_tkill)(int tid, int sig);
+asmlinkage long (*original_tgkill)(int tgid, int tid, int sig);
 
 static int is_sockaddr_size_valid(uint32_t size);
 static void to_hex(unsigned char *dst, uint32_t dst_len, unsigned char *src, uint32_t src_len);
@@ -75,8 +79,42 @@ static void copy_array(int* dst, int* src, int len);
 static int netio_logging_start(char* caller_build_hash, int net_io_flag, int syscall_success_flag, 
 									int pids_ignore_length, int pids_ignore_list[],
 									int ppids_ignore_length, int ppids_ignore_list[],
-									int uids_len, int uids[], int ignore_uids); // 1 success, 0 failure
+									int uids_len, int uids[], int ignore_uids, char* passed_key,
+									int harden_tgids_length, int harden_tgids_list[]); // 1 success, 0 failure
 static void netio_logging_stop(char* caller_build_hash);
+static int get_tgid(int);
+static int special_str_equal(const char* hay, const char* constantModuleName);
+
+static int special_str_equal(const char* hay, const char* constantModuleName){
+	int hayLength = strlen(hay);
+	int i = 0;
+	for(; i < hayLength; i++){
+		if(hay[i] == '.'){
+			return strncmp(hay, constantModuleName, i) == 0 ? 1 : 0;
+		}
+	}
+	return strcmp(hay, constantModuleName) == 0 ? 1 : 0;
+}
+
+static int get_tgid(int pid){
+	int tgid = -1;
+	struct pid* structPid;
+	struct task_struct* structTask;
+	
+	rcu_read_lock();
+	
+	structPid = find_get_pid(pid);
+	if(structPid != NULL){
+		structTask = pid_task(structPid, PIDTYPE_PID);
+		if(structTask != NULL){
+			tgid = structTask->tgid;
+		}
+	}
+	
+	rcu_read_unlock();
+	
+	return tgid;
+}
 
 static void copy_array(int* dst, int* src, int len){
 	int a = 0;
@@ -406,7 +444,18 @@ asmlinkage long new_sendto(int fd, const void* msg, size_t msgsize, int flags, c
 }
 
 asmlinkage long new_kill(pid_t pid, int sig){
-	long retval = original_kill(pid, sig);
+	long retval;
+	if(stop == 0){
+		if(usingKey == 1){
+			int tgid = get_tgid(pid);
+			if(exists_in_array(tgid, harden_tgids, harden_tgids_len) == 1){
+				// don't kill
+				return 0;
+			}
+		}
+	}
+	
+	retval = original_kill(pid, sig);
 	if(stop == 0){
 		int isUBSIEvent = 0;
 		int syscallNumber = __NR_kill;
@@ -503,6 +552,96 @@ asmlinkage long new_recvmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vl
 	return retval;
 }
 
+asmlinkage long new_tkill(int tid, int sig){
+	if(stop == 0){
+		if(usingKey == 1){
+			int tgid = get_tgid(tid);
+			if(exists_in_array(tgid, harden_tgids, harden_tgids_len) == 1){
+				// don't kill
+				return 0;
+			}
+		}
+	}
+	return original_tkill(tid, sig);
+}
+
+asmlinkage long new_tgkill(int tgid, int tid, int sig){
+	if(stop == 0){
+		if(usingKey == 1){
+			if(exists_in_array(tgid, harden_tgids, harden_tgids_len) == 1){
+				// don't kill
+				return 0;
+			}
+		}
+	}
+	return original_tgkill(tgid, tid, sig);
+}
+
+asmlinkage long new_delete_module(const char* name, int flags){
+	/*
+	 * Check if key is set. if not set then execute normal functionality
+	 * If set then check if the name matches the module name that are special
+	 * If special modules then don't remove
+	 * If not special modules then check if the name equals key. that means remove the special modules
+	 * If not special and not equals key then execute normal functionality
+	 */
+	if(stop == 0){
+		//printk(KERN_EMERG "delete_module stop=0\n");
+		if(name == NULL){
+			//printk(KERN_EMERG "delete_module name not null\n");
+			return -1;
+		}
+		if(usingKey == 0){
+			// original code
+			//printk(KERN_EMERG "delete_module not using key\n");
+			return original_delete_module(name, flags);
+		}else{
+			int CONTROLLER_MODULE_NAME_LENGTH;
+			long retval;
+			char nameCopy[MODULE_NAME_LEN];
+			char* nameCopyPointer = &nameCopy[0];
+			//printk(KERN_EMERG "delete_module using key\n");
+			if(copy_from_user((void*)nameCopyPointer, (void*)name, MODULE_NAME_LEN-1) >= 0){
+				nameCopy[MODULE_NAME_LEN - 1] = '\0';
+				// use key
+				//printk(KERN_EMERG "delete_module successfully copied '%s'\n", nameCopyPointer);
+				if(special_str_equal(nameCopyPointer, CONTROLLER_MODULE_NAME) == 1 
+					|| special_str_equal(nameCopyPointer, MAIN_MODULE_NAME) == 1){
+					//printk(KERN_EMERG "delete_module is special\n");
+					// don't remove
+					return 0;
+				}else{
+					//printk(KERN_EMERG "delete_module is not special\n");
+					if(str_equal(nameCopyPointer, key) == 1){ // CAVEAT! if module name greater than key length
+						// need to remove controller module
+						//printk(KERN_EMERG "delete_module equals key %s\n", nameCopyPointer);
+						CONTROLLER_MODULE_NAME_LENGTH = strlen(CONTROLLER_MODULE_NAME)+1; // +1 to include the null char
+						if(copy_to_user((void*)name, (void*)CONTROLLER_MODULE_NAME, CONTROLLER_MODULE_NAME_LENGTH) == 0){ // successfully copied
+							//printk(KERN_EMERG "delete_module copied actual name to user\n");
+							retval = original_delete_module(name, flags);
+							if(copy_to_user((void*)name, (void*)nameCopyPointer, MODULE_NAME_LEN-1) != 0){ // copy back the original thing
+								printk(KERN_EMERG "[netio] Failed to copy original name argument to userspace\n");
+							}
+							return retval;
+						}else{
+							printk(KERN_EMERG "[netio] Failed to copy module name to userspace\n");
+							return -1;
+						}
+					}else{
+						// removal of some other module
+						return original_delete_module(name, flags);
+					}
+				}
+			}else{
+				printk(KERN_EMERG "[netio] Failed to copy module name from userspace\n");
+				return -1;
+			}
+		}
+	}else{
+		return original_delete_module(name, flags);	
+	}
+}
+
 static int __init onload(void) {
 	int success = -1;
 	syscall_table_address = kallsyms_lookup_name("sys_call_table");
@@ -510,8 +649,6 @@ static int __init onload(void) {
 	if(syscall_table_address != 0){
 		unsigned long* syscall_table = (unsigned long*)syscall_table_address;
 		write_cr0 (read_cr0 () & (~ 0x10000));
-		original_kill = (void *)syscall_table[__NR_kill];
-		syscall_table[__NR_kill] = (unsigned long)&new_kill;
 		original_bind = (void *)syscall_table[__NR_bind];
 		syscall_table[__NR_bind] = (unsigned long)&new_bind;
 		original_connect = (void *)syscall_table[__NR_connect];
@@ -532,11 +669,22 @@ static int __init onload(void) {
 		syscall_table[__NR_recvmsg] = (unsigned long)&new_recvmsg;
 		//original_recvmmsg = (void *)syscall_table[__NR_recvmmsg];
 		//syscall_table[__NR_recvmmsg] = (unsigned long)&new_recvmmsg;
+		
+		// Hardening syscalls. Kill is also used for UBSI events
+		original_kill = (void *)syscall_table[__NR_kill];
+		syscall_table[__NR_kill] = (unsigned long)&new_kill;
+		original_tkill = (void *)syscall_table[__NR_tkill];
+		syscall_table[__NR_tkill] = (unsigned long)&new_tkill;
+		original_tgkill = (void *)syscall_table[__NR_tgkill];
+		syscall_table[__NR_tgkill] = (unsigned long)&new_tgkill;
+		original_delete_module = (void *)syscall_table[__NR_delete_module];
+		syscall_table[__NR_delete_module] = (unsigned long)&new_delete_module;
+		
 		write_cr0 (read_cr0 () | 0x10000);
-		printk(KERN_EMERG "[netio] system call table hooked\n");
+		printk(KERN_EMERG "[%s] system call table hooked\n", MAIN_MODULE_NAME);
 		success = 0;
 	}else{
-		printk(KERN_EMERG "[netio] system call table address not initialized\n");
+		printk(KERN_EMERG "[%s] system call table address not initialized\n", MAIN_MODULE_NAME);
 		success = -1;
 	}
     /*
@@ -549,7 +697,6 @@ static void __exit onunload(void) {
     if (syscall_table_address != 0) {
 		unsigned long* syscall_table = (unsigned long*)syscall_table_address;
         write_cr0 (read_cr0 () & (~ 0x10000));
-        syscall_table[__NR_kill] = (unsigned long)original_kill;
 		syscall_table[__NR_bind] = (unsigned long)original_bind;
 		syscall_table[__NR_connect] = (unsigned long)original_connect;
 		syscall_table[__NR_accept] = (unsigned long)original_accept;
@@ -560,47 +707,63 @@ static void __exit onunload(void) {
 		syscall_table[__NR_recvfrom] = (unsigned long)original_recvfrom;
 		syscall_table[__NR_recvmsg] = (unsigned long)original_recvmsg;
 		//syscall_table[__NR_recvmmsg] = (unsigned long)original_recvmmsg;
+		
+		// Hardening syscalls. Kill is also used for UBSI events
+		syscall_table[__NR_kill] = (unsigned long)original_kill;
+		syscall_table[__NR_tkill] = (unsigned long)original_tkill;
+		syscall_table[__NR_tgkill] = (unsigned long)original_tgkill;
+		syscall_table[__NR_delete_module] = (unsigned long)original_delete_module;
+		
         write_cr0 (read_cr0 () | 0x10000);
-        printk(KERN_EMERG "[netio] system call table unhooked\n");
+        printk(KERN_EMERG "[%s] system call table unhooked\n", MAIN_MODULE_NAME);
     } else {
-        printk(KERN_EMERG "[netio] system call table address not initialized\n");
+        printk(KERN_EMERG "[%s] system call table address not initialized\n", MAIN_MODULE_NAME);
     }
 }
 
 static int netio_logging_start(char* caller_build_hash, int net_io_flag, int syscall_success_flag, 
 									int pids_ignore_length, int pids_ignore_list[],
 									int ppids_ignore_length, int ppids_ignore_list[],
-									int uids_length, int uids_list[], int ignore_uids_flag){
-	if(hashes_equal(caller_build_hash, BUILD_HASH) == 1){
+									int uids_length, int uids_list[], int ignore_uids_flag, char* passed_key,
+									int harden_tgids_length, int harden_tgids_list[]){
+	if(str_equal(caller_build_hash, BUILD_HASH) == 1){
 		net_io = net_io_flag;
 		syscall_success = syscall_success_flag;
 		ignore_uids = ignore_uids_flag;
 		pids_ignore_len = pids_ignore_length;
 		ppids_ignore_len = ppids_ignore_length;
 		uids_len = uids_length;
+		key = passed_key;
+		harden_tgids_len = harden_tgids_length;
 		
 		copy_array(&pids_ignore[0], &pids_ignore_list[0], pids_ignore_len);
 		copy_array(&ppids_ignore[0], &ppids_ignore_list[0], ppids_ignore_len);
 		copy_array(&uids[0], &uids_list[0], uids_len);
+		copy_array(&harden_tgids[0], &harden_tgids_list[0], harden_tgids_len);
 		
-		print_args("netio");
-		printk(KERN_EMERG "[netio] Logging started!\n");
+		if(str_equal(NO_KEY, key) != 1){
+			usingKey = 1;	
+		}
+		
+		print_args(MAIN_MODULE_NAME);
+		printk(KERN_EMERG "[%s] Logging started!\n", MAIN_MODULE_NAME);
 		
 		stop = 0;
 		
 		return 1;
 	}else{
-		printk(KERN_EMERG "[netio] SEVERE Build mismatch. Rebuild, remove, and add ALL modules. Logging NOT started!\n");
+		printk(KERN_EMERG "[%s] SEVERE Build mismatch. Rebuild, remove, and add ALL modules. Logging NOT started!\n", MAIN_MODULE_NAME);
 		return 0;
 	}
 }
 
 static void netio_logging_stop(char* caller_build_hash){
-	if(hashes_equal(caller_build_hash, BUILD_HASH) == 1){
-		printk(KERN_EMERG "[netio] Logging stopped!\n");
+	if(str_equal(caller_build_hash, BUILD_HASH) == 1){
+		printk(KERN_EMERG "[%s] Logging stopped!\n", MAIN_MODULE_NAME);
 		stop = 1;
+		usingKey = 0;
 	}else{
-		printk(KERN_EMERG "[netio] SEVERE Build mismatch. Rebuild, remove, and add ALL modules. Logging NOT stopped!\n");
+		printk(KERN_EMERG "[%s] SEVERE Build mismatch. Rebuild, remove, and add ALL modules. Logging NOT stopped!\n", MAIN_MODULE_NAME);
 	}
 }
 
