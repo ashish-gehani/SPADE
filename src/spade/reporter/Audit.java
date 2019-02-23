@@ -232,7 +232,7 @@ public class Audit extends AbstractReporter {
 	private Boolean HANDLE_KM_RECORDS = null; // Default value set where flags are being initialized from arguments (unlike the variables above).
 	private Integer mergeUnit = null;
 	private String HARDEN_KEY = "harden";
-	private boolean HARDEN = true;
+	private boolean HARDEN = false;
 	
 	private String deleteModuleBinaryPath = null;
 	/********************** BEHAVIOR FLAGS - END *************************/
