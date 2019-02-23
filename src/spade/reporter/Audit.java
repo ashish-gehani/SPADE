@@ -21,7 +21,6 @@ package spade.reporter;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -237,38 +236,6 @@ public class Audit extends AbstractReporter {
 	
 	private String deleteModuleBinaryPath = null;
 	/********************** BEHAVIOR FLAGS - END *************************/
-	
-	private final String auditShutdownPipe = "audit.shutdown.pipe";
-	private final Thread shutdownListener = new Thread(new Runnable(){
-		public void run(){
-			BufferedReader shutdownReader = null;
-			try{
-				shutdownReader = new BufferedReader(new FileReader(new File(auditShutdownPipe)));
-				String line = null;
-				while((line = shutdownReader.readLine()) != null){
-					if(line.equals("shutdown")){
-						PrintWriter writer = null;
-						try{
-							writer = new PrintWriter(auditShutdownPipe);
-							if(removeModuleByDeleteModuleUtility(kernelModuleKey)){
-								writer.println("1");
-							}else{
-								writer.println("0");
-							}
-						}catch(Exception e){
-							logger.log(Level.SEVERE, "Failed to write to audit shutdown pipe", e);
-						}finally{
-							if(writer != null){
-								try{ writer.close(); }catch(Exception e){}
-							}
-						}
-					}
-				}
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to create/read from audit shutdown pipe", e);
-			}
-		}
-	});
 	
 	/*
 	 * Must be less than 40 for now! TODO
@@ -797,26 +764,6 @@ public class Audit extends AbstractReporter {
 			}catch(Exception e){
 				logger.log(Level.SEVERE, "Failed to check if file specified in config by 'deleteModule' key is readable: " +
 						deleteModuleBinaryPath, e);
-				return false;
-			}
-			
-			try{
-				FileUtils.forceDelete(new File(auditShutdownPipe));
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to delete: " + auditShutdownPipe, e);
-			}
-			
-			String command = "mkfifo -m 600 " + auditShutdownPipe;
-			try{
-				Output output = Execute.getOutput(command);
-				if(output.hasError()){
-					output.log();
-					return false;
-				}else{
-					shutdownListener.start();
-				}
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to create shutdown listener pipe using command: ", e);
 				return false;
 			}
 		}
@@ -1596,7 +1543,12 @@ public class Audit extends AbstractReporter {
 						if(!HARDEN){
 							return removeModuleByRmmodUtility(controllerModuleName);
 						}else{
-							return removeModuleByDeleteModuleUtility(kernelModuleKey);
+							// Try removing using the key. If fails then do the normal value
+							if(!removeModuleByDeleteModuleUtility(kernelModuleKey)){
+								return removeModuleByRmmodUtility(controllerModuleName);
+							}else{
+								return true;
+							}
 						}
 					}
 				}
@@ -1942,14 +1894,6 @@ public class Audit extends AbstractReporter {
 		// because it might be hardened
 		if(ADD_KM){
 			removeControllerNetworkKernelModule();
-		}
-		
-		if(HARDEN){
-			try{
-				FileUtils.forceDelete(new File(auditShutdownPipe));
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to delete: " + auditShutdownPipe, e);
-			}
 		}
 		
 		// Send an interrupt to the spadeAuditBridgeProcess

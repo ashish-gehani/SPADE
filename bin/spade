@@ -84,11 +84,6 @@ else
 			echo "SPADE is already running with PID $existingSpadePid"
 		fi
 	elif [ $1 = "stop" ] || [ $1 = "kill" ] ; then
-		if [ -p "audit.shutdown.pipe" ]
-		then
-			echo shutdown > audit.shutdown.pipe;
-			sleep 1
-		fi
 		killSignal=
 		successMsg=
 		failureMsg=
