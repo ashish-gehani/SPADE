@@ -2,6 +2,6 @@
 sudo chmod ug+s `which auditctl`
 sudo chmod ug+s `which iptables`
 sudo chmod ug+s `which kmod`
-sudo chown root lib/spadeAuditBridge lib/deleteModule
-sudo chmod ug+s lib/spadeAuditBridge lib/deleteModule
+sudo chown root bin/spadeAuditBridge bin/deleteModule
+sudo chmod ug+s bin/spadeAuditBridge bin/deleteModule
 sudo sed -i "s/active = no/active = yes/" /etc/audisp/plugins.d/af_unix.conf

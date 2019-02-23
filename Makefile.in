@@ -126,15 +126,15 @@ lib/spade.jar: build-java $$(OS_BUILD)
 	$(JAR) cvf lib/spade.jar -C build .
 
 # Build the LinuxAudit reporter.
-build-linuxaudit: build/spade/reporter/Audit.class lib/spadeAuditBridge lib/deleteModule audit-kernel-module
+build-linuxaudit: build/spade/reporter/Audit.class bin/spadeAuditBridge bin/deleteModule audit-kernel-module
 	@echo '-----> IMPORTANT: To use the LinuxAudit reporter, please run the following commands to allow SPADE access to the audit stream:'
-	@echo '----->        	sudo chown root lib/spadeAuditBridge'
-	@echo '----->        	sudo chmod ug+s lib/spadeAuditBridge'
+	@echo '----->        	sudo chown root bin/spadeAuditBridge'
+	@echo '----->        	sudo chmod ug+s bin/spadeAuditBridge'
 	@echo ''
-lib/spadeAuditBridge: src/spade/reporter/spadeAuditBridge.c
-	gcc -o lib/spadeAuditBridge src/spade/reporter/spadeAuditBridge.c
-lib/deleteModule: src/spade/reporter/audit/deleteModule.c
-	gcc -o lib/deleteModule src/spade/reporter/audit/deleteModule.c
+bin/spadeAuditBridge: src/spade/reporter/spadeAuditBridge.c
+	gcc -o bin/spadeAuditBridge src/spade/reporter/spadeAuditBridge.c
+bin/deleteModule: src/spade/reporter/audit/deleteModule.c
+	gcc -o bin/deleteModule src/spade/reporter/audit/deleteModule.c
 audit-kernel-module:
 	$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE)
 
