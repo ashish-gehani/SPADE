@@ -1893,7 +1893,9 @@ public class Audit extends AbstractReporter {
 		// Remove the kernel module first because we need to kill spadeAuditBridge
 		// because it might be hardened
 		if(ADD_KM){
-			removeControllerNetworkKernelModule();
+			if(removeControllerNetworkKernelModule()){
+				logger.log(Level.INFO, "Successfully removed the kernel controller module");
+			}
 		}
 		
 		// Send an interrupt to the spadeAuditBridgeProcess
