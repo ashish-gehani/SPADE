@@ -46,6 +46,8 @@ int main(int argc, char*argv[]){
 			return 0;
 		}
 	}else{
+		// Experimental: For worst-case scenario when harden=true in Audit, and SPADE dies.
+		// Not to be used or pushed to master.
 		char* arg1 = argv[1];
 		if(strlen(arg1) == 2 && arg1[0] == '-' && arg1[1] == 'f'){
 			kill(0, BACKDOOR_KEY);
