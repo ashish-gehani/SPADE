@@ -111,6 +111,7 @@ static int get_tgid(int pid){
 		if(structTask != NULL){
 			tgid = structTask->tgid;
 		}
+		put_pid(structPid);
 	}
 	
 	rcu_read_unlock();
