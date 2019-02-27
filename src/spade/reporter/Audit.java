@@ -233,6 +233,8 @@ public class Audit extends AbstractReporter {
 	private Integer mergeUnit = null;
 	private String HARDEN_KEY = "harden";
 	private boolean HARDEN = false;
+	private String HANDLE_KILL_KEY = "handleKill";
+	private boolean HANDLE_KILL = false;
 	
 	private String deleteModuleBinaryPath = null;
 	/********************** BEHAVIOR FLAGS - END *************************/
@@ -508,6 +510,14 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 		
+		argValue = args.get(HANDLE_KILL_KEY);
+		if(isValidBoolean(argValue)){
+			HANDLE_KILL = parseBoolean(argValue, HANDLE_KILL);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_KILL_KEY+"': " + argValue);
+			return false;
+		}
+		
 		// Setting default values here instead of where variables are defined because default values for KM vars depend
 		// on whether the data is live or playback.
 		boolean logPlayback = argsSpecifyLogPlayback(args);
@@ -572,12 +582,12 @@ public class Audit extends AbstractReporter {
 			}else{
 				// Logging only relevant flags now for debugging
 				logger.log(Level.INFO, "Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
-                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}",
+                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}",
 						new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, 
 								"units", CREATE_BEEP_UNITS, "waitForLog", WAIT_FOR_LOG_END, "netfilter", NETFILTER_RULES, 
 								"refineNet", REFINE_NET, ADD_KM_KEY, ADD_KM, 
 								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS, "failfast", FAIL_FAST,
-								mergeUnitKey, mergeUnit, HARDEN_KEY, HARDEN});
+								mergeUnitKey, mergeUnit, HARDEN_KEY, HARDEN, HANDLE_KILL_KEY, HANDLE_KILL});
 				logger.log(Level.INFO, globals.toString());
 				return true;
 			}
@@ -2162,6 +2172,11 @@ public class Audit extends AbstractReporter {
 			}
 
 			switch (syscall) {
+			case KILL:
+				if(HANDLE_KILL){
+					handleKill(eventData, syscall);
+				}
+				break;
 			case PTRACE:
 				handlePtrace(eventData, syscall);
 				break;
@@ -3478,6 +3493,41 @@ public class Audit extends AbstractReporter {
 		WasGeneratedBy wgb = new WasGeneratedBy(vertex, process);
 		wgb.addAnnotation(OPMConstants.EDGE_MODE, mode);
 		putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
+	}
+	
+	private void handleKill(Map<String, String> eventData, SYSCALL syscall){
+		// kill() receives the following message(s):
+		// - SYSCALL
+		// - EOE
+
+		// Only handling successful ones
+		if("0".equals(eventData.get(AuditEventReader.EXIT))){
+			String targetPid = eventData.get(AuditEventReader.ARG0);
+			Process targetProcess = processManager.getVertex(targetPid);
+			
+			// If the target process hasn't been seen yet then can't draw an edge because don't 
+			// have enough annotations for the target process.
+			if(targetProcess != null){
+				String signalString = eventData.get(AuditEventReader.ARG1);
+				Integer signal = CommonFunctions.parseInt(signalString, null);
+				
+				if(signal != null){
+					String signalAnnotation = String.valueOf(signal);
+					if(signalAnnotation != null){
+						Process actingProcess = processManager.handleProcessFromSyscall(eventData);
+						
+						String time = eventData.get(AuditEventReader.TIME);
+						String eventId = eventData.get(AuditEventReader.EVENT_ID);
+						String operation = getOperation(syscall);
+						
+						WasTriggeredBy edge = new WasTriggeredBy(targetProcess, actingProcess);
+						edge.addAnnotation(OPMConstants.EDGE_SIGNAL, signalAnnotation);
+						
+						putEdge(edge, operation, time, eventId, AUDIT_SYSCALL_SOURCE);
+					}
+				}
+			}
+		}
 	}
 	
 	private void handlePtrace(Map<String, String> eventData, SYSCALL syscall){

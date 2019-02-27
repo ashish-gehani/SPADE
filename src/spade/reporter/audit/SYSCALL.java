@@ -49,6 +49,7 @@ public enum SYSCALL{
 	INIT_MODULE, FINIT_MODULE,
 	SOCKETPAIR, // Only in 64-bit
 	PTRACE,
+	KILL,
 	UNSUPPORTED; // Used for system calls not in this enum (not an actual system call)
 	
 	public static SYSCALL get64BitSyscall(int syscallNum){
@@ -57,6 +58,7 @@ public enum SYSCALL{
 		
 		// source : https://github.com/bnoordhuis/strace/blob/master/linux/x86_64/syscallent.h
 		switch(syscallNum){
+			case 62:	return KILL;
 			case 101:	return PTRACE;
 			case 53:	return SOCKETPAIR;
 			case 175:	return INIT_MODULE;

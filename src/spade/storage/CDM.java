@@ -166,6 +166,9 @@ public class CDM extends Kafka {
 	 */
 	private void populateEventRules(){
 		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_KILL)), 
+						EventType.EVENT_SIGNAL);
+		rulesToEventType.put(
 				getSet(new TypeOperation(OPMConstants.WAS_TRIGGERED_BY, OPMConstants.OPERATION_EXIT)), 
 						EventType.EVENT_EXIT);
 		rulesToEventType.put(

@@ -487,8 +487,8 @@ asmlinkage long new_kill(pid_t pid, int sig){
 			to_hex(&hex_task_command[0], hex_task_command_len, (unsigned char *)task_command, task_command_len);
 			
 			audit_log(NULL, GFP_KERNEL, AUDIT_USER, 
-			"ubsi_intercepted=\"syscall=%d success=no exit=%ld a0=%x a1=%x a2=0 a3=0 items=0 ppid=%d pid=%d uid=%d gid=%d euid=%d suid=%d fsuid=%d egid=%d sgid=%d fsgid=%d comm=%s\"",
-			syscallNumber, retval, pid, sig, current_task->real_parent->pid, current_task->pid,
+			"ubsi_intercepted=\"syscall=%d success=%s exit=%ld a0=%x a1=%x a2=0 a3=0 items=0 ppid=%d pid=%d uid=%d gid=%d euid=%d suid=%d fsuid=%d egid=%d sgid=%d fsgid=%d comm=%s\"",
+			syscallNumber, retval == 0 ? "yes" : "no", retval, pid, sig, current_task->real_parent->pid, current_task->pid,
 			current_task->real_cred->uid.val, current_task->real_cred->gid.val, current_task->real_cred->euid.val,
 			current_task->real_cred->suid.val, current_task->real_cred->fsuid.val, current_task->real_cred->egid.val,
 			current_task->real_cred->sgid.val, current_task->real_cred->fsgid.val, hex_task_command);

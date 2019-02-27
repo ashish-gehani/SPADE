@@ -135,6 +135,7 @@ public class OPMConstants {
 			EDGE_SIZE = ARTIFACT_SIZE,
 			EDGE_TIME = "time",
 			EDGE_REQUEST = "request",
+			EDGE_SIGNAL = "signal",
 			
 			// All operations
 			OPERATION_ACCEPT = "accept",
@@ -174,7 +175,8 @@ public class OPMConstants {
 			OPERATION_SPLICE = "splice",
 			OPERATION_VMSPLICE = "vmsplice",
 			OPERATION_INIT_MODULE = "init_module",
-			OPERATION_FINIT_MODULE = "finit_module";
+			OPERATION_FINIT_MODULE = "finit_module",
+			OPERATION_KILL = "kill";
 		
 	private static final Logger logger = Logger.getLogger(OPMConstants.class.getName());
 	
@@ -197,6 +199,7 @@ public class OPMConstants {
 		addSyscallsToOperations(OPERATION_FORK, SYSCALL.FORK, SYSCALL.VFORK);
 		addSyscallsToOperations(OPERATION_INIT_MODULE, SYSCALL.INIT_MODULE);
 		addSyscallsToOperations(OPERATION_FINIT_MODULE, SYSCALL.FINIT_MODULE);
+		addSyscallsToOperations(OPERATION_KILL, SYSCALL.KILL);
 		addSyscallsToOperations(OPERATION_LINK, SYSCALL.LINK, SYSCALL.LINKAT, SYSCALL.SYMLINK, SYSCALL.SYMLINKAT);
 		addSyscallsToOperations(OPERATION_LOAD, SYSCALL.LOAD);
 		addSyscallsToOperations(OPERATION_MKNOD, SYSCALL.MKNOD, SYSCALL.MKNODAT);

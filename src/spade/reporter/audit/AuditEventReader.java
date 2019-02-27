@@ -125,6 +125,7 @@ public class AuditEventReader {
 			USER_MSG_SPADE_AUDIT_HOST_KEY = "spade_host_msg",
 			KMODULE_RECORD_TYPE = "netio_module_record",
 			KMODULE_DATA_KEY = "netio_intercepted",
+			UBSI_INTERCEPTED_DATA_KEY = "ubsi_intercepted",
 			KMODULE_FD = "fd",
 			KMODULE_SOCKTYPE = "sock_type",
 			KMODULE_LOCAL_SADDR = "local_saddr",
@@ -687,6 +688,24 @@ public class AuditEventReader {
 						eventData.put(COMM, CommonFunctions.decodeHex(eventData.get(COMM)));
 						eventData.put(TIME, time);
 						auditRecordKeyValues.putAll(eventData);
+					}else{
+						indexOfData = messageData.indexOf(UBSI_INTERCEPTED_DATA_KEY);
+						if(indexOfData != -1){
+							String data = messageData.substring(indexOfData + UBSI_INTERCEPTED_DATA_KEY.length() + 1);
+							data = data.substring(1, data.length() - 1);// remove quotes
+							Map<String, String> eventData = CommonFunctions.parseKeyValPairs(data);
+							eventData.put(RECORD_TYPE_KEY, RECORD_TYPE_SYSCALL);
+							eventData.put(COMM, CommonFunctions.decodeHex(eventData.get(COMM)));
+							eventData.put(TIME, time);
+							auditRecordKeyValues.putAll(eventData);
+						}else{
+							indexOfData = messageData.indexOf(" syscall=62 ");
+							Map<String, String> eventData = CommonFunctions.parseKeyValPairs(messageData);
+							eventData.put(RECORD_TYPE_KEY, RECORD_TYPE_SYSCALL);
+							eventData.put(COMM, CommonFunctions.decodeHex(eventData.get(COMM)));
+							eventData.put(TIME, time);
+							auditRecordKeyValues.putAll(eventData);
+						}
 					}
 				}else if (type.equals(RECORD_TYPE_SYSCALL)) {
 					Map<String, String> eventData = CommonFunctions.parseKeyValPairs(messageData);
