@@ -175,7 +175,7 @@ static int copy_uint32_t_from_user(uint32_t *dst, const uint32_t __user *src){
 
 // 0 = bad, 1 = good
 static int is_sockaddr_size_valid(uint32_t size){
-	if(size > 0 && size <= _K_SS_MAXSIZE){
+	if(size > 0 && size <= sizeof(struct sockaddr_storage)){
 		return 1;
 	}else{
 		return 0;
@@ -266,12 +266,12 @@ static void log_to_audit(int syscallNumber, int fd, struct sockaddr_storage* add
 		// TODO other info needs to be logged?
 		audit_log(NULL, GFP_KERNEL, AUDIT_USER, 
 			"netio_intercepted=\"syscall=%d exit=%ld success=%d fd=%d pid=%d ppid=%d uid=%u euid=%u suid=%u fsuid=%u \
-gid=%u egid=%u sgid=%u fsgid=%u comm=%s sock_type=%d local_saddr=%s remote_saddr=%s\"",
+gid=%u egid=%u sgid=%u fsgid=%u comm=%s sock_type=%d local_saddr=%s remote_saddr=%s remote_saddr_size=%d\"",
 			syscallNumber, exit, success, fd, current_task->pid, current_task->real_parent->pid,
 			current_task->real_cred->uid.val, current_task->real_cred->euid.val, current_task->real_cred->suid.val,
 			current_task->real_cred->fsuid.val, current_task->real_cred->gid.val, current_task->real_cred->egid.val,
 			current_task->real_cred->sgid.val, current_task->real_cred->fsgid.val,
-			hex_task_command, fd_sock_type, hex_fd_addr, hex_addr);
+			hex_task_command, fd_sock_type, hex_fd_addr, hex_addr, addr_size);
 	}
 }
 
