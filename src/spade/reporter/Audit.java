@@ -233,8 +233,8 @@ public class Audit extends AbstractReporter {
 	private Integer mergeUnit = null;
 	private String HARDEN_KEY = "harden";
 	private boolean HARDEN = false;
-	private String HANDLE_KILL_KEY = "handleKill";
-	private boolean HANDLE_KILL = false;
+	private String REPORT_KILL_KEY = "reportKill";
+	private boolean REPORT_KILL = false;
 	
 	private String deleteModuleBinaryPath = null;
 	/********************** BEHAVIOR FLAGS - END *************************/
@@ -510,11 +510,11 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 		
-		argValue = args.get(HANDLE_KILL_KEY);
+		argValue = args.get(REPORT_KILL_KEY);
 		if(isValidBoolean(argValue)){
-			HANDLE_KILL = parseBoolean(argValue, HANDLE_KILL);
+			REPORT_KILL = parseBoolean(argValue, REPORT_KILL);
 		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_KILL_KEY+"': " + argValue);
+			logger.log(Level.SEVERE, "Invalid flag value for '"+REPORT_KILL_KEY+"': " + argValue);
 			return false;
 		}
 		
@@ -587,7 +587,7 @@ public class Audit extends AbstractReporter {
 								"units", CREATE_BEEP_UNITS, "waitForLog", WAIT_FOR_LOG_END, "netfilter", NETFILTER_RULES, 
 								"refineNet", REFINE_NET, ADD_KM_KEY, ADD_KM, 
 								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS, "failfast", FAIL_FAST,
-								mergeUnitKey, mergeUnit, HARDEN_KEY, HARDEN, HANDLE_KILL_KEY, HANDLE_KILL});
+								mergeUnitKey, mergeUnit, HARDEN_KEY, HARDEN, REPORT_KILL_KEY, REPORT_KILL});
 				logger.log(Level.INFO, globals.toString());
 				return true;
 			}
@@ -2173,7 +2173,7 @@ public class Audit extends AbstractReporter {
 
 			switch (syscall) {
 			case KILL:
-				if(HANDLE_KILL){
+				if(REPORT_KILL){
 					handleKill(eventData, syscall);
 				}
 				break;
