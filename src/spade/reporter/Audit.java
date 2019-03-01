@@ -234,7 +234,7 @@ public class Audit extends AbstractReporter {
 	private String HARDEN_KEY = "harden";
 	private boolean HARDEN = false;
 	private String REPORT_KILL_KEY = "reportKill";
-	private boolean REPORT_KILL = false;
+	private boolean REPORT_KILL = true;
 	
 	private String deleteModuleBinaryPath = null;
 	/********************** BEHAVIOR FLAGS - END *************************/
