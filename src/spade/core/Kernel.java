@@ -566,7 +566,8 @@ public class Kernel
                 break;
 
             default:
-                outputStream.println(getControlCommands());
+                outputStream.print(getControlCommands()); 
+                // Don't do println because new line already added to the control commands list
         }
     }
 
