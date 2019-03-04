@@ -1,7 +1,7 @@
 #!/bin/bash
 
-TESTUSER="local"
-SPADE_HOME="/home/vinod/tc-e4/SPADE"
+TESTUSER="hass"
+SPADE_HOME="/home/vagrant/spade"
 
 
 _id=`id|cut -d"=" -f2 |cut -d"(" -f1`
@@ -31,7 +31,7 @@ sleep 2
 
 cd $SPADE_HOME
 
-echo "add reporter Audit syscall=all fileIO=true netIO=true units=true user="$TESTUSER" versions=false outputLog="$1".log" > cfg/spade.client.Control.config
+echo "add reporter Audit unixSockets=true syscall=all fileIO=true netIO=true units=true user="$TESTUSER" versions=false outputLog="$1".log" > cfg/spade.client.Control.config
 
 sleep 2
 bin/spade start
@@ -77,9 +77,9 @@ sleep 2
 
 cd $SPADE_HOME
 
-#echo "add storage Graphviz "$1".dot" > cfg/spade.client.Control.config
+echo "add storage Graphviz output="$1".dot" > cfg/spade.client.Control.config
 echo "add storage CDM hexUUIDs=true output="$1".json" >> cfg/spade.client.Control.config
-echo "add reporter Audit inputLog="$1".extract.log fileIO=true netIO=true units=true arch=64 versions=false handleLocalEndpoints=true" >> cfg/spade.client.Control.config
+echo "add reporter Audit unixSockets=true inputLog="$1".extract.log fileIO=true netIO=true units=true arch=64 versions=false handleLocalEndpoints=true" >> cfg/spade.client.Control.config
 
 bin/spade start
 sleep 5

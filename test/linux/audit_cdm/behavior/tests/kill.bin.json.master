@@ -1,15 +1,15 @@
-{"datum":{"com.bbn.tc.schema.avro.cdm19.Host"}}
+{"datum":{"com.bbn.tc.schema.avro.cdm.Host"}}
 
-{"datum":{"com.bbn.tc.schema.avro.cdm19.TimeMarker":{}},"CDMVersion":"19","type":"RECORD_TIME_MARKER","sessionNumber","source":"SOURCE_LINUX_SYSCALL_TRACE"}
+{"datum":{"com.bbn.tc.schema.avro.cdm.TimeMarker":{}},"type":"RECORD_TIME_MARKER","sessionNumber","source":"SOURCE_LINUX_SYSCALL_TRACE"}
 
-{"datum":{"com.bbn.tc.schema.avro.cdm19.Principal":{"type":"PRINCIPAL_LOCAL","userId","username":null,"groupIds":{"array":["1000","1000"]},"properties":{"map":{"euid"}}}},"CDMVersion":"19","type":"RECORD_PRINCIPAL","sessionNumber","source":"SOURCE_LINUX_SYSCALL_TRACE"}
+{"datum":{"com.bbn.tc.schema.avro.cdm.Principal":{"type":"PRINCIPAL_LOCAL","userId","username":null,"groupIds":{"array":["1002","1002"]},"properties":{"map":{"euid"}}}},"type":"RECORD_PRINCIPAL","sessionNumber","source":"SOURCE_LINUX_SYSCALL_TRACE"}
 
-{"datum":{"com.bbn.tc.schema.avro.cdm19.Subject":{"type":"SUBJECT_PROCESS","parentSubject":null,"localPrincipal":{},"startTimestampNanos":{},"unitId":{"int":0},"iteration":null,"count":null,"cmdLine":{"string":"kill.bin"},"privilegeLevel":null,"importedLibraries":null,"exportedLibraries":null,"properties":{"map":{"name":"kill.bin",}}}},"CDMVersion":"19","type":"RECORD_SUBJECT","sessionNumber","source":"SOURCE_LINUX_SYSCALL_TRACE"}
+{"datum":{"com.bbn.tc.schema.avro.cdm.Subject":{"type":"SUBJECT_PROCESS","parentSubject":null,"localPrincipal":{},"startTimestampNanos":{},"unitId":{"int":0},"iteration":null,"count":null,"cmdLine":{"string":""},"privilegeLevel":null,"importedLibraries":null,"exportedLibraries":null,"properties":{"map":{"name":"locale",}}}},"type":"RECORD_SUBJECT","sessionNumber","source":"SOURCE_LINUX_SYSCALL_TRACE"}
 
-{"datum":{"com.bbn.tc.schema.avro.cdm19.Subject":{"type":"SUBJECT_PROCESS","parentSubject":null,"localPrincipal":{},"startTimestampNanos":{},"unitId":{"int":0},"iteration":null,"count":null,"cmdLine":null,"privilegeLevel":null,"importedLibraries":null,"exportedLibraries":null,"properties":{"map":{"name":"kill.bin",,}}}},"CDMVersion":"19","type":"RECORD_SUBJECT","sessionNumber","source":"SOURCE_LINUX_SYSCALL_TRACE"}
+{"datum":{"com.bbn.tc.schema.avro.cdm.Subject":{"type":"SUBJECT_PROCESS","parentSubject":null,"localPrincipal":{},"startTimestampNanos":{},"unitId":{"int":0},"iteration":null,"count":null,"cmdLine":null,"privilegeLevel":null,"importedLibraries":null,"exportedLibraries":null,"properties":{"map":{"name":"locale",,}}}},"type":"RECORD_SUBJECT","sessionNumber","source":"SOURCE_LINUX_SYSCALL_TRACE"}
 
-{"datum":{"com.bbn.tc.schema.avro.cdm19.Event":{"type":"EVENT_EXECUTE","predicateObject":{},"predicateObjectPath":null,"predicateObject2":null,"predicateObject2Path":null,"names":null,"parameters":null,"location":null,"size":null,"programPoint":null,"properties":{"map":{}}}},"CDMVersion":"19","type":"RECORD_EVENT","sessionNumber","source":"SOURCE_LINUX_SYSCALL_TRACE"}
+{"datum":{"com.bbn.tc.schema.avro.cdm.Event":{"type":"EVENT_EXECUTE","subject":{},"predicateObject":{},"predicateObjectPath":null,"predicateObject2":null,"predicateObject2Path":null,"names":null,"parameters":null,"location":null,"size":null,"programPoint":null,"properties":{"map":{}}}},"type":"RECORD_EVENT","sessionNumber","source":"SOURCE_LINUX_SYSCALL_TRACE"}
 
-{"datum":{"com.bbn.tc.schema.avro.cdm19.TimeMarker":{}},"CDMVersion":"19","type":"RECORD_TIME_MARKER","sessionNumber","source":"SOURCE_LINUX_SYSCALL_TRACE"}
+{"datum":{"com.bbn.tc.schema.avro.cdm.TimeMarker":{}},"type":"RECORD_TIME_MARKER","sessionNumber","source":"SOURCE_LINUX_SYSCALL_TRACE"}
 
-{"datum":{"com.bbn.tc.schema.avro.cdm19.EndMarker":{"sessionNumber","recordCounts":{"TimeMarker":"2","EndMarker":"1","Host":"1","EVENT_EXECUTE":"1","Principal":"1","SUBJECT_PROCESS":"2"}}},"CDMVersion":"19","type":"RECORD_END_MARKER","sessionNumber","source":"SOURCE_LINUX_SYSCALL_TRACE"}
+{"datum":{"com.bbn.tc.schema.avro.cdm.EndMarker":{"sessionNumber","recordCounts":{"TimeMarker":"2","EndMarker":"1","Host":"1","EVENT_EXECUTE":"1","Principal":"1","SUBJECT_PROCESS":"2"}}},"type":"RECORD_END_MARKER","sessionNumber","source":"SOURCE_LINUX_SYSCALL_TRACE"}

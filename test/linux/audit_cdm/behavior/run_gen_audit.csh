@@ -8,7 +8,7 @@ set fail_cnt = 0
 #which tests you want to run.  Only those
 #without a png file will be run
 
-#rm -f $1/*.png
+rm -f $1/*.png
 
 auditctl -s
 
@@ -23,8 +23,10 @@ foreach file (`ls $PWD/$1/*.bin`)
    echo "testing " $file
    sudo ./gen_audit_spade.sh $file  >& /dev/null
    sleep 5
-   ./normalize_cdm.py $file".json" |sort > tmp.json
-   set cnt = `sort $file".json".master |diff - tmp.json |wc -l`
+   ./normalize_cdm.py $file".json" > $file.json.branch
+   sort $file.json.branch | uniq > $file.json.branch.sorted
+   sort $file.json.master | uniq > $file.json.master.sorted
+   set cnt = `cat $file".json".master.sorted |diff - $file.json.branch.sorted |wc -l`
    if ($cnt > 0) then
      echo "FAILED"
      @ fail_cnt = $fail_cnt + 1
@@ -33,6 +35,7 @@ foreach file (`ls $PWD/$1/*.bin`)
      echo "PASSED"
      @ pass_cnt = $pass_cnt + 1
    endif
+   #exit 0
   endif
 end
 

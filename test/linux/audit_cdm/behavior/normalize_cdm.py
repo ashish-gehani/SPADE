@@ -31,6 +31,8 @@ while line:
             continue
         write_threads[tid] = "added"
 
+    line = re.sub(r'\"CDMVersion\":\"[0-9]+\",?', r'', line)
+    line = re.sub(r'cdm20', r'cdm', line)
     line = re.sub(r'\"sequence":[0-9\,]+', r'', line)
     line = re.sub(r'\"sequence":\{"long":[0-9]+\}\,', r'', line)
     line = re.sub(r'\"threadId":[0-9\,]+', r'', line)
@@ -41,9 +43,9 @@ while line:
     line = re.sub(r'\"startTimestampNanos\":[0-9\.\,]+', r'', line)
     line = re.sub(r'\"timestampNanos\":[0-9\.\,]+', r'', line)
     line = re.sub(r'\"tsNanos\":[0-9]+', r'', line)
-    line = re.sub(r'\"com.bbn.tc.schema.avro.UUID\":\"[0-9a-f]+\"', r'', line)
-    line = re.sub(r'\"subject\":\{\"com.bbn.tc.schema.avro.cdm19.UUID\":\"[0-9a-f]+\"\}\,', r'', line)
-    line = re.sub(r'\"com.bbn.tc.schema.avro.cdm19.UUID\":\"[0-9a-f]+\"', r'', line)
+    line = re.sub(r'\"com.bbn.tc.schema.avro.cdm.UUID\":\"[0-9a-f]+\"', r'', line)
+    line = re.sub(r'\"subject\":\{\"com.bbn.tc.schema.avro.cdm.UUID\":\"[0-9a-f]+\"\}\,', r'', line)
+    line = re.sub(r'\"com.bbn.tc.schema.avro.cdm.UUID\":\"[0-9a-f]+\"', r'', line)
     line = re.sub(r'\"subject\":\"[0-9a-f]+\"\,?', r'', line)
     line = re.sub(r'\"localPrincipal\":\"[0-9a-f]+\"\,?', r'', line)
     line = re.sub(r'\"pid\":\"[0-9]+\"\,?', r'', line)
@@ -63,6 +65,7 @@ while line:
     line = re.sub(r'\"[\/a-z0-9]+unit\_tests\/tests', r'unit_tests/tests', line)
     line = re.sub(r'\"EVENT_WRITE\":\"[0-9]+\"', r'\"EVENT_WRITE\"', line)
     line = re.sub(r'\"EVENT_READ\":\"[0-9]+\"', r'\"EVENT_READ\"', line)
+    line = re.sub(r'\"string\":\"[0-9a-zA-Z\-\_\/]+', r'"string":"', line)
     line = re.sub(r'\"string\":\"[0-9a-zA-Z\-\_\/]+linux\/audit_cdm\/behavior\/tests\/', r'"string":"', line)
     line = re.sub(r'\"userId":\"[0-9]+\"', r'"userId"', line)
     line = re.sub(r'\"sessionNumber\":[0-9]+', r'"sessionNumber"', line)
@@ -70,7 +73,7 @@ while line:
     line = re.sub(r'\"euid":\"[0-9]+\"', r'"euid"', line)
     line = re.sub(r'\"groupIds":\[[0-9\,\"]+\]', r'"groupIds:[]"', line)
 
-    line = re.sub(r'cdm19.Host(.*)', 'cdm19.Host\"}}', line)
+    line = re.sub(r'cdm.Host(.*)', 'cdm.Host\"}}', line)
 ## remove these after cdm17 comparison
 #    line = re.sub(r'\"localAddress\":\"127.0.0.1\"', r'"localAddress":""', line)
 #    line = re.sub(r'\"StartMarker":\"[0-9]+\",?', r'', line)
