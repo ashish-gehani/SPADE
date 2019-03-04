@@ -1,7 +1,7 @@
 #!/bin/bash
 
-TESTUSER="hass"
-SPADE_HOME="/home/vagrant/spade"
+TESTUSER="local"
+SPADE_HOME="/home/vinod/tc-e5/spade"
 
 
 _id=`id|cut -d"=" -f2 |cut -d"(" -f1`

@@ -8,7 +8,7 @@ set fail_cnt = 0
 #which tests you want to run.  Only those
 #without a png file will be run
 
-rm -f $1/*.png
+#rm -f $1/*.png
 
 auditctl -s
 
@@ -35,7 +35,6 @@ foreach file (`ls $PWD/$1/*.bin`)
      echo "PASSED"
      @ pass_cnt = $pass_cnt + 1
    endif
-   #exit 0
   endif
 end
 
