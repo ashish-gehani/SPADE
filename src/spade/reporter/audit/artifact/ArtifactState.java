@@ -33,6 +33,20 @@ public class ArtifactState implements Serializable{
 	private String permissions, lastPutPermissions;
 	private Set<String> previousPutPermissions = new HashSet<String>();
 	
+	public ArtifactState(){}
+	
+	public ArtifactState(boolean hasBeenPut, BigInteger epoch, BigInteger version, BigInteger lastPutEpoch, BigInteger lastPutVersion,
+			String permissions, String lastPutPermissions, Set<String> previousPutPermissions){
+		this.hasBeenPut = hasBeenPut;
+		this.epoch = epoch;
+		this.version = version;
+		this.lastPutEpoch = lastPutEpoch;
+		this.lastPutVersion = lastPutVersion;
+		this.permissions = permissions;
+		this.lastPutPermissions = lastPutPermissions;
+		this.previousPutPermissions = previousPutPermissions;
+	}
+	
 	// Resets version to initial value
 	// Resets permissions to null
 	public void incrementEpoch(){
@@ -76,6 +90,10 @@ public class ArtifactState implements Serializable{
 		previousPutPermissions.add(permissions);
 	}
 	
+	public Set<String> getPreviousPutPermissions(){
+		return previousPutPermissions;
+	}
+	
 	public boolean hasBeenPut(){
 		return hasBeenPut;
 	}
@@ -103,4 +121,77 @@ public class ArtifactState implements Serializable{
 	public String getLastPutPermissions(){
 		return lastPutPermissions;
 	}
+
+	@Override
+	public String toString(){
+		return "ArtifactState [hasBeenPut=" + hasBeenPut + ", epoch=" + epoch + ", version=" + version
+				+ ", lastPutEpoch=" + lastPutEpoch + ", lastPutVersion=" + lastPutVersion + ", permissions="
+				+ permissions + ", lastPutPermissions=" + lastPutPermissions + ", previousPutPermissions="
+				+ previousPutPermissions + "]";
+	}
+
+	@Override
+	public int hashCode(){
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((epoch == null) ? 0 : epoch.hashCode());
+		result = prime * result + (hasBeenPut ? 1231 : 1237);
+		result = prime * result + ((lastPutEpoch == null) ? 0 : lastPutEpoch.hashCode());
+		result = prime * result + ((lastPutPermissions == null) ? 0 : lastPutPermissions.hashCode());
+		result = prime * result + ((lastPutVersion == null) ? 0 : lastPutVersion.hashCode());
+		result = prime * result + ((permissions == null) ? 0 : permissions.hashCode());
+		result = prime * result + ((previousPutPermissions == null) ? 0 : previousPutPermissions.hashCode());
+		result = prime * result + ((version == null) ? 0 : version.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj){
+		if(this == obj)
+			return true;
+		if(obj == null)
+			return false;
+		if(getClass() != obj.getClass())
+			return false;
+		ArtifactState other = (ArtifactState) obj;
+		if(epoch == null){
+			if(other.epoch != null)
+				return false;
+		}else if(!epoch.equals(other.epoch))
+			return false;
+		if(hasBeenPut != other.hasBeenPut)
+			return false;
+		if(lastPutEpoch == null){
+			if(other.lastPutEpoch != null)
+				return false;
+		}else if(!lastPutEpoch.equals(other.lastPutEpoch))
+			return false;
+		if(lastPutPermissions == null){
+			if(other.lastPutPermissions != null)
+				return false;
+		}else if(!lastPutPermissions.equals(other.lastPutPermissions))
+			return false;
+		if(lastPutVersion == null){
+			if(other.lastPutVersion != null)
+				return false;
+		}else if(!lastPutVersion.equals(other.lastPutVersion))
+			return false;
+		if(permissions == null){
+			if(other.permissions != null)
+				return false;
+		}else if(!permissions.equals(other.permissions))
+			return false;
+		if(previousPutPermissions == null){
+			if(other.previousPutPermissions != null)
+				return false;
+		}else if(!previousPutPermissions.equals(other.previousPutPermissions))
+			return false;
+		if(version == null){
+			if(other.version != null)
+				return false;
+		}else if(!version.equals(other.version))
+			return false;
+		return true;
+	}
+	
 }
