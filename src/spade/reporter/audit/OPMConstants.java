@@ -121,8 +121,8 @@ public class OPMConstants {
 			SUBTYPE_UNIX_SOCKET = "unix socket",
 			SUBTYPE_UNKNOWN = "unknown",
 			SUBTYPE_UNNAMED_PIPE = "unnamed pipe",
-			SUBTYPE_UNNAMED_UNIX_SOCKET_PAIR = "unnamed unix socket pair",
-			SUBTYPE_UNNAMED_NETWORK_SOCKET_PAIR = "unnamed network socket pair",
+			SUBTYPE_UNNAMED_UNIX_SOCKET_PAIR = "unix socket pair",
+			SUBTYPE_UNNAMED_NETWORK_SOCKET_PAIR = "network socket pair",
 			
 			// General edge annotations
 			EDGE_EVENT_ID = "event id",

@@ -36,8 +36,8 @@ public class Globals{
 					versionUnnamedPipesKey = "versionUnnamedPipes",
 					versionUnknownsKey = "versionUnknowns",
 					versionUnixSocketsKey = "versionUnixSockets",
-					versionUnnamedUnixSocketPairsKey = "versionUnnamedUnixSocketPairs",
-					versionUnnamedNetworkSocketPairsKey = "versionUnnamedNetworkSocketPairs",
+					versionUnnamedUnixSocketPairsKey = "versionUnixSocketPairs",
+					versionUnnamedNetworkSocketPairsKey = "versionNetworkSocketPairs",
 					versionsKey = "versions",
 					epochsKey = "epochs",
 					permissionsKey = "permissions";
