@@ -49,7 +49,9 @@ public class BerkeleyDB<V extends Serializable> implements ExternalStore<V> {
 	
 	private String directoryPath;
 	
-	public BerkeleyDB(String directoryPath, String databaseName) throws Exception{
+	private Converter<V, byte[]> converter;
+	
+	public BerkeleyDB(String directoryPath, String databaseName, Converter<V, byte[]> converter) throws Exception{
 		this.directoryPath = directoryPath;
 		
 		EnvironmentConfig envConfig = new EnvironmentConfig();
@@ -59,6 +61,8 @@ public class BerkeleyDB<V extends Serializable> implements ExternalStore<V> {
 		DatabaseConfig dbConfig = new DatabaseConfig();
 		dbConfig.setAllowCreate(true);
 		database = environment.openDatabase(null, databaseName, dbConfig);
+		
+		this.converter = converter;
 	}
 
 	@Override
@@ -67,23 +71,31 @@ public class BerkeleyDB<V extends Serializable> implements ExternalStore<V> {
 		DatabaseEntry valueEntry = new DatabaseEntry();
 		
 	    if(database.get(null, keyEntry, valueEntry, LockMode.DEFAULT) == OperationStatus.SUCCESS){
-	        byte[] valueBytes = valueEntry.getData();
-	        ByteArrayInputStream byteInputStream = new ByteArrayInputStream(valueBytes);
-			ObjectInputStream objectInputStream = new ObjectInputStream(byteInputStream);
-			return (V)objectInputStream.readObject();
+	    	byte[] valueBytes = valueEntry.getData();
+	    	if(converter == null){
+		        ByteArrayInputStream byteInputStream = new ByteArrayInputStream(valueBytes);
+				ObjectInputStream objectInputStream = new ObjectInputStream(byteInputStream);
+				return (V)objectInputStream.readObject();
+	    	}else{
+	    		return converter.deserialize(valueBytes);
+	    	}
 	    }else{
 	        return null;
 	    }
 	}
 
 	@Override
-	public void put(String key, V value) throws Exception {
-		
-		ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
-		ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteOutputStream);
-		objectOutputStream.writeObject(value);
-		objectOutputStream.flush();
-		byte[] valueBytes = byteOutputStream.toByteArray(); 
+	public void put(String key, V value) throws Exception{
+		byte[] valueBytes = null;
+		if(converter == null){
+			ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
+			ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteOutputStream);
+			objectOutputStream.writeObject(value);
+			objectOutputStream.flush();
+			valueBytes = byteOutputStream.toByteArray();
+		}else{
+			valueBytes = converter.serialize(value);
+		}
 		
 		DatabaseEntry keyEntry = new DatabaseEntry(key.getBytes());
 		DatabaseEntry valueEntry = new DatabaseEntry(valueBytes);

@@ -19,11 +19,18 @@
  */
 package spade.reporter.audit.artifact;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.math.BigInteger;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 
 import spade.core.Settings;
@@ -33,6 +40,7 @@ import spade.reporter.Audit;
 import spade.reporter.audit.Globals;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.CommonFunctions;
+import spade.utility.Converter;
 import spade.utility.ExternalMemoryMap;
 import spade.utility.FileUtility;
 import spade.utility.Hasher;
@@ -40,6 +48,340 @@ import spade.vertex.opm.Artifact;
 
 public class ArtifactManager{
 
+//	public static void main(String[] args) throws Exception{
+//		//testArtifactStateConverter();
+//		testArtifactsMap(900000, true);
+//	}
+	
+	private static void testArtifactsMap(int totalElements, boolean customConverter) throws Exception{
+		Converter<ArtifactState, byte[]> converter = null;
+		converter = customConverter ? artifactStateConverter : null;
+		String mapId = "customConverter:" + customConverter;
+		ExternalMemoryMap<ArtifactIdentifier, ArtifactState> artifactsMap = 
+				CommonFunctions.createExternalMemoryMapInstance(mapId, 
+				"10", "0.000001", "10000000", "/tmp/hass",
+				"testdb", "0", 
+				new Hasher<ArtifactIdentifier>(){
+					@Override
+					public String getHash(ArtifactIdentifier t){
+						if(t != null){
+							Map<String, String> annotations = t.getAnnotationsMap();
+							String subtype = t.getSubtype();
+							String stringToHash = String.valueOf(annotations) + "," + String.valueOf(subtype);
+							return DigestUtils.sha256Hex(stringToHash);
+						}else{
+							return DigestUtils.sha256Hex("(null)");
+						}
+					}
+				},
+				converter
+		);
+		
+		double totalPutTimeMillis = 0;
+		for(int i = 0; i < totalElements; i++){
+			ArtifactIdentifier identifier = new FileIdentifier(String.valueOf(i));
+			ArtifactState state = new ArtifactState();
+			state.incrementEpoch();
+			state.updatePermissions("hello");
+			long start = System.currentTimeMillis();
+			artifactsMap.put(identifier, new ArtifactState());
+			totalPutTimeMillis+=(System.currentTimeMillis() - start);
+		}
+		
+		double totalGetTimeMillis = 0;
+		for(int i = 0; i < totalElements; i++){
+			ArtifactIdentifier identifier = new FileIdentifier(String.valueOf(i));
+			long start = System.currentTimeMillis();
+			ArtifactState state = artifactsMap.get(identifier);
+			totalGetTimeMillis+=(System.currentTimeMillis() - start);
+		}
+		
+		//CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(mapId, artifactsMap);
+		
+		System.out.println("Total put time=" + totalPutTimeMillis + " ms");
+		System.out.println("Avg. put time=" + (totalPutTimeMillis/(double)totalElements) + " ms");
+		
+		System.out.println("Total get time=" + totalGetTimeMillis + " ms");
+		System.out.println("Avg. get time=" + (totalGetTimeMillis/(double)totalElements) + " ms");
+	}
+	
+	private static void testArtifactStateConverter() throws Exception{
+		boolean hasBeenPuts [] = {true, false};
+		BigInteger bigInts [] = {null, new BigInteger("261783")};
+		String strs [] = {null, "", "null","random"}; // no commas!!!
+		Set<Set<String>> sets = new HashSet<Set<String>>();
+		sets.add(null);
+		sets.add(new HashSet<String>());
+		Set<String> subset = new HashSet<String>();
+		subset.add(null);subset.add("");subset.add("null");subset.add("random"); // no commas!!!
+		for(int x = 0; x < 10; x++){
+			subset.add(String.valueOf(x));
+		}
+		sets.add(subset);
+		
+		
+		double total = 0, passed = 0, failed = 0;
+		double serializeTimeMillis = 0, deserializeTimeMillis = 0;
+		double javaSerializeTimeMillis = 0, javaDeserializeTimeMillis = 0;
+		double totalBytes = 0;
+		double javaTotalBytes = 0;
+		
+		for(boolean hasBeenPut : hasBeenPuts){
+			for(BigInteger epoch : bigInts){
+				for(BigInteger version : bigInts){
+					for(BigInteger lastEpoch : bigInts){
+						for(BigInteger lastVersion : bigInts){
+							for(String permissions : strs){
+								for(String lastPermissions : strs){
+									for(Set<String> previousPermissions : sets){
+										total++;
+										ArtifactState s1 = new ArtifactState(hasBeenPut, epoch, version, lastEpoch,
+												lastVersion, permissions, lastPermissions, previousPermissions);
+										long start = System.currentTimeMillis();
+										byte[] s1bytes = artifactStateConverter.serialize(s1);
+										serializeTimeMillis += (System.currentTimeMillis() - start);
+										totalBytes+=s1bytes.length;
+										start = System.currentTimeMillis();
+										ArtifactState s2 = artifactStateConverter.deserialize(s1bytes);
+										deserializeTimeMillis += (System.currentTimeMillis() - start);
+										if(!s1.equals(s2)){
+											failed++;
+											System.out.println(s1);
+											System.out.println(s2);
+											System.out.println();
+										}else{
+											passed++;
+										}
+										
+										start = System.currentTimeMillis();
+										s1bytes = javaSerialize(s1);
+										javaSerializeTimeMillis += (System.currentTimeMillis() - start);
+										javaTotalBytes+=s1bytes.length;
+										start = System.currentTimeMillis();
+										s2 = javaDeserialize(s1bytes);
+										javaDeserializeTimeMillis += (System.currentTimeMillis() - start);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		
+		total++;
+		ArtifactState s1 = null;
+		long start = System.currentTimeMillis();
+		byte[] s1bytes = artifactStateConverter.serialize(s1);
+		serializeTimeMillis += (System.currentTimeMillis() - start);
+		start = System.currentTimeMillis();
+		ArtifactState s2 = artifactStateConverter.deserialize(s1bytes);
+		deserializeTimeMillis += (System.currentTimeMillis() - start);
+		if(s1 != s2){
+			failed++;
+		}else{
+			passed++;
+		}
+		
+		start = System.currentTimeMillis();
+		s1bytes = javaSerialize(s1);
+		javaSerializeTimeMillis += (System.currentTimeMillis() - start);
+		start = System.currentTimeMillis();
+		s2 = javaDeserialize(s1bytes);
+		javaDeserializeTimeMillis += (System.currentTimeMillis() - start);
+		
+		System.out.println("Total=" + total + ", passed=" + passed + ", failed=" + failed);
+		System.out.println("[custom] Avg. serialize time=" + (serializeTimeMillis/total) + " ms");
+		System.out.println("[custom] Avg. deserialize time=" + (deserializeTimeMillis/total) + " ms");
+		System.out.println("[custom] Total bytes=" + (totalBytes));
+		System.out.println("[custom] Avg. bytes=" + (totalBytes/total));
+		System.out.println("[ java ] Avg. serialize time=" + (javaSerializeTimeMillis/total) + " ms");
+		System.out.println("[ java ] Avg. deserialize time=" + (javaDeserializeTimeMillis/total) + " ms");
+		System.out.println("[ java ] Total bytes=" + (javaTotalBytes));
+		System.out.println("[ java ] Avg. bytes=" + (javaTotalBytes/total));
+		System.out.println("[ delta] Avg. serialize time=" + ((serializeTimeMillis/total) - (javaSerializeTimeMillis/total)) + " ms");
+		System.out.println("[ delta] Avg. deserialize time=" + ((deserializeTimeMillis/total) - (javaDeserializeTimeMillis/total)) + " ms");
+		System.out.println("[ delta] Total bytes=" + FileUtils.byteCountToDisplaySize((long)(javaTotalBytes - totalBytes)));
+		System.out.println("[ delta] Avg. bytes=" + ((totalBytes/total) - (javaTotalBytes/total)));
+	}
+	
+	private static byte[] javaSerialize(Object o) throws Exception{
+		if(o == null){
+			return null;
+		}else{
+			ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
+			ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteOutputStream);
+			objectOutputStream.writeObject(o);
+			objectOutputStream.flush();
+			return byteOutputStream.toByteArray();
+		}
+	}
+	
+	private static ArtifactState javaDeserialize(byte[] valueBytes) throws Exception{
+		if(valueBytes == null){
+			return null;
+		}else{
+			ByteArrayInputStream byteInputStream = new ByteArrayInputStream(valueBytes);
+			ObjectInputStream objectInputStream = new ObjectInputStream(byteInputStream);
+			return (ArtifactState)objectInputStream.readObject();
+		}
+	}
+	
+	private static final Converter<ArtifactState, byte[]> artifactStateConverter = 
+			new Converter<ArtifactState, byte[]>(){
+				private final String nullStr = "null";
+				@Override
+				public byte[] serialize(ArtifactState i) throws Exception{
+					if(i != null){
+						String str = "";
+						str += formatBoolean(i.hasBeenPut()) + ",";
+						str += formatBigInteger(i.getEpoch()) + ",";
+						str += formatBigInteger(i.getVersion()) + ",";
+						str += formatBigInteger(i.getLastPutEpoch()) + ",";
+						str += formatBigInteger(i.getLastPutVersion()) + ",";
+						str += formatString(i.getPermissions()) + ",";
+						str += formatString(i.getLastPutPermissions()) + ",";
+						str += formatStringSet(i.getPreviousPutPermissions());
+						return str.getBytes();
+					}else{
+						return null;
+					}
+				}
+				@Override
+				public byte[] serializeObject(Object o) throws Exception{
+					return serialize((ArtifactState)o);
+				}
+				private int readUntil(String str, char delimiter, int offset, StringBuffer result){
+					for(int i = offset; i < str.length(); i++){
+						char c = str.charAt(i);
+						if(c == delimiter){
+							return i + 1;
+						}else{
+							result.append(c);
+						}
+					}
+					return -1;
+				}
+				private String formatStringSet(Set<String> set){
+					if(set == null){
+						return nullStr;
+					}else{
+						String str = "[";
+						for(String s : set){
+							str += formatString(s) + ",";
+						}
+						str += "]";
+						return str;
+					}
+				}
+				private Set<String> parseStringSet(String buffer){
+					if(buffer.equals(nullStr)){
+						return null;
+					}else{
+						buffer = buffer.substring(1, buffer.length());
+						Set<String> set = new HashSet<String>();
+						StringBuffer str = new StringBuffer();
+						int offset = readUntil(buffer, ',', 0, str);
+						while(offset < buffer.length() && offset > -1){
+							String v = parseString(str.toString());
+							set.add(v);
+							str.setLength(0);
+							offset = readUntil(buffer, ',', offset, str);
+						}
+						return set;
+					}
+				}
+				private String formatBigInteger(BigInteger bigInt){
+					if(bigInt == null){
+						return nullStr;
+					}else{
+						return bigInt.toString();
+					}
+				}
+				private BigInteger parseBigInteger(String buffer){
+					if(buffer.equals(nullStr)){
+						return null;
+					}else{
+						return new BigInteger(buffer);
+					}
+				}
+				private String formatBoolean(boolean value){
+					return value ? "1" : "0";
+				}
+				private boolean parseBoolean(String buffer){
+					return buffer.equals("1");
+				}
+				private String formatString(String buffer){
+					if(buffer == null){
+						return nullStr;
+					}else{
+						return "'" + buffer + "'";
+					}
+				}
+				private String parseString(String buffer){
+					if(buffer.equals(nullStr)){
+						return null;
+					}else{
+						return buffer.substring(1, buffer.length() - 1);
+					}
+				}
+				@Override
+				public ArtifactState deserialize(byte[] j) throws Exception{
+					if(j == null){
+						return null;
+					}else{
+						String str = new String(j);
+						int offset = 0;
+						StringBuffer parsed = new StringBuffer();
+
+						offset = readUntil(str, ',', offset, parsed);
+						boolean hasBeenPut = parseBoolean(parsed.toString());
+						
+						parsed.setLength(0);
+						
+						offset = readUntil(str, ',', offset, parsed);
+						BigInteger epoch = parseBigInteger(parsed.toString());
+						
+						parsed.setLength(0);
+						
+						offset = readUntil(str, ',', offset, parsed);
+						BigInteger version = parseBigInteger(parsed.toString());
+						
+						parsed.setLength(0);
+						
+						offset = readUntil(str, ',', offset, parsed);
+						BigInteger lastPutEpoch = parseBigInteger(parsed.toString());
+						
+						parsed.setLength(0);
+						
+						offset = readUntil(str, ',', offset, parsed);
+						BigInteger lastPutVersion = parseBigInteger(parsed.toString());
+						
+						parsed.setLength(0);
+						
+						offset = readUntil(str, ',', offset, parsed);
+						String permissions = parseString(parsed.toString());
+						
+						parsed.setLength(0);
+						
+						offset = readUntil(str, ',', offset, parsed);
+						String lastPutPermissions = parseString(parsed.toString());
+						
+						parsed.setLength(0);
+						
+						parsed.append(str.substring(offset));
+						Set<String> previousPutPermissions = parseStringSet(parsed.toString());
+						
+						return new ArtifactState(hasBeenPut, epoch, version, lastPutEpoch, 
+								lastPutVersion, permissions, lastPutPermissions, previousPutPermissions);
+					}
+				}
+				@Override
+				public ArtifactState deserializeObject(Object o) throws Exception{
+					return deserialize((byte[])o);
+				}
+			};
+	
 	private final Audit reporter;
 	
 	private final Map<Class<? extends ArtifactIdentifier>, ArtifactConfig> artifactConfigs;
@@ -75,7 +417,8 @@ public class ArtifactManager{
 								return DigestUtils.sha256Hex("(null)");
 							}
 						}
-					}
+					},
+					artifactStateConverter
 			);
 		}else{
 			artifactsMap = null;

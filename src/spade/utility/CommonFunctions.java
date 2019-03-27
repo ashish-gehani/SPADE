@@ -262,7 +262,7 @@ public class CommonFunctions {
     public static <X, Y extends Serializable> ExternalMemoryMap<X, Y> createExternalMemoryMapInstance(String id,
     		String cacheSizeValue, String bloomfilterFalsePositiveProbValue, String bloomfilterExpectedElementsCountValue,
     		String parentDBDirPathValue, String dbDirAndNameValue, String reportingIntervalSecondsValue,
-    		Hasher<X> hasher) throws Exception{
+    		Hasher<X> hasher, Converter<Y, byte[]> converter) throws Exception{
 
     	String exceptionPrefix = id + ": ExternalMemoryMap creation: ";
 
@@ -361,7 +361,7 @@ public class CommonFunctions {
     	}
 
     	try{
-    		ExternalStore<Y> db = new BerkeleyDB<Y>(dbPath, dbDirAndNameValue);
+    		ExternalStore<Y> db = new BerkeleyDB<Y>(dbPath, dbDirAndNameValue, converter);
     		ExternalMemoryMap<X, Y> map = new ExternalMemoryMap<X, Y>(
     				id, cacheSize, db, falsePositiveProb, expectedNumberOfElements);
     		if(reporterInterval != null){
@@ -388,6 +388,13 @@ public class CommonFunctions {
     		}
     		throw new Exception(exceptionPrefix + "Exception: " + e.getMessage());
     	}
+    }
+    
+    public static <X, Y extends Serializable> ExternalMemoryMap<X, Y> createExternalMemoryMapInstance(String id,
+    		String cacheSizeValue, String bloomfilterFalsePositiveProbValue, String bloomfilterExpectedElementsCountValue,
+    		String parentDBDirPathValue, String dbDirAndNameValue, String reportingIntervalSecondsValue,
+    		Hasher<X> hasher) throws Exception{
+    	return createExternalMemoryMapInstance(id, cacheSizeValue, bloomfilterFalsePositiveProbValue, bloomfilterExpectedElementsCountValue, parentDBDirPathValue, dbDirAndNameValue, reportingIntervalSecondsValue, hasher, null);
     }
     
     public static List<String> mapToLines(Map<String, String> map, String keyValueSeparator){
