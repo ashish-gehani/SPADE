@@ -37,9 +37,18 @@ print_help ()
 	echo "'spade help' : Prints this message"
 }
 
-SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
-CLASSPATH="$SPADE_ROOT/build:$SPADE_ROOT/lib/*:$SPADE_ROOT/lib/neo4j-community-3.4.4/lib/*"
-JAVALIBPATH="$SPADE_ROOT/lib/"
+if [[ `uname` == *"CYGWIN"* ]]
+then
+	SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
+	SPADE_ROOT=`cygpath -w $SPADE_ROOT`
+	CLASSPATH="$SPADE_ROOT\\build;$SPADE_ROOT\\lib\\*;$SPADE_ROOT\\lib\\neo4j-community-3.4.4\\lib\\*"
+	JAVALIBPATH="$SPADE_ROOT\\lib\\"
+else
+	SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
+	CLASSPATH="$SPADE_ROOT/build:$SPADE_ROOT/lib/*:$SPADE_ROOT/lib/neo4j-community-3.4.4/lib/*"
+	JAVALIBPATH="$SPADE_ROOT/lib/"	
+fi
+
 JVMARGS="-server -Xms8G -Xmx16G"
 JVMARGSDEBUG="-server -Xms8G -Xmx16G -XX:+UseConcMarkSweepGC"
 
@@ -108,6 +117,7 @@ else
 					else
 						echo $failureMsg
 					fi
+					rm "$spadePidFilePath"
 				else
 					echo "SPADE is not running, but PID file exists"
 				fi
