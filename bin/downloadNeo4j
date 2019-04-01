@@ -10,4 +10,9 @@ then
   curl -o lib/neo4j-community-3.4.4.tar.gz "https://neo4j.com/artifact.php?name=neo4j-community-3.4.4-unix.tar.gz"
   tar -xf lib/neo4j-community-3.4.4.tar.gz -C lib/
   rm lib/neo4j-community-3.4.4.tar.gz
+elif [[ $OS_NAME == *"CYGWIN"* ]]
+then
+  wget -O lib/neo4j-community-3.4.4.tar.gz "https://neo4j.com/artifact.php?name=neo4j-community-3.4.4-unix.tar.gz"
+  tar -xf lib/neo4j-community-3.4.4.tar.gz -C lib/
+  rm lib/neo4j-community-3.4.4.tar.gz
 fi
