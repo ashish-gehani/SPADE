@@ -37,12 +37,15 @@ print_help ()
 	echo "'spade help' : Prints this message"
 }
 
+CYGWIN_JVM_JLINE_ARGS=
+
 if [[ `uname` == *"CYGWIN"* ]]
 then
 	SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
 	SPADE_ROOT=`cygpath -w $SPADE_ROOT`
 	CLASSPATH="$SPADE_ROOT\\build;$SPADE_ROOT\\lib\\*;$SPADE_ROOT\\lib\\neo4j-community-3.4.4\\lib\\*"
 	JAVALIBPATH="$SPADE_ROOT\\lib\\"
+	CYGWIN_JVM_JLINE_ARGS="-Djline.terminal=jline.UnixTerminal"
 else
 	SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
 	CLASSPATH="$SPADE_ROOT/build:$SPADE_ROOT/lib/*:$SPADE_ROOT/lib/neo4j-community-3.4.4/lib/*"
@@ -61,9 +64,9 @@ else
 	if [ $1 = "java-start" ] || [ $1 = "java-stop" ] || [ $1 = "java-kill" ] ; then
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.utility.Daemonizer "$@"
 	elif [ $1 = "query" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" spade.client.CommandLine
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $CYGWIN_JVM_JLINE_ARGS spade.client.CommandLine
 	elif [ $1 = "control" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" spade.client.Control
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $CYGWIN_JVM_JLINE_ARGS spade.client.Control
 	elif [ $1 = "debug" ] ; then
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGSDEBUG spade.core.Kernel
 	elif [ $1 = "start" ]  || [ $1 = "remote-debug" ] ; then
