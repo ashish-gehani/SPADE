@@ -2617,8 +2617,8 @@ test -n "$JAVAC" || JAVAC=":"
 if test "$JAVAC" = :; then
    as_fn_error $? "This package needs JDK installed and available in your path. You can get it from http://www.oracle.com/technetwork/java/javase/downloads/index.html" "$LINENO" 5
 fi
-if test "`$JAVAC -version 2>&1 | grep '1.8\|1.9\|10.0'`" = ""; then
-  as_fn_error $? "The java compiler version must be 1.8 or 1.9 or 10.0" "$LINENO" 5
+if test "`$JAVAC -version 2>&1 | grep '1.8\|1.9\|10.0\|11.0\|12'`" = ""; then
+  as_fn_error $? "The java compiler version must be 1.8, 1.9, 10.0, 11.0 or 12" "$LINENO" 5
 fi
 
 for ac_prog in jar

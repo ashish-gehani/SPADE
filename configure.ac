@@ -15,8 +15,8 @@ AC_CHECK_PROGS([JAVAC], [javac], [:])
 if test "$JAVAC" = :; then
    AC_MSG_ERROR([This package needs JDK installed and available in your path. You can get it from http://www.oracle.com/technetwork/java/javase/downloads/index.html])
 fi
-if test "`$JAVAC -version 2>&1 | grep '1.8\|1.9\|10.0'`" = ""; then
-  AC_MSG_ERROR([The java compiler version must be 1.8 or 1.9 or 10.0])
+if test "`$JAVAC -version 2>&1 | grep '1.8\|1.9\|10.0\|11.0\|12'`" = ""; then
+  AC_MSG_ERROR([The java compiler version must be 1.8, 1.9, 10.0, 11.0 or 12])
 fi
 
 AC_CHECK_PROGS([JAR], [jar], [:])
