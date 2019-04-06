@@ -117,10 +117,10 @@ else
 					killResult=$?
 					if [ "$killResult" -eq 0 ] ; then
 						echo $successMsg
+						rm -f "$spadePidFilePath"
 					else
 						echo $failureMsg
 					fi
-					rm "$spadePidFilePath"
 				else
 					echo "SPADE is not running, but PID file exists"
 				fi

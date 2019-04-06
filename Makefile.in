@@ -24,6 +24,7 @@ LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
  
 OS_NAME = $(shell uname)
 OS_ARCH = $(shell uname -m)
+OS_KERNEL_RELEASE = $(shell uname -r)
 ifeq ($(OS_NAME), Darwin)
 	OS_BUILD = build-openbsm
 	NO_FUSE = $(shell pkg-config fuse; echo $$?)
@@ -45,12 +46,11 @@ ifeq ($(OS_NAME), Linux)
 	LLVM_RULE = build-linux-llvm
 endif
 ifneq (, $(findstring CYGWIN, $(OS_NAME)))
-	OS_BUILD = build/spade/reporter/ProcMon.class
 	JAVAC_CP = build;lib\*;lib\neo4j-community-3.4.4\lib\*
 endif
  
 # -------- Default Build Configuration -----
-REPORTERS = Graphviz DSL Network LLVM Facebook Bitcoin StraceLinux JSON CDM CamFlow
+REPORTERS = Graphviz DSL Network LLVM Facebook Bitcoin StraceLinux JSON CDM CamFlow ProcMon
 # -------------------------------------------
  
 .PHONY: build prepare-dirs core reporters filters query analyzers clients utilities storages android-build
@@ -136,7 +136,11 @@ bin/spadeAuditBridge: src/spade/reporter/spadeAuditBridge.c
 bin/deleteModule: src/spade/reporter/audit/deleteModule.c
 	gcc -o bin/deleteModule src/spade/reporter/audit/deleteModule.c
 audit-kernel-module:
-	$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE)
+	@if [ "$(findstring Microsoft, $(OS_KERNEL_RELEASE))" = "" ]; then \
+		$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE); \
+	else \
+		echo 'Skipped kernel modules. OS Kernel not supported'; \
+	fi
 
 # Build the LinuxFUSE reporter.
 build-linuxfuse: src/spade/reporter/spade_reporter_LinuxFUSE.h lib/libLinuxFUSE.so
