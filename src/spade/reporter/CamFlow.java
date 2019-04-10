@@ -85,8 +85,8 @@ public class CamFlow extends AbstractReporter {
 			JSON_KEY_TO = "to",
 			JSON_KEY_ANNOTATIONS = "annotations",
 			JSON_KEY_TYPE = "type";
-	
-	@LoadableField(name=ARGUMENT_NAME_INPUTLOG, optional=false, mustBeDirectory=false)
+
+	//@LoadableField(name=ARGUMENT_NAME_INPUTLOG, optional=false, mustBeDirectory=false)
 	private File inputLog;
 	@LoadableField(name=ARGUMENT_NAME_WAITFORLOG, optional=false)
 	private Boolean waitForLog;
@@ -217,7 +217,7 @@ public class CamFlow extends AbstractReporter {
 			logger.log(Level.SEVERE, "Failed to build globals map", e);
 			return false;
 		}
-		
+		String inputLogPath = globalsMap.remove("inputLog");
 		try{
 			LoadableFieldHelper.loadAllLoadableFieldsFromMap(this, globalsMap);
 		}catch(Exception e){
@@ -225,6 +225,22 @@ public class CamFlow extends AbstractReporter {
 			return false;
 		}
 		
+		if(inputLogPath == null){
+			logger.log(Level.SEVERE, "Null 'inputLog' argument");
+			return false;
+		}
+
+		inputLog = new File(inputLogPath);
+		if(!inputLog.exists()){
+			logger.log(Level.SEVERE, "'inputLog' does not exist: '"+inputLogPath+"'");
+			return false;
+		}
+
+		if(inputLog.isDirectory()){
+			logger.log(Level.SEVERE, "'inputLog' can only be a file or a named pipe: '"+inputLogPath+"'");
+			return false;
+		}
+
 		if(!camflowDuplicate){
 			logger.log(Level.SEVERE, "Only 'true' supported for argument '"+ARGUMENT_NAME_CAMFLOW_DEDUPLICATE+"' as of now");
 			return false;
@@ -249,7 +265,7 @@ public class CamFlow extends AbstractReporter {
 			String inputLogPath = null;
 			try{
 				inputLogPath = inputLog.getAbsolutePath();
-				if(FileUtility.isFileReadable(inputLogPath)){
+				//if(FileUtility.isFileReadable(inputLogPath)){
 					try{
 						this.reader = new JsonObjectReaderSingleLine(inputLogPath);
 						try{
@@ -264,10 +280,10 @@ public class CamFlow extends AbstractReporter {
 						logger.log(Level.SEVERE, "Failed to create json reader: " + inputLogPath, t);
 						return false;
 					}
-				}else{
-					logger.log(Level.SEVERE, "File not readable: " + inputLogPath);
-					return false;
-				}
+				//}else{
+				//	logger.log(Level.SEVERE, "File not readable: " + inputLogPath);
+				//	return false;
+				//}
 			}catch(Throwable t){
 				logger.log(Level.SEVERE, "File error: " + inputLogPath, t);
 				return false;
