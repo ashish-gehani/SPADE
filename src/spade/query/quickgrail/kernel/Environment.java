@@ -47,8 +47,7 @@ public class Environment extends TreeStringSerializable {
     this.symbols = new HashMap<String, String>();
 
     // Initialize the symbols table if it does not exist.
-    String probeOutput = qs.executeQuery("SELECT COUNT(*) FROM symbols;");
-    if (probeOutput == null || probeOutput.contains("ERROR")) {
+    if (!QuickstepUtil.GetAllTableNames(qs).contains("symbols")) {
       qs.executeQuery("CREATE TABLE symbols (name VARCHAR(128), value VARCHAR(128));");
     }
 
