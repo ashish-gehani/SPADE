@@ -457,6 +457,7 @@ asmlinkage long new_kill(pid_t pid, int sig){
 	if(stop == 0){
 		if(usingKey == 1){
 			int checkPid;
+			int tgid;
 			if(pid < -1){
 				checkPid = pid * -1;
 			}else if(pid == 0){
@@ -466,7 +467,7 @@ asmlinkage long new_kill(pid_t pid, int sig){
 			}else{
 				checkPid = pid;
 			}
-			int tgid = get_tgid(checkPid);
+			tgid = get_tgid(checkPid);
 			if(exists_in_array(tgid, harden_tgids, harden_tgids_len) == 1){
 				// don't kill
 				return -1;
