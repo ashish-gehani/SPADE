@@ -3500,11 +3500,43 @@ public class Audit extends AbstractReporter {
 		// - SYSCALL
 		// - EOE
 
+		/*
+		 * a0   = pid 
+		 * 0    - targetPid = caller pid
+		 * -1   - to all processes to which the called pid can send the signal to
+		 * -pid - send to pid and the group of the pid
+		 */
+		
 		// Only handling successful ones
 		if("0".equals(eventData.get(AuditEventReader.EXIT))){
-			String targetPid = eventData.get(AuditEventReader.ARG0);
-			Process targetProcess = processManager.getVertex(targetPid);
+			String time = eventData.get(AuditEventReader.TIME);
+			String eventId = eventData.get(AuditEventReader.EVENT_ID);
+
+			String targetPidStr = eventData.get(AuditEventReader.ARG0);
 			
+			Process targetProcess = null;
+			try{
+				int targetPidInt = Integer.parseInt(targetPidStr);
+				if(targetPidInt < -1){
+					targetPidInt = targetPidInt * -1;
+					targetPidStr = String.valueOf(targetPidInt);
+					targetProcess = processManager.getVertex(targetPidStr);
+				}else if(targetPidInt == 0){
+					String pid = eventData.get(AuditEventReader.PID);
+					targetPidStr = pid;
+					targetProcess = processManager.getVertex(targetPidStr);
+				}else if(targetPidInt == -1){
+					// Unhandled TODO
+					// Let targetProcess stay null and it won't be sent to OPM
+					logger.log(Level.INFO, "'-1' target pid");
+				}else{
+					// Regular non-negative and non-zero pid
+					targetProcess = processManager.getVertex(targetPidStr);
+				}
+			}catch(Exception e){
+				log(Level.WARNING, "Invalid target pid(a0): " + targetPidStr, null, time, eventId, syscall);
+			}
+
 			// If the target process hasn't been seen yet then can't draw an edge because don't 
 			// have enough annotations for the target process.
 			if(targetProcess != null){
@@ -3516,8 +3548,6 @@ public class Audit extends AbstractReporter {
 					if(signalAnnotation != null){
 						Process actingProcess = processManager.handleProcessFromSyscall(eventData);
 						
-						String time = eventData.get(AuditEventReader.TIME);
-						String eventId = eventData.get(AuditEventReader.EVENT_ID);
 						String operation = getOperation(syscall);
 						
 						WasTriggeredBy edge = new WasTriggeredBy(targetProcess, actingProcess);

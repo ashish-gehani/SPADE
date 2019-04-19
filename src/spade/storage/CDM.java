@@ -160,7 +160,10 @@ public class CDM extends Kafka {
 	
 	private boolean useSsl = true;
 	private String securityProtocol, trustStoreLocation, trustStorePassword, keyStoreLocation, keyStorePassword, keyPassword;
-	
+
+	private Long reportingIntervalMillis = null;
+	private long lastReportedMillis = 0;
+
 	/**
 	 * Rules from OPM edges types and operations to event types in CDM
 	 */
@@ -912,6 +915,22 @@ public class CDM extends Kafka {
 		return properties;
 	}
 
+
+	public boolean setReportingIntervalSeconds(Map<String, String> map){
+		String reportingIntervalSecondsKey = "reportingIntervalSeconds";
+		String reportingIntervalSeconds = map.get(reportingIntervalSecondsKey);
+		if(reportingIntervalSeconds != null){
+			try{
+				int seconds = Integer.parseInt(reportingIntervalSeconds);
+				reportingIntervalMillis = new Long(seconds * 1000);
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Invalid '"+reportingIntervalSecondsKey+"' value: '"+reportingIntervalSeconds+"'");
+				return false;
+			}
+		}
+		return true;
+	}
+
 	@Override
 	public boolean initialize(String arguments){
 		Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
@@ -927,7 +946,7 @@ public class CDM extends Kafka {
 				return false;
 			}
 		}
-		
+
 		String cdmOutFilePath = Settings.getDefaultOutputFilePath(this.getClass());
 		Map<String, String> cdmOutFileKeyValues = null;
 		try{
@@ -1002,11 +1021,28 @@ public class CDM extends Kafka {
 			}
 		}
 		
+		String configFile = Settings.getDefaultConfigFilePath(this.getClass());
+		Map<String, String> configMap = null;
+		try{
+			configMap = FileUtility.readConfigFileAsKeyValueMap(configFile, "=");
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to read config file: " + configFile);
+			return false;
+		}
+		
+		// Check in the config file first and then overwrite with the one in arguments
+		if(!setReportingIntervalSeconds(configMap)){
+			return false;
+		}
+		
+		// Check in the arguments
+		if(!setReportingIntervalSeconds(argumentsMap)){
+			return false;
+		}
+		
 		// Only do the following checks in case of server
 		if(useSsl && writeDataToServer(argumentsMap)){
-			String configFile = Settings.getDefaultConfigFilePath(this.getClass());
 			try{
-				Map<String, String> configMap = FileUtility.readConfigFileAsKeyValueMap(configFile, "=");
 				securityProtocol = configMap.get("SecurityProtocol");
 				trustStoreLocation = configMap.get("TrustStoreLocation");
 				trustStorePassword = configMap.get("TrustStorePassword");
@@ -1137,6 +1173,23 @@ public class CDM extends Kafka {
 		}
 	}
 
+	private void printStats(boolean force){
+		boolean log = false;
+		if(reportingIntervalMillis != null){
+			long currentTimeMillis = System.currentTimeMillis();
+			if(currentTimeMillis - lastReportedMillis >= reportingIntervalMillis){
+				lastReportedMillis = currentTimeMillis;
+				log = true;
+			}
+		}
+		if(force){
+			log = true;
+		}
+		if(log){
+			logger.log(Level.INFO, "CDM Record Counts: " + stats);
+		}
+	}
+	
 	/**
 	 * Relies on the deduplication functionality in the Audit reporter.
 	 * Doesn't do any deduplication itself.
@@ -1146,6 +1199,7 @@ public class CDM extends Kafka {
 	 */
 	@Override
 	public boolean putVertex(AbstractVertex incomingVertex) {
+		printStats(false);
 		currentVerticesAndEdges.add(incomingVertex);
 		return true;
 	}
@@ -1187,7 +1241,7 @@ public class CDM extends Kafka {
 	 */
 	@Override
 	public boolean putEdge(AbstractEdge edge){
-
+		printStats(false);
 		// ASSUMPTION that all edges for the same event are contiguously sent (Audit follows this)
 
 		try{
@@ -1410,6 +1464,8 @@ public class CDM extends Kafka {
 
 			publishEndStreamAndTimeMarkerObjects();
 
+			printStats(true);
+			
 			return super.shutdown();
 		} catch (Exception exception) {
 			logger.log(Level.SEVERE, null, exception);
