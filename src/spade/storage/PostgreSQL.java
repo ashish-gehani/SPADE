@@ -55,7 +55,7 @@ public class PostgreSQL extends SQL
 {
     // Performance tuning note: Set this to higher value (e.g. 100000) to commit less often to db - This increases ingestion rate.
     // Downside: Any external (non atomic) quering to database won't report non-committed data.
-    private final int GLOBAL_TX_SIZE = 1000;
+    private int GLOBAL_TX_SIZE = 1000;
     // Performance tuning note: This is time in sec that storage is flushed. Increase this to increase throughput / ingestion rate.
     // Downside: Any external (non atomic) quering to database won't report non-committed data.
     private int globalTxCount = 0;
@@ -63,7 +63,7 @@ public class PostgreSQL extends SQL
     private Date lastFlushTime;
     private long edgeBatches = 0;
     private long vertexBatches = 0;
-    private boolean bulkUpload = false;
+    private boolean bulkUpload = true;
     private boolean setPrimaryKey = false;
     private boolean buildSecondaryIndexes = false;
     private List<Map<String, String>> edgeList = new ArrayList<>();
@@ -93,6 +93,7 @@ public class PostgreSQL extends SQL
         bulkUpload = Boolean.parseBoolean(databaseConfigs.getProperty("bulkUpload", String.valueOf(bulkUpload)));
         reportingEnabled = Boolean.parseBoolean(databaseConfigs.getProperty("reportingEnabled",
                 String.valueOf(reportingEnabled)));
+	GLOBAL_TX_SIZE = Integer.parseInt(databaseConfigs.getProperty("globalTxSize", String.valueOf(GLOBAL_TX_SIZE)));
         if(reportingEnabled)
         {
             reportingInterval = 120;
