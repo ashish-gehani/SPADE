@@ -57,6 +57,7 @@ char dirTimeBuf[256];
 time_t dirTime = 0;
 char mergeUnitStr[256];
 int mergeUnit = 0;
+int max_pid = -1;
 
 // UBSI Unit analysis
 #include <assert.h>
@@ -551,7 +552,7 @@ void dir_read()
 }
 
 int main(int argc, char *argv[]) {
-		int max_pid, i;
+		int i;
 		char *programName = argv[0];
 		int audispdSocketDescriptor = -1, charactersRead, bytesReceived;
 		char buffer[BUFFER_LENGTH];
@@ -1383,26 +1384,46 @@ void non_UBSI_event(long tid, int sysno, bool succ, long a0, long a1, long a2, c
 						thread_create_time[tid].seconds = thread_create_time[tid].milliseconds = 0;
 				}
 		} else if(succ == true && sysno == 62) {
+			    int isA0Valid = 1;
+				if(a0 < -1){
+					a0 = a0 * -1;
+					isA0Valid = 1;
+				}else if(a0 == 0){
+					a0 = tid;		
+					isA0Valid = 1;				
+				}else if(a0 == -1){
+					// Unhandled
+					isA0Valid = 0;
+				}else{
+					// Use as is
+					if(a0 < max_pid){
+						isA0Valid = 1;
+					}else{
+						isA0Valid = 0;
+					}
+				}
+				if(isA0Valid == 1){
 
-				// clear target process' memory if kill syscall with SIGINT or SIGKILL or SIGTERM
-				// It might cause false negative if the taget process has custom signal hander for SIGTERM or SIGINT
-				if(a1 == SIGINT || a1 == SIGKILL || a1 == SIGTERM) { 
-						unit_table_t *target_ut;
-						thread_t target_thread;
-						target_thread.tid = a0;
-						target_thread.thread_time.seconds = thread_create_time[a0].seconds;
-						target_thread.thread_time.milliseconds = thread_create_time[a0].milliseconds;
+					// clear target process' memory if kill syscall with SIGINT or SIGKILL or SIGTERM
+					// It might cause false negative if the taget process has custom signal hander for SIGTERM or SIGINT
+					if(a1 == SIGINT || a1 == SIGKILL || a1 == SIGTERM) { 
+							unit_table_t *target_ut;
+							thread_t target_thread;
+							target_thread.tid = a0;
+							target_thread.thread_time.seconds = thread_create_time[a0].seconds;
+							target_thread.thread_time.milliseconds = thread_create_time[a0].milliseconds;
 
-						HASH_FIND(hh, unit_table, &target_thread, sizeof(thread_t), target_ut);
-						if(target_ut == NULL) return;
-						if(a1 < MAX_SIGNO) {
-								if(target_ut->signal_handler[a1] == true) return; // If the target process has signal handler, ignore the signal.
-						}
+							HASH_FIND(hh, unit_table, &target_thread, sizeof(thread_t), target_ut);
+							if(target_ut == NULL) return;
+							if(a1 < MAX_SIGNO) {
+									if(target_ut->signal_handler[a1] == true) return; // If the target process has signal handler, ignore the signal.
+							}
 
-						thread_group_leader_t *target_tgl;
-						HASH_FIND(hh, thread_group_leader_hash, &(target_thread), sizeof(thread_t), target_tgl);
-						if(target_tgl == NULL) proc_end(target_ut);
-						else proc_group_end(target_ut);
+							thread_group_leader_t *target_tgl;
+							HASH_FIND(hh, thread_group_leader_hash, &(target_thread), sizeof(thread_t), target_tgl);
+							if(target_tgl == NULL) proc_end(target_ut);
+							else proc_group_end(target_ut);
+					}
 				}
 		} else if(succ == true && sysno == 13) {  // SYS_rt_sigaction. If the thread has signal handlers, signals will not kill it.
 				if(a0 < MAX_SIGNO) {
@@ -1417,7 +1438,7 @@ bool get_succ(char *buf, int sysno)
 		char succ[16];
 		int i=0;
 
-// Syscall exit(60) and exit_group(231) do not return, thus do not have "success" field. They always succeed.
+		// Syscall exit(60) and exit_group(231) do not return, thus do not have "success" field. They always succeed.
 		if(sysno == 60 || sysno == 231) return true; 
 
 		ptr = strstr(buf, " success=");
