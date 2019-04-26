@@ -554,14 +554,20 @@ public class CDM extends AbstractReporter{
 				fd0Key = "fd0";
 				fd1Key = "fd1";
 				break;
+			case IPC_OBJECT_PIPE_NAMED:
+				break;
 			default:
 				logger.log(Level.WARNING, "Unexpected IpcObject type '"+type+"' for object: " + ipcObject);
 				return;
 		}
 		
-		addAnnotationIfNotNull(vertex, fd0Key, ipcObject.getFd1());
-		addAnnotationIfNotNull(vertex, fd1Key, ipcObject.getFd2());
-		
+		if(fd0Key != null){
+			addAnnotationIfNotNull(vertex, fd0Key, ipcObject.getFd1());
+		}
+		if(fd1Key != null){
+			addAnnotationIfNotNull(vertex, fd1Key, ipcObject.getFd2());
+		}
+			
 		addAnnotationsIfNotNull(vertex, baseObject);
 		
 		putVertex(vertex, uuid, null, type, source);
