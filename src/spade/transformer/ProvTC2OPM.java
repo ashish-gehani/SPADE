@@ -32,11 +32,10 @@ import java.util.logging.Logger;
 
 public class ProvTC2OPM extends Prov2OPM
 {
-	
 	private static final Logger logger = Logger.getLogger(ProvTC2OPM.class.getName());
-	
+
 	private Map<String, String> provTC2OpmMapping = null;
-	
+
 	public boolean initialize(String arguments)
 	{
 		String filepath = Settings.getDefaultConfigFilePath(this.getClass());
@@ -56,9 +55,9 @@ public class ProvTC2OPM extends Prov2OPM
 	{
 		graph = super.putGraph(graph, queryMetaData);
 		graph.commitIndex();
-		
+
 		Graph resultGraph = new Graph();
-		
+
 		for(AbstractEdge edge : graph.edgeSet())
 		{
 			if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null)
@@ -72,10 +71,10 @@ public class ProvTC2OPM extends Prov2OPM
 				resultGraph.putEdge(newEdge);
 			}
 		}
-		
+
 		return resultGraph;
 	}
-	
+
 	private void replaceAnnotations(Map<String, String> annotations, Map<String, String> newMapping)
 	{
 		for(String annotation : annotations.keySet())

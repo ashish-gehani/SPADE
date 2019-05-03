@@ -68,41 +68,55 @@ public class FileUtility{
 		}
 		return Pattern.compile(regex);
 	}
-	
+
 	public static Map<String, String> readOPM2ProvTCFile(String filepath) throws Exception{
 		Map<String, String> map = new HashMap<String, String>();
 		List<String> lines = FileUtility.readLines(filepath);
+		int lineNumber = 0;
 		for(String line : lines){
+			lineNumber++;
 			line = line.trim();
-			if(!line.isEmpty()){
+			if(!line.isEmpty() && !line.startsWith("#")){
 				String tokens[] = line.split("=>");
 				if(tokens.length == 2){
 					String from = tokens[0].trim();
 					String to = tokens[1].trim();
+					if(map.containsKey(from)){
+						throw new Exception("Duplicate key '"+from+"' at line (#"+lineNumber+"): '" + line + "'");
+					}
 					map.put(from, to);
+				}else{
+					throw new Exception("Unexpected line (#"+lineNumber+"): '"+line+"'");
 				}
 			}
-		}		
+		}
 		return map;
 	}
-	
+
 	public static Map<String, String> readOPM2ProvTCFileReversed(String filepath) throws Exception{
 		Map<String, String> map = new HashMap<String, String>();
 		List<String> lines = FileUtility.readLines(filepath);
+		int lineNumber = 0;
 		for(String line : lines){
+			lineNumber++;
 			line = line.trim();
-			if(!line.isEmpty()){
+			if(!line.isEmpty() && !line.startsWith("#")){
 				String tokens[] = line.split("=>");
 				if(tokens.length == 2){
 					String from = tokens[1].trim();
 					String to = tokens[0].trim();
+					if(map.containsKey(from)){
+						throw new Exception("Duplicate key '"+from+"' at line (#"+lineNumber+"): '" + line + "'");
+					}
 					map.put(from, to);
+				}else{
+					throw new Exception("Unexpected line (#"+lineNumber+"): '"+line+"'");
 				}
 			}
-		}		
+		}
 		return map;
 	}
-	
+
 	public static Map<String, String> readConfigFileAsKeyValueMap(String filepath, String keyValueSeparator) throws Exception{
 		Map<String, String> map = new HashMap<String, String>();
 		List<String> lines = FileUtility.readLines(filepath);
@@ -116,25 +130,25 @@ public class FileUtility{
 					map.put(from, to);
 				}
 			}
-		}		
+		}
 		return map;
 	}
-	
+
 	/**
 	 * Returns file system path.
 	 */
 	private static File getFile(String path) throws Exception{
 		return new File(path);
 	}
-	
+
 	/**
-	 * Must be valid file system path. 
+	 * Must be valid file system path.
 	 */
 	public static boolean isPathValid(String path) throws Exception{
 		getFile(path);
 		return true;
 	}
-	
+
 	/**
 	 * Path must be valid. True if exists else false. Otherwise exception.
 	 */

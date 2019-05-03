@@ -32,11 +32,11 @@ import java.util.logging.Logger;
 
 public class OPM2ProvTC extends OPM2Prov
 {
-	
+
 	private static final Logger logger = Logger.getLogger(OPM2ProvTC.class.getName());
-	
+
 	private Map<String, String> opm2ProvTCMapping = null;
-	
+
 	public boolean initialize(String arguments)
 	{
 		String filepath = Settings.getDefaultConfigFilePath(this.getClass());
@@ -48,8 +48,7 @@ public class OPM2ProvTC extends OPM2Prov
 		catch(Exception e)
 		{
 			logger.log(Level.SEVERE, "Failed to read the file: " + filepath, e);
-
-				return false;
+			return false;
 		}
 	}
 
@@ -57,9 +56,9 @@ public class OPM2ProvTC extends OPM2Prov
 	{
 		graph = super.putGraph(graph, queryMetaData);
 		graph.commitIndex();
-		
+
 		Graph resultGraph = new Graph();
-		
+
 		for(AbstractEdge edge : graph.edgeSet())
 		{
 			if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null)
@@ -73,10 +72,9 @@ public class OPM2ProvTC extends OPM2Prov
 				resultGraph.putEdge(newEdge);
 			}
 		}
-		
 		return resultGraph;
 	}
-	
+
 	private void replaceAnnotations(Map<String, String> annotations, Map<String, String> newMapping)
 	{
 		for(String annotation : annotations.keySet())

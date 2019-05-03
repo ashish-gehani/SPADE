@@ -31,21 +31,20 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class OPM2Prov extends AbstractTransformer
-{
-	
+public class OPM2Prov extends AbstractTransformer{
+
 	private final static Logger logger = Logger.getLogger(OPM2Prov.class.getName());
-	
+
 	private static final Map<String, String> opm2ProvEdgeMappings = new HashMap<>();
-	
+
 	private static final Map<String, String> opm2ProvVertexMappings = new HashMap<>();
-	
+
 	static
 	{
 		opm2ProvVertexMappings.put(OPMConstants.AGENT,"Agent");
 		opm2ProvVertexMappings.put(OPMConstants.PROCESS,"Activity");
 		opm2ProvVertexMappings.put(OPMConstants.ARTIFACT,"Entity");
-		
+
 		opm2ProvEdgeMappings.put(OPMConstants.USED,"Used");
 		opm2ProvEdgeMappings.put(OPMConstants.WAS_CONTROLLED_BY,"WasAssociatedWith");
 		opm2ProvEdgeMappings.put(OPMConstants.WAS_DERIVED_FROM,"WasDerivedFrom");
@@ -56,7 +55,7 @@ public class OPM2Prov extends AbstractTransformer
 	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
 	{
 		Graph resultGraph = new Graph();
-		
+
 		for(AbstractEdge edge : graph.edgeSet())
 		{
 			if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null)
@@ -75,7 +74,7 @@ public class OPM2Prov extends AbstractTransformer
 		}
 		return resultGraph;
 	}
-	
+
 	private String getProvEdgeTypeEquivalentToOPMEdgeType(String opmEdgeType)
 	{
 		if(opm2ProvEdgeMappings.containsKey(opmEdgeType))
@@ -89,7 +88,7 @@ public class OPM2Prov extends AbstractTransformer
 			return opmEdgeType;
 		}
 	}
-	
+
 	private String getProvVertexTypeEquivalentToOPMVertexType(String opmVertexType)
 	{
 		if(opm2ProvVertexMappings.containsKey(opmVertexType))

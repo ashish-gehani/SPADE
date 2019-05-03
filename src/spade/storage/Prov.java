@@ -30,6 +30,7 @@ import spade.edge.prov.WasAssociatedWith;
 import spade.edge.prov.WasDerivedFrom;
 import spade.edge.prov.WasGeneratedBy;
 import spade.edge.prov.WasInformedBy;
+import spade.utility.CommonFunctions;
 import spade.vertex.prov.Activity;
 import spade.vertex.prov.Agent;
 import spade.vertex.prov.Entity;
@@ -52,7 +53,9 @@ import java.util.regex.Pattern;
 
 public class Prov extends AbstractStorage{
 
-	public Logger logger = Logger.getLogger(this.getClass().getName());
+	private final static Logger logger = Logger.getLogger(Prov.class.getName());
+
+	private Set<String> cachedLoggedMessages = new HashSet<String>();
 
 	public static enum ProvFormat { PROVO, PROVN }
 
@@ -67,53 +70,43 @@ public class Prov extends AbstractStorage{
 	private final String provNamespaceURI = "http://www.w3.org/ns/prov#";
 
 	private final String defaultNamespacePrefix = "data";
-	private final String defaultNamespaceURI 	= "http://spade.csl.sri.com/#";
+	private final String defaultNamespaceURI = "http://spade.csl.sri.com/#";
 
 	private Map<String, Set<String>> annotationToNamespaceMap = new HashMap<String, Set<String>>();
 	private Map<String, String> namespacePrefixToURIMap = new HashMap<String, String>();
 
 	private final String OUTFILE_KEY = "output";
 
-	private final String TAB = "\t", NEWLINE = "\n";
-
-	protected Pattern pattern_key_value = Pattern.compile("(\\w+)=\"*((?<=\")[^\"]+(?=\")|([^\\s]+))\"*");
-	protected Map<String, String> parseKeyValPairs(String arguments) {
-		Matcher key_value_matcher = pattern_key_value.matcher(arguments);
-		Map<String, String> keyValPairs = new HashMap<String, String>();
-		while (key_value_matcher.find()) {
-			keyValPairs.put(key_value_matcher.group(1).trim(), key_value_matcher.group(2).trim());
-		}
-		return keyValPairs;
-	}
+	private final String TAB = "\t", NEWLINE = System.getProperty("line.separator");
 
 	private final Map<String, String> provoStringFormatsForEdgeTypes = new HashMap<String, String>(){
 		{
-			put("spade.edge.prov.Used", "%s:%s %s:qualifiedUsage [\n\ta %s:Usage;\n\t%s:entity %s:%s;\n%s]; .\n\n");
-			put("spade.edge.prov.WasAssociatedWith", "%s:%s %s:qualifiedAssociation [\n\ta %s:Association;\n\t%s:agent %s:%s;\n%s]; .\n\n");
-			put("spade.edge.prov.WasDerivedFrom", "%s:%s %s:qualifiedDerivation [\n\ta %s:Derivation;\n\t%s:entity %s:%s;\n%s]; .\n\n");
-			put("spade.edge.prov.WasGeneratedBy", "%s:%s %s:qualifiedGeneration [\n\ta %s:Generation;\n\t%s:activity %s:%s;\n%s]; .\n\n");
-			put("spade.edge.prov.WasInformedBy", "%s:%s %s:qualifiedCommunication [\n\ta %s:Communication;\n\t%s:activity %s:%s;\n%s]; .\n\n");
+			put("spade.edge.prov.Used", "%s:%s %s:qualifiedUsage ["+NEWLINE+""+TAB+"a %s:Usage;"+NEWLINE+""+TAB+"%s:entity %s:%s;"+NEWLINE+"%s]; ."+NEWLINE+NEWLINE);
+			put("spade.edge.prov.WasAssociatedWith", "%s:%s %s:qualifiedAssociation ["+NEWLINE+""+TAB+"a %s:Association;"+NEWLINE+""+TAB+"%s:agent %s:%s;"+NEWLINE+"%s]; ."+NEWLINE+NEWLINE);
+			put("spade.edge.prov.WasDerivedFrom", "%s:%s %s:qualifiedDerivation ["+NEWLINE+""+TAB+"a %s:Derivation;"+NEWLINE+""+TAB+"%s:entity %s:%s;"+NEWLINE+"%s]; ."+NEWLINE+NEWLINE);
+			put("spade.edge.prov.WasGeneratedBy", "%s:%s %s:qualifiedGeneration ["+NEWLINE+""+TAB+"a %s:Generation;"+NEWLINE+""+TAB+"%s:activity %s:%s;"+NEWLINE+"%s]; ."+NEWLINE+NEWLINE);
+			put("spade.edge.prov.WasInformedBy", "%s:%s %s:qualifiedCommunication ["+NEWLINE+""+TAB+"a %s:Communication;"+NEWLINE+""+TAB+"%s:activity %s:%s;"+NEWLINE+"%s]; ."+NEWLINE+NEWLINE);
 		}
 	};
 
 	private final Map<String, String> provnStringFormatsForEdgeTypes = new HashMap<String, String>(){
 		{
-			put("spade.edge.prov.Used", "\tused(%s:%s,%s:%s, - ,%s)\n");
-			put("spade.edge.prov.WasAssociatedWith", "\twasAssociatedWith(%s:%s,%s:%s, - ,%s)\n");
-			put("spade.edge.prov.WasDerivedFrom", "\twasDerivedFrom(%s:%s,%s:%s,%s)\n");
-			put("spade.edge.prov.WasGeneratedBy", "\twasGeneratedBy(%s:%s,%s:%s, - ,%s)\n");
-			put("spade.edge.prov.WasInformedBy", "\twasInformedBy(%s:%s,%s:%s,%s)\n");
+			put("spade.edge.prov.Used", TAB+"used(%s:%s,%s:%s, - ,%s)"+NEWLINE);
+			put("spade.edge.prov.WasAssociatedWith", TAB+"wasAssociatedWith(%s:%s,%s:%s, - ,%s)"+NEWLINE);
+			put("spade.edge.prov.WasDerivedFrom", TAB+"wasDerivedFrom(%s:%s,%s:%s,%s)"+NEWLINE);
+			put("spade.edge.prov.WasGeneratedBy", TAB+"wasGeneratedBy(%s:%s,%s:%s, - ,%s)"+NEWLINE);
+			put("spade.edge.prov.WasInformedBy", TAB+"wasInformedBy(%s:%s,%s:%s,%s)"+NEWLINE);
 		}
 	};
 
-	private final String provoStringFormatForVertex = "%s:%s\n\ta %s:%s;\n%s .\n\n";
-	private final String provnStringFormatForVertex = "\t%s(%s:%s,%s)\n";
+	private final String provoStringFormatForVertex = "%s:%s"+NEWLINE+""+TAB+"a %s:%s;"+NEWLINE+"%s ."+NEWLINE+NEWLINE;
+	private final String provnStringFormatForVertex = TAB+"%s(%s:%s,%s)"+NEWLINE;
 
 	public SimpleDateFormat iso8601TimeFormat;
 
 	@Override
 	public boolean initialize(String arguments) {
-		Map<String, String> args = parseKeyValPairs(arguments);
+		Map<String, String> args = CommonFunctions.parseKeyValPairs(arguments);
 
 		Map<String, String> nsPrefixToFileMap = new HashMap<String, String>();
 		nsPrefixToFileMap.putAll(args);
@@ -135,19 +128,19 @@ public class Prov extends AbstractStorage{
 						transaction_count = 0;
 						switch (provOutputFormat) {
 							case PROVN:
-								outputFile.write("document\n");
+								outputFile.write("document"+NEWLINE);
 								for(String nsPrefix : namespacePrefixToURIMap.keySet()){
-									outputFile.write(TAB + "prefix "+nsPrefix+" <"+namespacePrefixToURIMap.get(nsPrefix)+">\n");
+									outputFile.write(TAB + "prefix "+nsPrefix+" <"+namespacePrefixToURIMap.get(nsPrefix)+">"+NEWLINE);
 								}
-								outputFile.write(TAB + "prefix "+defaultNamespacePrefix+" <"+defaultNamespaceURI+">\n");
+								outputFile.write(TAB + "prefix "+defaultNamespacePrefix+" <"+defaultNamespaceURI+">"+NEWLINE);
 								outputFile.write(NEWLINE);
 								break;
 							case PROVO:
 								for(String nsPrefix : namespacePrefixToURIMap.keySet()){
-									outputFile.write("@prefix "+nsPrefix+": <"+namespacePrefixToURIMap.get(nsPrefix)+"> .\n");
+									outputFile.write("@prefix "+nsPrefix+": <"+namespacePrefixToURIMap.get(nsPrefix)+"> ."+NEWLINE);
 								}
-								outputFile.write("@prefix "+defaultNamespacePrefix+": <"+defaultNamespaceURI+"> .\n");
-								outputFile.write("@prefix "+provNamespacePrefix+": <"+provNamespaceURI+"> .\n");
+								outputFile.write("@prefix "+defaultNamespacePrefix+": <"+defaultNamespaceURI+"> ."+NEWLINE);
+								outputFile.write("@prefix "+provNamespacePrefix+": <"+provNamespaceURI+"> ."+NEWLINE);
 								outputFile.write(NEWLINE);
 								break;
 							default:
@@ -192,9 +185,7 @@ public class Prov extends AbstractStorage{
 					//nothing
 					break;
 				case PROVN:
-					outputFile.write(
-							"\nendDocument\n"
-					);
+					outputFile.write(NEWLINE+"endDocument"+NEWLINE);
 					break;
 				default:
 					break;
@@ -213,7 +204,6 @@ public class Prov extends AbstractStorage{
 			String serializedVertex = getSerializedVertex(incomingVertex);
 			outputFile.write(serializedVertex);
 			checkTransactions();
-			//vertexCount++; finalcommitfilter is doing this increment already
 			return true;
 		}catch(Exception e){
 			logger.log(Level.WARNING, null, e);
@@ -233,7 +223,6 @@ public class Prov extends AbstractStorage{
 			String serializedEdge = getSerializedEdge(incomingEdge);
 			outputFile.write(serializedEdge);
 			checkTransactions();
-			//edgeCount++; finalcommitfilter is doing this increment already
 			return true;
 		}catch(Exception e){
 			logger.log(Level.WARNING, null, e);
@@ -387,7 +376,14 @@ public class Prov extends AbstractStorage{
 				if(currentEntry.getKey().equals("time")){
 					value = convertUnixTimeToISO8601(value);
 				}
-				annotationsString.append(TAB).append(getNSPrefixForAnnotation(currentEntry.getKey())).append(":").append(currentEntry.getKey()).append(" \"").append(value).append("\";").append(NEWLINE);
+				annotationsString.append(TAB)
+					.append(getNSPrefixForAnnotation(currentEntry.getKey()))
+					.append(":")
+					.append(currentEntry.getKey())
+					.append(" \"")
+					.append(value)
+					.append("\";")
+					.append(NEWLINE);
 			}
 		}
 		return annotationsString.toString();
@@ -407,10 +403,13 @@ public class Prov extends AbstractStorage{
 		if(annotationToNamespaceMap.get(annotation) != null && annotationToNamespaceMap.get(annotation).size() > 0){
 			return annotationToNamespaceMap.get(annotation).iterator().next();
 		}
-		logger.log(Level.WARNING, "The annotation '"+annotation+"' doesn't exist in any of the namespaces provided");
+		String msg = "The annotation '"+annotation+"' doesn't exist in any of the namespaces provided";
+		if(!cachedLoggedMessages.contains(msg)){
+			cachedLoggedMessages.add(msg);
+			logger.log(Level.WARNING, msg);
+		}
 		return defaultNamespacePrefix;
 	}
-
 
 	private boolean loadAnnotationsFromRDFs(Map<String, String> nsPrefixToFileMap){
 

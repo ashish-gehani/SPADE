@@ -35,16 +35,16 @@ public class Prov2OPM extends AbstractTransformer
 {
 
 	private final static Logger logger = Logger.getLogger(Prov2OPM.class.getName());
-	
+
 	private static final Map<String, String> prov2OPMEdgeMappings = new HashMap<>();
-	
+
 	private static final Map<String, String> prov2OPMVertexMappings = new HashMap<>();
-	
+
 	static{
 		prov2OPMVertexMappings.put("Agent",OPMConstants.AGENT);
 		prov2OPMVertexMappings.put("Activity",OPMConstants.PROCESS);
 		prov2OPMVertexMappings.put("Entity",OPMConstants.ARTIFACT);
-		
+
 		prov2OPMEdgeMappings.put("Used",OPMConstants.USED);
 		prov2OPMEdgeMappings.put("WasAssociatedWith",OPMConstants.WAS_CONTROLLED_BY);
 		prov2OPMEdgeMappings.put("WasDerivedFrom",OPMConstants.WAS_DERIVED_FROM);
@@ -55,7 +55,7 @@ public class Prov2OPM extends AbstractTransformer
 	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
 	{
 		Graph resultGraph = new Graph();
-		
+
 		for(AbstractEdge edge : graph.edgeSet())
 		{
 			if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null)
@@ -72,10 +72,10 @@ public class Prov2OPM extends AbstractTransformer
 				resultGraph.putEdge(newEdge);
 			}
 		}
-		
+
 		return resultGraph;
 	}
-	
+
 	private String getOPMEdgeTypeEquivalentToProvEdgeType(String provEdgeType)
 	{
 		if(prov2OPMEdgeMappings.containsKey(provEdgeType))
@@ -89,7 +89,7 @@ public class Prov2OPM extends AbstractTransformer
 			return provEdgeType;
 		}
 	}
-	
+
 	private String getOPMVertexTypeEquivalentToProvVertexType(String provVertexType)
 	{
 		if(prov2OPMVertexMappings.containsKey(provVertexType))

@@ -29,42 +29,38 @@ import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
 import static spade.core.AbstractStorage.PRIMARY_KEY;
 
+public abstract class AbstractTransformer{
 
-public abstract class AbstractTransformer
-{
-		
 	public String arguments;
-	
+
 	public boolean initialize(String arguments){
 		return true;
 	}
-	
+
 	public boolean shutdown() {
-       	return true;
-    }
-	
+       		return true;
+	}
+
 	public abstract Graph putGraph(Graph graph, QueryMetaData digQueryParams);
-	
+
 	public static String getAnnotationSafe(AbstractVertex vertex, String annotation)
 	{
 		if(vertex != null)
 		{
 			return getAnnotationSafe(vertex.getAnnotations(), annotation);
 		}
-
-			return "";
+		return "";
 	}
-	
+
 	public static String getAnnotationSafe(AbstractEdge edge, String annotation)
 	{
 		if(edge != null)
 		{
 			return getAnnotationSafe(edge.getAnnotations(), annotation);
 		}
-
 		return "";
 	}
-	
+
 	public static String getAnnotationSafe(Map<String, String> annotations, String annotation)
 	{
 		if(annotations != null)
@@ -75,10 +71,9 @@ public abstract class AbstractTransformer
 				return value;
 			}
 		}
-
 		return "";
 	}
-	
+
 	public static AbstractVertex createNewWithoutAnnotations(AbstractVertex vertex, String... annotations)
 	{
 		AbstractVertex newVertex = new Vertex();
@@ -95,7 +90,7 @@ public abstract class AbstractTransformer
 		newVertex.removeAnnotation(PRIMARY_KEY);
 		return newVertex;
 	}
-	
+
 	public static AbstractEdge createNewWithoutAnnotations(AbstractEdge edge, String... annotations)
 	{
 		AbstractVertex newChild = createNewWithoutAnnotations(edge.getChildVertex(), annotations);
@@ -114,7 +109,7 @@ public abstract class AbstractTransformer
 		newEdge.removeAnnotation(PRIMARY_KEY);
 		return newEdge;
 	}
-	
+
 	public static void removeEdges(Graph result, Graph removeFrom, Graph toRemove)
 	{
 		Set<AbstractEdge> toRemoveEdges = new HashSet<>();
@@ -122,7 +117,6 @@ public abstract class AbstractTransformer
 		{
 			toRemoveEdges.add(createNewWithoutAnnotations(edge));
 		}
-		
 		for(AbstractEdge edge : removeFrom.edgeSet())
 		{
 			AbstractEdge strippedEdge = createNewWithoutAnnotations(edge);
@@ -135,5 +129,4 @@ public abstract class AbstractTransformer
 			result.putEdge(strippedEdge);
 		}
 	}
-	
 }
