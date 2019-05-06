@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class OPM2ProvTC extends OPM2Prov{
+public class OPM2ProvTC extends OPM2ProvVertexEdge{
 
 	private final static Logger logger = Logger.getLogger(OPM2ProvTC.class.getName());
 	

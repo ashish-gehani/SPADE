@@ -17,67 +17,56 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
+
 package spade.filter;
 
 import spade.core.AbstractEdge;
-import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
-import spade.reporter.audit.OPMConstants;
-import spade.vertex.prov.Activity;
-import spade.vertex.prov.Agent;
-import spade.vertex.prov.Entity;
+import spade.core.Settings;
+import spade.utility.FileUtility;
 
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-/**
- *
- * @author Dawood Tariq
- */
-public class OPM2Prov extends AbstractFilter {
+public class OPM2Prov extends OPM2ProvVertexEdge{
 
-    @Override
-    public void putVertex(AbstractVertex incomingVertex) {
-        putInNextFilter(createProvVertex(incomingVertex));
-    }
+	private final static Logger logger = Logger.getLogger(OPM2Prov.class.getName());
 
-    @Override
-    public void putEdge(AbstractEdge incomingEdge) {
-        AbstractVertex childVertex = createProvVertex(incomingEdge.getChildVertex());
-        AbstractVertex parentVertex = createProvVertex(incomingEdge.getParentVertex());
-        AbstractEdge newEdge = null;
-        if (incomingEdge instanceof spade.edge.opm.Used) {
-            newEdge = new spade.edge.prov.Used((Activity) childVertex, (Entity) parentVertex);
-        } else if (incomingEdge instanceof spade.edge.opm.WasControlledBy) {
-            newEdge = new spade.edge.prov.WasAssociatedWith((Activity) childVertex, (Agent) parentVertex);
-        } else if (incomingEdge instanceof spade.edge.opm.WasDerivedFrom) {
-            newEdge = new spade.edge.prov.WasDerivedFrom((Entity) childVertex, (Entity) parentVertex);
-        } else if (incomingEdge instanceof spade.edge.opm.WasGeneratedBy) {
-            newEdge = new spade.edge.prov.WasGeneratedBy((Entity) childVertex, (Activity) parentVertex);
-        } else if (incomingEdge instanceof spade.edge.opm.WasTriggeredBy) {
-            newEdge = new spade.edge.prov.WasInformedBy((Activity) childVertex, (Activity) parentVertex);
-        }
-        for (Map.Entry<String, String> entry : incomingEdge.getAnnotations().entrySet()) {
-        	if(entry.getKey().equals(OPMConstants.TYPE))
-        		continue;
-            newEdge.addAnnotation(entry.getKey(), entry.getValue());
-        }
-        putInNextFilter(newEdge);
-    }
+	private Map<String, String> annotationConversionMap = null;
 
-    private AbstractVertex createProvVertex(AbstractVertex vertex) {
-        AbstractVertex newVertex = null;
-        if (vertex instanceof spade.vertex.opm.Agent) {
-            newVertex = new spade.vertex.prov.Agent();
-        } else if (vertex instanceof spade.vertex.opm.Artifact) {
-            newVertex = new spade.vertex.prov.Entity();
-        } else if (vertex instanceof spade.vertex.opm.Process) {
-            newVertex = new spade.vertex.prov.Activity();
-        }
-        for (Map.Entry<String, String> entry : vertex.getAnnotations().entrySet()) {
-        	if(entry.getKey().equals(OPMConstants.TYPE))
-        		continue;
-            newVertex.addAnnotation(entry.getKey(), entry.getValue());
-        }
-        return newVertex;
-    }
+	public boolean initialize(String arguments){
+		String filepath = Settings.getDefaultConfigFilePath(this.getClass());
+		try{
+			annotationConversionMap = FileUtility.readOPM2ProvTCFile(filepath);
+			return true;
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to read the file: " + filepath, e);
+			return false;
+		}
+	}
+
+	@Override
+	public void putVertex(AbstractVertex incomingVertex) {
+		convertAnnotationsInMap(incomingVertex.getAnnotations());
+		super.putVertex(incomingVertex);
+	}
+
+	@Override
+	public void putEdge(AbstractEdge incomingEdge) {
+		convertAnnotationsInMap(incomingEdge.getAnnotations());
+		super.putEdge(incomingEdge);
+	}
+
+	private void convertAnnotationsInMap(Map<String, String> map){
+		for(String fromKey : annotationConversionMap.keySet()){
+			String toKey = annotationConversionMap.get(fromKey);
+			if(map.containsKey(fromKey)){
+				String value = map.get(fromKey);
+				map.remove(fromKey);
+				map.put(toKey, value);
+			}
+		}
+	}
+
 }
