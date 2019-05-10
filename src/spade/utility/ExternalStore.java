@@ -151,7 +151,7 @@ public interface ExternalStore<V extends Serializable>{
                 store.delete();
         }
 
-        private static String getPrintableSize(ExternalStore<?> store) throws Exception{
+        public static String getPrintableSize(ExternalStore<?> store) throws Exception{
                 BigInteger sizeBytes = store.sizeInBytesOfPersistedData();
                 String displaySize = FileUtils.byteCountToDisplaySize(sizeBytes);
                 return displaySize;
