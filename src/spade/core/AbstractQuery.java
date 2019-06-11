@@ -38,7 +38,7 @@ public abstract class AbstractQuery<R>
     public static final int COL_VALUE = 1;
     protected static final int BOOLEAN_OPERATOR = 2;
 
-    protected static AbstractStorage currentStorage;
+    public static AbstractStorage currentStorage;
 
     public interface OPERATORS
     {

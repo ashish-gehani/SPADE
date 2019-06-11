@@ -24,13 +24,21 @@ import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Kernel;
+import spade.query.postgresql.kernel.Environment;
+import spade.query.postgresql.kernel.Program;
+import spade.query.postgresql.kernel.Resolver;
+import spade.query.postgresql.parser.DSLParserWrapper;
+import spade.query.postgresql.parser.ParseProgram;
 import spade.resolver.Recursive;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -176,163 +184,25 @@ public class CommandLine extends AbstractAnalyzer
         {
             try
             {
-                OutputStream outStream = querySocket.getOutputStream();
                 InputStream inStream = querySocket.getInputStream();
-                ObjectOutputStream queryOutputStream = new ObjectOutputStream(outStream);
+                OutputStream outStream = querySocket.getOutputStream();
                 BufferedReader queryInputStream = new BufferedReader(new InputStreamReader(inStream));
+                ObjectOutputStream responseOutputStream = new ObjectOutputStream(outStream);
 
-                while(!SHUTDOWN)
+                boolean quitting = false;
+                while(!quitting && !SHUTDOWN)
                 {
-                    // Commands read from the input stream and executed.
-                    String line = queryInputStream.readLine();
-                    long start_time = System.currentTimeMillis();
-                    if(line.equalsIgnoreCase(QueryCommands.QUERY_EXIT.value))
-                    {
-                        break;
-                    }
-                    else if(line.toLowerCase().startsWith("set"))
-                    {
-                        // set storage for querying
-                        String output = parseSetStorage(line);
-                        queryOutputStream.writeObject(output);
-                    }
-                    else if(AbstractQuery.getCurrentStorage() == null)
-                    {
-                        String message = "No storage set for querying. " +
-                                "Use command: 'set storage <storage_name>'";
-                        queryOutputStream.writeObject(message);
-                    }
-                    else if(line.equals(QueryCommands.QUERY_LIST_CONSTRAINTS.value))
-                    {
-                        StringBuilder output = new StringBuilder(100);
-                        output.append("Constraint Name\t\t | Constraint Expression\n");
-                        output.append("-------------------------------------------------\n");
-                        for(Map.Entry<String, String> currentEntry : constraints.entrySet())
-                        {
-                            String key = currentEntry.getKey();
-                            String value = currentEntry.getValue();
-                            output.append(key).append("\t\t\t | ").append(value).append("\n");
-                        }
-                        output.append("-------------------------------------------------\n");
-                        queryOutputStream.writeObject(output.toString());
-                    }
-                    else if(line.contains(":"))
-                    {
-                        // hoping its a constraint
-                        String output = createConstraint(line);
-                        queryOutputStream.writeObject(output);
-                    }
-                    else
-                    {
-                        line = replaceConstraintNames(line.trim());
-                        try
-                        {
-                            boolean success = parseQuery(line);
-                            if(!success)
-                            {
-                                String message = "Function name not valid! Make sure you follow the guidelines";
-                                throw new Exception(message);
-                            }
-                            AbstractQuery queryClass;
-                            Class<?> returnType;
-                            Object result;
-                            String functionClassName = getFunctionClassName(functionName);
-                            if(functionClassName == null)
-                            {
-                                String message = "Required query class not available!";
-                                throw new Exception(message);
-                            }
-                            queryClass = (AbstractQuery) Class.forName(functionClassName).newInstance();
-                            returnType = Class.forName(getReturnType(functionName));
-                            result = queryClass.execute(functionArguments);
-                            if(result != null && returnType.isAssignableFrom(result.getClass()))
-                            {
-                                if(result instanceof Graph)
-                                {
-                                    if(isRemoteResolutionRequired())
-                                    {
-                                        logger.log(Level.INFO, "Performing remote resolution.");
-                                        //TODO: Could use a factory pattern here to get remote resolver
-                                        remoteResolver = new Recursive((Graph) result, functionName,
-                                                Integer.parseInt(maxLength), direction);
-                                        Thread remoteResolverThread = new Thread(remoteResolver, "Recursive-AbstractResolver");
-                                        remoteResolverThread.start();
-                                        // wait for thread to complete to get the final graph
-                                        remoteResolverThread.join();
-                                        // final graph is a set of un-stitched graphs
-                                        Set<Graph> finalGraphSet = remoteResolver.getFinalGraph();
-                                        clearRemoteResolutionRequired();
-                                        discrepancyDetector.setResponseGraph(finalGraphSet);
-                                        int discrepancyCount = discrepancyDetector.findDiscrepancy();
-                                        logger.log(Level.WARNING, "discrepancyCount: " + discrepancyCount);
-                                        if(discrepancyCount == 0)
-                                        {
-                                            discrepancyDetector.update();
-                                        }
-                                        for(Graph graph : finalGraphSet)
-                                        {
-                                            result = Graph.union((Graph) result, graph);
-                                        }
-                                        logger.log(Level.INFO, "Remote resolution completed.");
-                                    }
-                                    if(USE_TRANSFORMER)
-                                    {
-                                        logger.log(Level.INFO, "Applying transformers on the final result.");
-                                        Map<String, Object> queryMetaDataMap = getQueryMetaData((Graph) result);
-                                        QueryMetaData queryMetaData = new QueryMetaData(queryMetaDataMap);
-                                        result = iterateTransformers((Graph) result, queryMetaData);
-                                        logger.log(Level.INFO, "Transformers applied successfully.");
-                                    }
-                                }
-                                // if result output is to be converted into dot file format
-                                if(EXPORT_RESULT)
-                                {
-                                    Graph temp_result = new Graph();
-                                    if(functionName.equalsIgnoreCase("GetEdge"))
-                                    {
-                                        temp_result.edgeSet().addAll((Set<AbstractEdge>) result);
-                                        result = temp_result;
-                                    }
-                                    else if(functionName.equalsIgnoreCase("GetVertex"))
-                                    {
-                                        temp_result.vertexSet().addAll((Set<AbstractVertex>) result);
-                                        result = temp_result;
-                                    }
-                                    result = ((Graph) result).exportGraph();
-                                    EXPORT_RESULT = false;
-                                }
-                            }
-                            else
-                            {
-                                logger.log(Level.SEVERE, "Return type null or mismatch!");
-                            }
-                            long elapsed_time = System.currentTimeMillis() - start_time;
-                            logger.log(Level.INFO, "Time taken for query: " + elapsed_time + " ms");
-                            if(result != null)
-                            {
-                                queryOutputStream.writeObject(result.toString());
-                            }
-                            else
-                            {
-                                queryOutputStream.writeObject("Result Empty");
-                            }
-                        }
-                        catch(Exception ex)
-                        {
-                            logger.log(Level.SEVERE, "Error executing query request!", ex);
-                            queryOutputStream.writeObject("Error");
-                        }
-                    }
+                    quitting = processRequest(queryInputStream, responseOutputStream);
                 }
-                queryInputStream.close();
-                queryOutputStream.close();
 
+                queryInputStream.close();
+                responseOutputStream.close();
                 inStream.close();
                 outStream.close();
             }
-            catch(Exception ex)
+            catch(Exception e)
             {
-                Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, null, ex);
+                logger.log(Level.SEVERE, null, e);
             }
             finally
             {
@@ -340,37 +210,91 @@ public class CommandLine extends AbstractAnalyzer
                 {
                     querySocket.close();
                 }
-                catch(Exception ex)
+                catch(Exception e)
                 {
-                    Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, null, ex);
+                    logger.log(Level.SEVERE, "Unable to close query socket", e);
                 }
             }
         }
 
-        public boolean parseQuery(String query_line)
+        @Override
+        protected boolean parseQuery(String line)
         {
-            functionName = null;
-            if(query_line.startsWith("export"))
-            {
-                query_line = query_line.substring(query_line.indexOf("export") + "export".length());
-                EXPORT_RESULT = true;
-            }
+            return true;
+        }
+
+        private boolean processRequest(BufferedReader inputStream, ObjectOutputStream outputStream)
+        {
             try
             {
-                // get the function name
-                Pattern token_pattern = Pattern.compile("\\(");
-                String[] tokens = token_pattern.split(query_line);
-                functionName = tokens[0].trim();
-                String arguments_string = tokens[1].substring(0, tokens[1].length() - 1);
-                functionArguments = replaceConstraintNames(arguments_string);
+                String query = inputStream.readLine();
+                if(query != null && query.toLowerCase().startsWith("export"))
+                {
+                    query = query.substring(6);
+                }
+                if(query == null || query.trim().equalsIgnoreCase("exit"))
+                {
+                    return true;
+                }
 
-                return true;
+                outputStream.writeObject(execute(query));
+            }
+            catch(IOException ex)
+            {
+                logger.log(Level.SEVERE, "Unable to process query request!", ex);
+            }
+            return false;
+        }
+
+        private String execute(String query)
+        {
+            ArrayList<Object> responses;
+            try
+            {
+                DSLParserWrapper parserWrapper = new DSLParserWrapper();
+                ParseProgram parseProgram = parserWrapper.fromText(query);
+
+                logger.log(Level.INFO, "Parse tree:\n" + parseProgram.toString());
+
+                Environment env = new Environment();
+
+                Resolver resolver = new Resolver();
+                Program program = resolver.resolveProgram(parseProgram, env);
+
+                logger.log(Level.INFO, "Execution plan:\n" + program.toString());
+
+                try
+                {
+                    responses = program.execute();
+                }
+                finally
+                {
+                    env.gc();
+                }
             }
             catch(Exception ex)
             {
-                Logger.getLogger(CommandLine.QueryConnection.class.getName()).log(Level.SEVERE, "Error in parsing query: \n" + query_line, ex);
+                responses = new ArrayList<>();
+                StringWriter stackTrace = new StringWriter();
+                PrintWriter pw = new PrintWriter(stackTrace);
+                pw.println("Error evaluating QuickGrail command:");
+                pw.println("------------------------------------------------------------");
+                // e.printStackTrace(pw);
+                pw.println(ex.getMessage());
+                pw.println("------------------------------------------------------------");
+                responses.add(stackTrace.toString());
             }
-            return false;
+
+            if(responses == null || responses.isEmpty())
+            {
+                return "OK";
+            }
+            else
+            {
+                // Currently only return the last response.
+                Object response = responses.get(responses.size() - 1);
+                return response == null ? "" : response.toString();
+            }
         }
 
         private Map<String, Object> getQueryMetaData(Graph result)
@@ -391,41 +315,6 @@ public class CommandLine extends AbstractAnalyzer
         }
     }
 
-    private static String createConstraint(String line)
-    {
-        String output;
-        try
-        {
-            String[] tokens = line.split(":");
-            String constraint_name = tokens[0].trim();
-            String constraint_expression = tokens[1].trim();
-            constraints.put(constraint_name, constraint_expression);
-            output = "Constraint '" + constraint_name + "' created.";
-        }
-        catch(Exception ex)
-        {
-            output = "Unable to create constraint!";
-            logger.log(Level.SEVERE, output, ex);
-        }
-
-        return output;
-    }
-
-    private static String replaceConstraintNames(String arguments_string)
-    {
-        String arguments = arguments_string.trim();
-        for(Map.Entry<String, String> constraint : constraints.entrySet())
-        {
-            String constraint_name = constraint.getKey();
-            String constraint_expression = constraint.getValue();
-            if(arguments.contains(constraint_name))
-            {
-                arguments = arguments.replaceAll("\\b" + Pattern.quote(constraint_name) + "\\b", constraint_expression);
-            }
-        }
-
-        return arguments;
-    }
 
     private static String parseSetStorage(String line)
     {

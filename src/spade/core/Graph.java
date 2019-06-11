@@ -39,6 +39,7 @@ import spade.edge.opm.WasControlledBy;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
+import spade.query.postgresql.entities.EntityType;
 import spade.vertex.opm.Agent;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
@@ -72,6 +73,16 @@ import java.util.regex.Pattern;
  */
 public class Graph extends AbstractStorage implements Serializable
 {
+    public enum Component
+    {
+        kVertex,
+        kEdge
+    }
+
+    public EntityType getEntityType()
+    {
+        return EntityType.kGraph;
+    }
 	
     private static final Logger logger = Logger.getLogger(Graph.class.getName());
     private static final int MAX_QUERY_HITS = 1000;
@@ -101,6 +112,8 @@ public class Graph extends AbstractStorage implements Serializable
     private transient IndexWriter vertexIndexWriter;
     private transient IndexWriter edgeIndexWriter;
 
+    // name of the graph
+    private String name;
     /**
      * Fields for discrepancy check and query params
      */
@@ -135,6 +148,17 @@ public class Graph extends AbstractStorage implements Serializable
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);
         }
+    }
+
+    public Graph(String name)
+    {
+        this();
+        this.name = name;
+    }
+
+    public String getName()
+    {
+        return name;
     }
 
     public String getHash(AbstractVertex vertex)
