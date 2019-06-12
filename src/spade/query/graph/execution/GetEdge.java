@@ -2,7 +2,7 @@ package spade.query.graph.execution;
 
 import spade.core.AbstractEdge;
 import spade.core.Graph;
-import spade.query.graph.execution.utility.Utility;
+import spade.query.graph.utility.CommonFunctions;
 import spade.query.postgresql.execution.ExecutionContext;
 import spade.query.postgresql.execution.Instruction;
 import spade.query.postgresql.kernel.Environment;
@@ -38,7 +38,7 @@ public class GetEdge extends Instruction
             for(AbstractEdge subjectEdge : subjectGraph.edgeSet())
             {
                 String subject_value = subjectEdge.getAnnotation(field);
-                boolean comparison = Utility.compareValues(subject_value, value, operation);
+                boolean comparison = CommonFunctions.compareValues(subject_value, value, operation);
                 if(comparison)
                 {
                     edgeSet.add(subjectEdge);

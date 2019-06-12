@@ -139,6 +139,7 @@ public class GetLineage extends AbstractQuery<Graph>
             if(!CollectionUtils.isEmpty(startingVertexSet))
             {
                 AbstractVertex startingVertex = startingVertexSet.iterator().next();
+
                 startingVertex.setDepth(current_depth);
 //                for(AbstractVertex vertex: startingVertexSet)
 //                {
@@ -147,7 +148,7 @@ public class GetLineage extends AbstractQuery<Graph>
                 remainingVertices.add(startingVertex.bigHashCode());
 //                remainingVertices.add(startingVertex.getAnnotation(PRIMARY_KEY));
                 result.putVertex(startingVertex);
-                result.setRootVertex(startingVertex);
+//                result.setRootVertex(startingVertex);
             }
             else
             {

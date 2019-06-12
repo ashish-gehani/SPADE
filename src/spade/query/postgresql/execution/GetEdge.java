@@ -19,7 +19,7 @@ import java.util.logging.Logger;
 
 import static spade.core.AbstractQuery.currentStorage;
 import static spade.core.AbstractStorage.PRIMARY_KEY;
-import static spade.query.graph.execution.utility.Utility.EDGE_TABLE;
+import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
 import static spade.query.postgresql.kernel.Resolver.formatString;
 
 
@@ -92,7 +92,7 @@ public class GetEdge extends Instruction
         }
         catch(Exception ex)
         {
-            logger.log(Level.SEVERE, "Error creating edge set from the query: ", ex);
+            logger.log(Level.SEVERE, "Error creating edge set from the query", ex);
         }
     }
 

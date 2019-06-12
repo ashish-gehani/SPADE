@@ -1,4 +1,4 @@
-package spade.query.graph.execution.utility;
+package spade.query.graph.utility;
 
 import org.apache.commons.lang3.math.NumberUtils;
 import spade.core.AbstractVertex;
@@ -15,13 +15,11 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 import static spade.core.AbstractQuery.currentStorage;
-import static spade.core.AbstractStorage.PRIMARY_KEY;
+import static spade.query.graph.utility.CommonVariables.PRIMARY_KEY;
 
-public class Utility
+public class CommonFunctions
 {
-    public static final String EDGE_TABLE = "edge";
-    public static final String VERTEX_TABLE = "vertex";
-    private static Logger logger = Logger.getLogger(Utility.class.getName());
+    private static Logger logger = Logger.getLogger(CommonFunctions.class.getName());
 
     public static boolean compareValues(String subject_value_str, String value_str, String operation)
     {
@@ -95,6 +93,7 @@ public class Utility
 
     public static void executeGetVertex(Set<AbstractVertex> vertexSet, String sqlQuery)
     {
+        logger.log(Level.INFO, "Executing query: " + sqlQuery);
         ResultSet result = (ResultSet) currentStorage.executeQuery(sqlQuery);
         ResultSetMetaData metadata;
         try

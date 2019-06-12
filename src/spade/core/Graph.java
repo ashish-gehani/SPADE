@@ -120,7 +120,7 @@ public class Graph extends AbstractStorage implements Serializable
     private String hostName;
     private String computeTime;
     private int maxDepth;
-    private AbstractVertex rootVertex;
+    private Set<AbstractVertex> rootVertexSet;
 
     public AbstractVertex getDestinationVertex()
     {
@@ -949,14 +949,14 @@ public class Graph extends AbstractStorage implements Serializable
         this.maxDepth = maxDepth;
     }
 
-    public AbstractVertex getRootVertex()
+    public AbstractVertex getRootVertexSet()
     {
-        return rootVertex;
+        return rootVertexSet;
     }
 
-    public void setRootVertex(AbstractVertex rootVertex)
+    public void setRootVertexSet(Set<AbstractVertex> rootVertexSet)
     {
-        this.rootVertex = rootVertex;
+        this.rootVertexSet = this.rootVertexSet;
     }
 
     public String getSignature()

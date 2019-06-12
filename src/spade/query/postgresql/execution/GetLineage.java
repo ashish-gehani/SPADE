@@ -19,12 +19,19 @@
  */
 package spade.query.postgresql.execution;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 
-import spade.query.postgresql.entities.Graph;
+import spade.core.AbstractVertex;
+import spade.core.Graph;
 import spade.query.postgresql.kernel.Environment;
 import spade.query.postgresql.utility.TreeStringSerializable;
 import spade.storage.quickstep.QuickstepExecutor;
+
+import static spade.core.AbstractAnalyzer.setRemoteResolutionRequired;
 
 /**
  * Get the lineage of a set of vertices in a graph.
@@ -62,94 +69,60 @@ public class GetLineage extends Instruction
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        ArrayList<Direction> oneDirs = new ArrayList<Direction>();
-        if(direction == Direction.kBoth)
-        {
-            oneDirs.add(Direction.kAncestor);
-            oneDirs.add(Direction.kDescendant);
-        }
-        else
-        {
-            oneDirs.add(direction);
-        }
+        Set<String> remainingVertices = new HashSet<>();
+        Set<String> visitedVertices = new HashSet<>();
+        int current_depth = 0;
 
-        QuickstepExecutor qs = ctx.getExecutor();
-
-        String targetVertexTable = targetGraph.getVertexTableName();
-        String targetEdgeTable = targetGraph.getEdgeTableName();
-
-        String subjectEdgeTable = subjectGraph.getEdgeTableName();
-        String filter = "";
-        if(!Environment.IsBaseGraph(subjectGraph))
+        Set<AbstractVertex> startingVertexSet = startGraph.vertexSet();
+        targetGraph.setRootVertexSet(startingVertexSet);
+        for(AbstractVertex startingVertex : startingVertexSet)
         {
-            qs.executeQuery("\\analyzerange " + subjectEdgeTable + "\n");
-            filter = " AND edge.id IN (SELECT id FROM " + subjectEdgeTable + ")";
+            startingVertex.setDepth(current_depth);
+            remainingVertices.add(startingVertex.bigHashCode());
+            targetGraph.putVertex(startingVertex);
         }
 
-        for(Direction oneDir : oneDirs)
+        while(!remainingVertices.isEmpty() && current_depth < this.depth)
         {
-            executeOneDirection(oneDir, qs, filter);
-            qs.executeQuery("\\analyzerange m_answer m_answer_edge\n" +
-                    "INSERT INTO " + targetVertexTable + " SELECT id FROM m_answer;\n" +
-                    "INSERT INTO " + targetEdgeTable + " SELECT id FROM m_answer_edge GROUP BY id;");
-        }
-
-        qs.executeQuery("DROP TABLE m_cur;\n" +
-                "DROP TABLE m_next;\n" +
-                "DROP TABLE m_answer;\n" +
-                "DROP TABLE m_answer_edge;");
-    }
-
-    private void executeOneDirection(Direction dir, QuickstepExecutor qs, String filter)
-    {
-        String src, dst;
-        if(dir == Direction.kAncestor)
-        {
-            src = "src";
-            dst = "dst";
-        }
-        else
-        {
-            assert dir == Direction.kDescendant;
-            src = "dst";
-            dst = "src";
-        }
-
-        qs.executeQuery("DROP TABLE m_cur;\n" +
-                "DROP TABLE m_next;\n" +
-                "DROP TABLE m_answer;\n" +
-                "DROP TABLE m_answer_edge;\n" +
-                "CREATE TABLE m_cur (id INT);\n" +
-                "CREATE TABLE m_next (id INT);\n" +
-                "CREATE TABLE m_answer (id INT);\n" +
-                "CREATE TABLE m_answer_edge (id LONG);");
-
-        String startVertexTable = startGraph.getVertexTableName();
-        qs.executeQuery("INSERT INTO m_cur SELECT id FROM " + startVertexTable + ";\n" +
-                "INSERT INTO m_answer SELECT id FROM m_cur;");
-
-        String loopStmts =
-                "DROP TABLE m_next;\n" + "CREATE TABLE m_next (id INT);\n" +
-                        "\\analyzerange m_cur\n" +
-                        "INSERT INTO m_next SELECT " + dst + " FROM edge" +
-                        " WHERE " + src + " IN (SELECT id FROM m_cur)" + filter +
-                        " GROUP BY " + dst + ";\n" +
-                        "INSERT INTO m_answer_edge SELECT id FROM edge" +
-                        " WHERE " + src + " IN (SELECT id FROM m_cur)" + filter + ";\n" +
-                        "DROP TABLE m_cur;\n" + "CREATE TABLE m_cur (id INT);\n" +
-                        "\\analyzerange m_answer\n" +
-                        "INSERT INTO m_cur SELECT id FROM m_next WHERE id NOT IN (SELECT id FROM m_answer);\n" +
-                        "INSERT INTO m_answer SELECT id FROM m_cur;";
-        for(int i = 0; i < depth; ++i)
-        {
-            qs.executeQuery(loopStmts);
-
-            String worksetSizeQuery = "COPY SELECT COUNT(*) FROM m_cur TO stdout;";
-            if(qs.executeQueryForLongResult(worksetSizeQuery) == 0)
+            current_depth++;
+            visitedVertices.addAll(remainingVertices);
+            Set<String> currentSet = new HashSet<>();
+            for(String vertexHash : remainingVertices)
             {
-                break;
+                Graph neighbors = new Graph();
+                if(direction == Direction.kAncestor || direction == Direction.kBoth)
+                {
+                    GetParents getParents = new GetParents(neighbors, startGraph, null, null, null);
+                    getParents.execute(env, ctx);
+                }
+                else if(direction == Direction.kDescendant || direction == Direction.kBoth)
+                {
+                    GetChildren getChildren = new GetChildren(neighbors, startGraph, null, null, null);
+                    getChildren.execute(env, ctx);
+                }
+                targetGraph.vertexSet().addAll(neighbors.vertexSet());
+                // TODO: make getParents and getChildren return edges too
+                targetGraph.edgeSet().addAll(neighbors.edgeSet());
+                for(AbstractVertex vertex : neighbors.vertexSet())
+                {
+                    // for discrepancy check
+                    vertex.setDepth(current_depth + 1);
+                    String neighborHash = vertex.bigHashCode();
+                    if(!visitedVertices.contains(neighborHash))
+                    {
+                        currentSet.add(neighborHash);
+                    }
+                    if(vertex.isCompleteNetworkVertex())
+                    {
+                        setRemoteResolutionRequired();
+                        targetGraph.putNetworkVertex(vertex, current_depth);
+                    }
+                }
             }
+            remainingVertices.clear();
+            remainingVertices.addAll(currentSet);
         }
+        targetGraph.setComputeTime(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").format(new Date()));
     }
 
     @Override

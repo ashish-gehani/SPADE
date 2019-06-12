@@ -1,24 +1,15 @@
 package spade.query.postgresql.execution;
 
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.core.AbstractVertex;
-import spade.core.Vertex;
 import spade.core.Graph;
-import spade.query.graph.execution.utility.Utility;
+import spade.query.graph.utility.CommonFunctions;
 import spade.query.postgresql.kernel.Environment;
 import spade.query.postgresql.utility.TreeStringSerializable;
 
-import static spade.core.AbstractQuery.currentStorage;
-import static spade.core.AbstractStorage.PRIMARY_KEY;
-import static spade.query.graph.execution.utility.Utility.VERTEX_TABLE;
+import static spade.query.graph.utility.CommonVariables.VERTEX_TABLE;
 import static spade.query.postgresql.kernel.Resolver.formatString;
 
 
@@ -50,18 +41,18 @@ public class GetVertex extends Instruction
             {
                 if(!field.equals("*"))
                 {
-                    // TODO: do something about wild card columns
+                    // TODO: handle wild card columns
                     sqlQuery.append(" WHERE " + formatString(field) + operation + formatString(value));
                 }
             }
-            logger.log(Level.INFO, "Following query: " + sqlQuery.toString());
+            logger.log(Level.INFO, "Executing query: " + sqlQuery.toString());
 
-            Utility.executeGetVertex(targetGraph.vertexSet(), sqlQuery.toString());
+            CommonFunctions.executeGetVertex(targetGraph.vertexSet(), sqlQuery.toString());
             ctx.addResponse(targetGraph);
         }
         catch(Exception ex)
         {
-            logger.log(Level.SEVERE, "Error creating vertex set from the query: ", ex);
+            logger.log(Level.SEVERE, "Error creating vertex set from the query", ex);
         }
     }
 

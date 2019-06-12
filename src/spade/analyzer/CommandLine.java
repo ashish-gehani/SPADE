@@ -16,12 +16,9 @@
  */
 package spade.analyzer;
 
-import spade.client.QueryMetaData;
 import spade.core.AbstractAnalyzer;
-import spade.core.AbstractEdge;
 import spade.core.AbstractQuery;
 import spade.core.AbstractStorage;
-import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Kernel;
 import spade.query.postgresql.kernel.Environment;
@@ -29,7 +26,6 @@ import spade.query.postgresql.kernel.Program;
 import spade.query.postgresql.kernel.Resolver;
 import spade.query.postgresql.parser.DSLParserWrapper;
 import spade.query.postgresql.parser.ParseProgram;
-import spade.resolver.Recursive;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -43,15 +39,10 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
 
 /**
  * @author raza
@@ -302,10 +293,10 @@ public class CommandLine extends AbstractAnalyzer
             Map<String, Object> queryMetaData = new HashMap<>();
             queryMetaData.put("storage", AbstractQuery.getCurrentStorage().getClass().getSimpleName());
             queryMetaData.put("operation", functionName);
-            queryMetaData.put("rootVertex", result.getRootVertex());
-            queryMetaData.put("rootVertexHash", result.getRootVertex().bigHashCode());
-            queryMetaData.put("childVertex", result.getRootVertex());
-            queryMetaData.put("childVertexHash", result.getRootVertex().bigHashCode());
+            queryMetaData.put("rootVertex", result.getRootVertexSet());
+            queryMetaData.put("rootVertexHash", result.getRootVertexSet().bigHashCode());
+            queryMetaData.put("childVertex", result.getRootVertexSet());
+            queryMetaData.put("childVertexHash", result.getRootVertexSet().bigHashCode());
             queryMetaData.put("parentVertex", result.getDestinationVertex());
             queryMetaData.put("parentVertexHash", result.getDestinationVertex().bigHashCode());
             queryMetaData.put("maxLength", maxLength);

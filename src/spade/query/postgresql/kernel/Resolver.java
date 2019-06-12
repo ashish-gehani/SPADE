@@ -993,7 +993,14 @@ public class Resolver
             outputGraph = allocateEmptyGraph();
         }
 
-        instructions.add(new GetLineage(outputGraph, subjectGraph, startGraph, depth, direction));
+        if(Environment.IsBaseGraph(subjectGraph))
+        {
+            instructions.add(new GetLineage(outputGraph, subjectGraph, startGraph, depth, direction));
+        }
+        else
+        {
+
+        }
         return outputGraph;
     }
 

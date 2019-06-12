@@ -2,7 +2,7 @@ package spade.query.graph.execution;
 
 import spade.core.AbstractVertex;
 import spade.core.Graph;
-import spade.query.graph.execution.utility.Utility;
+import spade.query.graph.utility.CommonFunctions;
 import spade.query.postgresql.execution.ExecutionContext;
 import spade.query.postgresql.execution.Instruction;
 import spade.query.postgresql.kernel.Environment;
@@ -38,7 +38,7 @@ public class GetVertex extends Instruction
             for(AbstractVertex subjectVertex : subjectGraph.vertexSet())
             {
                 String subject_value = subjectVertex.getAnnotation(field);
-                boolean comparison = Utility.compareValues(subject_value, value, operation);
+                boolean comparison = CommonFunctions.compareValues(subject_value, value, operation);
                 if(comparison)
                 {
                     vertexSet.add(subjectVertex);

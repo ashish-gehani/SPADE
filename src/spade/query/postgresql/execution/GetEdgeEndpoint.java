@@ -19,19 +19,21 @@
  */
 package spade.query.postgresql.execution;
 
-import org.apache.commons.lang3.StringUtils;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
-import spade.query.graph.execution.utility.Utility;
+import spade.query.graph.utility.CommonFunctions;
 import spade.query.postgresql.kernel.Environment;
 import spade.query.postgresql.utility.TreeStringSerializable;
 
 import java.util.ArrayList;
 import java.util.Set;
 
-import static spade.query.graph.execution.utility.Utility.EDGE_TABLE;
-import static spade.query.graph.execution.utility.Utility.VERTEX_TABLE;
+import static spade.query.graph.utility.CommonVariables.CHILD_VERTEX_KEY;
+import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
+import static spade.query.graph.utility.CommonVariables.PARENT_VERTEX_KEY;
+import static spade.query.graph.utility.CommonVariables.PRIMARY_KEY;
+import static spade.query.graph.utility.CommonVariables.VERTEX_TABLE;
 
 /**
  * Get end points of all edges in a graph.
@@ -63,31 +65,50 @@ public class GetEdgeEndpoint extends Instruction
     public void execute(Environment env, ExecutionContext ctx)
     {
         Set<AbstractVertex> vertexSet = targetGraph.vertexSet();
-        String sqlQuery = null;
+        StringBuilder sqlQuery = new StringBuilder(100);
         StringBuilder edgeHashes = new StringBuilder(200);
+        for(AbstractEdge edge : subjectGraph.edgeSet())
+        {
+            edgeHashes.append("'").append(edge.bigHashCode()).append("', ");
+        }
         if(component == Component.kSource || component == Component.kBoth)
         {
-            for(AbstractEdge edge : subjectGraph.edgeSet())
-            {
-                edgeHashes.append(edge.bigHashCode()).append(", ");
-            }
-            sqlQuery = "SELECT * FROM " + VERTEX_TABLE + " WHERE hash = " +
-                    "(SELECT sourceVertexHash FROM " + EDGE_TABLE +
-                    " WHERE hash IN (" + edgeHashes.substring(0, edgeHashes.length() - 2) + "));";
+            sqlQuery.append("SELECT * FROM ");
+            sqlQuery.append(VERTEX_TABLE);
+            sqlQuery.append(" WHERE \"");
+            sqlQuery.append(PRIMARY_KEY);
+            sqlQuery.append("\" = ");
+            sqlQuery.append("(SELECT \"");
+            sqlQuery.append(CHILD_VERTEX_KEY);
+            sqlQuery.append("\" FROM ");
+            sqlQuery.append(EDGE_TABLE);
+            sqlQuery.append(" WHERE \"");
+            sqlQuery.append(PRIMARY_KEY);
+            sqlQuery.append("\" IN (");
+            sqlQuery.append(edgeHashes.substring(0, edgeHashes.length() - 2));
+            sqlQuery.append("));");
         }
-        Utility.executeGetVertex(vertexSet, sqlQuery);
+        CommonFunctions.executeGetVertex(vertexSet, sqlQuery.toString());
 
         if(component == Component.kDestination || component == Component.kBoth)
         {
-            for(AbstractEdge edge : subjectGraph.edgeSet())
-            {
-                edgeHashes.append(edge.bigHashCode()).append(", ");
-            }
-            sqlQuery = "SELECT * FROM " + VERTEX_TABLE + " WHERE hash = " +
-                    "(SELECT destinationVertexHash FROM " + EDGE_TABLE +
-                    " WHERE hash IN (" + edgeHashes.substring(0, edgeHashes.length() - 2) + "));";
+            sqlQuery.append("SELECT * FROM ");
+            sqlQuery.append(VERTEX_TABLE);
+            sqlQuery.append(" WHERE \"");
+            sqlQuery.append(PRIMARY_KEY);
+            sqlQuery.append("\" = ");
+            sqlQuery.append("(SELECT \"");
+            sqlQuery.append(PARENT_VERTEX_KEY);
+            sqlQuery.append("\" FROM ");
+            sqlQuery.append(EDGE_TABLE);
+            sqlQuery.append(" WHERE \"");
+            sqlQuery.append(PRIMARY_KEY);
+            sqlQuery.append("\" IN (");
+            sqlQuery.append(edgeHashes.substring(0, edgeHashes.length() - 2));
+            sqlQuery.append("));");
+
         }
-        Utility.executeGetVertex(vertexSet, sqlQuery);
+        CommonFunctions.executeGetVertex(vertexSet, sqlQuery.toString());
         ctx.addResponse(targetGraph);
 
     }
