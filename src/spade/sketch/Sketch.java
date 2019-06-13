@@ -29,6 +29,7 @@ import spade.core.MatrixFilter;
 import spade.core.Settings;
 import spade.query.common.GetLineage;
 import spade.query.postgresql.GetVertex;
+import spade.reporter.audit.OPMConstants;
 
 import javax.net.ssl.SSLSocket;
 import java.io.IOException;
@@ -46,10 +47,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static spade.core.AbstractQuery.OPERATORS;
-import static spade.core.AbstractResolver.DESTINATION_HOST;
-import static spade.core.AbstractResolver.DESTINATION_PORT;
-import static spade.core.AbstractResolver.SOURCE_HOST;
-import static spade.core.AbstractResolver.SOURCE_PORT;
 import static spade.core.AbstractStorage.PRIMARY_KEY;
 
 // TODO: Work in Progress here.
@@ -201,10 +198,10 @@ class updateMatrixThread implements Runnable
             GetVertex getVertex = new GetVertex();
             logger.log(Level.INFO, "concreteSketch - Getting storageId of networkVertex");
             Map<String, List<String>> vertexParams = new HashMap<>();
-            vertexParams.put(SOURCE_HOST, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(SOURCE_HOST)));
-            vertexParams.put(SOURCE_PORT, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(SOURCE_PORT)));
-            vertexParams.put(DESTINATION_HOST, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(DESTINATION_HOST)));
-            vertexParams.put(DESTINATION_PORT, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(DESTINATION_PORT)));
+            vertexParams.put(OPMConstants.ARTIFACT_LOCAL_ADDRESS, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(OPMConstants.ARTIFACT_LOCAL_ADDRESS)));
+            vertexParams.put(OPMConstants.ARTIFACT_LOCAL_PORT, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT)));
+            vertexParams.put(OPMConstants.ARTIFACT_REMOTE_ADDRESS, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS)));
+            vertexParams.put(OPMConstants.ARTIFACT_REMOTE_PORT, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT)));
             Set<AbstractVertex> vertexSet = getVertex.execute(vertexParams, 100);
             AbstractVertex resultVertex = vertexSet.iterator().next();
             logger.log(Level.INFO, "concreteSketch - Returning storageId: {0}", resultVertex.getAnnotation(ID_STRING));

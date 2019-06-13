@@ -24,11 +24,6 @@ import java.util.Set;
  */
 public abstract class AbstractResolver implements Runnable
 {
-    public static final String SOURCE_HOST = "source_host";
-    public static final String SOURCE_PORT = "source_port";
-    public static final String DESTINATION_HOST = "destination_host";
-    public static final String DESTINATION_PORT = "destination_port";
-
     // fields required to fetch and return remote parts of result graph
     protected Set<Graph> combinedResultSet;
     protected Graph localResult;

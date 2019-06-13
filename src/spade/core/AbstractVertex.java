@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import spade.reporter.audit.OPMConstants;
+import spade.utility.CommonFunctions;
 
 /**
  * This is the class from which other vertex classes (e.g., OPM vertices) are
@@ -181,14 +182,17 @@ public abstract class AbstractVertex implements Serializable
 
     public boolean isCompleteNetworkVertex()
     {
-        String subtype = this.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE);
-        String source = this.getAnnotation(OPMConstants.SOURCE);
-        if(subtype != null && subtype.equalsIgnoreCase(OPMConstants.SUBTYPE_NETWORK_SOCKET)
-                && source.equalsIgnoreCase(OPMConstants.SOURCE_AUDIT_NETFILTER))
+        if(isNetworkVertex())
         {
-            return true;
+            String localAddress = this.getAnnotation(OPMConstants.ARTIFACT_LOCAL_ADDRESS);
+            String localPort = this.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT);
+            String remoteAddress = this.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS);
+            String remotePort = this.getAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT);
+            return !CommonFunctions.isNullOrEmpty(localAddress) &&
+                    !CommonFunctions.isNullOrEmpty(localPort) &&
+                    !CommonFunctions.isNullOrEmpty(remoteAddress) &&
+                    !CommonFunctions.isNullOrEmpty(remotePort);
         }
-
         return false;
     }
 

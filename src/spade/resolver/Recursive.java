@@ -77,7 +77,7 @@ public class Recursive extends AbstractResolver
             for (Map.Entry<AbstractVertex, Integer> currentEntry : currentNetworkMap.entrySet())
             {
                 AbstractVertex networkVertex = currentEntry.getKey();
-                if(!networkVertex.getAnnotation(OPMConstants.SOURCE).equals(OPMConstants.SOURCE_AUDIT_NETFILTER))
+                if(!networkVertex.isCompleteNetworkVertex())
                 {
                     continue;
                 }
@@ -172,10 +172,6 @@ class ContactRemote implements Callable<Set<Graph>>
                     OPMConstants.ARTIFACT_REMOTE_PORT +
                     AbstractQuery.OPERATORS.EQUALS +
                     networkVertex.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT) +
-                    " AND " +
-                    OPMConstants.SOURCE +
-                    AbstractQuery.OPERATORS.EQUALS +
-                    OPMConstants.SOURCE_AUDIT_NETFILTER +
                     ")";
             if(nonce == null)
             {
