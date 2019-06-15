@@ -24,6 +24,7 @@
 #include <asm/paravirt.h> // write_cr0
 #include <linux/uaccess.h>  // copy_from_user
 #include <linux/kallsyms.h>
+#include <linux/version.h>
 
 #include "globals.h"
 
@@ -254,7 +255,16 @@ static void log_to_audit(int syscallNumber, int fd, struct sockaddr_storage* add
 					(fd_sock_type != SOCK_STREAM && fd_sock_type != SOCK_DGRAM)){ // only stream, and dgram
 				return;
 			}else{
-				err = fd_sock->ops->getname(fd_sock, (struct sockaddr *)&fd_addr, &fd_addr_size, 0);
+				#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
+					fd_addr_size = fd_sock->ops->getname(fd_sock, (struct sockaddr *)&fd_addr, 0);
+					if(fd_addr_size <= 0){
+						err = -1;
+					}else{
+						err = 0;
+					}
+				#else
+					err = fd_sock->ops->getname(fd_sock, (struct sockaddr *)&fd_addr, &fd_addr_size, 0);
+				#endif
 				if(err == 0){
 					sockaddr_to_hex(&hex_fd_addr[0], max_hex_sockaddr_size, (unsigned char*)&fd_addr, fd_addr_size);
 				}
