@@ -137,7 +137,11 @@ bin/deleteModule: src/spade/reporter/audit/deleteModule.c
 	gcc -o bin/deleteModule src/spade/reporter/audit/deleteModule.c
 audit-kernel-module:
 	@if [ "$(findstring Microsoft, $(OS_KERNEL_RELEASE))" = "" ]; then \
-		$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE); \
+		if [ "$(KERNEL_MODULES)" = "true" ]; then \
+			$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE); \
+		else \
+			$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE) clean; \
+		fi \
 	else \
 		echo 'Skipped kernel modules. OS Kernel not supported'; \
 	fi

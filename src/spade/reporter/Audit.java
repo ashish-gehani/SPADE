@@ -256,8 +256,9 @@ public class Audit extends AbstractReporter {
 	
 	private final String AUDIT_SYSCALL_SOURCE = OPMConstants.SOURCE_AUDIT_SYSCALL;
 	
-	private final String kernelModulePath = "lib/kernel-modules/netio.ko";
-	private final String kernelModuleControllerPath = "lib/kernel-modules/netio_controller.ko";
+	private final String kernelModuleDirectoryPath = "lib/kernel-modules";
+	private final String kernelModulePath = kernelModuleDirectoryPath + "/netio.ko";
+	private final String kernelModuleControllerPath = kernelModuleDirectoryPath + "/netio_controller.ko";
 	
 	private static final String PROTOCOL_NAME_UDP = "udp",
 			PROTOCOL_NAME_TCP = "tcp";
@@ -538,20 +539,34 @@ public class Audit extends AbstractReporter {
 			}
 		}else{ // live audit
 			// Default values
-			ADD_KM = true;
-			
+			try{
+				ADD_KM = FileUtility.doesPathExist(kernelModuleDirectoryPath) && FileUtility.isDirectory(kernelModuleDirectoryPath);
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to check if directory exists: '"+kernelModuleDirectoryPath+"'", e);
+				return false;
+			}
+
+			boolean addKmUserArgument;
 			// Parsing the values for the KM vars after the default values have be set appropriately (see above)
 			if(isValidBoolean(addKmArgValue)){
-				ADD_KM = parseBoolean(addKmArgValue, ADD_KM);
+				addKmUserArgument = parseBoolean(addKmArgValue, ADD_KM);
 			}else{
 				logger.log(Level.SEVERE, "Invalid flag value for '"+ADD_KM_KEY+"': " + addKmArgValue);
 				return false;
 			}
-			
+
+			if(!ADD_KM && addKmUserArgument){ // kernel module doesn't exist but user is asking to use kernel module
+				logger.log(Level.SEVERE, "Kernel module directory '"+kernelModuleDirectoryPath+"' doesn't exist");
+				logger.log(Level.SEVERE, "To use '"+ADD_KM_KEY+"=true' rebuild SPADE using the command: 'make KERNEL_MODULES=true'");
+				return false;
+			}
+
+			ADD_KM = addKmUserArgument;
+
 			// If added modules then also must handle. If not added then cannot handle.
 			HANDLE_KM_RECORDS = ADD_KM;
 		}
-		
+
 		String mergeUnitKey = "mergeUnit";
 		String mergeUnitValue = args.get(mergeUnitKey);
 		if(mergeUnitValue != null){
