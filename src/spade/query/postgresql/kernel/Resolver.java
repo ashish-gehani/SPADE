@@ -26,10 +26,8 @@ import java.util.regex.Pattern;
 import spade.query.postgresql.entities.Entity;
 import spade.query.postgresql.entities.EntityType;
 import spade.core.Graph;
-//import spade.query.postgresql.entities.Graph;
 import spade.query.postgresql.entities.GraphMetadata;
 import spade.query.postgresql.execution.CollapseEdge;
-import spade.query.postgresql.execution.CreateEmptyGraph;
 import spade.query.postgresql.execution.CreateEmptyGraphMetadata;
 import spade.query.postgresql.execution.DistinctifyGraph;
 import spade.query.postgresql.execution.EraseSymbols;
@@ -53,7 +51,7 @@ import spade.query.postgresql.execution.OverwriteGraphMetadata;
 import spade.query.postgresql.execution.SetGraphMetadata;
 import spade.query.postgresql.execution.StatGraph;
 import spade.query.postgresql.execution.SubtractGraph;
-import spade.query.postgresql.execution.UnionGraph;
+import spade.query.graph.execution.UnionGraph;
 import spade.query.postgresql.parser.ParseAssignment;
 import spade.query.postgresql.parser.ParseCommand;
 import spade.query.postgresql.parser.ParseExpression;
@@ -68,6 +66,8 @@ import spade.query.postgresql.parser.ParseVariable;
 import spade.query.postgresql.types.Type;
 import spade.query.postgresql.types.TypeID;
 import spade.query.postgresql.types.TypedValue;
+
+import static spade.query.graph.utility.CommonVariables.Direction;
 
 /**
  * Resolver that transforms a parse tree into a QuickGrail low-level program.
@@ -974,18 +974,18 @@ public class Resolver
         Integer depth = resolveInteger(arguments.get(1));
 
         String dirStr = resolveString(arguments.get(2));
-        GetLineage.Direction direction;
+        Direction direction;
         if(dirStr.startsWith("a"))
         {
-            direction = GetLineage.Direction.kAncestor;
+            direction = Direction.kAncestor;
         }
         else if(dirStr.startsWith("d"))
         {
-            direction = GetLineage.Direction.kDescendant;
+            direction = Direction.kDescendant;
         }
         else
         {
-            direction = GetLineage.Direction.kBoth;
+            direction = Direction.kBoth;
         }
 
         if(outputGraph == null)
@@ -999,7 +999,7 @@ public class Resolver
         }
         else
         {
-
+            instructions.add(new spade.query.graph.execution.GetLineage(outputGraph, subjectGraph, startGraph, depth, direction));
         }
         return outputGraph;
     }

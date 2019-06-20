@@ -1,26 +1,9 @@
-/*
- --------------------------------------------------------------------------------
- SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2018 SRI International
-
- This program is free software: you can redistribute it and/or
- modify it under the terms of the GNU General Public License as
- published by the Free Software Foundation, either version 3 of the
- License, or (at your option) any later version.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with this program. If not, see <http://www.gnu.org/licenses/>.
- --------------------------------------------------------------------------------
- */
-package spade.query.postgresql.execution;
+package spade.query.graph.execution;
 
 import spade.core.AbstractVertex;
 import spade.core.Graph;
+import spade.query.postgresql.execution.ExecutionContext;
+import spade.query.postgresql.execution.Instruction;
 import spade.query.postgresql.kernel.Environment;
 import spade.query.postgresql.utility.TreeStringSerializable;
 
@@ -33,14 +16,11 @@ import java.util.Set;
 import static spade.core.AbstractAnalyzer.setRemoteResolutionRequired;
 import static spade.query.graph.utility.CommonVariables.Direction;
 
-/**
- * Get the lineage of a set of vertices in a graph.
- */
 public class GetLineage extends Instruction
 {
     // Output graph.
     private Graph targetGraph;
-    // Input graph. Not used for Postgres
+    // Input graph.
     private Graph subjectGraph;
     // Set of starting vertices.
     private Graph startGraph;
@@ -58,6 +38,7 @@ public class GetLineage extends Instruction
         this.depth = depth;
         this.direction = direction;
     }
+
 
     @Override
     public void execute(Environment env, ExecutionContext ctx)
@@ -79,22 +60,24 @@ public class GetLineage extends Instruction
         {
             Set<AbstractVertex> currentSet = new HashSet<>();
             Graph neighbors = new Graph();
+            // vertices at the current level of iteration in BFS
             Graph currentGraph = new Graph();
             currentGraph.vertexSet().addAll(remainingVertices);
             if(direction == Direction.kAncestor || direction == Direction.kBoth)
             {
-                GetParents getParents = new GetParents(neighbors, currentGraph, null, null, null);
+                GetParents getParents = new GetParents(neighbors, this.subjectGraph, currentGraph, null, null, null);
                 getParents.execute(env, ctx);
             }
             else if(direction == Direction.kDescendant || direction == Direction.kBoth)
             {
-                GetChildren getChildren = new GetChildren(neighbors, currentGraph, null, null, null);
+                GetChildren getChildren = new GetChildren(neighbors, this.subjectGraph, currentGraph, null, null, null);
                 getChildren.execute(env, ctx);
             }
             targetGraph.vertexSet().addAll(neighbors.vertexSet());
             targetGraph.edgeSet().addAll(neighbors.edgeSet());
             visitedVertices.addAll(remainingVertices);
 
+            // TODO: avoid this loop
             // for remote querying and discrepancy checking
             for(AbstractVertex neighborVertex : neighbors.vertexSet())
             {
@@ -123,23 +106,8 @@ public class GetLineage extends Instruction
     }
 
     @Override
-    protected void getFieldStringItems(
-            ArrayList<String> inline_field_names,
-            ArrayList<String> inline_field_values,
-            ArrayList<String> non_container_child_field_names,
-            ArrayList<TreeStringSerializable> non_container_child_fields,
-            ArrayList<String> container_child_field_names,
-            ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields)
+    protected void getFieldStringItems(ArrayList<String> inline_field_names, ArrayList<String> inline_field_values, ArrayList<String> non_container_child_field_names, ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names, ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields)
     {
-        inline_field_names.add("targetGraph");
-        inline_field_values.add(targetGraph.getName());
-        inline_field_names.add("subjectGraph");
-        inline_field_values.add(subjectGraph.getName());
-        inline_field_names.add("startGraph");
-        inline_field_values.add(startGraph.getName());
-        inline_field_names.add("depth");
-        inline_field_values.add(String.valueOf(depth));
-        inline_field_names.add("direction");
-        inline_field_values.add(direction.name().substring(1));
+
     }
 }

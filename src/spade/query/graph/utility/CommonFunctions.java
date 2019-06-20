@@ -1,7 +1,10 @@
 package spade.query.graph.utility;
 
 import org.apache.commons.lang3.math.NumberUtils;
+import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
+import spade.core.Edge;
 import spade.core.Vertex;
 
 import java.sql.ResultSet;
@@ -15,6 +18,9 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 import static spade.core.AbstractQuery.currentStorage;
+import static spade.query.graph.utility.CommonVariables.CHILD_VERTEX_KEY;
+import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
+import static spade.query.graph.utility.CommonVariables.PARENT_VERTEX_KEY;
 import static spade.query.graph.utility.CommonVariables.PRIMARY_KEY;
 
 public class CommonFunctions
@@ -91,10 +97,10 @@ public class CommonFunctions
         return comparison;
     }
 
-    public static void executeGetVertex(Set<AbstractVertex> vertexSet, String sqlQuery)
+    public static void executeGetVertex(Set<AbstractVertex> vertexSet, String getVertexQuery)
     {
-        logger.log(Level.INFO, "Executing query: " + sqlQuery);
-        ResultSet result = (ResultSet) currentStorage.executeQuery(sqlQuery);
+        logger.log(Level.INFO, "Executing query: " + getVertexQuery);
+        ResultSet result = (ResultSet) currentStorage.executeQuery(getVertexQuery);
         ResultSetMetaData metadata;
         try
         {
@@ -129,6 +135,66 @@ public class CommonFunctions
         {
             logger.log(Level.SEVERE, "Error executing GetVertex Query", ex);
         }
+    }
 
+    public static void executeGetEdge(Set<AbstractEdge> edgeSet, String getEdgeQuery)
+    {
+        logger.log(Level.INFO, "Executing query: " + getEdgeQuery);
+        ResultSet result = (ResultSet) currentStorage.executeQuery(getEdgeQuery);
+        ResultSetMetaData metadata;
+        try
+        {
+            metadata = result.getMetaData();
+            int columnCount = metadata.getColumnCount();
+
+            Map<Integer, String> columnLabels = new HashMap<>();
+            for(int i = 1; i <= columnCount; i++)
+            {
+                columnLabels.put(i, metadata.getColumnName(i));
+            }
+
+            while(result.next())
+            {
+                // TODO: apply the new world where vertices with only hashes could be created
+                AbstractVertex childVertex = new Vertex();
+                AbstractVertex parentVertex = new Vertex();
+                AbstractEdge edge = new Edge(childVertex, parentVertex);
+                for(int i = 1; i <= columnCount; i++)
+                {
+                    String colName = columnLabels.get(i);
+                    String value = result.getString(i);
+                    if(value != null)
+                    {
+                        if(colName != null && !colName.equals(AbstractStorage.PRIMARY_KEY))
+                        {
+                            edge.addAnnotation(colName, value);
+                        }
+                    }
+                }
+                edgeSet.add(edge);
+            }
+        }
+        catch(SQLException ex)
+        {
+            logger.log(Level.SEVERE, "Error executing GetEdge Query", ex);
+        }
+    }
+
+    public static void getAllVertexEdges(Set<AbstractEdge> edgeSet, StringBuilder childVertexHashes, StringBuilder parentVertexHashes)
+    {
+        StringBuilder getEdgesQuery = new StringBuilder(500);
+        getEdgesQuery.append("SELECT * FROM ");
+        getEdgesQuery.append(EDGE_TABLE);
+        getEdgesQuery.append(" WHERE ");
+        getEdgesQuery.append(CHILD_VERTEX_KEY);
+        getEdgesQuery.append(" IN (");
+        getEdgesQuery.append(childVertexHashes.substring(0, childVertexHashes.length() - 2));
+        getEdgesQuery.append(") AND ");
+        getEdgesQuery.append(PARENT_VERTEX_KEY);
+        getEdgesQuery.append(" IN (");
+        getEdgesQuery.append(parentVertexHashes.substring(0, parentVertexHashes.length() - 2));
+        getEdgesQuery.append(")");
+
+        executeGetEdge(edgeSet, getEdgesQuery.toString());
     }
 }

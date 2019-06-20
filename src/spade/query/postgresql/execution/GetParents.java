@@ -1,5 +1,6 @@
 package spade.query.postgresql.execution;
 
+import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.query.graph.utility.CommonFunctions;
@@ -7,6 +8,7 @@ import spade.query.postgresql.kernel.Environment;
 import spade.query.postgresql.utility.TreeStringSerializable;
 
 import java.util.ArrayList;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -21,17 +23,21 @@ public class GetParents extends Instruction
 {
     // Output graph.
     private Graph targetGraph;
-    // Set of starting vertices
+    // Input Graph. Not used for Postgres
     private Graph subjectGraph;
+    // Set of starting child vertices
+    private Graph startGraph;
     private String field;
     private String operation;
     private String value;
     private Logger logger = Logger.getLogger(GetParents.class.getName());
 
-    public GetParents(Graph targetGraph, Graph subjectGraph, String field, String operation, String value)
+    public GetParents(Graph targetGraph, Graph subjectGraph,
+                      Graph startGraph, String field, String operation, String value)
     {
         this.targetGraph = targetGraph;
         this.subjectGraph = subjectGraph;
+        this.startGraph = startGraph;
         this.field = field;
         this.operation = operation;
         this.value = value;
@@ -42,40 +48,48 @@ public class GetParents extends Instruction
     {
         try
         {
-            StringBuilder edgeHashes = new StringBuilder(100);
-            for(AbstractVertex vertex : subjectGraph.vertexSet())
+            StringBuilder childVertexHashes = new StringBuilder(100);
+            for(AbstractVertex childVertex : this.startGraph.vertexSet())
             {
-                edgeHashes.append(vertex.bigHashCode()).append(", ");
+                childVertexHashes.append(childVertex.bigHashCode()).append(", ");
             }
-            StringBuilder sqlQuery = new StringBuilder(200);
-            sqlQuery.append("SELECT * FROM ");
-            sqlQuery.append(VERTEX_TABLE);
-            sqlQuery.append(" WHERE ");
-            sqlQuery.append(PRIMARY_KEY);
-            sqlQuery.append(" IN (");
-            sqlQuery.append("SELECT ");
-            sqlQuery.append(PARENT_VERTEX_KEY);
-            sqlQuery.append(" FROM ");
-            sqlQuery.append(EDGE_TABLE);
-            sqlQuery.append(" WHERE ");
-            sqlQuery.append(CHILD_VERTEX_KEY);
-            sqlQuery.append(" IN (");
-            sqlQuery.append(edgeHashes.substring(0, edgeHashes.length() - 2));
-            sqlQuery.append("))");
+            StringBuilder getParentsQuery = new StringBuilder(200);
+            getParentsQuery.append("SELECT * FROM ");
+            getParentsQuery.append(VERTEX_TABLE);
+            getParentsQuery.append(" WHERE ");
+            getParentsQuery.append(PRIMARY_KEY);
+            getParentsQuery.append(" IN (");
+            getParentsQuery.append("SELECT ");
+            getParentsQuery.append(PARENT_VERTEX_KEY);
+            getParentsQuery.append(" FROM ");
+            getParentsQuery.append(EDGE_TABLE);
+            getParentsQuery.append(" WHERE ");
+            getParentsQuery.append(CHILD_VERTEX_KEY);
+            getParentsQuery.append(" IN (");
+            getParentsQuery.append(childVertexHashes.substring(0, childVertexHashes.length() - 2));
+            getParentsQuery.append("))");
 
             if(field != null)
             {
                 if(!field.equals("*"))
                 {
                     // TODO: handle wild card columns
-                    sqlQuery.append(" AND ");
-                    sqlQuery.append(formatString(field));
-                    sqlQuery.append(operation);
-                    sqlQuery.append(formatString(value));
+                    getParentsQuery.append(" AND ");
+                    getParentsQuery.append(formatString(field));
+                    getParentsQuery.append(operation);
+                    getParentsQuery.append(formatString(value));
                 }
             }
+            Set<AbstractVertex> parentVertexSet = targetGraph.vertexSet();
+            CommonFunctions.executeGetVertex(parentVertexSet, getParentsQuery.toString());
 
-            CommonFunctions.executeGetVertex(targetGraph.vertexSet(), sqlQuery.toString());
+            // get all edges between child and parent vertices
+            StringBuilder parentVertexHashes = new StringBuilder(200);
+            for(AbstractVertex parentVertex : parentVertexSet)
+            {
+                parentVertexHashes.append(parentVertex.bigHashCode()).append(", ");
+            }
+            CommonFunctions.getAllVertexEdges(targetGraph.edgeSet(), childVertexHashes, parentVertexHashes);
             ctx.addResponse(targetGraph);
         }
         catch(Exception ex)
