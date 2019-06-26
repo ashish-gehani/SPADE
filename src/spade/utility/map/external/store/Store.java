@@ -98,4 +98,10 @@ public abstract class Store<K, V>{
 	 * @throws Exception any underlying store and database exception
 	 */
 	public abstract boolean contains(K key) throws Exception;
+	
+	/**
+	 * Clear the database i.e. remove everything
+	 * @throws Exception any underlying store and database exception
+	 */
+	public abstract void clear() throws Exception;
 }

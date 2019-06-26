@@ -73,6 +73,11 @@ public class DBStore<K, V> extends Store<K, V>{
 	}
 	
 	@Override
+	public void clear() throws Exception{
+		dbHandle.clear();
+	}
+	
+	@Override
 	public BigInteger getSizeOnDiskInBytes() throws Exception{
 		return dbHandle.sizeOnDiskInBytes();
 	}

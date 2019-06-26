@@ -19,11 +19,14 @@
  */
 package spade.utility.map.external.store.db.leveldb;
 
+import static org.fusesource.leveldbjni.JniDBFactory.factory;
+
 import java.io.File;
 import java.math.BigInteger;
 
 import org.apache.commons.io.FileUtils;
 import org.iq80.leveldb.DB;
+import org.iq80.leveldb.Options;
 
 import spade.utility.CommonFunctions;
 import spade.utility.map.external.store.db.DatabaseHandle;
@@ -35,7 +38,7 @@ public class LevelDBHandle implements DatabaseHandle{
 	
 	public final boolean deleteOnClose;
 	public final String dbPath;
-	private final DB db;
+	private DB db;
 	
 	/**
 	 * @param dbPath directory path
@@ -94,6 +97,20 @@ public class LevelDBHandle implements DatabaseHandle{
 	@Override
 	public void close() throws Exception{
 		LevelDBManager.instance.closeHandle(this);
+	}
+	
+	@Override
+	public void clear() throws Exception{
+		try{ db.close(); }catch(Exception e){}
+		
+		try{ factory.destroy(new File(dbPath), new Options()); }catch(Exception e){}
+		
+		try{
+			Options options = new Options().createIfMissing(true);
+			db = factory.open(new File(dbPath), options);
+		}catch(Exception e){
+			throw e;
+		}
 	}
 
 	@Override

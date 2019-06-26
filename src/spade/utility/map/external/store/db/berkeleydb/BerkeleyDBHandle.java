@@ -26,6 +26,7 @@ import org.apache.commons.io.FileUtils;
 
 import com.sleepycat.je.Database;
 import com.sleepycat.je.DatabaseEntry;
+import com.sleepycat.je.Environment;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
 
@@ -138,6 +139,20 @@ public class BerkeleyDBHandle implements DatabaseHandle{
 	@Override
 	public void close() throws Exception{
 		BerkeleyDBManager.instance.closeHandle(this);
+	}
+	
+	@Override
+	public void clear() throws Exception{
+		if(environmentHandle == null){
+			throw new Exception("NULL enviroment handle");
+		}else{
+			Environment environment = environmentHandle.getEnvironment();
+			if(environment == null){
+				throw new Exception("NULL enviroment");
+			}else{
+				environment.truncateDatabase(null, dbName, false);
+			}
+		}
 	}
 
 	@Override

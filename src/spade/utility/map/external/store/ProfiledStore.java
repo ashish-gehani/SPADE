@@ -106,6 +106,15 @@ public class ProfiledStore<K, V> extends Store<K, V>{
 			throw e;
 		}
 	}
+	
+	@Override
+	public void clear() throws Exception{
+		try{
+			store.clear();
+		}catch(Exception e){
+			throw e;
+		}
+	}
 
 	@Override
 	public BigInteger getSizeOnDiskInBytes() throws Exception{

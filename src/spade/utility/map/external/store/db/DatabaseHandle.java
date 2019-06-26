@@ -61,6 +61,11 @@ public interface DatabaseHandle{
 	 */
 	public void close() throws Exception;
 	/**
+	 * Clear all the data
+	 * @throws Exception any exception by the underlying database
+	 */
+	public void clear() throws Exception;
+	/**
 	 * Returns 'true' if the a key value pair with 'key' exists otherwise 'false'
 	 * To check if the NULL returned by 'get' function means if value was null or if the key didn't exist
 	 * 

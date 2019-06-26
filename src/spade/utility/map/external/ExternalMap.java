@@ -256,10 +256,29 @@ public class ExternalMap<K, V>{
 	}
 	
 	/**
-	 * Clear the screen, clear the cache and close the store
-	 * 
-	 * @param flush			whether to flush or not
-	 * @throws Exception	exception thrown by store
+	 * Clear the screen, clear the cache and clear the store
+	 */
+	public void clear(){
+		printStats();
+		try{
+			screen.clear();
+		}catch(Exception e){
+			logger.log(Level.SEVERE, mapId + ": Failed to clear screen", e);
+		}
+		try{
+			cache.clear();
+		}catch(Exception e){
+			logger.log(Level.SEVERE, mapId + ": Failed to clear cache", e);
+		}
+		try{
+			store.clear();
+		}catch(Exception e){
+			logger.log(Level.SEVERE, mapId + ": Failed to clear store", e);
+		}
+	}
+	
+	/**
+	 * Close the screen, close the cache and close the store
 	 */
 	public void close(){
 		printStats();
