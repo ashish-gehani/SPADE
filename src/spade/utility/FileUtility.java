@@ -19,8 +19,13 @@
  */
 package spade.utility;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -182,6 +187,62 @@ public class FileUtility{
 		}
 	}
 	
+	public static Result<File> getFileResult(String path){
+		if(path == null){
+			return Result.failed("Failed getFile: NULL path");
+		}else{
+			try{
+				return Result.successful(new File(path).getAbsoluteFile());
+			}catch(Exception e){
+				return Result.failed("Failed getFile for path: '"+path+"'", e, null);
+			}
+		}
+	}
+	
+	public static Result<Boolean> doesPathExistResult(String path){
+		Result<File> result = getFileResult(path);
+		if(result.error){
+			return Result.failed(result.errorMessage, result.exception, null);
+		}else{
+			File file = result.result;
+			try{
+				return Result.successful(file.exists());
+			}catch(SecurityException se){
+				return Result.failed("Failed doesPathExist for path: '"+path+"'", se, null);
+			}catch(Exception e){
+				return Result.failed("Failed doesPathExist for path: '"+path+"'", e, null);
+			}
+		}
+	}
+	
+	public static Result<String> getCanonicalPathResult(String path){
+		Result<File> fileResult = getFileResult(path);
+		if(fileResult.error){
+			return Result.failed("Failed getCanonicalPath", fileResult);
+		}else{
+			try{
+				return Result.successful(fileResult.result.getCanonicalPath());
+			}catch(Exception e){
+				return Result.failed("Failed getCanonicalPath for path: '"+path+"'", e, null);
+			}
+		}
+	}
+	
+	public static Result<Boolean> isDirectoryResult(String path){
+		Result<Boolean> result = doesPathExistResult(path);
+		if(result.error){
+			return result;
+		}else{
+			try{
+				return Result.successful(new File(path).isDirectory());
+			}catch(SecurityException se){
+				return Result.failed("Failed isDirectory for path: '"+path+"'", se, null);
+			}catch(Exception e){
+				return Result.failed("Failed isDirectory for path: '"+path+"'", e, null);
+			}
+		}
+	}
+	
 	/**
 	 * Path must be valid, must exist, and must be a file. True if readable else false. Otherwise exception.
 	 */
@@ -310,6 +371,23 @@ public class FileUtility{
 		}
 	}
 	
+	public static Result<Boolean> createDirectoriesResult(String path){
+		Result<File> getFileResult = getFileResult(path);
+		if(getFileResult.error){
+			return Result.failed("Failed createDirectories", getFileResult);
+		}else{
+			try{
+				File file = getFileResult.result;
+				boolean created = file.mkdirs();
+				return Result.successful(created);
+			}catch(SecurityException se){
+				return Result.failed("Failed createDirectories for path: '"+path+"'", se, null);
+			}catch(Exception e){
+				return Result.failed("Failed createDirectories for path: '"+path+"'", e, null);
+			}
+		}
+	}
+	
 	/**
 	 * Path must be valid, must not exist. True if created along with all other missing parent directories else false. 
 	 * Otherwise exception.
@@ -364,4 +442,101 @@ public class FileUtility{
 			throw new Exception("Path does not exist");
 		}
 	}
+	
+	/**
+	 * Returns size in bytes of path whether file or directory
+	 * 
+	 * @param path filesystem path
+	 * @return Size (bytes) in result or error
+	 */
+	public static Result<BigInteger> getSizeOnDiskInBytes(String path){
+		try{
+			return Result.successful(FileUtils.sizeOfAsBigInteger(new File(path)));
+		}catch(Exception e){
+			return Result.failed("Failed to get size of path: '"+path+"'", e, null);
+		}
+	}
+	
+	/**
+	 * Converts the size in bytes to display size
+	 * 
+	 * @param sizeInBytes
+	 * @return String
+	 */
+	public static String formatBytesSizeToDisplaySize(BigInteger sizeInBytes){
+		if(sizeInBytes == null){
+			return null;
+		}else{
+			return FileUtils.byteCountToDisplaySize(sizeInBytes);
+		}
+	}
+	
+	/**
+	 * 
+	 * @param filepath path of the config file
+	 * @param ignoreCommentedLines whether to ignore the lines starting with '#' or not
+	 * @return ArrayList in result or error
+	 */
+	public static Result<ArrayList<String>> readLinesInFile(String filepath, boolean ignoreCommentedLines){
+		if(filepath == null){
+			return Result.failed("NULL filepath to read lines from");
+		}else{
+			File file = new File(filepath);
+			try(BufferedReader reader = new BufferedReader(new FileReader(file))){
+				ArrayList<String> lines = new ArrayList<String>();
+				String line = null;
+				while((line = reader.readLine()) != null){
+					if(ignoreCommentedLines){
+						if(!line.trim().startsWith("#")){
+							lines.add(line);
+						}
+					}else{
+						lines.add(line);
+					}
+				}
+				return Result.successful(lines);
+			}catch(FileNotFoundException fnfe){
+				return Result.failed("No file to read lines from at path: '" + filepath + "'");
+			}catch(IOException ioe){
+				return Result.failed("Failed to read file: '" + filepath + "'", ioe, null);
+			}catch(Exception e){
+				return Result.failed("Failed to read file:  '"+filepath+"'", e, null);
+			}
+		}
+	}
+	
+	/**
+	 * @param filepath path of the config file
+	 * @param separator the string to split the line on
+	 * @param ignoreCommentedLines whether to ignore lines starting with '#' or not
+	 * @return HashMap in result or error
+	 */
+	public static Result<HashMap<String, String>> parseKeysValuesInConfigFile(String filepath, String separator, boolean ignoreCommentedLines){
+		Result<ArrayList<String>> result = readLinesInFile(filepath, ignoreCommentedLines);
+		if(result.error){
+			return Result.failed("Failed to parse keys values", result);
+		}else{
+			HashMap<String, String> map = new HashMap<String, String>();
+			for(String line : result.result){
+				String tokens[] = line.split(separator, 2);
+				if(tokens.length == 2){
+					map.put(tokens[0].trim(), tokens[1].trim());
+				}
+			}
+			return Result.successful(map);
+		}
+	}
+	
+	/**
+	 * Expects the default SPADE config file format:
+	 * 	1) One key value pair separated by '=' on each line
+	 *  2) Lines started with '#' or empty lines are ignored 
+	 * 
+	 * @param filepath path of the config file
+	 * @return HashMap in result or error
+	 */
+	public static Result<HashMap<String, String>> parseKeysValuesInConfigFile(String filepath){
+		return parseKeysValuesInConfigFile(filepath, "=", true);
+	}
+	
 }

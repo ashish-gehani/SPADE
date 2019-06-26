@@ -20,7 +20,9 @@
 package spade.utility;
 
 import java.io.File;
+import java.io.PrintWriter;
 import java.io.Serializable;
+import java.io.StringWriter;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -68,6 +70,77 @@ public class CommonFunctions {
         }
         return keyValPairs;
     }
+    
+    /**
+	 * Input: a=b c='d' e="f f"
+	 * Output: Map{a=b, c=d, e=f f}
+	 * 
+	 * If empty string then empty hashmap returned
+	 * 
+	 * @param str string to parsee
+	 * @return HashMap in result or error
+	 */
+	public static Result<HashMap<String, String>> parseKeysValuesInString(String str){
+		if(str == null){
+			return Result.failed("NULL string to parse keys-values from");
+		}else{
+			HashMap<String, String> map = new HashMap<String, String>();
+			String trimmed = str.trim();
+			int startFrom = 0;
+			while(startFrom < trimmed.length()){
+				int a = trimmed.indexOf('=', startFrom);
+				if(a < 0){
+					// No other key
+					break;
+				}else{
+					String key = trimmed.substring(startFrom, a).trim();
+					int b = a+1;
+					if(b >= trimmed.length()){
+						String value = "";
+						map.put(key, value);
+						break; // length exceeded
+					}else{
+						char z = trimmed.charAt(b);
+						boolean quotes = false;
+						String valueEndsWith = null;
+						if(z == '\''){
+							valueEndsWith = "'"; quotes = true;
+						}else if(z == '"'){
+							valueEndsWith = "\""; quotes = true;
+						}
+						if(quotes){
+							int c = b+1;
+							if(c >= trimmed.length()){
+								// Malformed because of missing ending quote and premature string end
+								return Result.failed("No ending quote in str='"+str+"'");
+							}else{
+								int d = trimmed.indexOf(valueEndsWith, c);
+								if(d < 0){
+									// Malformed because of missing ending quote
+									return Result.failed("No ending quote in str='"+str+"'");
+								}else{
+									int e = d+1;
+									String value = trimmed.substring(b, e).trim();
+									value = value.substring(1, value.length() - 1);
+									map.put(key, value);
+									startFrom = e;
+								}
+							}
+						}else{
+							int e = trimmed.indexOf(' ', b);
+							if(e < 0){
+								e = trimmed.length();
+							}
+							String value = trimmed.substring(b, e).trim();
+							map.put(key, value);
+							startFrom = e;
+						}
+					}
+				}
+			}
+			return Result.successful(map);
+		}
+	}
     
     /**
      * Gets the default config file path by class.
@@ -156,6 +229,101 @@ public class CommonFunctions {
     }
     
     /**
+	 * Parse string to boolean
+	 * 
+	 * @param str string with value to parse
+	 * @return Result with boolean or error
+	 */
+	public static Result<Boolean> parseBoolean(String str){
+		if(str == null){
+			return Result.failed("Not a boolean: NULL");
+		}else{
+			String formattedStr = str.trim().toLowerCase();
+			if(formattedStr.isEmpty()){
+				return Result.failed("Not a boolean: '"+str+"'");
+			}else{
+				switch(formattedStr){
+					case "true":
+					case "1":
+					case "on":
+					case "yes":
+						return Result.successful(true);
+					case "false":
+					case "0":
+					case "off":
+					case "no":
+						return Result.successful(false);
+					default:
+						return Result.failed("Not a boolean: '"+str+"'");
+				}
+			}
+		}
+	}
+	
+	/**
+	 * Returns true if the radix is in the correct range otherwise false
+	 * 
+	 * @param radix
+	 * @return true/false
+	 */
+	public static boolean validateNumberRadix(int radix){
+		return radix >= (int)Character.MIN_RADIX && radix <= (int)Character.MAX_RADIX;
+	}
+	
+	/**
+	 * Parse string to double in the range [min-max]
+	 * 
+	 * @param str value
+	 * @param min minimum value
+	 * @param max maximum value
+	 * @return Result with double or error
+	 */
+	public static Result<Double> parseDouble(String str, double min, double max){
+		if(str == null){
+			return Result.failed("Not a double: NULL");
+		}else{
+			try{
+				Double d = Double.parseDouble(str);
+				if(d >= min && d <= max){
+					return Result.successful(d);
+				}else{
+					return Result.failed("Double '"+d+"' not in range: ["+min+"-"+max+"]");
+				}
+			}catch(Exception e){
+				return Result.failed("Not a double: '"+str+"'");
+			}
+		}
+	}
+	
+	/**
+	 * Parse string to long in the range [min-max] with the given radix
+	 * 
+	 * @param str value
+	 * @param radix base to parse number with
+	 * @param min minimum value
+	 * @param max maximum value
+	 * @return Result with long or error
+	 */
+	public static Result<Long> parseLong(String str, int radix, long min, long max){
+		if(str == null){
+			return Result.failed("Not a long: NULL");
+		}else if(!validateNumberRadix(radix)){
+			return Result.failed("Not a valid radix '"+radix+"' for long: '"+str+"'");
+		}else{
+			try{
+				long l = Long.parseLong(str, radix);
+				if(l >= min && l <= max){
+					return Result.successful(l);
+				}else{
+					return Result.failed("Long '"+l+"' not in range: ["+min+"-"+max+"]");
+				}
+			}catch(NumberFormatException nfe){
+				return Result.failed("Not a long with radix '"+radix+"': '"+str+"'");
+			}
+		}
+	}
+    
+    /**
      * Convenience function to get a map with keys converted to lowercase.
      * 
      * Responsibility of the caller to make sure that different keys don't 
@@ -183,11 +351,7 @@ public class CommonFunctions {
      * @return true if null or empty, otherwise false
      */
     public static boolean isNullOrEmpty(String str){
-    	if(str == null){
-    		return true;
-    	}else{
-    		return str.trim().isEmpty();
-    	}
+    	return (str == null || str.trim().isEmpty());
     }
     
     /**
@@ -206,16 +370,6 @@ public class CommonFunctions {
 				// ignore
 				return null;
 			}
-		}
-	}
-    
-    public static boolean bigIntegerEquals(BigInteger a, BigInteger b){
-		if(a == null && b == null){
-			return true;
-		}else if((a == null && b != null) || (a != null && b == null)){
-			return false;
-		}else{
-			return a.equals(b);
 		}
 	}
     
@@ -443,4 +597,76 @@ public class CommonFunctions {
 		}
 		return null;
     }
+    
+    /**
+	 * Converts the string value to enum object
+	 * 
+	 * @param <X> enum type
+	 * @param clazz class of enum
+	 * @param value string value
+	 * @return matching enum instance for the value
+	 */
+	public static <X extends Enum<X>> Result<X> parseEnumValue(Class<X> clazz, String value){
+		if(clazz == null){
+			return Result.failed("NULL enum class");
+		}else if(CommonFunctions.isNullOrEmpty(value)){
+			return Result.failed("NULL/Empty enum value for class: '"+clazz.getName()+"'");
+		}else{
+			for(X x : clazz.getEnumConstants()){
+				if(x.name().equals(value)){
+					return Result.successful(x);
+				}
+			}
+			return Result.failed("Value '"+value+"' not defined for enum '"+clazz.getName()+"'");
+		}
+	}
+	
+	
+	
+	/**
+	 * Convenience function to avoid NULL check when checking if two objects are equal.
+	 * 
+	 * The object passed must have implement the equals method correctly.
+	 * 
+	 * Do NOT use for arrays.
+	 * 
+	 * @param o1
+	 * @param o2
+	 * @return true/false
+	 */
+	public static <T> boolean objectsEqual(T o1, T o2){
+		if(o1 == null && o2 == null){
+			return true;
+		}else if((o1 == null && o2 != null) || (o1 != null && o2 == null)){
+			return false;
+		}else{
+			return o1.equals(o2);
+		}
+	}
+	
+	public static <T> boolean bigIntegerEquals(BigInteger o1, BigInteger o2){
+		if(o1 == null && o2 == null){
+			return true;
+		}else if((o1 == null && o2 != null) || (o1 != null && o2 == null)){
+			return false;
+		}else{
+			return o1.equals(o2);
+		}
+	}
+	
+	/**
+	 * @param e Exception
+	 * @return formatted exception stacktrace string
+	 */
+	public static String formatExceptionStackTrace(Exception e){
+		if(e == null){
+			return "(null)";
+		}else{
+			StringWriter buffer = new StringWriter();
+			PrintWriter writer = new PrintWriter(buffer);
+			e.printStackTrace(writer);
+			writer.close();
+			return buffer.toString();
+		}		
+	}
 }
