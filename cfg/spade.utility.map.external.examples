@@ -1,0 +1,35 @@
+# mapId must not contain ' ' or '.'
+# Report map stats every 120 seconds
+mapId.reportingSeconds=120
+
+# The arguments 'reportingSeconds' and 'reportingId' can be added to any of 'screenArgument', 'cacheArgument', 'storeArgument' to profile the used 'screen', 'cache', 'store', respectively
+# Cache would be profiled and stats logged every 120 seconds with the id '<x>'
+# cacheArgument=size=10000 reportingSeconds=120 reportingId=<x>
+
+mapId.screenName=BloomFilter
+# Load bloomfilter from file 'file1'
+mapId.screenArgument=loadPath=<file1>
+# Load bloomfilter from file 'file1' and save it to 'file2' file on close
+mapId.screenArgument=loadPath=<file1> savePath=<file2>
+# Create bloomfilter from arguments and save it file 'file2' on close
+mapId.screenArgument=expectedElements=1000000 falsePositiveProbability=0.000001 savePath=<file2>
+# Create bloomfilter from arguments and don't save it on close
+mapId.screenArgument=expectedElements=1000000 falsePositiveProbability=0.000001
+
+mapId.cacheName=LRU
+# Create LRU cache with size 10000
+mapId.cacheArgument=size=10000
+
+# 'LevelDB' store
+mapId.storeName=LevelDB
+# Create/Use 'LevelDB' at directory 'directory1' and delete it on close. Must not be in use already
+mapId.storeArgument=databasePath=<directory1> deleteOnClose=true
+# Create/Use 'LevelDB' at directory 'directory1' and do not delete it on close. Must not be in use already
+mapId.storeArgument=databasePath=<directory1> deleteOnClose=false
+
+# 'BerkeleyDB' store
+mapId.storeName=BerkeleyDB
+# Create/Use 'BerkeleyDB' at directory 'directory1' and delete it on close. dbName 'db1' must not be in use already
+mapId.storeArgument=environmentPath=<directory1> dbName=<db1> deleteOnClose=true
+# Create/Use 'BerkeleyDB' at directory 'directory1' and do not delete it on close. dbName 'db1' must not be in use already
+mapId.storeArgument=environmentPath=<directory1> dbName=<db1> deleteOnClose=false

@@ -1,0 +1,37 @@
+# mapId: map id must be unique in a single file. Must not contains ' ' or '.'
+# 'reportingSeconds' is optional. Must be a positive number.
+# 'reportingSeconds' specifies the interval in seconds to report stats of the map after.
+mapId.reportingSeconds=[1-n]
+# 'screenName' is the name of the screen as defined in 'spade.utility.map.external.screen.ScreenName' enum
+# Current valid values: 'BloomFilter'
+# Must be defined and is used to check if the key for the external map exists or not
+mapId.screenName=
+# 'screenArgument' is the argument string for the 'screenName' defined above
+# Optional or not is managed by the 'screenName' manager
+# Current 'BloomFilter' screen arguments: 'expectedElements', 'falsePositiveProbability', 'savePath', 'loadPath'
+# If 'loadPath' defined then BloomFilter loaded from the file. If 'loadPath' not defined then 'expectedElements' and 'falsePositiveProbability' must be defined to create the BloomFilter
+# 'expectedElements' must be a positive number. 'falsePositiveProbability' must be in the range [0-1]
+# 'savePath' is optional. If defined then it must be a valid path. The BloomFilter is written to that path on 'close'
+mapId.screenArgument=
+# 'cacheName' is the name of the cache as defined in 'spade.utility.map.external.cache.CacheName' enum
+# Current valid values: 'LRU' and must be defined
+mapId.cacheName=
+# 'cacheArgument' is the argument string for the 'cacheName' defined above
+# Optional or not is managed by the 'cacheName' manager
+# Current 'LRU' cache arguments: 'size'
+# 'size' must be a non-negative number
+mapId.cacheArgument=
+# 'storeName' is name of the store as defined in 'spade.utility.map.external.store.StoreName' enum
+# Current valid values: 'LevelDB' and 'BerkeleyDB'
+# Must be defined to save to disk whatever cannot be fit in cache
+mapId.storeName=
+# 'storeArgument' is the argument string for the 'storeName' defined above
+# Optional or not is managed by the 'storeName' manager
+# Current 'LevelDB' store arguments: 'databasePath', 'deleteOnClose'
+# 'databasePath' must be a path to a directory that exists or must be creatable. Must be in use by only one external map. If the database already existed then that is used otherwise created
+# 'deleteOnClose' must be true or false. If true then the database is deleted on close. Otherwise the database is not deleted on close
+# Current 'BerkeleyDB' store arguments: 'environmentPath', 'dbName', 'deleteOnClose'
+# 'environmentPath' must be a path to a directory that exists or must be creatable. Can be in use by multiple external maps. If the environment already existed then that is used
+# 'dbName' is the name of the database in the environment. Can only be in use by only one external map. If the database already existed then that is used otherwise created
+# 'deleteOnClose' must be true or false. If true then the database is deleted on close. Otherwise the database is not deleted on close
+mapId.storeArgument=
