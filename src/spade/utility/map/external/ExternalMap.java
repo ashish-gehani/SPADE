@@ -46,6 +46,8 @@ public class ExternalMap<K, V>{
 			cacheMisses = BigInteger.ZERO;
 	
 	private final Intervaler intervaler;
+	
+	public final boolean flushCacheOnClose;
 
 	public final String mapId;
 	
@@ -62,7 +64,7 @@ public class ExternalMap<K, V>{
 	 * @param store		persistent db to evict data to from cache
 	 */
 	protected ExternalMap(String mapId, Screen<K> screen, Cache<K, V> cache, Store<K, V> store,
-			Long reportingIntervalMillis){
+			Long reportingIntervalMillis, boolean flushCacheOnClose){
 		this.mapId = mapId;
 		this.screen = screen;
 		this.cache = cache;
@@ -73,6 +75,8 @@ public class ExternalMap<K, V>{
 		}else{
 			intervaler = null;
 		}
+		
+		this.flushCacheOnClose = flushCacheOnClose;
 	}
 	
 	/**
@@ -94,16 +98,27 @@ public class ExternalMap<K, V>{
 	 * 
 	 * @param key
 	 * @param value
-	 * @throws Exception exception thrown by store
 	 */
-	public void put(K key, V value) throws Exception{
+	public void put(K key, V value){
 		checkInterval();
 		// Might be value update
-		screen.add(key);
-		cache.put(key, value);
+		try{
+			screen.add(key);
+		}catch(Exception e){
+			logger.log(Level.SEVERE, mapId + ": Failed 'add' for screen", e);
+		}
+		try{
+			cache.put(key, value);
+		}catch(Exception e){
+			logger.log(Level.SEVERE, mapId + ": Failed 'put' for cache", e);
+		}
 		// Evict if cache size exceeded
-		while(cache.hasExceededMaximumSize()){
-			_evict();
+		try{
+			while(cache.hasExceededMaximumSize()){
+				_evict();
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, mapId + ": Failed 'evict' for cache and/or 'put' for store", e);
 		}
 	}
 	
@@ -117,47 +132,84 @@ public class ExternalMap<K, V>{
 	 * 
 	 * @param key
 	 * @return value/null
-	 * @throws Exception exception thrown by store
 	 */
-	public V get(K key) throws Exception{
+	public V get(K key){
 		checkInterval();
-		if(screen.contains(key)){
-			// False positive possible
-			V value = cache.get(key);
-			if(value != null){
-				// Exists in cache
-				cacheHits = cacheHits.add(BigInteger.ONE);
-				return value;
-			}else{
-				// Not in cache. Might have been evicted
-				value = store.get(key);
-				if(value != null){
-					cacheMisses = cacheMisses.add(BigInteger.ONE);
-					cache.put(key, value);
-					while(cache.hasExceededMaximumSize()){
-						_evict();
+		try{
+			if(screen.contains(key)){
+				// False positive possible
+				try{
+					V value = cache.get(key);
+					if(value != null){
+						// Exists in cache
+						cacheHits = cacheHits.add(BigInteger.ONE);
+						return value;
+					}else{
+						// Not in cache. Might have been evicted
+						try{
+							value = store.get(key);
+							if(value != null){
+								cacheMisses = cacheMisses.add(BigInteger.ONE);
+								try{
+									cache.put(key, value);
+									try{
+										while(cache.hasExceededMaximumSize()){
+											_evict();
+										}
+									}catch(Exception e){
+										logger.log(Level.SEVERE, mapId + ": Failed 'evict' for cache and/or 'put' for store", e);
+									}
+								}catch(Exception e){
+									logger.log(Level.SEVERE, mapId + ": Failed 'put' for cache", e);
+								}
+								return value;
+							}else{
+								totalFalsePositives = totalFalsePositives.add(BigInteger.ONE);
+								return null;
+							}
+						}catch(Exception e){
+							logger.log(Level.SEVERE, mapId + ": Failed 'get' for store", e);
+							return null;
+						}
 					}
-					return value;
-				}else{
-					totalFalsePositives = totalFalsePositives.add(BigInteger.ONE);
+				}catch(Exception e){
+					logger.log(Level.SEVERE, mapId + ": Failed 'get' for cache", e);
 					return null;
 				}
+			}else{
+				// Definitely does not exist
+				return null;
 			}
-		}else{
-			// Definitely does not exist
+		}catch(Exception e){
+			logger.log(Level.SEVERE, mapId + ": Failed 'contains' for screen", e);
 			return null;
 		}
 	}
 	
-	public boolean contains(K key) throws Exception{
+	public boolean contains(K key){
 		checkInterval();
-		if(screen.contains(key)){
-			if(cache.contains(key)){
-				return true;
+		try{
+			if(screen.contains(key)){
+				try{
+					if(cache.contains(key)){
+						return true;
+					}else{
+						try{
+							return store.contains(key);
+						}catch(Exception e){
+							logger.log(Level.SEVERE, mapId + ": Failed 'contains' for store", e);
+							return false;
+						}
+					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, mapId + ": Failed 'contains' for cache", e);
+					return false;
+				}
 			}else{
-				return store.contains(key);
+				return false;
 			}
-		}else{
+		}catch(Exception e){
+			logger.log(Level.SEVERE, mapId + ": Failed 'contains' for screen", e);
 			return false;
 		}
 	}
@@ -166,14 +218,29 @@ public class ExternalMap<K, V>{
 	 * If present in screen then remove from screen, cache and store indiscriminately
 	 * 
 	 * @param key
-	 * @throws Exception exception thrown by store
 	 */
-	public void remove(K key) throws Exception{
+	public void remove(K key){
 		checkInterval();
-		if(screen.contains(key)){
-			screen.remove(key);
-			cache.remove(key);
-			store.remove(key);
+		try{
+			if(screen.contains(key)){
+				try{
+					screen.remove(key);
+				}catch(Exception e){
+					logger.log(Level.SEVERE, mapId + ": Failed 'remove' for screen", e);
+				}
+				try{
+					cache.remove(key);
+				}catch(Exception e){
+					logger.log(Level.SEVERE, mapId + ": Failed 'remove' for cache", e);
+				}
+				try{
+					store.remove(key);
+				}catch(Exception e){
+					logger.log(Level.SEVERE, mapId + ": Failed 'remove' for store", e);
+				}
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, mapId + ": Failed 'contains' for screen", e);
 		}
 	}
 	
@@ -194,26 +261,30 @@ public class ExternalMap<K, V>{
 	 * @param flush			whether to flush or not
 	 * @throws Exception	exception thrown by store
 	 */
-	public void close(boolean flush) throws Exception{
+	public void close(){
 		printStats();
-		if(flush){
-			flushToStore();
+		if(flushCacheOnClose){
+			try{
+				flushToStore();
+			}catch(Exception e){
+				logger.log(Level.SEVERE, mapId + ": Failed to flush cache to store", e);
+			}
 		}
 		printStats();
 		try{
 			screen.close();
 		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to close screen", e);
+			logger.log(Level.SEVERE, mapId + ": Failed to close screen", e);
 		}
 		try{
 			cache.close();
 		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to close cache", e);
+			logger.log(Level.SEVERE, mapId + ": Failed to close cache", e);
 		}
 		try{
 			store.close();
 		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to close store", e);
+			logger.log(Level.SEVERE, mapId + ": Failed to close store", e);
 		}
 	}
 	
@@ -232,7 +303,7 @@ public class ExternalMap<K, V>{
 		try{
 			sizeBytes = store.getSizeOnDiskInBytes();
 		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to get size of external map store", e);
+			logger.log(Level.SEVERE, "Failed to get size of external map store", e);
 		}
 		
 		String str = String.format("%s: evictions=%s, falsePositives=%s, cacheHits=%s, cacheMisses=%s, "

@@ -25,7 +25,9 @@ import spade.utility.map.external.store.StoreArgument;
 
 public class ExternalMapArgument{
 
-	public static final String keyReportingSeconds = "reportingSeconds",
+	public static final String keyMapArgument = "argument",
+								keyMapReportingSeconds = "reportingSeconds",
+								keyMapFlushOnClose = "flushOnClose",
 								keyScreenName = "screenName",
 								keyScreenArgument = "screenArgument",
 								keyCacheName = "cacheName",
@@ -40,15 +42,17 @@ public class ExternalMapArgument{
 	public final StoreArgument storeArgument;
 	
 	public final Long reportingIntervalMillis;
+	public final boolean flushCacheOnClose;
 	
 	protected ExternalMapArgument(String mapId, 
 			ScreenArgument screenArgument, CacheArgument cacheArgument, StoreArgument storeArgument,
-			Long reportingIntervalMillis){
+			Long reportingIntervalMillis, boolean flushCacheOnClose){
 		this.mapId = mapId;
 		this.screenArgument = screenArgument;
 		this.cacheArgument = cacheArgument;
 		this.storeArgument = storeArgument;
 		this.reportingIntervalMillis = reportingIntervalMillis;
+		this.flushCacheOnClose = flushCacheOnClose;
 	}
 
 	@Override
@@ -56,6 +60,7 @@ public class ExternalMapArgument{
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + ((cacheArgument == null) ? 0 : cacheArgument.hashCode());
+		result = prime * result + (flushCacheOnClose ? 1231 : 1237);
 		result = prime * result + ((mapId == null) ? 0 : mapId.hashCode());
 		result = prime * result + ((reportingIntervalMillis == null) ? 0 : reportingIntervalMillis.hashCode());
 		result = prime * result + ((screenArgument == null) ? 0 : screenArgument.hashCode());
@@ -71,11 +76,13 @@ public class ExternalMapArgument{
 			return false;
 		if(getClass() != obj.getClass())
 			return false;
-		ExternalMapArgument other = (ExternalMapArgument)obj;
+		ExternalMapArgument other = (ExternalMapArgument) obj;
 		if(cacheArgument == null){
 			if(other.cacheArgument != null)
 				return false;
 		}else if(!cacheArgument.equals(other.cacheArgument))
+			return false;
+		if(flushCacheOnClose != other.flushCacheOnClose)
 			return false;
 		if(mapId == null){
 			if(other.mapId != null)
@@ -103,6 +110,7 @@ public class ExternalMapArgument{
 	@Override
 	public String toString(){
 		return "ExternalMapArgument [mapId=" + mapId + ", screenArgument=" + screenArgument + ", cacheArgument="
-				+ cacheArgument + ", storeArgument=" + storeArgument + ", reportingIntervalMillis=" + reportingIntervalMillis + "]";
+				+ cacheArgument + ", storeArgument=" + storeArgument + ", reportingIntervalMillis="
+				+ reportingIntervalMillis + ", flushCacheOnClose=" + flushCacheOnClose + "]";
 	}
 }

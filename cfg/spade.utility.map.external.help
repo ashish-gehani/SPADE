@@ -1,7 +1,9 @@
 # mapId: map id must be unique in a single file. Must not contains ' ' or '.'
-# 'reportingSeconds' is optional. Must be a positive number.
-# 'reportingSeconds' specifies the interval in seconds to report stats of the map after.
-mapId.reportingSeconds=[1-n]
+# 'argument' must be specified
+# 'reportingSeconds' is optional. Must be a positive number
+# 'reportingSeconds' specifies the interval in seconds to report stats of the map after
+# 'flushOnClose' tells whether to flush the cache to store on closing for the map or not. Valid values: 'true' or 'false'
+mapId.argument=reportingSeconds=[1-n] flushOnClose=
 # 'screenName' is the name of the screen as defined in 'spade.utility.map.external.screen.ScreenName' enum
 # Current valid values: 'BloomFilter'
 # Must be defined and is used to check if the key for the external map exists or not

@@ -26,8 +26,8 @@ import java.util.Map;
 import spade.utility.CommonFunctions;
 import spade.utility.Converter;
 import spade.utility.FileUtility;
-import spade.utility.Serializable2ByteArrayConverter;
 import spade.utility.Result;
+import spade.utility.Serializable2ByteArrayConverter;
 import spade.utility.map.external.cache.Cache;
 import spade.utility.map.external.cache.CacheArgument;
 import spade.utility.map.external.cache.CacheManager;
@@ -72,7 +72,7 @@ public class ExternalMapManager{
 	/**
 	 * Expected key value:
 	 * 
-	 * <mapid>.reportingSeconds=10
+	 * <mapid>.argument=reportingSeconds= flushOnClose=
 	 * <mapid>.screenName=
 	 * <mapid>.screenArgument=
 	 * <mapid>.cacheName=
@@ -93,11 +93,11 @@ public class ExternalMapManager{
 			if(map == null){
 				return Result.failed("NULL map");
 			}else{
-				String reportingSecondsString,
+				String mapArgumentString,
 						screenNameString, screenArgumentString, 
 						cacheNameString, cacheArgumentString,
 						storeNameString, storeArgumentString;
-				reportingSecondsString = null;
+				mapArgumentString = null;
 				screenNameString = screenArgumentString = null;
 				cacheNameString = cacheArgumentString = null;
 				storeNameString = storeArgumentString = null;
@@ -110,8 +110,8 @@ public class ExternalMapManager{
 							String idPart = keyTokens[0].trim();
 							String argNamePart = keyTokens[1].trim();
 							if(idPart.equals(mapId)){
-								if(argNamePart.equals(ExternalMapArgument.keyReportingSeconds)){
-									reportingSecondsString = value;
+								if(argNamePart.equals(ExternalMapArgument.keyMapArgument)){
+									mapArgumentString = value;
 								}else if(argNamePart.equals(ExternalMapArgument.keyScreenName)){
 									screenNameString = value;
 								}else if(argNamePart.equals(ExternalMapArgument.keyScreenArgument)){
@@ -133,7 +133,7 @@ public class ExternalMapManager{
 						screenNameString, screenArgumentString, 
 						cacheNameString, cacheArgumentString, 
 						storeNameString, storeArgumentString,
-						reportingSecondsString);
+						mapArgumentString);
 			}
 		}
 	}
@@ -142,37 +142,48 @@ public class ExternalMapManager{
 			String screenNameString, String screenArgumentString,
 			String cacheNameString, String cacheArgumentString,
 			String storeNameString, String storeArgumentString,
-			String reportingSecondsString){
+			String mapArgumentString){
 		Result<Boolean> validMapIdResult = validateMapId(mapId);
 		if(validMapIdResult.error){
 			return Result.failed("Invalid external map id", validMapIdResult);
 		}else{
-			Long reportingIntervalMillis = null;
-			if(reportingSecondsString == null){
-				reportingIntervalMillis = null;
+			Result<HashMap<String, String>> mapArgumentParseResult = CommonFunctions.parseKeysValuesInString(mapArgumentString);
+			if(mapArgumentParseResult.error){
+				return Result.failed("Failed to parse map argument", mapArgumentParseResult);
 			}else{
-				Result<Long> reportingResult = CommonFunctions.parseLong(reportingSecondsString, 10, 1, Integer.MAX_VALUE);
-				if(reportingResult.error){
-					return Result.failed("Invalid reporting seconds", reportingResult);
-				}else{
-					reportingIntervalMillis = reportingResult.result * 1000;
-				}
-			}
-			Result<ScreenArgument> screenResult = ScreenManager.parseArgument(screenNameString, screenArgumentString);
-			if(screenResult.error){
-				return Result.failed("Invalid screen argument", screenResult);
-			}else{
-				Result<CacheArgument> cacheResult = CacheManager.parseArgument(cacheNameString, cacheArgumentString);
-				if(cacheResult.error){
-					return Result.failed("Invalid cache argument", cacheResult);
-				}else{
-					Result<StoreArgument> storeResult = StoreManager.parseArgument(storeNameString, storeArgumentString);
-					if(storeResult.error){
-						return Result.failed("Invalid store argument", storeResult);
+				HashMap<String, String> mapArgumentMap = mapArgumentParseResult.result;
+				String reportingSecondsString = mapArgumentMap.get(ExternalMapArgument.keyMapReportingSeconds);
+				Long reportingIntervalMillis = null;
+				if(reportingSecondsString != null){
+					Result<Long> reportingResult = CommonFunctions.parseLong(reportingSecondsString, 10, 1, Integer.MAX_VALUE);
+					if(reportingResult.error){
+						return Result.failed("Invalid map reporting seconds", reportingResult);
 					}else{
-						return Result.successful(new ExternalMapArgument(mapId, 
-								screenResult.result, cacheResult.result, storeResult.result,
-								reportingIntervalMillis));
+						reportingIntervalMillis = reportingResult.result * 1000;
+					}
+				}
+				Result<Boolean> flushResult = CommonFunctions.parseBoolean(mapArgumentMap.get(ExternalMapArgument.keyMapFlushOnClose));
+				if(flushResult.error){
+					return Result.failed("Failed to parse flush on close value", flushResult);
+				}else{
+					boolean flushOnClose = flushResult.result;
+					Result<ScreenArgument> screenResult = ScreenManager.parseArgument(screenNameString, screenArgumentString);
+					if(screenResult.error){
+						return Result.failed("Invalid screen argument", screenResult);
+					}else{
+						Result<CacheArgument> cacheResult = CacheManager.parseArgument(cacheNameString, cacheArgumentString);
+						if(cacheResult.error){
+							return Result.failed("Invalid cache argument", cacheResult);
+						}else{
+							Result<StoreArgument> storeResult = StoreManager.parseArgument(storeNameString, storeArgumentString);
+							if(storeResult.error){
+								return Result.failed("Invalid store argument", storeResult);
+							}else{
+								return Result.successful(new ExternalMapArgument(mapId, 
+										screenResult.result, cacheResult.result, storeResult.result,
+										reportingIntervalMillis, flushOnClose));
+							}
+						}
 					}
 				}
 			}
@@ -230,7 +241,7 @@ public class ExternalMapManager{
 						}else{
 							Store<K, V> store = storeResult.result;
 							return Result.successful(new ExternalMap<K, V>(argument.mapId, screen, cache, store, 
-									argument.reportingIntervalMillis));
+									argument.reportingIntervalMillis, argument.flushCacheOnClose));
 						}
 					}
 				}

@@ -1,6 +1,6 @@
 # mapId must not contain ' ' or '.'
-# Report map stats every 120 seconds
-mapId.reportingSeconds=120
+# Report map stats every 120 seconds and flushes the cache to store on map close
+mapId.argument=reportingSeconds=120 flushOnClose=true
 
 # The arguments 'reportingSeconds' and 'reportingId' can be added to any of 'screenArgument', 'cacheArgument', 'storeArgument' to profile the used 'screen', 'cache', 'store', respectively
 # Cache would be profiled and stats logged every 120 seconds with the id '<x>'
