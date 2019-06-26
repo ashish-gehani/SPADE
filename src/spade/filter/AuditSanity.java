@@ -19,19 +19,17 @@
  */
 package spade.filter;
 
-import java.io.File;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import org.apache.commons.codec.digest.DigestUtils;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
-import spade.utility.CommonFunctions;
-import spade.utility.ExternalMemoryMap;
-import spade.utility.Hasher;
+import spade.utility.Result;
+import spade.utility.map.external.ExternalMap;
+import spade.utility.map.external.ExternalMapArgument;
+import spade.utility.map.external.ExternalMapManager;
 
 /**
  * Can be used to check:
@@ -42,29 +40,35 @@ public class AuditSanity extends AbstractFilter{
 
 	private Logger logger = Logger.getLogger(this.getClass().getName());
 	
-	private ExternalMemoryMap<AbstractVertex, Integer> vertexMap;
-	private final String vertexMapId = "AuditSanity[VertexMap]";
+	private final String vertexMapId = "AuditSanityMap";
+	private ExternalMap<AbstractVertex, Integer> vertexMap;
 	
 	public boolean initialize(String arguments){
-		try{
-			vertexMap = CommonFunctions.createExternalMemoryMapInstance(vertexMapId, "100000", "0.0001", "10000000", 
-					Settings.getProperty("spade_root") + File.separator + "tmp", "vertexhashes", "120", 
-					new Hasher<AbstractVertex>(){
-						@Override
-						public String getHash(AbstractVertex t) {
-							return DigestUtils.sha256Hex(String.valueOf(t));
-						}
-					});
-			return true;
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to create external map", e);
+		String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass());
+
+		Result<ExternalMapArgument> externalMapArgumentResult = ExternalMapManager.parseArgumentFromFile(vertexMapId, defaultConfigFilePath);
+		if(externalMapArgumentResult.error){
+			logger.log(Level.SEVERE, "Failed to parse argument for external map: '"+vertexMapId+"'");
+			logger.log(Level.SEVERE, externalMapArgumentResult.toErrorString());
 			return false;
+		}else{
+			ExternalMapArgument externalMapArgument = externalMapArgumentResult.result;
+			Result<ExternalMap<AbstractVertex, Integer>> externalMapResult = ExternalMapManager.create(externalMapArgument);
+			if(externalMapResult.error){
+				logger.log(Level.SEVERE, "Failed to create external map '"+vertexMapId+"' from arguments: " + externalMapArgument);
+				logger.log(Level.SEVERE, externalMapResult.toErrorString());
+				return false;
+			}else{
+				logger.log(Level.INFO, vertexMapId + ": " + externalMapArgument);
+				vertexMap = externalMapResult.result;
+				return true;
+			}
 		}
 	}
 	
 	public boolean shutdown(){
 		if(vertexMap != null){
-			CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(vertexMapId, vertexMap);
+			vertexMap.close();
 			vertexMap = null;
 		}
 		return true;

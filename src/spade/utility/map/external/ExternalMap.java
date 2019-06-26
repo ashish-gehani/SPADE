@@ -281,15 +281,18 @@ public class ExternalMap<K, V>{
 	 * Close the screen, close the cache and close the store
 	 */
 	public void close(){
-		printStats();
 		if(flushCacheOnClose){
+			printStats("PRE-FLUSH");
 			try{
 				flushToStore();
 			}catch(Exception e){
 				logger.log(Level.SEVERE, mapId + ": Failed to flush cache to store", e);
 			}
+			printStats("POST-FLUSH");
+		}else{
+			printStats();
 		}
-		printStats();
+		
 		try{
 			screen.close();
 		}catch(Exception e){
@@ -318,6 +321,10 @@ public class ExternalMap<K, V>{
 	}
 	
 	private void printStats(){
+		printStats("");
+	}
+	
+	private void printStats(String msg){
 		BigInteger sizeBytes = null;
 		try{
 			sizeBytes = store.getSizeOnDiskInBytes();
@@ -325,9 +332,17 @@ public class ExternalMap<K, V>{
 			logger.log(Level.SEVERE, "Failed to get size of external map store", e);
 		}
 		
-		String str = String.format("%s: evictions=%s, falsePositives=%s, cacheHits=%s, cacheMisses=%s, "
+		if(msg == null){
+			msg = "";
+		}else if(!msg.trim().isEmpty()){
+			msg = "["+msg+"]";
+		}
+		
+		msg = msg.trim();
+		
+		String str = String.format("%s%s: evictions=%s, falsePositives=%s, cacheHits=%s, cacheMisses=%s, "
 				+ "screenCount=%s, cacheCount=%s, storeSize=(%s)", 
-				mapId, totalEvictions, totalFalsePositives, cacheHits, cacheMisses,
+				mapId, msg, totalEvictions, totalFalsePositives, cacheHits, cacheMisses,
 				screen.size(), cache.getCurrentSize(), FileUtility.formatBytesSizeToDisplaySize(sizeBytes));
 		
 		logger.log(Level.INFO, str);

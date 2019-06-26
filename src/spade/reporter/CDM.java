@@ -67,9 +67,11 @@ import spade.core.Settings;
 import spade.edge.cdm.SimpleEdge;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.CommonFunctions;
-import spade.utility.ExternalMemoryMap;
 import spade.utility.FileUtility;
-import spade.utility.Hasher;
+import spade.utility.Result;
+import spade.utility.map.external.ExternalMap;
+import spade.utility.map.external.ExternalMapArgument;
+import spade.utility.map.external.ExternalMapManager;
 
 /**
  * CDM reporter that reads output of CDM json storage.
@@ -83,12 +85,7 @@ public class CDM extends AbstractReporter{
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 	
 	// Keys used in config
-	private static final String CONFIG_KEY_CACHE_DATABASE_PARENT_PATH = "cacheDatabasePath",
-								CONFIG_KEY_CACHE_DATABASE_NAME = "verticesDatabaseName",
-								CONFIG_KEY_CACHE_SIZE = "verticesCacheSize",
-								CONFIG_KEY_BLOOMFILTER_FALSE_PROBABILITY = "verticesBloomfilterFalsePositiveProbability",
-								CONFIG_KEY_BLOOMFILTER_EXPECTED_ELEMENTS = "verticesBloomFilterExpectedNumberOfElements",
-								CONFIG_KEY_SCHEMA = "Schema";
+	private static final String CONFIG_KEY_SCHEMA = "Schema";
 	
 	public final static String KEY_CDM_TYPE = "cdm.type";
 	
@@ -101,8 +98,8 @@ public class CDM extends AbstractReporter{
 	private volatile boolean shutdown = false;
 	
 	// Using an external map because can grow arbitrarily
-	private ExternalMemoryMap<String, AbstractVertex> uuidToVertexMap;
-	private final String uuidMapId = "CDM[UUID2VertexMap]";
+	private ExternalMap<String, AbstractVertex> uuidToVertexMap;
+	private final String uuidMapId = "CDMVertexMap";
 	
 	private LinkedList<DataReader> dataReaders = new LinkedList<DataReader>();
 	private boolean waitForLog = true;
@@ -160,24 +157,7 @@ public class CDM extends AbstractReporter{
 			return null;
 		}
 	}
-	
-	private ExternalMemoryMap<String, AbstractVertex> initCacheMap(String tempDirPath, String verticesDatabaseName, String verticesCacheSize,
-			String verticesBloomfilterFalsePositiveProbability, String verticesBloomfilterExpectedNumberOfElements){
-		try{
-			return CommonFunctions.createExternalMemoryMapInstance(uuidMapId, verticesCacheSize, 
-					verticesBloomfilterFalsePositiveProbability, verticesBloomfilterExpectedNumberOfElements, tempDirPath, 
-					verticesDatabaseName, null, new Hasher<String>(){
-						@Override
-						public String getHash(String t) {
-							return t;
-						}
-					});
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to create external map", e);
-			return null;
-		}
-	}
-	
+		
 	private void initReporting(String reportingIntervalSecondsConfig){
 		if(reportingIntervalSecondsConfig != null){
 			Integer reportingIntervalSeconds = CommonFunctions.parseInt(reportingIntervalSecondsConfig.trim(), null);
@@ -311,18 +291,23 @@ public class CDM extends AbstractReporter{
 			
 			initReporting(configMap.get("reportingIntervalSeconds"));
 			
-			try{
-				uuidToVertexMap = initCacheMap(configMap.get(CONFIG_KEY_CACHE_DATABASE_PARENT_PATH), 
-						configMap.get(CONFIG_KEY_CACHE_DATABASE_NAME), configMap.get(CONFIG_KEY_CACHE_SIZE), 
-						configMap.get(CONFIG_KEY_BLOOMFILTER_FALSE_PROBABILITY), 
-						configMap.get(CONFIG_KEY_BLOOMFILTER_EXPECTED_ELEMENTS));
-				if(uuidToVertexMap == null){
-					logger.log(Level.SEVERE, "NULL external memory map");
-					return false;
-				}
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to create external memory map", e);
+			String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass());
+			Result<ExternalMapArgument> externalMapArgumentResult = ExternalMapManager.parseArgumentFromFile(uuidMapId, defaultConfigFilePath);
+			if(externalMapArgumentResult.error){
+				logger.log(Level.SEVERE, "Failed to parse argument for external map: '"+uuidMapId+"'");
+				logger.log(Level.SEVERE, externalMapArgumentResult.toErrorString());
 				return false;
+			}else{
+				ExternalMapArgument externalMapArgument = externalMapArgumentResult.result;
+				Result<ExternalMap<String, AbstractVertex>> externalMapResult = ExternalMapManager.create(externalMapArgument);
+				if(externalMapResult.error){
+					logger.log(Level.SEVERE, "Failed to create external map '"+uuidMapId+"' from arguments: " + externalMapArgument);
+					logger.log(Level.SEVERE, externalMapResult.toErrorString());
+					return false;
+				}else{
+					logger.log(Level.INFO, uuidMapId + ": " + externalMapArgument);
+					uuidToVertexMap = externalMapResult.result;
+				}
 			}
 			
 			try{
@@ -838,7 +823,7 @@ public class CDM extends AbstractReporter{
 	
 	private synchronized void doCleanup(){
 		if(uuidToVertexMap != null){
-			CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(uuidMapId, uuidToVertexMap);
+			uuidToVertexMap.close();
 			uuidToVertexMap = null;
 		}
 

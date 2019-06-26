@@ -51,9 +51,10 @@ import spade.reporter.audit.artifact.UnixSocketIdentifier;
 import spade.reporter.audit.artifact.UnnamedPipeIdentifier;
 import spade.utility.CommonFunctions;
 import spade.utility.Execute;
-import spade.utility.ExternalMemoryMap;
-import spade.utility.FileUtility;
-import spade.utility.Hasher;
+import spade.utility.Result;
+import spade.utility.map.external.ExternalMap;
+import spade.utility.map.external.ExternalMapArgument;
+import spade.utility.map.external.ExternalMapManager;
 import spade.vertex.opm.Process;
 
 public abstract class ProcessManager extends ProcessStateManager{
@@ -115,8 +116,8 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 * Needed to keep some process states in case of a unit dependency event because we need
 	 * to recreate the unit vertex as it was.
 	 */
-	private ExternalMemoryMap<ProcessKey, ProcessUnitState> processUnitStates;
-	private final String processUnitStateMapId = "ProcessManager[ProcessUnitStatesMap]";
+	private ExternalMap<ProcessKey, ProcessUnitState> processUnitStates;
+	private final String processUnitStateMapId = "AuditProcessesMap";
 	
 	/**
 	 * Used to tell if simple agent or complete agent needs to be created
@@ -133,31 +134,24 @@ public abstract class ProcessManager extends ProcessStateManager{
 		this.simplify = simplify;
 		this.units = units;
 		
-		String configFilePath = Settings.getDefaultConfigFilePath(ProcessManager.class);
-		Map<String, String> configMap = null;
-		try{
-			configMap = FileUtility.readConfigFileAsKeyValueMap(configFilePath, "=");
-		}catch(Exception e){
-			throw new Exception("Failed to read config file: " + configFilePath + ". " + e.getMessage());
-		}
-		
-		if(configMap == null){
-			throw new Exception("NULL config map read from file: " + configFilePath);
+		String defaultConfigFilePath = Settings.getDefaultConfigFilePath(ProcessManager.class);
+
+		Result<ExternalMapArgument> externalMapArgumentResult = ExternalMapManager.parseArgumentFromFile(processUnitStateMapId, defaultConfigFilePath);
+		if(externalMapArgumentResult.error){
+			logger.log(Level.SEVERE, "Failed to parse argument for external map: '"+processUnitStateMapId+"'");
+			logger.log(Level.SEVERE, externalMapArgumentResult.toErrorString());
+			throw new Exception("Failed to parse external map arguments");
 		}else{
-			processUnitStates = CommonFunctions.createExternalMemoryMapInstance(processUnitStateMapId, 
-					configMap.get("cacheSize"), configMap.get("falsePositiveProb"), 
-					configMap.get("expectedElements"), configMap.get("dbParentDir"), 
-					configMap.get("dbName"), configMap.get("reportingIntervalSeconds"), 
-					new Hasher<ProcessKey>(){
-						@Override
-						public String getHash(ProcessKey t){
-							if(t == null){
-								return String.valueOf(t);
-							}else{
-								return t.pid + ":" + t.time;
-							}
-						}
-					});
+			ExternalMapArgument externalMapArgument = externalMapArgumentResult.result;
+			Result<ExternalMap<ProcessKey, ProcessUnitState>> externalMapResult = ExternalMapManager.create(externalMapArgument);
+			if(externalMapResult.error){
+				logger.log(Level.SEVERE, "Failed to create external map '"+processUnitStateMapId+"' from arguments: " + externalMapArgument);
+				logger.log(Level.SEVERE, externalMapResult.toErrorString());
+				throw new Exception("Failed to create external map");
+			}else{
+				logger.log(Level.INFO, processUnitStateMapId + ": " + externalMapArgument);
+				processUnitStates = externalMapResult.result;
+			}
 		}
 	}
 	
@@ -239,7 +233,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 	
 	public void doCleanUp(){
 		if(processUnitStates != null){
-			CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(processUnitStateMapId, processUnitStates);
+			processUnitStates.close();
 			processUnitStates = null;
 		}
 	}

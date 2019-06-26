@@ -21,7 +21,6 @@ package spade.utility;
 
 import java.io.File;
 import java.io.PrintWriter;
-import java.io.Serializable;
 import java.io.StringWriter;
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -34,7 +33,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.io.FileUtils;
 
 import spade.core.Settings;
 
@@ -383,174 +381,6 @@ public class CommonFunctions {
     	return Hex.encodeHexString(String.valueOf(string).getBytes());
     }
 
-    public static void closePrintSizeAndDeleteExternalMemoryMap(String id, ExternalMemoryMap<?, ?> map){
-    	if(map != null){
-    		try{
-    			map.close();
-    		}catch(Exception e){
-    			logger.log(Level.WARNING, id + ": Failed to close external map", e);
-    		}
-    		BigInteger sizeBytes = null;
-    		try{
-    			sizeBytes = map.getSizeOfPersistedDataInBytes();
-    			if(sizeBytes == null){
-    				logger.log(Level.INFO, id + ": Failed to get size of external map");
-    			}
-    		}catch(Exception e){
-    			logger.log(Level.WARNING, id + ": Failed to get size of external map", e);
-    		}
-    		if(sizeBytes != null){
-    			String displaySize = FileUtils.byteCountToDisplaySize(sizeBytes);
-    			logger.log(Level.INFO, id + ": Size of the external map on disk: {0}", displaySize);
-    		}
-    		try{
-    			map.delete();
-    		}catch(Exception e){
-    			logger.log(Level.WARNING, id + ": Failed to delete external map", e);
-    		}
-    	}else{
-    		logger.log(Level.WARNING, id + ": NULL external map");
-    	}
-    }
-
-    public static <X, Y extends Serializable> ExternalMemoryMap<X, Y> createExternalMemoryMapInstance(String id,
-    		String cacheSizeValue, String bloomfilterFalsePositiveProbValue, String bloomfilterExpectedElementsCountValue,
-    		String parentDBDirPathValue, String dbDirAndNameValue, String reportingIntervalSecondsValue,
-    		Hasher<X> hasher, Converter<Y, byte[]> converter) throws Exception{
-
-    	String exceptionPrefix = id + ": ExternalMemoryMap creation: ";
-
-    	if(isNullOrEmpty(id)){
-    		throw new Exception(exceptionPrefix + 
-    				"NULL/Empty map id: "+id+".");
-    	}
-    	if(isNullOrEmpty(cacheSizeValue)){
-    		throw new Exception(exceptionPrefix + 
-    				"NULL/Empty cache size: "+cacheSizeValue+".");
-    	}
-    	if(isNullOrEmpty(bloomfilterFalsePositiveProbValue)){
-    		throw new Exception(exceptionPrefix + 
-    				"NULL/Empty Bloom filter false positive probability: "+bloomfilterFalsePositiveProbValue+".");
-    	}
-    	if(isNullOrEmpty(bloomfilterExpectedElementsCountValue)){
-    		throw new Exception(exceptionPrefix + 
-    				"NULL/Empty Bloom filter expected number of elements: "+bloomfilterExpectedElementsCountValue+".");
-    	}
-    	if(isNullOrEmpty(parentDBDirPathValue)){
-    		throw new Exception(exceptionPrefix + 
-    				"NULL/Empty external DB parent path: "+parentDBDirPathValue+".");
-    	}
-    	if(isNullOrEmpty(dbDirAndNameValue)){
-    		throw new Exception(exceptionPrefix + 
-    				"NULL/Empty external DB name: "+dbDirAndNameValue+".");
-    	}
-
-    	Integer cacheSize = CommonFunctions.parseInt(cacheSizeValue, null);
-    	Double falsePositiveProb = CommonFunctions.parseDouble(bloomfilterFalsePositiveProbValue, null);
-    	Integer expectedNumberOfElements = CommonFunctions.parseInt(bloomfilterExpectedElementsCountValue, null);
-    	Long reporterInterval = CommonFunctions.parseLong(reportingIntervalSecondsValue, null); 
-
-    	if(cacheSize == null){
-    		throw new Exception(exceptionPrefix + "Non-integer cache size: "+cacheSizeValue+".");
-    	}
-    	if(falsePositiveProb == null){
-    		throw new Exception(exceptionPrefix + 
-    				"Non-double Bloom filter false positive probability: "+bloomfilterFalsePositiveProbValue+".");
-    	}
-    	if(expectedNumberOfElements == null){
-    		throw new Exception(exceptionPrefix + 
-    				"Non-integer Bloom filter expected number of elements: "+bloomfilterExpectedElementsCountValue+".");
-    	}
-    	if(reporterInterval == null && !isNullOrEmpty(reportingIntervalSecondsValue)){
-    		throw new Exception(exceptionPrefix + 
-    				"Non-integer reporting interval: " + reportingIntervalSecondsValue + ".");
-    	}
-
-    	if(cacheSize < 1){
-    		throw new Exception(exceptionPrefix + 
-    				"Cache size cannot be less than 1: "+cacheSize+".");
-    	}
-    	if(falsePositiveProb < 0 || falsePositiveProb > 1){
-    		throw new Exception(exceptionPrefix + 
-    				"False positive probability must be in the range [0-1]: "+falsePositiveProb+".");
-    	}
-    	if(expectedNumberOfElements < 1){
-    		throw new Exception(exceptionPrefix + 
-    				"Expected number of elements cannot be less than 1: "+expectedNumberOfElements+".");
-    	}
-    	if(reporterInterval != null && reporterInterval < 0){
-    		throw new Exception(exceptionPrefix + 
-    				"Reporting interval cannot be less than 0: "+reporterInterval+".");
-    	}
-    	if(dbDirAndNameValue.contains(File.separator)){
-    		throw new Exception(exceptionPrefix + 
-    				"Invalid '"+File.separator+"' character in external DB name: "+dbDirAndNameValue+".");
-    	}		
-
-    	try{
-    		if(!FileUtility.createDirectories(parentDBDirPathValue)){
-    			throw new Exception("");
-    		}
-    	}catch(Exception e){
-    		throw new Exception(exceptionPrefix + e.getMessage() + ". Failed to create dbs parent directory: " + parentDBDirPathValue);
-    	}
-
-    	dbDirAndNameValue += "_" + System.currentTimeMillis();
-    	String dbPath = parentDBDirPathValue + File.separator + dbDirAndNameValue;
-
-    	try{
-    		if(FileUtility.doesPathExist(dbPath)){
-    			throw new Exception("DB path already in use");
-    		}
-    	}catch(Exception e){
-    		throw new Exception(exceptionPrefix + e.getMessage() + ". Failed to check if db path exists: " + dbPath);
-    	}
-    	
-    	try{
-    		if(!FileUtility.createDirectories(dbPath)){
-    			throw new Exception("");
-    		}
-    	}catch(Exception e){
-    		throw new Exception(exceptionPrefix + e.getMessage() + ". Failed to create db directory: " + dbPath);
-    	}
-
-    	try{
-    		ExternalStore<Y> db = new BerkeleyDB<Y>(dbPath, dbDirAndNameValue, converter);
-    		ExternalMemoryMap<X, Y> map = new ExternalMemoryMap<X, Y>(
-    				id, cacheSize, db, falsePositiveProb, expectedNumberOfElements);
-    		if(reporterInterval != null){
-    			reporterInterval *= 1000;
-    			map.printStats(reporterInterval);
-    		}
-    		if(hasher != null){
-    			map.setKeyHashFunction(hasher);
-    		}
-    		logger.log(Level.INFO, id+": ExternalMemoryMap created with params: cache size={0}, "
-    				+ "db path={1}, db name={2}, false positive prob={3}, expected number of elements={4}, "
-    				+ "reporting interval in millis={5}", new Object[]{
-    						cacheSize, dbPath, dbDirAndNameValue, falsePositiveProb, expectedNumberOfElements,
-    						reporterInterval
-    		});
-    		return map;
-    	}catch(Exception e){
-    		try{
-    			if(FileUtility.doesPathExist(dbPath)){
-    				FileUtility.deleteFile(dbPath);
-    			}
-    		}catch(Exception e2){
-    			
-    		}
-    		throw new Exception(exceptionPrefix + "Exception: " + e.getMessage());
-    	}
-    }
-    
-    public static <X, Y extends Serializable> ExternalMemoryMap<X, Y> createExternalMemoryMapInstance(String id,
-    		String cacheSizeValue, String bloomfilterFalsePositiveProbValue, String bloomfilterExpectedElementsCountValue,
-    		String parentDBDirPathValue, String dbDirAndNameValue, String reportingIntervalSecondsValue,
-    		Hasher<X> hasher) throws Exception{
-    	return createExternalMemoryMapInstance(id, cacheSizeValue, bloomfilterFalsePositiveProbValue, bloomfilterExpectedElementsCountValue, parentDBDirPathValue, dbDirAndNameValue, reportingIntervalSecondsValue, hasher, null);
-    }
-    
     public static List<String> mapToLines(Map<String, String> map, String keyValueSeparator){
     	if(map == null){
     		return null;

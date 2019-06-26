@@ -28,8 +28,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 
@@ -41,68 +42,18 @@ import spade.reporter.audit.Globals;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.CommonFunctions;
 import spade.utility.Converter;
-import spade.utility.ExternalMemoryMap;
-import spade.utility.FileUtility;
-import spade.utility.Hasher;
+import spade.utility.Result;
+import spade.utility.Serializable2ByteArrayConverter;
+import spade.utility.map.external.ExternalMap;
+import spade.utility.map.external.ExternalMapArgument;
+import spade.utility.map.external.ExternalMapManager;
 import spade.vertex.opm.Artifact;
 
 public class ArtifactManager{
 
-//	public static void main(String[] args) throws Exception{
-//		//testArtifactStateConverter();
-//		testArtifactsMap(900000, true);
-//	}
-	
-	private static void testArtifactsMap(int totalElements, boolean customConverter) throws Exception{
-		Converter<ArtifactState, byte[]> converter = null;
-		converter = customConverter ? artifactStateConverter : null;
-		String mapId = "customConverter:" + customConverter;
-		ExternalMemoryMap<ArtifactIdentifier, ArtifactState> artifactsMap = 
-				CommonFunctions.createExternalMemoryMapInstance(mapId, 
-				"10", "0.000001", "10000000", "/tmp/hass",
-				"testdb", "0", 
-				new Hasher<ArtifactIdentifier>(){
-					@Override
-					public String getHash(ArtifactIdentifier t){
-						if(t != null){
-							Map<String, String> annotations = t.getAnnotationsMap();
-							String subtype = t.getSubtype();
-							String stringToHash = String.valueOf(annotations) + "," + String.valueOf(subtype);
-							return DigestUtils.sha256Hex(stringToHash);
-						}else{
-							return DigestUtils.sha256Hex("(null)");
-						}
-					}
-				},
-				converter
-		);
-		
-		double totalPutTimeMillis = 0;
-		for(int i = 0; i < totalElements; i++){
-			ArtifactIdentifier identifier = new FileIdentifier(String.valueOf(i));
-			ArtifactState state = new ArtifactState();
-			state.incrementEpoch();
-			state.updatePermissions("hello");
-			long start = System.currentTimeMillis();
-			artifactsMap.put(identifier, new ArtifactState());
-			totalPutTimeMillis+=(System.currentTimeMillis() - start);
-		}
-		
-		double totalGetTimeMillis = 0;
-		for(int i = 0; i < totalElements; i++){
-			ArtifactIdentifier identifier = new FileIdentifier(String.valueOf(i));
-			long start = System.currentTimeMillis();
-			ArtifactState state = artifactsMap.get(identifier);
-			totalGetTimeMillis+=(System.currentTimeMillis() - start);
-		}
-		
-		//CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(mapId, artifactsMap);
-		
-		System.out.println("Total put time=" + totalPutTimeMillis + " ms");
-		System.out.println("Avg. put time=" + (totalPutTimeMillis/(double)totalElements) + " ms");
-		
-		System.out.println("Total get time=" + totalGetTimeMillis + " ms");
-		System.out.println("Avg. get time=" + (totalGetTimeMillis/(double)totalElements) + " ms");
+	public static void main(String[] args) throws Exception{
+		testArtifactStateConverter();
+		//testArtifactsMap(900000, true);
 	}
 	
 	private static void testArtifactStateConverter() throws Exception{
@@ -386,8 +337,10 @@ public class ArtifactManager{
 	
 	private final Map<Class<? extends ArtifactIdentifier>, ArtifactConfig> artifactConfigs;
 	
-	private final String artifactsMapId = "Audit[ArtifactsMap]";
-	private ExternalMemoryMap<ArtifactIdentifier, ArtifactState> artifactsMap;
+	private final String artifactsMapId = "AuditArtifactsMap";
+	private ExternalMap<ArtifactIdentifier, ArtifactState> artifactsMap;
+	
+	private static final Logger logger = Logger.getLogger(ArtifactManager.class.getName());
 	
 	public ArtifactManager(Audit reporter, Globals globals) throws Exception{
 		if(reporter == null){
@@ -398,28 +351,26 @@ public class ArtifactManager{
 		}
 		this.reporter = reporter;
 		if(globals.keepingArtifactPropertiesMap){
-			String configFilePath = Settings.getDefaultConfigFilePath(this.getClass());
-			Map<String, String> configMap = FileUtility.readConfigFileAsKeyValueMap(
-					configFilePath, "=");
-			artifactsMap = CommonFunctions.createExternalMemoryMapInstance(artifactsMapId, 
-					configMap.get("cacheSize"), configMap.get("bloomfilterFalsePositiveProbability"), 
-					configMap.get("bloomFilterExpectedNumberOfElements"), configMap.get("tempDir"),
-					configMap.get("dbName"), configMap.get("reportingIntervalSeconds"), 
-					new Hasher<ArtifactIdentifier>(){
-						@Override
-						public String getHash(ArtifactIdentifier t){
-							if(t != null){
-								Map<String, String> annotations = t.getAnnotationsMap();
-								String subtype = t.getSubtype();
-								String stringToHash = String.valueOf(annotations) + "," + String.valueOf(subtype);
-								return DigestUtils.sha256Hex(stringToHash);
-							}else{
-								return DigestUtils.sha256Hex("(null)");
-							}
-						}
-					},
-					artifactStateConverter
-			);
+			String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass());
+
+			Result<ExternalMapArgument> externalMapArgumentResult = ExternalMapManager.parseArgumentFromFile(artifactsMapId, defaultConfigFilePath);
+			if(externalMapArgumentResult.error){
+				logger.log(Level.SEVERE, "Failed to parse argument for external map: '"+artifactsMapId+"'");
+				logger.log(Level.SEVERE, externalMapArgumentResult.toErrorString());
+				throw new Exception("Failed to parse external map arguments");
+			}else{
+				ExternalMapArgument externalMapArgument = externalMapArgumentResult.result;
+				Result<ExternalMap<ArtifactIdentifier, ArtifactState>> externalMapResult = ExternalMapManager.create(externalMapArgument,
+						new Serializable2ByteArrayConverter<ArtifactIdentifier>(), artifactStateConverter);
+				if(externalMapResult.error){
+					logger.log(Level.SEVERE, "Failed to create external map '"+artifactsMapId+"' from arguments: " + externalMapArgument);
+					logger.log(Level.SEVERE, externalMapResult.toErrorString());
+					throw new Exception("Failed to create external map");
+				}else{
+					logger.log(Level.INFO, artifactsMapId + ": " + externalMapArgument);
+					artifactsMap = externalMapResult.result;
+				}
+			}
 		}else{
 			artifactsMap = null;
 		}
@@ -656,7 +607,7 @@ public class ArtifactManager{
 	
 	public void doCleanUp(){
 		if(artifactsMap != null){
-			CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(artifactsMapId, artifactsMap);
+			artifactsMap.close();
 			artifactsMap = null;
 		}
 	}

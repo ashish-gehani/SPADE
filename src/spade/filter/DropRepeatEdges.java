@@ -35,9 +35,10 @@ import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
 import spade.utility.CommonFunctions;
-import spade.utility.ExternalMemoryMap;
-import spade.utility.FileUtility;
-import spade.utility.Hasher;
+import spade.utility.Result;
+import spade.utility.map.external.ExternalMap;
+import spade.utility.map.external.ExternalMapArgument;
+import spade.utility.map.external.ExternalMapManager;
 
 /**
  * The filter drops repeat edges between any two vertices by the values of keys provided i.e.
@@ -56,18 +57,12 @@ public class DropRepeatEdges extends AbstractFilter{
 
 	private final static Logger logger = Logger.getLogger(DropRepeatEdges.class.getName());
 
-	private final static String CONFIG_KEY_TEMP_DIR = "tempDir",
-			CONFIG_KEY_DBNAME = "dbName",
-			CONFIG_KEY_CACHESIZE = "cacheSize",
-			CONFIG_KEY_FALSEPOSITIONPROBABILITY = "bloomfilterFalsePositiveProbability",
-			CONFIG_KEY_EXPECTEDNUMBEROFELEMENTS = "bloomFilterExpectedNumberOfElements",
-			CONFIG_KEY_REPORTINGINTERVALSECONDS = "reportingIntervalSeconds";
 	private final static String dropByArgName = "by";
 
 	private Set<String> dropBy = new HashSet<String>();
 
 	private String vertex2VertexMapId = "DropRepeatEdgesMap";
-	private ExternalMemoryMap<String, HashMap<String, String>> vertex2VertexAndLastDropByValue;
+	private ExternalMap<String, HashMap<String, String>> vertex2VertexAndLastDropByValue;
 
 	private BigInteger totalDropped = BigInteger.ZERO;
 	
@@ -96,29 +91,24 @@ public class DropRepeatEdges extends AbstractFilter{
 	public boolean initialize(String arguments){
 		if(parseArguments(arguments)){
 			String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass());
-			Map<String, String> configMap = null;
-			try{
-				configMap = FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "=");
-			}catch(Throwable t){
-				logger.log(Level.SEVERE, "Failed to read default config file: " + defaultConfigFilePath, t);
-				return false;
-			}
 
-			try{
-				vertex2VertexAndLastDropByValue = CommonFunctions.createExternalMemoryMapInstance(vertex2VertexMapId, 
-						configMap.get(CONFIG_KEY_CACHESIZE), configMap.get(CONFIG_KEY_FALSEPOSITIONPROBABILITY), 
-						configMap.get(CONFIG_KEY_EXPECTEDNUMBEROFELEMENTS), configMap.get(CONFIG_KEY_TEMP_DIR), 
-						configMap.get(CONFIG_KEY_DBNAME), configMap.get(CONFIG_KEY_REPORTINGINTERVALSECONDS), 
-						new Hasher<String>(){
-							@Override
-							public String getHash(String t){
-								return String.valueOf(t);
-							}
-						});
-				
-				return true;
-			}catch(Throwable t){
+			Result<ExternalMapArgument> externalMapArgumentResult = ExternalMapManager.parseArgumentFromFile(vertex2VertexMapId, defaultConfigFilePath);
+			if(externalMapArgumentResult.error){
+				logger.log(Level.SEVERE, "Failed to parse argument for external map: '"+vertex2VertexMapId+"'");
+				logger.log(Level.SEVERE, externalMapArgumentResult.toErrorString());
 				return false;
+			}else{
+				ExternalMapArgument externalMapArgument = externalMapArgumentResult.result;
+				Result<ExternalMap<String, HashMap<String, String>>> externalMapResult = ExternalMapManager.create(externalMapArgument);
+				if(externalMapResult.error){
+					logger.log(Level.SEVERE, "Failed to create external map '"+vertex2VertexMapId+"' from arguments: " + externalMapArgument);
+					logger.log(Level.SEVERE, externalMapResult.toErrorString());
+					return false;
+				}else{
+					logger.log(Level.INFO, vertex2VertexMapId + ": " + externalMapArgument);
+					vertex2VertexAndLastDropByValue = externalMapResult.result;
+					return true;
+				}
 			}
 		}else{
 			return false;
@@ -128,9 +118,9 @@ public class DropRepeatEdges extends AbstractFilter{
 	@Override
 	public boolean shutdown(){
 		try{
-			CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(vertex2VertexMapId, vertex2VertexAndLastDropByValue);
+			vertex2VertexAndLastDropByValue.close();
 		}catch(Throwable t){
-			logger.log(Level.SEVERE, null, t);
+			logger.log(Level.SEVERE, "Failed to close external map '"+vertex2VertexMapId+"'", t);
 		}
 		
 		logger.log(Level.INFO, "Total grouped edges: " + totalDropped);
