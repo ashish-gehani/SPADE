@@ -97,20 +97,14 @@ public class LevelDBManager extends DatabaseManager{
 			if(CommonFunctions.isNullOrEmpty(dbPathUser)){
 				return Result.failed("NULL/Empty '"+LevelDBArgument.keyDatabasePath+"'");
 			}else{
-				final Result<String> dbPathUserResult = FileUtility.getCanonicalPathResult(dbPathUser);
-				if(dbPathUserResult.error){
-					return Result.failed("Failed to get unique path for database path", dbPathUserResult);
+				Result<Boolean> deleteDbOnCloseResult = CommonFunctions.parseBoolean(
+						arguments.get(LevelDBArgument.keyDeleteDbOnClose)
+						);
+				if(deleteDbOnCloseResult.error){
+					return Result.failed("Failed to parse '"+LevelDBArgument.keyDeleteDbOnClose+"'", deleteDbOnCloseResult);
 				}else{
-					final String dbPath = dbPathUserResult.result;
-					Result<Boolean> deleteDbOnCloseResult = CommonFunctions.parseBoolean(
-							arguments.get(LevelDBArgument.keyDeleteDbOnClose)
-							);
-					if(deleteDbOnCloseResult.error){
-						return Result.failed("Failed to parse '"+LevelDBArgument.keyDeleteDbOnClose+"'", deleteDbOnCloseResult);
-					}else{
-						final boolean deleteDbOnClose = deleteDbOnCloseResult.result;
-						return Result.successful(new LevelDBArgument(dbPath, deleteDbOnClose));
-					}
+					final boolean deleteDbOnClose = deleteDbOnCloseResult.result;
+					return Result.successful(new LevelDBArgument(dbPathUser, deleteDbOnClose));
 				}
 			}
 		}
@@ -152,63 +146,69 @@ public class LevelDBManager extends DatabaseManager{
 			return Result.failed("Failed database handle open", valid);
 		}else{
 			LevelDBArgument argument = valid.result;
-			final String dbPath = argument.databasePath;
-			if(databases.get(dbPath) != null){
-				return Result.failed("Database already in opened and in use");
+			final String dbPathUnresolved = argument.databasePath;
+			Result<String> canonicalResult = FileUtility.getCanonicalPathResult(dbPathUnresolved);
+			if(canonicalResult.error){
+				return Result.failed("Failed to get canonical path for '"+dbPathUnresolved+"'", canonicalResult);
 			}else{
-				Result<Boolean> existsResult = FileUtility.doesPathExistResult(dbPath);
-				if(existsResult.error){
-					return Result.failed("Failed to check if database path exists", existsResult);
+				final String dbPathCanonical = canonicalResult.result;
+				if(databases.get(dbPathCanonical) != null){
+					return Result.failed("Database already in opened and in use");
 				}else{
-					boolean dirCreated = false;
-					if(!existsResult.result){
-						Result<Boolean> createDirResult = FileUtility.createDirectoriesResult(dbPath);
-						if(createDirResult.error){
-							return Result.failed("Failed to create database path", createDirResult);
-						}else{
-							if(!createDirResult.result){
-								return Result.failed("Silently failed to create database path");
+					Result<Boolean> existsResult = FileUtility.doesPathExistResult(dbPathCanonical);
+					if(existsResult.error){
+						return Result.failed("Failed to check if database path exists", existsResult);
+					}else{
+						boolean dirCreated = false;
+						if(!existsResult.result){
+							Result<Boolean> createDirResult = FileUtility.createDirectoriesResult(dbPathCanonical);
+							if(createDirResult.error){
+								return Result.failed("Failed to create database path", createDirResult);
 							}else{
-								dirCreated = true;
+								if(!createDirResult.result){
+									return Result.failed("Silently failed to create database path");
+								}else{
+									dirCreated = true;
+								}
+							}
+						}else{ // already exists
+							Result<Boolean> isDirectoryResult = FileUtility.isDirectoryResult(dbPathCanonical);
+							if(isDirectoryResult.error){
+								return Result.failed("Failed to check if database path is a directory", isDirectoryResult);
+							}else{
+								if(!isDirectoryResult.result){
+									return Result.failed("Database path is not a directory");
+								}
 							}
 						}
-					}else{ // already exists
-						Result<Boolean> isDirectoryResult = FileUtility.isDirectoryResult(dbPath);
-						if(isDirectoryResult.error){
-							return Result.failed("Failed to check if database path is a directory", isDirectoryResult);
-						}else{
-							if(!isDirectoryResult.result){
-								return Result.failed("Database path is not a directory");
+						final boolean deleteOnClose = argument.deleteOnClose;
+						try{
+							Options options = new Options().createIfMissing(true);
+							DB db = factory.open(new File(dbPathCanonical), options);
+							if(db == null){
+								if(dirCreated){
+									try{
+										FileUtils.forceDelete(new File(dbPathCanonical));
+									}catch(Exception e){
+										
+									}
+								}
+								return Result.failed("Silently failed to open database at path: '"+dbPathCanonical+"'");
+							}else{
+								LevelDBHandle dbHandle = new LevelDBHandle(dbPathCanonical, deleteOnClose, db);
+								databases.put(dbPathCanonical, dbHandle);
+								return Result.successful(dbHandle);
 							}
-						}
-					}
-					final boolean deleteOnClose = argument.deleteOnClose;
-					try{
-						Options options = new Options().createIfMissing(true);
-						DB db = factory.open(new File(dbPath), options);
-						if(db == null){
+						}catch(Exception e){
 							if(dirCreated){
 								try{
-									FileUtils.forceDelete(new File(dbPath));
-								}catch(Exception e){
+									FileUtils.forceDelete(new File(dbPathCanonical));
+								}catch(Exception e2){
 									
 								}
 							}
-							return Result.failed("Silently failed to open database at path: '"+dbPath+"'");
-						}else{
-							LevelDBHandle dbHandle = new LevelDBHandle(dbPath, deleteOnClose, db);
-							databases.put(dbPath, dbHandle);
-							return Result.successful(dbHandle);
+							return Result.failed("Failed to create database handle", e, null);
 						}
-					}catch(Exception e){
-						if(dirCreated){
-							try{
-								FileUtils.forceDelete(new File(dbPath));
-							}catch(Exception e2){
-								
-							}
-						}
-						return Result.failed("Failed to create database handle", e, null);
 					}
 				}
 			}

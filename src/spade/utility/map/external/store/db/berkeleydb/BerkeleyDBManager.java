@@ -94,28 +94,22 @@ public class BerkeleyDBManager extends DatabaseManager{
 		}else if(arguments.isEmpty()){
 			return Result.failed("Empty arguments map");
 		}else{
-			String envPathUser = arguments.get(BerkeleyDBArgument.keyEnvironmentPath);
+			final String envPathUser = arguments.get(BerkeleyDBArgument.keyEnvironmentPath);
 			if(CommonFunctions.isNullOrEmpty(envPathUser)){
 				return Result.failed("NULL/Empty '"+BerkeleyDBArgument.keyEnvironmentPath+"'");
 			}else{
-				final Result<String> envFileResult = FileUtility.getCanonicalPathResult(envPathUser);
-				if(envFileResult.error){
-					return Result.failed("Failed to get unique path for environment path", envFileResult);
+				final String dbName = arguments.get(BerkeleyDBArgument.keyDatabaseName);
+				if(CommonFunctions.isNullOrEmpty(dbName)){
+					return Result.failed("NULL/Empty '"+BerkeleyDBArgument.keyDatabaseName+"'");
 				}else{
-					final String envPath = envFileResult.result;
-					final String dbName = arguments.get(BerkeleyDBArgument.keyDatabaseName);
-					if(CommonFunctions.isNullOrEmpty(dbName)){
-						return Result.failed("NULL/Empty '"+BerkeleyDBArgument.keyDatabaseName+"'");
+					Result<Boolean> deleteDbOnCloseResult = CommonFunctions.parseBoolean(
+							arguments.get(BerkeleyDBArgument.keyDeleteDbOnClose)
+							);
+					if(deleteDbOnCloseResult.error){
+						return Result.failed("Failed to parse '"+BerkeleyDBArgument.keyDeleteDbOnClose+"'", deleteDbOnCloseResult);
 					}else{
-						Result<Boolean> deleteDbOnCloseResult = CommonFunctions.parseBoolean(
-								arguments.get(BerkeleyDBArgument.keyDeleteDbOnClose)
-								);
-						if(deleteDbOnCloseResult.error){
-							return Result.failed("Failed to parse '"+BerkeleyDBArgument.keyDeleteDbOnClose+"'", deleteDbOnCloseResult);
-						}else{
-							final boolean deleteDbOnClose = deleteDbOnCloseResult.result;
-							return Result.successful(new BerkeleyDBArgument(envPath, dbName, deleteDbOnClose));
-						}
+						final boolean deleteDbOnClose = deleteDbOnCloseResult.result;
+						return Result.successful(new BerkeleyDBArgument(envPathUser, dbName, deleteDbOnClose));
 					}
 				}
 			}
@@ -197,88 +191,94 @@ public class BerkeleyDBManager extends DatabaseManager{
 			return Result.failed("Invalid argument", validResult);
 		}else{
 			BerkeleyDBArgument argument = validResult.result;
-			final String envPath = argument.environmentPath;
+			final String envPathUser = argument.environmentPath;
 			final String dbName = argument.dbName;
 			final boolean deleteOnClose = argument.deleteOnClose;
 			
-			BerkeleyDBEnvironmentHandle envHandle = environmentHandles.get(envPath);
-			boolean envPathCreated = false;
-			boolean newEnvHandle = false;
-			
-			if(envHandle == null){
-				Result<Boolean> pathExistsResult = FileUtility.doesPathExistResult(envPath);
-				if(pathExistsResult.error){
-					return Result.failed("Failed to check if environment directory exists", pathExistsResult);
-				}else{
-					if(!pathExistsResult.result){
-						Result<Boolean> createDirectoriesResult = FileUtility.createDirectoriesResult(envPath);
-						if(createDirectoriesResult.error){
-							return Result.failed("Failed to create environment directory", createDirectoriesResult);
-						}else{
-							if(!createDirectoriesResult.result){
-								return Result.failed("Silently failed to create environment directory: '"+envPath+"'");
+			Result<String> envPathResult = FileUtility.getCanonicalPathResult(envPathUser);
+			if(envPathResult.error){
+				return Result.failed("Failed to get canonical path for '"+envPathUser+"'", envPathResult);
+			}else{
+				final String envPath = envPathResult.result;
+				BerkeleyDBEnvironmentHandle envHandle = environmentHandles.get(envPath);
+				boolean envPathCreated = false;
+				boolean newEnvHandle = false;
+				
+				if(envHandle == null){
+					Result<Boolean> pathExistsResult = FileUtility.doesPathExistResult(envPath);
+					if(pathExistsResult.error){
+						return Result.failed("Failed to check if environment directory exists", pathExistsResult);
+					}else{
+						if(!pathExistsResult.result){
+							Result<Boolean> createDirectoriesResult = FileUtility.createDirectoriesResult(envPath);
+							if(createDirectoriesResult.error){
+								return Result.failed("Failed to create environment directory", createDirectoriesResult);
 							}else{
-								envPathCreated = true;
-								Result<Environment> envResult = createBerkeleyDBEnvironmentObject(envPath);
-								if(envResult.error){
-									_openDatabaseHandleCleanup(envPath, envPathCreated, null, false);
-									return Result.failed("Failed", envResult);
+								if(!createDirectoriesResult.result){
+									return Result.failed("Silently failed to create environment directory: '"+envPath+"'");
 								}else{
-									newEnvHandle = true;
-									envHandle = new BerkeleyDBEnvironmentHandle(envPath, envResult.result, true);
+									envPathCreated = true;
+									Result<Environment> envResult = createBerkeleyDBEnvironmentObject(envPath);
+									if(envResult.error){
+										_openDatabaseHandleCleanup(envPath, envPathCreated, null, false);
+										return Result.failed("Failed", envResult);
+									}else{
+										newEnvHandle = true;
+										envHandle = new BerkeleyDBEnvironmentHandle(envPath, envResult.result, true);
+									}
 								}
 							}
-						}
-					}else{
-						Result<Boolean> isDirectoryResult = FileUtility.isDirectoryResult(envPath);
-						if(isDirectoryResult.error){
-							return Result.failed("Failed to check if environment directory is a directory", isDirectoryResult);
 						}else{
-							if(!isDirectoryResult.result){
-								return Result.failed("Environment path must be a directory");
+							Result<Boolean> isDirectoryResult = FileUtility.isDirectoryResult(envPath);
+							if(isDirectoryResult.error){
+								return Result.failed("Failed to check if environment directory is a directory", isDirectoryResult);
 							}else{
-								Result<Environment> envResult = createBerkeleyDBEnvironmentObject(envPath);
-								if(envResult.error){
-									return Result.failed("Failed", envResult);
+								if(!isDirectoryResult.result){
+									return Result.failed("Environment path must be a directory");
 								}else{
-									newEnvHandle = true;
-									envHandle = new BerkeleyDBEnvironmentHandle(envPath, envResult.result, false);
+									Result<Environment> envResult = createBerkeleyDBEnvironmentObject(envPath);
+									if(envResult.error){
+										return Result.failed("Failed", envResult);
+									}else{
+										newEnvHandle = true;
+										envHandle = new BerkeleyDBEnvironmentHandle(envPath, envResult.result, false);
+									}
 								}
 							}
 						}
 					}
 				}
-			}
-			
-			Result<Boolean> handleExistsResult = envHandle.containsDBHandleWithName(dbName);
-			if(handleExistsResult.error){
-				_openDatabaseHandleCleanup(envPath, envPathCreated, envHandle, newEnvHandle);
-				return Result.failed("Failed to check if database handle exists", handleExistsResult);
-			}else{
-				if(handleExistsResult.result){
+				
+				Result<Boolean> handleExistsResult = envHandle.containsDBHandleWithName(dbName);
+				if(handleExistsResult.error){
 					_openDatabaseHandleCleanup(envPath, envPathCreated, envHandle, newEnvHandle);
-					return Result.failed("Database already opened");
+					return Result.failed("Failed to check if database handle exists", handleExistsResult);
 				}else{
-					Result<Boolean> dbExistsResult = envHandle.containsDatabaseInEnvironmentWithName(dbName);
-					if(dbExistsResult.error){
+					if(handleExistsResult.result){
 						_openDatabaseHandleCleanup(envPath, envPathCreated, envHandle, newEnvHandle);
-						return Result.failed("Failed to check if database exists in environment", dbExistsResult);
+						return Result.failed("Database already opened");
 					}else{
-						boolean createDb = !dbExistsResult.result;
-						Result<Database> dbResult = createOpenDatabase(envHandle.getEnvironment(), dbName, createDb);
-						if(dbResult.error){
+						Result<Boolean> dbExistsResult = envHandle.containsDatabaseInEnvironmentWithName(dbName);
+						if(dbExistsResult.error){
 							_openDatabaseHandleCleanup(envPath, envPathCreated, envHandle, newEnvHandle);
-							return Result.failed("Failed to create database object", dbResult);
+							return Result.failed("Failed to check if database exists in environment", dbExistsResult);
 						}else{
-							Database database = dbResult.result;
-							BerkeleyDBHandle dbHandle = new BerkeleyDBHandle(dbName, database, envHandle, deleteOnClose);
-							envHandle.putDBHandle(dbHandle);
-							
-							if(newEnvHandle){
-								environmentHandles.put(envPath, envHandle);
+							boolean createDb = !dbExistsResult.result;
+							Result<Database> dbResult = createOpenDatabase(envHandle.getEnvironment(), dbName, createDb);
+							if(dbResult.error){
+								_openDatabaseHandleCleanup(envPath, envPathCreated, envHandle, newEnvHandle);
+								return Result.failed("Failed to create database object", dbResult);
+							}else{
+								Database database = dbResult.result;
+								BerkeleyDBHandle dbHandle = new BerkeleyDBHandle(dbName, database, envHandle, deleteOnClose);
+								envHandle.putDBHandle(dbHandle);
+								
+								if(newEnvHandle){
+									environmentHandles.put(envPath, envHandle);
+								}
+								
+								return Result.successful(dbHandle);
 							}
-							
-							return Result.successful(dbHandle);
 						}
 					}
 				}

@@ -26,8 +26,8 @@ public abstract class BloomFilterArgument extends ScreenArgument{
 	
 	public final static String keyExpectedElements = "expectedElements",
 			keyFalsePositiveProbability = "falsePositiveProbability",
-			keySavePath = "loadPath",
-			keyLoadPath = "savePath";
+			keySavePath = "savePath",
+			keyLoadPath = "loadPath";
 	/**
 	 * Path to write the bloom filter object to at close
 	 */
@@ -37,7 +37,7 @@ public abstract class BloomFilterArgument extends ScreenArgument{
 		super(ScreenName.BloomFilter);
 		this.savePath = savePath;
 	}
-	
+
 	@Override
 	public int hashCode(){
 		final int prime = 31;
@@ -106,6 +106,7 @@ public abstract class BloomFilterArgument extends ScreenArgument{
 				return false;
 			return true;
 		}
+
 	}
 	
 	protected static class CreateFromArgs extends BloomFilterArgument{
@@ -122,9 +123,9 @@ public abstract class BloomFilterArgument extends ScreenArgument{
 		@Override
 		public String toString(){
 			return "CreateFromArgs [expectedElements=" + expectedElements + ", falsePositiveProbability="
-					+ falsePositiveProbability + "]";
+					+ falsePositiveProbability + ", savePath=" + savePath + ", name=" + name + "]";
 		}
-		
+
 		@Override
 		public int hashCode(){
 			final int prime = 31;
@@ -135,7 +136,7 @@ public abstract class BloomFilterArgument extends ScreenArgument{
 			result = prime * result + (int)(temp ^ (temp >>> 32));
 			return result;
 		}
-		
+
 		@Override
 		public boolean equals(Object obj){
 			if(this == obj)
@@ -151,7 +152,6 @@ public abstract class BloomFilterArgument extends ScreenArgument{
 					.doubleToLongBits(other.falsePositiveProbability))
 				return false;
 			return true;
-		}
-		
+		}		
 	}
 }

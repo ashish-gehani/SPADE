@@ -102,6 +102,9 @@ public class ExternalMap<K, V>{
 	public void put(K key, V value){
 		checkInterval();
 		// Might be value update
+		if(key == null || value == null){
+			return;
+		}
 		try{
 			screen.add(key);
 		}catch(Exception e){
@@ -135,6 +138,9 @@ public class ExternalMap<K, V>{
 	 */
 	public V get(K key){
 		checkInterval();
+		if(key == null){
+			return null;
+		}
 		try{
 			if(screen.contains(key)){
 				// False positive possible
@@ -188,6 +194,9 @@ public class ExternalMap<K, V>{
 	
 	public boolean contains(K key){
 		checkInterval();
+		if(key == null){
+			return false;
+		}
 		try{
 			if(screen.contains(key)){
 				try{
@@ -221,6 +230,9 @@ public class ExternalMap<K, V>{
 	 */
 	public void remove(K key){
 		checkInterval();
+		if(key == null){
+			return;
+		}
 		try{
 			if(screen.contains(key)){
 				try{

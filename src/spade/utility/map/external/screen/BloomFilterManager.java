@@ -74,7 +74,35 @@ public class BloomFilterManager extends ScreenManager{
 			return Result.failed("Empty arguments");
 		}else{
 			String saveToPath = arguments.get(BloomFilterArgument.keySavePath);
-			saveToPath = saveToPath == null ? null : saveToPath.trim();
+			if(saveToPath != null){
+				if(saveToPath.trim().isEmpty()){
+					return Result.failed("Invalid '"+BloomFilterArgument.keySavePath+"': '"+saveToPath+"'");
+				}else{
+					try{
+						File f = new File(saveToPath);
+						if(f.exists()){
+							if(f.isFile()){
+								// good
+							}else{
+								return Result.failed("'"+BloomFilterArgument.keySavePath+"'='"+saveToPath+"' is not a regular file");
+							}
+						}else{
+							File parentF = f.getParentFile();
+							if(parentF == null){
+								return Result.failed("'"+BloomFilterArgument.keySavePath+"'='"+saveToPath+"' is not a valid path");
+							}else{
+								if(parentF.exists()){
+									// good
+								}else{
+									return Result.failed("'"+BloomFilterArgument.keySavePath+"'='"+saveToPath+"'. Parent directory doesn't exist");
+								}
+							}
+						}
+					}catch(Exception e){
+						return Result.failed("Failed to check '"+BloomFilterArgument.keySavePath+"'='"+saveToPath+"'", e, null);
+					}
+				}
+			}
 			
 			String loadFromPath = arguments.get(BloomFilterArgument.keyLoadPath);
 			if(CommonFunctions.isNullOrEmpty(loadFromPath)){
@@ -95,6 +123,18 @@ public class BloomFilterManager extends ScreenManager{
 					}
 				}
 			}else{
+				try{
+					File f = new File(loadFromPath);
+					if(!f.exists()){
+						return Result.failed("'"+BloomFilterArgument.keyLoadPath+"'='"+loadFromPath+"' does not exist");
+					}else{
+						if(!f.isFile()){
+							return Result.failed("'"+BloomFilterArgument.keyLoadPath+"'='"+loadFromPath+"' is not a regular file");
+						}
+					}
+				}catch(Exception e){
+					return Result.failed("Failed to check '"+BloomFilterArgument.keyLoadPath+"'='"+loadFromPath+"'", e, null);
+				}
 				return Result.successful(new BloomFilterArgument.LoadFromFile(loadFromPath, saveToPath));
 			}
 		}
@@ -114,7 +154,7 @@ public class BloomFilterManager extends ScreenManager{
 			return Result.successful(argument);
 		}else if(genericArgument.getClass().equals(BloomFilterArgument.LoadFromFile.class)){
 			BloomFilterArgument.LoadFromFile argument = (BloomFilterArgument.LoadFromFile)genericArgument;
-			if(!CommonFunctions.isNullOrEmpty(argument.loadPath)){
+			if(CommonFunctions.isNullOrEmpty(argument.loadPath)){
 				return Result.failed("NULL/Empty path to load bloomfilter from");
 			}else{
 				return Result.successful(argument);
