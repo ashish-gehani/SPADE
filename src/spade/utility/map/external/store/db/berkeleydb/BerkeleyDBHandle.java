@@ -25,6 +25,7 @@ import java.math.BigInteger;
 import org.apache.commons.io.FileUtils;
 
 import com.sleepycat.je.Database;
+import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.LockMode;
@@ -45,7 +46,7 @@ public class BerkeleyDBHandle implements DatabaseHandle{
 	/**
 	 * BerkeleyDB database object
 	 */
-	private final Database database;
+	private Database database;
 	/**
 	 * BerkeleyDB environment handle
 	 */
@@ -150,7 +151,11 @@ public class BerkeleyDBHandle implements DatabaseHandle{
 			if(environment == null){
 				throw new Exception("NULL enviroment");
 			}else{
-				environment.truncateDatabase(null, dbName, false);
+				database.close();
+				environment.removeDatabase(null, dbName);
+				DatabaseConfig databaseConfig = new DatabaseConfig();
+				databaseConfig.setAllowCreate(true).setExclusiveCreate(true);
+				database = environment.openDatabase(null, dbName, databaseConfig);
 			}
 		}
 	}

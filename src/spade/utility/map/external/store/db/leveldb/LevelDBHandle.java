@@ -101,16 +101,10 @@ public class LevelDBHandle implements DatabaseHandle{
 	
 	@Override
 	public void clear() throws Exception{
-		try{ db.close(); }catch(Exception e){}
-		
-		try{ factory.destroy(new File(dbPath), new Options()); }catch(Exception e){}
-		
-		try{
-			Options options = new Options().createIfMissing(true);
-			db = factory.open(new File(dbPath), options);
-		}catch(Exception e){
-			throw e;
-		}
+		db.close();
+		factory.destroy(new File(dbPath), new Options());
+		Options options = new Options().createIfMissing(true);
+		db = factory.open(new File(dbPath), options);
 	}
 
 	@Override

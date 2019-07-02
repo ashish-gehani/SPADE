@@ -164,6 +164,19 @@ public class ExternalMapTest{
 						}
 					}
 					
+					// Remove all values
+					for(int i = 0; i < total; i++){
+						map.remove(i);
+					}
+					
+					// Clear
+					map.clear();
+					
+					// Put different data
+					for(int i = 0; i < total; i++){
+						map.put(i, (-1 * (total - i)));
+					}
+					
 					// Close for reopening
 					map.close();
 					
@@ -171,7 +184,7 @@ public class ExternalMapTest{
 							testMapid, 
 							"BloomFilter", loadScreenArgument, 
 							"LRU", cacheArgument, 
-							//"BerkeleyDB", berkeleyArgument,
+//							"BerkeleyDB", berkeleyArgument,
 							"LevelDB", leveldbArgument,
 							mapArgument);
 					
@@ -191,8 +204,8 @@ public class ExternalMapTest{
 							// Should get all values
 							for(int i = 0; i < total; i++){
 								Integer j = reopenedMap.get(i);
-								if(!CommonFunctions.objectsEqual(j, (total - i))){
-									System.err.println("'"+j+"' != '"+(total - i)+"' for '"+i+"'");
+								if(!CommonFunctions.objectsEqual(j, (-1 * (total - i)))){
+									System.err.println("'"+j+"' != '"+(-1 * (total - i))+"' for '"+i+"'");
 								}
 							}
 							
@@ -265,6 +278,7 @@ public class ExternalMapTest{
 	}
 	
 	public static void main(String[] args) throws Exception{
+//		args = new String[]{"/tmp/externalmaptest"};
 		if(args.length != 1){
 			System.err.println("Invalid arguments");
 			System.err.println("ExternalMapTest <testDirectoryPath> [must not exist]");
