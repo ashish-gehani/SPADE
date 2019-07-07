@@ -23,14 +23,15 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import spade.query.graph.execution.ExecutionContext;
 import spade.query.postgresql.entities.Graph;
-import spade.query.postgresql.kernel.Environment;
+import spade.query.graph.kernel.Environment;
 import spade.query.postgresql.types.LongType;
 import spade.query.postgresql.types.StringType;
 import spade.query.postgresql.utility.QuickstepUtil;
 import spade.query.postgresql.utility.ResultTable;
 import spade.query.postgresql.utility.Schema;
-import spade.query.postgresql.utility.TreeStringSerializable;
+import spade.query.graph.utility.TreeStringSerializable;
 import spade.storage.quickstep.QuickstepExecutor;
 
 /**

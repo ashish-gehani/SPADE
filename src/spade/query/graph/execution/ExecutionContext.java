@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.postgresql.execution;
+package spade.query.graph.execution;
 
 import java.util.ArrayList;
 
@@ -34,7 +34,7 @@ public class ExecutionContext
     public ExecutionContext(QuickstepExecutor qs)
     {
         this.qs = qs;
-        this.responses = new ArrayList<Object>();
+        this.responses = new ArrayList<>();
     }
 
     public QuickstepExecutor getExecutor()

@@ -21,7 +21,7 @@ import spade.core.AbstractQuery;
 import spade.core.AbstractStorage;
 import spade.core.Graph;
 import spade.core.Kernel;
-import spade.query.postgresql.kernel.Environment;
+import spade.query.graph.kernel.Environment;
 import spade.query.postgresql.kernel.Program;
 import spade.query.postgresql.kernel.Resolver;
 import spade.query.postgresql.parser.DSLParserWrapper;

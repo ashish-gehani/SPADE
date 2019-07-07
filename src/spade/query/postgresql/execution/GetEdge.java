@@ -1,25 +1,15 @@
 package spade.query.postgresql.execution;
 
-import spade.core.AbstractEdge;
-import spade.core.AbstractVertex;
-import spade.core.Edge;
 import spade.core.Graph;
-import spade.core.Vertex;
+import spade.query.graph.execution.ExecutionContext;
 import spade.query.graph.utility.CommonFunctions;
-import spade.query.postgresql.kernel.Environment;
-import spade.query.postgresql.utility.TreeStringSerializable;
+import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.TreeStringSerializable;
 
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static spade.core.AbstractQuery.currentStorage;
-import static spade.core.AbstractStorage.PRIMARY_KEY;
 import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
 import static spade.query.postgresql.kernel.Resolver.formatString;
 

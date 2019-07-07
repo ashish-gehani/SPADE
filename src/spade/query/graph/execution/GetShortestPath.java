@@ -17,21 +17,29 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.postgresql.execution;
-
-import spade.core.Graph;
-import spade.query.graph.execution.ExecutionContext;
-import spade.query.graph.execution.IntersectGraph;
-import spade.query.graph.utility.CommonVariables.Direction;
-import spade.query.graph.kernel.Environment;
-import spade.query.graph.utility.TreeStringSerializable;
+package spade.query.graph.execution;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
+import spade.core.Graph;
+import spade.query.graph.execution.ExecutionContext;
+import spade.query.graph.execution.GetPath;
+import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.TreeStringSerializable;
+import spade.query.postgresql.execution.Instruction;
 
 /**
- * Similar to GetPath but treats the graph edges as undirected.
+ * Similar to GetPath but the result graph only contains vertices / edges that
+ * are on the shortest paths.
+ * <p>
+ * Warning: This operation could be very slow when the input graph is large.
+ * Right now, it just gets a sample path instead of the shortest path
  */
-public class GetLink extends Instruction
+public class GetShortestPath extends Instruction
 {
     // Output graph.
     private Graph targetGraph;
@@ -44,38 +52,51 @@ public class GetLink extends Instruction
     // Max path length.
     private Integer maxDepth;
 
-    public GetLink(Graph targetGraph, Graph subjectGraph,
-                   Graph srcGraph, Graph dstGraph, Integer maxDepth)
+    public GetShortestPath(Graph targetGraph, Graph subjectGraph,
+                           Graph sourceGraph, Graph destinationGraph, Integer maxDepth)
     {
         this.targetGraph = targetGraph;
         this.subjectGraph = subjectGraph;
-        this.sourceGraph = srcGraph;
-        this.destinationGraph = dstGraph;
+        this.sourceGraph = sourceGraph;
+        this.destinationGraph = destinationGraph;
         this.maxDepth = maxDepth;
     }
 
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        //TODO: computes getPaths for now
-        Direction direction;
-        direction = Direction.kAncestor;
-        Graph ancestorGraph = new Graph();
-        GetLineage ancestorLineage = new GetLineage(ancestorGraph, subjectGraph, sourceGraph, maxDepth, direction);
-        ancestorLineage.execute(env, ctx);
-        direction = Direction.kDescendant;
-        Graph descendantGraph = new Graph();
-        GetLineage descendantLineage = new GetLineage(descendantGraph, subjectGraph, destinationGraph, maxDepth, direction);
-        descendantLineage.execute(env, ctx);
-        IntersectGraph intersectGraph = new IntersectGraph(targetGraph, ancestorGraph, descendantGraph);
-        intersectGraph.execute(env, ctx);
+        GetPath getPath = new GetPath(targetGraph, subjectGraph, sourceGraph,
+                destinationGraph, maxDepth);
+        getPath.execute(env, ctx);
+        // traverse a path in the graph of all paths
+        Set<AbstractVertex> pathVertices = new HashSet<>();
+        Set<AbstractEdge> pathEdges = new HashSet<>();
+        Set<AbstractVertex> destinationVertexSet = destinationGraph.vertexSet();
+        AbstractVertex sourceVertex = sourceGraph.vertexSet().iterator().next();
+        pathVertices.add(sourceVertex);
+        while(!destinationVertexSet.contains(sourceVertex))
+        {
+            //TODO: utilize LinkedHashSet structure to speed this up?
+            for(AbstractEdge pathEdge : targetGraph.edgeSet())
+            {
+                if(pathEdge.getChildVertex().equals(sourceVertex))
+                {
+                    sourceVertex = pathEdge.getParentVertex();
+                    pathVertices.add(sourceVertex);
+                    pathEdges.add(pathEdge);
+                    break;
+                }
+            }
+        }
+        targetGraph.vertexSet().retainAll(pathVertices);
+        targetGraph.edgeSet().retainAll(pathEdges);
         ctx.addResponse(targetGraph);
     }
 
     @Override
     public String getLabel()
     {
-        return "GetLink";
+        return "GetShortestPath";
     }
 
     @Override

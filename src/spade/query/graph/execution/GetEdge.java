@@ -3,10 +3,9 @@ package spade.query.graph.execution;
 import spade.core.AbstractEdge;
 import spade.core.Graph;
 import spade.query.graph.utility.CommonFunctions;
-import spade.query.postgresql.execution.ExecutionContext;
 import spade.query.postgresql.execution.Instruction;
-import spade.query.postgresql.kernel.Environment;
-import spade.query.postgresql.utility.TreeStringSerializable;
+import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.TreeStringSerializable;
 
 import java.util.ArrayList;
 import java.util.Set;

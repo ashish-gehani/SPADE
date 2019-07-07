@@ -19,12 +19,20 @@
  */
 package spade.query.postgresql.execution;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import spade.query.postgresql.entities.Graph;
-import spade.query.postgresql.kernel.Environment;
-import spade.query.postgresql.utility.TreeStringSerializable;
-import spade.storage.quickstep.QuickstepExecutor;
+import spade.core.Graph;
+import spade.query.graph.execution.ExecutionContext;
+import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.TreeStringSerializable;
+
+import static spade.core.AbstractQuery.currentStorage;
+import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
+import static spade.query.graph.utility.CommonVariables.VERTEX_TABLE;
 
 /**
  * Show statistics of a graph.
@@ -32,6 +40,7 @@ import spade.storage.quickstep.QuickstepExecutor;
 public class StatGraph extends Instruction
 {
     private Graph targetGraph;
+    private static Logger logger = Logger.getLogger(StatGraph.class.getName());
 
     public StatGraph(Graph targetGraph)
     {
@@ -41,17 +50,27 @@ public class StatGraph extends Instruction
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        QuickstepExecutor qs = ctx.getExecutor();
+        String numVerticesQuery = "SELECT COUNT(*) FROM " + VERTEX_TABLE + ";";
+        logger.log(Level.INFO, "Executing query: " + numVerticesQuery);
+        try
+        {
+            ResultSet result = (ResultSet) currentStorage.executeQuery(numVerticesQuery);
+            result.next();
+            int numVertices = result.getInt(1);
 
-        String targetVertexTable = targetGraph.getVertexTableName();
-        String targetEdgeTable = targetGraph.getEdgeTableName();
-        long numVertices = qs.executeQueryForLongResult(
-                "COPY SELECT COUNT(*) FROM " + targetVertexTable + " TO stdout;");
-        long numEdges = qs.executeQueryForLongResult(
-                "COPY SELECT COUNT(*) FROM " + targetEdgeTable + " TO stdout;");
+            String numEdgesQuery = "SELECT COUNT(*) FROM " + EDGE_TABLE + ";";
+            result = (ResultSet) currentStorage.executeQuery(numEdgesQuery);
+            result.next();
+            int numEdges = result.getInt(1);
+            ;
+            String stat = "# vertices = " + numVertices + ", # edges = " + numEdges;
+            ctx.addResponse(stat);
+        }
+        catch(SQLException ex)
+        {
+            logger.log(Level.SEVERE, "Error executing StatGraph query", ex);
+        }
 
-        String stat = "# vertices = " + numVertices + ", # edges = " + numEdges;
-        ctx.addResponse(stat);
     }
 
     @Override

@@ -21,10 +21,11 @@ package spade.query.postgresql.execution;
 
 import java.util.ArrayList;
 
+import spade.query.graph.execution.ExecutionContext;
 import spade.query.postgresql.entities.Graph;
-import spade.query.postgresql.kernel.Environment;
+import spade.query.graph.kernel.Environment;
 import spade.query.postgresql.utility.QuickstepUtil;
-import spade.query.postgresql.utility.TreeStringSerializable;
+import spade.query.graph.utility.TreeStringSerializable;
 
 /**
  * Create an empty QuickGrail graph.

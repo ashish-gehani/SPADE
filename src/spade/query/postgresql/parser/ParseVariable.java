@@ -22,7 +22,7 @@ package spade.query.postgresql.parser;
 import java.util.ArrayList;
 
 import spade.query.postgresql.types.Type;
-import spade.query.postgresql.utility.TreeStringSerializable;
+import spade.query.graph.utility.TreeStringSerializable;
 
 public class ParseVariable extends ParseExpression
 {

@@ -52,6 +52,8 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -120,7 +122,7 @@ public class Graph extends AbstractStorage implements Serializable
     private String hostName;
     private String computeTime;
     private int maxDepth;
-    private Set<AbstractVertex> rootVertexSet;
+    private Set<AbstractVertex> rootVertexSet = null;
 
     public AbstractVertex getDestinationVertex()
     {
@@ -856,7 +858,7 @@ public class Graph extends AbstractStorage implements Serializable
         AbstractVertex startingVertex = getVertex(hash);
         remainingVertices.add(startingVertex.bigHashCode());
         startingVertex.setDepth(0);
-        result.setRootVertex(startingVertex);
+        result.setRootVertexSet(new HashSet<>(Collections.singletonList(startingVertex)));
         result.setMaxDepth(maxDepth);
         Set<String> visitedVertices = new HashSet<>();
         while(!remainingVertices.isEmpty() && current_depth < maxDepth)
@@ -949,14 +951,14 @@ public class Graph extends AbstractStorage implements Serializable
         this.maxDepth = maxDepth;
     }
 
-    public AbstractVertex getRootVertexSet()
+    public Set<AbstractVertex> getRootVertexSet()
     {
         return rootVertexSet;
     }
 
     public void setRootVertexSet(Set<AbstractVertex> rootVertexSet)
     {
-        this.rootVertexSet = this.rootVertexSet;
+        this.rootVertexSet = rootVertexSet;
     }
 
     public String getSignature()

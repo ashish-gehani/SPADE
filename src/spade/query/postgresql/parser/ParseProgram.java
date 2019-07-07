@@ -21,7 +21,7 @@ package spade.query.postgresql.parser;
 
 import java.util.ArrayList;
 
-import spade.query.postgresql.utility.TreeStringSerializable;
+import spade.query.graph.utility.TreeStringSerializable;
 
 public class ParseProgram extends ParseTreeNode
 {

@@ -5,9 +5,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.core.Graph;
+import spade.query.graph.execution.ExecutionContext;
 import spade.query.graph.utility.CommonFunctions;
-import spade.query.postgresql.kernel.Environment;
-import spade.query.postgresql.utility.TreeStringSerializable;
+import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.TreeStringSerializable;
 
 import static spade.query.graph.utility.CommonVariables.VERTEX_TABLE;
 import static spade.query.postgresql.kernel.Resolver.formatString;

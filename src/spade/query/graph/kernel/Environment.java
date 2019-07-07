@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.postgresql.kernel;
+package spade.query.graph.kernel;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,7 +30,7 @@ import java.util.logging.Logger;
 import spade.core.Graph;
 //import spade.query.postgresql.entities.Graph;
 import spade.query.postgresql.entities.GraphMetadata;
-import spade.query.postgresql.utility.TreeStringSerializable;
+import spade.query.graph.utility.TreeStringSerializable;
 
 /**
  * QuickGrail compile-time environment (also used in runtime) mainly for

@@ -22,8 +22,9 @@ package spade.query.postgresql.execution;
 import java.util.ArrayList;
 import java.util.List;
 
-import spade.query.postgresql.kernel.Environment;
-import spade.query.postgresql.utility.TreeStringSerializable;
+import spade.query.graph.execution.ExecutionContext;
+import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.TreeStringSerializable;
 
 /**
  * Remove the specified graphs stored in QuickGrail.

@@ -19,17 +19,17 @@
  */
 package spade.query.postgresql.kernel;
 
-import java.util.ArrayList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
+import spade.core.Graph;
+import spade.query.graph.execution.GetPath;
+import spade.query.graph.execution.IntersectGraph;
+import spade.query.graph.execution.SubtractGraph;
+import spade.query.graph.execution.UnionGraph;
+import spade.query.graph.kernel.Environment;
 import spade.query.postgresql.entities.Entity;
 import spade.query.postgresql.entities.EntityType;
-import spade.core.Graph;
 import spade.query.postgresql.entities.GraphMetadata;
 import spade.query.postgresql.execution.CollapseEdge;
 import spade.query.postgresql.execution.CreateEmptyGraphMetadata;
-import spade.query.postgresql.execution.DistinctifyGraph;
 import spade.query.postgresql.execution.EraseSymbols;
 import spade.query.postgresql.execution.EvaluateQuery;
 import spade.query.postgresql.execution.ExportGraph;
@@ -37,21 +37,17 @@ import spade.query.postgresql.execution.GetEdge;
 import spade.query.postgresql.execution.GetEdgeEndpoint;
 import spade.query.postgresql.execution.GetLineage;
 import spade.query.postgresql.execution.GetLink;
-import spade.query.postgresql.execution.GetPath;
-import spade.query.postgresql.execution.GetShortestPath;
+import spade.query.graph.execution.GetShortestPath;
 import spade.query.postgresql.execution.GetSubgraph;
 import spade.query.postgresql.execution.GetVertex;
 import spade.query.postgresql.execution.InsertLiteralEdge;
 import spade.query.postgresql.execution.InsertLiteralVertex;
 import spade.query.postgresql.execution.Instruction;
-import spade.query.postgresql.execution.IntersectGraph;
 import spade.query.postgresql.execution.LimitGraph;
 import spade.query.postgresql.execution.ListGraphs;
 import spade.query.postgresql.execution.OverwriteGraphMetadata;
 import spade.query.postgresql.execution.SetGraphMetadata;
 import spade.query.postgresql.execution.StatGraph;
-import spade.query.postgresql.execution.SubtractGraph;
-import spade.query.graph.execution.UnionGraph;
 import spade.query.postgresql.parser.ParseAssignment;
 import spade.query.postgresql.parser.ParseCommand;
 import spade.query.postgresql.parser.ParseExpression;
@@ -66,6 +62,10 @@ import spade.query.postgresql.parser.ParseVariable;
 import spade.query.postgresql.types.Type;
 import spade.query.postgresql.types.TypeID;
 import spade.query.postgresql.types.TypedValue;
+
+import java.util.ArrayList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static spade.query.graph.utility.CommonVariables.Direction;
 
@@ -264,9 +264,7 @@ public class Resolver
                                     " at " + parseAssignment.getLocationString());
             }
         }
-        Graph distinctifiedGraph = allocateEmptyGraph();
-        instructions.add(new DistinctifyGraph(distinctifiedGraph, resultGraph));
-        env.setValue(var.getValue(), distinctifiedGraph);
+        env.setValue(var.getValue(), resultGraph);
     }
 
     private void resolveGraphMetadataAssignment(ParseAssignment parseAssignment)
@@ -415,9 +413,14 @@ public class Resolver
         }
 
         Graph targetGraph = resolveGraphExpression(arguments.get(0), null, true);
-        Graph distinctifiedGraph = allocateEmptyGraph();
-        instructions.add(new DistinctifyGraph(distinctifiedGraph, targetGraph));
-        instructions.add(new StatGraph(distinctifiedGraph));
+        if(Environment.IsBaseGraph(targetGraph))
+        {
+            instructions.add(new StatGraph(targetGraph));
+        }
+        else
+        {
+            instructions.add(new spade.query.graph.execution.StatGraph(targetGraph));
+        }
     }
 
     private void resolveListCommand(ArrayList<ParseExpression> arguments)
@@ -510,7 +513,7 @@ public class Resolver
             }
         }
 
-        // Pure functions.
+        // Pure functions. Only for the database
         switch(op.getValue())
         {
             case "+":
@@ -707,7 +710,7 @@ public class Resolver
         {
             outputGraph = allocateEmptyGraph();
         }
-        ArrayList<String> vertices = new ArrayList<String>();
+        ArrayList<String> vertices = new ArrayList<>();
         for(ParseExpression e : operands)
         {
             if(e.getExpressionType() != ParseExpression.ExpressionType.kLiteral)
@@ -716,10 +719,10 @@ public class Resolver
                         "Invalid argument at " + e.getLocationString() + ": expected integer literal");
             }
             TypedValue value = ((ParseLiteral) e).getLiteralValue();
-            if(value.getType().getTypeID() != TypeID.kInteger)
+            if(value.getType().getTypeID() != TypeID.kString)
             {
                 throw new RuntimeException(
-                        "Invalid argument type at " + e.getLocationString() + ": expected integer");
+                        "Invalid argument type at " + e.getLocationString() + ": expected string");
             }
             vertices.add(String.valueOf(value.getValue()));
         }
@@ -742,10 +745,10 @@ public class Resolver
                         "Invalid argument at " + e.getLocationString() + ": expected integer literal");
             }
             TypedValue value = ((ParseLiteral) e).getLiteralValue();
-            if(value.getType().getTypeID() != TypeID.kInteger)
+            if(value.getType().getTypeID() != TypeID.kString)
             {
                 throw new RuntimeException(
-                        "Invalid argument type at " + e.getLocationString() + ": expected integer");
+                        "Invalid argument type at " + e.getLocationString() + ": expected string");
             }
             edges.add(String.valueOf(value.getValue()));
         }
@@ -1022,8 +1025,15 @@ public class Resolver
         {
             outputGraph = allocateEmptyGraph();
         }
+        if(Environment.IsBaseGraph(subjectGraph))
+        {
+            instructions.add(new GetLink(outputGraph, subjectGraph, srcGraph, dstGraph, maxDepth));
+        }
+        else
+        {
 
-        instructions.add(new GetLink(outputGraph, subjectGraph, srcGraph, dstGraph, maxDepth));
+        }
+
         return outputGraph;
     }
 
@@ -1037,16 +1047,16 @@ public class Resolver
                     "Invalid number of arguments for getPath: expected 3");
         }
 
-        Graph srcGraph = resolveGraphExpression(arguments.get(0), null, true);
-        Graph dstGraph = resolveGraphExpression(arguments.get(1), null, true);
+        Graph sourceGraph = resolveGraphExpression(arguments.get(0), null, true);
+        Graph destinationGraph = resolveGraphExpression(arguments.get(1), null, true);
         Integer maxDepth = resolveInteger(arguments.get(2));
 
         if(outputGraph == null)
         {
             outputGraph = allocateEmptyGraph();
         }
+        instructions.add(new GetPath(outputGraph, subjectGraph, sourceGraph, destinationGraph, maxDepth));
 
-        instructions.add(new GetPath(outputGraph, subjectGraph, srcGraph, dstGraph, maxDepth));
         return outputGraph;
     }
 
@@ -1054,7 +1064,7 @@ public class Resolver
                                       ArrayList<ParseExpression> arguments,
                                       Graph outputGraph)
     {
-        ArrayList<String> fields = new ArrayList<String>();
+        ArrayList<String> fields = new ArrayList<>();
         for(ParseExpression e : arguments)
         {
             fields.add(resolveString(e));
@@ -1190,8 +1200,8 @@ public class Resolver
                     "Invalid number of arguments for getPath: expected 3");
         }
 
-        Graph srcGraph = resolveGraphExpression(arguments.get(0), null, true);
-        Graph dstGraph = resolveGraphExpression(arguments.get(1), null, true);
+        Graph sourceGraph = resolveGraphExpression(arguments.get(0), null, true);
+        Graph destinationGraph = resolveGraphExpression(arguments.get(1), null, true);
         Integer maxDepth = resolveInteger(arguments.get(2));
 
         if(outputGraph == null)
@@ -1199,7 +1209,7 @@ public class Resolver
             outputGraph = allocateEmptyGraph();
         }
 
-        instructions.add(new GetShortestPath(outputGraph, subjectGraph, srcGraph, dstGraph, maxDepth));
+        instructions.add(new GetShortestPath(outputGraph, subjectGraph, sourceGraph, destinationGraph, maxDepth));
         return outputGraph;
     }
 
@@ -1251,6 +1261,7 @@ public class Resolver
             m.appendReplacement(sb, new Graph(graphName).getTableName(refComponent));
         }
         m.appendTail(sb);
+        // execute query in sb, then store the resulting ids in the graph
 
         instructions.add(new EvaluateQuery(sb.toString()));
         return outputGraph;

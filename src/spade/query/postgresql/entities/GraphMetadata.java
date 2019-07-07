@@ -21,7 +21,7 @@ package spade.query.postgresql.entities;
 
 import java.util.ArrayList;
 
-import spade.query.postgresql.utility.TreeStringSerializable;
+import spade.query.graph.utility.TreeStringSerializable;
 
 /**
  * This class is not yet used in the SPADE integrated QuickGrail.

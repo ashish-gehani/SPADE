@@ -17,14 +17,14 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.postgresql.execution;
+package spade.query.graph.execution;
 
 import java.util.ArrayList;
 
-import spade.query.postgresql.entities.Graph;
-import spade.query.postgresql.kernel.Environment;
-import spade.query.postgresql.utility.TreeStringSerializable;
-import spade.storage.quickstep.QuickstepExecutor;
+import spade.core.Graph;
+import spade.query.postgresql.execution.Instruction;
+import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.TreeStringSerializable;
 
 /**
  * Subtract one graph from the other.
@@ -51,28 +51,18 @@ public class SubtractGraph extends Instruction
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        String outputVertexTable = outputGraph.getVertexTableName();
-        String outputEdgeTable = outputGraph.getEdgeTableName();
-        String minuendVertexTable = minuendGraph.getVertexTableName();
-        String minuendEdgeTable = minuendGraph.getEdgeTableName();
-        String subtrahendVertexTable = subtrahendGraph.getVertexTableName();
-        String subtrahendEdgeTable = subtrahendGraph.getEdgeTableName();
-
-        QuickstepExecutor qs = ctx.getExecutor();
         if(component == null || component == Graph.Component.kVertex)
         {
-            qs.executeQuery("\\analyzerange " + subtrahendVertexTable + "\n");
-            qs.executeQuery("INSERT INTO " + outputVertexTable +
-                    " SELECT id FROM " + minuendVertexTable +
-                    " WHERE id NOT IN (SELECT id FROM " + subtrahendVertexTable + ");");
+            outputGraph.vertexSet().addAll(minuendGraph.vertexSet());
+            outputGraph.vertexSet().removeAll(subtrahendGraph.vertexSet());
+
         }
         if(component == null || component == Graph.Component.kEdge)
         {
-            qs.executeQuery("\\analyzerange " + subtrahendEdgeTable + "\n");
-            qs.executeQuery("INSERT INTO " + outputEdgeTable +
-                    " SELECT id FROM " + minuendEdgeTable +
-                    " WHERE id NOT IN (SELECT id FROM " + subtrahendEdgeTable + ");");
+            outputGraph.edgeSet().addAll(minuendGraph.edgeSet());
+            outputGraph.edgeSet().removeAll(subtrahendGraph.edgeSet());
         }
+        ctx.addResponse(outputGraph);
     }
 
     @Override

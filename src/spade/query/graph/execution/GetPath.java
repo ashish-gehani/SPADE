@@ -20,6 +20,7 @@
 package spade.query.graph.execution;
 
 import spade.core.Graph;
+import spade.query.graph.utility.CommonVariables.Direction;
 import spade.query.postgresql.execution.Instruction;
 import spade.query.graph.kernel.Environment;
 import spade.query.graph.utility.TreeStringSerializable;
@@ -27,36 +28,53 @@ import spade.query.graph.utility.TreeStringSerializable;
 import java.util.ArrayList;
 
 /**
- * Union one graph into the other.
+ * Get a graph that includes all the paths from a set of source vertices to a
+ * set of destination vertices.
  */
-public class UnionGraph extends Instruction
+public class GetPath extends Instruction
 {
-    // The target graph.
+    // Output graph.
     private Graph targetGraph;
-    // The source graph to be unioned into the target graph.
+    // Input graph.
+    private Graph subjectGraph;
+    // Set of source vertices.
     private Graph sourceGraph;
+    // Set of destination vertices.
+    private Graph destinationGraph;
+    // Max path length.
+    private Integer maxDepth;
 
-    public UnionGraph(Graph targetGraph, Graph sourceGraph)
+    public GetPath(Graph targetGraph, Graph subjectGraph,
+                   Graph sourceGraph, Graph destinationGraph, Integer maxDepth)
     {
         this.targetGraph = targetGraph;
+        this.subjectGraph = subjectGraph;
         this.sourceGraph = sourceGraph;
+        this.destinationGraph = destinationGraph;
+        this.maxDepth = maxDepth;
     }
 
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        targetGraph.vertexSet().addAll(sourceGraph.vertexSet());
-        targetGraph.edgeSet().addAll(sourceGraph.edgeSet());
-        // adding network maps
-        targetGraph.networkMap().putAll(sourceGraph.networkMap());
-
+        Direction direction;
+        direction = Direction.kAncestor;
+        Graph ancestorGraph = new Graph();
+        GetLineage ancestorLineage = new GetLineage(ancestorGraph, subjectGraph, sourceGraph, maxDepth, direction);
+        ancestorLineage.execute(env, ctx);
+        direction = Direction.kDescendant;
+        Graph descendantGraph = new Graph();
+        GetLineage descendantLineage = new GetLineage(descendantGraph, subjectGraph, destinationGraph, maxDepth, direction);
+        descendantLineage.execute(env, ctx);
+        IntersectGraph intersectGraph = new IntersectGraph(targetGraph, ancestorGraph, descendantGraph);
+        intersectGraph.execute(env, ctx);
         ctx.addResponse(targetGraph);
     }
 
     @Override
     public String getLabel()
     {
-        return "UnionGraph";
+        return "GetPath";
     }
 
     @Override
@@ -70,7 +88,13 @@ public class UnionGraph extends Instruction
     {
         inline_field_names.add("targetGraph");
         inline_field_values.add(targetGraph.getName());
+        inline_field_names.add("subjectGraph");
+        inline_field_values.add(subjectGraph.getName());
         inline_field_names.add("sourceGraph");
         inline_field_values.add(sourceGraph.getName());
+        inline_field_names.add("destinationGraph");
+        inline_field_values.add(destinationGraph.getName());
+        inline_field_names.add("maxDepth");
+        inline_field_values.add(String.valueOf(maxDepth));
     }
 }

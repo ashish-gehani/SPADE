@@ -17,51 +17,41 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.postgresql.execution;
+package spade.query.graph.execution;
 
 import java.util.ArrayList;
 
-import spade.query.postgresql.entities.Graph;
-import spade.query.postgresql.kernel.Environment;
-import spade.query.postgresql.utility.TreeStringSerializable;
-import spade.storage.quickstep.QuickstepExecutor;
+import spade.core.Graph;
+import spade.query.postgresql.execution.Instruction;
+import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.TreeStringSerializable;
+
 
 /**
- * Remove all duplicated vertices and edges.
+ * Show statistics of a graph.
  */
-public class DistinctifyGraph extends Instruction
+public class StatGraph extends Instruction
 {
-    // Input graph.
     private Graph targetGraph;
-    // Output graph.
-    private Graph sourceGraph;
 
-    public DistinctifyGraph(Graph targetGraph, Graph sourceGraph)
+    public StatGraph(Graph targetGraph)
     {
         this.targetGraph = targetGraph;
-        this.sourceGraph = sourceGraph;
     }
 
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        String sourceVertexTable = sourceGraph.getVertexTableName();
-        String sourceEdgeTable = sourceGraph.getEdgeTableName();
-        String targetVertexTable = targetGraph.getVertexTableName();
-        String targetEdgeTable = targetGraph.getEdgeTableName();
-
-        QuickstepExecutor qs = ctx.getExecutor();
-        qs.executeQuery("\\analyzerange " + sourceVertexTable + " " + sourceEdgeTable + "\n");
-        qs.executeQuery("INSERT INTO " + targetVertexTable +
-                " SELECT id FROM " + sourceVertexTable + " GROUP BY id;");
-        qs.executeQuery("INSERT INTO " + targetEdgeTable +
-                " SELECT id FROM " + sourceEdgeTable + " GROUP BY id;");
+        long numVertices = targetGraph.vertexSet().size();
+        long numEdges = targetGraph.edgeSet().size();
+        String stat = "# vertices = " + numVertices + ", # edges = " + numEdges;
+        ctx.addResponse(stat);
     }
 
     @Override
     public String getLabel()
     {
-        return "DistinctifyGraph";
+        return "StatGraph";
     }
 
     @Override
@@ -75,7 +65,5 @@ public class DistinctifyGraph extends Instruction
     {
         inline_field_names.add("targetGraph");
         inline_field_values.add(targetGraph.getName());
-        inline_field_names.add("sourceGraph");
-        inline_field_values.add(sourceGraph.getName());
     }
 }

@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.postgresql.utility;
+package spade.query.graph.utility;
 
 import java.util.ArrayList;
 

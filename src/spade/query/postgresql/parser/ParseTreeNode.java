@@ -19,7 +19,7 @@
  */
 package spade.query.postgresql.parser;
 
-import spade.query.postgresql.utility.TreeStringSerializable;
+import spade.query.graph.utility.TreeStringSerializable;
 
 public abstract class ParseTreeNode extends TreeStringSerializable
 {

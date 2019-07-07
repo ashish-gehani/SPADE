@@ -21,7 +21,7 @@ package spade.query.postgresql.entities;
 
 import java.util.ArrayList;
 
-import spade.query.postgresql.utility.TreeStringSerializable;
+import spade.query.graph.utility.TreeStringSerializable;
 
 /**
  * Intermediate representation for a graph in QuickGrail optimizer.

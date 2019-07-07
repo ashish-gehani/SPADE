@@ -20,39 +20,52 @@
 package spade.query.postgresql.execution;
 
 import java.util.ArrayList;
+import java.util.Set;
 
-import spade.query.postgresql.entities.Graph;
-import spade.query.postgresql.kernel.Environment;
-import spade.query.postgresql.utility.TreeStringSerializable;
-import spade.storage.quickstep.QuickstepExecutor;
+import spade.core.AbstractVertex;
+import spade.core.Graph;
+import spade.query.graph.execution.ExecutionContext;
+import spade.query.graph.utility.CommonFunctions;
+import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.TreeStringSerializable;
+
+import static spade.query.graph.utility.CommonVariables.PRIMARY_KEY;
+import static spade.query.graph.utility.CommonVariables.VERTEX_TABLE;
 
 /**
- * Insert a list of vertices into a graph by ID.
+ * Insert a list of vertexHashes into a graph by hash.
  */
 public class InsertLiteralVertex extends Instruction
 {
-    // The target graph to insert the vertices.
+    // The target graph to insert the vertexHashes.
     private Graph targetGraph;
-    // Edge IDs to be inserted.
-    private ArrayList<String> vertices;
+    // Edge hashes to be inserted.
+    private ArrayList<String> vertexHashes;
 
     public InsertLiteralVertex(Graph targetGraph, ArrayList<String> vertices)
     {
         this.targetGraph = targetGraph;
-        this.vertices = vertices;
+        this.vertexHashes = vertices;
     }
 
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        QuickstepExecutor qs = ctx.getExecutor();
-        String prefix = "INSERT INTO " + targetGraph.getVertexTableName() + " VALUES(";
         StringBuilder sqlQuery = new StringBuilder();
-        for(String vertex : vertices)
+        sqlQuery.append("SELECT * FROM ");
+        sqlQuery.append(VERTEX_TABLE);
+        sqlQuery.append(" WHERE ");
+        sqlQuery.append(PRIMARY_KEY);
+        sqlQuery.append(" IN (");
+        for(String vertexHash : vertexHashes)
         {
-            sqlQuery.append(prefix + vertex + ");\n");
+            sqlQuery.append(vertexHash);
+            sqlQuery.append(", ");
         }
-        qs.executeQuery(sqlQuery.toString());
+        String query = sqlQuery.substring(0, sqlQuery.length() - 2) + ")";
+        Set<AbstractVertex> vertexSet = targetGraph.vertexSet();
+        CommonFunctions.executeGetVertex(vertexSet, query);
+        ctx.addResponse(targetGraph);
     }
 
     @Override
@@ -72,7 +85,7 @@ public class InsertLiteralVertex extends Instruction
     {
         inline_field_names.add("targetGraph");
         inline_field_values.add(targetGraph.getName());
-        inline_field_names.add("vertices");
-        inline_field_values.add("{" + String.join(",", vertices) + "}");
+        inline_field_names.add("vertexHashes");
+        inline_field_values.add("{" + String.join(",", vertexHashes) + "}");
     }
 }

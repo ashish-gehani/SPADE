@@ -19,8 +19,9 @@
  */
 package spade.query.postgresql.execution;
 
-import spade.query.postgresql.kernel.Environment;
-import spade.query.postgresql.utility.TreeStringSerializable;
+import spade.query.graph.execution.ExecutionContext;
+import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.TreeStringSerializable;
 
 /**
  * Interface for a QuickGrail primitive instruction.

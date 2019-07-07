@@ -17,17 +17,22 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.postgresql.execution;
+package spade.query.graph.execution;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
+import spade.core.Graph;
+import spade.query.postgresql.execution.Instruction;
+import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.TreeStringSerializable;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Intersect two graphs (i.e. find common vertices and edges).
  */
-import spade.query.postgresql.entities.Graph;
-import spade.query.postgresql.kernel.Environment;
-import spade.query.postgresql.utility.TreeStringSerializable;
-import spade.storage.quickstep.QuickstepExecutor;
 
 public class IntersectGraph extends Instruction
 {
@@ -47,21 +52,24 @@ public class IntersectGraph extends Instruction
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        String outputVertexTable = outputGraph.getVertexTableName();
-        String outputEdgeTable = outputGraph.getEdgeTableName();
-        String lhsVertexTable = lhsGraph.getVertexTableName();
-        String lhsEdgeTable = lhsGraph.getEdgeTableName();
-        String rhsVertexTable = rhsGraph.getVertexTableName();
-        String rhsEdgeTable = rhsGraph.getEdgeTableName();
+        Set<AbstractVertex> vertices = new HashSet<>();
+        Set<AbstractEdge> edges = new HashSet<>();
 
-        QuickstepExecutor qs = ctx.getExecutor();
-        qs.executeQuery("\\analyzerange " + rhsVertexTable + " " + rhsEdgeTable + "\n");
-        qs.executeQuery("INSERT INTO " + outputVertexTable +
-                " SELECT id FROM " + lhsVertexTable +
-                " WHERE id IN (SELECT id FROM " + rhsVertexTable + ");");
-        qs.executeQuery("INSERT INTO " + outputEdgeTable +
-                " SELECT id FROM " + lhsEdgeTable +
-                " WHERE id IN (SELECT id FROM " + rhsEdgeTable + ");");
+        vertices.addAll(lhsGraph.vertexSet());
+        vertices.retainAll(rhsGraph.vertexSet());
+        edges.addAll(lhsGraph.edgeSet());
+        edges.retainAll(rhsGraph.edgeSet());
+
+        for(AbstractVertex vertex : vertices)
+        {
+            outputGraph.putVertex(vertex);
+        }
+        for(AbstractEdge edge : edges)
+        {
+            outputGraph.putEdge(edge);
+        }
+
+        ctx.addResponse(outputGraph);
     }
 
     @Override

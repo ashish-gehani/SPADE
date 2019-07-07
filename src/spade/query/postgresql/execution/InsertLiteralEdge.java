@@ -20,39 +20,53 @@
 package spade.query.postgresql.execution;
 
 import java.util.ArrayList;
+import java.util.Set;
 
-import spade.query.postgresql.entities.Graph;
-import spade.query.postgresql.kernel.Environment;
-import spade.query.postgresql.utility.TreeStringSerializable;
-import spade.storage.quickstep.QuickstepExecutor;
+import spade.core.AbstractEdge;
+import spade.core.Graph;
+import spade.query.graph.execution.ExecutionContext;
+import spade.query.graph.utility.CommonFunctions;
+import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.TreeStringSerializable;
+
+import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
+import static spade.query.graph.utility.CommonVariables.PRIMARY_KEY;
 
 /**
- * Insert a list of edges into a graph by ID.
+ * Insert a list of edgeHashes into a graph by hash.
  */
 public class InsertLiteralEdge extends Instruction
 {
-    // The target graph to insert the edges.
+    // The target graph to insert the edgeHashes.
     private Graph targetGraph;
-    // Edge IDs to be inserted.
-    private ArrayList<String> edges;
+    // Edge hashes to be inserted.
+    private ArrayList<String> edgeHashes;
 
     public InsertLiteralEdge(Graph targetGraph, ArrayList<String> edges)
     {
         this.targetGraph = targetGraph;
-        this.edges = edges;
+        this.edgeHashes = edges;
     }
 
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        QuickstepExecutor qs = ctx.getExecutor();
-        String prefix = "INSERT INTO " + targetGraph.getEdgeTableName() + " VALUES(";
         StringBuilder sqlQuery = new StringBuilder();
-        for(String edge : edges)
+        sqlQuery.append("SELECT * FROM ");
+        sqlQuery.append(EDGE_TABLE);
+        sqlQuery.append(" WHERE ");
+        sqlQuery.append(PRIMARY_KEY);
+        sqlQuery.append(" IN (");
+        for(String edgeHash : edgeHashes)
         {
-            sqlQuery.append(prefix + edge + ");\n");
+            sqlQuery.append(edgeHash);
+            sqlQuery.append(", ");
         }
-        qs.executeQuery(sqlQuery.toString());
+        String query = sqlQuery.substring(0, sqlQuery.length() - 2) + ")";
+        Set<AbstractEdge> edgeSet = targetGraph.edgeSet();
+        CommonFunctions.executeGetEdge(edgeSet, query);
+        ctx.addResponse(targetGraph);
+
     }
 
     @Override
@@ -72,7 +86,7 @@ public class InsertLiteralEdge extends Instruction
     {
         inline_field_names.add("targetGraph");
         inline_field_values.add(targetGraph.getName());
-        inline_field_names.add("edges");
-        inline_field_values.add("{" + String.join(",", edges) + "}");
+        inline_field_names.add("edgeHashes");
+        inline_field_values.add("{" + String.join(",", edgeHashes) + "}");
     }
 }

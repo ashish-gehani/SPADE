@@ -19,7 +19,7 @@
  */
 package spade.query.postgresql.entities;
 
-import spade.query.postgresql.utility.TreeStringSerializable;
+import spade.query.graph.utility.TreeStringSerializable;
 
 /**
  * Intermediate representation for an entity in QuickGrail optimizer.

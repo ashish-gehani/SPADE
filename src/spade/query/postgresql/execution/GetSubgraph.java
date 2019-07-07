@@ -21,9 +21,10 @@ package spade.query.postgresql.execution;
 
 import java.util.ArrayList;
 
-import spade.query.postgresql.entities.Graph;
-import spade.query.postgresql.kernel.Environment;
-import spade.query.postgresql.utility.TreeStringSerializable;
+import spade.core.Graph;
+import spade.query.graph.execution.ExecutionContext;
+import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.TreeStringSerializable;
 import spade.storage.quickstep.QuickstepExecutor;
 
 /**
@@ -58,7 +59,10 @@ public class GetSubgraph extends Instruction
 
         qs.executeQuery("DROP TABLE m_answer;\n" + "CREATE TABLE m_answer (id INT);");
 
-        // Get vertices.
+        // Get all vertices that are in skeleton and subject.
+        // Get end points of all edges in skeleton that are in subject
+
+
         qs.executeQuery("\\analyzerange " + subjectVertexTable + "\n" +
                 "INSERT INTO m_answer SELECT id FROM " + skeletonVertexTable +
                 " WHERE id IN (SELECT id FROM " + subjectVertexTable + ");\n" +
@@ -71,7 +75,7 @@ public class GetSubgraph extends Instruction
                 "\\analyzerange m_answer\n" +
                 "INSERT INTO " + targetVertexTable + " SELECT id FROM m_answer GROUP BY id;\n");
 
-        // Get edges.
+        // Get all edges between the vertices gathered above.
         qs.executeQuery("\\analyzerange " + subjectEdgeTable + "\n" +
                 "INSERT INTO " + targetEdgeTable +
                 " SELECT s.id FROM " + subjectEdgeTable + " s, edge e" +
