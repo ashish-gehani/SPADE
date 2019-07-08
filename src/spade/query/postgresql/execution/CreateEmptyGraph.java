@@ -22,6 +22,7 @@ package spade.query.postgresql.execution;
 import java.util.ArrayList;
 
 import spade.query.graph.execution.ExecutionContext;
+import spade.query.graph.execution.Instruction;
 import spade.query.postgresql.entities.Graph;
 import spade.query.graph.kernel.Environment;
 import spade.query.postgresql.utility.QuickstepUtil;

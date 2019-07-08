@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import spade.query.graph.execution.ExecutionContext;
+import spade.query.graph.execution.Instruction;
 import spade.query.postgresql.entities.Graph;
 import spade.query.graph.kernel.Environment;
 import spade.query.postgresql.types.LongType;

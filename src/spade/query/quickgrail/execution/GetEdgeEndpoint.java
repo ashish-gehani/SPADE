@@ -84,7 +84,7 @@ public class GetEdgeEndpoint extends Instruction
     @Override
     public String getLabel()
     {
-        return "GetEdgeEndpoint";
+        return "GetEdgeEndpoints";
     }
 
     @Override

@@ -20,64 +20,89 @@
 package spade.query.postgresql.execution;
 
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import spade.core.AbstractVertex;
 import spade.core.Graph;
+import spade.core.Vertex;
 import spade.query.graph.execution.ExecutionContext;
 import spade.query.graph.execution.Instruction;
 import spade.query.graph.kernel.Environment;
 import spade.query.graph.utility.TreeStringSerializable;
 
 import static spade.core.AbstractQuery.currentStorage;
-import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
-import static spade.query.graph.utility.CommonVariables.VERTEX_TABLE;
+import static spade.query.graph.utility.CommonVariables.PRIMARY_KEY;
 
 /**
- * Show statistics of a graph.
+ * Evaluate an arbitrary SQL query to get vertices.
  */
-public class StatGraph extends Instruction
+public class EvaluateGetVertexQuery extends Instruction
 {
     private Graph targetGraph;
-    private static Logger logger = Logger.getLogger(StatGraph.class.getName());
+    private String sqlQuery;
+    private static Logger logger = Logger.getLogger(EvaluateGetVertexQuery.class.getName());
 
-    public StatGraph(Graph targetGraph)
+    public EvaluateGetVertexQuery(Graph targetGraph, String sqlQuery)
     {
         this.targetGraph = targetGraph;
+        this.sqlQuery = sqlQuery;
     }
 
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        String numVerticesQuery = "SELECT COUNT(*) FROM " + VERTEX_TABLE + ";";
-        logger.log(Level.INFO, "Executing query: " + numVerticesQuery);
+        Set<AbstractVertex> vertexSet = targetGraph.vertexSet();
+        logger.log(Level.INFO, "Executing query: " + sqlQuery);
+        ResultSet result = (ResultSet) currentStorage.executeQuery(sqlQuery);
+        ResultSetMetaData metadata;
         try
         {
-            ResultSet result = (ResultSet) currentStorage.executeQuery(numVerticesQuery);
-            result.next();
-            int numVertices = result.getInt(1);
+            metadata = result.getMetaData();
+            int columnCount = metadata.getColumnCount();
 
-            String numEdgesQuery = "SELECT COUNT(*) FROM " + EDGE_TABLE + ";";
-            result = (ResultSet) currentStorage.executeQuery(numEdgesQuery);
-            result.next();
-            int numEdges = result.getInt(1);
-            ;
-            String stat = "# vertices = " + numVertices + ", # edges = " + numEdges;
-            ctx.addResponse(stat);
+            Map<Integer, String> columnLabels = new HashMap<>();
+            for(int i = 1; i <= columnCount; i++)
+            {
+                columnLabels.put(i, metadata.getColumnName(i));
+            }
+
+            while(result.next())
+            {
+                AbstractVertex vertex = new Vertex();
+                for(int i = 1; i <= columnCount; i++)
+                {
+                    String colName = columnLabels.get(i);
+                    String value = result.getString(i);
+                    if(value != null)
+                    {
+                        if(colName != null && !colName.equals(PRIMARY_KEY))
+                        {
+                            vertex.addAnnotation(colName, value);
+                        }
+                    }
+                }
+                vertexSet.add(vertex);
+            }
         }
         catch(SQLException ex)
         {
-            logger.log(Level.SEVERE, "Error executing StatGraph query", ex);
+            logger.log(Level.SEVERE, "Error executing GetVertex Query", ex);
         }
 
+        ctx.addResponse(targetGraph);
     }
 
     @Override
     public String getLabel()
     {
-        return "StatGraph";
+        return "EvaluateGetVertexQuery";
     }
 
     @Override
@@ -89,7 +114,7 @@ public class StatGraph extends Instruction
             ArrayList<String> container_child_field_names,
             ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields)
     {
-        inline_field_names.add("targetGraph");
-        inline_field_values.add(targetGraph.getName());
+        inline_field_names.add("sqlQuery");
+        inline_field_values.add(sqlQuery);
     }
 }

@@ -19,13 +19,16 @@
  */
 package spade.query.postgresql.execution;
 
-import java.util.ArrayList;
-
+import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.query.graph.execution.ExecutionContext;
+import spade.query.graph.execution.Instruction;
 import spade.query.graph.kernel.Environment;
 import spade.query.graph.utility.TreeStringSerializable;
-import spade.storage.quickstep.QuickstepExecutor;
+import spade.query.graph.execution.GetEdgeEndpoints.Component;
+
+import java.util.ArrayList;
+import java.util.Set;
 
 /**
  * Let $S be the subject graph and $T be the skeleton graph.
@@ -48,41 +51,18 @@ public class GetSubgraph extends Instruction
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        QuickstepExecutor qs = ctx.getExecutor();
-
-        String targetVertexTable = targetGraph.getVertexTableName();
-        String targetEdgeTable = targetGraph.getEdgeTableName();
-        String subjectVertexTable = subjectGraph.getVertexTableName();
-        String subjectEdgeTable = subjectGraph.getEdgeTableName();
-        String skeletonVertexTable = skeletonGraph.getVertexTableName();
-        String skeletonEdgeTable = skeletonGraph.getEdgeTableName();
-
-        qs.executeQuery("DROP TABLE m_answer;\n" + "CREATE TABLE m_answer (id INT);");
-
         // Get all vertices that are in skeleton and subject.
+        Set<AbstractVertex> skeletonVertexSet = skeletonGraph.vertexSet();
+        targetGraph.vertexSet().addAll(skeletonVertexSet);
         // Get end points of all edges in skeleton that are in subject
-
-
-        qs.executeQuery("\\analyzerange " + subjectVertexTable + "\n" +
-                "INSERT INTO m_answer SELECT id FROM " + skeletonVertexTable +
-                " WHERE id IN (SELECT id FROM " + subjectVertexTable + ");\n" +
-                "INSERT INTO m_answer SELECT src FROM edge " +
-                " WHERE id IN (SELECT id FROM " + skeletonEdgeTable + ")" +
-                " AND src IN (SELECT id FROM " + subjectVertexTable + ");\n" +
-                "INSERT INTO m_answer SELECT dst FROM edge" +
-                " WHERE id IN (SELECT id FROM " + skeletonEdgeTable + ")" +
-                " AND dst IN (SELECT id FROM " + subjectVertexTable + ");\n" +
-                "\\analyzerange m_answer\n" +
-                "INSERT INTO " + targetVertexTable + " SELECT id FROM m_answer GROUP BY id;\n");
+        GetEdgeEndpoints getEdgeEndpoint = new GetEdgeEndpoints(targetGraph, skeletonGraph, Component.kBoth);
+        getEdgeEndpoint.execute(env, ctx);
 
         // Get all edges between the vertices gathered above.
-        qs.executeQuery("\\analyzerange " + subjectEdgeTable + "\n" +
-                "INSERT INTO " + targetEdgeTable +
-                " SELECT s.id FROM " + subjectEdgeTable + " s, edge e" +
-                " WHERE s.id = e.id AND e.src IN (SELECT id FROM m_answer)" +
-                " AND e.dst IN (SELECT id FROM m_answer) GROUP BY s.id;");
+        GetEdgesFromEndpoints getEdgesFromEndpoints = new GetEdgesFromEndpoints(targetGraph, subjectGraph, targetGraph, targetGraph);
+        getEdgesFromEndpoints.execute(env, ctx);
+        ctx.addResponse(targetGraph);
 
-        qs.executeQuery("DROP TABLE m_answer;");
     }
 
     @Override

@@ -26,11 +26,8 @@ import java.util.Set;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
-import spade.query.graph.execution.ExecutionContext;
-import spade.query.graph.execution.GetPath;
 import spade.query.graph.kernel.Environment;
 import spade.query.graph.utility.TreeStringSerializable;
-import spade.query.postgresql.execution.Instruction;
 
 /**
  * Similar to GetPath but the result graph only contains vertices / edges that

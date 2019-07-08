@@ -22,7 +22,6 @@ package spade.query.graph.execution;
 import java.util.ArrayList;
 
 import spade.core.Graph;
-import spade.query.postgresql.execution.Instruction;
 import spade.query.graph.kernel.Environment;
 import spade.query.graph.utility.TreeStringSerializable;
 

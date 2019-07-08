@@ -21,8 +21,9 @@ package spade.query.postgresql.execution;
 
 import java.util.ArrayList;
 
+import spade.core.Graph;
 import spade.query.graph.execution.ExecutionContext;
-import spade.query.postgresql.entities.Graph;
+import spade.query.graph.execution.Instruction;
 import spade.query.postgresql.entities.GraphMetadata;
 import spade.query.graph.kernel.Environment;
 import spade.query.graph.utility.TreeStringSerializable;
@@ -64,28 +65,7 @@ public class SetGraphMetadata extends Instruction
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        QuickstepExecutor qs = ctx.getExecutor();
 
-        String targetVertexTable = targetMetadata.getVertexTableName();
-        String targetEdgeTable = targetMetadata.getEdgeTableName();
-        String sourceVertexTable = sourceGraph.getVertexTableName();
-        String sourceEdgeTable = sourceGraph.getEdgeTableName();
-
-        qs.executeQuery("\\analyzerange " + sourceVertexTable + " " + sourceEdgeTable + "\n");
-
-        if(component == Component.kVertex || component == Component.kBoth)
-        {
-            qs.executeQuery("INSERT INTO " + targetVertexTable +
-                    " SELECT id, " + FormatStringLiteral(name) + ", " + FormatStringLiteral(value) +
-                    " FROM " + sourceVertexTable + " GROUP BY id;");
-        }
-
-        if(component == Component.kEdge || component == Component.kBoth)
-        {
-            qs.executeQuery("INSERT INTO " + targetEdgeTable +
-                    " SELECT id, " + FormatStringLiteral(name) + ", " + FormatStringLiteral(value) +
-                    " FROM " + sourceEdgeTable + " GROUP BY id;");
-        }
     }
 
     private static String FormatStringLiteral(String input)

@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.postgresql.execution;
+package spade.query.graph.execution;
 
 import spade.query.graph.execution.ExecutionContext;
 import spade.query.graph.kernel.Environment;

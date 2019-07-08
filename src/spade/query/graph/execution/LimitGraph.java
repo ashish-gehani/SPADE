@@ -17,68 +17,71 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.postgresql.execution;
+package spade.query.graph.execution;
 
-import java.util.ArrayList;
-
+import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
 import spade.core.Graph;
-import spade.query.graph.execution.ExecutionContext;
-import spade.query.graph.execution.Instruction;
-import spade.query.graph.utility.CommonFunctions;
 import spade.query.graph.kernel.Environment;
 import spade.query.graph.utility.TreeStringSerializable;
 
-import static spade.query.graph.utility.CommonVariables.CHILD_VERTEX_KEY;
-import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
-import static spade.query.graph.utility.CommonVariables.PARENT_VERTEX_KEY;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
 
 /**
- * Collapse all edges whose specified fields are the same.
+ * Sample a random subset of <limit> number of vertices and edges from a graph.
  */
-public class CollapseEdge extends Instruction
+public class LimitGraph extends Instruction
 {
     // Output graph.
     private Graph targetGraph;
     // Input graph.
     private Graph subjectGraph;
-    // Fields to check.
-    private ArrayList<String> fields;
+    // The maximum number of vertices / edges to sample.
+    private int limit;
 
-    public CollapseEdge(Graph targetGraph, Graph subjectGraph, ArrayList<String> fields)
+    public LimitGraph(Graph targetGraph, Graph subjectGraph, int limit)
     {
         this.targetGraph = targetGraph;
         this.subjectGraph = subjectGraph;
-        this.fields = fields;
+        this.limit = limit;
     }
 
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        StringBuilder sqlQuery = new StringBuilder(100);
-        sqlQuery.append("SELECT * FROM ");
-        sqlQuery.append(EDGE_TABLE);
-        sqlQuery.append(" GROUP BY \"");
-        sqlQuery.append(CHILD_VERTEX_KEY);
-        sqlQuery.append("\", \"");
-        sqlQuery.append(PARENT_VERTEX_KEY);
-        sqlQuery.append("\", ");
-        for(String field : fields)
+        Set<AbstractVertex> vertexSet = targetGraph.vertexSet();
+        List<AbstractVertex> vertexList = new LinkedList<>(vertexSet);
+        Collections.shuffle(vertexList);
+        vertexSet.clear();
+        int lower_limit = Math.min(limit, vertexList.size());
+        for(int i = 0; i < lower_limit; i++)
         {
-            sqlQuery.append("\"");
-            sqlQuery.append(field);
-            sqlQuery.append("\", ");
+            AbstractVertex vertex = vertexList.get(i);
+            vertexSet.add(vertex);
         }
 
-        String getEdgeQuery = sqlQuery.substring(0, sqlQuery.length() - 2);
-        CommonFunctions.executeGetEdge(targetGraph.edgeSet(), getEdgeQuery);
-        targetGraph.vertexSet().addAll(subjectGraph.vertexSet());
+        Set<AbstractEdge> edgeSet = targetGraph.edgeSet();
+        List<AbstractEdge> edgeList = new LinkedList<>(edgeSet);
+        Collections.shuffle(edgeList);
+        edgeSet.clear();
+        lower_limit = Math.min(limit, edgeList.size());
+        for(int i = 0; i < lower_limit; i++)
+        {
+            AbstractEdge edge = edgeList.get(i);
+            edgeSet.add(edge);
+        }
+
         ctx.addResponse(targetGraph);
     }
 
     @Override
     public String getLabel()
     {
-        return "CollapseEdge";
+        return "LimitGraph";
     }
 
     @Override
@@ -94,5 +97,7 @@ public class CollapseEdge extends Instruction
         inline_field_values.add(targetGraph.getName());
         inline_field_names.add("subjectGraph");
         inline_field_values.add(subjectGraph.getName());
+        inline_field_names.add("limit");
+        inline_field_values.add(String.valueOf(limit));
     }
 }

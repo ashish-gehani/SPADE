@@ -25,16 +25,19 @@ import spade.query.graph.execution.IntersectGraph;
 import spade.query.graph.execution.SubtractGraph;
 import spade.query.graph.execution.UnionGraph;
 import spade.query.graph.kernel.Environment;
+import spade.query.graph.execution.GetEdgeEndpoints.Component;
+import spade.query.graph.utility.CommonFunctions;
 import spade.query.postgresql.entities.Entity;
 import spade.query.postgresql.entities.EntityType;
 import spade.query.postgresql.entities.GraphMetadata;
 import spade.query.postgresql.execution.CollapseEdge;
 import spade.query.postgresql.execution.CreateEmptyGraphMetadata;
 import spade.query.postgresql.execution.EraseSymbols;
-import spade.query.postgresql.execution.EvaluateQuery;
+import spade.query.postgresql.execution.EvaluateGetEdgeQuery;
+import spade.query.postgresql.execution.EvaluateGetVertexQuery;
 import spade.query.postgresql.execution.ExportGraph;
 import spade.query.postgresql.execution.GetEdge;
-import spade.query.postgresql.execution.GetEdgeEndpoint;
+import spade.query.postgresql.execution.GetEdgeEndpoints;
 import spade.query.postgresql.execution.GetLineage;
 import spade.query.postgresql.execution.GetLink;
 import spade.query.graph.execution.GetShortestPath;
@@ -42,7 +45,7 @@ import spade.query.postgresql.execution.GetSubgraph;
 import spade.query.postgresql.execution.GetVertex;
 import spade.query.postgresql.execution.InsertLiteralEdge;
 import spade.query.postgresql.execution.InsertLiteralVertex;
-import spade.query.postgresql.execution.Instruction;
+import spade.query.graph.execution.Instruction;
 import spade.query.postgresql.execution.LimitGraph;
 import spade.query.postgresql.execution.ListGraphs;
 import spade.query.postgresql.execution.OverwriteGraphMetadata;
@@ -64,8 +67,6 @@ import spade.query.postgresql.types.TypeID;
 import spade.query.postgresql.types.TypedValue;
 
 import java.util.ArrayList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static spade.query.graph.utility.CommonVariables.Direction;
 
@@ -593,7 +594,7 @@ public class Resolver
                     outputGraph = allocateEmptyGraph();
                 }
                 instructions.add(new UnionGraph(outputGraph, edges));
-                instructions.add(new GetEdgeEndpoint(outputGraph, edges, GetEdgeEndpoint.Component.kBoth));
+                instructions.add(new GetEdgeEndpoints(outputGraph, edges, Component.kBoth));
                 return outputGraph;
             }
             case "getLineage":
@@ -607,13 +608,13 @@ public class Resolver
             case "getSubgraph":
                 return resolveGetSubgraph(subject, arguments, outputEntity);
             case "getEdgeSource":
-                return resolveGetEdgeEndpoint(GetEdgeEndpoint.Component.kSource,
+                return resolveGetEdgeEndpoint(Component.kSource,
                         subject, arguments, outputEntity);
             case "getEdgeDestination":
-                return resolveGetEdgeEndpoint(GetEdgeEndpoint.Component.kDestination,
+                return resolveGetEdgeEndpoint(Component.kDestination,
                         subject, arguments, outputEntity);
             case "getEdgeEndpoints":
-                return resolveGetEdgeEndpoint(GetEdgeEndpoint.Component.kBoth,
+                return resolveGetEdgeEndpoint(Component.kBoth,
                         subject, arguments, outputEntity);
             case "collapseEdge":
                 return resolveCollapseEdge(subject, arguments, outputEntity);
@@ -1075,7 +1076,14 @@ public class Resolver
             outputGraph = allocateEmptyGraph();
         }
 
-        instructions.add(new CollapseEdge(outputGraph, subjectGraph, fields));
+        if(Environment.IsBaseGraph(subjectGraph))
+        {
+            instructions.add(new CollapseEdge(outputGraph, subjectGraph, fields));
+        }
+        else
+        {
+            instructions.add(new spade.query.graph.execution.CollapseEdge(outputGraph, subjectGraph, fields));
+        }
         return outputGraph;
     }
 
@@ -1095,11 +1103,18 @@ public class Resolver
         }
 
         Graph skeletonGraph = resolveGraphExpression(arguments.get(0), null, true);
-        instructions.add(new GetSubgraph(outputGraph, subjectGraph, skeletonGraph));
+        if(Environment.IsBaseGraph(subjectGraph))
+        {
+            instructions.add(new GetSubgraph(outputGraph, subjectGraph, skeletonGraph));
+        }
+        else
+        {
+
+        }
         return outputGraph;
     }
 
-    private Graph resolveGetEdgeEndpoint(GetEdgeEndpoint.Component component,
+    private Graph resolveGetEdgeEndpoint(Component component,
                                          Graph subjectGraph,
                                          ArrayList<ParseExpression> arguments,
                                          Graph outputGraph)
@@ -1115,8 +1130,14 @@ public class Resolver
         {
             outputGraph = allocateEmptyGraph();
         }
-
-        instructions.add(new GetEdgeEndpoint(outputGraph, subjectGraph, component));
+        if(Environment.IsBaseGraph(subjectGraph))
+        {
+            instructions.add(new GetEdgeEndpoints(outputGraph, subjectGraph, component));
+        }
+        else
+        {
+            instructions.add(new spade.query.graph.execution.GetEdgeEndpoints(outputGraph, subjectGraph, component));
+        }
         return outputGraph;
     }
 
@@ -1230,40 +1251,16 @@ public class Resolver
         }
 
         String rawQuery = resolveString(arguments.get(0));
-        StringBuffer sb = new StringBuffer();
-        sb.append("INSERT INTO " + outputGraph.getTableName(component) + " ");
-
-        Pattern pattern = Pattern.compile("[$][^.]+[.](vertex|edge)");
-        Matcher m = pattern.matcher(rawQuery);
-        while(m.find())
+        // execute raw query, then store the resulting ids in the graph
+        // no edge and vertex tables for graphs in Postgres
+        if(component == Graph.Component.kVertex)
         {
-            String ref = m.group();
-            String var;
-            Graph.Component refComponent;
-            if(ref.endsWith(".vertex"))
-            {
-                refComponent = Graph.Component.kVertex;
-                var = ref.substring(0, ref.length() - 7);
-            }
-            else
-            {
-                assert ref.endsWith(".edge");
-                refComponent = Graph.Component.kEdge;
-                var = ref.substring(0, ref.length() - 5);
-            }
-            String graphName = env.lookup(var);
-            if(graphName == null)
-            {
-                throw new RuntimeException(
-                        "Cannot resolve variable " + var + " in the query at " +
-                                arguments.get(0).getLocationString());
-            }
-            m.appendReplacement(sb, new Graph(graphName).getTableName(refComponent));
+            instructions.add(new EvaluateGetVertexQuery(outputGraph, rawQuery));
         }
-        m.appendTail(sb);
-        // execute query in sb, then store the resulting ids in the graph
-
-        instructions.add(new EvaluateQuery(sb.toString()));
+        else if(component == Graph.Component.kEdge)
+        {
+            instructions.add(new EvaluateGetEdgeQuery(outputGraph, rawQuery));
+        }
         return outputGraph;
     }
 

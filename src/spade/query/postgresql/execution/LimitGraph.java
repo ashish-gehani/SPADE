@@ -21,59 +21,45 @@ package spade.query.postgresql.execution;
 
 import java.util.ArrayList;
 
+import spade.core.Graph;
 import spade.query.graph.execution.ExecutionContext;
-import spade.query.postgresql.entities.Graph;
+import spade.query.graph.execution.Instruction;
 import spade.query.graph.kernel.Environment;
 import spade.query.graph.utility.TreeStringSerializable;
-import spade.storage.quickstep.QuickstepExecutor;
+
+import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
+import static spade.query.graph.utility.CommonVariables.VERTEX_TABLE;
 
 /**
- * Sample a subset of vertices / edges from a graph.
+ * Sample a random subset of <limit> number of vertices and edges from a graph.
  */
 public class LimitGraph extends Instruction
 {
     // Output graph.
     private Graph targetGraph;
     // Input graph.
-    private Graph sourceGraph;
+    private Graph subjectGraph;
     // The maximum number of vertices / edges to sample.
     private int limit;
 
-    public LimitGraph(Graph targetGraph, Graph sourceGraph, int limit)
+    public LimitGraph(Graph targetGraph, Graph subjectGraph, int limit)
     {
         this.targetGraph = targetGraph;
-        this.sourceGraph = sourceGraph;
+        this.subjectGraph = subjectGraph;
         this.limit = limit;
     }
 
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        QuickstepExecutor qs = ctx.getExecutor();
+        String getVertexQuery = "SELECT * FROM " + VERTEX_TABLE + " ORDER BY random() LIMIT " + limit;
+        EvaluateGetVertexQuery evaluateGetVertexQuery = new EvaluateGetVertexQuery(targetGraph, getVertexQuery);
+        evaluateGetVertexQuery.execute(env, ctx);
 
-        String sourceVertexTable = sourceGraph.getVertexTableName();
-        String sourceEdgeTable = sourceGraph.getEdgeTableName();
-
-        long numVertices = qs.executeQueryForLongResult(
-                "COPY SELECT COUNT(*) FROM " + sourceVertexTable + " TO stdout;");
-        long numEdges = qs.executeQueryForLongResult(
-                "COPY SELECT COUNT(*) FROM " + sourceEdgeTable + " TO stdout;");
-
-        if(numVertices > 0)
-        {
-            qs.executeQuery("\\analyzerange " + sourceVertexTable + "\n" +
-                    "INSERT INTO " + targetGraph.getVertexTableName() +
-                    " SELECT id FROM " + sourceVertexTable + " GROUP BY id" +
-                    " ORDER BY id LIMIT " + limit + ";");
-
-        }
-        if(numEdges > 0)
-        {
-            qs.executeQuery("\\analyzerange " + sourceEdgeTable + "\n" +
-                    "INSERT INTO " + targetGraph.getEdgeTableName() +
-                    " SELECT id FROM " + sourceEdgeTable + " GROUP BY id" +
-                    " ORDER BY id LIMIT " + limit + ";");
-        }
+        String getEdgeQuery = "SELECT * FROM " + EDGE_TABLE + " ORDER BY random() LIMIT " + limit;
+        EvaluateGetEdgeQuery evaluateGetEdgeQuery = new EvaluateGetEdgeQuery(targetGraph, getEdgeQuery);
+        evaluateGetEdgeQuery.execute(env, ctx);
+        ctx.addResponse(targetGraph);
     }
 
     @Override
@@ -93,8 +79,8 @@ public class LimitGraph extends Instruction
     {
         inline_field_names.add("targetGraph");
         inline_field_values.add(targetGraph.getName());
-        inline_field_names.add("sourceGraph");
-        inline_field_values.add(sourceGraph.getName());
+        inline_field_names.add("subjectGraph");
+        inline_field_values.add(subjectGraph.getName());
         inline_field_names.add("limit");
         inline_field_values.add(String.valueOf(limit));
     }

@@ -25,6 +25,7 @@ import java.util.Set;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.query.graph.execution.ExecutionContext;
+import spade.query.graph.execution.Instruction;
 import spade.query.graph.utility.CommonFunctions;
 import spade.query.graph.kernel.Environment;
 import spade.query.graph.utility.TreeStringSerializable;

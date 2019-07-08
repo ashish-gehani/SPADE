@@ -17,16 +17,18 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.postgresql.execution;
+package spade.query.graph.execution;
+
+import spade.core.AbstractEdge;
+import spade.core.Graph;
+import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.CommonFunctions;
+import spade.query.graph.utility.TreeStringSerializable;
 
 import java.util.ArrayList;
-
-import spade.core.Graph;
-import spade.query.graph.execution.ExecutionContext;
-import spade.query.graph.execution.Instruction;
-import spade.query.graph.utility.CommonFunctions;
-import spade.query.graph.kernel.Environment;
-import spade.query.graph.utility.TreeStringSerializable;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static spade.query.graph.utility.CommonVariables.CHILD_VERTEX_KEY;
 import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
@@ -54,24 +56,24 @@ public class CollapseEdge extends Instruction
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        StringBuilder sqlQuery = new StringBuilder(100);
-        sqlQuery.append("SELECT * FROM ");
-        sqlQuery.append(EDGE_TABLE);
-        sqlQuery.append(" GROUP BY \"");
-        sqlQuery.append(CHILD_VERTEX_KEY);
-        sqlQuery.append("\", \"");
-        sqlQuery.append(PARENT_VERTEX_KEY);
-        sqlQuery.append("\", ");
-        for(String field : fields)
+        Set<String> uniqueKeys = new HashSet<>();
+        Set<AbstractEdge> targetEdgeSet = targetGraph.edgeSet();
+        Set<AbstractEdge> edgeSet = subjectGraph.edgeSet();
+        for(AbstractEdge edge : edgeSet)
         {
-            sqlQuery.append("\"");
-            sqlQuery.append(field);
-            sqlQuery.append("\", ");
+            StringBuilder concat_key = new StringBuilder(100);
+            concat_key.append(edge.getChildVertex().bigHashCode());
+            concat_key.append(edge.getParentVertex().bigHashCode());
+            for(String field : fields)
+            {
+                concat_key.append(edge.getAnnotation(field));
+            }
+            boolean contains = uniqueKeys.add(concat_key.toString());
+            if(!contains)
+            {
+                targetEdgeSet.add(edge);
+            }
         }
-
-        String getEdgeQuery = sqlQuery.substring(0, sqlQuery.length() - 2);
-        CommonFunctions.executeGetEdge(targetGraph.edgeSet(), getEdgeQuery);
-        targetGraph.vertexSet().addAll(subjectGraph.vertexSet());
         ctx.addResponse(targetGraph);
     }
 

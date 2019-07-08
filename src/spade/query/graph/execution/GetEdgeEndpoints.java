@@ -17,14 +17,13 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.postgresql.execution;
+package spade.query.graph.execution;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
-import spade.query.graph.execution.ExecutionContext;
-import spade.query.graph.utility.CommonFunctions;
 import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.CommonFunctions;
 import spade.query.graph.utility.TreeStringSerializable;
 
 import java.util.ArrayList;
@@ -39,7 +38,7 @@ import static spade.query.graph.utility.CommonVariables.VERTEX_TABLE;
 /**
  * Get end points of all edges in a graph.
  */
-public class GetEdgeEndpoint extends Instruction
+public class GetEdgeEndpoints extends Instruction
 {
     public enum Component
     {
@@ -55,7 +54,7 @@ public class GetEdgeEndpoint extends Instruction
     // End-point component (source / destination, or both)
     private Component component;
 
-    public GetEdgeEndpoint(Graph targetGraph, Graph subjectGraph, Component component)
+    public GetEdgeEndpoints(Graph targetGraph, Graph subjectGraph, Component component)
     {
         this.targetGraph = targetGraph;
         this.subjectGraph = subjectGraph;
@@ -66,58 +65,24 @@ public class GetEdgeEndpoint extends Instruction
     public void execute(Environment env, ExecutionContext ctx)
     {
         Set<AbstractVertex> vertexSet = targetGraph.vertexSet();
-        StringBuilder sqlQuery = new StringBuilder(100);
-        StringBuilder edgeHashes = new StringBuilder(200);
         for(AbstractEdge edge : subjectGraph.edgeSet())
         {
-            edgeHashes.append("'").append(edge.bigHashCode()).append("', ");
+            if(component == Component.kSource || component == Component.kBoth)
+            {
+                vertexSet.add(edge.getChildVertex());
+            }
+            if(component == Component.kDestination || component == Component.kBoth)
+            {
+                vertexSet.add(edge.getParentVertex());
+            }
         }
-        if(component == Component.kSource || component == Component.kBoth)
-        {
-            sqlQuery.append("SELECT * FROM ");
-            sqlQuery.append(VERTEX_TABLE);
-            sqlQuery.append(" WHERE \"");
-            sqlQuery.append(PRIMARY_KEY);
-            sqlQuery.append("\" = ");
-            sqlQuery.append("(SELECT \"");
-            sqlQuery.append(CHILD_VERTEX_KEY);
-            sqlQuery.append("\" FROM ");
-            sqlQuery.append(EDGE_TABLE);
-            sqlQuery.append(" WHERE \"");
-            sqlQuery.append(PRIMARY_KEY);
-            sqlQuery.append("\" IN (");
-            sqlQuery.append(edgeHashes.substring(0, edgeHashes.length() - 2));
-            sqlQuery.append("));");
-        }
-        CommonFunctions.executeGetVertex(vertexSet, sqlQuery.toString());
-
-        if(component == Component.kDestination || component == Component.kBoth)
-        {
-            sqlQuery.append("SELECT * FROM ");
-            sqlQuery.append(VERTEX_TABLE);
-            sqlQuery.append(" WHERE \"");
-            sqlQuery.append(PRIMARY_KEY);
-            sqlQuery.append("\" = ");
-            sqlQuery.append("(SELECT \"");
-            sqlQuery.append(PARENT_VERTEX_KEY);
-            sqlQuery.append("\" FROM ");
-            sqlQuery.append(EDGE_TABLE);
-            sqlQuery.append(" WHERE \"");
-            sqlQuery.append(PRIMARY_KEY);
-            sqlQuery.append("\" IN (");
-            sqlQuery.append(edgeHashes.substring(0, edgeHashes.length() - 2));
-            sqlQuery.append("));");
-
-        }
-        CommonFunctions.executeGetVertex(vertexSet, sqlQuery.toString());
         ctx.addResponse(targetGraph);
-
     }
 
     @Override
     public String getLabel()
     {
-        return "GetEdgeEndpoint";
+        return "GetEdgeEndpoints";
     }
 
     @Override

@@ -39,7 +39,7 @@ public class EvaluateQuery extends Instruction
     @Override
     public String getLabel()
     {
-        return "EvaluateQuery";
+        return "EvaluateGetVertexQuery";
     }
 
     @Override

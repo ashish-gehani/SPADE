@@ -22,6 +22,7 @@ package spade.query.postgresql.execution;
 import java.util.ArrayList;
 
 import spade.query.graph.execution.ExecutionContext;
+import spade.query.graph.execution.Instruction;
 import spade.query.postgresql.entities.GraphMetadata;
 import spade.query.graph.kernel.Environment;
 import spade.query.graph.utility.TreeStringSerializable;
@@ -48,28 +49,6 @@ public class OverwriteGraphMetadata extends Instruction
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        QuickstepExecutor qs = ctx.getExecutor();
-
-        String targetVertexTable = targetMetadata.getVertexTableName();
-        String targetEdgeTable = targetMetadata.getEdgeTableName();
-        String lhsVertexTable = lhsMetadata.getVertexTableName();
-        String lhsEdgeTable = lhsMetadata.getEdgeTableName();
-        String rhsVertexTable = rhsMetadata.getVertexTableName();
-        String rhsEdgeTable = rhsMetadata.getEdgeTableName();
-
-        qs.executeQuery("\\analyzerange " + rhsVertexTable + " " + rhsEdgeTable + "\n" +
-                "INSERT INTO " + targetVertexTable +
-                " SELECT id, name, value FROM " + lhsVertexTable + " l" +
-                " WHERE NOT EXISTS (SELECT * FROM " + rhsVertexTable + " r" +
-                " WHERE l.id = r.id AND l.name = r.name);\n" +
-                "INSERT INTO " + targetEdgeTable +
-                " SELECT id, name, value FROM " + lhsEdgeTable + " l" +
-                " WHERE NOT EXISTS (SELECT * FROM " + rhsEdgeTable + " r" +
-                " WHERE l.id = r.id AND l.name = r.name);\n" +
-                "INSERT INTO " + targetVertexTable +
-                " SELECT id, name, value FROM " + rhsVertexTable + ";\n" +
-                "INSERT INTO " + targetEdgeTable +
-                " SELECT id, name, value FROM " + rhsEdgeTable + ";");
     }
 
     @Override

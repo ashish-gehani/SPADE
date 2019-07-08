@@ -17,68 +17,56 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.postgresql.execution;
+package spade.query.graph.execution;
 
-import java.util.ArrayList;
-
+import spade.core.AbstractVertex;
 import spade.core.Graph;
-import spade.query.graph.execution.ExecutionContext;
-import spade.query.graph.execution.Instruction;
-import spade.query.graph.utility.CommonFunctions;
+import spade.query.graph.execution.GetEdgeEndpoints.Component;
 import spade.query.graph.kernel.Environment;
 import spade.query.graph.utility.TreeStringSerializable;
 
-import static spade.query.graph.utility.CommonVariables.CHILD_VERTEX_KEY;
-import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
-import static spade.query.graph.utility.CommonVariables.PARENT_VERTEX_KEY;
+import java.util.ArrayList;
+import java.util.Set;
 
 /**
- * Collapse all edges whose specified fields are the same.
+ * Let $S be the subject graph and $T be the skeleton graph.
+ * The operation $S.getSubgraph($T) is to find all the vertices and edges that
+ * are spanned by the skeleton graph.
  */
-public class CollapseEdge extends Instruction
+public class GetSubgraph extends Instruction
 {
-    // Output graph.
     private Graph targetGraph;
-    // Input graph.
     private Graph subjectGraph;
-    // Fields to check.
-    private ArrayList<String> fields;
+    private Graph skeletonGraph;
 
-    public CollapseEdge(Graph targetGraph, Graph subjectGraph, ArrayList<String> fields)
+    public GetSubgraph(Graph targetGraph, Graph subjectGraph, Graph skeletonGraph)
     {
         this.targetGraph = targetGraph;
         this.subjectGraph = subjectGraph;
-        this.fields = fields;
+        this.skeletonGraph = skeletonGraph;
     }
 
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        StringBuilder sqlQuery = new StringBuilder(100);
-        sqlQuery.append("SELECT * FROM ");
-        sqlQuery.append(EDGE_TABLE);
-        sqlQuery.append(" GROUP BY \"");
-        sqlQuery.append(CHILD_VERTEX_KEY);
-        sqlQuery.append("\", \"");
-        sqlQuery.append(PARENT_VERTEX_KEY);
-        sqlQuery.append("\", ");
-        for(String field : fields)
-        {
-            sqlQuery.append("\"");
-            sqlQuery.append(field);
-            sqlQuery.append("\", ");
-        }
+        // Get all vertices that are in skeleton and subject.
+        Set<AbstractVertex> skeletonVertexSet = skeletonGraph.vertexSet();
+        targetGraph.vertexSet().addAll(skeletonVertexSet);
+        // Get end points of all edges in skeleton that are in subject
+        GetEdgeEndpoints getEdgeEndpoint = new GetEdgeEndpoints(targetGraph, skeletonGraph, Component.kBoth);
+        getEdgeEndpoint.execute(env, ctx);
 
-        String getEdgeQuery = sqlQuery.substring(0, sqlQuery.length() - 2);
-        CommonFunctions.executeGetEdge(targetGraph.edgeSet(), getEdgeQuery);
-        targetGraph.vertexSet().addAll(subjectGraph.vertexSet());
+        // Get all edges between the vertices gathered above.
+        GetEdgesFromEndpoints getEdgesFromEndpoints = new GetEdgesFromEndpoints(targetGraph, subjectGraph, targetGraph, targetGraph);
+        getEdgesFromEndpoints.execute(env, ctx);
         ctx.addResponse(targetGraph);
+
     }
 
     @Override
     public String getLabel()
     {
-        return "CollapseEdge";
+        return "GetSubgraph";
     }
 
     @Override
@@ -94,5 +82,7 @@ public class CollapseEdge extends Instruction
         inline_field_values.add(targetGraph.getName());
         inline_field_names.add("subjectGraph");
         inline_field_values.add(subjectGraph.getName());
+        inline_field_names.add("skeletonGraph");
+        inline_field_values.add(skeletonGraph.getName());
     }
 }

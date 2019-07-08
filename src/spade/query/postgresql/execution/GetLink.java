@@ -21,6 +21,7 @@ package spade.query.postgresql.execution;
 
 import spade.core.Graph;
 import spade.query.graph.execution.ExecutionContext;
+import spade.query.graph.execution.Instruction;
 import spade.query.graph.execution.IntersectGraph;
 import spade.query.graph.utility.CommonVariables.Direction;
 import spade.query.graph.kernel.Environment;

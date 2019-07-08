@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import spade.query.graph.execution.ExecutionContext;
+import spade.query.graph.execution.Instruction;
 import spade.query.graph.kernel.Environment;
 import spade.query.graph.utility.TreeStringSerializable;
 
