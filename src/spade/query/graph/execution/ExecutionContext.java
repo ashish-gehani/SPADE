@@ -21,25 +21,16 @@ package spade.query.graph.execution;
 
 import java.util.ArrayList;
 
-import spade.storage.quickstep.QuickstepExecutor;
-
 /**
  * QuickGrail runtime environment.
  */
 public class ExecutionContext
 {
-    private QuickstepExecutor qs;
     private ArrayList<Object> responses;
 
-    public ExecutionContext(QuickstepExecutor qs)
+    public ExecutionContext()
     {
-        this.qs = qs;
         this.responses = new ArrayList<>();
-    }
-
-    public QuickstepExecutor getExecutor()
-    {
-        return qs;
     }
 
     public void addResponse(Object response)

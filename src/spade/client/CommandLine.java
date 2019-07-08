@@ -37,7 +37,6 @@ import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.util.HashMap;
 
-import static spade.analyzer.CommandLine.QueryCommands;
 
 /**
  * @author raza
@@ -139,7 +138,7 @@ public class CommandLine
                     {
                         continue;
                     }
-                    if(line.equals(QueryCommands.QUERY_EXIT.value))
+                    if(line.equals("exit"))
                     {
                         clientOutputStream.println(line);
                         break;

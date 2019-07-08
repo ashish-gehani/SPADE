@@ -25,8 +25,6 @@ import spade.query.graph.execution.ExecutionContext;
 import spade.query.graph.kernel.Environment;
 import spade.query.graph.execution.Instruction;
 import spade.query.graph.utility.TreeStringSerializable;
-import spade.storage.quickstep.QuickstepExecutor;
-
 /**
  * A compiled QuickGrail program that is composed of a list of primitive
  * instructions.
@@ -42,9 +40,9 @@ public class Program extends TreeStringSerializable
         this.environment = environment;
     }
 
-    public ArrayList<Object> execute(QuickstepExecutor qs)
+    public ArrayList<Object> execute()
     {
-        ExecutionContext ctx = new ExecutionContext(qs);
+        ExecutionContext ctx = new ExecutionContext();
         for(Instruction inst : instructions)
         {
             inst.execute(environment, ctx);

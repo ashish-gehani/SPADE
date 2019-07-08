@@ -25,7 +25,6 @@ import spade.query.graph.execution.ExecutionContext;
 import spade.query.graph.execution.Instruction;
 import spade.query.postgresql.entities.GraphMetadata;
 import spade.query.graph.kernel.Environment;
-import spade.query.postgresql.utility.QuickstepUtil;
 import spade.query.graph.utility.TreeStringSerializable;
 
 /**
@@ -43,7 +42,7 @@ public class CreateEmptyGraphMetadata extends Instruction
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        QuickstepUtil.CreateEmptyGraphMetadata(ctx.getExecutor(), metadata);
+
     }
 
     @Override

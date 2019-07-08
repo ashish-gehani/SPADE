@@ -27,7 +27,6 @@ import spade.query.graph.execution.Instruction;
 import spade.query.postgresql.entities.GraphMetadata;
 import spade.query.graph.kernel.Environment;
 import spade.query.graph.utility.TreeStringSerializable;
-import spade.storage.quickstep.QuickstepExecutor;
 
 /**
  * This class is not yet used in the SPADE integrated QuickGrail.

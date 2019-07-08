@@ -49,42 +49,6 @@ import java.util.logging.Logger;
  */
 public class CommandLine extends AbstractAnalyzer
 {
-    private static HashMap<String, String> constraints = new HashMap<>();
-
-    // Strings for new query format
-    public enum QueryCommands
-    {
-        QUERY_FUNCTION_LIST_KEY("available functions:"),
-        QUERY_FUNCTION_GET_VERTEX("\t GetVertex(expression [, limit])"),
-        QUERY_FUNCTION_GET_EDGE("\t GetEdge(expression [, limit])"),
-        QUERY_FUNCTION_GET_CHILDREN("\t GetChildren(expression [, limit])"),
-        QUERY_FUNCTION_GET_PARENTS("\t GetParents(expression [, limit])"),
-        QUERY_FUNCTION_GET_LINEAGE("\t GetLineage(expression, maxDepth, direction)"),
-        QUERY_FUNCTION_GET_PATHS("\t GetPaths(expression, maxLength)"),
-
-        QUERY_FUNCTION_EXPRESSION_KEY("expression: "),
-        QUERY_FUNCTION_EXPRESSION_VALUE("\t <constraint_name> [<boolean_operator> <constraint_name> ...]"),
-        QUERY_CONSTRAINT_KEY("constraint creation: "),
-        QUERY_CONSTRAINT_VALUE("\t <constraint_name>: <key> <comparison_operator> <value>"),
-        QUERY_COMPARISON_OPERATORS_KEY("comparison operators: "),
-        QUERY_COMPARISON_OPERATORS_VALUE("\t = | > | < | >= | <="),
-        QUERY_BOOLEAN_OPERATORS_KEY("boolean operators: "),
-        QUERY_BOOLEAN_OPERATORS_VALUE("\t AND | OR"),
-        QUERY_DIRECTION_KEY("direction: "),
-        QUERY_DIRECTION_VALUE("\t a[ncestors] | d[escendants]"),
-
-        QUERY_FUNCTION_EXPORT("export > <path_to_file_for_next_query>"),
-        QUERY_LIST_CONSTRAINTS("list constraints"),
-        QUERY_EXIT("exit");
-
-        public String value;
-
-        QueryCommands(String value)
-        {
-            this.value = value;
-        }
-    }
-
     public CommandLine()
     {
         QUERY_PORT = "commandline_query_port";
@@ -142,25 +106,6 @@ public class CommandLine extends AbstractAnalyzer
             logger.log(Level.SEVERE, "Server Socket not initialized");
             return false;
         }
-    }
-
-    /**
-     * Method to display query commands to the given output stream.
-     *
-     * @return All query commands for the client in a single string
-     */
-    public static String getQueryCommands()
-    {
-        StringBuilder query = new StringBuilder(500);
-        query.append("Available Commands: \n");
-        for(QueryCommands command : QueryCommands.values())
-        {
-            query.append("\t");
-            query.append(command.value);
-            query.append("\n");
-        }
-
-        return query.toString();
     }
 
     public class QueryConnection extends AbstractAnalyzer.QueryConnection
@@ -293,10 +238,10 @@ public class CommandLine extends AbstractAnalyzer
             Map<String, Object> queryMetaData = new HashMap<>();
             queryMetaData.put("storage", AbstractQuery.getCurrentStorage().getClass().getSimpleName());
             queryMetaData.put("operation", functionName);
-            queryMetaData.put("rootVertex", result.getRootVertexSet());
-            queryMetaData.put("rootVertexHash", result.getRootVertexSet().bigHashCode());
-            queryMetaData.put("childVertex", result.getRootVertexSet());
-            queryMetaData.put("childVertexHash", result.getRootVertexSet().bigHashCode());
+//            queryMetaData.put("rootVertex", result.getRootVertexSet());
+//            queryMetaData.put("rootVertexHash", result.getRootVertexSet().bigHashCode());
+//            queryMetaData.put("childVertex", result.getRootVertexSet());
+//            queryMetaData.put("childVertexHash", result.getRootVertexSet().bigHashCode());
             queryMetaData.put("parentVertex", result.getDestinationVertex());
             queryMetaData.put("parentVertexHash", result.getDestinationVertex().bigHashCode());
             queryMetaData.put("maxLength", maxLength);

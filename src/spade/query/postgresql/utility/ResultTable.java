@@ -24,7 +24,7 @@ import java.util.Arrays;
 import java.util.Scanner;
 
 /**
- * Helper class for dealing with Quickstep result table.
+ * Helper class for dealing with the result table.
  */
 public class ResultTable
 {

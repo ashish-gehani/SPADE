@@ -28,8 +28,8 @@ import spade.query.postgresql.types.Type;
  */
 public class Schema
 {
-    private ArrayList<String> column_names = new ArrayList<String>();
-    private ArrayList<Type> column_types = new ArrayList<Type>();
+    private ArrayList<String> column_names = new ArrayList<>();
+    private ArrayList<Type> column_types = new ArrayList<>();
 
     public void addColumn(String column_name, Type column_type)
     {

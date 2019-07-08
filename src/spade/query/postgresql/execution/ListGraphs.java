@@ -23,17 +23,16 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import spade.core.Graph;
 import spade.query.graph.execution.ExecutionContext;
 import spade.query.graph.execution.Instruction;
-import spade.query.postgresql.entities.Graph;
 import spade.query.graph.kernel.Environment;
 import spade.query.postgresql.types.LongType;
 import spade.query.postgresql.types.StringType;
-import spade.query.postgresql.utility.QuickstepUtil;
+import spade.query.postgresql.utility.PostgresUtil;
 import spade.query.postgresql.utility.ResultTable;
 import spade.query.postgresql.utility.Schema;
 import spade.query.graph.utility.TreeStringSerializable;
-import spade.storage.quickstep.QuickstepExecutor;
 
 /**
  * List all existing graphs in QuickGrail storage.
@@ -50,19 +49,18 @@ public class ListGraphs extends Instruction
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        QuickstepExecutor qs = ctx.getExecutor();
         ResultTable table = new ResultTable();
 
-        Map<String, String> symbols = env.getSymbols();
-        for(Entry<String, String> entry : symbols.entrySet())
+        Map<String, Graph> symbols = env.getSymbols();
+        for(Entry<String, Graph> entry : symbols.entrySet())
         {
             String symbol = entry.getKey();
             if(symbol.startsWith("$"))
             {
-                addSymbol(qs, symbol, new Graph(entry.getValue()), table);
+                addSymbol(symbol, entry.getValue(), table);
             }
         }
-        addSymbol(qs, "$base", Environment.kBaseGraph, table);
+        addSymbol("$base", Environment.kBaseGraph, table);
 
         Schema schema = new Schema();
         schema.addColumn("Graph Name", StringType.GetInstance());
@@ -81,21 +79,14 @@ public class ListGraphs extends Instruction
         ctx.addResponse(table.toString());
     }
 
-    private void addSymbol(QuickstepExecutor qs, String symbol,
-                           Graph graph, ResultTable table)
+    private void addSymbol(String symbol, Graph graph, ResultTable table)
     {
         ResultTable.Row row = new ResultTable.Row();
         row.add(symbol);
         if(!style.equals("name"))
         {
-            row.add(QuickstepUtil.GetNumVertices(qs, graph));
-            row.add(QuickstepUtil.GetNumEdges(qs, graph));
-            if(style.equals("detail"))
-            {
-                Long[] span = QuickstepUtil.GetTimestampRange(qs, graph);
-                row.add(span[0]);
-                row.add(span[1]);
-            }
+            row.add(PostgresUtil.getNumVertices());
+            row.add(PostgresUtil.getNumEdges());
         }
         table.addRow(row);
     }
