@@ -19,52 +19,68 @@
  */
 package spade.query.postgresql.execution;
 
-import java.util.ArrayList;
-
 import spade.core.Graph;
 import spade.query.graph.execution.ExecutionContext;
 import spade.query.graph.execution.Instruction;
+import spade.query.graph.execution.IntersectGraph;
 import spade.query.graph.kernel.Environment;
-import spade.query.graph.utility.CommonFunctions;
+import spade.query.graph.utility.CommonVariables.Direction;
 import spade.query.graph.utility.TreeStringSerializable;
 
-import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
-import static spade.query.graph.utility.CommonVariables.VERTEX_TABLE;
+import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
- * Sample a random subset of <limit> number of vertices and edges from a graph.
+ * Get a graph that includes all the paths from a set of source vertices to a
+ * set of destination vertices.
  */
-public class LimitGraph extends Instruction
+public class GetPath extends Instruction
 {
     // Output graph.
     private Graph targetGraph;
     // Input graph.
     private Graph subjectGraph;
-    // The maximum number of vertices / edges to sample.
-    private int limit;
+    // Set of source vertices.
+    private Graph sourceGraph;
+    // Set of destination vertices.
+    private Graph destinationGraph;
+    // Max path length.
+    private Integer maxDepth;
 
-    public LimitGraph(Graph targetGraph, Graph subjectGraph, int limit)
+    private static final Logger logger = Logger.getLogger(GetPath.class.getName());
+
+    public GetPath(Graph targetGraph, Graph subjectGraph,
+                   Graph sourceGraph, Graph destinationGraph, Integer maxDepth)
     {
         this.targetGraph = targetGraph;
         this.subjectGraph = subjectGraph;
-        this.limit = limit;
+        this.sourceGraph = sourceGraph;
+        this.destinationGraph = destinationGraph;
+        this.maxDepth = maxDepth;
     }
 
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        String getVertexQuery = "SELECT * FROM " + VERTEX_TABLE + " ORDER BY random() LIMIT " + limit;
-        CommonFunctions.executeGetVertex(targetGraph.vertexSet(), getVertexQuery);
-
-        String getEdgeQuery = "SELECT * FROM " + EDGE_TABLE + " ORDER BY random() LIMIT " + limit;
-        CommonFunctions.executeGetEdge(targetGraph, getEdgeQuery, false);
+        Direction direction;
+        direction = Direction.kAncestor;
+        Graph ancestorGraph = new Graph();
+        GetLineage ancestorLineage = new GetLineage(ancestorGraph, subjectGraph, sourceGraph, maxDepth, direction);
+        ancestorLineage.execute(env, ctx);
+        direction = Direction.kDescendant;
+        Graph descendantGraph = new Graph();
+        GetLineage descendantLineage = new GetLineage(descendantGraph, subjectGraph, destinationGraph, maxDepth, direction);
+        descendantLineage.execute(env, ctx);
+        IntersectGraph intersectGraph = new IntersectGraph(targetGraph, ancestorGraph, descendantGraph);
+        intersectGraph.execute(env, ctx);
         ctx.addResponse(targetGraph);
     }
 
     @Override
     public String getLabel()
     {
-        return "LimitGraph";
+        return "GetPath";
     }
 
     @Override
@@ -80,7 +96,11 @@ public class LimitGraph extends Instruction
         inline_field_values.add(targetGraph.getName());
         inline_field_names.add("subjectGraph");
         inline_field_values.add(subjectGraph.getName());
-        inline_field_names.add("limit");
-        inline_field_values.add(String.valueOf(limit));
+        inline_field_names.add("sourceGraph");
+        inline_field_values.add(sourceGraph.getName());
+        inline_field_names.add("destinationGraph");
+        inline_field_values.add(destinationGraph.getName());
+        inline_field_names.add("maxDepth");
+        inline_field_values.add(String.valueOf(maxDepth));
     }
 }

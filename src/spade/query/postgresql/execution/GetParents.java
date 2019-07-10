@@ -93,9 +93,12 @@ public class GetParents extends Instruction
             StringBuilder parentVertexHashes = new StringBuilder(200);
             for(AbstractVertex parentVertex : parentVertexSet)
             {
-                parentVertexHashes.append(parentVertex.bigHashCode()).append(", ");
+                parentVertexHashes.append("'");
+                parentVertexHashes.append(parentVertex.bigHashCode());
+                parentVertexHashes.append("'");
+                parentVertexHashes.append(", ");
             }
-            CommonFunctions.getAllVertexEdges(targetGraph.edgeSet(), childVertexHashes, parentVertexHashes);
+            CommonFunctions.getAllVertexEdges(targetGraph, childVertexHashes, parentVertexHashes);
             ctx.addResponse(targetGraph);
         }
         catch(Exception ex)

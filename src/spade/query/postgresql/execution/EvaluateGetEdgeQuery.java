@@ -28,6 +28,7 @@ import spade.core.Vertex;
 import spade.query.graph.execution.ExecutionContext;
 import spade.query.graph.execution.Instruction;
 import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.CommonFunctions;
 import spade.query.graph.utility.TreeStringSerializable;
 
 import java.sql.ResultSet;
@@ -35,13 +36,17 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static spade.core.AbstractQuery.currentStorage;
+import static spade.query.graph.utility.CommonVariables.CHILD_VERTEX_KEY;
+import static spade.query.graph.utility.CommonVariables.PARENT_VERTEX_KEY;
 import static spade.query.graph.utility.CommonVariables.PRIMARY_KEY;
+import static spade.query.graph.utility.CommonVariables.VERTEX_TABLE;
 
 /**
  * Evaluate an arbitrary SQL query to get edges.
@@ -50,7 +55,6 @@ public class EvaluateGetEdgeQuery extends Instruction
 {
     private Graph targetGraph;
     private String sqlQuery;
-    private static Logger logger = Logger.getLogger(EvaluateGetEdgeQuery.class.getName());
 
     public EvaluateGetEdgeQuery(Graph targetGraph, String sqlQuery)
     {
@@ -58,51 +62,10 @@ public class EvaluateGetEdgeQuery extends Instruction
         this.sqlQuery = sqlQuery;
     }
 
-
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        Set<AbstractEdge> edgeSet = targetGraph.edgeSet();
-        logger.log(Level.INFO, "Executing query: " + sqlQuery);
-        ResultSet result = (ResultSet) currentStorage.executeQuery(sqlQuery);
-        ResultSetMetaData metadata;
-        try
-        {
-            metadata = result.getMetaData();
-            int columnCount = metadata.getColumnCount();
-
-            Map<Integer, String> columnLabels = new HashMap<>();
-            for(int i = 1; i <= columnCount; i++)
-            {
-                columnLabels.put(i, metadata.getColumnName(i));
-            }
-
-            while(result.next())
-            {
-                // TODO: apply the new world where vertices with only hashes could be created
-                AbstractVertex childVertex = new Vertex();
-                AbstractVertex parentVertex = new Vertex();
-                AbstractEdge edge = new Edge(childVertex, parentVertex);
-                for(int i = 1; i <= columnCount; i++)
-                {
-                    String colName = columnLabels.get(i);
-                    String value = result.getString(i);
-                    if(value != null)
-                    {
-                        if(colName != null && !colName.equals(AbstractStorage.PRIMARY_KEY))
-                        {
-                            edge.addAnnotation(colName, value);
-                        }
-                    }
-                }
-                edgeSet.add(edge);
-            }
-        }
-        catch(SQLException ex)
-        {
-            logger.log(Level.SEVERE, "Error executing GetEdge Query", ex);
-        }
-
+        CommonFunctions.executeGetEdge(targetGraph, sqlQuery, true);
         ctx.addResponse(targetGraph);
     }
 

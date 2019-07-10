@@ -36,14 +36,14 @@ import java.util.Set;
 public class IntersectGraph extends Instruction
 {
     // Output graph.
-    private Graph outputGraph;
+    private Graph targetGraph;
     // Input graphs.
     private Graph lhsGraph;
     private Graph rhsGraph;
 
-    public IntersectGraph(Graph outputGraph, Graph lhsGraph, Graph rhsGraph)
+    public IntersectGraph(Graph targetGraph, Graph lhsGraph, Graph rhsGraph)
     {
-        this.outputGraph = outputGraph;
+        this.targetGraph = targetGraph;
         this.lhsGraph = lhsGraph;
         this.rhsGraph = rhsGraph;
     }
@@ -51,24 +51,15 @@ public class IntersectGraph extends Instruction
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        Set<AbstractVertex> vertices = new HashSet<>();
-        Set<AbstractEdge> edges = new HashSet<>();
+        Set<AbstractVertex> targetVertexSet = targetGraph.vertexSet();
+        Set<AbstractEdge> targetEdgeSet = targetGraph.edgeSet();
 
-        vertices.addAll(lhsGraph.vertexSet());
-        vertices.retainAll(rhsGraph.vertexSet());
-        edges.addAll(lhsGraph.edgeSet());
-        edges.retainAll(rhsGraph.edgeSet());
+        targetVertexSet.addAll(lhsGraph.vertexSet());
+        targetVertexSet.retainAll(rhsGraph.vertexSet());
+        targetEdgeSet.addAll(lhsGraph.edgeSet());
+        targetEdgeSet.retainAll(rhsGraph.edgeSet());
 
-        for(AbstractVertex vertex : vertices)
-        {
-            outputGraph.putVertex(vertex);
-        }
-        for(AbstractEdge edge : edges)
-        {
-            outputGraph.putEdge(edge);
-        }
-
-        ctx.addResponse(outputGraph);
+        ctx.addResponse(targetGraph);
     }
 
     @Override
@@ -86,8 +77,8 @@ public class IntersectGraph extends Instruction
             ArrayList<String> container_child_field_names,
             ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields)
     {
-        inline_field_names.add("outputGraph");
-        inline_field_values.add(outputGraph.getName());
+        inline_field_names.add("targetGraph");
+        inline_field_values.add(targetGraph.getName());
         inline_field_names.add("lhsGraph");
         inline_field_values.add(lhsGraph.getName());
         inline_field_names.add("rhsGraph");

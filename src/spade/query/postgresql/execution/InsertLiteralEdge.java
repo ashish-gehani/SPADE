@@ -64,8 +64,7 @@ public class InsertLiteralEdge extends Instruction
             sqlQuery.append(", ");
         }
         String query = sqlQuery.substring(0, sqlQuery.length() - 2) + ")";
-        Set<AbstractEdge> edgeSet = targetGraph.edgeSet();
-        CommonFunctions.executeGetEdge(edgeSet, query);
+        CommonFunctions.executeGetEdge(targetGraph, query, true);
         ctx.addResponse(targetGraph);
 
     }

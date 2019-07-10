@@ -35,6 +35,7 @@ import spade.core.Vertex;
 import spade.query.graph.execution.ExecutionContext;
 import spade.query.graph.execution.Instruction;
 import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.CommonFunctions;
 import spade.query.graph.utility.TreeStringSerializable;
 
 import static spade.core.AbstractQuery.currentStorage;
@@ -47,7 +48,6 @@ public class EvaluateGetVertexQuery extends Instruction
 {
     private Graph targetGraph;
     private String sqlQuery;
-    private static Logger logger = Logger.getLogger(EvaluateGetVertexQuery.class.getName());
 
     public EvaluateGetVertexQuery(Graph targetGraph, String sqlQuery)
     {
@@ -58,44 +58,7 @@ public class EvaluateGetVertexQuery extends Instruction
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        Set<AbstractVertex> vertexSet = targetGraph.vertexSet();
-        logger.log(Level.INFO, "Executing query: " + sqlQuery);
-        ResultSet result = (ResultSet) currentStorage.executeQuery(sqlQuery);
-        ResultSetMetaData metadata;
-        try
-        {
-            metadata = result.getMetaData();
-            int columnCount = metadata.getColumnCount();
-
-            Map<Integer, String> columnLabels = new HashMap<>();
-            for(int i = 1; i <= columnCount; i++)
-            {
-                columnLabels.put(i, metadata.getColumnName(i));
-            }
-
-            while(result.next())
-            {
-                AbstractVertex vertex = new Vertex();
-                for(int i = 1; i <= columnCount; i++)
-                {
-                    String colName = columnLabels.get(i);
-                    String value = result.getString(i);
-                    if(value != null)
-                    {
-                        if(colName != null && !colName.equals(PRIMARY_KEY))
-                        {
-                            vertex.addAnnotation(colName, value);
-                        }
-                    }
-                }
-                vertexSet.add(vertex);
-            }
-        }
-        catch(SQLException ex)
-        {
-            logger.log(Level.SEVERE, "Error executing GetVertex Query", ex);
-        }
-
+        CommonFunctions.executeGetVertex(targetGraph.vertexSet(), sqlQuery);
         ctx.addResponse(targetGraph);
     }
 

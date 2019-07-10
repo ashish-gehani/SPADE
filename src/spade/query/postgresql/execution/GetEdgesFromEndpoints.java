@@ -53,23 +53,8 @@ public class GetEdgesFromEndpoints extends Instruction
             parentHashes.append("', ");
         }
 
-        StringBuilder sqlQuery = new StringBuilder(500);
-        sqlQuery.append("SELECT * FROM ");
-        sqlQuery.append(EDGE_TABLE);
-        sqlQuery.append(" WHERE \"");
-        sqlQuery.append(CHILD_VERTEX_KEY);
-        sqlQuery.append("\" IN (");
-        sqlQuery.append(childHashes.substring(0, childHashes.length() - 2));
-        sqlQuery.append(") AND \"");
-        sqlQuery.append(PARENT_VERTEX_KEY);
-        sqlQuery.append("\" IN (");
-        sqlQuery.append(parentHashes.substring(0, parentHashes.length() - 2));
-        sqlQuery.append(");");
-
-        Set<AbstractEdge> edgeSet = targetGraph.edgeSet();
-        CommonFunctions.executeGetEdge(edgeSet, sqlQuery.toString());
+        CommonFunctions.getAllVertexEdges(targetGraph, childHashes, parentHashes);
         ctx.addResponse(targetGraph);
-
     }
 
     @Override

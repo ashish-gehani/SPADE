@@ -20,13 +20,12 @@
 package spade.query.postgresql.kernel;
 
 import spade.core.Graph;
-import spade.query.graph.execution.GetPath;
+import spade.query.postgresql.execution.GetPath;
 import spade.query.graph.execution.IntersectGraph;
 import spade.query.graph.execution.SubtractGraph;
 import spade.query.graph.execution.UnionGraph;
 import spade.query.graph.kernel.Environment;
 import spade.query.graph.execution.GetEdgeEndpoints.Component;
-import spade.query.graph.utility.CommonFunctions;
 import spade.query.postgresql.entities.Entity;
 import spade.query.postgresql.entities.EntityType;
 import spade.query.postgresql.entities.GraphMetadata;
@@ -324,15 +323,19 @@ public class Resolver
         {
             case "dump":
                 resolveDumpCommand(arguments);
+                env.setPrintResult(true);
                 break;
             case "visualize":
                 resolveVisualizeCommand(arguments);
+                env.setPrintResult(true);
                 break;
             case "stat":
                 resolveStatCommand(arguments);
+                env.setPrintResult(true);
                 break;
             case "list":
                 resolveListCommand(arguments);
+                env.setPrintResult(true);
                 break;
             case "reset":
                 resolveResetCommand(arguments);
@@ -594,18 +597,6 @@ public class Resolver
                 return resolveGetVertex(Graph.Component.kVertex, subject, arguments, outputEntity);
             case "getEdge":
                 return resolveGetEdge(Graph.Component.kEdge, subject, arguments, outputEntity);
-            case "getEdgeWithEndpoints":
-            {
-                Graph edges = resolveGetEdge(Graph.Component.kEdge, subject, arguments, outputEntity);
-                Graph outputGraph = outputEntity;
-                if(outputGraph == null)
-                {
-                    outputGraph = allocateEmptyGraph();
-                }
-                instructions.add(new UnionGraph(outputGraph, edges));
-                instructions.add(new GetEdgeEndpoints(outputGraph, edges, Component.kBoth));
-                return outputGraph;
-            }
             case "getLineage":
                 return resolveGetLineage(subject, arguments, outputEntity);
             case "getLink":
@@ -782,8 +773,7 @@ public class Resolver
         }
 
         if(arguments.isEmpty())
-        {
-            // Get all the edges.
+        {// Get all the edges.
             if(outputGraph == null)
             {
                 outputGraph = allocateEmptyGraph();
@@ -868,13 +858,15 @@ public class Resolver
             case "and":
             {
                 assert operands.size() == 2;
-                Graph lhsGraph = resolveGetVertexOrEdgePredicate(component, subjectGraph, operands.get(0), null);
+                Graph lhsGraph = resolveGetVertexOrEdgePredicate(component, subjectGraph,
+                        operands.get(0), null);
                 Graph rhsGraph = resolveGetVertexOrEdgePredicate(component, lhsGraph, operands.get(1), outputGraph);
                 return rhsGraph;
             }
             case "not":
                 assert operands.size() == 1;
-                Graph subtrahendGraph = resolveGetVertexOrEdgePredicate(component, subjectGraph, operands.get(0), null);
+                Graph subtrahendGraph = resolveGetVertexOrEdgePredicate(component, subjectGraph,
+                        operands.get(0), null);
                 if(outputGraph == null)
                 {
                     outputGraph = allocateEmptyGraph();
@@ -966,11 +958,13 @@ public class Resolver
         {
             if(component == Graph.Component.kVertex)
             {
-                instructions.add(new spade.query.graph.execution.GetVertex(outputGraph, subjectGraph, field, op, value));
+                instructions.add(new spade.query.graph.execution.GetVertex(outputGraph, subjectGraph, field,
+                        op, value));
             }
             else if(component == Graph.Component.kEdge)
             {
-                instructions.add(new spade.query.graph.execution.GetEdge(outputGraph, subjectGraph, field, op, value));
+                instructions.add(new spade.query.graph.execution.GetEdge(outputGraph, subjectGraph, field,
+                        op, value));
             }
         }
 
@@ -1016,7 +1010,8 @@ public class Resolver
         }
         else
         {
-            instructions.add(new spade.query.graph.execution.GetLineage(outputGraph, subjectGraph, startGraph, depth, direction));
+            instructions.add(new spade.query.graph.execution.GetLineage(outputGraph, subjectGraph, startGraph,
+                    depth, direction));
         }
         return outputGraph;
     }
@@ -1031,8 +1026,8 @@ public class Resolver
                     "Invalid number of arguments for getLink: expected 3");
         }
 
-        Graph srcGraph = resolveGraphExpression(arguments.get(0), null, true);
-        Graph dstGraph = resolveGraphExpression(arguments.get(1), null, true);
+        Graph sourceGraph = resolveGraphExpression(arguments.get(0), null, true);
+        Graph destinationGraph = resolveGraphExpression(arguments.get(1), null, true);
         Integer maxDepth = resolveInteger(arguments.get(2));
 
         if(outputGraph == null)
@@ -1041,11 +1036,12 @@ public class Resolver
         }
         if(Environment.IsBaseGraph(subjectGraph))
         {
-            instructions.add(new GetLink(outputGraph, subjectGraph, srcGraph, dstGraph, maxDepth));
+            instructions.add(new GetLink(outputGraph, subjectGraph, sourceGraph, destinationGraph, maxDepth));
         }
         else
         {
-
+            instructions.add(new spade.query.graph.execution.GetLink(outputGraph, subjectGraph, sourceGraph,
+                    destinationGraph, maxDepth));
         }
 
         return outputGraph;
@@ -1069,7 +1065,15 @@ public class Resolver
         {
             outputGraph = allocateEmptyGraph();
         }
-        instructions.add(new GetPath(outputGraph, subjectGraph, sourceGraph, destinationGraph, maxDepth));
+        if(Environment.IsBaseGraph(subjectGraph))
+        {
+            instructions.add(new GetPath(outputGraph, subjectGraph, sourceGraph, destinationGraph, maxDepth));
+        }
+        else
+        {
+            instructions.add(new spade.query.graph.execution.GetPath(outputGraph, subjectGraph, sourceGraph,
+                    destinationGraph, maxDepth));
+        }
 
         return outputGraph;
     }
@@ -1122,7 +1126,7 @@ public class Resolver
         }
         else
         {
-
+            instructions.add(new spade.query.graph.execution.GetSubgraph(outputGraph, subjectGraph, skeletonGraph));
         }
         return outputGraph;
     }
@@ -1199,7 +1203,14 @@ public class Resolver
         }
 
         Graph sourceGraph = resolveGraphExpression(arguments.get(0), null, true);
-        instructions.add(new GetSubgraph(outputGraph, sourceGraph, subjectGraph));
+        if(Environment.IsBaseGraph(subjectGraph))
+        {
+            instructions.add(new GetSubgraph(outputGraph, sourceGraph, subjectGraph));
+        }
+        else
+        {
+            instructions.add(new spade.query.graph.execution.GetSubgraph(outputGraph, sourceGraph, subjectGraph));
+        }
         return outputGraph;
     }
 
@@ -1220,7 +1231,14 @@ public class Resolver
             outputGraph = allocateEmptyGraph();
         }
 
-        instructions.add(new LimitGraph(outputGraph, subjectGraph, limit));
+        if(Environment.IsBaseGraph(subjectGraph))
+        {
+            instructions.add(new LimitGraph(outputGraph, subjectGraph, limit));
+        }
+        else
+        {
+            instructions.add(new spade.query.graph.execution.LimitGraph(outputGraph, subjectGraph, limit));
+        }
         return outputGraph;
     }
 
@@ -1243,7 +1261,15 @@ public class Resolver
             outputGraph = allocateEmptyGraph();
         }
 
-        instructions.add(new GetShortestPath(outputGraph, subjectGraph, sourceGraph, destinationGraph, maxDepth));
+        if(Environment.IsBaseGraph(subjectGraph))
+        {
+            instructions.add(new GetShortestPath(outputGraph, subjectGraph, sourceGraph, destinationGraph, maxDepth));
+        }
+        else
+        {
+            instructions.add(new spade.query.graph.execution.GetShortestPath(outputGraph, subjectGraph, sourceGraph,
+                    destinationGraph, maxDepth));
+        }
         return outputGraph;
     }
 

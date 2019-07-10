@@ -203,7 +203,7 @@ public class CommandLine extends AbstractAnalyzer
 
         private String execute(String query)
         {
-            ArrayList<Object> responses;
+            ArrayList<Object> responses = null;
             try
             {
                 DSLParserWrapper parserWrapper = new DSLParserWrapper();
@@ -227,20 +227,20 @@ public class CommandLine extends AbstractAnalyzer
                 pw.println(ex.getMessage());
                 pw.println("------------------------------------------------------------");
                 responses.add(stackTrace.toString());
+                env.setPrintResult(true);
             }
 
-            if(responses == null || responses.isEmpty())
+            String printResponse = "OK";
+            logger.log(Level.INFO, "responses: " + responses.toString());
+            // Currently only return the last response.
+            Object response = responses.get(responses.size() - 1);
+            logger.log(Level.INFO, "response: " + response.toString());
+            if(env.printResult())
             {
-                return "OK";
+                printResponse = response == null ? "" : response.toString();
+                env.setPrintResult(false);
             }
-            else
-            {
-                logger.log(Level.INFO, "responses: " + responses.toString());
-                // Currently only return the last response.
-                Object response = responses.get(responses.size() - 1);
-                logger.log(Level.INFO, "response: " + response.toString());
-                return response == null ? "" : response.toString();
-            }
+            return printResponse;
         }
 
         private Map<String, Object> getQueryMetaData(Graph result)

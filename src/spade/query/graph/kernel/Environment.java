@@ -27,6 +27,7 @@ import java.util.Map.Entry;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.hadoop.yarn.webapp.hamlet.Hamlet;
 import spade.core.Graph;
 //import spade.query.postgresql.entities.Graph;
 import spade.query.postgresql.entities.GraphMetadata;
@@ -40,13 +41,21 @@ public class Environment extends TreeStringSerializable
 {
     public final static Graph kBaseGraph = new Graph("$base");
     private static int id_counter = 1;
+    // decides whether to print query result on the screen
+    private static boolean printResult = false;
 
     private HashMap<String, Graph> symbols = new HashMap<>();
 
     private static final Logger logger = Logger.getLogger(Environment.class.getName());
 
-    public Environment()
+    public void setPrintResult(boolean new_value)
     {
+        printResult = new_value;
+    }
+
+    public boolean printResult()
+    {
+        return printResult;
     }
 
     public void clear()

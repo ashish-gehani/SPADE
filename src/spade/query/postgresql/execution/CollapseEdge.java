@@ -70,7 +70,7 @@ public class CollapseEdge extends Instruction
         }
 
         String getEdgeQuery = sqlQuery.substring(0, sqlQuery.length() - 2);
-        CommonFunctions.executeGetEdge(targetGraph.edgeSet(), getEdgeQuery);
+        CommonFunctions.executeGetEdge(targetGraph, getEdgeQuery, false);
         targetGraph.vertexSet().addAll(subjectGraph.vertexSet());
         ctx.addResponse(targetGraph);
     }

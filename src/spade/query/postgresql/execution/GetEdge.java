@@ -52,7 +52,7 @@ public class GetEdge extends Instruction
                     getEdgeQuery.append("'");
                 }
             }
-            CommonFunctions.executeGetEdge(targetGraph.edgeSet(), getEdgeQuery.toString());
+            CommonFunctions.executeGetEdge(targetGraph, getEdgeQuery.toString(), true);
             ctx.addResponse(targetGraph);
         }
         catch(Exception ex)

@@ -47,6 +47,7 @@ import static spade.storage.SQL.stripDashes;
 /**
  * @author raza
  */
+@Deprecated
 public abstract class PostgreSQL<R> extends AbstractQuery<R>
 {
     public static final String VERTEX_TABLE = "vertex";

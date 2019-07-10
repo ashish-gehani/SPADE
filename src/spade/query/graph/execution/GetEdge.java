@@ -1,6 +1,7 @@
 package spade.query.graph.execution;
 
 import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.query.graph.utility.CommonFunctions;
 import spade.query.graph.kernel.Environment;
@@ -31,6 +32,7 @@ public class GetEdge extends Instruction
     public void execute(Environment env, ExecutionContext ctx)
     {
         Set<AbstractEdge> edgeSet = targetGraph.edgeSet();
+        Set<AbstractVertex> vertexSet = targetGraph.vertexSet();
         if(field != null)
         {
             for(AbstractEdge subjectEdge : subjectGraph.edgeSet())
@@ -40,12 +42,15 @@ public class GetEdge extends Instruction
                 if(comparison)
                 {
                     edgeSet.add(subjectEdge);
+                    vertexSet.add(subjectEdge.getChildVertex());
+                    vertexSet.add(subjectEdge.getParentVertex());
                 }
             }
         }
         else
         {
             edgeSet.addAll(subjectGraph.edgeSet());
+            vertexSet.addAll(subjectGraph.vertexSet());
         }
         ctx.addResponse(targetGraph);
     }

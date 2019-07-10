@@ -5,12 +5,14 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
+import spade.core.Graph;
 import spade.core.Vertex;
 
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
@@ -22,6 +24,7 @@ import static spade.query.graph.utility.CommonVariables.CHILD_VERTEX_KEY;
 import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
 import static spade.query.graph.utility.CommonVariables.PARENT_VERTEX_KEY;
 import static spade.query.graph.utility.CommonVariables.PRIMARY_KEY;
+import static spade.query.graph.utility.CommonVariables.VERTEX_TABLE;
 
 public class CommonFunctions
 {
@@ -137,8 +140,10 @@ public class CommonFunctions
         }
     }
 
-    public static void executeGetEdge(Set<AbstractEdge> edgeSet, String getEdgeQuery)
+    public static void executeGetEdge(Graph targetGraph, String getEdgeQuery, boolean getEndPoints)
     {
+        Set<AbstractEdge> targetEdgeSet = targetGraph.edgeSet();
+        Set<AbstractVertex> targetVertexSet = targetGraph.vertexSet();
         logger.log(Level.INFO, "Executing query: " + getEdgeQuery);
         ResultSet result = (ResultSet) currentStorage.executeQuery(getEdgeQuery);
         ResultSetMetaData metadata;
@@ -155,10 +160,7 @@ public class CommonFunctions
 
             while(result.next())
             {
-                // TODO: apply the new world where vertices with only hashes could be created
-                AbstractVertex childVertex = new Vertex();
-                AbstractVertex parentVertex = new Vertex();
-                AbstractEdge edge = new Edge(childVertex, parentVertex);
+                AbstractEdge edge = new Edge(null, null);
                 for(int i = 1; i <= columnCount; i++)
                 {
                     String colName = columnLabels.get(i);
@@ -167,11 +169,31 @@ public class CommonFunctions
                     {
                         if(colName != null && !colName.equals(AbstractStorage.PRIMARY_KEY))
                         {
+                            if(getEndPoints && colName.equals(CHILD_VERTEX_KEY))
+                            {
+                                String getChildQuery = "SELECT * FROM " + VERTEX_TABLE + " WHERE \""
+                                        + PRIMARY_KEY + "\" = '" + value + "'";
+                                Set<AbstractVertex> childVertexSet = new HashSet<>();
+                                executeGetVertex(childVertexSet, getChildQuery);
+                                AbstractVertex childVertex = childVertexSet.iterator().next();
+                                edge.setChildVertex(childVertex);
+                                targetVertexSet.add(childVertex);
+                            }
+                            if(getEndPoints && colName.equals(PARENT_VERTEX_KEY))
+                            {
+                                String getParentQuery = "SELECT * FROM " + VERTEX_TABLE + " WHERE \""
+                                        + PRIMARY_KEY + "\" = '" + value + "'";
+                                Set<AbstractVertex> parentVertexSet = new HashSet<>();
+                                executeGetVertex(parentVertexSet, getParentQuery);
+                                AbstractVertex parentVertex = parentVertexSet.iterator().next();
+                                edge.setParentVertex(parentVertex);
+                                targetVertexSet.add(parentVertex);
+                            }
                             edge.addAnnotation(colName, value);
                         }
                     }
                 }
-                edgeSet.add(edge);
+                targetEdgeSet.add(edge);
             }
         }
         catch(SQLException ex)
@@ -180,21 +202,21 @@ public class CommonFunctions
         }
     }
 
-    public static void getAllVertexEdges(Set<AbstractEdge> edgeSet, StringBuilder childVertexHashes, StringBuilder parentVertexHashes)
+    public static void getAllVertexEdges(Graph targetGraph, StringBuilder childVertexHashes, StringBuilder parentVertexHashes)
     {
         StringBuilder getEdgesQuery = new StringBuilder(500);
         getEdgesQuery.append("SELECT * FROM ");
         getEdgesQuery.append(EDGE_TABLE);
-        getEdgesQuery.append(" WHERE ");
+        getEdgesQuery.append(" WHERE \"");
         getEdgesQuery.append(CHILD_VERTEX_KEY);
-        getEdgesQuery.append(" IN (");
+        getEdgesQuery.append("\" IN (");
         getEdgesQuery.append(childVertexHashes.substring(0, childVertexHashes.length() - 2));
-        getEdgesQuery.append(") AND ");
+        getEdgesQuery.append(") AND \"");
         getEdgesQuery.append(PARENT_VERTEX_KEY);
-        getEdgesQuery.append(" IN (");
+        getEdgesQuery.append("\" IN (");
         getEdgesQuery.append(parentVertexHashes.substring(0, parentVertexHashes.length() - 2));
         getEdgesQuery.append(")");
 
-        executeGetEdge(edgeSet, getEdgesQuery.toString());
+        executeGetEdge(targetGraph, getEdgesQuery.toString(), false);
     }
 }

@@ -85,12 +85,14 @@ public class GetLineage extends Instruction
             currentGraph.vertexSet().addAll(remainingVertices);
             if(direction == Direction.kAncestor || direction == Direction.kBoth)
             {
-                GetParents getParents = new GetParents(neighbors, currentGraph, null, null, null, null);
+                GetParents getParents = new GetParents(neighbors, subjectGraph, currentGraph,
+                        null, null, null);
                 getParents.execute(env, ctx);
             }
             else if(direction == Direction.kDescendant || direction == Direction.kBoth)
             {
-                GetChildren getChildren = new GetChildren(neighbors, currentGraph, null, null, null, null);
+                GetChildren getChildren = new GetChildren(neighbors, subjectGraph, currentGraph,
+                        null, null, null);
                 getChildren.execute(env, ctx);
             }
             targetGraph.vertexSet().addAll(neighbors.vertexSet());

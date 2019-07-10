@@ -30,6 +30,7 @@ import java.util.regex.Pattern;
 /**
  * @author raza
  */
+@Deprecated
 public class GetEdge extends PostgreSQL<Set<AbstractEdge>>
 {
     public GetEdge()

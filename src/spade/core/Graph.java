@@ -289,6 +289,13 @@ public class Graph extends AbstractStorage implements Serializable
         }
     }
 
+    public String printSize()
+    {
+        String size = "#vertex: " + vertexSet.size();
+        size += "#edge: " + edgeSet.size();
+        return size;
+    }
+
     /**
      * Checks if the two given graphs are equal.
      * @return True if both graphs have the same vertices and edges

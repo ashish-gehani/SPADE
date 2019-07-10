@@ -29,6 +29,7 @@ import java.util.regex.Pattern;
 /**
  * @author raza
  */
+@Deprecated
 public class GetVertex extends PostgreSQL<Set<AbstractVertex>>
 {
     public GetVertex()

@@ -15,6 +15,7 @@ import static spade.core.AbstractStorage.PRIMARY_KEY;
 /**
  * @author raza
  */
+@Deprecated
 public class GetChildren extends PostgreSQL<Graph>
 {
     public GetChildren()
