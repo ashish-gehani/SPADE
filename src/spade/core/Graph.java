@@ -163,6 +163,11 @@ public class Graph extends AbstractStorage implements Serializable
         return name;
     }
 
+    public void setName(String name)
+    {
+        this.name = name;
+    }
+
     public String getHash(AbstractVertex vertex)
     {
         return (reverseVertexIdentifiers.containsKey(vertex)) ? reverseVertexIdentifiers.get(vertex) : null;

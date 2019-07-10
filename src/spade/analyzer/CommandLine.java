@@ -44,6 +44,8 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static spade.core.AbstractQuery.currentStorage;
+
 /**
  * @author raza
  */
@@ -54,6 +56,7 @@ public class CommandLine extends AbstractAnalyzer
         QUERY_PORT = "commandline_query_port";
     }
     private static final Logger logger = Logger.getLogger(CommandLine.class.getName());
+    private Environment env = new Environment();
 
     @Override
     public boolean initialize()
@@ -164,6 +167,22 @@ public class CommandLine extends AbstractAnalyzer
             try
             {
                 String query = inputStream.readLine();
+                if(query != null && query.trim().toLowerCase().startsWith("set"))
+                {
+                    // set storage for querying
+                    String output = parseSetStorage(query);
+                    logger.log(Level.INFO, output);
+                    outputStream.writeObject(output);
+                    return false;
+                }
+                if(currentStorage == null)
+                {
+                    String msg = "No storage set for querying. " +
+                            "Use command: 'set storage <storage_name>'";
+                    outputStream.writeObject(msg);
+                    logger.log(Level.SEVERE, msg);
+                    return false;
+                }
                 if(query != null && query.toLowerCase().startsWith("export"))
                 {
                     query = query.substring(6);
@@ -192,21 +211,10 @@ public class CommandLine extends AbstractAnalyzer
 
                 logger.log(Level.INFO, "Parse tree:\n" + parseProgram.toString());
 
-                Environment env = new Environment();
-
                 Resolver resolver = new Resolver();
                 Program program = resolver.resolveProgram(parseProgram, env);
-
                 logger.log(Level.INFO, "Execution plan:\n" + program.toString());
-
-                try
-                {
-                    responses = program.execute();
-                }
-                finally
-                {
-                    env.gc();
-                }
+                responses = program.execute();
             }
             catch(Exception ex)
             {
@@ -215,7 +223,7 @@ public class CommandLine extends AbstractAnalyzer
                 PrintWriter pw = new PrintWriter(stackTrace);
                 pw.println("Error evaluating QuickGrail command:");
                 pw.println("------------------------------------------------------------");
-                // e.printStackTrace(pw);
+//                ex.printStackTrace(pw);
                 pw.println(ex.getMessage());
                 pw.println("------------------------------------------------------------");
                 responses.add(stackTrace.toString());
@@ -227,8 +235,10 @@ public class CommandLine extends AbstractAnalyzer
             }
             else
             {
+                logger.log(Level.INFO, "responses: " + responses.toString());
                 // Currently only return the last response.
                 Object response = responses.get(responses.size() - 1);
+                logger.log(Level.INFO, "response: " + response.toString());
                 return response == null ? "" : response.toString();
             }
         }

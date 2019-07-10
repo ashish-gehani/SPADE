@@ -3,8 +3,8 @@ package spade.query.postgresql.execution;
 import spade.core.Graph;
 import spade.query.graph.execution.ExecutionContext;
 import spade.query.graph.execution.Instruction;
-import spade.query.graph.utility.CommonFunctions;
 import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.CommonFunctions;
 import spade.query.graph.utility.TreeStringSerializable;
 
 import java.util.ArrayList;
@@ -12,7 +12,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
-import static spade.query.postgresql.kernel.Resolver.formatString;
 
 
 public class GetEdge extends Instruction
@@ -44,10 +43,13 @@ public class GetEdge extends Instruction
                 if(!field.equals("*"))
                 {
                     // TODO: handle wild card columns
-                    getEdgeQuery.append(" WHERE ");
-                    getEdgeQuery.append(formatString(field));
+                    getEdgeQuery.append(" WHERE \"");
+                    getEdgeQuery.append(field);
+                    getEdgeQuery.append("\"");
                     getEdgeQuery.append(operation);
-                    getEdgeQuery.append(formatString(value));
+                    getEdgeQuery.append("'");
+                    getEdgeQuery.append(value);
+                    getEdgeQuery.append("'");
                 }
             }
             CommonFunctions.executeGetEdge(targetGraph.edgeSet(), getEdgeQuery.toString());

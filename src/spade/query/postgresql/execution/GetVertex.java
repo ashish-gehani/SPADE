@@ -1,18 +1,17 @@
 package spade.query.postgresql.execution;
 
+import spade.core.Graph;
+import spade.query.graph.execution.ExecutionContext;
+import spade.query.graph.execution.Instruction;
+import spade.query.graph.kernel.Environment;
+import spade.query.graph.utility.CommonFunctions;
+import spade.query.graph.utility.TreeStringSerializable;
+
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.core.Graph;
-import spade.query.graph.execution.ExecutionContext;
-import spade.query.graph.execution.Instruction;
-import spade.query.graph.utility.CommonFunctions;
-import spade.query.graph.kernel.Environment;
-import spade.query.graph.utility.TreeStringSerializable;
-
 import static spade.query.graph.utility.CommonVariables.VERTEX_TABLE;
-import static spade.query.postgresql.kernel.Resolver.formatString;
 
 
 public class GetVertex extends Instruction
@@ -44,7 +43,13 @@ public class GetVertex extends Instruction
                 if(!field.equals("*"))
                 {
                     // TODO: handle wild card columns
-                    sqlQuery.append(" WHERE " + formatString(field) + operation + formatString(value));
+                    sqlQuery.append(" WHERE \"");
+                    sqlQuery.append(field);
+                    sqlQuery.append("\"");
+                    sqlQuery.append(operation);
+                    sqlQuery.append("'");
+                    sqlQuery.append(value);
+                    sqlQuery.append("'");
                 }
             }
             logger.log(Level.INFO, "Executing query: " + sqlQuery.toString());

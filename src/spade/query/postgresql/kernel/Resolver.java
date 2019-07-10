@@ -67,6 +67,8 @@ import spade.query.postgresql.types.TypeID;
 import spade.query.postgresql.types.TypedValue;
 
 import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static spade.query.graph.utility.CommonVariables.Direction;
 
@@ -77,6 +79,7 @@ public class Resolver
 {
     private ArrayList<Instruction> instructions;
     private Environment env;
+    private static final Logger logger = Logger.getLogger(Resolver.class.getName());
 
     class ExpressionStream
     {
@@ -178,9 +181,11 @@ public class Resolver
         switch(parseStatement.getStatementType())
         {
             case kAssignment:
+                logger.log(Level.INFO, "kAssignment");
                 resolveAssignment((ParseAssignment) parseStatement);
                 break;
             case kCommand:
+                logger.log(Level.INFO, "kCommand");
                 resolveCommand((ParseCommand) parseStatement);
                 break;
             default:
@@ -196,6 +201,7 @@ public class Resolver
         switch(varType.getTypeID())
         {
             case kGraph:
+                logger.log(Level.INFO, "kGraph");
                 resolveGraphAssignment(parseAssignment);
                 break;
             case kGraphMetadata:
@@ -216,6 +222,7 @@ public class Resolver
         Graph resultGraph;
         if(atype == ParseAssignment.AssignmentType.kEqual)
         {
+            logger.log(Level.INFO, "kEqual");
             resultGraph = resolveGraphExpression(rhs, null, true);
         }
         else
@@ -227,7 +234,7 @@ public class Resolver
                         "Cannot resolve Graph variable " + var.getValue() +
                                 " at " + var.getLocationString());
             }
-            Graph lhsGraph = new Graph(lhsGraphName);
+            Graph lhsGraph = env.getValue(lhsGraphName);
             switch(atype)
             {
                 case kPlusEqual:
@@ -265,11 +272,13 @@ public class Resolver
                                     " at " + parseAssignment.getLocationString());
             }
         }
+        resultGraph.setName(var.getValue());
         env.setValue(var.getValue(), resultGraph);
     }
 
     private void resolveGraphMetadataAssignment(ParseAssignment parseAssignment)
     {
+        // NOTE: GraphMetaData is not used in SPADE yet.
         assert parseAssignment.getLhs().getType().getTypeID() == TypeID.kGraphMetadata;
         ParseString var = parseAssignment.getLhs().getName();
         ParseExpression rhs = parseAssignment.getRhs();
@@ -304,9 +313,7 @@ public class Resolver
                                     " at " + parseAssignment.getLocationString());
             }
         }
-        // NOTE: GraphMetaData is not used in SPADE yet.
-        // The following line inserts an empty graph in the environment.
-        env.setValue(var.getValue(), new Graph("temp"));
+        //  env.setValue(var.getValue(), new Graph("temp"));
     }
 
     private void resolveCommand(ParseCommand parseCommand)
@@ -469,8 +476,10 @@ public class Resolver
         switch(parseExpression.getExpressionType())
         {
             case kOperation:
+                logger.log(Level.INFO, "kOperation");
                 return resolveOperation((ParseOperation) parseExpression, outputEntity);
             case kVariable:
+                logger.log(Level.INFO, "kVariable");
                 return resolveVariable((ParseVariable) parseExpression, outputEntity, isConstReference);
             default:
                 break;
@@ -648,6 +657,7 @@ public class Resolver
         switch(var.getType().getTypeID())
         {
             case kGraph:
+                logger.log(Level.INFO, "kGraph");
                 return resolveGraphVariable(var, outputEntity, isConstReference);
             case kGraphMetadata:
             default:
@@ -673,11 +683,14 @@ public class Resolver
         {
             if(isConstReference)
             {
-                return new Graph(varGraph);
+                logger.log(Level.INFO, "isConstReference");
+                logger.log(Level.INFO, "varGraph: " + varGraph);
+                return env.getValue(varGraph);
             }
             outputGraph = allocateEmptyGraph();
         }
-        instructions.add(new UnionGraph(outputGraph, new Graph(varGraph)));
+        logger.log(Level.INFO, "allocateEmptyGraph");
+        instructions.add(new UnionGraph(outputGraph, env.getValue(varGraph)));
         return outputGraph;
     }
 

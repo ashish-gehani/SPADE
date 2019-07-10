@@ -18,7 +18,6 @@ import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
 import static spade.query.graph.utility.CommonVariables.PARENT_VERTEX_KEY;
 import static spade.query.graph.utility.CommonVariables.PRIMARY_KEY;
 import static spade.query.graph.utility.CommonVariables.VERTEX_TABLE;
-import static spade.query.postgresql.kernel.Resolver.formatString;
 
 public class GetParents extends Instruction
 {
@@ -52,21 +51,24 @@ public class GetParents extends Instruction
             StringBuilder childVertexHashes = new StringBuilder(100);
             for(AbstractVertex childVertex : this.startGraph.vertexSet())
             {
-                childVertexHashes.append(childVertex.bigHashCode()).append(", ");
+                childVertexHashes.append("'");
+                childVertexHashes.append(childVertex.bigHashCode());
+                childVertexHashes.append("'");
+                childVertexHashes.append(", ");
             }
             StringBuilder getParentsQuery = new StringBuilder(200);
             getParentsQuery.append("SELECT * FROM ");
             getParentsQuery.append(VERTEX_TABLE);
-            getParentsQuery.append(" WHERE ");
+            getParentsQuery.append(" WHERE \"");
             getParentsQuery.append(PRIMARY_KEY);
-            getParentsQuery.append(" IN (");
-            getParentsQuery.append("SELECT ");
+            getParentsQuery.append("\" IN (");
+            getParentsQuery.append("SELECT \"");
             getParentsQuery.append(PARENT_VERTEX_KEY);
-            getParentsQuery.append(" FROM ");
+            getParentsQuery.append("\" FROM ");
             getParentsQuery.append(EDGE_TABLE);
-            getParentsQuery.append(" WHERE ");
+            getParentsQuery.append(" WHERE \"");
             getParentsQuery.append(CHILD_VERTEX_KEY);
-            getParentsQuery.append(" IN (");
+            getParentsQuery.append("\" IN (");
             getParentsQuery.append(childVertexHashes.substring(0, childVertexHashes.length() - 2));
             getParentsQuery.append("))");
 
@@ -75,10 +77,13 @@ public class GetParents extends Instruction
                 if(!field.equals("*"))
                 {
                     // TODO: handle wild card columns
-                    getParentsQuery.append(" AND ");
-                    getParentsQuery.append(formatString(field));
+                    getParentsQuery.append(" AND \"");
+                    getParentsQuery.append(field);
+                    getParentsQuery.append("\"");
                     getParentsQuery.append(operation);
-                    getParentsQuery.append(formatString(value));
+                    getParentsQuery.append("'");
+                    getParentsQuery.append(value);
+                    getParentsQuery.append("'");
                 }
             }
             Set<AbstractVertex> parentVertexSet = targetGraph.vertexSet();

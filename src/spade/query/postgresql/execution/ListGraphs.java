@@ -35,7 +35,7 @@ import spade.query.postgresql.utility.Schema;
 import spade.query.graph.utility.TreeStringSerializable;
 
 /**
- * List all existing graphs in QuickGrail storage.
+ * List all existing graphs in the storage.
  */
 public class ListGraphs extends Instruction
 {
@@ -85,8 +85,8 @@ public class ListGraphs extends Instruction
         row.add(symbol);
         if(!style.equals("name"))
         {
-            row.add(PostgresUtil.getNumVertices());
-            row.add(PostgresUtil.getNumEdges());
+            row.add(PostgresUtil.getNumVertices(graph));
+            row.add(PostgresUtil.getNumEdges(graph));
         }
         table.addRow(row);
     }

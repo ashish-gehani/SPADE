@@ -17,7 +17,6 @@ import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
 import static spade.query.graph.utility.CommonVariables.PARENT_VERTEX_KEY;
 import static spade.query.graph.utility.CommonVariables.PRIMARY_KEY;
 import static spade.query.graph.utility.CommonVariables.VERTEX_TABLE;
-import static spade.query.postgresql.kernel.Resolver.formatString;
 
 public class GetChildren extends Instruction
 {
@@ -51,21 +50,24 @@ public class GetChildren extends Instruction
             StringBuilder parentVertexHashes = new StringBuilder(100);
             for(AbstractVertex parentVertex : this.startGraph.vertexSet())
             {
-                parentVertexHashes.append(parentVertex.bigHashCode()).append(", ");
+                parentVertexHashes.append("'");
+                parentVertexHashes.append(parentVertex.bigHashCode());
+                parentVertexHashes.append("'");
+                parentVertexHashes.append(", ");
             }
             StringBuilder getChildrenQuery = new StringBuilder(200);
             getChildrenQuery.append("SELECT * FROM ");
             getChildrenQuery.append(VERTEX_TABLE);
-            getChildrenQuery.append(" WHERE ");
+            getChildrenQuery.append(" WHERE \"");
             getChildrenQuery.append(PRIMARY_KEY);
-            getChildrenQuery.append(" IN (");
-            getChildrenQuery.append("SELECT ");
+            getChildrenQuery.append("\" IN (");
+            getChildrenQuery.append("SELECT \"");
             getChildrenQuery.append(CHILD_VERTEX_KEY);
-            getChildrenQuery.append(" FROM ");
+            getChildrenQuery.append("\" FROM ");
             getChildrenQuery.append(EDGE_TABLE);
-            getChildrenQuery.append(" WHERE ");
+            getChildrenQuery.append(" WHERE \"");
             getChildrenQuery.append(PARENT_VERTEX_KEY);
-            getChildrenQuery.append(" IN (");
+            getChildrenQuery.append("\" IN (");
             getChildrenQuery.append(parentVertexHashes.substring(0, parentVertexHashes.length() - 2));
             getChildrenQuery.append("))");
 
@@ -74,10 +76,13 @@ public class GetChildren extends Instruction
                 if(!field.equals("*"))
                 {
                     // TODO: handle wild card columns
-                    getChildrenQuery.append(" AND ");
-                    getChildrenQuery.append(formatString(field));
+                    getChildrenQuery.append(" AND \"");
+                    getChildrenQuery.append(field);
+                    getChildrenQuery.append("\"");
                     getChildrenQuery.append(operation);
-                    getChildrenQuery.append(formatString(value));
+                    getChildrenQuery.append("'");
+                    getChildrenQuery.append(value);
+                    getChildrenQuery.append("'");
                 }
             }
 

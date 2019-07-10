@@ -23,23 +23,19 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.query.graph.kernel.Environment;
-import spade.query.graph.utility.CommonFunctions;
 import spade.query.graph.utility.TreeStringSerializable;
 
 import java.util.ArrayList;
 import java.util.Set;
-
-import static spade.query.graph.utility.CommonVariables.CHILD_VERTEX_KEY;
-import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
-import static spade.query.graph.utility.CommonVariables.PARENT_VERTEX_KEY;
-import static spade.query.graph.utility.CommonVariables.PRIMARY_KEY;
-import static spade.query.graph.utility.CommonVariables.VERTEX_TABLE;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Get end points of all edges in a graph.
  */
 public class GetEdgeEndpoints extends Instruction
 {
+    private Logger logger = Logger.getLogger(GetEdgeEndpoints.class.getName());
     public enum Component
     {
         kSource,
@@ -69,10 +65,12 @@ public class GetEdgeEndpoints extends Instruction
         {
             if(component == Component.kSource || component == Component.kBoth)
             {
+                logger.log(Level.INFO, "childVertex: " + edge.getChildVertex());
                 vertexSet.add(edge.getChildVertex());
             }
             if(component == Component.kDestination || component == Component.kBoth)
             {
+                logger.log(Level.INFO, "parentVertex: " + edge.getParentVertex());
                 vertexSet.add(edge.getParentVertex());
             }
         }

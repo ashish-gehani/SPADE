@@ -38,7 +38,7 @@ import spade.query.graph.utility.TreeStringSerializable;
  */
 public class Environment extends TreeStringSerializable
 {
-    public final static Graph kBaseGraph = new Graph("trace_base");
+    public final static Graph kBaseGraph = new Graph("$base");
     private static int id_counter = 1;
 
     private HashMap<String, Graph> symbols = new HashMap<>();
@@ -69,15 +69,27 @@ public class Environment extends TreeStringSerializable
 
     public String lookup(String symbol)
     {
+        if(symbol.equals("$base"))
+        {
+            return kBaseGraph.getName();
+        }
         if(symbols.containsKey(symbol))
+        {
             return symbol;
-
+        }
         return null;
+    }
+
+    public Graph getValue(String symbol)
+    {
+        if(symbol.equals("$base"))
+            return kBaseGraph;
+        return symbols.get(symbol);
     }
 
     public void setValue(String symbol, Graph value)
     {
-        if("$base".equals(symbol))
+        if(symbol.equals("$base"))
         {
             logger.log(Level.SEVERE, "Cannot reassign reserved variables.");
             throw new RuntimeException("Cannot reassign reserved variables.");
@@ -87,7 +99,7 @@ public class Environment extends TreeStringSerializable
 
     public void eraseSymbol(String symbol)
     {
-        if("$base".equals(symbol))
+        if(symbol.equals("$base"))
         {
             logger.log(Level.SEVERE, "Cannot erase reserved symbols.");
             throw new RuntimeException("Cannot erase reserved symbols.");
