@@ -261,7 +261,7 @@ public class Resolver
                 {
                     Graph rhsGraph = resolveGraphExpression(rhs, null, true);
                     resultGraph = allocateEmptyGraph();
-                    instructions.add(new IntersectGraph(resultGraph, lhsGraph, rhsGraph));
+                    instructions.add(new IntersectGraph(resultGraph, lhsGraph, rhsGraph, IntersectGraph.Component.kBoth));
                     break;
                 }
                 default:
@@ -408,7 +408,12 @@ public class Resolver
                 throw new RuntimeException(
                         "Invalid argument for visualize: " + forceStr);
             }
-            expression = arguments.get(++idx);
+            if(++idx >= arguments.size())
+            {
+                throw new RuntimeException(
+                        "Invalid arguments for visualize: expected 1 graph argument");
+            }
+            expression = arguments.get(idx);
         }
 
         Graph targetGraph = resolveGraphExpression(expression, null, true);
@@ -573,7 +578,7 @@ public class Resolver
         switch(op.getValue())
         {
             case "&":
-                instructions.add(new IntersectGraph(outputGraph, lhsGraph, rhsGraph));
+                instructions.add(new IntersectGraph(outputGraph, lhsGraph, rhsGraph, IntersectGraph.Component.kBoth));
                 break;
             case "-":
                 instructions.add(new SubtractGraph(outputGraph, lhsGraph, rhsGraph, null));

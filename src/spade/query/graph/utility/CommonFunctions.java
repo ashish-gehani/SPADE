@@ -217,6 +217,7 @@ public class CommonFunctions
         getEdgesQuery.append(parentVertexHashes.substring(0, parentVertexHashes.length() - 2));
         getEdgesQuery.append(")");
 
-        executeGetEdge(targetGraph, getEdgesQuery.toString(), false);
+        //TODO: avoid duplication of database access when called from getLineage
+        executeGetEdge(targetGraph, getEdgesQuery.toString(), true);
     }
 }

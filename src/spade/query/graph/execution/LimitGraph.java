@@ -53,28 +53,27 @@ public class LimitGraph extends Instruction
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        Set<AbstractVertex> vertexSet = targetGraph.vertexSet();
+        Set<AbstractVertex> targetVertexSet = targetGraph.vertexSet();
+        Set<AbstractVertex> vertexSet = subjectGraph.vertexSet();
         List<AbstractVertex> vertexList = new LinkedList<>(vertexSet);
         Collections.shuffle(vertexList);
-        vertexSet.clear();
         int lower_limit = Math.min(limit, vertexList.size());
         for(int i = 0; i < lower_limit; i++)
         {
             AbstractVertex vertex = vertexList.get(i);
-            vertexSet.add(vertex);
+            targetVertexSet.add(vertex);
         }
 
+        Set<AbstractEdge> targetEdgeSet = targetGraph.edgeSet();
         Set<AbstractEdge> edgeSet = targetGraph.edgeSet();
         List<AbstractEdge> edgeList = new LinkedList<>(edgeSet);
         Collections.shuffle(edgeList);
-        edgeSet.clear();
         lower_limit = Math.min(limit, edgeList.size());
         for(int i = 0; i < lower_limit; i++)
         {
             AbstractEdge edge = edgeList.get(i);
-            edgeSet.add(edge);
+            targetEdgeSet.add(edge);
         }
-
         ctx.addResponse(targetGraph);
     }
 

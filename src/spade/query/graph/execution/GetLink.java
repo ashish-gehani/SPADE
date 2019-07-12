@@ -56,18 +56,8 @@ public class GetLink extends Instruction
     public void execute(Environment env, ExecutionContext ctx)
     {
         //TODO: computes getPaths for now
-        Direction direction;
-        direction = Direction.kAncestor;
-        Graph ancestorGraph = new Graph();
-        GetLineage ancestorLineage = new GetLineage(ancestorGraph, subjectGraph, sourceGraph, maxDepth, direction);
-        ancestorLineage.execute(env, ctx);
-        direction = Direction.kDescendant;
-        Graph descendantGraph = new Graph();
-        GetLineage descendantLineage = new GetLineage(descendantGraph, subjectGraph, destinationGraph, maxDepth, direction);
-        descendantLineage.execute(env, ctx);
-        IntersectGraph intersectGraph = new IntersectGraph(targetGraph, ancestorGraph, descendantGraph);
-        intersectGraph.execute(env, ctx);
-        ctx.addResponse(targetGraph);
+        GetPath getPath = new GetPath(targetGraph, subjectGraph, sourceGraph, destinationGraph, maxDepth);
+        getPath.execute(env, ctx);
     }
 
     @Override

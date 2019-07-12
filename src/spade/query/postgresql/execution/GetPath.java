@@ -19,6 +19,7 @@
  */
 package spade.query.postgresql.execution;
 
+import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.query.graph.execution.ExecutionContext;
 import spade.query.graph.execution.Instruction;
@@ -28,8 +29,8 @@ import spade.query.graph.utility.CommonVariables.Direction;
 import spade.query.graph.utility.TreeStringSerializable;
 
 import java.util.ArrayList;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.Collections;
+import java.util.Set;
 
 /**
  * Get a graph that includes all the paths from a set of source vertices to a
@@ -48,8 +49,6 @@ public class GetPath extends Instruction
     // Max path length.
     private Integer maxDepth;
 
-    private static final Logger logger = Logger.getLogger(GetPath.class.getName());
-
     public GetPath(Graph targetGraph, Graph subjectGraph,
                    Graph sourceGraph, Graph destinationGraph, Integer maxDepth)
     {
@@ -63,17 +62,33 @@ public class GetPath extends Instruction
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
+        // compute ancestor graph from the source vertices
         Direction direction;
         direction = Direction.kAncestor;
         Graph ancestorGraph = new Graph();
         GetLineage ancestorLineage = new GetLineage(ancestorGraph, subjectGraph, sourceGraph, maxDepth, direction);
         ancestorLineage.execute(env, ctx);
+
+        // compute descendant graph from the destination vertices
         direction = Direction.kDescendant;
         Graph descendantGraph = new Graph();
-        GetLineage descendantLineage = new GetLineage(descendantGraph, subjectGraph, destinationGraph, maxDepth, direction);
+        GetLineage descendantLineage = new GetLineage(descendantGraph, subjectGraph, destinationGraph,
+                maxDepth, direction);
         descendantLineage.execute(env, ctx);
-        IntersectGraph intersectGraph = new IntersectGraph(targetGraph, ancestorGraph, descendantGraph);
+
+        // retain only common edges in both results, and their endpoint vertices
+        IntersectGraph intersectGraph = new IntersectGraph(targetGraph, ancestorGraph, descendantGraph,
+                IntersectGraph.Component.kEdge);
         intersectGraph.execute(env, ctx);
+        // check if any of the source and destination vertices are retained
+        Set<AbstractVertex> targetVertexSet = targetGraph.vertexSet();
+        if(Collections.disjoint(targetVertexSet, sourceGraph.vertexSet()) ||
+                Collections.disjoint(targetVertexSet, destinationGraph.vertexSet()))
+        {
+            targetGraph.vertexSet().clear();
+            targetGraph.edgeSet().clear();
+        }
+
         ctx.addResponse(targetGraph);
     }
 

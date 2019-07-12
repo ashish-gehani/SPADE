@@ -231,14 +231,17 @@ public class CommandLine extends AbstractAnalyzer
             }
 
             String printResponse = "OK";
-            logger.log(Level.INFO, "responses: " + responses.toString());
-            // Currently only return the last response.
-            Object response = responses.get(responses.size() - 1);
-            logger.log(Level.INFO, "response: " + response.toString());
-            if(env.printResult())
+            if(responses != null && !responses.isEmpty())
             {
-                printResponse = response == null ? "" : response.toString();
-                env.setPrintResult(false);
+                logger.log(Level.INFO, "responses: " + responses.toString());
+                // Currently only return the last response.
+                Object response = responses.get(responses.size() - 1);
+                logger.log(Level.INFO, "response: " + response.toString());
+                if(env.printResult())
+                {
+                    printResponse = response == null ? "" : response.toString();
+                    env.setPrintResult(false);
+                }
             }
             return printResponse;
         }

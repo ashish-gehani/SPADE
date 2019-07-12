@@ -19,12 +19,15 @@
  */
 package spade.query.graph.execution;
 
+import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.query.graph.utility.CommonVariables.Direction;
 import spade.query.graph.kernel.Environment;
 import spade.query.graph.utility.TreeStringSerializable;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Set;
 
 /**
  * Get a graph that includes all the paths from a set of source vertices to a
@@ -61,12 +64,26 @@ public class GetPath extends Instruction
         Graph ancestorGraph = new Graph();
         GetLineage ancestorLineage = new GetLineage(ancestorGraph, subjectGraph, sourceGraph, maxDepth, direction);
         ancestorLineage.execute(env, ctx);
+
         direction = Direction.kDescendant;
         Graph descendantGraph = new Graph();
-        GetLineage descendantLineage = new GetLineage(descendantGraph, subjectGraph, destinationGraph, maxDepth, direction);
+        GetLineage descendantLineage = new GetLineage(descendantGraph, subjectGraph, destinationGraph,
+                maxDepth, direction);
         descendantLineage.execute(env, ctx);
-        IntersectGraph intersectGraph = new IntersectGraph(targetGraph, ancestorGraph, descendantGraph);
+
+        // retain only common edges in both results, and their endpoint vertices
+        IntersectGraph intersectGraph = new IntersectGraph(targetGraph, ancestorGraph, descendantGraph,
+                IntersectGraph.Component.kEdge);
         intersectGraph.execute(env, ctx);
+        Set<AbstractVertex> targetVertexSet = targetGraph.vertexSet();
+        // check if any of the source and destination vertices are retained
+        if(Collections.disjoint(targetVertexSet, sourceGraph.vertexSet()) ||
+                Collections.disjoint(targetVertexSet, destinationGraph.vertexSet()))
+        {
+            targetGraph.vertexSet().clear();
+            targetGraph.edgeSet().clear();
+        }
+
         ctx.addResponse(targetGraph);
     }
 

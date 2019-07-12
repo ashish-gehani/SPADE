@@ -54,12 +54,13 @@ public class GetSubgraph extends Instruction
         // Get all vertices that are in skeleton and subject.
         Set<AbstractVertex> skeletonVertexSet = skeletonGraph.vertexSet();
         targetGraph.vertexSet().addAll(skeletonVertexSet);
-        // Get end points of all edges in skeleton that are in subject
+        // Get endpoints of all edges in skeleton that are in subject
         GetEdgeEndpoints getEdgeEndpoint = new GetEdgeEndpoints(targetGraph, skeletonGraph, Component.kBoth);
         getEdgeEndpoint.execute(env, ctx);
 
         // Get all edges between the vertices gathered above.
-        GetEdgesFromEndpoints getEdgesFromEndpoints = new GetEdgesFromEndpoints(targetGraph, subjectGraph, targetGraph, targetGraph);
+        GetEdgesFromEndpoints getEdgesFromEndpoints = new GetEdgesFromEndpoints(targetGraph, subjectGraph,
+                targetGraph, targetGraph);
         getEdgesFromEndpoints.execute(env, ctx);
         ctx.addResponse(targetGraph);
 

@@ -35,17 +35,25 @@ import java.util.Set;
 
 public class IntersectGraph extends Instruction
 {
+    public enum Component
+    {
+        kVertex,
+        kEdge,
+        kBoth
+    }
     // Output graph.
     private Graph targetGraph;
     // Input graphs.
     private Graph lhsGraph;
     private Graph rhsGraph;
+    private Component component;
 
-    public IntersectGraph(Graph targetGraph, Graph lhsGraph, Graph rhsGraph)
+    public IntersectGraph(Graph targetGraph, Graph lhsGraph, Graph rhsGraph, Component component)
     {
         this.targetGraph = targetGraph;
         this.lhsGraph = lhsGraph;
         this.rhsGraph = rhsGraph;
+        this.component = component;
     }
 
     @Override
@@ -54,11 +62,43 @@ public class IntersectGraph extends Instruction
         Set<AbstractVertex> targetVertexSet = targetGraph.vertexSet();
         Set<AbstractEdge> targetEdgeSet = targetGraph.edgeSet();
 
-        targetVertexSet.addAll(lhsGraph.vertexSet());
-        targetVertexSet.retainAll(rhsGraph.vertexSet());
-        targetEdgeSet.addAll(lhsGraph.edgeSet());
-        targetEdgeSet.retainAll(rhsGraph.edgeSet());
-
+        if(component == Component.kVertex || component == Component.kBoth)
+        {
+            if(Environment.IsBaseGraph(rhsGraph))
+            {
+                targetVertexSet.addAll(lhsGraph.vertexSet());
+            }
+            else if(Environment.IsBaseGraph(lhsGraph))
+            {
+                targetVertexSet.addAll(rhsGraph.vertexSet());
+            }
+            else
+            {
+                targetVertexSet.addAll(lhsGraph.vertexSet());
+                targetVertexSet.retainAll(rhsGraph.vertexSet());
+            }
+        }
+        if(component == Component.kEdge || component == Component.kBoth)
+        {
+            if(Environment.IsBaseGraph(rhsGraph))
+            {
+                targetEdgeSet.addAll(lhsGraph.edgeSet());
+            }
+            else if(Environment.IsBaseGraph(lhsGraph))
+            {
+                targetEdgeSet.addAll(rhsGraph.edgeSet());
+            }
+            else
+            {
+                targetEdgeSet.addAll(lhsGraph.edgeSet());
+                targetEdgeSet.retainAll(rhsGraph.edgeSet());
+                for(AbstractEdge edge : targetEdgeSet)
+                {
+                    targetVertexSet.add(edge.getChildVertex());
+                    targetVertexSet.add(edge.getParentVertex());
+                }
+            }
+        }
         ctx.addResponse(targetGraph);
     }
 
