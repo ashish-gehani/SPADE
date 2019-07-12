@@ -1596,7 +1596,9 @@ int UBSI_buffer(const char *buf)
 
 		struct event_buf_t *eb;
 
-		for(cursor=0; cursor < strlen(buf); cursor++) {
+                size_t buf_len = strlen(buf);
+                for(cursor=0; cursor < buf_len; cursor++) {
+
 				if(buf[cursor] == '\n') {
 						if(event_start == 0 && remain_byte > 0) {
 								strncpy(event, remain, remain_byte-1);
