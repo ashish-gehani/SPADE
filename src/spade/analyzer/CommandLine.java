@@ -16,6 +16,7 @@
  */
 package spade.analyzer;
 
+import org.apache.commons.lang.exception.ExceptionUtils;
 import spade.core.AbstractAnalyzer;
 import spade.core.AbstractQuery;
 import spade.core.AbstractStorage;
@@ -224,6 +225,7 @@ public class CommandLine extends AbstractAnalyzer
                 pw.println("Error evaluating QuickGrail command:");
                 pw.println("------------------------------------------------------------");
 //                ex.printStackTrace(pw);
+                logger.log(Level.INFO, ExceptionUtils.getStackTrace(ex));
                 pw.println(ex.getMessage());
                 pw.println("------------------------------------------------------------");
                 responses.add(stackTrace.toString());

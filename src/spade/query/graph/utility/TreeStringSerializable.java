@@ -254,6 +254,10 @@ public abstract class TreeStringSerializable
 
     private static String EscapeString(String str)
     {
+        if(str == null)
+        {
+            return "null";
+        }
         StringBuilder sb = new StringBuilder();
         for(int i = 0; i < str.length(); ++i)
         {

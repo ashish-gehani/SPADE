@@ -4,15 +4,10 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.query.graph.kernel.Environment;
-import spade.query.graph.utility.CommonFunctions;
 import spade.query.graph.utility.TreeStringSerializable;
 
 import java.util.ArrayList;
 import java.util.Set;
-
-import static spade.query.graph.utility.CommonVariables.CHILD_VERTEX_KEY;
-import static spade.query.graph.utility.CommonVariables.EDGE_TABLE;
-import static spade.query.graph.utility.CommonVariables.PARENT_VERTEX_KEY;
 
 public class GetEdgesFromEndpoints extends Instruction
 {

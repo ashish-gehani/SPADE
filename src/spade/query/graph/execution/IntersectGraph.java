@@ -92,11 +92,11 @@ public class IntersectGraph extends Instruction
             {
                 targetEdgeSet.addAll(lhsGraph.edgeSet());
                 targetEdgeSet.retainAll(rhsGraph.edgeSet());
-                for(AbstractEdge edge : targetEdgeSet)
-                {
-                    targetVertexSet.add(edge.getChildVertex());
-                    targetVertexSet.add(edge.getParentVertex());
-                }
+            }
+            for(AbstractEdge edge : targetEdgeSet)
+            {
+                targetVertexSet.add(edge.getChildVertex());
+                targetVertexSet.add(edge.getParentVertex());
             }
         }
         ctx.addResponse(targetGraph);

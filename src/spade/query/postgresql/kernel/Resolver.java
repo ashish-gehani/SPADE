@@ -180,11 +180,9 @@ public class Resolver
         switch(parseStatement.getStatementType())
         {
             case kAssignment:
-                logger.log(Level.INFO, "kAssignment");
                 resolveAssignment((ParseAssignment) parseStatement);
                 break;
             case kCommand:
-                logger.log(Level.INFO, "kCommand");
                 resolveCommand((ParseCommand) parseStatement);
                 break;
             default:
@@ -200,7 +198,6 @@ public class Resolver
         switch(varType.getTypeID())
         {
             case kGraph:
-                logger.log(Level.INFO, "kGraph");
                 resolveGraphAssignment(parseAssignment);
                 break;
             case kGraphMetadata:
@@ -221,7 +218,6 @@ public class Resolver
         Graph resultGraph;
         if(atype == ParseAssignment.AssignmentType.kEqual)
         {
-            logger.log(Level.INFO, "kEqual");
             resultGraph = resolveGraphExpression(rhs, null, true);
         }
         else
@@ -484,10 +480,8 @@ public class Resolver
         switch(parseExpression.getExpressionType())
         {
             case kOperation:
-                logger.log(Level.INFO, "kOperation");
                 return resolveOperation((ParseOperation) parseExpression, outputEntity);
             case kVariable:
-                logger.log(Level.INFO, "kVariable");
                 return resolveVariable((ParseVariable) parseExpression, outputEntity, isConstReference);
             default:
                 break;
@@ -653,7 +647,6 @@ public class Resolver
         switch(var.getType().getTypeID())
         {
             case kGraph:
-                logger.log(Level.INFO, "kGraph");
                 return resolveGraphVariable(var, outputEntity, isConstReference);
             case kGraphMetadata:
             default:
@@ -679,13 +672,10 @@ public class Resolver
         {
             if(isConstReference)
             {
-                logger.log(Level.INFO, "isConstReference");
-                logger.log(Level.INFO, "varGraph: " + varGraph);
                 return env.getValue(varGraph);
             }
             outputGraph = allocateEmptyGraph();
         }
-        logger.log(Level.INFO, "allocateEmptyGraph");
         instructions.add(new UnionGraph(outputGraph, env.getValue(varGraph)));
         return outputGraph;
     }
@@ -1125,7 +1115,7 @@ public class Resolver
         }
 
         Graph skeletonGraph = resolveGraphExpression(arguments.get(0), null, true);
-        if(Environment.IsBaseGraph(subjectGraph))
+        if(Environment.IsBaseGraph(subjectGraph) || Environment.IsBaseGraph(skeletonGraph))
         {
             instructions.add(new GetSubgraph(outputGraph, subjectGraph, skeletonGraph));
         }
@@ -1208,7 +1198,7 @@ public class Resolver
         }
 
         Graph sourceGraph = resolveGraphExpression(arguments.get(0), null, true);
-        if(Environment.IsBaseGraph(subjectGraph))
+        if(Environment.IsBaseGraph(subjectGraph) || Environment.IsBaseGraph(sourceGraph))
         {
             instructions.add(new GetSubgraph(outputGraph, sourceGraph, subjectGraph));
         }

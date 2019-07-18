@@ -90,16 +90,19 @@ public class GetChildren extends Instruction
             Set<AbstractVertex> childVertexSet = targetGraph.vertexSet();
             CommonFunctions.executeGetVertex(childVertexSet, getChildrenQuery.toString());
 
-            // get all edges between child and parent vertices
-            StringBuilder childVertexHashes = new StringBuilder(200);
-            for(AbstractVertex childVertex : childVertexSet)
+            if(childVertexSet.size() > 0)
             {
-                childVertexHashes.append("'");
-                childVertexHashes.append(childVertex.bigHashCode());
-                childVertexHashes.append("'");
-                childVertexHashes.append(", ");
+                // get all edges between child and parent vertices
+                StringBuilder childVertexHashes = new StringBuilder(200);
+                for(AbstractVertex childVertex : childVertexSet)
+                {
+                    childVertexHashes.append("'");
+                    childVertexHashes.append(childVertex.bigHashCode());
+                    childVertexHashes.append("'");
+                    childVertexHashes.append(", ");
+                }
+                CommonFunctions.getAllVertexEdges(targetGraph, childVertexHashes, parentVertexHashes);
             }
-            CommonFunctions.getAllVertexEdges(targetGraph, childVertexHashes, parentVertexHashes);
             ctx.addResponse(targetGraph);
         }
         catch(Exception ex)

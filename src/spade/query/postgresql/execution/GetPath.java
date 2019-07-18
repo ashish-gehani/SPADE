@@ -31,6 +31,8 @@ import spade.query.graph.utility.TreeStringSerializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Get a graph that includes all the paths from a set of source vertices to a
@@ -49,6 +51,8 @@ public class GetPath extends Instruction
     // Max path length.
     private Integer maxDepth;
 
+    private static final Logger logger = Logger.getLogger(GetPath.class.getName());
+
     public GetPath(Graph targetGraph, Graph subjectGraph,
                    Graph sourceGraph, Graph destinationGraph, Integer maxDepth)
     {
@@ -65,16 +69,18 @@ public class GetPath extends Instruction
         // compute ancestor graph from the source vertices
         Direction direction;
         direction = Direction.kAncestor;
-        Graph ancestorGraph = new Graph();
+        Graph ancestorGraph = env.allocateGraph();
         GetLineage ancestorLineage = new GetLineage(ancestorGraph, subjectGraph, sourceGraph, maxDepth, direction);
         ancestorLineage.execute(env, ctx);
+        logger.log(Level.INFO, "ancestorGraph: " + ancestorGraph.toString());
 
         // compute descendant graph from the destination vertices
         direction = Direction.kDescendant;
-        Graph descendantGraph = new Graph();
+        Graph descendantGraph = env.allocateGraph();
         GetLineage descendantLineage = new GetLineage(descendantGraph, subjectGraph, destinationGraph,
                 maxDepth, direction);
         descendantLineage.execute(env, ctx);
+        logger.log(Level.INFO, "descendantGraph: " + descendantGraph.toString());
 
         // retain only common edges in both results, and their endpoint vertices
         IntersectGraph intersectGraph = new IntersectGraph(targetGraph, ancestorGraph, descendantGraph,

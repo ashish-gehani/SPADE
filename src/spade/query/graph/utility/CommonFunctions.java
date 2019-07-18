@@ -204,6 +204,11 @@ public class CommonFunctions
 
     public static void getAllVertexEdges(Graph targetGraph, StringBuilder childVertexHashes, StringBuilder parentVertexHashes)
     {
+        if(childVertexHashes.length() <= 0 || parentVertexHashes.length() <= 0)
+        {
+            logger.log(Level.WARNING, "Either children or parents are absent!");
+            return;
+        }
         StringBuilder getEdgesQuery = new StringBuilder(500);
         getEdgesQuery.append("SELECT * FROM ");
         getEdgesQuery.append(EDGE_TABLE);

@@ -51,17 +51,39 @@ public class GetSubgraph extends Instruction
     @Override
     public void execute(Environment env, ExecutionContext ctx)
     {
-        // Get all vertices that are in skeleton and subject.
-        Set<AbstractVertex> skeletonVertexSet = skeletonGraph.vertexSet();
-        targetGraph.vertexSet().addAll(skeletonVertexSet);
-        // Get endpoints of all edges in skeleton that are in subject
-        GetEdgeEndpoints getEdgeEndpoint = new GetEdgeEndpoints(targetGraph, skeletonGraph, Component.kBoth);
-        getEdgeEndpoint.execute(env, ctx);
-
-        // Get all edges between the vertices gathered above.
-        GetEdgesFromEndpoints getEdgesFromEndpoints = new GetEdgesFromEndpoints(targetGraph, subjectGraph,
-                targetGraph, targetGraph);
-        getEdgesFromEndpoints.execute(env, ctx);
+        if(Environment.IsBaseGraph(subjectGraph))
+        {
+            // Get all vertices that are in skeleton and subject.
+            Set<AbstractVertex> skeletonVertexSet = skeletonGraph.vertexSet();
+            targetGraph.vertexSet().addAll(skeletonVertexSet);
+            // Get endpoints of all edges in skeleton that are in subject
+            if(skeletonGraph.edgeSet().size() > 0)
+            {
+                GetEdgeEndpoints getEdgeEndpoint = new GetEdgeEndpoints(targetGraph, skeletonGraph, Component.kBoth);
+                getEdgeEndpoint.execute(env, ctx);
+            }
+            // Get all edges between the vertices gathered above.
+            GetEdgesFromEndpoints getEdgesFromEndpoints = new GetEdgesFromEndpoints(targetGraph, subjectGraph,
+                    targetGraph, targetGraph);
+            getEdgesFromEndpoints.execute(env, ctx);
+        }
+        else if(Environment.IsBaseGraph(skeletonGraph))
+        {
+            // Get all vertices that are in skeleton and subject.
+            Set<AbstractVertex> subjectVertexSet = subjectGraph.vertexSet();
+            targetGraph.vertexSet().addAll(subjectVertexSet);
+            // Get endpoints of all edges in skeleton that are in subject
+            if(subjectGraph.edgeSet().size() > 0)
+            {
+                GetEdgeEndpoints getEdgeEndpoint = new GetEdgeEndpoints(targetGraph, subjectGraph, Component.kBoth);
+                getEdgeEndpoint.execute(env, ctx);
+            }
+            // Get all edges between the vertices gathered above.
+            spade.query.graph.execution.GetEdgesFromEndpoints getEdgesFromEndpoints =
+                    new spade.query.graph.execution.GetEdgesFromEndpoints(targetGraph, subjectGraph,
+                            targetGraph, targetGraph);
+            getEdgesFromEndpoints.execute(env, ctx);
+        }
         ctx.addResponse(targetGraph);
 
     }

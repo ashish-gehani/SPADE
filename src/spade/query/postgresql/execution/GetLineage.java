@@ -80,8 +80,8 @@ public class GetLineage extends Instruction
         while(!remainingVertices.isEmpty() && current_depth < this.depth)
         {
             Set<AbstractVertex> currentSet = new HashSet<>();
-            Graph neighbors = new Graph();
-            Graph currentGraph = new Graph();
+            Graph neighbors = env.allocateGraph();
+            Graph currentGraph = env.allocateGraph();
             currentGraph.vertexSet().addAll(remainingVertices);
             if(direction == Direction.kAncestor || direction == Direction.kBoth)
             {
@@ -89,7 +89,7 @@ public class GetLineage extends Instruction
                         null, null, null);
                 getParents.execute(env, ctx);
             }
-            else if(direction == Direction.kDescendant || direction == Direction.kBoth)
+            if(direction == Direction.kDescendant || direction == Direction.kBoth)
             {
                 GetChildren getChildren = new GetChildren(neighbors, subjectGraph, currentGraph,
                         null, null, null);

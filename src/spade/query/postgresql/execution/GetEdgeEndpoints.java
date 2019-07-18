@@ -69,44 +69,47 @@ public class GetEdgeEndpoints extends Instruction
             edgeHashes.append(edge.bigHashCode());
             edgeHashes.append("', ");
         }
-        if(component == Component.kSource || component == Component.kBoth)
+        if(edgeHashes.length() > 0)
         {
-            sqlQuery.append("SELECT * FROM ");
-            sqlQuery.append(VERTEX_TABLE);
-            sqlQuery.append(" WHERE \"");
-            sqlQuery.append(PRIMARY_KEY);
-            sqlQuery.append("\" = ");
-            sqlQuery.append("(SELECT \"");
-            sqlQuery.append(CHILD_VERTEX_KEY);
-            sqlQuery.append("\" FROM ");
-            sqlQuery.append(EDGE_TABLE);
-            sqlQuery.append(" WHERE \"");
-            sqlQuery.append(PRIMARY_KEY);
-            sqlQuery.append("\" IN (");
-            sqlQuery.append(edgeHashes.substring(0, edgeHashes.length() - 2));
-            sqlQuery.append("));");
-        }
-        CommonFunctions.executeGetVertex(vertexSet, sqlQuery.toString());
+            if(component == Component.kSource || component == Component.kBoth)
+            {
+                sqlQuery.append("SELECT * FROM ");
+                sqlQuery.append(VERTEX_TABLE);
+                sqlQuery.append(" WHERE \"");
+                sqlQuery.append(PRIMARY_KEY);
+                sqlQuery.append("\" = ");
+                sqlQuery.append("(SELECT \"");
+                sqlQuery.append(CHILD_VERTEX_KEY);
+                sqlQuery.append("\" FROM ");
+                sqlQuery.append(EDGE_TABLE);
+                sqlQuery.append(" WHERE \"");
+                sqlQuery.append(PRIMARY_KEY);
+                sqlQuery.append("\" IN (");
+                sqlQuery.append(edgeHashes.substring(0, edgeHashes.length() - 2));
+                sqlQuery.append("));");
+            }
+            CommonFunctions.executeGetVertex(vertexSet, sqlQuery.toString());
 
-        if(component == Component.kDestination || component == Component.kBoth)
-        {
-            sqlQuery.append("SELECT * FROM ");
-            sqlQuery.append(VERTEX_TABLE);
-            sqlQuery.append(" WHERE \"");
-            sqlQuery.append(PRIMARY_KEY);
-            sqlQuery.append("\" = ");
-            sqlQuery.append("(SELECT \"");
-            sqlQuery.append(PARENT_VERTEX_KEY);
-            sqlQuery.append("\" FROM ");
-            sqlQuery.append(EDGE_TABLE);
-            sqlQuery.append(" WHERE \"");
-            sqlQuery.append(PRIMARY_KEY);
-            sqlQuery.append("\" IN (");
-            sqlQuery.append(edgeHashes.substring(0, edgeHashes.length() - 2));
-            sqlQuery.append("));");
+            if(component == Component.kDestination || component == Component.kBoth)
+            {
+                sqlQuery.append("SELECT * FROM ");
+                sqlQuery.append(VERTEX_TABLE);
+                sqlQuery.append(" WHERE \"");
+                sqlQuery.append(PRIMARY_KEY);
+                sqlQuery.append("\" = ");
+                sqlQuery.append("(SELECT \"");
+                sqlQuery.append(PARENT_VERTEX_KEY);
+                sqlQuery.append("\" FROM ");
+                sqlQuery.append(EDGE_TABLE);
+                sqlQuery.append(" WHERE \"");
+                sqlQuery.append(PRIMARY_KEY);
+                sqlQuery.append("\" IN (");
+                sqlQuery.append(edgeHashes.substring(0, edgeHashes.length() - 2));
+                sqlQuery.append("));");
 
+            }
+            CommonFunctions.executeGetVertex(vertexSet, sqlQuery.toString());
         }
-        CommonFunctions.executeGetVertex(vertexSet, sqlQuery.toString());
         ctx.addResponse(targetGraph);
 
     }
