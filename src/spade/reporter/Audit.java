@@ -1659,7 +1659,7 @@ public class Audit extends AbstractReporter {
 
 					String auditRuleWithoutSuccess = "auditctl -a exit,always ";
 					String auditRuleWithSuccess = "auditctl -a exit,always ";
-
+                                        String auditRuleWithoutProctitle = "auditctl -a always,exclude -F msgtype=PROCTITLE ";
 					auditRuleWithSuccess += archField;
 					auditRuleWithoutSuccess += archField;
 
@@ -1708,7 +1708,7 @@ public class Audit extends AbstractReporter {
 
 					auditRules.add(auditRuleWithoutSuccess + pidAndPpidFields);
 					auditRules.add(auditRuleWithSuccess + pidAndPpidFields);
-
+                                        auditRules.add(auditRuleWithoutProctitle);
 				}else{
 					logger.log(Level.SEVERE, "Invalid rules arguments: " + rulesType);
 					return false;
