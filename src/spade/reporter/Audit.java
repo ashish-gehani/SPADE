@@ -1598,6 +1598,12 @@ public class Audit extends AbstractReporter {
 				return true;
 			}else{
 				
+				List<String> auditRules = new ArrayList<String>();
+			
+				String auditRuleWithoutProctitle = "auditctl -a always,exclude -F msgtype=PROCTITLE";
+				// Always the first rule
+				auditRules.add(auditRuleWithoutProctitle);
+				
 				// Remove any existing audit rules
 				if(!removeAuditctlRules()){
 					return false;
@@ -1621,8 +1627,6 @@ public class Audit extends AbstractReporter {
 				
 				String pidAndPpidFields = pidFields.toString() + ppidFields.toString();
 				
-				List<String> auditRules = new ArrayList<String>();
-
 				if("all".equals(rulesType)){
 
 					String netIONeverSyscallsRule = null;
@@ -1635,7 +1639,7 @@ public class Audit extends AbstractReporter {
 					
                     String specialSyscallsRule = "auditctl -a exit,always ";
 					String allSyscallsAuditRule = "auditctl -a exit,always ";
-
+					
 					allSyscallsAuditRule += archField;
 					specialSyscallsRule += archField;
 					
@@ -1659,7 +1663,7 @@ public class Audit extends AbstractReporter {
 
 					String auditRuleWithoutSuccess = "auditctl -a exit,always ";
 					String auditRuleWithSuccess = "auditctl -a exit,always ";
-                                        String auditRuleWithoutProctitle = "auditctl -a always,exclude -F msgtype=PROCTITLE ";
+					
 					auditRuleWithSuccess += archField;
 					auditRuleWithoutSuccess += archField;
 
@@ -1708,7 +1712,6 @@ public class Audit extends AbstractReporter {
 
 					auditRules.add(auditRuleWithoutSuccess + pidAndPpidFields);
 					auditRules.add(auditRuleWithSuccess + pidAndPpidFields);
-                                        auditRules.add(auditRuleWithoutProctitle);
 				}else{
 					logger.log(Level.SEVERE, "Invalid rules arguments: " + rulesType);
 					return false;
