@@ -439,6 +439,7 @@ public class CDM extends AbstractReporter{
 				case EVENT_UNLINK:
 				case EVENT_MODIFY_FILE_ATTRIBUTES:
 				case EVENT_TRUNCATE:
+				case EVENT_LSEEK:
 				{
 					src1 = event.getPredicateObject();
 					dst1 = event.getSubject();
@@ -457,6 +458,27 @@ public class CDM extends AbstractReporter{
 					
 					src3 = event.getPredicateObject2();
 					dst3 = event.getPredicateObject();
+				}
+				break;
+				case EVENT_OTHER:
+				{
+					String operation = edgeMap.get(OPMConstants.EDGE_OPERATION);
+					if(operation == null){
+						logger.log(Level.WARNING, "Unhandled event type '"+type+"' for event: " + event);
+						return;
+					}else{
+						switch(operation){
+							case OPMConstants.OPERATION_MADVISE:{
+								src1 = event.getPredicateObject();
+								dst1 = event.getSubject();
+							}
+							break;
+							default:{
+								logger.log(Level.WARNING, "Unhandled event type '"+type+"' for event: " + event);
+								return;
+							}
+						}
+					}
 				}
 				break;
 				default: 

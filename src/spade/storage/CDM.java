@@ -226,6 +226,12 @@ public class CDM extends Kafka {
 				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_CHMOD)), 
 						EventType.EVENT_MODIFY_FILE_ATTRIBUTES);
 		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY, OPMConstants.OPERATION_LSEEK)),
+						EventType.EVENT_LSEEK);
+		rulesToEventType.put(
+				getSet(new TypeOperation(OPMConstants.WAS_GENERATED_BY,  OPMConstants.OPERATION_MADVISE)), 
+						EventType.EVENT_OTHER);
+		rulesToEventType.put(
 				getSet(new TypeOperation(OPMConstants.USED, OPMConstants.OPERATION_CREATE)), 
 						EventType.EVENT_CREATE_OBJECT);
 		rulesToEventType.put(
@@ -355,12 +361,8 @@ public class CDM extends Kafka {
 					properties.put(OPMConstants.EDGE_OPERATION, edge.getAnnotation(OPMConstants.EDGE_OPERATION));
 				}
 				
-				String eventOperation = edge.getAnnotation(OPMConstants.EDGE_OPERATION);
-				if(OPMConstants.OPERATION_INIT_MODULE.equals(eventOperation) // init_module
-						|| OPMConstants.OPERATION_FINIT_MODULE.equals(eventOperation) // finit_module
-						|| OPMConstants.OPERATION_VMSPLICE.equals(eventOperation) // vmsplice only
-						|| OPMConstants.OPERATION_TEE.equals(eventOperation) // tee
-						|| OPMConstants.OPERATION_SPLICE.equals(eventOperation)){ // splice
+				if(eventType.equals(EventType.EVENT_OTHER)){
+					String eventOperation = edge.getAnnotation(OPMConstants.EDGE_OPERATION);
 					properties.put(OPMConstants.EDGE_OPERATION, eventOperation);
 				}
 

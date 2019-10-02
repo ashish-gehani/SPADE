@@ -127,11 +127,13 @@ public class OPMConstants {
 			// General edge annotations
 			EDGE_EVENT_ID = "event id",
 			EDGE_FLAGS = "flags",
+			EDGE_LSEEK_WHENCE = "whence",
 			EDGE_MODE = "mode",
 			EDGE_OFFSET = "offset",
 			EDGE_OPERATION = "operation",
 			EDGE_PID = PROCESS_PID,
 			EDGE_PROTECTION = "protection",
+			EDGE_ADVICE = "advice",
 			EDGE_SIZE = ARTIFACT_SIZE,
 			EDGE_TIME = "time",
 			EDGE_REQUEST = "request",
@@ -152,6 +154,8 @@ public class OPMConstants {
 			OPERATION_FORK = "fork",
 			OPERATION_LINK = "link",
 			OPERATION_LOAD = "load",
+			OPERATION_LSEEK = "lseek",
+			OPERATION_MADVISE = "madvise",
 			OPERATION_MKNOD = "mknod",
 			OPERATION_MMAP = "mmap",
 			OPERATION_MPROTECT = "mprotect",
@@ -202,6 +206,8 @@ public class OPMConstants {
 		addSyscallsToOperations(OPERATION_KILL, SYSCALL.KILL);
 		addSyscallsToOperations(OPERATION_LINK, SYSCALL.LINK, SYSCALL.LINKAT, SYSCALL.SYMLINK, SYSCALL.SYMLINKAT);
 		addSyscallsToOperations(OPERATION_LOAD, SYSCALL.LOAD);
+		addSyscallsToOperations(OPERATION_LSEEK, SYSCALL.LSEEK);
+		addSyscallsToOperations(OPERATION_MADVISE, SYSCALL.MADVISE);
 		addSyscallsToOperations(OPERATION_MKNOD, SYSCALL.MKNOD, SYSCALL.MKNODAT);
 		addSyscallsToOperations(OPERATION_MMAP, SYSCALL.MMAP);
 		addSyscallsToOperations(OPERATION_MPROTECT, SYSCALL.MPROTECT);

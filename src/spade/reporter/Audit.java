@@ -1676,7 +1676,7 @@ public class Audit extends AbstractReporter {
 					}
 
 					if (USE_READ_WRITE) {
-						auditRuleWithSuccess += "-S read -S readv -S pread -S preadv -S write -S writev -S pwrite -S pwritev ";
+						auditRuleWithSuccess += "-S read -S readv -S pread -S preadv -S write -S writev -S pwrite -S pwritev -S lseek ";
 					}
 					if(!kmAdded){ // since km not added we don't need to log these syscalls
 						if (USE_SOCK_SEND_RCV) {
@@ -1685,7 +1685,7 @@ public class Audit extends AbstractReporter {
 						auditRuleWithSuccess += "-S bind -S accept -S accept4 -S socket ";
 					}
 					if (USE_MEMORY_SYSCALLS) {
-						auditRuleWithSuccess += "-S mmap -S mprotect ";
+						auditRuleWithSuccess += "-S mmap -S mprotect -S madvise ";
 					}
 					auditRuleWithSuccess += "-S unlink -S unlinkat ";
 					auditRuleWithSuccess += "-S link -S linkat -S symlink -S symlinkat ";
@@ -2190,6 +2190,16 @@ public class Audit extends AbstractReporter {
 			}
 
 			switch (syscall) {
+			case LSEEK:
+				if(USE_READ_WRITE){
+					handleLseek(eventData, syscall);
+				}
+			break;
+			case MADVISE:
+				if(USE_MEMORY_SYSCALLS){
+					handleMadvise(eventData, syscall);
+				}
+			break;
 			case KILL:
 				if(REPORT_KILL){
 					handleKill(eventData, syscall);
@@ -2367,6 +2377,118 @@ public class Audit extends AbstractReporter {
 		}
 	}
 
+	// Source: https://elixir.bootlin.com/linux/v4.15.18/source/include/uapi/asm-generic/mman-common.h#L39
+	private static final Map<Integer, String> madviseAdviceValues = new HashMap<Integer, String>();
+	static{
+		madviseAdviceValues.put(0, 	"MADV_NORMAL");
+		madviseAdviceValues.put(1, 	"MADV_RANDOM");
+		madviseAdviceValues.put(2, 	"MADV_SEQUENTIAL");
+		madviseAdviceValues.put(3, 	"MADV_WILLNEED");
+		madviseAdviceValues.put(4, 	"MADV_DONTNEED");
+		madviseAdviceValues.put(8, 	"MADV_FREE");
+		madviseAdviceValues.put(9, 	"MADV_REMOVE");
+		madviseAdviceValues.put(10, "MADV_DONTFORK");
+		madviseAdviceValues.put(11, "MADV_DOFORK");
+		madviseAdviceValues.put(12, "MADV_MERGEABLE");
+		madviseAdviceValues.put(13, "MADV_UNMERGEABLE");
+		madviseAdviceValues.put(14, "MADV_HUGEPAGE");
+		madviseAdviceValues.put(15, "MADV_NOHUGEPAGE");
+		madviseAdviceValues.put(16, "MADV_DONTDUMP");
+		madviseAdviceValues.put(17, "MADV_DODUMP");
+		madviseAdviceValues.put(18, "MADV_WIPEONFORK");
+		madviseAdviceValues.put(19, "MADV_KEEPONFORK");
+		madviseAdviceValues.put(100,"MADV_HWPOISON");
+		madviseAdviceValues.put(101,"MADV_SOFT_OFFLINE");
+	}
+	private void handleMadvise(Map<String, String> eventData, SYSCALL syscall){
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		String time = eventData.get(AuditEventReader.TIME);
+		String pid = eventData.get(AuditEventReader.PID);
+		String address = new BigInteger(eventData.get(AuditEventReader.ARG0)).toString(16);
+		String length = new BigInteger(eventData.get(AuditEventReader.ARG1)).toString(16);
+		String adviceString = eventData.get(AuditEventReader.ARG2);
+
+		Integer adviceInt = CommonFunctions.parseInt(adviceString, null);
+		if(adviceInt == null){
+			log(Level.WARNING, "Expected 3rd argument (a2) to be integer but is '"+adviceString+"'", 
+					null, time, eventId, syscall);
+		}else{
+			String adviceAnnotation = madviseAdviceValues.get(adviceInt);
+			if(adviceAnnotation == null){
+				log(Level.WARNING, 
+						"Expected 3rd argument (a2), which is '"+adviceString+"', to be one of: "
+						+ getValueNameMapAsString(madviseAdviceValues), 
+						null, time, eventId, syscall);
+			}else{
+				String tgid = processManager.getMemoryTgid(pid);
+				
+				ArtifactIdentifier memoryIdentifier = new MemoryIdentifier(tgid, address, length);
+				Artifact memoryArtifact = putArtifactFromSyscall(eventData, memoryIdentifier);
+
+				Process process = processManager.handleProcessFromSyscall(eventData);
+				WasGeneratedBy edge = new WasGeneratedBy(memoryArtifact, process);
+				edge.addAnnotation(OPMConstants.EDGE_ADVICE, adviceAnnotation);
+				putEdge(edge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
+			}
+		}
+	}
+	
+	private static String getValueNameMapAsString(Map<Integer, String> map){
+		String str = "";
+		for(Map.Entry<Integer, String> entry : map.entrySet()){
+			Integer value = entry.getKey();
+			String name = entry.getValue();
+			str += name + "("+value+"), ";
+		}
+		// Remove the trailing ', '
+		str = str.length() > 0 ? str.substring(0, str.length() - 2) : str;
+		return str;
+	}
+	
+	// Source: https://elixir.bootlin.com/linux/v4.15.18/source/include/uapi/linux/fs.h#L35
+	private static final Map<Integer, String> lseekWhenceValues = new HashMap<Integer, String>();
+	static{
+		lseekWhenceValues.put(0, "SEEK_SET");
+		lseekWhenceValues.put(1, "SEEK_CUR");
+		lseekWhenceValues.put(2, "SEEK_END");
+		lseekWhenceValues.put(3, "SEEK_DATA");
+		lseekWhenceValues.put(4, "SEEK_HOLE");
+	}
+	private void handleLseek(Map<String, String> eventData, SYSCALL syscall){
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		String time = eventData.get(AuditEventReader.TIME);
+		String pid = eventData.get(AuditEventReader.PID);
+		String fd = eventData.get(AuditEventReader.ARG0);
+		String offsetRequested = eventData.get(AuditEventReader.ARG1);
+		String whenceString = eventData.get(AuditEventReader.ARG2);
+		String offsetActual = eventData.get(AuditEventReader.EXIT);
+		
+		Integer whence = CommonFunctions.parseInt(whenceString, null);
+		if(whence == null){
+			log(Level.WARNING, "Expected 3rd argument (a2) to be integer but is '"+whenceString+"'", 
+					null, time, eventId, syscall);
+		}else{
+			String whenceAnnotation = lseekWhenceValues.get(whence);
+			if(whenceAnnotation == null){
+				log(Level.WARNING, 
+						"Expected 3rd argument (a2), which is '"+whenceString+"', to be one of: "
+						+ getValueNameMapAsString(lseekWhenceValues), 
+						null, time, eventId, syscall);
+			}else{
+				ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, fd);
+				if(artifactIdentifier == null){
+					artifactIdentifier = addUnknownFd(pid, fd);
+				}
+				Process process = processManager.handleProcessFromSyscall(eventData);
+				Artifact artifact = putArtifactFromSyscall(eventData, artifactIdentifier);
+				WasGeneratedBy wgb = new WasGeneratedBy(artifact, process);
+				wgb.addAnnotation(OPMConstants.EDGE_OFFSET, offsetActual);
+				wgb.addAnnotation(OPMConstants.EDGE_LSEEK_WHENCE, whenceAnnotation);
+				putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
+			}
+		}
+	}
+	
 	private void handleUnlink(Map<String, String> eventData, SYSCALL syscall){
 		// unlink() and unlinkat() receive the following messages(s):
 		// - SYSCALL
