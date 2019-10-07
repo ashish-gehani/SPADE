@@ -221,7 +221,7 @@ public class Kafka extends AbstractStorage{
 			List<GenericContainer> recordsToPublish = new ArrayList<GenericContainer>();
 			Vertex.Builder vertexBuilder = Vertex.newBuilder();
 			vertexBuilder.setAnnotations(vertex.getAnnotations());
-			vertexBuilder.setHash(String.valueOf(vertex.hashCode()));
+			vertexBuilder.setHash(String.valueOf(vertex.bigHashCode()));
 			Vertex kafkaVertex = vertexBuilder.build();
 			recordsToPublish.add(GraphElement.newBuilder().setElement(kafkaVertex).build());
 			return publishRecords(recordsToPublish) > 0;
@@ -243,9 +243,9 @@ public class Kafka extends AbstractStorage{
 			List<GenericContainer> recordsToPublish = new ArrayList<GenericContainer>();
 			Edge.Builder edgeBuilder = Edge.newBuilder();
 			edgeBuilder.setAnnotations(edge.getAnnotations());
-			edgeBuilder.setChildVertexHash(String.valueOf(edge.getChildVertex().hashCode()));
-			edgeBuilder.setParentVertexHash(String.valueOf(edge.getParentVertex().hashCode()));
-			edgeBuilder.setHash(String.valueOf(edge.hashCode()));
+			edgeBuilder.setChildVertexHash(String.valueOf(edge.getChildVertex().bigHashCode()));
+			edgeBuilder.setParentVertexHash(String.valueOf(edge.getParentVertex().bigHashCode()));
+			edgeBuilder.setHash(String.valueOf(edge.bigHashCode()));
 			Edge kafkaEdge = edgeBuilder.build();
 			recordsToPublish.add(GraphElement.newBuilder().setElement(kafkaEdge).build());
 			return publishRecords(recordsToPublish) > 0;	
