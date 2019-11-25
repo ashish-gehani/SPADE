@@ -49,7 +49,7 @@ public class Prune extends AbstractTransformer
 	}
 
 	@Override
-	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	public Graph transform(Graph graph, QueryMetaData queryMetaData)
     {
 		try
         {

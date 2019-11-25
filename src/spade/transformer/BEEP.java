@@ -143,7 +143,7 @@ public class BEEP extends AbstractTransformer
 	}
 	
 	@Override
-	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	public Graph transform(Graph graph, QueryMetaData queryMetaData)
 	{
 		
 		if(queryMetaData == null || queryMetaData.getDirection() == null)
@@ -170,7 +170,7 @@ public class BEEP extends AbstractTransformer
 		{
 			if(graph != null)
 			{
-				graph = transformer.putGraph(graph, queryMetaData);
+				graph = transformer.transform(graph, queryMetaData);
 				if(graph != null)
 				{
 					graph.commitIndex();

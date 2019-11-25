@@ -58,8 +58,8 @@ public class Blacklist extends AbstractTransformer
 		}
 		
 	}
-	
-	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+
+	public Graph transform(Graph graph, QueryMetaData queryMetaData)
 	{
 		Graph resultGraph = new Graph();
 		

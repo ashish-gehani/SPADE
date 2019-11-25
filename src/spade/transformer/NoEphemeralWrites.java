@@ -34,7 +34,7 @@ import java.util.Set;
 public class NoEphemeralWrites extends AbstractTransformer
 {
 
-	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	public Graph transform(Graph graph, QueryMetaData queryMetaData)
 	{
 		
 		Map<AbstractVertex, Set<String>> fileReadBy = new HashMap<>();

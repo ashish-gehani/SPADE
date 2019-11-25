@@ -245,7 +245,7 @@ public abstract class AbstractAnalyzer
                     {
                         try
                         {
-                            graph = transformer.putGraph(graph, queryMetaData);
+                            graph = transformer.transform(graph, queryMetaData);
                             if(graph != null)
                             {
                                 //commit after every transformer to enable reading without error

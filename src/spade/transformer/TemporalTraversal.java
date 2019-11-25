@@ -58,7 +58,7 @@ public class TemporalTraversal extends AbstractTransformer
     	return true;
     }
 
-	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	public Graph transform(Graph graph, QueryMetaData queryMetaData)
 	{
 		String direction = queryMetaData.getDirection();
 		if(direction == null)

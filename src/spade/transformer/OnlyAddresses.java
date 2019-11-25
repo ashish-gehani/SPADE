@@ -35,8 +35,8 @@ import java.util.Map;
 
 public class OnlyAddresses extends AbstractTransformer
 {
-	
-	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+
+	public Graph transform(Graph graph, QueryMetaData queryMetaData)
 	{
 		/*
 		 * Code description:

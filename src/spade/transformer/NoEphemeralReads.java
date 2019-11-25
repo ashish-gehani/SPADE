@@ -72,7 +72,7 @@ public class NoEphemeralReads extends AbstractTransformer
 		}
 	}
 
-	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	public Graph transform(Graph graph, QueryMetaData queryMetaData)
 	{
 		AbstractVertex queriedVertex = null;
 		if(queryMetaData != null)

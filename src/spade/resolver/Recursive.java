@@ -26,6 +26,8 @@ import spade.core.Graph;
 import spade.core.Kernel;
 import spade.core.Settings;
 import spade.reporter.audit.OPMConstants;
+import spade.transformer.ABE;
+import spade.utility.ABEGraph;
 
 import javax.net.ssl.SSLSocket;
 import java.io.IOException;
@@ -207,13 +209,18 @@ class ContactRemote implements Callable<Graph>
             logger.log(Level.INFO, "remote lineage query: " + lineageQuery);
 
             returnType = (String) graphInputStream.readObject();
-            if(returnType.equals(Graph.class.getName()))
+			if(returnType.contains("Graph"))
             {
                 AbstractEdge localToRemoteEdge = new Edge(networkVertex, targetNetworkVertex);
                 localToRemoteEdge.addAnnotation("type", "WasDerivedFrom");
                 AbstractEdge remoteToLocalEdge = new Edge(targetNetworkVertex, networkVertex);
                 remoteToLocalEdge.addAnnotation("type", "WasDerivedFrom");
                 resultGraph = (Graph) graphInputStream.readObject();
+				if(resultGraph.getClass().getName().equalsIgnoreCase("ABEGraph"))
+				{
+					// decrypting the encrypted graph
+					resultGraph = ABE.decryptGraph((ABEGraph) resultGraph);
+				}
                 resultGraph.putVertex(networkVertex);
                 resultGraph.putEdge(localToRemoteEdge);
                 resultGraph.putEdge(remoteToLocalEdge);

@@ -88,7 +88,7 @@ public class Aggregation extends AbstractTransformer
 	}
 	
 	@Override
-	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	public Graph transform(Graph graph, QueryMetaData queryMetaData)
 	{
 		String[] annotationsToRemove = annotationAggregationFunction.keySet().toArray(new String[]{});
 		Map<AbstractEdge, Map<String, List<String>>> edgeAnnotationSet = new HashMap<>();
