@@ -258,6 +258,20 @@ public class Graph extends AbstractStorage implements Serializable
         }
     }
 
+	public Graph copy()
+	{
+		Graph newGraph = new Graph();
+		for(AbstractVertex vertex : this.vertexSet)
+		{
+			newGraph.putVertex(vertex);
+		}
+		for(AbstractEdge edge : this.edgeSet)
+		{
+			newGraph.putEdge(edge);
+		}
+		return newGraph;
+	}
+
     /**
      * Checks if the two given graphs are equal.
      * @return True if both graphs have the same vertices and edges
@@ -280,13 +294,13 @@ public class Graph extends AbstractStorage implements Serializable
         Set<String> thisVertexIds = new HashSet<>();
         while(thisVertex.hasNext())
         {
-            thisVertexIds.add(thisVertex.next().getAnnotation("vertexId"));
+			thisVertexIds.add(thisVertex.next().bigHashCode());
         }
         Iterator<AbstractVertex> otherVertex = otherGraph.vertexSet().iterator();
         Set<String> otherVertexIds = new HashSet<>();
         while(otherVertex.hasNext())
         {
-            otherVertexIds.add(otherVertex.next().getAnnotation("vertexId"));
+			otherVertexIds.add(otherVertex.next().bigHashCode());
         }
         if(!thisVertexIds.equals(otherVertexIds))
             return false;
@@ -296,19 +310,18 @@ public class Graph extends AbstractStorage implements Serializable
         Set<String> thisEdgeIds = new HashSet<>();
         while(thisEdge.hasNext())
         {
-            thisEdgeIds.add(thisEdge.next().getAnnotation("edgeId"));
+			thisEdgeIds.add(thisEdge.next().bigHashCode());
         }
         Iterator<AbstractEdge> otherEdge = otherGraph.edgeSet().iterator();
         Set<String> otherEdgeIds = new HashSet<>();
         while(otherEdge.hasNext())
         {
-            otherEdgeIds.add(otherEdge.next().getAnnotation("edgeId"));
+			otherEdgeIds.add(otherEdge.next().bigHashCode());
         }
         if(!thisEdgeIds.equals(otherEdgeIds))
             return false;
 
         return true;
-
     }
 
 

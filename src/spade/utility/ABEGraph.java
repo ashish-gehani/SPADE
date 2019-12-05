@@ -1,6 +1,10 @@
 package spade.utility;
 
+import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
 import spade.core.Graph;
+import spade.core.Vertex;
+import spade.core.Edge;
 
 public class ABEGraph extends Graph
 {
@@ -47,5 +51,38 @@ public class ABEGraph extends Graph
 	public String getLevel()
 	{
 		return level;
+	}
+
+	public static ABEGraph copy(Graph graph)
+	{
+		ABEGraph newGraph = new ABEGraph();
+		for(AbstractVertex vertex : graph.vertexSet())
+		{
+			newGraph.putVertex(copyVertex(vertex));
+		}
+		for(AbstractEdge edge : graph.edgeSet())
+		{
+			newGraph.putEdge(copyEdge(edge));
+		}
+		return newGraph;
+	}
+
+	public static AbstractVertex copyVertex(AbstractVertex vertex)
+	{
+		AbstractVertex newVertex = new Vertex();
+		newVertex.addAnnotations(vertex.getAnnotations());
+		newVertex.setDepth(vertex.getDepth());
+
+		return newVertex;
+	}
+
+	public static AbstractEdge copyEdge(AbstractEdge edge)
+	{
+		AbstractEdge newEdge = new Edge(null, null);
+		newEdge.setChildVertex(copyVertex(edge.getChildVertex()));
+		newEdge.setParentVertex(copyVertex(edge.getParentVertex()));
+		newEdge.addAnnotations(edge.getAnnotations());
+
+		return newEdge;
 	}
 }

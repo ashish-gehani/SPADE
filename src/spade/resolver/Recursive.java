@@ -219,7 +219,15 @@ class ContactRemote implements Callable<Graph>
 				if(resultGraph.getClass().getName().equalsIgnoreCase("ABEGraph"))
 				{
 					// decrypting the encrypted graph
-					resultGraph = ABE.decryptGraph((ABEGraph) resultGraph);
+					ABE abe = new ABE();
+					if(abe.initialize(null))
+					{
+						resultGraph = abe.decryptGraph((ABEGraph) resultGraph);
+					}
+					else
+					{
+						logger.log(Level.SEVERE, "Unable to decrypt the remote response graph");
+					}
 				}
                 resultGraph.putVertex(networkVertex);
                 resultGraph.putEdge(localToRemoteEdge);
