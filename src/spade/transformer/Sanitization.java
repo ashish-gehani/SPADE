@@ -9,6 +9,7 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
+import spade.core.Settings;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.CommonFunctions;
 
@@ -22,7 +23,6 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static spade.core.Kernel.CONFIG_PATH;
 import static spade.core.Kernel.FILE_SEPARATOR;
 
 public class Sanitization extends AbstractTransformer
@@ -32,7 +32,7 @@ public class Sanitization extends AbstractTransformer
 	private static final String LOW = "low";
 	private static final String MEDIUM = "medium";
 	private static final String HIGH = "high";
-	private static final String LEVEL = "level";
+	private static final String SANITIZATION_LEVEL = "sanitizationLevel";
 	private static final String EDGE = "Edge";
 	private static final String NULLSTR = "";
 	private static Logger logger = Logger.getLogger(Sanitization.class.getName());
@@ -61,7 +61,7 @@ public class Sanitization extends AbstractTransformer
 
 	private boolean readConfigFile()
 	{
-		String configFileName = CONFIG_PATH + FILE_SEPARATOR + "spade.transformer.Sanitization.config";
+		String configFileName = Settings.getDefaultConfigFilePath(this.getClass());
 		// read config file here and set sanitization level
 		try
 		{
@@ -72,10 +72,10 @@ public class Sanitization extends AbstractTransformer
 				line = line.trim();
 				if(!StringUtils.isBlank(line) && !line.startsWith("#"))
 				{
-					if(line.startsWith(LEVEL))
+					if(line.startsWith(SANITIZATION_LEVEL))
 					{
 						Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(line);
-						this.sanitizationLevel = argsMap.get(LEVEL);
+						this.sanitizationLevel = argsMap.get(SANITIZATION_LEVEL);
 					}
 					else if(line.equalsIgnoreCase(LOW))
 					{
@@ -286,9 +286,7 @@ public class Sanitization extends AbstractTransformer
 				{
 					// extract time details from unix time
 					String time = edge.getAnnotation(OPMConstants.EDGE_TIME);
-					String[] split = time.split("\\.");
-					time = split[0];    // ignores after seconds
-					Date date = new Date(Long.parseLong(time) * 1000);
+					Date date = new Date(Double.valueOf(Double.parseDouble(time) * 1000).longValue());
 					Calendar calendar = Calendar.getInstance();
 					calendar.setTime(date);
 					String year = String.valueOf(calendar.get(Calendar.YEAR));
@@ -297,6 +295,7 @@ public class Sanitization extends AbstractTransformer
 					String hour = String.valueOf(calendar.get(Calendar.HOUR_OF_DAY));
 					String minute = String.valueOf(calendar.get(Calendar.MINUTE));
 					String second = String.valueOf(calendar.get(Calendar.SECOND));
+					String millisecond = String.valueOf(calendar.get(Calendar.MILLISECOND));
 
 					switch(sanitizationLevel)
 					{
@@ -312,9 +311,11 @@ public class Sanitization extends AbstractTransformer
 							// sanitize time
 							minute = NULLSTR;
 							second = NULLSTR;
+							millisecond = NULLSTR;
 
-							// stitch time with format is 'yyyy-MM-dd HH:mm:ss'
-							String timestamp = year + "-" + month + "-" + day + " " + hour + ":" + minute + ":" + second;
+							// stitch time with format is 'yyyy-MM-dd HH:mm:ss.SSS'
+							String timestamp = year + "-" + month + "-" + day + " " + hour + ":" +
+									minute + ":" + second + "." + millisecond;
 							edge.addAnnotation(OPMConstants.EDGE_TIME, timestamp);
 					}
 				}
@@ -323,4 +324,14 @@ public class Sanitization extends AbstractTransformer
 
 		return graph;
 	}
+
+//	public static void main(String[] args)
+//	{
+//		Graph graph = Graph.importGraph("sample.dot");
+//		System.out.println(graph);
+//		Sanitization sanitization = new Sanitization();
+//		sanitization.initialize("sanitizationLevel=high");
+//		Graph sanitizedGraph = sanitization.transform(graph, null);
+//		System.out.println(sanitizedGraph);
+//	}
 }
