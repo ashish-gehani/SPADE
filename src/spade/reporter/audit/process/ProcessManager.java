@@ -573,17 +573,6 @@ public abstract class ProcessManager extends ProcessStateManager{
 		}else if(syscall == SYSCALL.CLONE){
 			boolean shareMemory = (flags & CLONE_VM) == CLONE_VM;
 			boolean linkFds = (flags & CLONE_FILES) == CLONE_FILES;
-			for(Map.Entry<String, Integer> cloneFlag : cloneFlags.entrySet()){
-				String cloneFlagName = cloneFlag.getKey();
-				Integer cloneFlagValue = cloneFlag.getValue();
-				if((flags & cloneFlagValue) == cloneFlagValue){
-					flagsAnnotation += cloneFlagName + "|";
-				}
-			}
-			flagsAnnotation = flagsAnnotation.trim();
-			if(!flagsAnnotation.isEmpty()){
-				flagsAnnotation = flagsAnnotation.substring(0, flagsAnnotation.length() - 1);
-			}
 			processCloned(parentPid, childPid, linkFds, shareMemory);
 			
 			boolean isThread = (flags & CLONE_THREAD) == CLONE_THREAD;
@@ -604,7 +593,16 @@ public abstract class ProcessManager extends ProcessStateManager{
 		
 		if(handle){
 			WasTriggeredBy edge = new WasTriggeredBy(childVertex, parentVertex);
+			for(Map.Entry<String, Integer> cloneFlag : cloneFlags.entrySet()){
+				String cloneFlagName = cloneFlag.getKey();
+				Integer cloneFlagValue = cloneFlag.getValue();
+				if((flags & cloneFlagValue) == cloneFlagValue){
+					flagsAnnotation += cloneFlagName + "|";
+				}
+			}
+			flagsAnnotation = flagsAnnotation.trim();
 			if(!flagsAnnotation.isEmpty()){
+				flagsAnnotation = flagsAnnotation.substring(0, flagsAnnotation.length() - 1);
 				edge.addAnnotation(OPMConstants.EDGE_FLAGS, flagsAnnotation);
 			}
 			reporter.putEdge(edge, reporter.getOperation(syscall), time, eventId, source);
