@@ -87,6 +87,7 @@ static int netio_logging_start(char* caller_build_hash, int net_io_flag, int sys
 static void netio_logging_stop(char* caller_build_hash);
 static int get_tgid(int);
 static int special_str_equal(const char* hay, const char* constantModuleName);
+static int get_hex_saddr_from_fd_getname(char* result, int max_result_size, int *fd_sock_type, int sock_fd, int peer);
 
 static int special_str_equal(const char* hay, const char* constantModuleName){
 	int hayLength = strlen(hay);
@@ -198,12 +199,13 @@ static int copy_msghdr_from_user(struct msghdr *dst, const struct msghdr __user 
 // dst should be large enough and caller should ensure that.
 static void to_hex(unsigned char *dst, uint32_t dst_len, unsigned char *src, uint32_t src_len){
 	int i;
-	memset(dst, 0, dst_len);
+	memset(dst, '\0', dst_len);
+//	explicit_bzero((void*)dst, dst_len);
 	for (i = 0; i < src_len; i++){
 		*dst++ = hex_asc_upper[((src[i]) & 0xf0) >> 4];
 		*dst++ = hex_asc_upper[((src[i]) & 0x0f)];
 	}
-	*dst = 0; // NULL char
+	*dst = '\0'; // NULL char
 }
 
 // dst should be large enough and caller should ensure that.
@@ -216,18 +218,64 @@ static void sockaddr_to_hex(unsigned char* dst, int dst_len, unsigned char* addr
 	}
 }
 
+// result must be non-null and must have enough space
+// peer can be either 1 or 0
+// must be: int fd_sock_type = -1;
+// 0 returned means log nothing. 1 returned means log it.
+static int get_hex_saddr_from_fd_getname(char* result, int max_result_size,
+		int *fd_sock_type,
+		int sock_fd, int peer){
+	int log_me = 1;
+	struct socket *fd_sock;
+	int fd_sock_family = -1;
+	struct sockaddr_storage fd_addr;
+	int fd_addr_size = 0;
+	int err = 0;
+
+	// This call places a lock on the fd which prevents it from being released.
+	// Releasing the lock using sockfd_put call.
+	fd_sock = sockfd_lookup(sock_fd, &err);
+
+	if(fd_sock != NULL){
+		fd_sock_family = fd_sock->ops->family;
+		*fd_sock_type = fd_sock->type;
+		if((fd_sock_family != AF_UNIX && fd_sock_family != AF_LOCAL && fd_sock_family != PF_UNIX
+				&& fd_sock_family != PF_LOCAL && fd_sock_family != AF_INET && fd_sock_family != AF_INET6
+				&& fd_sock_family != PF_INET && fd_sock_family != PF_INET6) && // only unix, and inet
+				(*fd_sock_type != SOCK_STREAM && *fd_sock_type != SOCK_DGRAM)){ // only stream, and dgram
+			//a*result = 0;
+			log_me = 0;
+		}else{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
+			fd_addr_size = fd_sock->ops->getname(fd_sock, (struct sockaddr *)&fd_addr, peer);
+			if(fd_addr_size <= 0){
+				err = -1;
+			}else{
+				err = 0;
+			}
+#else
+			err = fd_sock->ops->getname(fd_sock, (struct sockaddr *)&fd_addr, &fd_addr_size, peer);
+#endif
+			if(err == 0){
+				sockaddr_to_hex(result, max_result_size, (unsigned char*)&fd_addr, fd_addr_size);
+			}else{
+				//a*result = 0;
+			}
+		}
+		// Must free the reference to the fd after use otherwise lock won't be released.
+		sockfd_put(fd_sock);
+	}
+	return log_me;
+}
+
 static void log_to_audit(int syscallNumber, int fd, struct sockaddr_storage* addr, uint32_t addr_size,
 		long exit, int success){
 	struct task_struct* current_task = current;
 	if(log_syscall((int)(current_task->pid), (int)(current_task->real_parent->pid),
 			(int)(current_task->real_cred->uid.val), success) > 0){
 
-		struct socket *fd_sock;
+		int log_me = 0;
 		int fd_sock_type = -1;
-		int fd_sock_family = -1;
-		struct sockaddr_storage fd_addr;
-		int fd_addr_size = 0;
-		int err = 0;
 
 		int max_hex_sockaddr_size = (_K_SS_MAXSIZE * 2) + 1; // +1 for NULL char
 		unsigned char hex_fd_addr[max_hex_sockaddr_size];
@@ -237,51 +285,38 @@ static void log_to_audit(int syscallNumber, int fd, struct sockaddr_storage* add
 		int task_command_len = strlen(task_command);
 		int hex_task_command_len = (task_command_len * 2) + 1; // +1 for NULL
 		unsigned char hex_task_command[hex_task_command_len];
+
+		hex_fd_addr[0] = '\0';
+		hex_addr[0] = '\0';
+		hex_task_command[0] = '\0';
+
 		// get command
 		to_hex(&hex_task_command[0], hex_task_command_len, (unsigned char *)task_command, task_command_len);
-		// get addr passed in
-		sockaddr_to_hex(&hex_addr[0], max_hex_sockaddr_size, (unsigned char *)addr, addr_size);
 
-		// This call places a lock on the fd which prevents it from being released.
-		// Releasing the lock using sockfd_put call.
-		fd_sock = sockfd_lookup(fd, &err);
-		
-		if(fd_sock != NULL){
-			fd_sock_family = fd_sock->ops->family;
-			fd_sock_type = fd_sock->type;
-			if((fd_sock_family != AF_UNIX && fd_sock_family != AF_LOCAL && fd_sock_family != PF_UNIX
-					&& fd_sock_family != PF_LOCAL && fd_sock_family != AF_INET && fd_sock_family != AF_INET6
-					&& fd_sock_family != PF_INET && fd_sock_family != PF_INET6) && // only unix, and inet
-					(fd_sock_type != SOCK_STREAM && fd_sock_type != SOCK_DGRAM)){ // only stream, and dgram
-				return;
-			}else{
-				#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
-					fd_addr_size = fd_sock->ops->getname(fd_sock, (struct sockaddr *)&fd_addr, 0);
-					if(fd_addr_size <= 0){
-						err = -1;
-					}else{
-						err = 0;
-					}
-				#else
-					err = fd_sock->ops->getname(fd_sock, (struct sockaddr *)&fd_addr, &fd_addr_size, 0);
-				#endif
-				if(err == 0){
-					sockaddr_to_hex(&hex_fd_addr[0], max_hex_sockaddr_size, (unsigned char*)&fd_addr, fd_addr_size);
+		// get addr passed in
+		if(addr != NULL){
+			sockaddr_to_hex(&hex_addr[0], max_hex_sockaddr_size, (unsigned char *)addr, addr_size);
+		}else{
+			if(syscallNumber == __NR_accept || syscallNumber == __NR_accept4){
+				if(success == 1){
+					log_me = get_hex_saddr_from_fd_getname(&hex_addr[0], max_hex_sockaddr_size, &fd_sock_type, (int)exit, 1);
 				}
 			}
-			// Must free the reference to the fd after use otherwise lock won't be released.
-			sockfd_put(fd_sock);
 		}
 
+		log_me = get_hex_saddr_from_fd_getname(&hex_fd_addr[0], max_hex_sockaddr_size, &fd_sock_type, fd, 0);
+		
+		if(log_me == 1){
 		// TODO other info needs to be logged?
-		audit_log(NULL, GFP_KERNEL, AUDIT_USER, 
-			"netio_intercepted=\"syscall=%d exit=%ld success=%d fd=%d pid=%d ppid=%d uid=%u euid=%u suid=%u fsuid=%u \
-gid=%u egid=%u sgid=%u fsgid=%u comm=%s sock_type=%d local_saddr=%s remote_saddr=%s remote_saddr_size=%d\"",
-			syscallNumber, exit, success, fd, current_task->pid, current_task->real_parent->pid,
-			current_task->real_cred->uid.val, current_task->real_cred->euid.val, current_task->real_cred->suid.val,
-			current_task->real_cred->fsuid.val, current_task->real_cred->gid.val, current_task->real_cred->egid.val,
-			current_task->real_cred->sgid.val, current_task->real_cred->fsgid.val,
-			hex_task_command, fd_sock_type, hex_fd_addr, hex_addr, addr_size);
+			audit_log(NULL, GFP_KERNEL, AUDIT_USER,
+				"netio_intercepted=\"syscall=%d exit=%ld success=%d fd=%d pid=%d ppid=%d uid=%u euid=%u suid=%u fsuid=%u \
+	gid=%u egid=%u sgid=%u fsgid=%u comm=%s sock_type=%d local_saddr=%s remote_saddr=%s remote_saddr_size=%d\"",
+				syscallNumber, exit, success, fd, current_task->pid, current_task->real_parent->pid,
+				current_task->real_cred->uid.val, current_task->real_cred->euid.val, current_task->real_cred->suid.val,
+				current_task->real_cred->fsuid.val, current_task->real_cred->gid.val, current_task->real_cred->egid.val,
+				current_task->real_cred->sgid.val, current_task->real_cred->fsgid.val,
+				hex_task_command, fd_sock_type, hex_fd_addr, hex_addr, addr_size);
+		}
 	}
 }
 
