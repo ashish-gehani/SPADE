@@ -235,6 +235,7 @@ public class Audit extends AbstractReporter {
 	private boolean HARDEN = false;
 	private String REPORT_KILL_KEY = "reportKill";
 	private boolean REPORT_KILL = true;
+	private boolean HANDLE_CHDIR = false;
 	
 	private String deleteModuleBinaryPath = null;
 	/********************** BEHAVIOR FLAGS - END *************************/
@@ -583,6 +584,14 @@ public class Audit extends AbstractReporter {
 			}
 		}
 		
+		argValue = args.get("cwd");
+		if(isValidBoolean(argValue)){
+			HANDLE_CHDIR = parseBoolean(argValue, HANDLE_CHDIR);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'cwd': " + argValue);
+			return false;
+		}
+		
 		if((ADD_KM && NETFILTER_RULES) // both can't be true
 				|| ((HANDLE_KM_RECORDS != null && HANDLE_KM_RECORDS) && REFINE_NET)){ // both can't be true
 			logger.log(Level.SEVERE, "Incompatible flags value (Can only handle data from either module or iptables): "
@@ -597,12 +606,13 @@ public class Audit extends AbstractReporter {
 			}else{
 				// Logging only relevant flags now for debugging
 				logger.log(Level.INFO, "Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
-                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}",
+                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}, {26}={27}",
 						new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, 
 								"units", CREATE_BEEP_UNITS, "waitForLog", WAIT_FOR_LOG_END, "netfilter", NETFILTER_RULES, 
 								"refineNet", REFINE_NET, ADD_KM_KEY, ADD_KM, 
 								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS, "failfast", FAIL_FAST,
-								mergeUnitKey, mergeUnit, HARDEN_KEY, HARDEN, REPORT_KILL_KEY, REPORT_KILL});
+								mergeUnitKey, mergeUnit, HARDEN_KEY, HARDEN, REPORT_KILL_KEY, REPORT_KILL,
+								"cwd", HANDLE_CHDIR});
 				logger.log(Level.INFO, globals.toString());
 				return true;
 			}
@@ -1707,6 +1717,9 @@ public class Audit extends AbstractReporter {
 					auditRuleWithSuccess += "-S tee -S splice -S vmsplice ";
 					auditRuleWithSuccess += "-S socketpair ";
 					auditRuleWithSuccess += "-S ptrace ";
+					if(HANDLE_CHDIR){
+						auditRuleWithSuccess += "-S chdir -S fchdir ";
+					}
 					
 					auditRuleWithSuccess += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
 
@@ -2190,6 +2203,12 @@ public class Audit extends AbstractReporter {
 			}
 
 			switch (syscall) {
+			case CHDIR:
+			case FCHDIR:
+				if(HANDLE_CHDIR){
+					handleChdir(eventData, syscall);
+				}
+			break;
 			case LSEEK:
 				if(USE_READ_WRITE){
 					handleLseek(eventData, syscall);
@@ -2486,6 +2505,56 @@ public class Audit extends AbstractReporter {
 				wgb.addAnnotation(OPMConstants.EDGE_LSEEK_WHENCE, whenceAnnotation);
 				putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 			}
+		}
+	}
+	
+	private void handleChdir(Map<String, String> eventData, SYSCALL syscall){
+		// chdir() receives the following messages(s):
+		// - SYSCALL
+		// - PATH with NORMAL nametype
+		// - CWD
+		// - EOE
+		
+		// fchdir() receives the following messages(s):
+		// - SYSCALL
+		// - EOE
+		
+		String time = eventData.get(AuditEventReader.TIME);
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		String pid = eventData.get(AuditEventReader.PID);
+		String newCwdPath = null;
+		
+		if(syscall == SYSCALL.CHDIR){
+			String normalPath = null;
+			String cwd = eventData.get(AuditEventReader.CWD);
+			PathRecord normalPathRecord = getFirstPathWithNametype(eventData, AuditEventReader.NAMETYPE_NORMAL);
+			if(normalPathRecord != null){
+				normalPath = normalPathRecord.getPath();
+			}
+			newCwdPath = constructAbsolutePath(normalPath, cwd, pid);
+			if(newCwdPath == null){
+				log(Level.INFO, "Failed to construct path for current working directory", null, time, eventId, syscall);
+			}
+		}else if(syscall == SYSCALL.FCHDIR){
+			String fd = eventData.get(AuditEventReader.ARG0);
+			ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, fd);
+			if(artifactIdentifier != null){
+				if(artifactIdentifier instanceof DirectoryIdentifier){
+					newCwdPath = ((DirectoryIdentifier)artifactIdentifier).getPath();
+				}else{
+					log(Level.INFO, "Unexpected FD type to change currrent working directory to. Expected directory. Found: "
+							+ artifactIdentifier.getClass(), null, time, eventId, syscall);
+				}
+			}else{
+				log(Level.INFO, "Missing FD to change current working directory to", null, time, eventId, syscall);
+			}	
+		}else{
+			log(Level.INFO, "Unexpected syscall '"+syscall+"' in CHDIR handler", null, time, eventId, syscall);
+			return;
+		}
+		
+		if(newCwdPath != null){
+			processManager.setCwd(pid, newCwdPath);
 		}
 	}
 	
