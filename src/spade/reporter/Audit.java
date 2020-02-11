@@ -70,6 +70,7 @@ import spade.reporter.audit.artifact.UnknownIdentifier;
 import spade.reporter.audit.artifact.UnnamedNetworkSocketPairIdentifier;
 import spade.reporter.audit.artifact.UnnamedPipeIdentifier;
 import spade.reporter.audit.artifact.UnnamedUnixSocketPairIdentifier;
+import spade.reporter.audit.process.FileDescriptor;
 import spade.reporter.audit.process.ProcessManager;
 import spade.reporter.audit.process.ProcessWithAgentManager;
 import spade.reporter.audit.process.ProcessWithoutAgentManager;
@@ -2494,12 +2495,12 @@ public class Audit extends AbstractReporter {
 						+ getValueNameMapAsString(lseekWhenceValues), 
 						null, time, eventId, syscall);
 			}else{
-				ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, fd);
-				if(artifactIdentifier == null){
-					artifactIdentifier = addUnknownFd(pid, fd);
+				FileDescriptor fileDescriptor = processManager.getFd(pid, fd);
+				if(fileDescriptor == null){
+					fileDescriptor = addUnknownFd(pid, fd);
 				}
 				Process process = processManager.handleProcessFromSyscall(eventData);
-				Artifact artifact = putArtifactFromSyscall(eventData, artifactIdentifier);
+				Artifact artifact = putArtifactFromSyscall(eventData, fileDescriptor.identifier);
 				WasGeneratedBy wgb = new WasGeneratedBy(artifact, process);
 				wgb.addAnnotation(OPMConstants.EDGE_OFFSET, offsetActual);
 				wgb.addAnnotation(OPMConstants.EDGE_LSEEK_WHENCE, whenceAnnotation);
@@ -2537,13 +2538,13 @@ public class Audit extends AbstractReporter {
 			}
 		}else if(syscall == SYSCALL.FCHDIR){
 			String fd = eventData.get(AuditEventReader.ARG0);
-			ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, fd);
-			if(artifactIdentifier != null){
-				if(artifactIdentifier instanceof DirectoryIdentifier){
-					newCwdPath = ((DirectoryIdentifier)artifactIdentifier).getPath();
+			FileDescriptor fileDescriptor = processManager.getFd(pid, fd);
+			if(fileDescriptor != null){
+				if(fileDescriptor.identifier instanceof DirectoryIdentifier){
+					newCwdPath = ((DirectoryIdentifier)fileDescriptor.identifier).getPath();
 				}else{
 					log(Level.INFO, "Unexpected FD type to change currrent working directory to. Expected directory. Found: "
-							+ artifactIdentifier.getClass(), null, time, eventId, syscall);
+							+ fileDescriptor.identifier.getClass(), null, time, eventId, syscall);
 				}
 			}else{
 				log(Level.INFO, "Missing FD to change current working directory to", null, time, eventId, syscall);
@@ -2607,14 +2608,14 @@ public class Audit extends AbstractReporter {
 			putEdge(deletedEdge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
 	}
-	
-	private UnknownIdentifier addUnknownFd(String pid, String fd){
+
+	private FileDescriptor addUnknownFd(String pid, String fd){
 		String fdTgid = processManager.getFdTgid(pid);
 		UnknownIdentifier unknown = new UnknownIdentifier(fdTgid, fd);
-		unknown.setOpenedForRead(null);
+		FileDescriptor fileDescriptor = new FileDescriptor(unknown, null);
 		artifactManager.artifactCreated(unknown);
-		processManager.setFd(pid, fd, unknown);
-		return unknown;
+		processManager.setFd(pid, fd, fileDescriptor);
+		return fileDescriptor;
 	}
 	
 	private void handleFcntl(Map<String, String> eventData, SYSCALL syscall){
@@ -2640,14 +2641,14 @@ public class Audit extends AbstractReporter {
 			handleDup(eventData, syscall);
 		}else if(cmd == F_SETFL){
 			if((flags & O_APPEND) == O_APPEND){
-				ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, fd);
-				if(artifactIdentifier == null){
-					artifactIdentifier = addUnknownFd(pid, fd);
+				FileDescriptor fileDescriptor = processManager.getFd(pid, fd);
+				if(fileDescriptor == null){
+					fileDescriptor = addUnknownFd(pid, fd);
 				}
 				// Made file descriptor 'appendable', so set open for read to false so 
 				// that the edge on close is a WGB edge and not a Used edge
-				if(artifactIdentifier.wasOpenedForRead() != null){
-					artifactIdentifier.setOpenedForRead(false);
+				if(fileDescriptor.getWasOpenedForRead() != null){
+					fileDescriptor.setWasOpenedForRead(false);
 				}
 			}
 		}
@@ -2706,13 +2707,13 @@ public class Audit extends AbstractReporter {
 				return;
 			}
 	
-			ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, fd);
+			FileDescriptor fileDescriptor = processManager.getFd(pid, fd);
 	
-			if(artifactIdentifier == null){
-				artifactIdentifier = addUnknownFd(pid, fd);
+			if(fileDescriptor == null){
+				fileDescriptor = addUnknownFd(pid, fd);
 			}
 	
-			Artifact artifact = putArtifactFromSyscall(eventData, artifactIdentifier);
+			Artifact artifact = putArtifactFromSyscall(eventData, fileDescriptor.identifier);
 	
 			Used usedEdge = new Used(process, artifact);
 			putEdge(usedEdge, getOperation(syscall, SYSCALL.READ), time, eventId, AUDIT_SYSCALL_SOURCE);
@@ -2858,12 +2859,12 @@ public class Audit extends AbstractReporter {
 				String pid = eventData.get(AuditEventReader.PID);
 				String dirFdString = String.valueOf(dirFd);
 				//if null of if not file then cannot process it
-				ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, dirFdString);
-				if(artifactIdentifier == null || !(artifactIdentifier instanceof PathIdentifier)){
-					log(Level.INFO, "Expected 'dir' type fd: '" + artifactIdentifier + "'", null, time, eventId, syscall);
+				FileDescriptor fileDescriptor = processManager.getFd(pid, dirFdString);
+				if(fileDescriptor == null || !(fileDescriptor.identifier instanceof PathIdentifier)){
+					log(Level.INFO, "Expected 'dir' type fd: '" + fileDescriptor.identifier + "'", null, time, eventId, syscall);
 					return;
 				}else{ //is file
-					String dirPath = ((PathIdentifier)artifactIdentifier).getPath();
+					String dirPath = ((PathIdentifier)fileDescriptor.identifier).getPath();
 					eventData.put(AuditEventReader.CWD, dirPath); //replace cwd with dirPath to make eventData compatible with open
 				}
 			}
@@ -2987,7 +2988,8 @@ public class Audit extends AbstractReporter {
 				edge.addAnnotation(OPMConstants.EDGE_FLAGS, flagsArgs);
 			}
 			//everything happened successfully. add it to descriptors
-			processManager.setFd(pid, fd, artifactIdentifier, openedForRead);
+			FileDescriptor fileDescriptor = new FileDescriptor(artifactIdentifier, openedForRead);
+			processManager.setFd(pid, fd, fileDescriptor);
 
 			putEdge(edge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		}
@@ -2999,20 +3001,20 @@ public class Audit extends AbstractReporter {
 		// - EOE
 		String pid = eventData.get(AuditEventReader.PID);
 		String fd = String.valueOf(CommonFunctions.parseLong(eventData.get(AuditEventReader.ARG0), -1L));
-		ArtifactIdentifier closedArtifactIdentifier = processManager.removeFd(pid, fd);
+		FileDescriptor closedFileDescriptor = processManager.removeFd(pid, fd);
 		
 		if(CONTROL){
 			SYSCALL syscall = SYSCALL.CLOSE;
 			String time = eventData.get(AuditEventReader.TIME);
 			String eventId = eventData.get(AuditEventReader.EVENT_ID);
-			if(closedArtifactIdentifier != null){
+			if(closedFileDescriptor != null){
 				Process process = processManager.handleProcessFromSyscall(eventData);
 				AbstractEdge edge = null;
-				Boolean wasOpenedForRead = closedArtifactIdentifier.wasOpenedForRead();
+				Boolean wasOpenedForRead = closedFileDescriptor.getWasOpenedForRead();
 				if(wasOpenedForRead == null){
 					// Not drawing an edge because didn't seen an open or was a 'bound' fd
 				}else{
-					Artifact artifact = putArtifactFromSyscall(eventData, closedArtifactIdentifier);
+					Artifact artifact = putArtifactFromSyscall(eventData, closedFileDescriptor.identifier);
 					if(wasOpenedForRead){
 						edge = new Used(process, artifact);
 					}else{
@@ -3023,8 +3025,8 @@ public class Audit extends AbstractReporter {
 					putEdge(edge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 				}
 				//after everything done increment epoch is udp socket
-				if(isUdp(closedArtifactIdentifier)){
-					artifactManager.artifactCreated(closedArtifactIdentifier);
+				if(isUdp(closedFileDescriptor.identifier)){
+					artifactManager.artifactCreated(closedFileDescriptor.identifier);
 				}
 			}else{
 				log(Level.INFO, "No FD with number '"+fd+"' for pid '"+pid+"'", null, time, eventId, syscall);
@@ -3077,10 +3079,11 @@ public class Audit extends AbstractReporter {
 			}
 		} else if (syscall == SYSCALL.FTRUNCATE) {
 			String fd = eventData.get(AuditEventReader.ARG0);
-			artifactIdentifier = processManager.getFd(pid, fd);
-			if(artifactIdentifier == null){
-				artifactIdentifier = addUnknownFd(pid, fd);
+			FileDescriptor fileDescriptor = processManager.getFd(pid, fd);
+			if(fileDescriptor == null){
+				fileDescriptor = addUnknownFd(pid, fd);
 			}
+			artifactIdentifier = fileDescriptor.identifier;
 			artifactManager.artifactVersioned(artifactIdentifier);
 		}
 
@@ -3107,11 +3110,11 @@ public class Audit extends AbstractReporter {
 		String newFD = eventData.get(AuditEventReader.EXIT); //new fd returned in all: dup, dup2, dup3
 
 		if(!fd.equals(newFD)){ //if both fds same then it succeeds in case of dup2 and it does nothing so do nothing here too
-			ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, fd);
-			if(artifactIdentifier == null){
-				artifactIdentifier = addUnknownFd(pid, fd);
+			FileDescriptor fileDescriptor = processManager.getFd(pid, fd);
+			if(fileDescriptor == null){
+				fileDescriptor = addUnknownFd(pid, fd);
 			}
-			processManager.setFd(pid, newFD, artifactIdentifier);
+			processManager.setFd(pid, newFD, fileDescriptor);
 		}
 	}
 	
@@ -3126,13 +3129,13 @@ public class Audit extends AbstractReporter {
 		String fdOut = eventData.get(AuditEventReader.ARG0);
 		String bytes = eventData.get(AuditEventReader.EXIT);
 		
-		if(!"0".equals(bytes)){		
-			ArtifactIdentifier fdOutIdentifier = processManager.getFd(pid, fdOut);
-			fdOutIdentifier = fdOutIdentifier == null ? addUnknownFd(pid, fdOut) : fdOutIdentifier;
+		if(!"0".equals(bytes)){	
+			FileDescriptor fdOutDescriptor = processManager.getFd(pid, fdOut);
+			fdOutDescriptor = fdOutDescriptor == null ? addUnknownFd(pid, fdOut) : fdOutDescriptor;
 			
 			Process process = processManager.handleProcessFromSyscall(eventData);
-			artifactManager.artifactVersioned(fdOutIdentifier);
-			Artifact fdOutArtifact = putArtifactFromSyscall(eventData, fdOutIdentifier);
+			artifactManager.artifactVersioned(fdOutDescriptor.identifier);
+			Artifact fdOutArtifact = putArtifactFromSyscall(eventData, fdOutDescriptor.identifier);
 	
 			WasGeneratedBy processToWrittenArtifact = new WasGeneratedBy(fdOutArtifact, process);
 			processToWrittenArtifact.addAnnotation(OPMConstants.EDGE_SIZE, bytes);
@@ -3142,17 +3145,17 @@ public class Audit extends AbstractReporter {
 	
 	private void putTeeSplice(Map<String, String> eventData, SYSCALL syscall,
 			String time, String eventId, String fdIn, String fdOut, String pid, String bytes){
-		ArtifactIdentifier fdInIdentifier = processManager.getFd(pid, fdIn);
-		ArtifactIdentifier fdOutIdentifier = processManager.getFd(pid, fdOut);
+		FileDescriptor fdInDescriptor = processManager.getFd(pid, fdIn);
+		FileDescriptor fdOutDescriptor = processManager.getFd(pid, fdOut);
 
 		// Use unknown if missing fds
-		fdInIdentifier = fdInIdentifier == null ? addUnknownFd(pid, fdIn) : fdInIdentifier;
-		fdOutIdentifier = fdOutIdentifier == null ? addUnknownFd(pid, fdOut) : fdOutIdentifier;
+		fdInDescriptor = fdInDescriptor == null ? addUnknownFd(pid, fdIn) : fdInDescriptor;
+		fdOutDescriptor = fdOutDescriptor == null ? addUnknownFd(pid, fdOut) : fdOutDescriptor;
 
 		Process process = processManager.handleProcessFromSyscall(eventData);
-		Artifact fdInArtifact = putArtifactFromSyscall(eventData, fdInIdentifier);
-		artifactManager.artifactVersioned(fdOutIdentifier);
-		Artifact fdOutArtifact = putArtifactFromSyscall(eventData, fdOutIdentifier);
+		Artifact fdInArtifact = putArtifactFromSyscall(eventData, fdInDescriptor.identifier);
+		artifactManager.artifactVersioned(fdOutDescriptor.identifier);
+		Artifact fdOutArtifact = putArtifactFromSyscall(eventData, fdOutDescriptor.identifier);
 
 		Used processToReadArtifact = new Used(process, fdInArtifact);
 		processToReadArtifact.addAnnotation(OPMConstants.EDGE_SIZE, bytes);
@@ -3210,8 +3213,9 @@ public class Audit extends AbstractReporter {
 			moduleIdentifier = new MemoryIdentifier(tgid, memoryAddress, memorySize);
 		}else if(syscall == SYSCALL.FINIT_MODULE){
 			String fd = eventData.get(AuditEventReader.ARG0);
-			moduleIdentifier = processManager.getFd(pid, fd);
-			moduleIdentifier = moduleIdentifier == null ? addUnknownFd(pid, fd) : moduleIdentifier;
+			FileDescriptor fileDescriptor = processManager.getFd(pid, fd);
+			fileDescriptor = fileDescriptor == null ? addUnknownFd(pid, fd) : fileDescriptor;
+			moduleIdentifier = fileDescriptor.identifier;
 		}else{
 			log(Level.WARNING, "Unexpected syscall in (f)init_module handler", null, time, eventId, syscall);
 		}
@@ -3437,12 +3441,12 @@ public class Audit extends AbstractReporter {
 			ArtifactIdentifier artifactIdentifier = null;
 
 			if(fdLong != AT_FDCWD){
-				artifactIdentifier = processManager.getFd(pid, fd);
-				if(artifactIdentifier == null){
+				FileDescriptor fileDescriptor = processManager.getFd(pid, fd);
+				if(fileDescriptor == null){
 					log(Level.INFO, "No FD '"+fd+"' for pid '"+pid+"'", null, time, eventId, SYSCALL.MKNODAT);
 					return;
-				}else if(artifactIdentifier instanceof PathIdentifier){
-					String directoryPath = ((PathIdentifier)artifactIdentifier).getPath();
+				}else if(fileDescriptor.identifier instanceof PathIdentifier){
+					String directoryPath = ((PathIdentifier)fileDescriptor.identifier).getPath();
 					//update cwd to directoryPath and call handleMknod. the file created path is always relative in this syscall
 					eventData.put(AuditEventReader.CWD, directoryPath);
 				}else{
@@ -3660,10 +3664,11 @@ public class Audit extends AbstractReporter {
 			modeArgument = eventData.get(AuditEventReader.ARG1);
 		} else if (syscall == SYSCALL.FCHMOD) {
 			String fd = eventData.get(AuditEventReader.ARG0);
-			artifactIdentifier = processManager.getFd(pid, fd);
-			if(artifactIdentifier == null){
-				artifactIdentifier = addUnknownFd(pid, fd);
+			FileDescriptor fileDescriptor = processManager.getFd(pid, fd);
+			if(fileDescriptor == null){
+				fileDescriptor = addUnknownFd(pid, fd);
 			}
+			artifactIdentifier = fileDescriptor.identifier;
 			modeArgument = eventData.get(AuditEventReader.ARG1);
 		}else if(syscall == SYSCALL.FCHMODAT){
 			PathRecord pathRecord = getFirstPathWithNametype(eventData, AuditEventReader.NAMETYPE_NORMAL);
@@ -3830,8 +3835,8 @@ public class Audit extends AbstractReporter {
 		}
 		
 		if(fdIdentifier != null){
-			processManager.setFd(pid, fd0, fdIdentifier, false);
-			processManager.setFd(pid, fd1, fdIdentifier, false);
+			processManager.setFd(pid, fd0, new FileDescriptor(fdIdentifier, false));
+			processManager.setFd(pid, fd1, new FileDescriptor(fdIdentifier, false));
 			
 			artifactManager.artifactCreated(fdIdentifier);
 		}
@@ -3848,8 +3853,8 @@ public class Audit extends AbstractReporter {
 		String fd1 = eventData.get(AuditEventReader.FD1);
 		ArtifactIdentifier readPipeIdentifier = new UnnamedPipeIdentifier(fdTgid, fd0, fd1);
 		ArtifactIdentifier writePipeIdentifier = new UnnamedPipeIdentifier(fdTgid, fd0, fd1);
-		processManager.setFd(pid, fd0, readPipeIdentifier, true);
-		processManager.setFd(pid, fd1, writePipeIdentifier, false);
+		processManager.setFd(pid, fd0, new FileDescriptor(readPipeIdentifier, true));
+		processManager.setFd(pid, fd1, new FileDescriptor(writePipeIdentifier, false));
 
 		// Since both (read, and write) pipe identifiers are the same, only need to mark epoch on one.
 		artifactManager.artifactCreated(readPipeIdentifier);
@@ -3964,13 +3969,13 @@ public class Audit extends AbstractReporter {
 	
 	private NetworkSocketIdentifier getNetworkIdentifier(SYSCALL syscall, String time, String eventId, 
 			String pid, String fd){
-		ArtifactIdentifier identifier = processManager.getFd(pid, fd);
-		if(identifier != null){
-			if(identifier.getClass().equals(NetworkSocketIdentifier.class)){
-				return ((NetworkSocketIdentifier)identifier);
+		FileDescriptor fileDescriptor = processManager.getFd(pid, fd);
+		if(fileDescriptor != null){
+			if(fileDescriptor.identifier.getClass().equals(NetworkSocketIdentifier.class)){
+				return ((NetworkSocketIdentifier)fileDescriptor.identifier);
 			}else{
 				log(Level.INFO, "Expected network identifier but found: " + 
-						identifier.getClass(), null, time, eventId, syscall);
+						fileDescriptor.identifier.getClass(), null, time, eventId, syscall);
 				return null;
 			}
 		}else{
@@ -4023,14 +4028,14 @@ public class Audit extends AbstractReporter {
 
 			NetworkSocketIdentifier identifierForProtocol = new NetworkSocketIdentifier(
 					null, null, null, null, protocolName);
-			processManager.setFd(pid, sockFd, identifierForProtocol, null); // no close edge
+			processManager.setFd(pid, sockFd, new FileDescriptor(identifierForProtocol, null)); // no close edge
 		}
 	}
 	
 	private void putBind(String pid, String fd, ArtifactIdentifier identifier){
 		if(identifier != null){
 			// no need to add to descriptors because we will have the address from other syscalls? TODO
-			processManager.setFd(pid, fd, identifier, null);
+			processManager.setFd(pid, fd, new FileDescriptor(identifier, null));
 			if(identifier instanceof UnixSocketIdentifier){
 				artifactManager.artifactCreated(identifier);
 			}
@@ -4121,7 +4126,7 @@ public class Audit extends AbstractReporter {
 			if(fdIdentifier instanceof NetworkSocketIdentifier){
 				artifactManager.artifactCreated(fdIdentifier);
 			}
-			processManager.setFd(pid, fd, fdIdentifier, false);
+			processManager.setFd(pid, fd, new FileDescriptor(fdIdentifier, false));
 			
 			Process process = processManager.handleProcessFromSyscall(eventData);
 			artifactManager.artifactVersioned(fdIdentifier);
@@ -4209,7 +4214,7 @@ public class Audit extends AbstractReporter {
 				artifactManager.artifactCreated(fdIdentifier);
 			}
 			
-			processManager.setFd(pid, fd, fdIdentifier, false);
+			processManager.setFd(pid, fd, new FileDescriptor(fdIdentifier, false));
 			
 			Process process = processManager.handleProcessFromSyscall(eventData);
 			Artifact socket = putArtifactFromSyscall(eventData, fdIdentifier);
@@ -4255,7 +4260,7 @@ public class Audit extends AbstractReporter {
 
 		if(!isNetlinkSaddr(saddr)){ // not handling netlink saddr
 			ArtifactIdentifier identifier = null;
-			ArtifactIdentifier boundIdentifier = processManager.getFd(pid, sockFd); // sockFd
+			FileDescriptor boundFileDescriptor = processManager.getFd(pid, sockFd);
 			if(isNetworkSaddr(saddr)){
 				AddressPort addressPort = parseNetworkSaddr(saddr);
 				if(addressPort != null){
@@ -4271,14 +4276,14 @@ public class Audit extends AbstractReporter {
 				}
 			}else if(isUnixSaddr(saddr)){
 				// The unix saddr in accept is empty. So, use the bound one.
-				if(boundIdentifier != null){
-					if(boundIdentifier.getClass().equals(UnixSocketIdentifier.class)){
+				if(boundFileDescriptor != null){
+					if(boundFileDescriptor.identifier.getClass().equals(UnixSocketIdentifier.class)){
 						// Use a new one because the wasOpenedForRead is updated otherwise it would
 						// be updated in the bound identifier too.
-						identifier = new UnixSocketIdentifier(((UnixSocketIdentifier)boundIdentifier).getPath());
+						identifier = new UnixSocketIdentifier(((UnixSocketIdentifier)boundFileDescriptor.identifier).getPath());
 					}else{
 						log(Level.INFO, "Expected unix identifier but found: " + 
-								boundIdentifier.getClass(), null, time, eventId, syscall);
+								boundFileDescriptor.identifier.getClass(), null, time, eventId, syscall);
 					}
 				}
 			}
@@ -4368,7 +4373,10 @@ public class Audit extends AbstractReporter {
 			}
 		}else{
 			// use fd
-			identifier = processManager.getFd(pid, fd);
+			FileDescriptor fileDescriptor = processManager.getFd(pid, fd);
+			if(fileDescriptor != null){
+				identifier = fileDescriptor.identifier;
+			}
 		}
 	
 		// Don't update fd in descriptors even if updated identifier
@@ -4384,9 +4392,9 @@ public class Audit extends AbstractReporter {
 		if(isNetwork){
 			NetworkSocketIdentifier recordIdentifier =
 					constructNetworkIdentifier(syscall, time, eventId, localSaddr, remoteSaddr, sockType);
-			ArtifactIdentifier fdIdentifier = processManager.getFd(pid, sockFd);
-			if(fdIdentifier instanceof NetworkSocketIdentifier){
-				NetworkSocketIdentifier fdNetworkIdentifier = (NetworkSocketIdentifier)fdIdentifier;
+			FileDescriptor fileDescriptor = processManager.getFd(pid, sockFd);
+			if(fileDescriptor != null && fileDescriptor.identifier instanceof NetworkSocketIdentifier){
+				NetworkSocketIdentifier fdNetworkIdentifier = (NetworkSocketIdentifier)fileDescriptor.identifier;
 				if(CommonFunctions.isNullOrEmpty(fdNetworkIdentifier.getRemoteHost())){
 					// Connection based IO
 					identifier = recordIdentifier;
@@ -4428,7 +4436,7 @@ public class Audit extends AbstractReporter {
 		}
 		
 		if(identifier == null){
-			identifier = addUnknownFd(pid, fd);
+			identifier = addUnknownFd(pid, fd).identifier;
 		}
 		
 		if(isNetworkUdp){
@@ -4579,17 +4587,17 @@ public class Audit extends AbstractReporter {
 						return path;
 					}
 				}else{
-					ArtifactIdentifier artifactIdentifier = processManager.getFd(pid, String.valueOf(fd));
-					if(artifactIdentifier == null){
+					FileDescriptor fileDescriptor = processManager.getFd(pid, String.valueOf(fd));
+					if(fileDescriptor == null){
 						log(Level.INFO, "No FD with number '"+fd+"' for pid '"+pid+"'", null, time, eventId, syscall);
 						return null;
-					}else if(!(artifactIdentifier instanceof PathIdentifier)){
-						log(Level.INFO, "FD with number '"+fd+"' for pid '"+pid+"' must be of type file but is '"+artifactIdentifier.getClass()+"'", null, time, eventId, syscall);
+					}else if(!(fileDescriptor.identifier instanceof PathIdentifier)){
+						log(Level.INFO, "FD with number '"+fd+"' for pid '"+pid+"' must be of type file but is '"+fileDescriptor.identifier.getClass()+"'", null, time, eventId, syscall);
 						return null;
 					}else{
-						path = constructAbsolutePath(path, ((PathIdentifier)artifactIdentifier).getPath(), pid);
+						path = constructAbsolutePath(path, ((PathIdentifier)fileDescriptor.identifier).getPath(), pid);
 						if(path == null){
-							log(Level.INFO, "Invalid path ("+((PathIdentifier)artifactIdentifier).getPath()+") for fd with number '"+fd+"' of pid '"+pid+"'", null, time, eventId, syscall);
+							log(Level.INFO, "Invalid path ("+((PathIdentifier)fileDescriptor.identifier).getPath()+") for fd with number '"+fd+"' of pid '"+pid+"'", null, time, eventId, syscall);
 							return null;
 						}else{
 							return path;

@@ -22,8 +22,6 @@ package spade.reporter.audit.process;
 import java.util.HashMap;
 import java.util.Map;
 
-import spade.reporter.audit.artifact.ArtifactIdentifier;
-
 /**
  * Manages any state for the currently active processes
  * 
@@ -77,27 +75,22 @@ public abstract class ProcessStateManager{
 		return _getProcessState(pid).fdTgid;
 	}
 	
-	public void setFd(String pid, String fd, ArtifactIdentifier fdIdentifier){
-		_getProcessState(pid).fds.put(fd, fdIdentifier);
+	public void setFd(String pid, String fd, FileDescriptor fileDescriptor){
+		_getProcessState(pid).fds.put(fd, fileDescriptor);
 	}
 	
-	public void setFd(String pid, String fd, ArtifactIdentifier fdIdentifier, Boolean wasOpenedForRead){
-		fdIdentifier.setOpenedForRead(wasOpenedForRead);
-		_getProcessState(pid).fds.put(fd, fdIdentifier);
-	}
-	
-	public ArtifactIdentifier getFd(String pid, String fd){
+	public FileDescriptor getFd(String pid, String fd){
 		return _getProcessState(pid).fds.get(fd);
 	}
 	
-	public ArtifactIdentifier removeFd(String pid, String fd){
+	public FileDescriptor removeFd(String pid, String fd){
 		return _getProcessState(pid).fds.remove(fd);
 	}
 	
 	private void copyFds(String fromPid, String toPid){
 		ProcessState fromState = _getProcessState(fromPid);
 		ProcessState toState = _getProcessState(toPid);
-		toState.fds = new HashMap<String, ArtifactIdentifier>(fromState.fds);
+		toState.fds = new HashMap<String, FileDescriptor>(fromState.fds);
 	}
 	
 	private void copyCwd(String fromPid, String toPid){
@@ -129,7 +122,7 @@ public abstract class ProcessStateManager{
 	
 	private void unlinkFds(String pid){
 		ProcessState state = _getProcessState(pid);
-		state.fds = new HashMap<String, ArtifactIdentifier>(state.fds);
+		state.fds = new HashMap<String, FileDescriptor>(state.fds);
 	}
 	
 	private void unlinkCwd(String pid){
@@ -206,7 +199,7 @@ public abstract class ProcessStateManager{
 class ProcessState{
 	String memoryTgid;
 	String fdTgid;
-	Map<String, ArtifactIdentifier> fds = new HashMap<String, ArtifactIdentifier>();
+	Map<String, FileDescriptor> fds = new HashMap<String, FileDescriptor>();
 	StringBuffer cwd;
 	ProcessState(String memoryTgid, String fdTgid){
 		this.memoryTgid = memoryTgid;

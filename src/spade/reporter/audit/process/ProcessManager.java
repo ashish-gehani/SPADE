@@ -900,8 +900,8 @@ public abstract class ProcessManager extends ProcessStateManager{
 								if(fds != null){
 									for(Map.Entry<String, ArtifactIdentifier> entry : fds.entrySet()){
 										ArtifactIdentifier fdIdentifier = entry.getValue();
-										fdIdentifier.setOpenedForRead(null); // Don't want the close edge
-										setFd(pid, entry.getKey(), fdIdentifier);
+										FileDescriptor fd = new FileDescriptor(fdIdentifier, null); // Don't want the close edge
+										setFd(pid, entry.getKey(), fd);
 									}
 								}
 							}else{
