@@ -33,42 +33,7 @@ import spade.reporter.audit.VertexIdentifier;
 public abstract class ArtifactIdentifier implements VertexIdentifier{
 	
 	private static final long serialVersionUID = 4429967254473060156L;
-	/**
-	 * Used to tell whether the artifact was opened for reading or writing
-	 * 
-	 * 1) true means that it was opened for read
-	 * 2) false means that it was opened for write
-	 * 3) null means that opened wasn't seen
-	 * 
-	 * Note: Value of this variable NOT to be used in {@link #equals(Object) equals} or {@link #hashCode() hashCode} function
-	 */
-	private Boolean openedForRead = null;
 	
-	/**
-	 * Returns the value of the variable used to tell if the artifact file descriptor was opened for read or write
-	 * 
-	 * @return true, false, null
-	 */
-	public Boolean wasOpenedForRead(){
-		return openedForRead;
-	}
-	
-	/**
-	 * Sets whether the artifact was opened for read or write
-	 *
-	 * @param hasBeenWrittenTo true, false, null
-	 */
-	public void setOpenedForRead(Boolean openedForRead){
-		this.openedForRead = openedForRead;
-	}
-	
-	/**
-	 * Returns subtype of the artifact
-	 * 
-	 * Must return one of the values: file, network, memory, pipe, unknown
-	 * 
-	 * @return file, network, memory, pipe, unknown
-	 */
 	public abstract String getSubtype();
 	
 	@Override
