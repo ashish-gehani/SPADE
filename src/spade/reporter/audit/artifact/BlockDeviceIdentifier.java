@@ -26,8 +26,8 @@ public class BlockDeviceIdentifier extends PathIdentifier{
 
 	private static final long serialVersionUID = -7858907199386379567L;
 
-	public BlockDeviceIdentifier(String path){
-		super(path);
+	public BlockDeviceIdentifier(String path, String rootFSPath){
+		super(path, rootFSPath);
 	}
 	
 	@Override

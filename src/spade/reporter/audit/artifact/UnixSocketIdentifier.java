@@ -26,8 +26,8 @@ public class UnixSocketIdentifier extends PathIdentifier{
 
 	private static final long serialVersionUID = 7736301923798421533L;
 
-	public UnixSocketIdentifier(String path){
-		super(path);
+	public UnixSocketIdentifier(String path, String rootFSPath){
+		super(path, rootFSPath);
 	}
 	
 	public String getSubtype(){

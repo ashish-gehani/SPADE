@@ -26,8 +26,8 @@ public class DirectoryIdentifier extends PathIdentifier{
 
 	private static final long serialVersionUID = 6683176723268354042L;
 
-	public DirectoryIdentifier(String path){
-		super(path);
+	public DirectoryIdentifier(String path, String rootFSPath){
+		super(path, rootFSPath);
 	}
 	
 	@Override

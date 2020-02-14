@@ -22,6 +22,8 @@ package spade.reporter.audit.process;
 import java.util.HashMap;
 import java.util.Map;
 
+import spade.reporter.audit.LinuxPathResolver;
+
 /**
  * Manages any state for the currently active processes
  * 
@@ -34,29 +36,41 @@ public abstract class ProcessStateManager{
 
 	private Map<String, ProcessState> processStates = new HashMap<String, ProcessState>();
 	
-	public String getCwd(String pid){
-		ProcessState state = _getProcessState(pid);
-		if(state.cwd == null){
-			return null;
-		}else{
-			String cwd = state.cwd.toString().trim();
-			if(cwd.isEmpty()){
-				return null;
-			}else{
-				return cwd;
-			}
-		}
+	public void chroot(String pid, String root){
+		ProcessFS fs = _getProcessState(pid).fs;
+		fs.root = root;
 	}
 	
-	public void setCwd(String pid, String cwd){
-		if(cwd != null && !cwd.trim().isEmpty()){
-			ProcessState state = _getProcessState(pid);
-			if(state.cwd == null){
-				state.cwd = new StringBuffer();
-			}
-			state.cwd.setLength(0);
-			state.cwd.append(cwd.trim());
-		}
+	public void absoluteChdir(String pid, String cwd){
+		ProcessFS processFs = _getProcessState(pid).fs;
+		processFs.cwd = cwd;
+		processFs.cwdRoot = processFs.root;
+	}
+	
+	// maintain the current cwd root
+	public void relativeChdir(String pid, String cwd){
+		ProcessFS processFs = _getProcessState(pid).fs;
+		processFs.cwd = cwd;
+	}
+	
+	public void fdChdir(String pid, String cwd, String cwdRoot){
+		ProcessFS processFs = _getProcessState(pid).fs;
+		processFs.cwd = cwd;
+		processFs.cwdRoot = cwdRoot;
+	}
+	
+	///////////////////////////////////////////////////////////////
+	
+	public String getCwd(String pid){
+		return _getProcessState(pid).fs.cwd;
+	}
+	
+	public String getCwdRoot(String pid){
+		return _getProcessState(pid).fs.cwdRoot;
+	}
+	
+	public String getRoot(String pid){
+		return _getProcessState(pid).fs.root;
 	}
 	
 	private void setMemoryTgid(String pid, String memoryTgid){
@@ -93,16 +107,15 @@ public abstract class ProcessStateManager{
 		toState.fds = new HashMap<String, FileDescriptor>(fromState.fds);
 	}
 	
-	private void copyCwd(String fromPid, String toPid){
+	private void copyFS(String fromPid, String toPid){
 		ProcessState fromState = _getProcessState(fromPid);
 		ProcessState toState = _getProcessState(toPid);
-		if(fromState.cwd != null){
-			if(toState.cwd == null){
-				toState.cwd = new StringBuffer();
-			}
-			toState.cwd.setLength(0);
-			toState.cwd.append(fromState.cwd);
-		}
+		
+		ProcessFS copy = new ProcessFS();
+		copy.root = fromState.fs.root;
+		copy.cwdRoot = fromState.fs.cwdRoot;
+		copy.cwd = fromState.fs.cwd;
+		toState.fs = copy;
 	}
 	
 	private void linkFds(String fromPid, String toPid){
@@ -111,27 +124,24 @@ public abstract class ProcessStateManager{
 		toState.fds = fromState.fds;
 	}
 	
-	private void linkCwd(String fromPid, String toPid){
+	private void linkFS(String fromPid, String toPid){
 		ProcessState fromState = _getProcessState(fromPid);
 		ProcessState toState = _getProcessState(toPid);
-		if(fromState.cwd == null){
-			fromState.cwd = new StringBuffer();
-		}
-		toState.cwd = fromState.cwd;
+		toState.fs = fromState.fs;
 	}
-	
+		
 	private void unlinkFds(String pid){
 		ProcessState state = _getProcessState(pid);
 		state.fds = new HashMap<String, FileDescriptor>(state.fds);
 	}
 	
-	private void unlinkCwd(String pid){
+	private void unlinkFS(String pid){
 		ProcessState state = _getProcessState(pid);
-		if(state.cwd != null){
-			String existingCwd = state.cwd.toString();
-			state.cwd = new StringBuffer();
-			state.cwd.append(existingCwd);
-		}
+		ProcessFS copy = new ProcessFS();
+		copy.root = state.fs.root;
+		copy.cwdRoot = state.fs.cwdRoot;
+		copy.cwd = state.fs.cwd;
+		state.fs = copy;
 	}
 		
 	private ProcessState _getProcessState(String pid){
@@ -152,14 +162,14 @@ public abstract class ProcessStateManager{
 	protected void processForked(String parentPid, String childPid){
 		// only fds copied
 		copyFds(parentPid, childPid);
-		copyCwd(parentPid, childPid);
+		copyFS(parentPid, childPid);
 	}
 	
 	protected void processVforked(String parentPid, String childPid){
 		// fds copied and memory shared (parent suspended)
 		setMemoryTgid(childPid, getMemoryTgid(parentPid));
 		copyFds(parentPid, childPid);
-		copyCwd(parentPid, childPid);
+		copyFS(parentPid, childPid);
 	}
 	
 	protected void processCloned(String parentPid, String childPid, 
@@ -174,17 +184,18 @@ public abstract class ProcessStateManager{
 			setMemoryTgid(childPid, getMemoryTgid(parentPid));
 		}
 		if(shareFS){
-			linkCwd(parentPid, childPid);
+			linkFS(parentPid, childPid);
 		}else{
-			copyCwd(parentPid, childPid);
+			copyFS(parentPid, childPid);
 		}
 	}
 	
-	protected void processExecved(String pid){
+	protected void processExecved(String pid, String cwd){
 		setMemoryTgid(pid, pid);
 		setFdTgid(pid, pid);
 		unlinkFds(pid);
-		unlinkCwd(pid);
+		unlinkFS(pid);
+		_getProcessState(pid).fs.cwd = cwd;
 	}
 	
 	protected void processExited(String pid){
@@ -200,9 +211,22 @@ class ProcessState{
 	String memoryTgid;
 	String fdTgid;
 	Map<String, FileDescriptor> fds = new HashMap<String, FileDescriptor>();
-	StringBuffer cwd;
+	ProcessFS fs = new ProcessFS();
 	ProcessState(String memoryTgid, String fdTgid){
 		this.memoryTgid = memoryTgid;
 		this.fdTgid = fdTgid;
 	}
+}
+
+class ProcessFS{
+	String root = LinuxPathResolver.FS_ROOT;
+	String cwdRoot = root;
+	
+	String cwd;
+
+	@Override
+	public String toString(){
+		return "ProcessFS [root=" + root + ", cwdRoot=" + cwdRoot + ", cwd=" + cwd + "]";
+	}
+	
 }

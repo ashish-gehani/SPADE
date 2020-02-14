@@ -37,6 +37,7 @@ import spade.core.Settings;
 import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.Audit;
 import spade.reporter.audit.AuditEventReader;
+import spade.reporter.audit.LinuxPathResolver;
 import spade.reporter.audit.OPMConstants;
 import spade.reporter.audit.SYSCALL;
 import spade.reporter.audit.artifact.ArtifactIdentifier;
@@ -446,8 +447,6 @@ public abstract class ProcessManager extends ProcessStateManager{
 		AgentIdentifier agentIdentifier = buildAgentIdentifierFromSyscall(eventData);
 		ProcessIdentifier processIdentifier = null;
 		ProcessUnitState state = getProcessUnitState(pid);
-		// Updates the cwd based on this syscall as a backup measure in case 'chdir' is missed ever
-		setCwd(pid, eventData.get(AuditEventReader.CWD));
 		if(state == null){
 			processIdentifier = buildProcessIdentifierFromSyscall(eventData);
 			putProcessVertex(time, eventId, processIdentifier, agentIdentifier, source);
@@ -487,7 +486,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		Process parentProcessVertex = handleProcessFromSyscall(eventData);
 
 		// look at code
-		processExecved(pid);
+		processExecved(pid, cwd);
 		
 		String commandLine = null;
 		String execveArgcString = eventData.get(AuditEventReader.EXECVE_ARGC);
@@ -928,6 +927,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 	}
 	
 	private Map<String, ArtifactIdentifier> getFileDescriptors(String pid){
+		final String rootFSPath = LinuxPathResolver.FS_ROOT;
 		try{
 			//LSOF args -> n = no DNS resolution, P = no port user-friendly naming, p = pid of process
 			Execute.Output output = Execute.getOutput("lsof -nPp " + pid);
@@ -957,7 +957,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 									inodefd0.remove(inode);
 								}
 							}else{ //named pipe
-								fds.put(fdString, new NamedPipeIdentifier(path));
+								fds.put(fdString, new NamedPipeIdentifier(path, rootFSPath));
 							}	    						
 						}else if("ipv4".equals(type) && stdOutLine.contains("(ESTABLISHED)")){
 							String protocol = String.valueOf(tokens[7]).toLowerCase();
@@ -983,16 +983,16 @@ public abstract class ProcessManager extends ProcessStateManager{
 							switch (type) {
 								case "unix": 
 									if(!"socket".equals(path)){ // abstract socket and don't know the name
-										identifier = new UnixSocketIdentifier(path);
+										identifier = new UnixSocketIdentifier(path, rootFSPath);
 									}else{
 										// identifying unnamed unix socket pairs how? TODO
 									}
 									break;
-								case "blk": identifier = new BlockDeviceIdentifier(path); break;
-								case "chr": identifier = new CharacterDeviceIdentifier(path); break;
-								case "dir": identifier = new DirectoryIdentifier(path); break;
-								case "link": identifier = new LinkIdentifier(path); break;
-								case "reg": identifier = new FileIdentifier(path); break;
+								case "blk": identifier = new BlockDeviceIdentifier(path, rootFSPath); break;
+								case "chr": identifier = new CharacterDeviceIdentifier(path, rootFSPath); break;
+								case "dir": identifier = new DirectoryIdentifier(path, rootFSPath); break;
+								case "link": identifier = new LinkIdentifier(path, rootFSPath); break;
+								case "reg": identifier = new FileIdentifier(path, rootFSPath); break;
 								default: break;
 							}
 							if(identifier != null){
