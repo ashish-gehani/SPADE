@@ -1,0 +1,22 @@
+#!/bin/bash
+
+BASE_DIR=`pwd`
+
+if [ -a quickstep/source ]; then
+  echo "Note: Quickstep repository already exists. Skipping the download stage."
+else
+  # Clone Quickstep repository and checkout the trace-dev branch.
+  git clone https://github.com/UWQuickstep/quickstep.git -b trace-dev --recursive quickstep/source
+
+  # Download third party libraries.
+  cd quickstep/source/third_party && ./download_and_patch_prerequisites.sh
+  
+  # Return to base directory.
+  cd $BASE_DIR
+fi
+
+# Build Quickstep.
+cd quickstep/source/build && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ .. && make -j8 quickstep_cli_shell
+
+# Copy out executable and clean up.
+cd $BASE_DIR && cp quickstep/source/build/quickstep_cli_shell quickstep/quickstep && rm -rf quickstep/source

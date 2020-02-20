@@ -1,0 +1,16 @@
+#!/bin/bash
+
+if [ "$#" -eq 0 ]; then
+  echo "Please specify Quickstep storage path. For example:"
+  echo "--------------------------------------------------------------------------------"
+  echo $0" /tmp/data"
+  echo "--------------------------------------------------------------------------------"
+  exit
+fi
+
+if [ ! -e $1 ]; then
+  echo "Initializing empty Quickstep storage directory ..."
+  quickstep/quickstep -initialize_db -storage_path=$1 <<< "" 1>/dev/null 2>/dev/null
+fi
+
+quickstep/quickstep -storage_path=$1 -mode=socket -display_timing=false 

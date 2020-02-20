@@ -1,0 +1,130 @@
+####
+# 1. Pandex Drakon
+##
+
+# Find the nodes that we are interested in.
+$start_ip = $base.getVertex(* like '%128.55.12.104%');
+$elevate_me = $base.getVertex(* like '%elevateme%');
+$exfil_ip = $base.getVertex(* like '%221.13.90.87%');
+
+# Find the paths from $elevate_me to $start_ip.
+$si2em = $base.getPath($elevate_me, $start_ip, 4);
+
+# Find the paths from $elevate_me to $exfil_ip.
+$em2ei = $base.getPath($elevate_me, $exfil_ip, 7);
+
+# There are too many nodes in $em2ei, so reduce its size by only selecting
+# nodes that are on the shortest path from $elevate_me to $start_ip.
+$em2ei_sp = $em2ei.getShortestPath($elevate_me, $exfil_ip, 7);
+
+# Combine the paths into the final graph.
+$graph = $base.getSubgraph($si2em + $em2ei_sp).collapseEdge('type');
+
+# List all existing graphs.
+list
+
+# Dump final graph data.
+dump $graph
+
+# Export final graph to a file in DOT format.
+export > '/tmp/PandexDrakon.dot'
+visualize $graph
+
+
+####
+# 2. Pandex Micro-Apt
+##
+
+# Find the nodes that we are interested in.
+$start_ip = $base.getVertex(* like '%204.15.83.121%');
+$file = $base.getVertex(* like '%/home/steve/nexus%');
+$c2 = $base.getVertex(* like '%215.25.80.123%');
+$shell = $base.getVertex(* like '%212.36.52.109%');
+$netrecon = $base.getVertex(* like '%netrecon_to_udp%');
+$br = $base.getVertex(* like '%255.255.255.255%');
+$passwd = $base.getVertex(* like '%passwd_to_udp%');
+
+# Find the paths from $file to $c2, and the paths from $file to $shell.
+$file2c2 = $base.getPath($file, $c2, 10);
+$file2shell = $base.getPath($file, $shell, 10);
+
+# Get $start_ip's ancestor lineage of depth 3.
+$start_ip_ancestor = $base.getLineage($start_ip, 3, 'ancestor');
+
+# Get $file's ancestor lineage of depth 3.
+# Note that we are only interested in the file nodes which also have paths to $c2 and $shell.
+$file_ancestor = $base.getLineage($file & $file2c2 & $file2shell, 3, 'a');
+
+# Intersect $start_ip's ancestors and $file's ancestors to get their common ancestors.
+$start_firefox = $start_ip_ancestor & $file_ancestor;
+
+# Get the paths from $start_firefox to $file and $start_ip.
+$firefox2ip = $base.getPath($start_firefox, $start_ip, 3);
+$firefox2file = $base.getPath($start_firefox, $file, 3);
+
+# We are only interested in those $start_ip/$file nodes where there are paths
+# from $start_firefox to them.
+$start_ip &= $firefox2ip;
+$file &= $firefox2file;
+
+# Find the paths from $file to $c2 / $shell / $netrecon.
+$file2c2 = $base.getPath($file, $c2, 4);
+$file2shell = $base.getPath($file, $shell, 4);
+$file2netrecon = $base.getPath($file, $netrecon, 5);
+
+# We are only interested in those $netrecon nodes where there paths from $file to them.
+$netrecon &= $file2netrecon;
+
+# Find the paths from $br to $netrecon.
+$br2netrecon = $base.getPath($br, $netrecon, 8);
+
+# Find the paths from $file to $passwd. 
+$file2passwd = $base.getPath($file, $passwd, 7);
+
+# Combine the paths into the final graph.
+$graph = $firefox2ip + $firefox2file + $file2c2 + $file2shell + $file2netrecon + $br2netrecon + $file2passwd;
+$graph = $graph.collapseEdge('type');
+
+# List all existing graphs.
+list
+
+# Dump final graph data.
+dump $graph
+
+# Export final graph to a file in DOT format.
+export > '/tmp/PandexMicroApt.dot'
+visualize $graph
+
+
+####
+# 3. Pandex Drakon with Netrecon
+##
+
+# Find the nodes that we are interested in.
+$start_ip = $base.getVertex(* like '%205.171.191.45%');
+$elevate_me = $base.getVertex(* like '%elevateme%');
+$exfil_ip = $base.getVertex(* like '%212.36.52.109%');
+$c2 = $base.getVertex(* like '%204.117.191.145%'); # No data
+$darpa = $base.getVertex(* like '%/home/darpa/py%');
+
+# Find the paths from $elevate_me to $start_ip.
+$em2si = $base.getPath($elevate_me, $start_ip, 6);
+
+# Find the paths from $exfil_ip to $darpa.
+$ei2darpa = $base.getPath($exfil_ip, $darpa, 5);
+
+# Find the paths between the two subgraphs.
+$path = $base.getPath($ei2darpa, $em2si, 2);
+
+# Combine the paths into the final graph.
+$graph = $base.getSubgraph($em2si + $ei2darpa + $path).collapseEdge('type');
+
+# List all existing graphs.
+list
+
+# Dump final graph data.
+dump $graph
+
+# Export the graph.
+export > '/tmp/PandexDrakonNetrecon.dot'
+visualize $graph
