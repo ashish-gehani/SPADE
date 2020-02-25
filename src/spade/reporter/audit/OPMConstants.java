@@ -76,6 +76,7 @@ public class OPMConstants {
 			PROCESS_SEEN_TIME = "seen time",
 			PROCESS_START_TIME = "start time",
 			PROCESS_UNIT = "unit",
+			PROCESS_MOUNT_NAMESPACE = "mount namespace",
 			
 			// Artifact specific annotations
 			ARTIFACT_REMOTE_ADDRESS = "remote address",

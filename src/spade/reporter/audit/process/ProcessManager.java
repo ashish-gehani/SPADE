@@ -67,7 +67,8 @@ public abstract class ProcessManager extends ProcessStateManager{
 	//  AND  
 	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/signal.h
 	public static final Map<String, Integer> cloneFlags = new HashMap<String, Integer>();
-	public static final int SIGCHLD, CLONE_VFORK, CLONE_VM, CLONE_FILES, CLONE_THREAD, CLONE_FS;
+	public static final int SIGCHLD, CLONE_VFORK, CLONE_VM, CLONE_FILES, CLONE_THREAD, CLONE_FS,
+		CLONE_NEWNS;
 
 	static{
 		cloneFlags.put("CLONE_CHILD_CLEARTID", 0x00200000);
@@ -75,6 +76,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		cloneFlags.put("CLONE_FILES", 0x00000400);
 		cloneFlags.put("CLONE_FS", 0x00000200);
 		cloneFlags.put("CLONE_IO", 0x80000000);
+		cloneFlags.put("CLONE_NEWUSER", 0x10000000);
 		cloneFlags.put("CLONE_NEWIPC", 0x08000000);
 		cloneFlags.put("CLONE_NEWNET", 0x40000000);
 		cloneFlags.put("CLONE_NEWNS", 0x00020000);
@@ -98,6 +100,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		CLONE_FILES = cloneFlags.get("CLONE_FILES");
 		CLONE_THREAD = cloneFlags.get("CLONE_THREAD");
 		CLONE_FS = cloneFlags.get("CLONE_FS");
+		CLONE_NEWNS = cloneFlags.get("CLONE_NEWNS");
 	}
 	
 	private Audit reporter;
@@ -386,7 +389,8 @@ public abstract class ProcessManager extends ProcessStateManager{
 	protected ProcessIdentifier buildProcessIdentifierFromSyscall(Map<String, String> eventData){
 		return new ProcessIdentifier(eventData.get(AuditEventReader.PID), eventData.get(AuditEventReader.PPID), 
 				eventData.get(AuditEventReader.COMM), eventData.get(AuditEventReader.CWD), null, null, 
-				eventData.get(AuditEventReader.TIME), getUnitId(), OPMConstants.SOURCE_AUDIT_SYSCALL);
+				eventData.get(AuditEventReader.TIME), getUnitId(), OPMConstants.SOURCE_AUDIT_SYSCALL,
+				getMountNamespace(eventData.get(AuditEventReader.PID)));
 	}
 	
 	/**
@@ -502,7 +506,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 
 		AgentIdentifier agentIdentifier = buildAgentIdentifierFromSyscall(eventData);
 		ProcessIdentifier childProcessIdentifier = new ProcessIdentifier(pid, ppid, comm, cwd, commandLine, time, 
-				null, getUnitId(), source);
+				null, getUnitId(), source, getMountNamespace(pid));
 		
 		Process childProcessVertex = putProcessVertex(time, eventId, childProcessIdentifier, agentIdentifier, source);
 		
@@ -549,11 +553,6 @@ public abstract class ProcessManager extends ProcessStateManager{
 		
 		cwd = cwd == null ? parentProcessIdentifier.cwd : cwd;
 		comm = comm == null ? parentProcessIdentifier.name : comm;
-		
-		ProcessIdentifier childProcessIdentifier = new ProcessIdentifier(childPid, parentPid, comm, cwd, 
-				parentProcessIdentifier.commandLine, time, null, getUnitId(), source);
-		
-		Process childVertex = putProcessVertex(time, eventId, childProcessIdentifier, agentIdentifier, source);
 
 		if(syscall == SYSCALL.CLONE){
 			// Source: http://www.makelinux.net/books/lkd2/ch03lev1sec3
@@ -565,18 +564,20 @@ public abstract class ProcessManager extends ProcessStateManager{
 			}
 		}
 		
+		boolean newMnt = (flags & CLONE_NEWNS) == CLONE_NEWNS;
+		
 		boolean handle = true;
 		String flagsAnnotation = "";
 		
 		if(syscall == SYSCALL.FORK){
-			processForked(parentPid, childPid);
+			processForked(parentPid, childPid, newMnt);
 		}else if(syscall == SYSCALL.VFORK){
-			processVforked(parentPid, childPid);
+			processVforked(parentPid, childPid, newMnt);
 		}else if(syscall == SYSCALL.CLONE){
 			boolean shareMemory = (flags & CLONE_VM) == CLONE_VM;
 			boolean linkFds = (flags & CLONE_FILES) == CLONE_FILES;
 			boolean shareFS = (flags & CLONE_FS) == CLONE_FS;
-			processCloned(parentPid, childPid, linkFds, shareMemory, shareFS);
+			processCloned(parentPid, childPid, linkFds, shareMemory, shareFS, newMnt);
 			
 			boolean isThread = (flags & CLONE_THREAD) == CLONE_THREAD;
 			if(isThread){
@@ -595,6 +596,11 @@ public abstract class ProcessManager extends ProcessStateManager{
 		}
 		
 		if(handle){
+			ProcessIdentifier childProcessIdentifier = new ProcessIdentifier(childPid, parentPid, comm, cwd, 
+					parentProcessIdentifier.commandLine, time, null, getUnitId(), source, getMountNamespace(childPid));
+			
+			Process childVertex = putProcessVertex(time, eventId, childProcessIdentifier, agentIdentifier, source);
+			
 			WasTriggeredBy edge = new WasTriggeredBy(childVertex, parentVertex);
 			for(Map.Entry<String, Integer> cloneFlag : cloneFlags.entrySet()){
 				String cloneFlagName = cloneFlag.getKey();
@@ -1072,7 +1078,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 				commandLine = (commandLine == null) ? "" : commandLine.replace("\0", " ").replace("\"", "'").trim();
 
 				ProcessIdentifier process = new ProcessIdentifier(pid, ppidString, name, cwd, commandLine, startTime, 
-						null, getUnitId(), source);
+						null, getUnitId(), source, String.valueOf(ProcessStateManager.defaultMntId));
 
 				AgentIdentifier agent = null;
 				if(simplify){

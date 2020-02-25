@@ -33,8 +33,19 @@ import spade.reporter.audit.LinuxPathResolver;
  * 
  */
 public abstract class ProcessStateManager{
-
+	
+	public static final int defaultMntId = -1;
+	
 	private Map<String, ProcessState> processStates = new HashMap<String, ProcessState>();
+	
+	public void pivot_root(String pid, String root, String cwd){
+		int mntId = _getProcessState(pid).mntId;
+		for(ProcessState processState : processStates.values()){
+			if(processState.mntId == mntId){
+				processState.fs.root = root;
+			}
+		}
+	}
 	
 	public void chroot(String pid, String root){
 		ProcessFS fs = _getProcessState(pid).fs;
@@ -60,6 +71,10 @@ public abstract class ProcessStateManager{
 	}
 	
 	///////////////////////////////////////////////////////////////
+	
+	public String getMountNamespace(String pid){
+		return String.valueOf(_getProcessState(pid).mntId);
+	}
 	
 	public String getCwd(String pid){
 		return _getProcessState(pid).fs.cwd;
@@ -118,6 +133,10 @@ public abstract class ProcessStateManager{
 		toState.fs = copy;
 	}
 	
+	private void copyMnt(String fromPid, String toPid){
+		_getProcessState(toPid).mntId = _getProcessState(fromPid).mntId;
+	}
+	
 	private void linkFds(String fromPid, String toPid){
 		ProcessState fromState = _getProcessState(fromPid);
 		ProcessState toState = _getProcessState(toPid);
@@ -159,21 +178,26 @@ public abstract class ProcessStateManager{
 	
 	////////
 	
-	protected void processForked(String parentPid, String childPid){
+	protected void processForked(String parentPid, String childPid, boolean newMnt){
 		// only fds copied
 		copyFds(parentPid, childPid);
 		copyFS(parentPid, childPid);
+		copyMnt(parentPid, childPid);
+		if(newMnt){ _getProcessState(childPid).mntId++; }
 	}
 	
-	protected void processVforked(String parentPid, String childPid){
+	protected void processVforked(String parentPid, String childPid, boolean newMnt){
 		// fds copied and memory shared (parent suspended)
 		setMemoryTgid(childPid, getMemoryTgid(parentPid));
 		copyFds(parentPid, childPid);
 		copyFS(parentPid, childPid);
+		copyMnt(parentPid, childPid);
+		if(newMnt){ _getProcessState(childPid).mntId++; }
 	}
 	
 	protected void processCloned(String parentPid, String childPid, 
-			boolean linkFds, boolean shareMemory, boolean shareFS){
+			boolean linkFds, boolean shareMemory, boolean shareFS,
+			boolean newMnt){
 		if(linkFds){
 			setFdTgid(childPid, getFdTgid(parentPid));
 			linkFds(parentPid, childPid);
@@ -188,6 +212,8 @@ public abstract class ProcessStateManager{
 		}else{
 			copyFS(parentPid, childPid);
 		}
+		copyMnt(parentPid, childPid);
+		if(newMnt){ _getProcessState(childPid).mntId++; }
 	}
 	
 	protected void processExecved(String pid, String cwd){
@@ -208,6 +234,8 @@ public abstract class ProcessStateManager{
 }
 
 class ProcessState{
+	int mntId = ProcessStateManager.defaultMntId;
+	
 	String memoryTgid;
 	String fdTgid;
 	Map<String, FileDescriptor> fds = new HashMap<String, FileDescriptor>();

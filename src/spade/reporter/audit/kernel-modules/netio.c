@@ -17,16 +17,20 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-#include <linux/unistd.h>  // __NR_<system-call-name>
-#include <linux/file.h>
-#include <linux/net.h>
-#include <linux/audit.h>
+
 #include <asm/paravirt.h> // write_cr0
-#include <linux/uaccess.h>  // copy_from_user
+#include <linux/audit.h>
+#include <linux/file.h>
 #include <linux/kallsyms.h>
+#include <linux/mnt_namespace.h>
+#include <linux/net.h>
+#include <linux/ns_common.h>
+#include <linux/nsproxy.h>
+#include <linux/proc_ns.h>
+#include <linux/uaccess.h>  // copy_from_user
+#include <linux/unistd.h>  // __NR_<system-call-name>
 #include <linux/version.h>
 
-#include "globals.h"
 
 #define UENTRY		0xffffff9c // -100
 #define UENTRY_ID	0xffffff9a // -102
@@ -47,6 +51,8 @@
  */
 static volatile int stop = 1;
 static volatile int usingKey = 0;
+
+static struct proc_ns_operations *struct_mntns_operations;
 
 static unsigned long syscall_table_address = 0;
 
@@ -69,6 +75,7 @@ asmlinkage long (*original_recvmmsg)(int, struct mmsghdr*, unsigned int, unsigne
 asmlinkage long (*original_delete_module)(const char *name, int flags);
 asmlinkage long (*original_tkill)(int tid, int sig);
 asmlinkage long (*original_tgkill)(int tgid, int tid, int sig);
+asmlinkage long (*original_clone)(unsigned long flags, void *child_stack, int *ptid, int *ctid, unsigned long newtls);
 
 static int is_sockaddr_size_valid(uint32_t size);
 static void to_hex(unsigned char *dst, uint32_t dst_len, unsigned char *src, uint32_t src_len);
@@ -88,6 +95,11 @@ static void netio_logging_stop(char* caller_build_hash);
 static int get_tgid(int);
 static int special_str_equal(const char* hay, const char* constantModuleName);
 static int get_hex_saddr_from_fd_getname(char* result, int max_result_size, int *fd_sock_type, int sock_fd, int peer);
+
+static long get_ns_inum(struct task_struct *struct_task_struct, const struct proc_ns_operations *proc_ns_operations);
+static void log_namespace_audit_msg(const long pid, const long inum_mnt, const long inum_net, const long inum_pid, const long inum_usr);
+static void log_namespaces_task(struct task_struct *struct_task_struct);
+static void log_namespaces_pid(const long pid);
 
 static int special_str_equal(const char* hay, const char* constantModuleName){
 	int hayLength = strlen(hay);
@@ -318,6 +330,75 @@ static void log_to_audit(int syscallNumber, int fd, struct sockaddr_storage* add
 				hex_task_command, fd_sock_type, hex_fd_addr, hex_addr, addr_size);
 		}
 	}
+}
+
+static long get_ns_inum(struct task_struct *struct_task_struct,
+		const struct proc_ns_operations *proc_ns_operations){
+	long inum;
+	struct ns_common *struct_ns_common;
+	inum = -1;
+	if(struct_task_struct != NULL && proc_ns_operations != NULL){
+		struct_ns_common = proc_ns_operations->get(struct_task_struct);
+		if(struct_ns_common != NULL){
+			inum = struct_ns_common->inum;
+			proc_ns_operations->put(struct_ns_common);
+		}
+	}
+	return inum;
+}
+
+static void log_namespaces_pid(const long pid){
+	struct pid *struct_pid;
+	struct task_struct *struct_task_struct;
+
+	struct_pid = NULL;
+	struct_task_struct = NULL;
+
+	rcu_read_lock();
+	struct_pid = find_vpid(pid); // TODO
+	if(struct_pid != NULL){
+		struct_task_struct = pid_task(struct_pid, PIDTYPE_PID);
+		if(struct_task_struct != NULL){
+			// ns specific
+			log_namespaces_task(struct_task_struct);
+		}
+	}
+	rcu_read_unlock();
+}
+
+static void log_namespaces_task(struct task_struct *struct_task_struct){
+	long inum_mnt;
+
+	inum_mnt = -1;
+
+	rcu_read_lock();
+	// ns specific
+	inum_mnt = get_ns_inum(struct_task_struct, struct_mntns_operations);
+	rcu_read_unlock();
+
+	log_namespace_audit_msg(struct_task_struct->pid, inum_mnt, -1, -1, -1);
+}
+
+static void log_namespace_audit_msg(const long pid,
+		const long inum_mnt, const long inum_net, const long inum_pid, const long inum_usr){
+	audit_log(current->audit_context,
+					GFP_KERNEL, AUDIT_USER,
+					"subtype=namespaces pid=%ld inum_mnt=%ld inum_net=%ld inum_pid=%ld inum_usr=%ld",
+					pid,
+					inum_mnt, inum_net, inum_pid, inum_usr);
+}
+
+asmlinkage long new_clone(unsigned long flags, void *child_stack, int *ptid, int *ctid, unsigned long newtls){
+	long childPid = original_clone(flags, child_stack, ptid, ctid, newtls);
+	if(stop == 0){
+		int success;
+		success = childPid == -1 ? 0 : 1;
+		if(log_syscall((int)(current->pid), (int)(current->real_parent->pid),
+								(int)(current->real_cred->uid.val), success) > 0){
+			log_namespaces_pid(childPid);
+		}
+	}
+	return childPid;
 }
 
 asmlinkage long new_bind(int fd, const struct sockaddr __user *addr, uint32_t addr_size){
@@ -703,17 +784,36 @@ asmlinkage long new_delete_module(const char* name, int flags){
 			}
 		}
 	}else{
-		return original_delete_module(name, flags);	
+		return original_delete_module(name, flags);
 	}
 }
 
 static int __init onload(void) {
-	int success = -1;
+	int success;
+	unsigned long mntns_operations_address;
+
+	success = -1;
+	mntns_operations_address = 0;
+	struct_mntns_operations = NULL;
+
+	mntns_operations_address = kallsyms_lookup_name("mntns_operations");
+	if(mntns_operations_address != 0){
+		struct_mntns_operations = (struct proc_ns_operations*)mntns_operations_address;
+//		printk(KERN_EMERG "mnt_operations address = %lx\n", mntns_operations_address);
+	}
+
+	if(struct_mntns_operations == NULL){
+		printk(KERN_EMERG "[%s] mount namespace inaccessible\n", MAIN_MODULE_NAME);
+		return success;
+	}
+
 	syscall_table_address = kallsyms_lookup_name("sys_call_table");
 	//printk(KERN_EMERG "sys_call_table address = %lx\n", syscall_table_address);
 	if(syscall_table_address != 0){
 		unsigned long* syscall_table = (unsigned long*)syscall_table_address;
 		write_cr0 (read_cr0 () & (~ 0x10000));
+		original_clone = (void *)syscall_table[__NR_clone];
+		syscall_table[__NR_clone] = (unsigned long)&new_clone;
 		original_bind = (void *)syscall_table[__NR_bind];
 		syscall_table[__NR_bind] = (unsigned long)&new_bind;
 		original_connect = (void *)syscall_table[__NR_connect];
@@ -762,6 +862,7 @@ static void __exit onunload(void) {
     if (syscall_table_address != 0) {
 		unsigned long* syscall_table = (unsigned long*)syscall_table_address;
         write_cr0 (read_cr0 () & (~ 0x10000));
+        syscall_table[__NR_clone] = (unsigned long)original_clone;
 		syscall_table[__NR_bind] = (unsigned long)original_bind;
 		syscall_table[__NR_connect] = (unsigned long)original_connect;
 		syscall_table[__NR_accept] = (unsigned long)original_accept;

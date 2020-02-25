@@ -262,6 +262,8 @@ public class Audit extends AbstractReporter {
 	private boolean HANDLE_CHDIR = false;
 	private final String HANDLE_CHROOT_KEY = "chroot";
 	private boolean HANDLE_CHROOT = false;
+	private final String HANDLE_MOUNT_NS_KEY = "mountNamespace";
+	private boolean HANDLE_MOUNT_NS = false;
 	
 	private String deleteModuleBinaryPath = null;
 	/********************** BEHAVIOR FLAGS - END *************************/
@@ -633,6 +635,25 @@ public class Audit extends AbstractReporter {
 			}
 		}
 		
+		argValue = args.get(HANDLE_MOUNT_NS_KEY);
+		if(isValidBoolean(argValue)){
+			HANDLE_MOUNT_NS = parseBoolean(argValue, HANDLE_MOUNT_NS);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_MOUNT_NS_KEY+"': " + argValue);
+			return false;
+		}
+		
+		if(HANDLE_MOUNT_NS){
+			if(!HANDLE_CHROOT){
+				logger.log(Level.INFO, "'"+HANDLE_CHROOT_KEY+"' set to 'true' because '"+HANDLE_MOUNT_NS_KEY+"'='true'");
+				HANDLE_CHROOT = true;
+			}
+			if(!HANDLE_CHDIR){
+				logger.log(Level.INFO, "'"+HANDLE_CHDIR_KEY+"' set to 'true' because '"+HANDLE_MOUNT_NS_KEY+"'='true'");
+				HANDLE_CHDIR = true;
+			}
+		}
+		
 		if((ADD_KM && NETFILTER_RULES) // both can't be true
 				|| ((HANDLE_KM_RECORDS != null && HANDLE_KM_RECORDS) && REFINE_NET)){ // both can't be true
 			logger.log(Level.SEVERE, "Incompatible flags value (Can only handle data from either module or iptables): "
@@ -647,14 +668,16 @@ public class Audit extends AbstractReporter {
 			}else{
 				// Logging only relevant flags now for debugging
 				logger.log(Level.INFO, "Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
-                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}, {26}={27}, {28}={29}",
+                           + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}, {26}={27}, {28}={29}, "
+                           + "{30}={31}",
 						new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, 
 								"units", CREATE_BEEP_UNITS, "waitForLog", WAIT_FOR_LOG_END, "netfilter", NETFILTER_RULES, 
 								"refineNet", REFINE_NET, ADD_KM_KEY, ADD_KM, 
 								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS, "failfast", FAIL_FAST,
 								mergeUnitKey, mergeUnit, HARDEN_KEY, HARDEN, REPORT_KILL_KEY, REPORT_KILL,
 								HANDLE_CHDIR_KEY, HANDLE_CHDIR,
-								HANDLE_CHROOT_KEY, HANDLE_CHROOT});
+								HANDLE_CHROOT_KEY, HANDLE_CHROOT,
+								HANDLE_MOUNT_NS_KEY, HANDLE_MOUNT_NS});
 				logger.log(Level.INFO, globals.toString());
 				return true;
 			}
@@ -1765,6 +1788,9 @@ public class Audit extends AbstractReporter {
 					if(HANDLE_CHROOT){
 						auditRuleWithSuccess += "-S chroot ";
 					}
+					if(HANDLE_MOUNT_NS){
+						auditRuleWithSuccess += "-S pivot_root ";
+					}
 					
 					auditRuleWithSuccess += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
 
@@ -2248,6 +2274,11 @@ public class Audit extends AbstractReporter {
 			}
 
 			switch (syscall) {
+			case PIVOT_ROOT:
+				if(HANDLE_MOUNT_NS){
+					handlePivotRoot(eventData, syscall);
+				}
+				break;
 			case CHROOT:
 				if(HANDLE_CHROOT){
 					handleChroot(eventData, syscall);
@@ -2508,6 +2539,35 @@ public class Audit extends AbstractReporter {
 		}
 	}
 	
+	private void handlePivotRoot(Map<String, String> eventData, SYSCALL syscall){
+		// pivot_root() receives the following messages(s):
+		// - SYSCALL
+		// - PATH with NORMAL nametype
+		// - CWD - different in different cases. Not handling those for now.
+		// - EOE
+		
+		String time = eventData.get(AuditEventReader.TIME);
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		String pid = eventData.get(AuditEventReader.PID);
+		String processCwd = processManager.getCwd(pid); // never null
+		
+		final PathRecord pathRecord = PathRecord.getFirstPathWithNametype(eventData, 
+				AuditEventReader.NAMETYPE_NORMAL);
+		
+		if(pathRecord == null){
+			log(Level.WARNING, "Missing PATH record", null, time, eventId, syscall);
+		}else{
+			String path = pathRecord.getPath();
+			String newRoot = LinuxPathResolver.constructAbsolutePath(path, processCwd, pid);
+			newRoot = LinuxPathResolver.joinPaths(newRoot, processManager.getRoot(pid), pid);
+			if(newRoot == null){
+				log(Level.WARNING, "Failed to construct path", null, time, eventId, syscall);
+			}else{
+				processManager.pivot_root(pid, newRoot, null);
+			}
+		}
+	}
+	
 	private void handleChroot(Map<String, String> eventData, SYSCALL syscall){
 		// chroot() receives the following messages(s):
 		// - SYSCALL
@@ -2528,6 +2588,7 @@ public class Audit extends AbstractReporter {
 		}else{
 			String path = pathRecord.getPath();
 			String newRoot = LinuxPathResolver.constructAbsolutePath(path, processCwd, pid);
+			newRoot = LinuxPathResolver.joinPaths(newRoot, processManager.getRoot(pid), pid);
 			if(newRoot == null){
 				log(Level.WARNING, "Failed to construct path", null, time, eventId, syscall);
 			}else{

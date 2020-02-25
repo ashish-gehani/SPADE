@@ -54,6 +54,7 @@ public enum SYSCALL{
 	MADVISE,
 	CHDIR, FCHDIR,
 	CHROOT,
+	PIVOT_ROOT,
 	UNSUPPORTED; // Used for system calls not in this enum (not an actual system call)
 	
 	public static SYSCALL get64BitSyscall(int syscallNum){
@@ -62,6 +63,7 @@ public enum SYSCALL{
 		
 		// source : https://github.com/bnoordhuis/strace/blob/master/linux/x86_64/syscallent.h
 		switch(syscallNum){
+			case 155:	return PIVOT_ROOT;
 			case 161:	return CHROOT;
 			case 80:	return CHDIR;
 			case 81:	return FCHDIR;
