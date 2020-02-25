@@ -17,30 +17,35 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.quickgrail.entities;
+package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
- * This class is not yet used in the SPADE integrated QuickGrail.
+ * Get end points of all edges in a graph.
  */
-public class GraphMetadata extends Entity{
-	public final String name;
+public class GetEdgeEndpoint extends Instruction{
+	public static enum Component{ kSource, kDestination, kBoth }
 
-	public GraphMetadata(String name){
-		this.name = name;
-	}
+	// Output graph.
+	public final Graph targetGraph;
+	// Input graph.
+	public final Graph subjectGraph;
+	// End-point component (source / destination, or both)
+	public final Component component;
 
-	@Override
-	public EntityType getEntityType(){
-		return EntityType.kGraphMetadata;
+	public GetEdgeEndpoint(Graph targetGraph, Graph subjectGraph, Component component){
+		this.targetGraph = targetGraph;
+		this.subjectGraph = subjectGraph;
+		this.component = component;
 	}
 
 	@Override
 	public String getLabel(){
-		return "GraphMetadata";
+		return "GetEdgeEndpoint";
 	}
 
 	@Override
@@ -48,7 +53,12 @@ public class GraphMetadata extends Entity{
 			ArrayList<String> non_container_child_field_names,
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("name");
-		inline_field_values.add(name);
+		inline_field_names.add("targetGraph");
+		inline_field_values.add(targetGraph.name);
+		inline_field_names.add("subjectGraph");
+		inline_field_values.add(subjectGraph.name);
+		inline_field_names.add("component");
+		inline_field_values.add(component.name().substring(1));
 	}
+
 }

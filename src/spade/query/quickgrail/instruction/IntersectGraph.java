@@ -17,30 +17,32 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.quickgrail.entities;
+package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+/**
+ * Intersect two graphs (i.e. find common vertices and edges).
+ */
+import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
-/**
- * This class is not yet used in the SPADE integrated QuickGrail.
- */
-public class GraphMetadata extends Entity{
-	public final String name;
+public class IntersectGraph extends Instruction{
+	// Output graph.
+	public final Graph outputGraph;
+	// Input graphs.
+	public final Graph lhsGraph;
+	public final Graph rhsGraph;
 
-	public GraphMetadata(String name){
-		this.name = name;
-	}
-
-	@Override
-	public EntityType getEntityType(){
-		return EntityType.kGraphMetadata;
+	public IntersectGraph(Graph outputGraph, Graph lhsGraph, Graph rhsGraph){
+		this.outputGraph = outputGraph;
+		this.lhsGraph = lhsGraph;
+		this.rhsGraph = rhsGraph;
 	}
 
 	@Override
 	public String getLabel(){
-		return "GraphMetadata";
+		return "IntersectGraph";
 	}
 
 	@Override
@@ -48,7 +50,11 @@ public class GraphMetadata extends Entity{
 			ArrayList<String> non_container_child_field_names,
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("name");
-		inline_field_values.add(name);
+		inline_field_names.add("outputGraph");
+		inline_field_values.add(outputGraph.name);
+		inline_field_names.add("lhsGraph");
+		inline_field_values.add(lhsGraph.name);
+		inline_field_names.add("rhsGraph");
+		inline_field_values.add(rhsGraph.name);
 	}
 }

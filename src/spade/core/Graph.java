@@ -619,6 +619,7 @@ public class Graph extends AbstractStorage implements Serializable
             String shape = "box";
             String color = "white";
             String type = vertex.getAnnotation("type");
+            logger.log(Level.SEVERE, "hassaan4:" + vertexString);
             if (type.equalsIgnoreCase("Agent"))
             {
                 shape = "octagon";

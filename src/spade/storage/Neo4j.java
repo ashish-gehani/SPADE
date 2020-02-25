@@ -19,16 +19,23 @@
  */
 package spade.storage;
 
+import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.FILE_SEPARATOR;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -36,9 +43,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.LinkedList;
-import java.util.Calendar;
-import java.util.Date;
 
 import org.apache.commons.codec.digest.DigestUtils;
 import org.neo4j.graphalgo.GraphAlgoFactory;
@@ -48,6 +52,7 @@ import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Path;
+import org.neo4j.graphdb.PathExpanders;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
@@ -61,20 +66,19 @@ import org.neo4j.graphdb.index.IndexHits;
 import org.neo4j.graphdb.index.IndexManager;
 import org.neo4j.graphdb.index.RelationshipIndex;
 import org.neo4j.helpers.collection.Iterators;
-import org.neo4j.graphdb.PathExpanders;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
+import spade.core.BloomFilter;
 import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.core.Vertex;
-import spade.core.BloomFilter;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
+import spade.storage.neo4j.Neo4jInstructionExecutor;
+import spade.storage.neo4j.Neo4jQueryEnvironment;
 import spade.utility.CommonFunctions;
-
-import static spade.core.Kernel.CONFIG_PATH;
-import static spade.core.Kernel.FILE_SEPARATOR;
 
 /**
  * Neo4j storage implementation.
@@ -83,7 +87,11 @@ import static spade.core.Kernel.FILE_SEPARATOR;
  */
 public class Neo4j extends AbstractStorage
 {
-
+	private final static Object staticLockObject = new Object();
+	private static Neo4jInstructionExecutor queryInstructionExecutor = null;
+	private static Neo4jQueryEnvironment queryEnvironment = null;
+	private final String edgeSymbolsPropertyKey = "spade_edge_symbols";
+	
     // Identifying annotation to add to each edge/vertex
     private static final String ID_STRING = "id";
     private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
@@ -215,6 +223,9 @@ public class Neo4j extends AbstractStorage
             reportProgressDate = Calendar.getInstance().getTime();
             lastFlushTime = Calendar.getInstance().getTime();
 
+            // Initialize the query surface
+            getQueryInstructionExecutor();
+            
             return true;
         }
         catch (Exception exception)
@@ -224,6 +235,20 @@ public class Neo4j extends AbstractStorage
         }
     }
 
+    @Override
+    public QueryInstructionExecutor getQueryInstructionExecutor(){
+    	synchronized(staticLockObject){
+			if(queryEnvironment == null){
+				queryEnvironment = new Neo4jQueryEnvironment(this, 
+						NodeTypes.VERTEX.name().toUpperCase(), edgeSymbolsPropertyKey);
+			}
+			if(queryInstructionExecutor == null){
+				queryInstructionExecutor = new Neo4jInstructionExecutor(this, queryEnvironment);
+			}
+		}
+    	return queryInstructionExecutor; 
+    }
+    
     private BloomFilter loadBloomFilter(String fileName) {
 
     	try {
@@ -819,6 +844,7 @@ public class Neo4j extends AbstractStorage
     @Override
     public Object executeQuery(String query)
     {
+    	logger.log(Level.SEVERE, "Query request= " + query);
         try ( Transaction tx = graphDb.beginTx() )
         {
             Result result = null;
@@ -836,6 +862,118 @@ public class Neo4j extends AbstractStorage
                 tx.success();
             }
             return result;
+        }
+    }
+    
+    public Map<String, AbstractVertex> readHashToVertexMap(String vertexAliasInQuery, String query){
+    	Map<String, AbstractVertex> hashToVertex = new HashMap<String, AbstractVertex>();
+		try(Transaction tx = graphDb.beginTx()){
+			globalTxCheckin();
+			try{
+				Result result = (Result)executeQuery(query);
+		    	Iterator<Node> nodes = result.columnAs(vertexAliasInQuery);
+		    	while(nodes.hasNext()){
+		    		Node node = nodes.next();
+		    		String hashAnnotationValue = null;
+		    		Map<String, String> annotations = new HashMap<String, String>();
+		    		for(String key : node.getPropertyKeys()){
+		    			if(!CommonFunctions.isNullOrEmpty(key)){
+		    				String annotationValueString = null;
+		    				Object annotationValueObject = node.getProperty(key);
+		    				if(annotationValueObject == null){
+		    					annotationValueString = "";
+		    				}else{
+		    					annotationValueString = annotationValueObject.toString();
+		    				}
+		    				if(PRIMARY_KEY.equals(key)){
+		    					hashAnnotationValue = annotationValueString;
+		    				}else{
+		    					annotations.put(key, annotationValueString);
+		    				}
+		    			}
+		    		}
+		    		Vertex vertex = new Vertex();
+		    		vertex.addAnnotations(annotations);
+		    		hashToVertex.put(hashAnnotationValue, vertex);
+				}
+		    	return hashToVertex;
+			}catch(QueryExecutionException ex){
+				logger.log(Level.SEVERE, "Neo4j Cypher query execution not successful!", ex);
+			}finally{
+				tx.success();
+			}
+		}
+		return hashToVertex;
+    }
+    
+    public Set<AbstractEdge> readEdgeSet(String relationshipAliasInQuery, String query,
+    		Map<String, AbstractVertex> hashToVertexMap){
+    	Set<AbstractEdge> edgeSet = new HashSet<AbstractEdge>();
+    	try(Transaction tx = graphDb.beginTx()){
+			globalTxCheckin();
+			try{
+		    	Result result = (Result)executeQuery(query);
+		    	Iterator<Relationship> relationships = result.columnAs(relationshipAliasInQuery);
+		    	while(relationships.hasNext()){
+		    		Relationship relationship = relationships.next();
+		    		Object childVertexHashObject = relationship.getProperty(CHILD_VERTEX_KEY);
+		    		String childVertexHashString = childVertexHashObject == null ? null : childVertexHashObject.toString();
+		    		AbstractVertex childVertex = hashToVertexMap.get(childVertexHashString);
+		    		Object parentVertexHashObject = relationship.getProperty(PARENT_VERTEX_KEY);
+		    		String parentVertexHashString = parentVertexHashObject == null ? null : parentVertexHashObject.toString();
+		    		AbstractVertex parentVertex = hashToVertexMap.get(parentVertexHashString);
+		    		Map<String, String> annotations = new HashMap<String, String>();
+		    		for(String key : relationship.getPropertyKeys()){
+		    			if(!CommonFunctions.isNullOrEmpty(key)){
+		    				if(key.equalsIgnoreCase(PRIMARY_KEY) || 
+		    						key.equalsIgnoreCase(CHILD_VERTEX_KEY) || 
+		    						key.equalsIgnoreCase(PARENT_VERTEX_KEY) ||
+		    						key.equalsIgnoreCase(edgeSymbolsPropertyKey)){
+		    					// ignore
+		    				}else{
+			    				Object annotationValueObject = relationship.getProperty(key);
+			    				String annotationValueString = annotationValueObject == null ? "" : annotationValueObject.toString();
+			    				annotations.put(key, annotationValueString);
+		    				}
+		    			}
+		    		}
+		    		Edge edge = new Edge(childVertex, parentVertex);
+		    		edge.addAnnotations(annotations);
+		    		edgeSet.add(edge);
+		    	}
+			}catch(QueryExecutionException ex){
+				logger.log(Level.SEVERE, "Neo4j Cypher query execution not successful!", ex);
+			}finally{
+				tx.success();
+			}
+    	}
+    	return edgeSet;
+    }
+    
+    public List<Map<String, Object>> executeQueryForSmallResult(String query)
+    {
+    	logger.log(Level.SEVERE, "Query request= " + query);
+        try ( Transaction tx = graphDb.beginTx() )
+        {
+        	List<Map<String, Object>> listOfMaps = new ArrayList<Map<String, Object>>();
+            Result result = null;
+            globalTxCheckin();
+            try
+            {
+                result = graphDb.execute(query);
+                while(result.hasNext()){
+                	listOfMaps.add(new HashMap<String, Object>(result.next()));
+                }
+            }
+            catch(QueryExecutionException ex)
+            {
+                logger.log(Level.SEVERE, "Neo4j Cypher query execution not successful!", ex);
+            }
+            finally
+            {
+                tx.success();
+            }
+            return listOfMaps;
         }
     }
 

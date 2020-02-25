@@ -81,5 +81,4 @@ public class Result<T>{
 	public static <T> Result<T> failed(Exception exception, Result<?> cause){
 		return failed(null, exception, cause);
 	}
-	
 }

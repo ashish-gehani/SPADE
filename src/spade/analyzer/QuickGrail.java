@@ -40,124 +40,124 @@ import spade.storage.quickstep.QuickstepClient;
 import spade.storage.quickstep.QuickstepConfiguration;
 import spade.storage.quickstep.QuickstepExecutor;
 
-public class QuickGrail extends AbstractAnalyzer {
-  private Logger logger = Logger.getLogger(QuickGrail.class.getName());
-
-  private class SocketListener implements Runnable {
-    private ServerSocket serverSocket;
-
-    public SocketListener(ServerSocket serverSocket) {
-      this.serverSocket = serverSocket;
-    }
-
-    @Override
-    public void run() {
-      try {
-        while(!Kernel.isShutdown() && !SHUTDOWN) {
-          Socket querySocket = serverSocket.accept();
-          QueryConnection thisConnection = new QueryConnection(querySocket);
-          Thread connectionThread = new Thread(thisConnection);
-          connectionThread.start();
-        }
-      } catch (SocketException e) {
-        logger.log(Level.INFO, "Stopping socket listener");
-      } catch (Exception e) {
-        logger.log(Level.SEVERE, null, e);
-      } finally {
-        try {
-          serverSocket.close();
-        } catch (Exception e) {
-          logger.log(Level.SEVERE, "Unable to close server socket", e);
-        }
-      }
-    }
-  }
-
-  private QuickGrailExecutor executor;
-
-  public QuickGrail() {
-    QUERY_PORT = "commandline_query_port";
-  }
-
-  @Override
-  public boolean initialize() {
-    ServerSocket serverSocket = AbstractAnalyzer.getServerSocket(QUERY_PORT);
-    if (serverSocket == null) {
-      logger.log(Level.SEVERE, "Server Socket not initialized");
-      return false;
-    }
-
-    AbstractStorage storage = QuickGrailExecutor.getCurrentStorage();
-    QuickstepExecutor qs;
-    if (storage != null && storage instanceof Quickstep) {
-      qs = ((Quickstep) storage).getExecutor();
-    } else {
-      String msg = "Cannot find Quickstep storage instance, " +
-                   "now try creating a standalone executor ...";
-      logger.log(Level.WARNING, msg);
-
-      String configFile = Kernel.CONFIG_PATH + Kernel.FILE_SEPARATOR + "spade.storage.Quickstep.config";
-      QuickstepConfiguration conf = new QuickstepConfiguration(configFile, "");
-      QuickstepClient client = new QuickstepClient(conf.getServerIP(), conf.getServerPort());
-      qs = new QuickstepExecutor(client);
-      qs.setLogger(logger);
-    }
-    executor = new QuickGrailExecutor(qs);
-
-    new Thread(new SocketListener(serverSocket), "SocketListener-Thread").start();;
-    return true;
-  }
-
-  private class QueryConnection extends AbstractAnalyzer.QueryConnection {
-    public QueryConnection(Socket socket) {
-      super(socket);
-    }
-
-    @Override
-    public void run() {
-      try {
-        InputStream inStream = querySocket.getInputStream();
-        OutputStream outStream = querySocket.getOutputStream();
-        BufferedReader queryInputStream = new BufferedReader(new InputStreamReader(inStream));
-        ObjectOutputStream responseOutputStream = new ObjectOutputStream(outStream);
-
-        boolean quitting = false;
-        while (!quitting && !SHUTDOWN) {
-          quitting = processRequest(queryInputStream, responseOutputStream);
-        }
-
-        queryInputStream.close();
-        responseOutputStream.close();
-        inStream.close();
-        outStream.close();
-      } catch (Exception e) {
-        logger.log(Level.SEVERE, null, e);
-      } finally {
-        try {
-          querySocket.close();
-        } catch (Exception e) {
-          logger.log(Level.SEVERE, "Unable to close query socket", e);
-        }
-      }
-    }
-
-    private boolean processRequest(BufferedReader inputStream,
-                                   ObjectOutputStream outputStream) throws IOException {
-      String query = inputStream.readLine();
-      if (query != null && query.toLowerCase().startsWith("export")) {
-        query = query.substring(6);
-      }
-      if (query == null || query.trim().equalsIgnoreCase("exit")) {
-        return true;
-      }
-
-      outputStream.writeObject(executor.execute(query));
-      return false;
-    }
-
-    @Override
-    protected boolean parseQuery(String line) {
-      return true;
-    }
-  }
+public class QuickGrail{// extends AbstractAnalyzer {
+//  private Logger logger = Logger.getLogger(QuickGrail.class.getName());
+//
+//  private class SocketListener implements Runnable {
+//    private ServerSocket serverSocket;
+//
+//    public SocketListener(ServerSocket serverSocket) {
+//      this.serverSocket = serverSocket;
+//    }
+//
+//    @Override
+//    public void run() {
+//      try {
+//        while(!Kernel.isShutdown() && !SHUTDOWN) {
+//          Socket querySocket = serverSocket.accept();
+//          QueryConnection thisConnection = new QueryConnection(querySocket);
+//          Thread connectionThread = new Thread(thisConnection);
+//          connectionThread.start();
+//        }
+//      } catch (SocketException e) {
+//        logger.log(Level.INFO, "Stopping socket listener");
+//      } catch (Exception e) {
+//        logger.log(Level.SEVERE, null, e);
+//      } finally {
+//        try {
+//          serverSocket.close();
+//        } catch (Exception e) {
+//          logger.log(Level.SEVERE, "Unable to close server socket", e);
+//        }
+//      }
+//    }
+//  }
+//
+//  private QuickGrailExecutor executor;
+//
+//  public QuickGrail() {
+//    QUERY_PORT = "commandline_query_port";
+//  }
+//
+//  @Override
+//  public boolean initialize() {
+//    ServerSocket serverSocket = AbstractAnalyzer.getServerSocket(QUERY_PORT);
+//    if (serverSocket == null) {
+//      logger.log(Level.SEVERE, "Server Socket not initialized");
+//      return false;
+//    }
+//
+//    AbstractStorage storage = QuickGrailExecutor.getCurrentStorage();
+//    QuickstepExecutor qs;
+//    if (storage != null && storage instanceof Quickstep) {
+//      qs = ((Quickstep) storage).getExecutor();
+//    } else {
+//      String msg = "Cannot find Quickstep storage instance, " +
+//                   "now try creating a standalone executor ...";
+//      logger.log(Level.WARNING, msg);
+//
+//      String configFile = Kernel.CONFIG_PATH + Kernel.FILE_SEPARATOR + "spade.storage.Quickstep.config";
+//      QuickstepConfiguration conf = new QuickstepConfiguration(configFile, "");
+//      QuickstepClient client = new QuickstepClient(conf.getServerIP(), conf.getServerPort());
+//      qs = new QuickstepExecutor(client);
+//      qs.setLogger(logger);
+//    }
+//    executor = new QuickGrailExecutor(qs);
+//
+//    new Thread(new SocketListener(serverSocket), "SocketListener-Thread").start();;
+//    return true;
+//  }
+//
+//  private class QueryConnection extends AbstractAnalyzer.QueryConnection {
+//    public QueryConnection(Socket socket) {
+//      super(socket);
+//    }
+//
+//    @Override
+//    public void run() {
+//      try {
+//        InputStream inStream = querySocket.getInputStream();
+//        OutputStream outStream = querySocket.getOutputStream();
+//        BufferedReader queryInputStream = new BufferedReader(new InputStreamReader(inStream));
+//        ObjectOutputStream responseOutputStream = new ObjectOutputStream(outStream);
+//
+//        boolean quitting = false;
+//        while (!quitting && !SHUTDOWN) {
+//          quitting = processRequest(queryInputStream, responseOutputStream);
+//        }
+//
+//        queryInputStream.close();
+//        responseOutputStream.close();
+//        inStream.close();
+//        outStream.close();
+//      } catch (Exception e) {
+//        logger.log(Level.SEVERE, null, e);
+//      } finally {
+//        try {
+//          querySocket.close();
+//        } catch (Exception e) {
+//          logger.log(Level.SEVERE, "Unable to close query socket", e);
+//        }
+//      }
+//    }
+//
+//    private boolean processRequest(BufferedReader inputStream,
+//                                   ObjectOutputStream outputStream) throws IOException {
+//      String query = inputStream.readLine();
+//      if (query != null && query.toLowerCase().startsWith("export")) {
+//        query = query.substring(6);
+//      }
+//      if (query == null || query.trim().equalsIgnoreCase("exit")) {
+//        return true;
+//      }
+//
+//      outputStream.writeObject(executor.execute(query));
+//      return false;
+//    }
+//
+//    @Override
+//    protected boolean parseQuery(String line) {
+//      return true;
+//    }
+//  }
 }

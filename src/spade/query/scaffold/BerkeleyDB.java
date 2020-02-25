@@ -49,8 +49,8 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static spade.core.AbstractQuery.COL_VALUE;
-import static spade.core.AbstractQuery.getCurrentStorage;
+//import static spade.core.AbstractQuery.COL_VALUE;
+//import static spade.core.AbstractQuery.getCurrentStorage;
 import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
 import static spade.core.AbstractStorage.DIRECTION;
 import static spade.core.AbstractStorage.DIRECTION_ANCESTORS;
@@ -578,13 +578,13 @@ public class BerkeleyDB extends Scaffold
     {
         try
         {
-            String hash = params.get(PRIMARY_KEY).get(COL_VALUE);
+            String hash = null;//params.get(PRIMARY_KEY).get(COL_VALUE);
             String direction = params.get(DIRECTION).get(0);
             int maxDepth = Integer.parseInt(params.get(MAX_DEPTH).get(0));
             Map<String, Set<String>> lineageMap = getLineage(hash, direction, maxDepth);
             if(lineageMap != null)
             {
-                String storageName = getCurrentStorage().getClass().getSimpleName();
+                String storageName = null;//getCurrentStorage().getClass().getSimpleName();
                 String className = "spade.query." + storageName.toLowerCase() + "." + storageName;
                 Class<?> queryClass = Class.forName(className);
                 Method method = queryClass.getMethod("constructGraphFromLineageMap");

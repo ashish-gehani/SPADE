@@ -17,30 +17,30 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.quickgrail.entities;
+package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.entities.GraphMetadata;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
  * This class is not yet used in the SPADE integrated QuickGrail.
  */
-public class GraphMetadata extends Entity{
-	public final String name;
+public class OverwriteGraphMetadata extends Instruction{
+	public final GraphMetadata targetMetadata;
+	public final GraphMetadata lhsMetadata;
+	public final GraphMetadata rhsMetadata;
 
-	public GraphMetadata(String name){
-		this.name = name;
-	}
-
-	@Override
-	public EntityType getEntityType(){
-		return EntityType.kGraphMetadata;
+	public OverwriteGraphMetadata(GraphMetadata targetMetadata, GraphMetadata lhsMetadata, GraphMetadata rhsMetadata){
+		this.targetMetadata = targetMetadata;
+		this.lhsMetadata = lhsMetadata;
+		this.rhsMetadata = rhsMetadata;
 	}
 
 	@Override
 	public String getLabel(){
-		return "GraphMetadata";
+		return "OverwritehGraphMetadata";
 	}
 
 	@Override
@@ -48,7 +48,11 @@ public class GraphMetadata extends Entity{
 			ArrayList<String> non_container_child_field_names,
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("name");
-		inline_field_values.add(name);
+		inline_field_names.add("targetMetadata");
+		inline_field_values.add(targetMetadata.name);
+		inline_field_names.add("lhsMetadata");
+		inline_field_values.add(lhsMetadata.name);
+		inline_field_names.add("rhsMetadata");
+		inline_field_values.add(rhsMetadata.name);
 	}
 }

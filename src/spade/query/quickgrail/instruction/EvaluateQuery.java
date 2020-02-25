@@ -17,30 +17,25 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.quickgrail.entities;
+package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
- * This class is not yet used in the SPADE integrated QuickGrail.
+ * Evaluate an arbitrary SQL query (that is supported by Quickstep).
  */
-public class GraphMetadata extends Entity{
-	public final String name;
+public class EvaluateQuery extends Instruction{
+	public final String nativeQuery;
 
-	public GraphMetadata(String name){
-		this.name = name;
-	}
-
-	@Override
-	public EntityType getEntityType(){
-		return EntityType.kGraphMetadata;
+	public EvaluateQuery(String nativeQuery){
+		this.nativeQuery = nativeQuery;
 	}
 
 	@Override
 	public String getLabel(){
-		return "GraphMetadata";
+		return "EvaluateQuery";
 	}
 
 	@Override
@@ -48,7 +43,7 @@ public class GraphMetadata extends Entity{
 			ArrayList<String> non_container_child_field_names,
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("name");
-		inline_field_values.add(name);
+		inline_field_names.add("nativeQuery");
+		inline_field_values.add(nativeQuery);
 	}
 }

@@ -17,30 +17,41 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.quickgrail.entities;
+package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
- * This class is not yet used in the SPADE integrated QuickGrail.
+ * Get the lineage of a set of vertices in a graph.
  */
-public class GraphMetadata extends Entity{
-	public final String name;
+public class GetLineage extends Instruction{
+	public static enum Direction{ kAncestor, kDescendant, kBoth }
 
-	public GraphMetadata(String name){
-		this.name = name;
-	}
+	// Output graph.
+	public final Graph targetGraph;
+	// Input graph.
+	public final Graph subjectGraph;
+	// Set of starting vertices.
+	public final Graph startGraph;
+	// Max depth.
+	public final int depth;
+	// Direction (ancestors / descendants, or both).
+	public final Direction direction;
 
-	@Override
-	public EntityType getEntityType(){
-		return EntityType.kGraphMetadata;
+	public GetLineage(Graph targetGraph, Graph subjectGraph, Graph startGraph, int depth, Direction direction){
+		this.targetGraph = targetGraph;
+		this.subjectGraph = subjectGraph;
+		this.startGraph = startGraph;
+		this.depth = depth;
+		this.direction = direction;
 	}
 
 	@Override
 	public String getLabel(){
-		return "GraphMetadata";
+		return "GetLineage";
 	}
 
 	@Override
@@ -48,7 +59,15 @@ public class GraphMetadata extends Entity{
 			ArrayList<String> non_container_child_field_names,
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("name");
-		inline_field_values.add(name);
+		inline_field_names.add("targetGraph");
+		inline_field_values.add(targetGraph.name);
+		inline_field_names.add("subjectGraph");
+		inline_field_values.add(subjectGraph.name);
+		inline_field_names.add("startGraph");
+		inline_field_values.add(startGraph.name);
+		inline_field_names.add("depth");
+		inline_field_values.add(String.valueOf(depth));
+		inline_field_names.add("direction");
+		inline_field_values.add(direction.name().substring(1));
 	}
 }

@@ -30,98 +30,94 @@ import java.util.regex.Pattern;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.entities.GraphMetadata;
 import spade.storage.quickstep.QuickstepExecutor;
+import spade.storage.quickstep.QuickstepQueryEnvironment;
 
 /**
  * Convenient functions.
  */
-public class QuickstepUtil {
-  private static Pattern tableNamePattern = Pattern.compile("([^ \n]+)[ |].*table.*");
+public class QuickstepUtil{
+	private static Pattern tableNamePattern = Pattern.compile("([^ \n]+)[ |].*table.*");
 
-  public static void CreateEmptyGraph(QuickstepExecutor qs, Graph graph) {
-    String vertexTable = graph.getVertexTableName();
-    String edgeTable = graph.getEdgeTableName();
+	public static void CreateEmptyGraph(QuickstepExecutor qs, QuickstepQueryEnvironment qqe, Graph graph){
+		String vertexTable = qqe.getVertexTableName(graph);
+		String edgeTable = qqe.getEdgeTableName(graph);
 
-    StringBuilder sb = new StringBuilder();
-    sb.append("DROP TABLE " + vertexTable + ";\n");
-    sb.append("DROP TABLE " + edgeTable + ";\n");
-    sb.append("CREATE TABLE " + vertexTable + " (id INT) " +
-              "WITH BLOCKPROPERTIES (TYPE columnstore, SORT id, BLOCKSIZEMB 4);\n");
-    sb.append("CREATE TABLE " + edgeTable + " (id LONG) " +
-              "WITH BLOCKPROPERTIES (TYPE columnstore, SORT id, BLOCKSIZEMB 4);\n");
-    qs.executeQuery(sb.toString());
-  }
+		StringBuilder sb = new StringBuilder();
+		sb.append("DROP TABLE " + vertexTable + ";\n");
+		sb.append("DROP TABLE " + edgeTable + ";\n");
+		sb.append("CREATE TABLE " + vertexTable + " (id INT) "
+				+ "WITH BLOCKPROPERTIES (TYPE columnstore, SORT id, BLOCKSIZEMB 4);\n");
+		sb.append("CREATE TABLE " + edgeTable + " (id LONG) "
+				+ "WITH BLOCKPROPERTIES (TYPE columnstore, SORT id, BLOCKSIZEMB 4);\n");
+		qs.executeQuery(sb.toString());
+	}
 
-  public static void CreateEmptyGraphMetadata(QuickstepExecutor qs, GraphMetadata metadata) {
-    String vertexTable = metadata.getVertexTableName();
-    String edgeTable = metadata.getEdgeTableName();
+	public static void CreateEmptyGraphMetadata(QuickstepExecutor qs, QuickstepQueryEnvironment qqe,
+			GraphMetadata metadata){
+		String vertexTable = qqe.getMetadataVertexTableName(metadata);
+		String edgeTable = qqe.getMetadataEdgeTableName(metadata);
 
-    StringBuilder sb = new StringBuilder();
-    sb.append("DROP TABLE " + vertexTable + ";\n");
-    sb.append("DROP TABLE " + edgeTable + ";\n");
-    sb.append("CREATE TABLE " + vertexTable + " (id INT, name VARCHAR(64), value VARCHAR(256));");
-    sb.append("CREATE TABLE " + edgeTable + " (id LONG, name VARCHAR(64), value VARCHAR(256));");
-    qs.executeQuery(sb.toString());
-  }
+		StringBuilder sb = new StringBuilder();
+		sb.append("DROP TABLE " + vertexTable + ";\n");
+		sb.append("DROP TABLE " + edgeTable + ";\n");
+		sb.append("CREATE TABLE " + vertexTable + " (id INT, name VARCHAR(64), value VARCHAR(256));");
+		sb.append("CREATE TABLE " + edgeTable + " (id LONG, name VARCHAR(64), value VARCHAR(256));");
+		qs.executeQuery(sb.toString());
+	}
 
-  public static ArrayList<String> GetAllTableNames(QuickstepExecutor qs) {
-    ArrayList<String> tableNames = new ArrayList<String>();
-    String output = qs.executeQuery("\\d\n");
-    Matcher matcher = tableNamePattern.matcher(output);
-    while (matcher.find()) {
-      tableNames.add(matcher.group(1));
-    }
-    return tableNames;
-  }
+	public static ArrayList<String> GetAllTableNames(QuickstepExecutor qs){
+		ArrayList<String> tableNames = new ArrayList<String>();
+		String output = qs.executeQuery("\\d\n");
+		Matcher matcher = tableNamePattern.matcher(output);
+		while(matcher.find()){
+			tableNames.add(matcher.group(1));
+		}
+		return tableNames;
+	}
 
-  public static long GetNumVertices(QuickstepExecutor qs, Graph graph) {
-    return qs.executeQueryForLongResult(
-        "COPY SELECT COUNT(*) FROM " + graph.getVertexTableName() + " TO stdout;");
-  }
+	public static long GetNumVertices(QuickstepExecutor qs, QuickstepQueryEnvironment qqe, Graph graph){
+		return qs.executeQueryForLongResult("COPY SELECT COUNT(*) FROM " + qqe.getVertexTableName(graph) + " TO stdout;");
+	}
 
-  public static long GetNumEdges(QuickstepExecutor qs, Graph graph) {
-    return qs.executeQueryForLongResult(
-        "COPY SELECT COUNT(*) FROM " + graph.getEdgeTableName() + " TO stdout;");
-  }
+	public static long GetNumEdges(QuickstepExecutor qs, QuickstepQueryEnvironment qqe, Graph graph){
+		return qs.executeQueryForLongResult("COPY SELECT COUNT(*) FROM " + qqe.getEdgeTableName(graph) + " TO stdout;");
+	}
 
-  public static long GetNumTimestamps(QuickstepExecutor qs, Graph graph) {
-    return qs.executeQueryForLongResult(
-        "COPY SELECT COUNT(*) FROM edge_anno" +
-        " WHERE id IN (SELECT id FROM " + graph.getEdgeTableName() + ")" +
-        " AND field = 'timestampNanos' TO stdout;");
-  }
+	public static long GetNumTimestamps(QuickstepExecutor qs, QuickstepQueryEnvironment qqe, Graph graph){
+		return qs.executeQueryForLongResult(
+				"COPY SELECT COUNT(*) FROM edge_anno" + " WHERE id IN (SELECT id FROM " + qqe.getEdgeTableName(graph) + ")" +
+						" AND field = 'timestampNanos' TO stdout;");
+	}
 
-  public static Long[] GetTimestampRange(QuickstepExecutor qs, Graph graph) {
-    // TODO(jianqiao): Fix the return type problem in Quickstep.
-    if (GetNumTimestamps(qs, graph) == 0) {
-      return new Long[] { 0L, 0L };
-    }
+	public static Long[] GetTimestampRange(QuickstepExecutor qs, QuickstepQueryEnvironment qqe, Graph graph){
+		// TODO(jianqiao): Fix the return type problem in Quickstep.
+		if(GetNumTimestamps(qs, qqe, graph) == 0){
+			return new Long[]{0L, 0L};
+		}
 
-    String span = qs.executeQuery(
-        "COPY SELECT MIN(value), MAX(value) FROM edge_anno" +
-        " WHERE id IN (SELECT id FROM " + graph.getEdgeTableName() + ")" +
-        " AND field = 'timestampNanos' TO stdout WITH (DELIMITER '|');");
-    String[] timestamps = span.trim().split("\\|");
-    return new Long[] { Long.parseLong(timestamps[0]),
-                        Long.parseLong(timestamps[1]) };
-  }
+		String span = qs.executeQuery(
+				"COPY SELECT MIN(value), MAX(value) FROM edge_anno" + " WHERE id IN (SELECT id FROM " 
+						+ qqe.getEdgeTableName(graph) + ")" +
+						" AND field = 'timestampNanos' TO stdout WITH (DELIMITER '|');");
+		String[] timestamps = span.trim().split("\\|");
+		return new Long[]{Long.parseLong(timestamps[0]), Long.parseLong(timestamps[1])};
+	}
 
-  public static String[] GetTimestampRangeString(QuickstepExecutor qs, Graph graph) {
-    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("E, dd MMM yyyy HH:mm:ss z");
-    Long[] span = QuickstepUtil.GetTimestampRange(qs, graph);
-    String startDateStr = "";
-    String endDateStr = "";
-    if (span[0] != 0) {
-      final ZonedDateTime startDate =
-          ZonedDateTime.ofInstant(Instant.ofEpochMilli(span[0] / 1000000),
-                                  ZoneId.systemDefault());
-      startDateStr = startDate.format(formatter);
-    }
-    if (span[1] != 0) {
-      final ZonedDateTime endDate =
-          ZonedDateTime.ofInstant(Instant.ofEpochMilli(span[1] / 1000000),
-                                  ZoneId.systemDefault());
-      endDateStr = endDate.format(formatter);
-    }
-    return new String[] { startDateStr, endDateStr };
-  }
+	public static String[] GetTimestampRangeString(QuickstepExecutor qs, QuickstepQueryEnvironment qqe, Graph graph){
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("E, dd MMM yyyy HH:mm:ss z");
+		Long[] span = QuickstepUtil.GetTimestampRange(qs, qqe, graph);
+		String startDateStr = "";
+		String endDateStr = "";
+		if(span[0] != 0){
+			final ZonedDateTime startDate = ZonedDateTime.ofInstant(Instant.ofEpochMilli(span[0] / 1000000),
+					ZoneId.systemDefault());
+			startDateStr = startDate.format(formatter);
+		}
+		if(span[1] != 0){
+			final ZonedDateTime endDate = ZonedDateTime.ofInstant(Instant.ofEpochMilli(span[1] / 1000000),
+					ZoneId.systemDefault());
+			endDateStr = endDate.format(formatter);
+		}
+		return new String[]{startDateStr, endDateStr};
+	}
 }

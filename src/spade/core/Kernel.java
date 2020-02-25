@@ -29,6 +29,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.Constructor;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -59,6 +60,8 @@ import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
+
+import org.apache.commons.io.FileUtils;
 
 import spade.filter.FinalCommitFilter;
 import spade.utility.LogManager;
@@ -139,6 +142,16 @@ public class Kernel
         }
 
         return null;
+    }
+    
+    public static boolean isStoragePresent(AbstractStorage storage){
+    	for(AbstractStorage existingStorage : storages){
+            // Search for the given storage in the storages set.
+            if(existingStorage == storage){
+                return true;
+            }
+        }
+        return false;
     }
     /**
      * Set of filters active on the local SPADE instance.
@@ -255,6 +268,23 @@ public class Kernel
             logFileHandler.setLevel(Level.parse(Settings.getProperty("logger_level")));
             Logger.getLogger("").addHandler(logFileHandler);
 
+            File link = new File("currentlog");
+            
+            try{
+            	FileUtils.deleteQuietly(link);
+            }catch(Exception e){
+            	
+            }
+            
+            try{
+            	Files.createSymbolicLink(
+            			link.toPath(), 
+            			new File(logFilename).toPath());
+            	logger.log(Level.SEVERE, "Symlink created");
+            }catch(Exception e){
+            	logger.log(Level.SEVERE, "Symlink failed", e);
+            }
+            
         }
         catch (IOException | SecurityException exception)
         {
@@ -280,7 +310,7 @@ public class Kernel
         String SERVER_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "server.private";
         String CLIENT_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "client.public";
         String CLIENT_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "client.private";
-
+        
         serverKeyStorePublic = KeyStore.getInstance("JKS");
         serverKeyStorePublic.load(new FileInputStream(SERVER_PUBLIC_PATH), "public".toCharArray());
         serverKeyStorePrivate = KeyStore.getInstance("JKS");
@@ -319,6 +349,13 @@ public class Kernel
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
         sslServerSocketFactory = sslContext.getServerSocketFactory();
+    }
+    
+    public static ServerSocket createServerSocket(int listeningPort) throws Exception{
+        ServerSocket serverSocket = sslServerSocketFactory.createServerSocket(listeningPort);
+        ((SSLServerSocket) serverSocket).setNeedClientAuth(true);
+        addServerSocket(serverSocket);
+        return serverSocket;
     }
 
     public static void addServerSocket(ServerSocket socket)
@@ -766,7 +803,7 @@ public class Kernel
             return null;
         }
     }
-
+    
     /**
      * Method to add modules.
      *
@@ -832,27 +869,31 @@ public class Kernel
                 break;
 
             case "analyzer":
-                logger.log(Level.INFO, "Adding analyzer: {0}", className);
-                outputStream.print("Adding analyzer " + className + "... ");
-                AbstractAnalyzer analyzer;
-                try
-                {
-                    analyzer = (AbstractAnalyzer) Class.forName("spade.analyzer." + className).newInstance();
-                    if(analyzer.initialize())
-                    {
-                        analyzers.add(analyzer);
-                        logger.log(Level.INFO, "Analyzer added: {0}", className);
-                        outputStream.println("done");
-                    }
-                    else
-                        outputStream.println("failed");
-                }
-                catch(ClassNotFoundException | InstantiationException | IllegalAccessException ex)
-                {
-                    outputStream.println("error: Unable to find/load class");
-                    logger.log(Level.SEVERE, null, ex);
-                    return;
-                }
+            	arguments = (tokens.length == 3) ? null : tokens[3];
+            	logger.log(Level.INFO, "Adding analyzer: {0}", className);
+            	outputStream.print("Adding analyzer " + className + "... ");
+            	AbstractAnalyzer analyzer;
+            	try
+            	{
+            		Class<? extends AbstractAnalyzer> clazz = 
+            				(Class<? extends AbstractAnalyzer>)Class.forName("spade.analyzer." + className);
+            		Constructor<? extends AbstractAnalyzer> constructor = clazz.getDeclaredConstructor();
+            		analyzer = constructor.newInstance();
+            		if(analyzer.initialize(arguments))
+            		{
+            			analyzers.add(analyzer);
+            			logger.log(Level.INFO, "Analyzer added: {0}", className);
+            			outputStream.println("done");
+            		}
+            		else
+            			outputStream.println("failed");
+            	}catch(Throwable t){
+            		outputStream.println("error: Unable to find/load/initialize class");
+            		outputStream.flush();
+            		logger.log(Level.SEVERE, null, t);
+            		return;
+            	}
+
 
                 break;
 
@@ -1307,7 +1348,7 @@ public class Kernel
                                 Thread.sleep(REMOVE_WAIT_DELAY);
                             }
                             analyzerIterator.remove();
-                            logger.log(Level.INFO, "Analyzer shut down: {0})", className);
+                            logger.log(Level.INFO, "Analyzer shut down: {0}", className);
                             outputStream.println("done");
                             break;
                         }

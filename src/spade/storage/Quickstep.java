@@ -49,17 +49,19 @@ import spade.storage.quickstep.QuickstepClient;
 import spade.storage.quickstep.QuickstepConfiguration;
 import spade.storage.quickstep.QuickstepExecutor;
 import spade.storage.quickstep.QuickstepFailure;
-import spade.utility.CommonFunctions;
-import spade.utility.ExternalMemoryMap;
-import spade.utility.Hasher;
+import spade.utility.Converter;
+import spade.utility.Result;
+import spade.utility.map.external.ExternalMap;
+import spade.utility.map.external.ExternalMapArgument;
+import spade.utility.map.external.ExternalMapManager;
 
 public class Quickstep extends AbstractStorage {
   private PrintWriter debugLogWriter = null;
   private long timeExecutionStart;
   private QuickstepConfiguration conf;
 
-  private final String md5MapId = "Quickstep[md5ToIdMap]";
-  private ExternalMemoryMap<String, Integer> md5ToIdMap;
+  private final String md5MapId = "md5ToIdMap";
+  private ExternalMap<String, Integer> md5ToIdMap;
 
   private long totalNumVerticesProcessed = 0;
   private long totalNumEdgesProcessed = 0;
@@ -404,20 +406,43 @@ public class Quickstep extends AbstractStorage {
 
     // Initialize key-value cache.
     try {
-      md5ToIdMap = CommonFunctions.createExternalMemoryMapInstance(
-          md5MapId,
-          String.valueOf(conf.getCacheSize()),
-          String.valueOf(conf.getCacheBloomfilterFalsePositiveProbability()),
-          String.valueOf(conf.getCacheBloomFilterExpectedNumberOfElements()),
-          conf.getCacheDatabasePath(),
-          conf.getCacheDatabaseName(),
-          null,
-          new Hasher<String>(){
-            @Override
-            public String getHash(String t) {
-              return t;
-            }
-          });
+    	Result<ExternalMapArgument> mapArgumentResult = ExternalMapManager.parseArgumentFromFile(md5MapId, configFile);
+    	if(mapArgumentResult.error){
+    		logger.log(Level.SEVERE, "Failed to parse external memory map arguments");
+    		logger.log(Level.SEVERE, mapArgumentResult.toErrorString());
+            return false;
+    	}else{
+    		Result<ExternalMap<String, Integer>> mapResult = 
+    				ExternalMapManager.create(mapArgumentResult.result,
+    						new Converter<String, byte[]>(){
+								@Override public byte[] serialize(String i) throws Exception{ return i == null ? null : i.getBytes(); }
+								@Override public byte[] serializeObject(Object o) throws Exception{ return serialize((String)o); }
+								@Override public String deserialize(byte[] j) throws Exception{ return j == null ? null : new String(j); }
+								@Override public String deserializeObject(Object o) throws Exception{ return deserialize((byte[])o); }
+							},
+    						new Converter<Integer, byte[]>(){
+    							private byte[] _ser(int i){
+    								byte[] b = new byte[4];
+    								b[3] = (byte)(i >> 24); b[2] = (byte)(i >> 16); b[1] = (byte)(i >> 8); b[0] = (byte)(i);
+    								return b;
+    							}
+    							private int _deser(byte[] b){
+    								int i = (b[3] << 24); i |= (b[2] & 0xFF) << 16; i |= (b[1] & 0xFF) << 8; i |= (b[0] & 0xFF);
+    							    return i;
+    							}
+    							@Override public byte[] serialize(Integer i) throws Exception{ return i == null ? null : _ser(i); }
+								@Override public byte[] serializeObject(Object o) throws Exception{ return serialize((Integer)o); }
+								@Override public Integer deserialize(byte[] j) throws Exception{ return j == null ? null : _deser(j); }
+								@Override public Integer deserializeObject(Object o) throws Exception{ return deserialize((byte[])o); }
+    						});
+    		if(mapResult.error){
+    			logger.log(Level.SEVERE, "Failed to create external memory map");
+        		logger.log(Level.SEVERE, mapResult.toErrorString());
+                return false;
+    		}else{
+    			md5ToIdMap = mapResult.result;
+    		}
+    	}
 
       if (md5ToIdMap == null){
         logger.log(Level.SEVERE, "NULL external memory map");
@@ -467,8 +492,8 @@ public class Quickstep extends AbstractStorage {
     }
     copyManager.shutdown();
     if(md5ToIdMap != null){
-      CommonFunctions.closePrintSizeAndDeleteExternalMemoryMap(md5MapId, md5ToIdMap);
-      md5ToIdMap = null;
+    	md5ToIdMap.close();
+    	md5ToIdMap = null;
     }
     qs.shutdown();
     if (debugLogWriter != null) {

@@ -27,8 +27,8 @@ import spade.core.Kernel;
 import spade.core.MatrixFilter;
 import spade.core.Settings;
 import spade.core.Vertex;
-import spade.query.common.GetPaths;
-import spade.query.postgresql.GetVertex;
+//import spade.query.common.GetPaths;
+//import spade.query.postgresql.GetVertex;
 
 import javax.net.ssl.SSLSocket;
 import java.io.IOException;
@@ -49,7 +49,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static spade.core.AbstractQuery.OPERATORS;
+//import static spade.core.AbstractQuery.OPERATORS;
 import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
 import static spade.core.AbstractStorage.DIRECTION_ANCESTORS;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
@@ -174,8 +174,8 @@ public class Sketch extends AbstractResolver
 
         Map<String, List<String>> vertexParams = new HashMap<>();
         vertexParams.put("subtype", Collections.singletonList("network"));
-        GetVertex getVertex = new GetVertex();
-        Set<AbstractVertex> myNetworkVertices = getVertex.execute(vertexParams, 100);
+//        GetVertex getVertex = new GetVertex();
+        Set<AbstractVertex> myNetworkVertices = null;//getVertex.execute(vertexParams, 100);
 
         Set<AbstractVertex> matchingVerticesDown = new HashSet<>();
         Set<AbstractVertex> matchingVerticesUp = new HashSet<>();
@@ -241,13 +241,13 @@ public class Sketch extends AbstractResolver
                 }
                 String srcId = ((AbstractVertex) vertices[i]).getAnnotation(PRIMARY_KEY);
                 String dstId = ((AbstractVertex) vertices[j]).getAnnotation(PRIMARY_KEY);
-                GetPaths getPaths = new GetPaths();
+//                GetPaths getPaths = new GetPaths();
                 Map<String, List<String>> pathParams = new HashMap<>();
-                pathParams.put(CHILD_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, srcId));
-                pathParams.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, dstId));
+//                pathParams.put(CHILD_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, srcId));
+//                pathParams.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, dstId));
                 pathParams.put("direction", Collections.singletonList(DIRECTION_ANCESTORS));
                 pathParams.put("maxLength", Collections.singletonList("100"));
-                Graph path = getPaths.execute(pathParams, 100);
+                Graph path =null;// getPaths.execute(pathParams, 100);
                 if (!path.edgeSet().isEmpty())
                 {
                     result = Graph.union(result, path);
@@ -287,8 +287,8 @@ public class Sketch extends AbstractResolver
         // Store the local network vertices in a set for later use.
         Map<String, List<String>> vertexParams = new HashMap<>();
         vertexParams.put("subtype", Collections.singletonList("network"));
-        GetVertex getVertex = new GetVertex();
-        Set<AbstractVertex> myNetworkVertices = getVertex.execute(vertexParams, 100);
+//        GetVertex getVertex = new GetVertex();
+        Set<AbstractVertex> myNetworkVertices = null;//getVertex.execute(vertexParams, 100);
         MatrixFilter receivedMatrixFilter = inputSketch.matrixFilter;
         MatrixFilter myMatrixFilter = Kernel.sketches.iterator().next().matrixFilter;
 
@@ -331,13 +331,13 @@ public class Sketch extends AbstractResolver
             for (int i = 0; i < vertices.length; i++)
             {
                 String vertexId = ((AbstractVertex) vertices[i]).getAnnotation(PRIMARY_KEY);
-                GetPaths getPaths = new GetPaths();
+//                GetPaths getPaths = new GetPaths();
                 Map<String, List<String>> pathParams = new HashMap<>();
-                pathParams.put(CHILD_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, childVertexId));
-                pathParams.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexId));
+//                pathParams.put(CHILD_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, childVertexId));
+//                pathParams.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexId));
                 pathParams.put("direction", Collections.singletonList(DIRECTION_ANCESTORS));
                 pathParams.put("maxLength", Collections.singletonList("100"));
-                Graph path = getPaths.execute(pathParams, 100);
+                Graph path = null;//getPaths.execute(pathParams, 100);
                 if (!path.edgeSet().isEmpty())
                 {
                     result = Graph.union(result, path);
@@ -386,13 +386,13 @@ public class Sketch extends AbstractResolver
             for (int i = 0; i < vertices.length; i++)
             {
                 String vertexId = ((AbstractVertex) vertices[i]).getAnnotation(PRIMARY_KEY);
-                GetPaths getPaths = new GetPaths();
+//                GetPaths getPaths = new GetPaths();
                 Map<String, List<String>> pathParams = new HashMap<>();
-                pathParams.put(CHILD_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexId));
-                pathParams.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, parentVertexId));
+//                pathParams.put(CHILD_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, vertexId));
+//                pathParams.put(PARENT_VERTEX_KEY, Arrays.asList(OPERATORS.EQUALS, parentVertexId));
                 pathParams.put("direction", Collections.singletonList(DIRECTION_ANCESTORS));
                 pathParams.put("maxLength", Collections.singletonList("100"));
-                Graph path = getPaths.execute(pathParams, 100);
+                Graph path = null;//getPaths.execute(pathParams, 100);
                 if (!path.edgeSet().isEmpty())
                 {
                     result = Graph.union(result, path);

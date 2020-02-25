@@ -27,8 +27,8 @@ import spade.core.Graph;
 import spade.core.Kernel;
 import spade.core.MatrixFilter;
 import spade.core.Settings;
-import spade.query.common.GetLineage;
-import spade.query.postgresql.GetVertex;
+//import spade.query.common.GetLineage;
+//import spade.query.postgresql.GetVertex;
 
 import javax.net.ssl.SSLSocket;
 import java.io.IOException;
@@ -45,7 +45,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static spade.core.AbstractQuery.OPERATORS;
+//import static spade.core.AbstractQuery.OPERATORS;
 import static spade.core.AbstractResolver.DESTINATION_HOST;
 import static spade.core.AbstractResolver.DESTINATION_PORT;
 import static spade.core.AbstractResolver.SOURCE_HOST;
@@ -159,12 +159,12 @@ class updateMatrixThread implements Runnable
             logger.log(Level.INFO, "concreteSketch - Updating matrixfilter for USED edge for storageId: {0}", storageId);
             String remoteHost = vertex.getAnnotation("destination host");
             BloomFilter newAncestors = Kernel.remoteSketches.get(remoteHost).matrixFilter.get(vertex);
-            GetLineage getLineage = new GetLineage();
+//            GetLineage getLineage = new GetLineage();
             Map<String, List<String>> lineageParams = new HashMap<>();
-            lineageParams.put(PRIMARY_KEY, Arrays.asList(OPERATORS.EQUALS, storageId));
+//            lineageParams.put(PRIMARY_KEY, Arrays.asList(OPERATORS.EQUALS, storageId));
             lineageParams.put("direction", Collections.singletonList("descendants"));
             lineageParams.put("maxDepth", Collections.singletonList("20"));
-            Graph descendants = getLineage.execute(lineageParams, 100);
+            Graph descendants = null;//getLineage.execute(lineageParams, 100);
             for (AbstractVertex currentVertex : descendants.vertexSet())
             {
                 if (currentVertex.getAnnotation("network").equalsIgnoreCase("true"))
@@ -177,12 +177,12 @@ class updateMatrixThread implements Runnable
         else if (type.equalsIgnoreCase("WasGeneratedBy"))
         {
             logger.log(Level.INFO, "concreteSketch - Updating matrix filter for WGB edge for storageId: {0}", storageId);
-            GetLineage getLineage = new GetLineage();
+//            GetLineage getLineage = new GetLineage();
             Map<String, List<String>> lineageParams = new HashMap<>();
-            lineageParams.put(PRIMARY_KEY, Arrays.asList(OPERATORS.EQUALS, storageId));
+//            lineageParams.put(PRIMARY_KEY, Arrays.asList(OPERATORS.EQUALS, storageId));
             lineageParams.put("direction", Collections.singletonList("ancestors"));
             lineageParams.put("maxDepth", Collections.singletonList("20"));
-            Graph ancestors = getLineage.execute(lineageParams, 100);
+            Graph ancestors =null;// getLineage.execute(lineageParams, 100);
             for (AbstractVertex currentVertex : ancestors.vertexSet())
             {
                 if (currentVertex.getAnnotation("network").equalsIgnoreCase("true"))
@@ -198,14 +198,14 @@ class updateMatrixThread implements Runnable
     {
         try
         {
-            GetVertex getVertex = new GetVertex();
+//            GetVertex getVertex = new GetVertex();
             logger.log(Level.INFO, "concreteSketch - Getting storageId of networkVertex");
             Map<String, List<String>> vertexParams = new HashMap<>();
-            vertexParams.put(SOURCE_HOST, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(SOURCE_HOST)));
-            vertexParams.put(SOURCE_PORT, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(SOURCE_PORT)));
-            vertexParams.put(DESTINATION_HOST, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(DESTINATION_HOST)));
-            vertexParams.put(DESTINATION_PORT, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(DESTINATION_PORT)));
-            Set<AbstractVertex> vertexSet = getVertex.execute(vertexParams, 100);
+//            vertexParams.put(SOURCE_HOST, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(SOURCE_HOST)));
+//            vertexParams.put(SOURCE_PORT, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(SOURCE_PORT)));
+//            vertexParams.put(DESTINATION_HOST, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(DESTINATION_HOST)));
+//            vertexParams.put(DESTINATION_PORT, Arrays.asList(OPERATORS.EQUALS, networkVertex.getAnnotation(DESTINATION_PORT)));
+            Set<AbstractVertex> vertexSet = null;//getVertex.execute(vertexParams, 100);
             AbstractVertex resultVertex = vertexSet.iterator().next();
             logger.log(Level.INFO, "concreteSketch - Returning storageId: {0}", resultVertex.getAnnotation(ID_STRING));
             return resultVertex.getAnnotation(ID_STRING);

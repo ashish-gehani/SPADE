@@ -17,30 +17,39 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.quickgrail.entities;
+package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.entities.Graph;
+import spade.query.quickgrail.entities.GraphMetadata;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
  * This class is not yet used in the SPADE integrated QuickGrail.
  */
-public class GraphMetadata extends Entity{
+public class SetGraphMetadata extends Instruction{
+
+	public static enum Component{ kVertex, kEdge, kBoth }
+
+	public final GraphMetadata targetMetadata;
+	public final Component component;
+	public final Graph sourceGraph;
 	public final String name;
+	public final String value;
 
-	public GraphMetadata(String name){
+	public SetGraphMetadata(GraphMetadata targetMetadata, Component component, Graph sourceGraph, String name,
+			String value){
+		this.targetMetadata = targetMetadata;
+		this.component = component;
+		this.sourceGraph = sourceGraph;
 		this.name = name;
-	}
-
-	@Override
-	public EntityType getEntityType(){
-		return EntityType.kGraphMetadata;
+		this.value = value;
 	}
 
 	@Override
 	public String getLabel(){
-		return "GraphMetadata";
+		return "SetGraphMetadata";
 	}
 
 	@Override
@@ -48,7 +57,15 @@ public class GraphMetadata extends Entity{
 			ArrayList<String> non_container_child_field_names,
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
+		inline_field_names.add("targetMetadata");
+		inline_field_values.add(targetMetadata.name);
+		inline_field_names.add("component");
+		inline_field_values.add(component.name().substring(1));
+		inline_field_names.add("sourceGraph");
+		inline_field_values.add(sourceGraph.name);
 		inline_field_names.add("name");
 		inline_field_values.add(name);
+		inline_field_names.add("value");
+		inline_field_values.add(value);
 	}
 }

@@ -17,30 +17,34 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.quickgrail.entities;
+package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
- * This class is not yet used in the SPADE integrated QuickGrail.
+ * Export a QuickGrail graph to spade.core.Graph or to DOT representation.
  */
-public class GraphMetadata extends Entity{
-	public final String name;
+public class ExportGraph extends Instruction{
+	public static enum Format{ kNormal, kDot }
+	
+	public static final int kNonForceExportLimit = 4096;
 
-	public GraphMetadata(String name){
-		this.name = name;
-	}
+	public final Graph targetGraph;
+	public final Format format;
+	public final boolean force;
 
-	@Override
-	public EntityType getEntityType(){
-		return EntityType.kGraphMetadata;
+	public ExportGraph(Graph targetGraph, Format format, boolean force){
+		this.targetGraph = targetGraph;
+		this.format = format;
+		this.force = force;
 	}
 
 	@Override
 	public String getLabel(){
-		return "GraphMetadata";
+		return "ExportGraph";
 	}
 
 	@Override
@@ -48,7 +52,11 @@ public class GraphMetadata extends Entity{
 			ArrayList<String> non_container_child_field_names,
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("name");
-		inline_field_values.add(name);
+		inline_field_names.add("targetGraph");
+		inline_field_values.add(targetGraph.name);
+		inline_field_names.add("format");
+		inline_field_values.add(format.name());
+		inline_field_names.add("force");
+		inline_field_values.add(String.valueOf(force));
 	}
 }

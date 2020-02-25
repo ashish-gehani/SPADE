@@ -26,80 +26,63 @@ import spade.query.quickgrail.utility.TreeStringSerializable;
 /**
  * Intermediate representation for a graph in QuickGrail optimizer.
  */
-public class Graph extends Entity {
-  public enum Component {
-    kVertex,
-    kEdge
-  }
+public class Graph extends Entity{
+	
+	public static enum Component{ kVertex, kEdge }
 
-  public static String GetBaseVertexTableName() {
-    return "vertex";
-  }
+	// Each graph consists of two tables: <name>_vertex and <name>_edge.
+	public final String name;
 
-  public static String GetBaseVertexAnnotationTableName() {
-    return "vertex_anno";
-  }
+	public Graph(String name){
+		this.name = name;
+	}
 
-  public static String GetBaseEdgeTableName() {
-    return "edge";
-  }
+	@Override
+	public EntityType getEntityType(){
+		return EntityType.kGraph;
+	}
 
-  public static String GetBaseEdgeAnnotationTableName() {
-    return "edge_anno";
-  }
+	@Override
+	public String getLabel(){
+		return "Graph";
+	}
 
-  public static String GetBaseTableName(Component component) {
-    return component == Component.kVertex ? GetBaseVertexTableName() : GetBaseEdgeTableName();
-  }
+	@Override
+	protected void getFieldStringItems(ArrayList<String> inline_field_names, ArrayList<String> inline_field_values,
+			ArrayList<String> non_container_child_field_names,
+			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
+			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
+		inline_field_names.add("name");
+		inline_field_values.add(name);
+	}
 
-  public static String GetBaseAnnotationTableName(Component component) {
-    return component == Component.kVertex
-        ? GetBaseVertexAnnotationTableName() :
-          GetBaseEdgeAnnotationTableName();
-  }
+	@Override
+	public int hashCode(){
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((name == null) ? 0 : name.hashCode());
+		return result;
+	}
 
-  // Each graph consists of two tables: <name>_vertex and <name>_edge.
-  private String name;
+	@Override
+	public boolean equals(Object obj){
+		if(this == obj)
+			return true;
+		if(obj == null)
+			return false;
+		if(getClass() != obj.getClass())
+			return false;
+		Graph other = (Graph)obj;
+		if(name == null){
+			if(other.name != null)
+				return false;
+		}else if(!name.equals(other.name))
+			return false;
+		return true;
+	}
 
-  public Graph(String name) {
-    this.name = name;
-  }
-
-  public String getName() {
-    return name;
-  }
-
-  public String getVertexTableName() {
-    return name + "_vertex";
-  }
-
-  public String getEdgeTableName() {
-    return name + "_edge";
-  }
-
-  public String getTableName(Component component) {
-    return component == Component.kVertex ? getVertexTableName() : getEdgeTableName();
-  }
-
-  @Override
-  public EntityType getEntityType() {
-    return EntityType.kGraph;
-  }
-
-  @Override
-  public String getLabel() {
-    return "Graph";
-  }
-
-  @Override
-  protected void getFieldStringItems(
-      ArrayList<String> inline_field_names,
-      ArrayList<String> inline_field_values,
-      ArrayList<String> non_container_child_field_names,
-      ArrayList<TreeStringSerializable> non_container_child_fields,
-      ArrayList<String> container_child_field_names,
-      ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields) {
-    inline_field_names.add("name");
-    inline_field_values.add(name);
-  }
+	@Override
+	public String toString(){
+		return "Graph [name=" + name + "]";
+	}
 }

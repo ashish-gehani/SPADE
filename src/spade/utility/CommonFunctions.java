@@ -499,4 +499,21 @@ public class CommonFunctions {
 			return buffer.toString();
 		}		
 	}
+	
+	// returns actual time that it slept for
+	public static long sleepSafe(long millis, boolean logError){
+		long startMillis = System.currentTimeMillis();
+		try{
+			Thread.sleep(millis);
+		}catch(Exception e){
+			if(logError){
+				logger.log(Level.INFO, "Failed to sleep for the specified milliseconds", e);
+			}
+		}
+		return System.currentTimeMillis() - startMillis;
+	}
+	
+	public static long sleepSafe(long millis){
+		return sleepSafe(millis, false);
+	}
 }

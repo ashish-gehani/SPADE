@@ -17,30 +17,41 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.quickgrail.entities;
+package spade.query.quickgrail.core;
 
 import java.util.ArrayList;
+import java.util.List;
 
+import spade.query.quickgrail.instruction.Instruction;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
- * This class is not yet used in the SPADE integrated QuickGrail.
+ * A compiled QuickGrail program that is composed of a list of primitive
+ * instructions.
  */
-public class GraphMetadata extends Entity{
-	public final String name;
+public class Program extends TreeStringSerializable{
+	private final List<Instruction> instructions = new ArrayList<Instruction>();
 
-	public GraphMetadata(String name){
-		this.name = name;
+	public Program(List<Instruction> instructions){
+		if(instructions != null){
+			this.instructions.addAll(instructions);
+		}
 	}
-
-	@Override
-	public EntityType getEntityType(){
-		return EntityType.kGraphMetadata;
+	
+	public final Instruction getInstruction(int i){
+		if(i > -1 && i < instructions.size()){
+			return instructions.get(i);
+		}
+		return null;
+	}
+	
+	public final int getInstructionsSize(){
+		return instructions.size();
 	}
 
 	@Override
 	public String getLabel(){
-		return "GraphMetadata";
+		return "Program";
 	}
 
 	@Override
@@ -48,7 +59,7 @@ public class GraphMetadata extends Entity{
 			ArrayList<String> non_container_child_field_names,
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("name");
-		inline_field_values.add(name);
+		container_child_field_names.add("instructions");
+		container_child_fields.add(new ArrayList<Instruction>(instructions));
 	}
 }

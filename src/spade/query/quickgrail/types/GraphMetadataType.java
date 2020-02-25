@@ -21,34 +21,41 @@ package spade.query.quickgrail.types;
 
 import spade.query.quickgrail.entities.GraphMetadata;
 
-public class GraphMetadataType extends Type {
-  static private GraphMetadataType instance;
+public class GraphMetadataType extends Type{
+	static private GraphMetadataType instance;
 
-  public static GraphMetadataType GetInstance() {
-    if (instance == null) {
-      instance = new GraphMetadataType();
-    }
-    return instance;
-  }
+	public static GraphMetadataType GetInstance(){
+		if(instance == null){
+			instance = new GraphMetadataType();
+		}
+		return instance;
+	}
 
-  @Override
-  public TypeID getTypeID() {
-    return TypeID.kGraphMetadata;
-  }
+	@Override
+	public TypeID getTypeID(){
+		return TypeID.kGraphMetadata;
+	}
 
-  @Override
-  public String getName() {
-    return "GraphMetadata";
-  }
+	@Override
+	public String getName(){
+		return "GraphMetadata";
+	}
 
-  @Override
-  public Object parseValueFromString(String text) {
-    throw new RuntimeException("Not supported");
-  }
+	@Override
+	public Object parseValueFromString(String text){
+		throw new RuntimeException("Not supported");
+	}
 
-  @Override
-  public String printValueToString(Object value) {
-    assert (value instanceof GraphMetadata);
-    return ((GraphMetadata)value).getName();
-  }
+	@Override
+	public String printValueToString(Object value){
+		if(!(value instanceof GraphMetadata)){
+			if(value == null){
+				throw new RuntimeException("NULL type. Expected '"+GraphMetadata.class+"'");
+			}else{
+				throw new RuntimeException("Unexpected type '"+value.getClass()+"'. Expected '"+GraphMetadata.class+"'");
+			}
+		}else{
+			return ((GraphMetadata)value).name;
+		}
+	}
 }

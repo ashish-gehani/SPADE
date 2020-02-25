@@ -17,38 +17,11 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.quickgrail.entities;
-
-import java.util.ArrayList;
+package spade.query.quickgrail.instruction;
 
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
- * This class is not yet used in the SPADE integrated QuickGrail.
+ * Interface for a QuickGrail primitive instruction.
  */
-public class GraphMetadata extends Entity{
-	public final String name;
-
-	public GraphMetadata(String name){
-		this.name = name;
-	}
-
-	@Override
-	public EntityType getEntityType(){
-		return EntityType.kGraphMetadata;
-	}
-
-	@Override
-	public String getLabel(){
-		return "GraphMetadata";
-	}
-
-	@Override
-	protected void getFieldStringItems(ArrayList<String> inline_field_names, ArrayList<String> inline_field_values,
-			ArrayList<String> non_container_child_field_names,
-			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
-			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("name");
-		inline_field_values.add(name);
-	}
-}
+public abstract class Instruction extends TreeStringSerializable{}

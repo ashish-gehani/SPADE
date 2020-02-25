@@ -18,7 +18,7 @@ package spade.resolver;
 
 import org.apache.commons.collections.CollectionUtils;
 import spade.core.AbstractEdge;
-import spade.core.AbstractQuery;
+//import spade.core.AbstractQuery;
 import spade.core.AbstractResolver;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
@@ -148,23 +148,23 @@ class ContactRemote implements Callable<Graph>
 
             String networkVertexQuery = "GetVertex(" +
                     OPMConstants.ARTIFACT_LOCAL_ADDRESS +
-                    AbstractQuery.OPERATORS.EQUALS +
+//                    AbstractQuery.OPERATORS.EQUALS +
                     networkVertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS) +
                     " AND " +
                     OPMConstants.ARTIFACT_LOCAL_PORT +
-                    AbstractQuery.OPERATORS.EQUALS +
+//                    AbstractQuery.OPERATORS.EQUALS +
                     networkVertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT) +
                     " AND " +
                     OPMConstants.ARTIFACT_REMOTE_ADDRESS +
-                    AbstractQuery.OPERATORS.EQUALS +
+//                    AbstractQuery.OPERATORS.EQUALS +
                     networkVertex.getAnnotation(OPMConstants.ARTIFACT_LOCAL_ADDRESS) +
                     " AND " +
                     OPMConstants.ARTIFACT_REMOTE_PORT +
-                    AbstractQuery.OPERATORS.EQUALS +
+//                    AbstractQuery.OPERATORS.EQUALS +
                     networkVertex.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT) +
                     " AND " +
                     OPMConstants.SOURCE +
-                    AbstractQuery.OPERATORS.EQUALS +
+//                    AbstractQuery.OPERATORS.EQUALS +
                     OPMConstants.SOURCE_AUDIT_NETFILTER +
                     ")";
 
@@ -196,7 +196,7 @@ class ContactRemote implements Callable<Graph>
 
             String lineageQuery = "GetLineage(" +
                     PRIMARY_KEY +
-                    AbstractQuery.OPERATORS.EQUALS +
+//                    AbstractQuery.OPERATORS.EQUALS +
                     targetNetworkVertexHash +
                     ", " +
                     depth +

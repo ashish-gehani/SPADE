@@ -19,8 +19,9 @@
  */
 package spade.core;
 
-import spade.query.scaffold.Scaffold;
-import spade.query.scaffold.ScaffoldFactory;
+import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.FILE_SEPARATOR;
+import static spade.core.Kernel.SPADE_ROOT;
 
 import java.io.FileInputStream;
 import java.util.HashSet;
@@ -33,9 +34,9 @@ import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static spade.core.Kernel.CONFIG_PATH;
-import static spade.core.Kernel.FILE_SEPARATOR;
-import static spade.core.Kernel.SPADE_ROOT;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
+import spade.query.scaffold.Scaffold;
+import spade.query.scaffold.ScaffoldFactory;
 
 
 /**
@@ -403,4 +404,9 @@ public abstract class AbstractStorage
     }
 
     public abstract Object executeQuery(String query);
+    
+    public QueryInstructionExecutor getQueryInstructionExecutor(){
+    	throw new RuntimeException("Storage does not support querying!");
+    }
+    
 }

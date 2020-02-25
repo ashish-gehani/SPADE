@@ -17,30 +17,40 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.quickgrail.entities;
+package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
- * This class is not yet used in the SPADE integrated QuickGrail.
+ * Get a graph that includes all the paths from a set of source vertices to a
+ * set of destination vertices.
  */
-public class GraphMetadata extends Entity{
-	public final String name;
+public class GetPath extends Instruction{
+	// Output graph.
+	public final Graph targetGraph;
+	// Input graph.
+	public final Graph subjectGraph;
+	// Set of source vertices.
+	public final Graph srcGraph;
+	// Set of destination vertices.
+	public final Graph dstGraph;
+	// Max path length.
+	public final int maxDepth;
 
-	public GraphMetadata(String name){
-		this.name = name;
-	}
-
-	@Override
-	public EntityType getEntityType(){
-		return EntityType.kGraphMetadata;
+	public GetPath(Graph targetGraph, Graph subjectGraph, Graph srcGraph, Graph dstGraph, int maxDepth){
+		this.targetGraph = targetGraph;
+		this.subjectGraph = subjectGraph;
+		this.srcGraph = srcGraph;
+		this.dstGraph = dstGraph;
+		this.maxDepth = maxDepth;
 	}
 
 	@Override
 	public String getLabel(){
-		return "GraphMetadata";
+		return "GetPath";
 	}
 
 	@Override
@@ -48,7 +58,15 @@ public class GraphMetadata extends Entity{
 			ArrayList<String> non_container_child_field_names,
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("name");
-		inline_field_values.add(name);
+		inline_field_names.add("targetGraph");
+		inline_field_values.add(targetGraph.name);
+		inline_field_names.add("subjectGraph");
+		inline_field_values.add(subjectGraph.name);
+		inline_field_names.add("srcGraph");
+		inline_field_values.add(srcGraph.name);
+		inline_field_names.add("dstGraph");
+		inline_field_values.add(dstGraph.name);
+		inline_field_names.add("maxDepth");
+		inline_field_values.add(String.valueOf(maxDepth));
 	}
 }

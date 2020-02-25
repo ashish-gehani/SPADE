@@ -17,30 +17,33 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.quickgrail.entities;
+package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
- * This class is not yet used in the SPADE integrated QuickGrail.
+ * Sample a subset of vertices / edges from a graph.
  */
-public class GraphMetadata extends Entity{
-	public final String name;
+public class LimitGraph extends Instruction{
+	// Output graph.
+	public final Graph targetGraph;
+	// Input graph.
+	public final Graph sourceGraph;
+	// The maximum number of vertices / edges to sample.
+	public final int limit;
 
-	public GraphMetadata(String name){
-		this.name = name;
-	}
-
-	@Override
-	public EntityType getEntityType(){
-		return EntityType.kGraphMetadata;
+	public LimitGraph(Graph targetGraph, Graph sourceGraph, int limit){
+		this.targetGraph = targetGraph;
+		this.sourceGraph = sourceGraph;
+		this.limit = limit;
 	}
 
 	@Override
 	public String getLabel(){
-		return "GraphMetadata";
+		return "LimitGraph";
 	}
 
 	@Override
@@ -48,7 +51,11 @@ public class GraphMetadata extends Entity{
 			ArrayList<String> non_container_child_field_names,
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("name");
-		inline_field_values.add(name);
+		inline_field_names.add("targetGraph");
+		inline_field_values.add(targetGraph.name);
+		inline_field_names.add("sourceGraph");
+		inline_field_values.add(sourceGraph.name);
+		inline_field_names.add("limit");
+		inline_field_values.add(String.valueOf(limit));
 	}
 }
