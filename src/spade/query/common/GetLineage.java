@@ -117,9 +117,10 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
             Set<String> remainingVertices = new HashSet<>();
             Set<String> visitedVertices = new HashSet<>();
             Set<AbstractVertex> startingVertexSet = (Set<AbstractVertex>) getVertex.execute(vertexParams, limit);
+            AbstractVertex startingVertex;
             if(!CollectionUtils.isEmpty(startingVertexSet))
             {
-                AbstractVertex startingVertex = startingVertexSet.iterator().next();
+                startingVertex = startingVertexSet.iterator().next();
                 startingVertex.setDepth(current_depth);
 //                for(AbstractVertex vertex: startingVertexSet)
 //                {
@@ -169,8 +170,11 @@ public class GetLineage extends AbstractQuery<Graph, Map<String, List<String>>>
                         }
                         if(vertex.isCompleteNetworkVertex())
                         {
-                            setRemoteResolutionRequired();
-                            result.putNetworkVertex(vertex, current_depth);
+                            if(!vertex.equals(startingVertex))
+                            {
+                                setRemoteResolutionRequired();
+                                result.putNetworkVertex(vertex, current_depth);
+                            }
                         }
                         Map<String, List<String>> edgeParams = new LinkedHashMap<>();
                         if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))

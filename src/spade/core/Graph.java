@@ -224,7 +224,7 @@ public class Graph extends AbstractStorage implements Serializable
 //            edgeIndexWriter.addDocument(doc);
 //            edgeIndexWriter.commit();
 
-            String hashCode = incomingEdge.getChildVertex().bigHashCode() + incomingEdge.getParentVertex().bigHashCode();
+            String hashCode = incomingEdge.bigHashCode();
             edgeIdentifiers.put(hashCode, incomingEdge);
             reverseEdgeIdentifiers.put(incomingEdge, hashCode);
             edgeSet.add(incomingEdge);
@@ -772,9 +772,9 @@ public class Graph extends AbstractStorage implements Serializable
     public Graph getChildren(String parentVertexHash)
     {
         Graph result = new Graph();
-        for(Map.Entry<String, AbstractEdge> entry: edgeIdentifiers.entrySet())
+        for(AbstractEdge edge : edgeSet)
         {
-            AbstractEdge edge = entry.getValue();
+//            logger.log(Level.INFO, entry.getValue().toString());
             AbstractVertex parentVertex = edge.getParentVertex();
             if(parentVertex.bigHashCode().equals(parentVertexHash))
             {
@@ -799,9 +799,9 @@ public class Graph extends AbstractStorage implements Serializable
     public Graph getParents(String childVertexHash)
     {
         Graph result = new Graph();
-        for(Map.Entry<String, AbstractEdge> entry: edgeIdentifiers.entrySet())
+        for(AbstractEdge edge : edgeSet)
         {
-            AbstractEdge edge = entry.getValue();
+//            logger.log(Level.INFO, entry.getValue().toString());
             AbstractVertex childVertex = edge.getChildVertex();
             if(childVertex.bigHashCode().equals(childVertexHash))
             {
@@ -821,8 +821,11 @@ public class Graph extends AbstractStorage implements Serializable
         int current_depth = 0;
         Set<String> remainingVertices = new HashSet<>();
         AbstractVertex startingVertex = getVertex(hash);
+        if(startingVertex == null)
+            return result;
         remainingVertices.add(startingVertex.bigHashCode());
-        startingVertex.setDepth(0);
+        startingVertex.setDepth(current_depth);
+        result.putVertex(startingVertex);
         result.setRootVertex(startingVertex);
         result.setMaxDepth(maxDepth);
         Set<String> visitedVertices = new HashSet<>();
@@ -832,30 +835,29 @@ public class Graph extends AbstractStorage implements Serializable
             Set<String> currentSet = new HashSet<>();
             for(String vertexHash: remainingVertices)
             {
-                Graph neighbors = null;
+                Graph neighbors;
                 if(DIRECTION_ANCESTORS.startsWith(direction.toLowerCase()))
                 {
                     neighbors = getParents(vertexHash);
                 }
-                else if(DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase()))
+                else
                 {
                     neighbors = getChildren(vertexHash);
                 }
-                if(neighbors != null)
+//                    logger.log(Level.INFO, "neighbors: " + neighbors);
+                for(AbstractVertex vertex : neighbors.vertexSet())
+                    vertex.setDepth(current_depth + 1);
+                result.vertexSet().addAll(neighbors.vertexSet());
+                result.edgeSet().addAll(neighbors.edgeSet());
+                for(AbstractVertex vertex : neighbors.vertexSet())
                 {
-                	for(AbstractVertex V: neighbors.vertexSet())
-                		V.setDepth(current_depth+1);
-                    result.vertexSet().addAll(neighbors.vertexSet());
-                    result.edgeSet().addAll(neighbors.edgeSet());
-                    for(AbstractVertex vertex: neighbors.vertexSet())
+                    String neighborHash = vertex.bigHashCode();
+                    if(!visitedVertices.contains(neighborHash))
                     {
-                        String hashCode = vertex.bigHashCode();
-                        if(!visitedVertices.contains(hashCode))
-                        {
-                            currentSet.add(hashCode);
-                        }
+                        currentSet.add(neighborHash);
                     }
                 }
+
             }
             remainingVertices.clear();
             remainingVertices.addAll(currentSet);

@@ -16,6 +16,7 @@
  */
 package spade.utility;
 
+import org.apache.commons.collections.CollectionUtils;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Cache;
@@ -26,12 +27,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.Queue;
 import java.util.Set;
@@ -175,13 +173,43 @@ public class DiscrepancyDetector
 		return totalDiscrepancyCount;
 	}
 
+	// New algorithm to detect discrepancies
+	private int findDiscrepancy(Graph g_earlier, Graph g_later)
+	{
+		logger.log(Level.INFO, "g_earlier size, vertices: " + g_earlier.vertexSet().size() + ", edges: " + g_earlier.edgeSet().size());
+		logger.log(Level.INFO, "g_later size, vertices: " + g_later.vertexSet().size() + ", edges: " + g_later.edgeSet().size());
+		logger.log(Level.INFO, "re-running remote query on cache. direction: " + queryDirection + ", depth: " + g_later.getMaxDepth());
+		Graph cache_result = g_earlier.getLineage(g_later.getRootVertex().bigHashCode(), queryDirection, g_later.getMaxDepth());
+
+		Set<AbstractVertex> cache_resultVertexSet = cache_result.vertexSet();
+		logger.log(Level.INFO, "cache_result vertices: " + cache_resultVertexSet.size());
+		Set<AbstractEdge> cache_resultEdgeSet = cache_result.edgeSet();
+		logger.log(Level.INFO, "cache_result edges: " + cache_resultEdgeSet.size());
+
+		Set<AbstractVertex> g_laterVertexSet = g_later.vertexSet();
+		logger.log(Level.INFO, "g_laterVertexSet size:" + g_laterVertexSet.size());
+		Set<AbstractEdge> g_laterEdgeSet = g_later.edgeSet();
+		logger.log(Level.INFO, "g_laterEdgeSet size: " + g_laterEdgeSet.size());
+
+		// subtract remote response from local response
+		Collection vertexDifference = CollectionUtils.subtract(cache_resultVertexSet, g_laterVertexSet);
+		int missingVertices = vertexDifference.size();
+		Collection edgeDifference = CollectionUtils.subtract(cache_resultEdgeSet, g_laterEdgeSet);
+		int missingEdges = edgeDifference.size();
+		int discrepancyCount = missingVertices + missingEdges;
+
+		logger.log(Level.INFO, "discrepancy count: " + discrepancyCount + ". missing vertices: " +
+				missingVertices + ". missing edges: " + missingEdges);
+
+		return discrepancyCount;
+	}
 
 	/**
 	 * Algorithm to detect basic discrepancies between graphs g_earlier and g_later
 	 *
 	 * @return true if found discrepancy or false if not
 	 */
-	private int findDiscrepancy(Graph g_earlier, Graph g_later)
+	private int findDiscrepancyOld(Graph g_earlier, Graph g_later)
 	{
 		logger.log(Level.INFO, "g_earlier size, vertices: " + g_earlier.vertexSet().size() + ", edges: " + g_earlier.edgeSet().size());
 		logger.log(Level.INFO, "g_later size, vertices: " + g_later.vertexSet().size() + ", edges: " + g_later.edgeSet().size());

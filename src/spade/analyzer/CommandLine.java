@@ -257,6 +257,9 @@ public class CommandLine extends AbstractAnalyzer
                                 if(localResult instanceof Graph)
                                 {
                                     ((Graph) localResult).setQueryString(queryString);
+                                    ((Graph) localResult).setMaxDepth(Integer.parseInt(maxLength));
+                                    logger.log(Level.INFO, "queryString: " + ((Graph) localResult).getQueryString());
+                                    logger.log(Level.INFO, "maxDepth: " + ((Graph) localResult).getMaxDepth());
                                     ((Graph) localResult).setHostName(Kernel.HOST_NAME);
                                     Properties props = new Properties();
                                     props.load(new FileInputStream("find_inconsistency.txt"));
