@@ -19,6 +19,27 @@
  */
 package spade.core;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.Serializable;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.core.KeywordAnalyzer;
 import org.apache.lucene.document.Document;
@@ -42,27 +63,6 @@ import spade.edge.opm.WasTriggeredBy;
 import spade.vertex.opm.Agent;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.Serializable;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * This class is used to represent query responses using sets for edges and
@@ -574,6 +574,46 @@ public class Graph extends AbstractStorage implements Serializable
 
         return outputString.toString();
     }
+    
+    public String exportGraphUnsafe() throws Exception
+    {
+        if (vertexSet.isEmpty())
+        {
+            return null;
+        }
+        StringBuilder outputString = new StringBuilder(500);
+        try
+        {
+            outputString.append("digraph spade2dot {\n" + "graph [rankdir = \"RL\"];\n" + "node [fontname=\"Helvetica\" fontsize=\"8\" style=\"filled\" margin=\"0.0,0.0\"];\n"
+                    + "edge [fontname=\"Helvetica\" fontsize=\"8\"];\n");
+
+            for (AbstractVertex vertex : vertexSet)
+            {
+            	String vertexString = exportVertex(vertex);
+            	if(vertexString == null){
+            		throw new Exception("Failed to export vertex: " + vertex);
+            	}
+                outputString.append(vertexString);
+            }
+            for (AbstractEdge edge : edgeSet)
+            {
+            	String edgeString = exportEdge(edge);
+            	if(edgeString == null){
+            		throw new Exception("Failed to export edge: " + edge);
+            	}
+                outputString.append(edgeString);
+            }
+
+            outputString.append("}\n");
+        }
+        catch (Exception exception)
+        {
+            logger.log(Level.SEVERE, null, exception);
+            throw exception;
+        }
+
+        return outputString.toString();
+    }
 
     /**
      * This method is used to export the graph to a DOT file which is useful for
@@ -619,7 +659,6 @@ public class Graph extends AbstractStorage implements Serializable
             String shape = "box";
             String color = "white";
             String type = vertex.getAnnotation("type");
-            logger.log(Level.SEVERE, "hassaan4:" + vertexString);
             if (type.equalsIgnoreCase("Agent"))
             {
                 shape = "octagon";
@@ -953,5 +992,50 @@ public class Graph extends AbstractStorage implements Serializable
                 "vertexSet=" + vertexSet +
                 ", edgeSet=" + edgeSet +
                 '}';
+    }
+    
+    /*
+     * @Author Raza
+     */
+    private String prettyPrintVertices()
+    {
+        StringBuilder printStr = new StringBuilder(200);
+        for(AbstractVertex vertex : vertexSet)
+        {
+            printStr.append(vertex.prettyPrint());
+            printStr.append(",\n");
+        }
+        if(printStr.length() > 0)
+            return printStr.substring(0, printStr.length() - 2);
+        return "\t\tNo Vertices";
+    }
+
+    /*
+     * @Author Raza
+     */
+    private String prettyPrintEdges()
+    {
+        StringBuilder printStr = new StringBuilder(200);
+        for(AbstractEdge edge : edgeSet)
+        {
+            printStr.append(edge.prettyPrint());
+            printStr.append(",\n");
+        }
+        if(printStr.length() > 0)
+            return printStr.substring(0, printStr.length() - 2);
+        return "\t\tNo edges";
+    }
+
+    /*
+     * @Author Raza
+     */
+    // prints in a JSON like format
+    public String prettyPrint()
+    {
+        return "Graph:\n{\n" +
+                "\tvertexSet:\n\t{\n" + prettyPrintVertices() +
+                "\n\t},\n" +
+                "\tedgeSet:\n\t{\n" + prettyPrintEdges() +
+                "\n\t}\n}";
     }
 }

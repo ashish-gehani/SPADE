@@ -20,16 +20,12 @@
 package spade.query.quickgrail.core;
 
 import java.util.ArrayList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import spade.query.quickgrail.entities.Entity;
 import spade.query.quickgrail.entities.EntityType;
 import spade.query.quickgrail.entities.Graph;
-import spade.query.quickgrail.entities.GraphMetadata;
 import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
-import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
 import spade.query.quickgrail.instruction.EraseSymbols;
 import spade.query.quickgrail.instruction.EvaluateQuery;
@@ -49,8 +45,7 @@ import spade.query.quickgrail.instruction.Instruction;
 import spade.query.quickgrail.instruction.IntersectGraph;
 import spade.query.quickgrail.instruction.LimitGraph;
 import spade.query.quickgrail.instruction.ListGraphs;
-import spade.query.quickgrail.instruction.OverwriteGraphMetadata;
-import spade.query.quickgrail.instruction.SetGraphMetadata;
+import spade.query.quickgrail.instruction.PrintPredicate;
 import spade.query.quickgrail.instruction.StatGraph;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
@@ -68,12 +63,25 @@ import spade.query.quickgrail.parser.ParseVariable;
 import spade.query.quickgrail.types.Type;
 import spade.query.quickgrail.types.TypeID;
 import spade.query.quickgrail.types.TypedValue;
+import spade.query.quickgrail.utility.QuickGrailPredicateTree;
+import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
 
 /**
  * Resolver that transforms a parse tree into a QuickGrail low-level program.
  */
-public class Resolver{
+public class QuickGrailQueryResolver{
 
+	public static enum PredicateOperator{
+		EQUAL,
+		GREATER,
+		GREATER_EQUAL,
+		LESSER,
+		LESSER_EQUAL,
+		NOT_EQUAL,
+		LIKE,
+		REGEX
+	}
+	
 	private ArrayList<Instruction> instructions;
 	private QueryEnvironment env;
 
@@ -176,11 +184,38 @@ public class Resolver{
 			resolveGraphAssignment(parseAssignment);
 			break;
 		case kGraphMetadata:
-			resolveGraphMetadataAssignment(parseAssignment);
+			throw new RuntimeException("Graph metadata queries not supported yet");
+//			resolveGraphMetadataAssignment(parseAssignment); break;
+		case kGraphPredicate:
+			resolveGraphPredicateAssignment(parseAssignment);
 			break;
 		default:
 			throw new RuntimeException("Unsupported variable type " + varType.getName() + " at "
 					+ parseAssignment.getLhs().getLocationString());
+		}
+	}
+
+	private void resolveGraphPredicateAssignment(ParseAssignment parseAssignment){
+		if(parseAssignment.getLhs().getType().getTypeID() != TypeID.kGraphPredicate){
+			throw new RuntimeException("Unexpected LHS type '" + parseAssignment.getLhs().getType().getTypeID() + "'. "
+					+ "Expected '" + TypeID.kGraphPredicate + "'");
+		}
+
+		if(parseAssignment.getAssignmentType() == ParseAssignment.AssignmentType.kEqual){
+			ParseString var = parseAssignment.getLhs().getName();
+			PredicateNode predicateNode = QuickGrailPredicateTree.resolveGraphPredicate(parseAssignment.getRhs());
+			if(predicateNode == null){
+				throw new RuntimeException("Failed to resolve predicate");
+			}else{
+				// TODO
+				//try{QuickGrailPredicateTree.testSer(predicateNode);}catch(Throwable e){ throw new RuntimeException("Failed ser test", e);}
+				try{QuickGrailPredicateTree.testSer2(predicateNode);}catch(Throwable e){ throw new RuntimeException("Failed ser test", e);}
+				QuickGrailPredicateTree.setPredicateSymbol(var.getValue(), predicateNode);
+			}
+		}else{
+			throw new RuntimeException(
+					"Unsupported predicate assignment " + parseAssignment.getAssignmentType().name().substring(1) + " at "
+							+ parseAssignment.getLocationString());
 		}
 	}
 
@@ -237,39 +272,6 @@ public class Resolver{
 		env.setGraphSymbol(var.getValue(), distinctifiedGraph);
 	}
 
-	private void resolveGraphMetadataAssignment(ParseAssignment parseAssignment){
-		if(parseAssignment.getLhs().getType().getTypeID() != TypeID.kGraphMetadata){
-			throw new RuntimeException("Unexpected LHS type '" + parseAssignment.getLhs().getType().getTypeID() + "'. "
-					+ "Expected '" + TypeID.kGraphMetadata + "'");
-		}
-		
-		ParseString var = parseAssignment.getLhs().getName();
-		ParseExpression rhs = parseAssignment.getRhs();
-		ParseAssignment.AssignmentType atype = parseAssignment.getAssignmentType();
-
-		GraphMetadata resultMetadata;
-		if(atype == ParseAssignment.AssignmentType.kEqual){
-			resultMetadata = resolveGraphMetadataExpression(rhs, null);
-		}else{
-			GraphMetadata lhsGraph = env.lookupGraphMetadataSymbol(var.getValue());
-			if(lhsGraph == null){
-				throw new RuntimeException(
-						"Cannot resolve GraphMetadata variable " + var.getValue() + " at " + var.getLocationString());
-			}
-			switch(atype){
-			case kPlusEqual:{
-				resultMetadata = resolveGraphMetadataExpression(rhs, lhsGraph);
-				break;
-			}
-			default:
-				throw new RuntimeException(
-						"Unsupported assignment " + parseAssignment.getAssignmentType().name().substring(1) + " at "
-								+ parseAssignment.getLocationString());
-			}
-		}
-		env.setGraphMetadataSymbol(var.getValue(), resultMetadata);
-	}
-
 	private void resolveCommand(ParseCommand parseCommand){
 		ParseString cmdName = parseCommand.getCommandName();
 		ArrayList<ParseExpression> arguments = parseCommand.getArguments();
@@ -294,6 +296,9 @@ public class Resolver{
 			break;
 		case "native":
 			resolveNativeCommand(arguments);
+			break;
+		case "print":
+			resolvePrintCommand(arguments);
 			break;
 		default:
 			throw new RuntimeException(
@@ -398,6 +403,31 @@ public class Resolver{
 		}
 	}
 	
+	private void resolvePrintCommand(ArrayList<ParseExpression> arguments){
+		if(arguments.isEmpty()){
+			throw new RuntimeException("Invalid number of arguments for print predicate: expected 1");
+		}
+
+		final ParseExpression expression = arguments.get(0);
+		if(!expression.getExpressionType().equals(ExpressionType.kVariable)){
+			throw new RuntimeException("Invalid argument type for print predicate: " + expression.getExpressionType().toString().substring(1));
+		}
+		
+		final ParseVariable parseVariable = (ParseVariable)expression;
+		if(!parseVariable.getType().getTypeID().equals(TypeID.kGraphPredicate)){
+			throw new RuntimeException("Invalid variable type for print predicate: " + parseVariable.getType().getTypeID().toString().substring(1));
+		}
+		
+		String predicateSymbolName = parseVariable.getName().getValue();
+		PredicateNode predicateNode = QuickGrailPredicateTree.lookupPredicateSymbol(predicateSymbolName);
+		if(predicateNode == null){
+			throw new RuntimeException(
+					"Cannot resolve Graph predicate variable " + predicateSymbolName + " at " + parseVariable.getLocationString());
+		}
+		
+		instructions.add(new PrintPredicate(predicateSymbolName));
+	}
+	
 	private void resolveResetCommand(ArrayList<ParseExpression> arguments){
 		if(arguments.size() == 1){
 			String target = resolveNameAsString(arguments.get(0));
@@ -423,10 +453,6 @@ public class Resolver{
 		return ToGraph(resolveExpression(parseExpression, outputGraph, isConstReference));
 	}
 
-	private GraphMetadata resolveGraphMetadataExpression(ParseExpression parseExpression, GraphMetadata outputMetadata){
-		return ToGraphMetadata(resolveExpression(parseExpression, outputMetadata, true));
-	}
-
 	private Entity resolveOperation(ParseOperation parseOperation, Entity outputEntity){
 		ParseExpression parseSubject = parseOperation.getSubject();
 		ParseString op = parseOperation.getOperator();
@@ -437,7 +463,8 @@ public class Resolver{
 			case kGraph:
 				return resolveGraphMethod(ToGraph(subject), op, operands, outputEntity);
 			case kGraphMetadata:
-				return resolveGraphMetadataMethod(ToGraphMetadata(subject), op.getValue(), operands);
+				throw new RuntimeException("Graph metadata queries not supported yet");
+//				return resolveGraphMetadataMethod(ToGraphMetadata(subject), op.getValue(), operands);
 			default:
 				throw new RuntimeException("Invalid subject type " + subject.getEntityType().name().substring(1)
 						+ " at " + parseSubject.getLocationString());
@@ -447,20 +474,24 @@ public class Resolver{
 		// Pure functions.
 		switch(op.getValue()){
 		case "+":{
-			assert operands.size() == 2;
+			if(operands.size() != 2){
+				throw new RuntimeException("Unexpected '+' operands count: " + operands.size() + ". Expected: " + 2);
+			}
 			Entity lhsEntity = resolveExpression(operands.get(0), outputEntity, false);
 			return resolveExpression(operands.get(1), lhsEntity, true);
 		}
 		case "&": // Fall through
 		case "-":{
-			assert operands.size() == 2;
+			if(operands.size() != 2){
+				throw new RuntimeException("Unexpected '"+op.getValue()+"' operands count: " + operands.size() + ". Expected: " + 2);
+			}
 			return resolveGraphBinaryOperation(op, operands.get(0), operands.get(1), ToGraph(outputEntity));
 		}
 		case "vertices":
 			return resolveInsertLiteralVertex(operands, ToGraph(outputEntity));
 		case "edges":
 			return resolveInsertLiteralEdge(operands, ToGraph(outputEntity));
-			// TODO hassaan
+//		TODO
 //		case "asVertex":
 //			return resolveAsVertexOrEdge(Graph.Component.kVertex, operands, ToGraph(outputEntity));
 //		case "asEdge":
@@ -533,14 +564,18 @@ public class Resolver{
 		case "collapseEdge":
 			return resolveCollapseEdge(subject, arguments, ToGraph(outputEntity));
 		case "attr":
-			return resolveSetMetadata(SetGraphMetadata.Component.kBoth, subject, arguments,
-					ToGraphMetadata(outputEntity));
 		case "attrVertex":
-			return resolveSetMetadata(SetGraphMetadata.Component.kVertex, subject, arguments,
-					ToGraphMetadata(outputEntity));
 		case "attrEdge":
-			return resolveSetMetadata(SetGraphMetadata.Component.kEdge, subject, arguments,
-					ToGraphMetadata(outputEntity));
+			throw new RuntimeException("Graph metadata queries not supported yet");
+//		case "attr": TODO partial implementation
+//			return resolveSetMetadata(SetGraphMetadata.Component.kBoth, subject, arguments,
+//					ToGraphMetadata(outputEntity));
+//		case "attrVertex":
+//			return resolveSetMetadata(SetGraphMetadata.Component.kVertex, subject, arguments,
+//					ToGraphMetadata(outputEntity));
+//		case "attrEdge":
+//			return resolveSetMetadata(SetGraphMetadata.Component.kEdge, subject, arguments,
+//					ToGraphMetadata(outputEntity));
 		case "span":
 			return resolveSpan(subject, arguments, ToGraph(outputEntity));
 		case "limit":
@@ -552,17 +587,13 @@ public class Resolver{
 				"Unsupported Graph method " + methodName.getValue() + " at " + methodName.getLocationString());
 	}
 
-	private Entity resolveGraphMetadataMethod(GraphMetadata subject, String methodName,
-			ArrayList<ParseExpression> arguments){
-		throw new RuntimeException("No GraphMetadata method is supported yet");
-	}
-
 	public Entity resolveVariable(ParseVariable var, Entity outputEntity, boolean isConstReference){
 		switch(var.getType().getTypeID()){
 		case kGraph:
 			return resolveGraphVariable(var, ToGraph(outputEntity), isConstReference);
 		case kGraphMetadata:
-			return resolveGraphMetadataVariable(var, ToGraphMetadata(outputEntity));
+			throw new RuntimeException("Graph metadata queries not supported yet");
+//			return resolveGraphMetadataVariable(var, ToGraphMetadata(outputEntity));
 		default:
 			break;
 		}
@@ -571,7 +602,9 @@ public class Resolver{
 	}
 
 	private Graph resolveGraphVariable(ParseVariable var, Graph outputGraph, boolean isConstReference){
-		assert var.getType().getTypeID() == TypeID.kGraph;
+		if(var.getType().getTypeID() != TypeID.kGraph){
+			throw new RuntimeException("Unexpected variable type: " + var.getType().getTypeID() + ". Expected: " + TypeID.kGraph);
+		}
 		Graph savedGraph = env.lookupGraphSymbol(var.getName().getValue());
 		if(savedGraph == null){
 			throw new RuntimeException(
@@ -587,23 +620,6 @@ public class Resolver{
 		return outputGraph;
 	}
 
-	private GraphMetadata resolveGraphMetadataVariable(ParseVariable var, GraphMetadata lhsMetadata){
-		assert var.getType().getTypeID() == TypeID.kGraphMetadata;
-		GraphMetadata rhsMetadata = env.lookupGraphMetadataSymbol(var.getName().getValue());
-		if(rhsMetadata == null){
-			throw new RuntimeException("Cannot resolve GraphMetadata variable " + var.getName().getValue() + " at "
-					+ var.getLocationString());
-		}
-
-		if(lhsMetadata == null){
-			return rhsMetadata;
-		}
-
-		GraphMetadata outputMetadata = allocateEmptyGraphMetadata();
-		instructions.add(new OverwriteGraphMetadata(outputMetadata, lhsMetadata, rhsMetadata));
-		return outputMetadata;
-	}
-
 	private Graph resolveInsertLiteralVertex(ArrayList<ParseExpression> operands, Graph outputGraph){
 		if(outputGraph == null){
 			outputGraph = allocateEmptyGraph();
@@ -615,8 +631,8 @@ public class Resolver{
 						"Invalid argument at " + e.getLocationString() + ": expected integer literal");
 			}
 			TypedValue value = ((ParseLiteral)e).getLiteralValue();
-			if(value.getType().getTypeID() != TypeID.kInteger){
-				throw new RuntimeException("Invalid argument type at " + e.getLocationString() + ": expected integer");
+			if(value.getType().getTypeID() != TypeID.kString && value.getType().getTypeID() != TypeID.kInteger){
+				throw new RuntimeException("Invalid argument type at " + e.getLocationString() + ": expected string or int");
 			}
 			vertices.add(String.valueOf(value.getValue()));
 		}
@@ -635,8 +651,8 @@ public class Resolver{
 						"Invalid argument at " + e.getLocationString() + ": expected integer literal");
 			}
 			TypedValue value = ((ParseLiteral)e).getLiteralValue();
-			if(value.getType().getTypeID() != TypeID.kInteger){
-				throw new RuntimeException("Invalid argument type at " + e.getLocationString() + ": expected integer");
+			if(value.getType().getTypeID() != TypeID.kString && value.getType().getTypeID() != TypeID.kInteger){
+				throw new RuntimeException("Invalid argument type at " + e.getLocationString() + ": expected string or int");
 			}
 			edges.add(String.valueOf(value.getValue()));
 		}
@@ -656,54 +672,37 @@ public class Resolver{
 				outputGraph = allocateEmptyGraph();
 			}
 
-			// TODO hassaan
 			switch(component){
 				case kEdge: instructions.add(new GetEdge(outputGraph, subjectGraph)); break;
 				case kVertex: instructions.add(new GetVertex(outputGraph, subjectGraph)); break;
 				default: throw new RuntimeException("Invalid component type " + component.name().substring(1) + " instead of vertex or edge");
 			}
 			
-//			StringBuilder sqlQuery = new StringBuilder();
-//			sqlQuery.append("INSERT INTO " + env.getTableName(component, outputGraph) + " SELECT id FROM "
-//					+ env.GetBaseAnnotationTableName(component));
-//			if(!Environment.IsBaseGraph(subjectGraph)){
-//				String analyzeQuery = "\\analyzerange " + env.getTableName(component, subjectGraph) + "\n";
-//				instructions.add(new EvaluateQuery(analyzeQuery));
-//				sqlQuery.append(" WHERE id IN (SELECT id FROM " + env.getTableName(component, subjectGraph) + ")");
-//			}
-//			sqlQuery.append(" GROUP BY id;");
-//			instructions.add(new EvaluateQuery(sqlQuery.toString()));
 			return outputGraph;
 		}else{
-			return resolveGetVertexOrEdgePredicate(component, subjectGraph, arguments.get(0), outputGraph);
+			PredicateNode predicateNode = QuickGrailPredicateTree.resolveGraphPredicate(arguments.get(0));
+			if(predicateNode == null){
+				throw new RuntimeException("Failed to resolve predicate");
+			}
+			return resolveGetVertexOrEdgePredicate(component, subjectGraph, predicateNode, outputGraph);
 		}
 	}
 
 	private Graph resolveGetVertexOrEdgePredicate(Graph.Component component, Graph subjectGraph,
-			ParseExpression expression, Graph outputGraph){
-		if(expression.getExpressionType() != ParseExpression.ExpressionType.kOperation){
-			throw new RuntimeException("Unexpected expression at " + expression.getLocationString());
-		}
-		ParseOperation predicate = (ParseOperation)expression;
-		ParseString op = predicate.getOperator();
-		ArrayList<ParseExpression> operands = predicate.getOperands();
-		switch(op.getValue().toLowerCase()){
-		case "or":{
-			assert operands.size() == 2;
-			for(int i = 0; i < 2; ++i){
-				outputGraph = resolveGetVertexOrEdgePredicate(component, subjectGraph, operands.get(i), outputGraph);
-			}
+			PredicateNode predicateNode, Graph outputGraph){
+		switch(predicateNode.value){
+		case QuickGrailPredicateTree.BOOLEAN_OPERATOR_OR:{
+			outputGraph = resolveGetVertexOrEdgePredicate(component, subjectGraph, predicateNode.getLeft(), outputGraph);
+			outputGraph = resolveGetVertexOrEdgePredicate(component, subjectGraph, predicateNode.getRight(), outputGraph);
 			return outputGraph;
 		}
-		case "and":{
-			assert operands.size() == 2;
-			Graph lhsGraph = resolveGetVertexOrEdgePredicate(component, subjectGraph, operands.get(0), null);
-			Graph rhsGraph = resolveGetVertexOrEdgePredicate(component, lhsGraph, operands.get(1), outputGraph);
+		case QuickGrailPredicateTree.BOOLEAN_OPERATOR_AND:{
+			Graph lhsGraph = resolveGetVertexOrEdgePredicate(component, subjectGraph, predicateNode.getLeft(), null);
+			Graph rhsGraph = resolveGetVertexOrEdgePredicate(component, lhsGraph, predicateNode.getRight(), outputGraph);
 			return rhsGraph;
 		}
-		case "not":
-			assert operands.size() == 1;
-			Graph subtrahendGraph = resolveGetVertexOrEdgePredicate(component, subjectGraph, operands.get(0), null);
+		case QuickGrailPredicateTree.BOOLEAN_OPERATOR_NOT:
+			Graph subtrahendGraph = resolveGetVertexOrEdgePredicate(component, subjectGraph, predicateNode.getLeft(), null);
 			if(outputGraph == null){
 				outputGraph = allocateEmptyGraph();
 			}
@@ -712,87 +711,46 @@ public class Resolver{
 		default:
 			break;
 		}
-		return resolveGetVertexOrEdgeComparison(component, subjectGraph, op, operands, outputGraph);
-	}
-
-	public static enum PredicateOperator{
-		EQUAL,
-		GREATER,
-		GREATER_EQUAL,
-		LESSER,
-		LESSER_EQUAL,
-		NOT_EQUAL,
-		LIKE,
-		REGEX
+		return resolveGetVertexOrEdgeComparison(component, subjectGraph, predicateNode, outputGraph);
 	}
 	
 	private Graph resolveGetVertexOrEdgeComparison(Graph.Component component, Graph subjectGraph,
-			ParseString comparator, ArrayList<ParseExpression> operands, Graph outputGraph){
+			PredicateNode predicateNode, Graph outputGraph){
 		PredicateOperator predicateOperator = null;
-		final String cp = comparator.getValue().toLowerCase();
-		switch(cp){
-		case "=": case "==":
+		switch(predicateNode.value){
+		case QuickGrailPredicateTree.COMPARATOR_EQUAL1: case QuickGrailPredicateTree.COMPARATOR_EQUAL2:
 			predicateOperator = PredicateOperator.EQUAL; break;
-		case "<>": case "!=":
+		case QuickGrailPredicateTree.COMPARATOR_NOT_EQUAL1: case QuickGrailPredicateTree.COMPARATOR_NOT_EQUAL2:
 			predicateOperator = PredicateOperator.NOT_EQUAL; break;
-		case "<":
+		case QuickGrailPredicateTree.COMPARATOR_LESS:
 			predicateOperator = PredicateOperator.LESSER; break;
-		case "<=":
+		case QuickGrailPredicateTree.COMPARATOR_LESS_EQUAL:
 			predicateOperator = PredicateOperator.LESSER_EQUAL; break;
-		case ">":
+		case QuickGrailPredicateTree.COMPARATOR_GREATER:
 			predicateOperator = PredicateOperator.GREATER; break;
-		case ">=":
+		case QuickGrailPredicateTree.COMPARATOR_GREATER_EQUAL:
 			predicateOperator = PredicateOperator.GREATER_EQUAL; break;
-		case "like":
+		case QuickGrailPredicateTree.COMPARATOR_LIKE:
 			predicateOperator = PredicateOperator.LIKE; break;
-		case "~": case "regexp":
+		case QuickGrailPredicateTree.COMPARATOR_REGEX1: case QuickGrailPredicateTree.COMPARATOR_REGEX2:
 			predicateOperator = PredicateOperator.REGEX; break;
 		default:
 			throw new RuntimeException(
-					"Unexpected comparator " + comparator.getValue() + " at " + comparator.getLocationString());
+					"Unexpected comparator: " + predicateNode.value);
 		}
-
-		if(operands.size() != 2){
-			throw new RuntimeException(
-					"Invalid number of operands at " + comparator.getLocationString() + ": expected 2");
-		}
-
-		ParseExpression lhs = operands.get(0);
-		ParseExpression rhs = operands.get(1);
-		if(lhs.getExpressionType() != ParseExpression.ExpressionType.kName){
-			throw new RuntimeException("Unexpected operand at " + lhs.getLocationString());
-		}
-		if(rhs.getExpressionType() != ParseExpression.ExpressionType.kLiteral){
-			throw new RuntimeException("Unexpected operand at " + rhs.getLocationString());
-		}
-		String field = ((ParseName)lhs).getName().getValue();
-		TypedValue literal = ((ParseLiteral)rhs).getLiteralValue();
-		String value = literal.getType().printValueToString(literal.getValue());
 
 		if(outputGraph == null){
 			outputGraph = allocateEmptyGraph();
 		}
-		// TODO hassaan
+		
+		String field = predicateNode.getLeft().value;
+		String value = predicateNode.getRight().value;
+
 		switch(component){
 			case kEdge: instructions.add(new GetEdge(outputGraph, subjectGraph, field, predicateOperator, value)); break;
 			case kVertex: instructions.add(new GetVertex(outputGraph, subjectGraph, field, predicateOperator, value)); break;
 			default: throw new RuntimeException("Invalid component type " + component.name().substring(1) + " instead of vertex or edge");
 		}
-//		
-//		StringBuilder sqlQuery = new StringBuilder();
-//		sqlQuery.append("INSERT INTO " + env.getTableName(component, outputGraph) + " SELECT id FROM "
-//				+ env.GetBaseAnnotationTableName(component) + " WHERE");
-//		if(!field.equals("*")){
-//			sqlQuery.append(" field = " + formatString(field) + " AND");
-//		}
-//		sqlQuery.append(" value " + op + " " + formatString(value));
-//		if(!Environment.IsBaseGraph(subjectGraph)){
-//			String analyzeQuery = "\\analyzerange " + env.getTableName(component, subjectGraph) + "\n";
-//			instructions.add(new EvaluateQuery(analyzeQuery));
-//			sqlQuery.append(" AND id IN (SELECT id FROM " + env.getTableName(component, subjectGraph) + ")");
-//		}
-//		sqlQuery.append(" GROUP BY id;");
-//		instructions.add(new EvaluateQuery(sqlQuery.toString()));
 
 		return outputGraph;
 	}
@@ -823,7 +781,7 @@ public class Resolver{
 	}
 	
 	private Graph resolveGetLineage(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
-		if(arguments.size() != 3){
+		if(arguments.size() != 3 && arguments.size() != 4){
 			throw new RuntimeException("Invalid number of arguments for getLineage: expected 3");
 		}
 
@@ -831,6 +789,19 @@ public class Resolver{
 		Integer depth = resolveInteger(arguments.get(1));
 
 		String dirStr = resolveString(arguments.get(2));
+		
+		boolean remoteResolve = false;
+		if(arguments.size() == 4){
+			Integer remoteResolveInt = resolveInteger(arguments.get(3));
+			if(remoteResolveInt == 0){
+				remoteResolve = false;
+			}else if(remoteResolveInt == 1){
+				remoteResolve = true;
+			}else{
+				throw new RuntimeException("Invalid value for remoteResolve argument: Allowed 0 or 1");
+			}
+		}
+
 		GetLineage.Direction direction;
 		if(dirStr.startsWith("a")){
 			direction = GetLineage.Direction.kAncestor;
@@ -844,7 +815,7 @@ public class Resolver{
 			outputGraph = allocateEmptyGraph();
 		}
 
-		instructions.add(new GetLineage(outputGraph, subjectGraph, startGraph, depth, direction));
+		instructions.add(new GetLineage(outputGraph, subjectGraph, startGraph, depth, direction, remoteResolve));
 		return outputGraph;
 	}
 
@@ -925,27 +896,6 @@ public class Resolver{
 		return outputGraph;
 	}
 
-	private GraphMetadata resolveSetMetadata(SetGraphMetadata.Component component, Graph subjectGraph,
-			ArrayList<ParseExpression> arguments, GraphMetadata outputMetadata){
-		if(arguments.size() != 2){
-			throw new RuntimeException("Invalid number of arguments for attr: expected 2");
-		}
-
-		String name = resolveString(arguments.get(0));
-		String value = resolveString(arguments.get(1));
-
-		GraphMetadata metadata = allocateEmptyGraphMetadata();
-		instructions.add(new SetGraphMetadata(metadata, component, subjectGraph, name, value));
-
-		if(outputMetadata == null){
-			return metadata;
-		}else{
-			GraphMetadata combinedMetadata = allocateEmptyGraphMetadata();
-			instructions.add(new OverwriteGraphMetadata(combinedMetadata, outputMetadata, metadata));
-			return combinedMetadata;
-		}
-	}
-
 	private Graph resolveSpan(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
 		if(arguments.size() != 1){
 			throw new RuntimeException("Invalid number of arguments for span: expected 1");
@@ -992,49 +942,6 @@ public class Resolver{
 		return outputGraph;
 	}
 
-	private Graph resolveAsVertexOrEdge(Graph.Component component, ArrayList<ParseExpression> arguments,
-			Graph outputGraph){
-		// TODO: handle subject?
-		if(arguments.size() != 1){
-			throw new RuntimeException("Invalid number of arguments for asVertex/asEdge: expected 1");
-		}
-
-		if(outputGraph == null){
-			outputGraph = allocateEmptyGraph();
-		}
-
-		String rawQuery = resolveString(arguments.get(0));
-		StringBuffer sb = new StringBuffer();
-		// TODO hassaan
-		//sb.append("INSERT INTO " + env.getTableName(component, outputGraph) + " ");
-
-		Pattern pattern = Pattern.compile("[$][^.]+[.](vertex|edge)");
-		Matcher m = pattern.matcher(rawQuery);
-		while(m.find()){
-			String ref = m.group();
-			String var;
-			Graph.Component refComponent;
-			if(ref.endsWith(".vertex")){
-				refComponent = Graph.Component.kVertex;
-				var = ref.substring(0, ref.length() - 7);
-			}else{
-				assert ref.endsWith(".edge");
-				refComponent = Graph.Component.kEdge;
-				var = ref.substring(0, ref.length() - 5);
-			}
-			Graph graphNameGraph = env.lookupGraphSymbol(var);
-			if(graphNameGraph == null){
-				throw new RuntimeException(
-						"Cannot resolve variable " + var + " in the query at " + arguments.get(0).getLocationString());
-			}
-			//m.appendReplacement(sb, env.getTableName(refComponent, new Graph(graphName)));
-		}
-		m.appendTail(sb);
-
-		instructions.add(new EvaluateQuery(sb.toString()));
-		return outputGraph;
-	}
-
 	private Integer resolveInteger(ParseExpression expression){
 		if(expression.getExpressionType() != ParseExpression.ExpressionType.kLiteral){
 			throw new RuntimeException(
@@ -1073,12 +980,6 @@ public class Resolver{
 		return graph;
 	}
 
-	private GraphMetadata allocateEmptyGraphMetadata(){
-		GraphMetadata metadata = env.allocateGraphMetadata();
-		instructions.add(new CreateEmptyGraphMetadata(metadata));
-		return metadata;
-	}
-
 	private static Graph ToGraph(Entity entity){
 		if(entity == null){
 			return null;
@@ -1090,49 +991,148 @@ public class Resolver{
 		return (Graph)entity;
 	}
 
+	/*
+	private Graph resolveAsVertexOrEdge(Graph.Component component, ArrayList<ParseExpression> arguments,
+			Graph outputGraph){
+		// TODO: handle subject?
+		if(arguments.size() != 1){
+			throw new RuntimeException("Invalid number of arguments for asVertex/asEdge: expected 1");
+		}
+
+		if(outputGraph == null){
+			outputGraph = allocateEmptyGraph();
+		}
+
+		String rawQuery = resolveString(arguments.get(0));
+		StringBuffer sb = new StringBuffer();
+		//sb.append("INSERT INTO " + env.getTableName(component, outputGraph) + " ");
+
+		Pattern pattern = Pattern.compile("[$][^.]+[.](vertex|edge)");
+		Matcher m = pattern.matcher(rawQuery);
+		while(m.find()){
+			String ref = m.group();
+			String var;
+			Graph.Component refComponent;
+			if(ref.endsWith(".vertex")){
+				refComponent = Graph.Component.kVertex;
+				var = ref.substring(0, ref.length() - 7);
+			}else{
+				assert ref.endsWith(".edge");
+				refComponent = Graph.Component.kEdge;
+				var = ref.substring(0, ref.length() - 5);
+			}
+			Graph graphNameGraph = env.lookupGraphSymbol(var);
+			if(graphNameGraph == null){
+				throw new RuntimeException(
+						"Cannot resolve variable " + var + " in the query at " + arguments.get(0).getLocationString());
+			}
+			//m.appendReplacement(sb, env.getTableName(refComponent, new Graph(graphName)));
+		}
+		m.appendTail(sb);
+
+		instructions.add(new EvaluateQuery(sb.toString()));
+		return outputGraph;
+	}
+	*/
+	
+	/*
+	private GraphMetadata allocateEmptyGraphMetadata(){
+		GraphMetadata metadata = env.allocateGraphMetadata();
+		instructions.add(new CreateEmptyGraphMetadata(metadata));
+		return metadata;
+	}
+	
 	private static GraphMetadata ToGraphMetadata(Entity entity){
 		if(entity == null){
 			return null;
 		}
 		if(entity.getEntityType() != EntityType.kGraphMetadata){
 			throw new RuntimeException(
-					"Invalid casting from an instance of " + entity.getEntityType().name().substring(1) + " to Graph");
+					"Invalid casting from an instance of " + entity.getEntityType().name().substring(1) + " to GraphMetadata");
 		}
 		return (GraphMetadata)entity;
 	}
 
-	private String formatString(String str){
-		StringBuilder sb = new StringBuilder();
-		boolean escaped = false;
-		for(int i = 0; i < str.length(); ++i){
-			char c = str.charAt(i);
-			if(c < 32){
-				switch(c){
-				case '\b':
-					sb.append("\\b");
-					break;
-				case '\n':
-					sb.append("\\n");
-					break;
-				case '\r':
-					sb.append("\\r");
-					break;
-				case '\t':
-					sb.append("\\t");
-					break;
-				default:
-					sb.append("\\x" + Integer.toHexString(c));
-					break;
-				}
-				escaped = true;
-			}else{
-				if(c == '\\'){
-					sb.append('\\');
-					escaped = true;
-				}
-				sb.append(c);
+	private GraphMetadata resolveSetMetadata(SetGraphMetadata.Component component, Graph subjectGraph,
+			ArrayList<ParseExpression> arguments, GraphMetadata outputMetadata){
+		if(arguments.size() != 2){
+			throw new RuntimeException("Invalid number of arguments for attr: expected 2");
+		}
+
+		String name = resolveString(arguments.get(0));
+		String value = resolveString(arguments.get(1));
+
+		GraphMetadata metadata = allocateEmptyGraphMetadata();
+		instructions.add(new SetGraphMetadata(metadata, component, subjectGraph, name, value));
+
+		if(outputMetadata == null){
+			return metadata;
+		}else{
+			GraphMetadata combinedMetadata = allocateEmptyGraphMetadata();
+			instructions.add(new OverwriteGraphMetadata(combinedMetadata, outputMetadata, metadata));
+			return combinedMetadata;
+		}
+	}
+	
+	private void resolveGraphMetadataAssignment(ParseAssignment parseAssignment){
+		if(parseAssignment.getLhs().getType().getTypeID() != TypeID.kGraphMetadata){
+			throw new RuntimeException("Unexpected LHS type '" + parseAssignment.getLhs().getType().getTypeID() + "'. "
+					+ "Expected '" + TypeID.kGraphMetadata + "'");
+		}
+		
+		ParseString var = parseAssignment.getLhs().getName();
+		ParseExpression rhs = parseAssignment.getRhs();
+		ParseAssignment.AssignmentType atype = parseAssignment.getAssignmentType();
+
+		GraphMetadata resultMetadata;
+		if(atype == ParseAssignment.AssignmentType.kEqual){
+			resultMetadata = resolveGraphMetadataExpression(rhs, null);
+		}else{
+			GraphMetadata lhsGraph = env.lookupGraphMetadataSymbol(var.getValue());
+			if(lhsGraph == null){
+				throw new RuntimeException(
+						"Cannot resolve GraphMetadata variable " + var.getValue() + " at " + var.getLocationString());
+			}
+			switch(atype){
+			case kPlusEqual:{
+				resultMetadata = resolveGraphMetadataExpression(rhs, lhsGraph);
+				break;
+			}
+			default:
+				throw new RuntimeException(
+						"Unsupported assignment " + parseAssignment.getAssignmentType().name().substring(1) + " at "
+								+ parseAssignment.getLocationString());
 			}
 		}
-		return (escaped ? "e" : "") + "'" + sb.toString() + "'";
+		env.setGraphMetadataSymbol(var.getValue(), resultMetadata);
 	}
+	
+	private GraphMetadata resolveGraphMetadataExpression(ParseExpression parseExpression, GraphMetadata outputMetadata){
+		return ToGraphMetadata(resolveExpression(parseExpression, outputMetadata, true));
+	}
+	
+	private Entity resolveGraphMetadataMethod(GraphMetadata subject, String methodName,
+			ArrayList<ParseExpression> arguments){
+		throw new RuntimeException("No GraphMetadata method is supported yet");
+	}
+	
+	private GraphMetadata resolveGraphMetadataVariable(ParseVariable var, GraphMetadata lhsMetadata){
+		if(var.getType().getTypeID() != TypeID.kGraphMetadata){
+			throw new RuntimeException("Unexpected variable type: " + var.getType().getTypeID() + ". Expected: " + TypeID.kGraphMetadata);
+		}
+		GraphMetadata rhsMetadata = env.lookupGraphMetadataSymbol(var.getName().getValue());
+		if(rhsMetadata == null){
+			throw new RuntimeException("Cannot resolve GraphMetadata variable " + var.getName().getValue() + " at "
+					+ var.getLocationString());
+		}
+
+		if(lhsMetadata == null){
+			return rhsMetadata;
+		}
+
+		GraphMetadata outputMetadata = allocateEmptyGraphMetadata();
+		instructions.add(new OverwriteGraphMetadata(outputMetadata, lhsMetadata, rhsMetadata));
+		return outputMetadata;
+	}
+	*/
 }

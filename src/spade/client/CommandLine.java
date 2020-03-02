@@ -22,8 +22,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 
@@ -36,6 +36,7 @@ import javax.net.ssl.TrustManagerFactory;
 import org.apache.commons.lang3.StringUtils;
 
 import jline.ConsoleReader;
+import spade.core.SPADEQuery;
 import spade.core.Settings;
 
 /**
@@ -78,8 +79,7 @@ public class CommandLine{
 	}
 
 	public static void main(String args[]){
-		PrintWriter clientOutputWriter = null;
-//		BufferedReader clientInputReader = null;
+		ObjectOutputStream clientOutputWriter = null;
 		ObjectInputStream clientInputReader = null;
 		SSLSocket remoteSocket = null;
 		// Set up context for secure connections
@@ -95,9 +95,8 @@ public class CommandLine{
 			remoteSocket = (SSLSocket)sslSocketFactory.createSocket(host, port);
 			OutputStream outStream = remoteSocket.getOutputStream();
 			InputStream inStream = remoteSocket.getInputStream();
-//			clientInputReader = new BufferedReader(new InputStreamReader(inStream));
 			clientInputReader = new ObjectInputStream(inStream);
-			clientOutputWriter = new PrintWriter(outStream);
+			clientOutputWriter = new ObjectOutputStream(outStream);
 		}catch(NumberFormatException | IOException ex){
 			System.err.println(CommandLine.class.getName() + " Error connecting to SPADE! " + ex);
 			System.err.println("Make sure that the CommandLine analyzer is running.");
@@ -122,7 +121,10 @@ public class CommandLine{
 						continue;
 					}
 					if(line.trim().toLowerCase().equals("exit") || line.trim().toLowerCase().equals("quit")){
-						clientOutputWriter.println(line);
+						SPADEQuery spadeQuery = new SPADEQuery("localname", "remotename", line);
+						spadeQuery.setQuerySentByClientAtMillis();
+						
+						clientOutputWriter.writeObject(spadeQuery);
 						clientOutputWriter.flush();
 						break;
 					}else if(line.toLowerCase().startsWith("export ")){
@@ -132,29 +134,78 @@ public class CommandLine{
 						if(RESULT_EXPORT_PATH != null){
 							//line = "export " + line;
 						}
-						clientOutputWriter.println(line);
+						
+						SPADEQuery spadeQuery = new SPADEQuery("localname", "remotename", line);
+						spadeQuery.setQuerySentByClientAtMillis();
+						
+						clientOutputWriter.writeObject(spadeQuery);
 						clientOutputWriter.flush();
-						Object resultObject = clientInputReader.readObject();
+						
+						final Object resultObject = clientInputReader.readObject();
 						if(resultObject == null){ // EOF
 							System.out.println("Connection closed by the server!");
 							break;
 						}else{
-							String result = String.valueOf(resultObject);
-							if(result.trim().isEmpty()){
-								System.out.println("No result!");
-							}else{
-								if(RESULT_EXPORT_PATH != null){
-									FileWriter writer = new FileWriter(RESULT_EXPORT_PATH, false);
-									writer.write(result);
-									writer.flush();
-									writer.close();
-									System.out.println("Output exported to file: " + RESULT_EXPORT_PATH);
-									RESULT_EXPORT_PATH = null;
+							spadeQuery = (SPADEQuery)resultObject; // overwrite
+							spadeQuery.setQueryReceivedBackByClientAtMillis();
+
+							if(spadeQuery.wasQuerySuccessful()){
+								if(spadeQuery.getResult() == null){
+									System.out.println("No result!");
 								}else{
-									System.out.println(result);
-									System.out.println();
+									boolean alreadyPrinted = false;
+									String resultAsString = null;
+									
+									Object spadeResult = spadeQuery.getResult();
+									if(spadeResult.getClass().equals(String.class)){ // Main type 
+										if(String.valueOf(spadeResult).isEmpty()){
+											System.out.println("No result!");
+											alreadyPrinted = true;
+										}else{
+											resultAsString = String.valueOf(spadeResult);
+											alreadyPrinted = false;
+										}
+									}else{ // Other types
+										if(spadeResult.getClass().equals(spade.core.Graph.class)){
+											spade.core.Graph graph = (spade.core.Graph)spadeResult;
+											resultAsString = graph.exportGraph();
+											alreadyPrinted = false;
+										}else{
+											// default!
+											resultAsString = String.valueOf(spadeResult);
+											alreadyPrinted = false;
+										}
+									}
+									
+									if(alreadyPrinted == false){
+										if(RESULT_EXPORT_PATH != null){
+											FileWriter writer = new FileWriter(RESULT_EXPORT_PATH, false);
+											writer.write(resultAsString);
+											writer.flush();
+											writer.close();
+											System.out.println("Output exported to file: " + RESULT_EXPORT_PATH);
+											RESULT_EXPORT_PATH = null;
+										}else{
+											System.out.println(resultAsString);
+											System.out.println();
+										}
+									}
+								}
+							}else{
+								if(spadeQuery.getError() == null){
+									System.out.println("No result!");
+								}else{
+									Object errorObject = spadeQuery.getError();
+									if(errorObject instanceof Throwable){
+										System.out.println("Error: " + ((Throwable)errorObject).getMessage());
+									}else{
+										System.out.println("Error: " + errorObject);
+									}
 								}
 							}
+							
+							// Reset irrespective of success or failure
+							RESULT_EXPORT_PATH = null;
 						}
 					}
 				}catch(Exception ex){

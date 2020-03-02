@@ -22,6 +22,7 @@ package spade.query.quickgrail.types;
 public enum TypeID {
   kGraph,
   kGraphMetadata,
+  kGraphPredicate,
   kInteger,
   kLong,
   kString,

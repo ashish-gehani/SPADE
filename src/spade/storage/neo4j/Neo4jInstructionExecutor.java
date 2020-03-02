@@ -1,3 +1,22 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2020 SRI International
+
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
 package spade.storage.neo4j;
 
 import java.util.List;
@@ -7,9 +26,11 @@ import java.util.TreeMap;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
+import spade.query.quickgrail.core.GraphStats;
 import spade.query.quickgrail.core.QueryEnvironment;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
-import spade.query.quickgrail.core.Resolver.PredicateOperator;
+import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
+import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
@@ -22,6 +43,7 @@ import spade.query.quickgrail.instruction.GetEdge;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLink;
+import spade.query.quickgrail.instruction.GetPath;
 import spade.query.quickgrail.instruction.GetShortestPath;
 import spade.query.quickgrail.instruction.GetSubgraph;
 import spade.query.quickgrail.instruction.GetVertex;
@@ -29,7 +51,6 @@ import spade.query.quickgrail.instruction.InsertLiteralEdge;
 import spade.query.quickgrail.instruction.InsertLiteralVertex;
 import spade.query.quickgrail.instruction.IntersectGraph;
 import spade.query.quickgrail.instruction.LimitGraph;
-import spade.query.quickgrail.instruction.ListGraphs;
 import spade.query.quickgrail.instruction.OverwriteGraphMetadata;
 import spade.query.quickgrail.instruction.SetGraphMetadata;
 import spade.query.quickgrail.instruction.StatGraph;
@@ -62,30 +83,39 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	
 	@Override
 	public void insertLiteralEdge(InsertLiteralEdge instruction){
-		// TODO Auto-generated method stub
+		List<String> ids = instruction.getEdges();
+		if(ids == null || ids.isEmpty()){
+			// Empty graph already
+		}else{
+			String query = "match ()-[e]->() where ";
+			String whereClause = "";
+			for(String id : ids){
+				whereClause += "id(e)=" + id + " or ";
+			}
+			whereClause = whereClause.substring(0, whereClause.length() - 3);
+			query += whereClause;
+			query += " " + buildSubqueryForUpdatingEdgeSymbols("e", instruction.targetGraph.name) + ";";
+	 		storage.executeQuery(query);
+		}
 	}
 
 	@Override
 	public void insertLiteralVertex(InsertLiteralVertex instruction){
-		// TODO Auto-generated method stub
+		List<String> ids = instruction.getVertices();
+		if(ids == null || ids.isEmpty()){
+			// Empty graph already
+		}else{
+			String query = "match (v) where ";
+			String whereClause = "";
+			for(String id : ids){
+				whereClause += "id(v)=" + id + " or ";
+			}
+			whereClause = whereClause.substring(0, whereClause.length() - 3);
+			query += whereClause;
+			query += " set v:" + instruction.targetGraph.name + ";";
+	 		storage.executeQuery(query);
+		}
 	}
-
-	@Override
-	public void createEmptyGraphMetadata(CreateEmptyGraphMetadata instruction){
-		// TODO Auto-generated method stub
-	}
-
-	@Override
-	public void overwriteGraphMetadata(OverwriteGraphMetadata instruction){
-		// TODO Auto-generated method stub
-	}
-
-	@Override
-	public void setGraphMetadata(SetGraphMetadata instruction){
-		// TODO Auto-generated method stub
-	}
-	
-	
 
 	@Override
 	public void createEmptyGraph(CreateEmptyGraph instruction){
@@ -102,7 +132,6 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	public void eraseSymbols(EraseSymbols instruction){
 		for(String symbol : instruction.getSymbols()){
 			neo4jQueryEnvironment.eraseGraphSymbol(symbol);
-			neo4jQueryEnvironment.eraseGraphMetadataSymbol(symbol);
 		}
 	}
 
@@ -125,7 +154,32 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 			break;
 			default: throw new RuntimeException("Unexpected comparison operator");
 		}
+		annotationValue = annotationValue.replace("'", "\\'");
 		query += " '" + annotationValue + "'";
+		return query;
+	}
+	
+	private String buildWildCardComparison(
+			String objectAlias, PredicateOperator operator,
+			String annotationValue){
+		String query = " any(k in keys("+objectAlias+") where " + objectAlias + "[k] ";
+		switch(operator){
+			case EQUAL: query += "="; break;
+			case GREATER: query += ">"; break;
+			case GREATER_EQUAL: query += ">="; break;
+			case LESSER: query += "<"; break;
+			case LESSER_EQUAL: query += "<="; break;
+			case NOT_EQUAL: query += "<>"; break;
+			case REGEX: query += "=~"; break;
+			case LIKE:{
+				query += "=~";
+				annotationValue = annotationValue.replace("%", ".*");
+			}
+			break;
+			default: throw new RuntimeException("Unexpected comparison operator");
+		}
+		annotationValue = annotationValue.replace("'", "\\'");
+		query += " '" + annotationValue + "')";
 		return query;
 	}
 	
@@ -134,7 +188,11 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		String query = "";
 		query += "match (v:" + instruction.subjectGraph.name + ")";
 		if(instruction.hasArguments()){
-			query += " where v." + buildComparison(instruction.annotationKey, instruction.operator, instruction.annotationValue);
+			if(instruction.annotationKey.equals("*")){
+				query += " where " + buildWildCardComparison("v", instruction.operator, instruction.annotationValue);	
+			}else{
+				query += " where v." + buildComparison(instruction.annotationKey, instruction.operator, instruction.annotationValue);
+			}
 		}
 		query += " set v:" + instruction.targetGraph.name + ";";
  		storage.executeQuery(query);
@@ -185,25 +243,25 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
-	public void collapseEdge(CollapseEdge instruction){
+	public void collapseEdge(CollapseEdge instruction){		
 		String fieldsString = "";
 		int xxx = 0;
 		for(String field : instruction.getFields()){
-			fieldsString += "e.`" + field + "` as x" + (xxx++) + " , ";
-		}
-		if(!fieldsString.isEmpty()){
-			fieldsString = " " + fieldsString.substring(0, fieldsString.length() - 2);
+			fieldsString += "e0.`" + field + "` as x" + (xxx++) + " , ";
 		}
 		
-		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
-		String query = "match (a:" + instruction.sourceGraph.name + ")-[e]->(b:" + instruction.sourceGraph.name + ")"
-				+ " where " + edgeProperty + " contains ',"+instruction.sourceGraph.name+",'"
-				+ " with distinct a,b," + fieldsString 
-				+ " set a:"+instruction.targetGraph.name
-				+ " set b:"+instruction.targetGraph.name
-				+ " " + buildSubqueryForUpdatingEdgeSymbols("e", instruction.targetGraph.name) + ";";
+		String vertexQuery = "match (v:" + instruction.sourceGraph.name + ") set v:" + instruction.targetGraph.name + ";";
+		
+		final String edgeProperty = "e0.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		String query = "match (x)-[e0]->(y) ";
+		if(!neo4jQueryEnvironment.isBaseGraph(instruction.sourceGraph)){
+			query += "where " + edgeProperty + " contains ',"+instruction.sourceGraph.name+",'";
+		}
+		query += " with distinct x as src, y as dst, " + fieldsString + " min(e0) as e ";
+		query += " " + buildSubqueryForUpdatingEdgeSymbols("e", instruction.targetGraph.name) + ";";
+				
+		storage.executeQuery(vertexQuery);
 		storage.executeQuery(query);
-//		'match (v:graph_3)-[e]-(u:graph_6) with distinct v,u,e.operation as iii set v:graph_1';
 	}
 	
 	@Override
@@ -214,11 +272,19 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		if(!neo4jQueryEnvironment.isBaseGraph(instruction.subjectGraph)){
 			query += "where " + edgeProperty + " contains ',"+instruction.subjectGraph.name+",' ";
 			if(instruction.hasArguments()){
-				query += "and e." + buildComparison(instruction.annotationKey, instruction.operator, instruction.annotationValue);
+				if(instruction.annotationKey.equals("*")){
+					query += " where " + buildWildCardComparison("v", instruction.operator, instruction.annotationValue);	
+				}else{
+					query += "and e." + buildComparison(instruction.annotationKey, instruction.operator, instruction.annotationValue);
+				}
 			}
 		}else{
 			if(instruction.hasArguments()){
-				query += "where e." + buildComparison(instruction.annotationKey, instruction.operator, instruction.annotationValue);
+				if(instruction.annotationKey.equals("*")){
+					query += " where " + buildWildCardComparison("v", instruction.operator, instruction.annotationValue);	
+				}else{
+					query += "where e." + buildComparison(instruction.annotationKey, instruction.operator, instruction.annotationValue);
+				}
 			}
 		}
 		query += " " + buildSubqueryForUpdatingEdgeSymbols("e", instruction.targetGraph.name) + ";";
@@ -289,15 +355,27 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		storage.executeQuery(vertexQuery);
 		storage.executeQuery(edgeQuery);
 	}
-
-	@Override
-	public ResultTable listGraphs(ListGraphs instruction){
-		return neo4jQueryEnvironment.listGraphs(instruction.style);
-	}
 	
 	@Override
 	public GraphStats statGraph(StatGraph instruction){
-		return neo4jQueryEnvironment.getGraphStats(instruction.targetGraph);
+		long vertices = 0;
+		long edges = 0;
+		List<Map<String, Object>> result = storage
+				.executeQueryForSmallResult("match (v:" + instruction.targetGraph.name + ") return count(v) as vcount;");
+		if(result.size() > 0){
+			vertices = Long.parseLong(String.valueOf(result.get(0).get("vcount")));
+		}
+		if(neo4jQueryEnvironment.isBaseGraph(instruction.targetGraph)){
+			result = storage.executeQueryForSmallResult("match ()-[e]->() return count(e) as ecount;");
+		}else{
+			final String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeSymbolsPropertyKey + "`";
+			result = storage.executeQueryForSmallResult("match ()-[e]->() " + "where " + edgeProperty + " contains ',"
+					+ instruction.targetGraph.name + ",' " + "return count(e) as ecount;");
+		}
+		if(result.size() > 0){
+			edges = Long.parseLong(String.valueOf(result.get(0).get("ecount")));
+		}
+		return new GraphStats(vertices, edges);
 	}
 
 	@Override
@@ -313,8 +391,12 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 			String edgeQuery = "match ()-[e]->()";
 			edgeQuery += " where not " + edgeProperty + " contains '," + instruction.subtrahendGraph.name + ",'";
 			edgeQuery += " " + buildSubqueryForUpdatingEdgeSymbols("e", instruction.outputGraph.name);
-			storage.executeQuery(vertexQuery);
-			storage.executeQuery(edgeQuery);
+			if(instruction.component == null || instruction.component == Graph.Component.kVertex){
+				storage.executeQuery(vertexQuery);
+			}
+			if(instruction.component == null || instruction.component == Graph.Component.kEdge){
+				storage.executeQuery(edgeQuery);
+			}
 		}else{
 			String vertexQuery = "match (n:" + instruction.minuendGraph.name + ") where not '" + instruction.subtrahendGraph.name + 
 					"' in labels(n) set n:" + instruction.outputGraph.name + ";";
@@ -323,8 +405,12 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 			edgeQuery += " where " + edgeProperty + " contains '," + instruction.minuendGraph.name + ",'";
 			edgeQuery += " and not " + edgeProperty + " contains '," + instruction.subtrahendGraph.name + ",'";
 			edgeQuery += " " + buildSubqueryForUpdatingEdgeSymbols("e", instruction.outputGraph.name);
-			storage.executeQuery(vertexQuery);
-			storage.executeQuery(edgeQuery);
+			if(instruction.component == null || instruction.component == Graph.Component.kVertex){
+				storage.executeQuery(vertexQuery);
+			}
+			if(instruction.component == null || instruction.component == Graph.Component.kEdge){
+				storage.executeQuery(edgeQuery);
+			}
 		}
 	}
 
@@ -344,7 +430,6 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 
 	@Override
 	public void getAdjacentVertex(GetAdjacentVertex instruction){ // TODO rename to get adjacent graph
-		// $x = $y.getadj($z, '?')
 		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
 		if(instruction.direction.equals(GetLineage.Direction.kAncestor) || instruction.direction.equals(GetLineage.Direction.kBoth)){
 			String query = "match (a:"+instruction.sourceGraph.name+":"+instruction.subjectGraph.name+")-[e]->"
@@ -382,38 +467,136 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		edgeQuery += " return e;";
 		Map<String, AbstractVertex> hashToVertex = storage.readHashToVertexMap("v", nodesQuery);
 		Set<AbstractEdge> edgeSet = storage.readEdgeSet("e", edgeQuery, hashToVertex);
+		
 		spade.core.Graph spadeCoreGraph = new spade.core.Graph();
 		spadeCoreGraph.vertexSet().addAll(hashToVertex.values());
 		spadeCoreGraph.edgeSet().addAll(edgeSet);
 		return spadeCoreGraph;
 	}
-
-//	@Override
-//	public void getLineage(GetLineage instruction){
-//		// TODO Auto-generated method stub
-//
-//	}
-
+	
 	@Override
-	public void getLink(GetLink instruction){
+	public void getLineage(GetLineage instruction){
+		final String edgeProperty = "e1.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		if(instruction.direction.equals(GetLineage.Direction.kAncestor) || instruction.direction.equals(GetLineage.Direction.kBoth)){
+			String query = "match ";
+			query += "p=(a:"+instruction.startGraph.name+":"+instruction.subjectGraph.name+")"
+					+ "-[e0*0.."+instruction.depth+"]->"
+					+ "(b:"+instruction.subjectGraph.name+") ";
+			if(!neo4jQueryEnvironment.isBaseGraph(instruction.subjectGraph)){
+				query += " where all(e1 in relationships(p) where " + edgeProperty + " contains '," + instruction.subjectGraph.name + ",') ";
+			}
+			query += " foreach (n in nodes(p) | set n:" + instruction.targetGraph.name + ") ";
+			query += " foreach (e in relationships(p) | " + buildSubqueryForUpdatingEdgeSymbols("e", instruction.targetGraph.name) + ");";
+			storage.executeQuery(query);
+		}
 		
+		if(instruction.direction.equals(GetLineage.Direction.kDescendant) || instruction.direction.equals(GetLineage.Direction.kBoth)){
+			String query = "match ";
+			query += "p=(a:"+instruction.subjectGraph.name+")"
+					+ "-[e0*0.."+instruction.depth+"]->"
+					+ "(b:"+instruction.startGraph.name+":"+instruction.subjectGraph.name+") ";
+			if(!neo4jQueryEnvironment.isBaseGraph(instruction.subjectGraph)){
+				query += " where all(e1 in relationships(p) where " + edgeProperty + " contains '," + instruction.subjectGraph.name + ",') ";
+			}
+			query += " foreach (n in nodes(p) | set n:" + instruction.targetGraph.name + ") ";
+			query += " foreach (e in relationships(p) | " + buildSubqueryForUpdatingEdgeSymbols("e", instruction.targetGraph.name) + ");";
+			storage.executeQuery(query);
+		}
 	}
 
-//	@Override
-//	public void getPath(GetPath instruction){
-//		// TODO Auto-generated method stub
-//
-//	}
+	@Override
+	public void getPath(GetPath instruction){
+		final String edgeProperty = "e1.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		String query = "match ";
+		query += "p=(a:"+instruction.srcGraph.name+":"+instruction.subjectGraph.name+")"
+				+ "-[e0*0.."+instruction.maxDepth+"]->"
+				+ "(b:"+instruction.dstGraph.name+":"+instruction.subjectGraph.name+") ";
+		if(!neo4jQueryEnvironment.isBaseGraph(instruction.subjectGraph)){
+			query += " where all(e1 in relationships(p) where " + edgeProperty + " contains '," + instruction.subjectGraph.name + ",') ";
+		}
+		query += " foreach (n in nodes(p) | set n:" + instruction.targetGraph.name + ") ";
+		query += " foreach (e in relationships(p) | " + buildSubqueryForUpdatingEdgeSymbols("e", instruction.targetGraph.name) + ");";
+		storage.executeQuery(query);
+	}
+	
+	@Override
+	public void getLink(GetLink instruction){
+		final String edgeProperty = "e1.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		String query = "match ";
+		query += "p=(a:"+instruction.srcGraph.name+":"+instruction.subjectGraph.name+")"
+				+ "-[e0*0.."+instruction.maxDepth+"]->"
+				+ "(b:"+instruction.dstGraph.name+":"+instruction.subjectGraph.name+") ";
+		if(!neo4jQueryEnvironment.isBaseGraph(instruction.subjectGraph)){
+			query += " where all(e1 in relationships(p) where " + edgeProperty + " contains '," + instruction.subjectGraph.name + ",') ";
+		}
+		query += " foreach (n in nodes(p) | set n:" + instruction.targetGraph.name + ") ";
+		query += " foreach (e in relationships(p) | " + buildSubqueryForUpdatingEdgeSymbols("e", instruction.targetGraph.name) + ");";
+		storage.executeQuery(query);
+		
+		query = "match ";
+		query += "p=(a:"+instruction.dstGraph.name+":"+instruction.subjectGraph.name+")"
+				+ "-[e0*0.."+instruction.maxDepth+"]->"
+				+ "(b:"+instruction.srcGraph.name+":"+instruction.subjectGraph.name+") ";
+		if(!neo4jQueryEnvironment.isBaseGraph(instruction.subjectGraph)){
+			query += " where all(e1 in relationships(p) where " + edgeProperty + " contains '," + instruction.subjectGraph.name + ",') ";
+		}
+		query += " foreach (n in nodes(p) | set n:" + instruction.targetGraph.name + ") ";
+		query += " foreach (e in relationships(p) | " + buildSubqueryForUpdatingEdgeSymbols("e", instruction.targetGraph.name) + ");";
+		storage.executeQuery(query);
+	}
 
 	@Override
 	public void getShortestPath(GetShortestPath instruction){
-		// TODO Auto-generated method stub
-
+		final String edgeProperty = "e1.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		String query = "match ";
+		query += "p=shortestPath((a:"+instruction.srcGraph.name+":"+instruction.subjectGraph.name+")"
+				+ "-[e0*0.."+instruction.maxDepth+"]->"
+				+ "(b:"+instruction.dstGraph.name+":"+instruction.subjectGraph.name+")) ";
+		if(!neo4jQueryEnvironment.isBaseGraph(instruction.subjectGraph)){
+			query += " where all(e1 in relationships(p) where " + edgeProperty + " contains '," + instruction.subjectGraph.name + ",') ";
+		}
+		query += " foreach (n in nodes(p) | set n:" + instruction.targetGraph.name + ") ";
+		query += " foreach (e in relationships(p) | " + buildSubqueryForUpdatingEdgeSymbols("e", instruction.targetGraph.name) + ");";
+		storage.executeQuery(query);
 	}
 
 	@Override
 	public void getSubgraph(GetSubgraph instruction){
-		// TODO Auto-generated method stub
+		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		String vertexQuery = 
+				"match (n:" + instruction.skeletonGraph.name + ":" + instruction.subjectGraph.name + ") "
+				+ "set n:" + instruction.targetGraph.name + ";";
+		
+		String edgeQuery0 = "";
+		edgeQuery0 += "match ()-[e]->(b:"+instruction.subjectGraph.name+")";
+		if(!neo4jQueryEnvironment.isBaseGraph(instruction.skeletonGraph)){
+			edgeQuery0 += " where " + edgeProperty + " contains '," + instruction.skeletonGraph.name + ",'";
+		}
+		edgeQuery0 += " set b:" + instruction.targetGraph.name + ";";
+		
+		String edgeQuery1 = "";
+		edgeQuery1 += "match (a:"+instruction.subjectGraph.name+")-[e]->()";
+		if(!neo4jQueryEnvironment.isBaseGraph(instruction.skeletonGraph)){
+			edgeQuery1 += " where " + edgeProperty + " contains '," + instruction.skeletonGraph.name + ",'";
+		}
+		edgeQuery1 += " set a:" + instruction.targetGraph.name + ";";
+		
+		String edgeQuery2 = "";
+		edgeQuery2 += "match (a:"+instruction.targetGraph.name+")-[e]->(b:"+instruction.targetGraph.name+")";
+		if(!neo4jQueryEnvironment.isBaseGraph(instruction.subjectGraph)){
+			edgeQuery2 += " where " + edgeProperty + " contains '," + instruction.subjectGraph.name + ",'";
+		}
+		edgeQuery2 += " " + buildSubqueryForUpdatingEdgeSymbols("e", instruction.targetGraph.name) + ";";
+		
+		// order matters
+		storage.executeQuery(vertexQuery);
+		storage.executeQuery(edgeQuery0);
+		storage.executeQuery(edgeQuery1);
+		storage.executeQuery(edgeQuery2);
 	}
+	
+	@Override public void createEmptyGraphMetadata(CreateEmptyGraphMetadata instruction){}
+	@Override public void overwriteGraphMetadata(OverwriteGraphMetadata instruction){}
+	@Override public void setGraphMetadata(SetGraphMetadata instruction){}
 
 }

@@ -48,14 +48,6 @@ public abstract class AbstractAnalyzer{
 	private static boolean remoteResolutionRequired = false;
 
 	protected static final DiscrepancyDetector discrepancyDetector = new DiscrepancyDetector();
-	
-	public static void d(String msg){
-		Logger.getLogger(AbstractAnalyzer.class.getName()).log(Level.SEVERE,
-				"{0}: {1}", new Object[]{"DBG_HASS", msg});
-	}
-
-	
-	
 
 	public static void setRemoteResolutionRequired(){
 		remoteResolutionRequired = true;
@@ -125,7 +117,6 @@ public abstract class AbstractAnalyzer{
 				logger.log(Level.SEVERE, result.toErrorString());
 				return false;
 			}else{
-				d("found usescaffold in " + valueSource);
 				this.useScaffold = result.result.booleanValue();
 				return true;
 			}
@@ -143,7 +134,6 @@ public abstract class AbstractAnalyzer{
 				logger.log(Level.SEVERE, result.toErrorString());
 				return false;
 			}else{
-				d("found usetransformer in " + valueSource);
 				this.useTransformer = result.result.booleanValue();
 				return true;
 			}
@@ -151,7 +141,6 @@ public abstract class AbstractAnalyzer{
 	}
 
 	public final boolean initialize(String arguments){
-		d("In abstractanalyzer initialize");
 		Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
 		
 		if(!setGlobalConfigUseScaffold("Arguments", argsMap.get(configKeyNameUseScaffold))){
@@ -203,50 +192,63 @@ public abstract class AbstractAnalyzer{
 
 		private AbstractStorage currentStorage;
 
+		private SPADEQuery getErrorSPADEQuery(){
+			SPADEQuery spadeQuery = new SPADEQuery("<NULL>", "<NULL>", "<NULL>");
+			spadeQuery.queryFailed("Exiting!");
+			return spadeQuery;
+		}
+		
 		@Override
 		public final void run(){
 			while(!this.isShutdown()){
-				String query = null;
+				SPADEQuery spadeQuery = null;
 				try{
-					d("going to wait for reading query");
-					query = readLineFromClient();
+					spadeQuery = readLineFromClient(); // overwrite existing
 				}catch(Exception e){
 					if(this.isShutdown()){
-						d("proper client shutdown");
 						// here because of shutdown. No error.
 					}else{
 						logger.log(Level.SEVERE, "Failed to read query from client", e);
 					}
+					safeWriteToClient(getErrorSPADEQuery());
 					break;
 				}
-				d("query read: " + query);
-				if(query == null){ // End of stream
-					break;
-				}else if(query.trim().toLowerCase().equals("exit") || query.trim().toLowerCase().equals("quit")){
+				if(spadeQuery == null){ // End of stream
+					// safeWriteToClient(getErrorSPADEQuery()); // connection closed so cannot write
+					break; // exit while loop
+				}
+				
+				// SPADE query cannot be null now
+				spadeQuery.setQueryReceivedByServerAtMillis();
+				
+				if(spadeQuery.query.trim().toLowerCase().equals("exit") || spadeQuery.query.trim().toLowerCase().equals("quit")){
+					spadeQuery.querySucceeded("Exiting!");
+					// safeWriteToClient(spadeQuery); // connection closed so cannot write
 					break;
 				}else{
-					final String trimmedQuery = query.trim();
+					final String trimmedQuery = spadeQuery.query.trim();
 					String queryTokens[] = trimmedQuery.split("\\s+", 3);
 					if(queryTokens.length >= 2 && queryTokens[0].toLowerCase().equals("set")
 							&& queryTokens[1].toLowerCase().equals("storage")){
 						final String storageName = queryTokens.length == 3 ? queryTokens[2] : null;
-						final String setStorageOutput = setStorage(storageName);
-						safeWriteToClient(setStorageOutput);
+						safeWriteToClient(setStorage(storageName, spadeQuery));
 						continue;
 					}else if(queryTokens.length == 2 && queryTokens[0].toLowerCase().equals("print")
 							&& queryTokens[1].toLowerCase().equals("storage")){
 						AbstractStorage currentStorage = getCurrentStorage();
 						if(currentStorage == null){
-							safeWriteToClient("No current storage set");
+							spadeQuery.querySucceeded("No current storage set");
 						}else{
-							safeWriteToClient(currentStorage.getClass().getSimpleName());
+							spadeQuery.querySucceeded(currentStorage.getClass().getSimpleName());
 						}
+						safeWriteToClient(spadeQuery);
 						continue;
 					}else{
 						// Some other query
 						AbstractStorage thisStorage = getCurrentStorage();
 						if(thisStorage == null){
-							safeWriteToClient("No storage set for querying. Use command: '" + commandSetStorage + "'.");
+							spadeQuery.queryFailed("No storage set for querying. Use command: '" + commandSetStorage + "'.");
+							safeWriteToClient(spadeQuery);
 						}else{
 							if(!Kernel.isStoragePresent(thisStorage)){
 								try{
@@ -258,21 +260,23 @@ public abstract class AbstractAnalyzer{
 													e);
 								}
 								setCurrentStorage(null);
-								safeWriteToClient("Previously set storage '" + thisStorage.getClass().getSimpleName()
+								spadeQuery.queryFailed("Previously set storage '" + thisStorage.getClass().getSimpleName()
 										+ "' has been " + "removed. Use command: '" + commandSetStorage + "'.");
+								safeWriteToClient(spadeQuery);
 							}else{
 								// Can execute query
 								try{
-									Object queryOutput = executeQuery(query);
+									spadeQuery = executeQuery(spadeQuery);
 									try{
 										// TODO iterate transformers on the result
 									}catch(Exception e){
 
 									}
-									safeWriteToClient(queryOutput);
+									safeWriteToClient(spadeQuery);
 								}catch(Exception e){
-									logger.log(Level.SEVERE, "Failed to execute query: '" + query + "'", e);
-									safeWriteToClient("Failed to execute query. Error message: " + e.getMessage());
+									logger.log(Level.SEVERE, "Failed to execute query: '" + spadeQuery.query + "'", e);
+									spadeQuery.queryFailed(new Exception("Failed to execute query: " + e.getMessage(), e));
+									safeWriteToClient(spadeQuery);
 								}
 							}
 						}
@@ -280,8 +284,6 @@ public abstract class AbstractAnalyzer{
 				}
 			}
 
-			safeWriteToClient("Exiting!");
-			
 			this.shutdown();
 
 			// Exited the main loop
@@ -297,21 +299,21 @@ public abstract class AbstractAnalyzer{
 			}
 		}
 
-		public abstract String readLineFromClient() throws Exception;
+		public abstract SPADEQuery readLineFromClient() throws Exception;
 
-		public abstract void writeToClient(Object data) throws Exception;
+		public abstract void writeToClient(SPADEQuery query) throws Exception;
 
 		public abstract void doQueryingSetupForCurrentStorage() throws Exception;
 
 		public abstract void doQueryingShutdownForCurrentStorage() throws Exception;
 
-		public abstract Object executeQuery(String query) throws Exception;
+		public abstract SPADEQuery executeQuery(SPADEQuery query) throws Exception;
 
 		public abstract void shutdown();
 
 		public abstract boolean isShutdown();
 
-		private final void safeWriteToClient(Object data){
+		private final void safeWriteToClient(SPADEQuery data){
 			try{
 				writeToClient(data);
 			}catch(Exception e){
@@ -319,15 +321,18 @@ public abstract class AbstractAnalyzer{
 			}
 		}
 
-		private final String setStorage(String storageName){
+		private final SPADEQuery setStorage(String storageName, SPADEQuery spadeQuery){
 			if(storageName == null){
-				return "Missing storage_name in command: '" + commandSetStorage + "'.";
+				spadeQuery.queryFailed("Missing storage_name in command: '" + commandSetStorage + "'.");
+				return spadeQuery;
 			}else if(storageName.trim().isEmpty()){
-				return "Empty storage_name in command: '" + commandSetStorage + "'.";
+				spadeQuery.queryFailed("Empty storage_name in command: '" + commandSetStorage + "'.");
+				return spadeQuery;
 			}else{
 				AbstractStorage storage = Kernel.getStorage(storageName);
 				if(storage == null){
-					return "Storage '" + storageName + "' not found.";
+					spadeQuery.queryFailed("Storage '" + storageName + "' not found.");
+					return spadeQuery;
 				}else{
 					if(getCurrentStorage() != null){
 						try{
@@ -342,13 +347,15 @@ public abstract class AbstractAnalyzer{
 						setCurrentStorage(storage);
 						// Current storage set before calling the code below
 						doQueryingSetupForCurrentStorage();
-						return "Storage '" + storageName + "' successfully set for querying.";
+						spadeQuery.querySucceeded("Storage '" + storageName + "' successfully set for querying.");
+						return spadeQuery;
 					}catch(Exception e){
 						logger.log(Level.SEVERE,
 								"Failed to set storage: " + "'" + storage.getClass().getSimpleName() + "'", e);
 						setCurrentStorage(null); // Undo the set storage in case of an error
-						return "Failed to set storage '" + storage.getClass().getSimpleName() + "'. Use command: '"
-						+ commandSetStorage + "'. Error: " + e.getMessage();
+						spadeQuery.queryFailed("Failed to set storage '" + storage.getClass().getSimpleName() + "'. Use command: '"
+						+ commandSetStorage + "'. Error: " + e.getMessage());
+						return spadeQuery;
 					}
 				}
 			}
@@ -362,7 +369,6 @@ public abstract class AbstractAnalyzer{
 			this.currentStorage = storage;
 		}
 
-		// TODO
 		private Graph iterateTransformers(Graph graph, QueryMetaData queryMetaData){
 			synchronized(Kernel.transformers){
 				for(int i = 0; i < Kernel.transformers.size(); i++){

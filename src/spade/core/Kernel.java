@@ -267,24 +267,6 @@ public class Kernel
             logFileHandler.setFormatter(new SimpleFormatter());
             logFileHandler.setLevel(Level.parse(Settings.getProperty("logger_level")));
             Logger.getLogger("").addHandler(logFileHandler);
-
-            File link = new File("currentlog");
-            
-            try{
-            	FileUtils.deleteQuietly(link);
-            }catch(Exception e){
-            	
-            }
-            
-            try{
-            	Files.createSymbolicLink(
-            			link.toPath(), 
-            			new File(logFilename).toPath());
-            	logger.log(Level.SEVERE, "Symlink created");
-            }catch(Exception e){
-            	logger.log(Level.SEVERE, "Symlink failed", e);
-            }
-            
         }
         catch (IOException | SecurityException exception)
         {

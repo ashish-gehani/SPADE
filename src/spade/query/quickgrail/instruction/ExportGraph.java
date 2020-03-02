@@ -29,8 +29,6 @@ import spade.query.quickgrail.utility.TreeStringSerializable;
  */
 public class ExportGraph extends Instruction{
 	public static enum Format{ kNormal, kDot }
-	
-	public static final int kNonForceExportLimit = 4096;
 
 	public final Graph targetGraph;
 	public final Format format;

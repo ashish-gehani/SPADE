@@ -43,12 +43,15 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.utility.QuickstepUtil;
 import spade.storage.quickstep.GraphBatch;
 import spade.storage.quickstep.QuickstepClient;
 import spade.storage.quickstep.QuickstepConfiguration;
 import spade.storage.quickstep.QuickstepExecutor;
 import spade.storage.quickstep.QuickstepFailure;
+import spade.storage.quickstep.QuickstepInstructionExecutor;
+import spade.storage.quickstep.QuickstepQueryEnvironment;
 import spade.utility.Converter;
 import spade.utility.Result;
 import spade.utility.map.external.ExternalMap;
@@ -56,6 +59,9 @@ import spade.utility.map.external.ExternalMapArgument;
 import spade.utility.map.external.ExternalMapManager;
 
 public class Quickstep extends AbstractStorage {
+	private QuickstepInstructionExecutor queryInstructionExecutor = null;
+	private QuickstepQueryEnvironment queryEnvironment = null;
+	
   private PrintWriter debugLogWriter = null;
   private long timeExecutionStart;
   private QuickstepConfiguration conf;
@@ -557,6 +563,19 @@ public class Quickstep extends AbstractStorage {
     }
     return result;
   }
+
+	@Override
+	public QueryInstructionExecutor getQueryInstructionExecutor(){
+		synchronized(this){
+			if(queryEnvironment == null){
+				queryEnvironment = new QuickstepQueryEnvironment(qs);
+			}
+			if(queryInstructionExecutor == null){
+				queryInstructionExecutor = new QuickstepInstructionExecutor(qs, queryEnvironment);
+			}
+		}
+		return queryInstructionExecutor;
+	}
 
   public QuickstepExecutor getExecutor() {
     return qs;

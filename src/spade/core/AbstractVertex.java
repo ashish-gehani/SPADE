@@ -19,12 +19,13 @@
  */
 package spade.core;
 
-import com.mysql.jdbc.StringUtils;
-import org.apache.commons.codec.digest.DigestUtils;
-
 import java.io.Serializable;
 import java.util.Map;
 import java.util.TreeMap;
+
+import org.apache.commons.codec.digest.DigestUtils;
+
+import com.mysql.jdbc.StringUtils;
 
 import spade.reporter.audit.OPMConstants;
 
@@ -231,4 +232,15 @@ public abstract class AbstractVertex implements Serializable
                 "annotations=" + annotations +
                 '}';
     }
+    
+    /*
+     * @Author Raza
+     */
+    public String prettyPrint()
+	{
+		return "\t\tVertex:\n\t\t{\n" +
+				"\t\t\thash:" + bigHashCode() + ",\n" +
+				"\t\t\tannotations:" + annotations + ",\n" +
+				"\t\t}";
+	}
 }

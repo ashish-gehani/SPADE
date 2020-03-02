@@ -87,9 +87,8 @@ import spade.utility.CommonFunctions;
  */
 public class Neo4j extends AbstractStorage
 {
-	private final static Object staticLockObject = new Object();
-	private static Neo4jInstructionExecutor queryInstructionExecutor = null;
-	private static Neo4jQueryEnvironment queryEnvironment = null;
+	private Neo4jInstructionExecutor queryInstructionExecutor = null;
+	private Neo4jQueryEnvironment queryEnvironment = null;
 	private final String edgeSymbolsPropertyKey = "spade_edge_symbols";
 	
     // Identifying annotation to add to each edge/vertex
@@ -223,9 +222,6 @@ public class Neo4j extends AbstractStorage
             reportProgressDate = Calendar.getInstance().getTime();
             lastFlushTime = Calendar.getInstance().getTime();
 
-            // Initialize the query surface
-            getQueryInstructionExecutor();
-            
             return true;
         }
         catch (Exception exception)
@@ -237,10 +233,14 @@ public class Neo4j extends AbstractStorage
 
     @Override
     public QueryInstructionExecutor getQueryInstructionExecutor(){
-    	synchronized(staticLockObject){
+    	synchronized(this){
 			if(queryEnvironment == null){
-				queryEnvironment = new Neo4jQueryEnvironment(this, 
-						NodeTypes.VERTEX.name().toUpperCase(), edgeSymbolsPropertyKey);
+				queryEnvironment = 
+						new Neo4jQueryEnvironment(
+								this, 
+								NodeTypes.VERTEX.name().toUpperCase(), 
+								edgeSymbolsPropertyKey
+								);
 			}
 			if(queryInstructionExecutor == null){
 				queryInstructionExecutor = new Neo4jInstructionExecutor(this, queryEnvironment);
@@ -844,7 +844,6 @@ public class Neo4j extends AbstractStorage
     @Override
     public Object executeQuery(String query)
     {
-    	logger.log(Level.SEVERE, "Query request= " + query);
         try ( Transaction tx = graphDb.beginTx() )
         {
             Result result = null;
@@ -865,38 +864,39 @@ public class Neo4j extends AbstractStorage
         }
     }
     
-    public Map<String, AbstractVertex> readHashToVertexMap(String vertexAliasInQuery, String query){
-    	Map<String, AbstractVertex> hashToVertex = new HashMap<String, AbstractVertex>();
+    /// START[FOR-QUERY-SURFACE]
+	public Map<String, AbstractVertex> readHashToVertexMap(String vertexAliasInQuery, String query){
+		Map<String, AbstractVertex> hashToVertex = new HashMap<String, AbstractVertex>();
 		try(Transaction tx = graphDb.beginTx()){
 			globalTxCheckin();
 			try{
 				Result result = (Result)executeQuery(query);
-		    	Iterator<Node> nodes = result.columnAs(vertexAliasInQuery);
-		    	while(nodes.hasNext()){
-		    		Node node = nodes.next();
-		    		String hashAnnotationValue = null;
-		    		Map<String, String> annotations = new HashMap<String, String>();
-		    		for(String key : node.getPropertyKeys()){
-		    			if(!CommonFunctions.isNullOrEmpty(key)){
-		    				String annotationValueString = null;
-		    				Object annotationValueObject = node.getProperty(key);
-		    				if(annotationValueObject == null){
-		    					annotationValueString = "";
-		    				}else{
-		    					annotationValueString = annotationValueObject.toString();
-		    				}
-		    				if(PRIMARY_KEY.equals(key)){
-		    					hashAnnotationValue = annotationValueString;
-		    				}else{
-		    					annotations.put(key, annotationValueString);
-		    				}
-		    			}
-		    		}
-		    		Vertex vertex = new Vertex();
-		    		vertex.addAnnotations(annotations);
-		    		hashToVertex.put(hashAnnotationValue, vertex);
+				Iterator<Node> nodes = result.columnAs(vertexAliasInQuery);
+				while(nodes.hasNext()){
+					Node node = nodes.next();
+					String hashAnnotationValue = null;
+					Map<String, String> annotations = new HashMap<String, String>();
+					for(String key : node.getPropertyKeys()){
+						if(!CommonFunctions.isNullOrEmpty(key)){
+							String annotationValueString = null;
+							Object annotationValueObject = node.getProperty(key);
+							if(annotationValueObject == null){
+								annotationValueString = "";
+							}else{
+								annotationValueString = annotationValueObject.toString();
+							}
+							if(PRIMARY_KEY.equals(key)){
+								hashAnnotationValue = annotationValueString;
+							}else{
+								annotations.put(key, annotationValueString);
+							}
+						}
+					}
+					Vertex vertex = new Vertex();
+					vertex.addAnnotations(annotations);
+					hashToVertex.put(hashAnnotationValue, vertex);
 				}
-		    	return hashToVertex;
+				return hashToVertex;
 			}catch(QueryExecutionException ex){
 				logger.log(Level.SEVERE, "Neo4j Cypher query execution not successful!", ex);
 			}finally{
@@ -904,78 +904,73 @@ public class Neo4j extends AbstractStorage
 			}
 		}
 		return hashToVertex;
-    }
-    
-    public Set<AbstractEdge> readEdgeSet(String relationshipAliasInQuery, String query,
-    		Map<String, AbstractVertex> hashToVertexMap){
-    	Set<AbstractEdge> edgeSet = new HashSet<AbstractEdge>();
-    	try(Transaction tx = graphDb.beginTx()){
+	}
+
+	public Set<AbstractEdge> readEdgeSet(String relationshipAliasInQuery, String query,
+			Map<String, AbstractVertex> hashToVertexMap){
+		Set<AbstractEdge> edgeSet = new HashSet<AbstractEdge>();
+		try(Transaction tx = graphDb.beginTx()){
 			globalTxCheckin();
 			try{
-		    	Result result = (Result)executeQuery(query);
-		    	Iterator<Relationship> relationships = result.columnAs(relationshipAliasInQuery);
-		    	while(relationships.hasNext()){
-		    		Relationship relationship = relationships.next();
-		    		Object childVertexHashObject = relationship.getProperty(CHILD_VERTEX_KEY);
-		    		String childVertexHashString = childVertexHashObject == null ? null : childVertexHashObject.toString();
-		    		AbstractVertex childVertex = hashToVertexMap.get(childVertexHashString);
-		    		Object parentVertexHashObject = relationship.getProperty(PARENT_VERTEX_KEY);
-		    		String parentVertexHashString = parentVertexHashObject == null ? null : parentVertexHashObject.toString();
-		    		AbstractVertex parentVertex = hashToVertexMap.get(parentVertexHashString);
-		    		Map<String, String> annotations = new HashMap<String, String>();
-		    		for(String key : relationship.getPropertyKeys()){
-		    			if(!CommonFunctions.isNullOrEmpty(key)){
-		    				if(key.equalsIgnoreCase(PRIMARY_KEY) || 
-		    						key.equalsIgnoreCase(CHILD_VERTEX_KEY) || 
-		    						key.equalsIgnoreCase(PARENT_VERTEX_KEY) ||
-		    						key.equalsIgnoreCase(edgeSymbolsPropertyKey)){
-		    					// ignore
-		    				}else{
-			    				Object annotationValueObject = relationship.getProperty(key);
-			    				String annotationValueString = annotationValueObject == null ? "" : annotationValueObject.toString();
-			    				annotations.put(key, annotationValueString);
-		    				}
-		    			}
-		    		}
-		    		Edge edge = new Edge(childVertex, parentVertex);
-		    		edge.addAnnotations(annotations);
-		    		edgeSet.add(edge);
-		    	}
+				Result result = (Result)executeQuery(query);
+				Iterator<Relationship> relationships = result.columnAs(relationshipAliasInQuery);
+				while(relationships.hasNext()){
+					Relationship relationship = relationships.next();
+					Object childVertexHashObject = relationship.getProperty(CHILD_VERTEX_KEY);
+					String childVertexHashString = childVertexHashObject == null ? null
+							: childVertexHashObject.toString();
+					AbstractVertex childVertex = hashToVertexMap.get(childVertexHashString);
+					Object parentVertexHashObject = relationship.getProperty(PARENT_VERTEX_KEY);
+					String parentVertexHashString = parentVertexHashObject == null ? null
+							: parentVertexHashObject.toString();
+					AbstractVertex parentVertex = hashToVertexMap.get(parentVertexHashString);
+					Map<String, String> annotations = new HashMap<String, String>();
+					for(String key : relationship.getPropertyKeys()){
+						if(!CommonFunctions.isNullOrEmpty(key)){
+							if(key.equalsIgnoreCase(PRIMARY_KEY) || key.equalsIgnoreCase(CHILD_VERTEX_KEY)
+									|| key.equalsIgnoreCase(PARENT_VERTEX_KEY)
+									|| key.equalsIgnoreCase(edgeSymbolsPropertyKey)){
+								// ignore
+							}else{
+								Object annotationValueObject = relationship.getProperty(key);
+								String annotationValueString = annotationValueObject == null ? ""
+										: annotationValueObject.toString();
+								annotations.put(key, annotationValueString);
+							}
+						}
+					}
+					Edge edge = new Edge(childVertex, parentVertex);
+					edge.addAnnotations(annotations);
+					edgeSet.add(edge);
+				}
 			}catch(QueryExecutionException ex){
 				logger.log(Level.SEVERE, "Neo4j Cypher query execution not successful!", ex);
 			}finally{
 				tx.success();
 			}
-    	}
-    	return edgeSet;
-    }
-    
-    public List<Map<String, Object>> executeQueryForSmallResult(String query)
-    {
-    	logger.log(Level.SEVERE, "Query request= " + query);
-        try ( Transaction tx = graphDb.beginTx() )
-        {
-        	List<Map<String, Object>> listOfMaps = new ArrayList<Map<String, Object>>();
-            Result result = null;
-            globalTxCheckin();
-            try
-            {
-                result = graphDb.execute(query);
-                while(result.hasNext()){
-                	listOfMaps.add(new HashMap<String, Object>(result.next()));
-                }
-            }
-            catch(QueryExecutionException ex)
-            {
-                logger.log(Level.SEVERE, "Neo4j Cypher query execution not successful!", ex);
-            }
-            finally
-            {
-                tx.success();
-            }
-            return listOfMaps;
-        }
-    }
+		}
+		return edgeSet;
+	}
+
+	public List<Map<String, Object>> executeQueryForSmallResult(String query){
+		try(Transaction tx = graphDb.beginTx()){
+			List<Map<String, Object>> listOfMaps = new ArrayList<Map<String, Object>>();
+			Result result = null;
+			globalTxCheckin();
+			try{
+				result = graphDb.execute(query);
+				while(result.hasNext()){
+					listOfMaps.add(new HashMap<String, Object>(result.next()));
+				}
+			}catch(QueryExecutionException ex){
+				logger.log(Level.SEVERE, "Neo4j Cypher query execution not successful!", ex);
+			}finally{
+				tx.success();
+			}
+			return listOfMaps;
+		}
+	}
+    /// END[FOR-QUERY-SURFACE]
 
     public Graph getPaths(int srcVertexId, int dstVertexId, int maxLength) {
         return getPaths(ID_STRING + ":" + srcVertexId, ID_STRING + ":" + dstVertexId, maxLength);

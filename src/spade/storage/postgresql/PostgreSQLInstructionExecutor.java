@@ -1,0 +1,1042 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2020 SRI International
+
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
+package spade.storage.postgresql;
+
+import static spade.storage.postgresql.PostgreSQLQueryEnvironment.getEdgeTableName;
+import static spade.storage.postgresql.PostgreSQLQueryEnvironment.getVertexTableName;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
+import spade.core.Edge;
+import spade.core.Vertex;
+import spade.query.quickgrail.core.GraphStats;
+import spade.query.quickgrail.core.QueryEnvironment;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
+import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
+import spade.query.quickgrail.entities.Graph;
+import spade.query.quickgrail.entities.GraphMetadata;
+import spade.query.quickgrail.instruction.CollapseEdge;
+import spade.query.quickgrail.instruction.CreateEmptyGraph;
+import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
+import spade.query.quickgrail.instruction.DistinctifyGraph;
+import spade.query.quickgrail.instruction.EraseSymbols;
+import spade.query.quickgrail.instruction.EvaluateQuery;
+import spade.query.quickgrail.instruction.ExportGraph;
+import spade.query.quickgrail.instruction.GetAdjacentVertex;
+import spade.query.quickgrail.instruction.GetEdge;
+import spade.query.quickgrail.instruction.GetEdgeEndpoint;
+import spade.query.quickgrail.instruction.GetLineage;
+import spade.query.quickgrail.instruction.GetLineage.Direction;
+import spade.query.quickgrail.instruction.GetLink;
+import spade.query.quickgrail.instruction.GetPath;
+import spade.query.quickgrail.instruction.GetShortestPath;
+import spade.query.quickgrail.instruction.GetSubgraph;
+import spade.query.quickgrail.instruction.GetVertex;
+import spade.query.quickgrail.instruction.InsertLiteralEdge;
+import spade.query.quickgrail.instruction.InsertLiteralVertex;
+import spade.query.quickgrail.instruction.IntersectGraph;
+import spade.query.quickgrail.instruction.LimitGraph;
+import spade.query.quickgrail.instruction.OverwriteGraphMetadata;
+import spade.query.quickgrail.instruction.SetGraphMetadata;
+import spade.query.quickgrail.instruction.SetGraphMetadata.Component;
+import spade.query.quickgrail.instruction.StatGraph;
+import spade.query.quickgrail.instruction.SubtractGraph;
+import spade.query.quickgrail.instruction.UnionGraph;
+import spade.query.quickgrail.types.StringType;
+import spade.query.quickgrail.utility.ResultTable;
+import spade.query.quickgrail.utility.Schema;
+import spade.storage.PostgreSQL;
+import spade.utility.CommonFunctions;
+
+/**
+ * @author Raza
+ */
+public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
+
+	private final PostgreSQL storage;
+	private final PostgreSQLQueryEnvironment queryEnvironment;
+	
+	private final String idColumnName;
+	private final String idChildVertexColumnName;
+	private final String idParentVertexColumnName;
+	private final String vertexAnnotationTableName;
+	private final String edgeAnnotationTableName;
+
+	public PostgreSQLInstructionExecutor(PostgreSQL storage, PostgreSQLQueryEnvironment queryEnvironment,
+			String idColumnName, String idChildVertexColumnName, String idParentVertexColumnName,
+			String vertexAnnotationTableName, String edgeAnnotationTableName){
+		this.storage = storage;
+		this.queryEnvironment = queryEnvironment;
+		this.idColumnName = idColumnName;
+		this.idChildVertexColumnName = idChildVertexColumnName;
+		this.idParentVertexColumnName = idParentVertexColumnName;
+		this.vertexAnnotationTableName = vertexAnnotationTableName;
+		this.edgeAnnotationTableName = edgeAnnotationTableName;
+		if(this.queryEnvironment == null){
+			throw new IllegalArgumentException("NULL Query Environment");
+		}
+		if(this.storage == null){
+			throw new IllegalArgumentException("NULL query executor");
+		}
+		if(CommonFunctions.isNullOrEmpty(this.idColumnName)){
+			throw new IllegalArgumentException("NULL/Empty id column name: " + this.idColumnName);
+		}
+		if(CommonFunctions.isNullOrEmpty(this.idChildVertexColumnName)){
+			throw new IllegalArgumentException("NULL/Empty child vertex id column name: " + this.idChildVertexColumnName);
+		}
+		if(CommonFunctions.isNullOrEmpty(this.idParentVertexColumnName)){
+			throw new IllegalArgumentException("NULL/Empty parent vertex id column name: " + this.idParentVertexColumnName);
+		}
+		if(CommonFunctions.isNullOrEmpty(this.vertexAnnotationTableName)){
+			throw new IllegalArgumentException("NULL/Empty vertex table name: " + this.vertexAnnotationTableName);
+		}
+		if(CommonFunctions.isNullOrEmpty(this.edgeAnnotationTableName)){
+			throw new IllegalArgumentException("NULL/Empty edge table name: " + this.edgeAnnotationTableName);
+		}
+	}
+
+	private String getIdColumnName(){
+		return idColumnName;
+	}
+	
+	private String getIdColumnNameChildVertex(){
+		return idChildVertexColumnName;
+	}
+	
+	private String getIdColumnNameParentVertex(){
+		return idParentVertexColumnName;
+	}
+	
+	private String getVertexAnnotationTableName(){
+		return vertexAnnotationTableName;
+	}
+	
+	private String getEdgeAnnotationTableName(){
+		return edgeAnnotationTableName;
+	}
+	
+	private Set<String> getColumnNamesOfVertexAnnotationTable(){
+		Set<String> columnNames = new HashSet<String>();
+		columnNames.addAll(
+				executeQueryForResult("select * from " + getVertexAnnotationTableName() + " where false", true).get(0)
+				);
+		return columnNames;
+	}
+	
+	private Set<String> getColumnNamesOfEdgeAnnotationTable(){
+		Set<String> columnNames = new HashSet<String>();
+		columnNames.addAll(
+				executeQueryForResult("select * from " + getEdgeAnnotationTableName() + " where false", true).get(0)
+				);
+		return columnNames;
+	}
+
+	@Override
+	public QueryEnvironment getQueryEnvironment(){
+		return queryEnvironment;
+	}
+
+	private String getMetadataVertexTableName(GraphMetadata graphMetadata){
+		return queryEnvironment.getMetadataVertexTableName(graphMetadata);
+	}
+
+	private String getMetadataEdgeTableName(GraphMetadata graphMetadata){
+		return queryEnvironment.getMetadataEdgeTableName(graphMetadata);
+	}
+
+	private List<List<String>> executeQueryForResult(String query, boolean addColumnNames){
+		return storage.executeQueryForResult(query, addColumnNames);
+	}
+
+	@Override
+	public void insertLiteralEdge(InsertLiteralEdge instruction){
+		String prefix = "INSERT INTO " + getEdgeTableName(instruction.targetGraph) + " VALUES(";
+		StringBuilder sqlQuery = new StringBuilder();
+		for(String edge : instruction.getEdges()){
+			sqlQuery.append(prefix + edge + ");");
+		}
+		executeQueryForResult(sqlQuery.toString(), false);
+	}
+
+	@Override
+	public void insertLiteralVertex(InsertLiteralVertex instruction){
+		String prefix = "INSERT INTO " + getVertexTableName(instruction.targetGraph) + " VALUES(";
+		StringBuilder sqlQuery = new StringBuilder();
+		for(String vertex : instruction.getVertices()){
+			sqlQuery.append(prefix + vertex + ");");
+		}
+		executeQueryForResult(sqlQuery.toString(), false);
+	}
+
+	private void createUUIDTable(String tableName, boolean deleteFirst){
+		if(deleteFirst){
+			dropTable(tableName);
+		}
+		String createQuery = "create table if not exists " + tableName + "(" + getIdColumnName() + " uuid" + ")";
+		executeQueryForResult(createQuery, false);
+	}
+	
+	private void dropTable(String tableName){
+		String dropQuery = "drop table if exists " + tableName;
+		executeQueryForResult(dropQuery, false);
+	}
+
+	@Override
+	public void createEmptyGraph(CreateEmptyGraph instruction){
+		String vertexTable = getVertexTableName(instruction.graph);
+		String edgeTable = getEdgeTableName(instruction.graph);
+
+		createUUIDTable(vertexTable, true);
+		createUUIDTable(edgeTable, true);
+	}
+
+	@Override
+	public void distinctifyGraph(DistinctifyGraph instruction){
+		String sourceVertexTable = getVertexTableName(instruction.sourceGraph);
+		String sourceEdgeTable = getEdgeTableName(instruction.sourceGraph);
+		String targetVertexTable = getVertexTableName(instruction.targetGraph);
+		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+
+		executeQueryForResult("insert into " + targetVertexTable + " select " + getIdColumnName() + " from "
+				+ sourceVertexTable + " group by " + getIdColumnName() + ";", false);
+		executeQueryForResult("insert into " + targetEdgeTable + " select " + getIdColumnName() + " from "
+				+ sourceEdgeTable + " group by " + getIdColumnName() + ";", false);
+	}
+
+	@Override
+	public void eraseSymbols(EraseSymbols instruction){
+		for(String symbol : instruction.getSymbols()){
+			queryEnvironment.eraseGraphSymbol(symbol);
+			queryEnvironment.eraseGraphMetadataSymbol(symbol);
+		}
+	}
+
+	private String buildComparison(String columnName, PredicateOperator operator, String value){
+		String query = "";
+		if(columnName.equals(getIdColumnName()) ||
+				columnName.equals(getIdColumnNameChildVertex()) ||
+				columnName.equals(getIdColumnNameParentVertex())){
+			query += "\"" + columnName + "\"::text ";
+		}else{
+			query += "\"" + columnName + "\" ";
+		}
+		switch(operator){
+			case EQUAL: query += "="; break;
+			case GREATER: query += ">"; break;
+			case GREATER_EQUAL: query += ">="; break;
+			case LESSER: query += "<"; break;
+			case LESSER_EQUAL: query += "<="; break;
+			case NOT_EQUAL: query += "<>"; break;
+			case REGEX: query += "~"; break;
+			case LIKE: query += "like"; break;
+			default: throw new RuntimeException("Unexpected comparison operator");
+		}
+		value = value.replace("'", "''");
+		query += " '" + value + "'";
+		return query;
+	}
+	
+	@Override
+	public void getVertex(GetVertex instruction){
+		if(!instruction.hasArguments()){
+			String sqlQuery = 
+					"insert into " + getVertexTableName(instruction.targetGraph) 
+					+ " select " + getIdColumnName() + " from "
+					+ getVertexTableName(instruction.subjectGraph)
+					+ " group by " + getIdColumnName();
+			executeQueryForResult(sqlQuery, false);
+		}else{ // has arguments
+			PredicateOperator operator = instruction.operator;
+			
+			String sqlQuery = 
+					"insert into " + getVertexTableName(instruction.targetGraph) 
+					+ " select " + getIdColumnName() + " from "
+					+ getVertexAnnotationTableName();
+			
+			Set<String> columnNames = new HashSet<String>();
+			
+			if("*".equals(instruction.annotationKey)){
+				columnNames.addAll(getColumnNamesOfVertexAnnotationTable());
+			}else{
+				columnNames.add(instruction.annotationKey);
+			}
+			
+			sqlQuery += " where (";
+			
+			for(String columnName : columnNames){
+				sqlQuery += buildComparison(columnName, operator, instruction.annotationValue) + " or ";	
+			}
+			
+			sqlQuery = sqlQuery.substring(0, sqlQuery.length() - 3); // remove the last 'or '
+			sqlQuery += ")";
+			
+			if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
+				sqlQuery += " and " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+getVertexTableName(instruction.subjectGraph)+")";
+			}
+			
+			sqlQuery += " group by " + getIdColumnName() + ";";
+			executeQueryForResult(sqlQuery, false);
+		}
+	}
+
+	@Override
+	public ResultTable evaluateQuery(EvaluateQuery instruction){
+		ResultTable table = new ResultTable();
+
+		List<List<String>> listOfLists = executeQueryForResult(instruction.nativeQuery, true);
+		if(listOfLists.size() > 0){
+			List<String> headings = listOfLists.remove(0);
+			for(List<String> row : listOfLists){
+				ResultTable.Row tablerow = new ResultTable.Row();
+				for(String col : row){
+					tablerow.add(String.valueOf(col));
+				}
+				table.addRow(tablerow);
+			}
+			Schema schema = new Schema();
+			for(String heading : headings){
+				schema.addColumn(heading, StringType.GetInstance());
+			}
+			table.setSchema(schema);
+		}
+
+		return table;
+	}
+
+	@Override
+	public void getEdge(GetEdge instruction){
+		if(!instruction.hasArguments()){
+			String sqlQuery = 
+					"insert into " + getEdgeTableName(instruction.targetGraph) 
+					+ " select " + getIdColumnName() + " from "
+					+ getEdgeTableName(instruction.subjectGraph)
+					+ " group by " + getIdColumnName();
+			executeQueryForResult(sqlQuery, false);
+		}else{ // has arguments
+			PredicateOperator operator = instruction.operator;
+			
+			String sqlQuery = 
+					"insert into " + getEdgeTableName(instruction.targetGraph) 
+					+ " select " + getIdColumnName() + " from "
+					+ getEdgeAnnotationTableName();
+			
+			Set<String> columnNames = new HashSet<String>();
+			
+			if("*".equals(instruction.annotationKey)){
+				columnNames.addAll(getColumnNamesOfEdgeAnnotationTable());
+			}else{
+				columnNames.add(instruction.annotationKey);
+			}
+			
+			sqlQuery += " where (";
+			
+			for(String columnName : columnNames){
+				sqlQuery += buildComparison(columnName, operator, instruction.annotationValue) + " or ";	
+			}
+			
+			sqlQuery = sqlQuery.substring(0, sqlQuery.length() - 3); // remove the last 'or '
+			sqlQuery += ")";
+			
+			if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
+				sqlQuery += " and " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+getEdgeTableName(instruction.subjectGraph)+")";
+			}
+			
+			sqlQuery += " group by " + getIdColumnName() + ";";
+			executeQueryForResult(sqlQuery, false);
+		}
+	}
+
+	@Override
+	public void getEdgeEndpoint(GetEdgeEndpoint instruction){
+		String targetVertexTable = getVertexTableName(instruction.targetGraph);
+		String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
+
+		String answerTable = "m_answer";
+
+		createUUIDTable(answerTable, true);
+
+		if(instruction.component == GetEdgeEndpoint.Component.kSource
+				|| instruction.component == GetEdgeEndpoint.Component.kBoth){
+			executeQueryForResult("insert into " + answerTable + " select \"" + getIdColumnNameChildVertex()
+					+ "\" from " + getEdgeAnnotationTableName() + " where " + getIdColumnName() + " in (select "
+					+ getIdColumnName() + " from " + subjectEdgeTable + ");", false);
+		}
+		if(instruction.component == GetEdgeEndpoint.Component.kDestination
+				|| instruction.component == GetEdgeEndpoint.Component.kBoth){
+			executeQueryForResult("insert into " + answerTable + " select \"" + getIdColumnNameParentVertex()
+					+ "\" from " + getEdgeAnnotationTableName() + " where " + getIdColumnName() + " in (select "
+					+ getIdColumnName() + " from " + subjectEdgeTable + ");", false);
+		}
+		executeQueryForResult("insert into " + targetVertexTable + " select " + getIdColumnName() + " from "
+				+ answerTable + " group by "+getIdColumnName(), false);
+
+		dropTable(answerTable);
+	}
+
+	@Override
+	public void limitGraph(LimitGraph instruction){
+		String sourceVertexTable = getVertexTableName(instruction.sourceGraph);
+		String sourceEdgeTable = getEdgeTableName(instruction.sourceGraph);
+		String targetVertexTable = getVertexTableName(instruction.targetGraph);
+		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+
+		GraphStats graphStats = statGraph(new StatGraph(instruction.sourceGraph));
+
+		if(graphStats.vertices > 0){
+			executeQueryForResult("insert into " + targetVertexTable + " select " + getIdColumnName() + " from "
+					+ sourceVertexTable + " group by " + getIdColumnName() + " order by " + getIdColumnName()
+					+ " limit " + instruction.limit + ";", false);
+
+		}
+		if(graphStats.edges > 0){
+			executeQueryForResult("insert into " + targetEdgeTable + " select " + getIdColumnName() + " from "
+					+ sourceEdgeTable + " group by " + getIdColumnName() + " order by " + getIdColumnName() + " limit "
+					+ instruction.limit + ";", false);
+		}
+	}
+
+	@Override
+	public void intersectGraph(IntersectGraph instruction){
+		String outputVertexTable = getVertexTableName(instruction.outputGraph);
+		String outputEdgeTable = getEdgeTableName(instruction.outputGraph);
+		String lhsVertexTable = getVertexTableName(instruction.lhsGraph);
+		String lhsEdgeTable = getEdgeTableName(instruction.lhsGraph);
+		String rhsVertexTable = getVertexTableName(instruction.rhsGraph);
+		String rhsEdgeTable = getEdgeTableName(instruction.rhsGraph);
+
+		executeQueryForResult("insert into " + outputVertexTable + " select " + getIdColumnName() + " from "
+				+ lhsVertexTable + " where " + getIdColumnName() + " in (select " + getIdColumnName() + " from "
+				+ rhsVertexTable + ");", false);
+		executeQueryForResult(
+				"insert into " + outputEdgeTable + " select " + getIdColumnName() + " from " + lhsEdgeTable + " where "
+				+ getIdColumnName() + " in (select " + getIdColumnName() + " from " + rhsEdgeTable + ");",
+				false);
+	}
+	
+	@Override
+	public GraphStats statGraph(StatGraph instruction){
+		String targetVertexTable = getVertexTableName(instruction.targetGraph);
+		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+		long numVertices = Long.parseLong(
+				executeQueryForResult("select count(*) from " + targetVertexTable, false).get(0).get(0)
+				);
+		long numEdges = Long.parseLong(
+				executeQueryForResult("select count(*) from " + targetEdgeTable, false).get(0).get(0)
+				);
+		return new GraphStats(numVertices, numEdges);
+	}
+
+	@Override
+	public void subtractGraph(SubtractGraph instruction){
+		String outputVertexTable = getVertexTableName(instruction.outputGraph);
+		String outputEdgeTable = getEdgeTableName(instruction.outputGraph);
+		String minuendVertexTable = getVertexTableName(instruction.minuendGraph);
+		String minuendEdgeTable = getEdgeTableName(instruction.minuendGraph);
+		String subtrahendVertexTable = getVertexTableName(instruction.subtrahendGraph);
+		String subtrahendEdgeTable = getEdgeTableName(instruction.subtrahendGraph);
+
+		if(instruction.component == null || instruction.component == Graph.Component.kVertex){
+			executeQueryForResult("insert into " + outputVertexTable + " select " + getIdColumnName() + " from "
+					+ minuendVertexTable + " where " + getIdColumnName() + " not in (select " + getIdColumnName()
+					+ " from " + subtrahendVertexTable + ");", false);
+		}
+		if(instruction.component == null || instruction.component == Graph.Component.kEdge){
+			executeQueryForResult("insert into " + outputEdgeTable + " select " + getIdColumnName() + " from "
+					+ minuendEdgeTable + " where " + getIdColumnName() + " not in (select " + getIdColumnName()
+					+ " from " + subtrahendEdgeTable + ");", false);
+		}
+	}
+
+	@Override
+	public void unionGraph(UnionGraph instruction){
+		String sourceVertexTable = getVertexTableName(instruction.sourceGraph);
+		String sourceEdgeTable = getEdgeTableName(instruction.sourceGraph);
+		String targetVertexTable = getVertexTableName(instruction.targetGraph);
+		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+
+		executeQueryForResult("insert into " + targetVertexTable + " select "
+				+getIdColumnName()+" from " + sourceVertexTable + ";", false);
+		executeQueryForResult("insert into " + targetEdgeTable + " select "
+				+getIdColumnName()+" from " + sourceEdgeTable + ";", false);
+	}
+
+	@Override
+	public void getAdjacentVertex(GetAdjacentVertex instruction){
+		final List<Direction> directions = new ArrayList<Direction>();
+		if(instruction.direction == Direction.kBoth){
+			directions.add(Direction.kAncestor);
+			directions.add(Direction.kDescendant);
+		}else{
+			directions.add(instruction.direction);
+		}
+
+		final String targetVertexTable = getVertexTableName(instruction.targetGraph);
+		final String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+		final String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
+		final String cursorTable = "m_cur";
+		final String nextTable = "m_next";
+		final String answerTable = "m_answer";
+		final String answerEdgeTable = "m_answer_edge";
+		
+		final String filter = queryEnvironment.isBaseGraph(instruction.subjectGraph) ? ""
+				: " and " + getEdgeAnnotationTableName() + "." + getIdColumnName() 
+				+ " in (select "+getIdColumnName()+" from "+subjectEdgeTable+")";
+
+		for(final Direction direction : directions){
+			if(direction != Direction.kAncestor && direction != Direction.kDescendant){
+				throw new RuntimeException("Unexpected direction: " + direction);
+			}
+			final String startVertexTable = getVertexTableName(instruction.sourceGraph);
+			final String src = direction == Direction.kAncestor ? getIdColumnNameChildVertex() : getIdColumnNameParentVertex();
+			final String dst = direction == Direction.kAncestor ? getIdColumnNameParentVertex() : getIdColumnNameChildVertex();
+			
+			createUUIDTable(cursorTable, true);
+			createUUIDTable(nextTable, true);
+			createUUIDTable(answerTable, true);
+			createUUIDTable(answerEdgeTable, true);
+
+			executeQueryForResult("insert into "+cursorTable+" select "+getIdColumnName()+" from " + startVertexTable + ";", false);
+			executeQueryForResult("insert into " + answerTable + " select " + getIdColumnName() + " from " + cursorTable + ";", false);
+
+			for(int i = 0; i < 1; ++i){
+				createUUIDTable(nextTable, true);
+				executeQueryForResult("insert into " + nextTable + " select \"" + dst + "\" from " + getEdgeAnnotationTableName()
+					+ " where \"" + src + "\" in (select "+getIdColumnName()+" from "+cursorTable+")"
+					+ " " + filter + " group by \"" + dst + "\";", false);
+				executeQueryForResult("insert into " + answerEdgeTable + " select " + getIdColumnName() + " from " + getEdgeAnnotationTableName()
+					+ " where \"" + src + "\" in (select "+getIdColumnName()+" from "+cursorTable+") " + filter + ";", false);
+				createUUIDTable(cursorTable, true);
+				executeQueryForResult("insert into " + cursorTable + " select " + getIdColumnName() + " from " + nextTable
+						+ " where " + getIdColumnName() + " not in (select "+getIdColumnName()+" from "+answerTable+");", false);
+				executeQueryForResult("insert into " + answerTable + " select " + getIdColumnName() + " from " + cursorTable + ";", 
+						false);
+
+				List<List<String>> countResult = executeQueryForResult("select count(*) from "+cursorTable+";", false);
+				long cursorTableCount = Long.parseLong(countResult.get(0).get(0));
+				if(cursorTableCount == 0){
+					break;
+				}
+			}
+
+			executeQueryForResult("insert into " + targetVertexTable 
+					+ " select " + getIdColumnName() + " from " + answerTable + ";", false);
+			executeQueryForResult("insert into " + targetEdgeTable 
+					+ " select " + getIdColumnName() + " from " + answerEdgeTable + " group by " + getIdColumnName() + ";", false);
+		}
+
+		dropTable(cursorTable);
+		dropTable(nextTable);
+		dropTable(answerEdgeTable);
+		dropTable(answerTable);
+	}
+
+	@Override
+	public spade.core.Graph exportGraph(ExportGraph instruction){
+		String targetVertexTable = getVertexTableName(instruction.targetGraph);
+		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+		
+		List<List<String>> verticesListOfList = executeQueryForResult("select * from " + getVertexAnnotationTableName() 
+				+ " where " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+targetVertexTable+")", true);
+		
+		List<String> vertexHeader = verticesListOfList.remove(0); // remove the header
+		
+		Map<String, AbstractVertex> hashToVertexMap = new HashMap<String, AbstractVertex>();
+		
+		for(List<String> vertexList : verticesListOfList){
+			String hash = null;
+			AbstractVertex vertex = new Vertex();
+			for(int i = 0; i < vertexHeader.size(); i++){
+				String annotationKey = vertexHeader.get(i);
+				String annotationValue = vertexList.get(i);
+				if(annotationKey.equals(getIdColumnName())){
+					hash = annotationValue;
+				}else{
+					if(annotationValue != null){
+						vertex.addAnnotation(annotationKey, annotationValue);
+					}
+				}
+			}
+			hashToVertexMap.put(hash, vertex);
+		}
+		
+		
+		List<List<String>> edgesListOfList = executeQueryForResult("select * from " + getEdgeAnnotationTableName() 
+		+ " where " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+targetEdgeTable+")", true);
+
+		List<String> edgeHeader = edgesListOfList.remove(0); // remove the header
+		
+		Set<AbstractEdge> edgeSet = new HashSet<AbstractEdge>();
+		
+		for(List<String> edgeList : edgesListOfList){
+			String hash = null;
+			String childHash = null;
+			String parentHash = null;
+			AbstractEdge edge = new Edge(null, null);
+			for(int i = 0; i < edgeHeader.size(); i++){
+				String annotationKey = edgeHeader.get(i);
+				String annotationValue = edgeList.get(i);
+				if(annotationKey.equals(getIdColumnName())){
+					hash = annotationValue;
+				}else if(annotationKey.equals(getIdColumnNameChildVertex())){
+					childHash = annotationValue;
+				}else if(annotationKey.equals(getIdColumnNameParentVertex())){
+					parentHash = annotationValue;
+				}else{
+					if(annotationValue != null){
+						edge.addAnnotation(annotationKey, annotationValue);
+					}
+				}
+			}
+			edge.setChildVertex(hashToVertexMap.get(childHash));
+			edge.setParentVertex(hashToVertexMap.get(parentHash));
+			edgeSet.add(edge);
+		}
+		
+		spade.core.Graph graph = new spade.core.Graph();
+		graph.vertexSet().addAll(hashToVertexMap.values());
+		graph.edgeSet().addAll(edgeSet);
+		return graph;
+	}
+
+	@Override
+	public void collapseEdge(CollapseEdge instruction){
+		String sourceVertexTable = getVertexTableName(instruction.sourceGraph);
+		String sourceEdgeTable = getEdgeTableName(instruction.sourceGraph);
+		String targetVertexTable = getVertexTableName(instruction.targetGraph);
+		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+
+		String groupByClause = "group by ";
+		groupByClause += "\"" + getIdColumnNameChildVertex() + "\", ";
+		groupByClause += "\"" + getIdColumnNameParentVertex() + "\", ";
+
+		for(String annotationKey : instruction.getFields()){
+			groupByClause += "\"" + annotationKey + "\", ";
+		}
+
+		groupByClause = groupByClause.substring(0, groupByClause.length() - 2); // remove the trailing ', '
+
+		executeQueryForResult("insert into " + targetVertexTable + " select " + getIdColumnName() + " from "
+				+ sourceVertexTable + ";", false);
+		executeQueryForResult("insert into " + targetEdgeTable + " select min(e." + getIdColumnName() + "::text)::uuid from "
+				+ getEdgeAnnotationTableName() + " e where e." + getIdColumnName() + " in (select " + getIdColumnName()
+				+ " from " + sourceEdgeTable + ") " + groupByClause + ";", false);
+	}
+
+	@Override
+	public void getSubgraph(GetSubgraph instruction){
+		final String targetVertexTable = getVertexTableName(instruction.targetGraph);
+		final String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+		final String subjectVertexTable = getVertexTableName(instruction.subjectGraph);
+		final String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
+		final String skeletonVertexTable = getVertexTableName(instruction.skeletonGraph);
+		final String skeletonEdgeTable = getEdgeTableName(instruction.skeletonGraph);
+
+		final String answerTable = "m_answer";
+		
+		createUUIDTable(answerTable, true);
+
+		// Get vertices.
+		executeQueryForResult("insert into "+answerTable+" select "+getIdColumnName()+" from " + skeletonVertexTable 
+				+ " where "+getIdColumnName()+" in (select "+getIdColumnName()+" from " + subjectVertexTable + ");", false);
+		executeQueryForResult("insert into "+answerTable+" select \""+getIdColumnNameChildVertex()+"\" from "+getEdgeAnnotationTableName()
+				+ " where "+getIdColumnName()+" in (select "+getIdColumnName()+" from " + skeletonEdgeTable + ")"
+				+ " and \""+getIdColumnNameChildVertex()+"\" in (select "+getIdColumnName()+" from " + subjectVertexTable + ");", false);
+		executeQueryForResult("insert into "+answerTable+" select \""+getIdColumnNameParentVertex()+"\" from "+getEdgeAnnotationTableName()
+				+ " where "+getIdColumnName()+" in (select "+getIdColumnName()+" from " + skeletonEdgeTable + ")"
+				+ " and \""+getIdColumnNameParentVertex()+"\" in (select "+getIdColumnName()+" from " + subjectVertexTable + ");", false);
+		executeQueryForResult("insert into " + targetVertexTable + " select "+getIdColumnName()+" from "+answerTable+" group by "+getIdColumnName()+";", false);
+		
+		// Get edges.
+		executeQueryForResult("insert into " + targetEdgeTable + " select s."+getIdColumnName()
+				+ " from " + subjectEdgeTable + " s, "+getEdgeAnnotationTableName()+" e" 
+				+ " where s."+getIdColumnName()+" = e."+getIdColumnName()
+				+ " and e.\""+getIdColumnNameChildVertex()+"\" in (select "+getIdColumnName()+" from "+answerTable+")"
+				+ " and e.\""+getIdColumnNameParentVertex()+"\" in (select "+getIdColumnName()+" from "+answerTable+")"
+				+ " group by s."+getIdColumnName()+";", false);
+
+		dropTable(answerTable);
+	}
+	
+	@Override
+	public void getShortestPath(GetShortestPath instruction){
+		// TODO Auto-generated method stub
+
+	}
+
+	@Override
+	public void getLineage(GetLineage instruction){
+		final List<Direction> directions = new ArrayList<Direction>();
+		if(instruction.direction == Direction.kBoth){
+			directions.add(Direction.kAncestor);
+			directions.add(Direction.kDescendant);
+		}else{
+			directions.add(instruction.direction);
+		}
+
+		final String targetVertexTable = getVertexTableName(instruction.targetGraph);
+		final String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+		final String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
+		final String currentTable = "m_cur";
+		final String nextTable = "m_next";
+		final String answerTable = "m_answer";
+		final String answerEdgeTable = "m_answer_edge";
+		
+		final String filter = queryEnvironment.isBaseGraph(instruction.subjectGraph) ? ""
+				: " and " + getEdgeAnnotationTableName() + "." + getIdColumnName() 
+				+ " in (select "+getIdColumnName()+" from "+subjectEdgeTable+")";
+
+		for(final Direction direction : directions){
+			if(direction != Direction.kAncestor && direction != Direction.kDescendant){
+				throw new RuntimeException("Unexpected direction: " + direction);
+			}
+			final String startVertexTable = getVertexTableName(instruction.startGraph);
+			final String src = direction == Direction.kAncestor ? getIdColumnNameChildVertex() : getIdColumnNameParentVertex();
+			final String dst = direction == Direction.kAncestor ? getIdColumnNameParentVertex() : getIdColumnNameChildVertex();
+			
+			createUUIDTable(currentTable, true);
+			createUUIDTable(nextTable, true);
+			createUUIDTable(answerTable, true);
+			createUUIDTable(answerEdgeTable, true);
+
+			executeQueryForResult("insert into "+currentTable+" select "+getIdColumnName()+" from " + startVertexTable + ";", false);
+			executeQueryForResult("insert into " + answerTable + " select " + getIdColumnName() + " from " + currentTable + ";", false);
+
+			for(int i = 0; i < instruction.depth; ++i){
+				createUUIDTable(nextTable, true);
+				executeQueryForResult("insert into " + nextTable + " select \"" + dst + "\" from " + getEdgeAnnotationTableName()
+					+ " where \"" + src + "\" in (select "+getIdColumnName()+" from "+currentTable+")"
+					+ " " + filter + " group by \"" + dst + "\";", false);
+				executeQueryForResult("insert into " + answerEdgeTable + " select " + getIdColumnName() + " from " + getEdgeAnnotationTableName()
+					+ " where \"" + src + "\" in (select "+getIdColumnName()+" from "+currentTable+") " + filter + ";", false);
+				createUUIDTable(currentTable, true);
+				executeQueryForResult("insert into " + currentTable + " select " + getIdColumnName() + " from " + nextTable
+						+ " where " + getIdColumnName() + " not in (select "+getIdColumnName()+" from "+answerTable+");", false);
+				executeQueryForResult("insert into " + answerTable + " select " + getIdColumnName() + " from " + currentTable + ";", 
+						false);
+
+				List<List<String>> countResult = executeQueryForResult("select count(*) from "+currentTable+";", false);
+				long cursorTableCount = Long.parseLong(countResult.get(0).get(0));
+				if(cursorTableCount == 0){
+					break;
+				}
+			}
+
+			executeQueryForResult("insert into " + targetVertexTable 
+					+ " select " + getIdColumnName() + " from " + answerTable + ";", false);
+			executeQueryForResult("insert into " + targetEdgeTable 
+					+ " select " + getIdColumnName() + " from " + answerEdgeTable + " group by " + getIdColumnName() + ";", false);
+		}
+
+		dropTable(currentTable);
+		dropTable(nextTable);
+		dropTable(answerEdgeTable);
+		dropTable(answerTable);
+	}
+	
+	@Override
+	public void getPath(GetPath instruction){
+		final int maxDepth = instruction.maxDepth;
+		
+		final String depthColumnName = "depth";
+		final String currentTable = "m_cur";
+		final String nextTable = "m_next";
+		final String answerTable = "m_answer";
+		final String currentSubgraphTable = "m_sgconn";
+		
+		final String targetVertexTable = getVertexTableName(instruction.targetGraph);
+		final String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+		final String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
+		final String dstVertexTable = getVertexTableName(instruction.dstGraph);
+		final String srcVertexTable = getVertexTableName(instruction.srcGraph);
+		
+		createUUIDTable(currentTable, true);
+		createUUIDTable(nextTable, true);
+		createUUIDTable(answerTable, true);
+		
+		dropTable(currentSubgraphTable);
+		executeQueryForResult("create table " + currentSubgraphTable + "("
+				+ "\""+getIdColumnNameChildVertex()+"\" uuid, "
+				+ "\""+getIdColumnNameParentVertex()+"\" uuid, "
+				+ depthColumnName + " int);", false);
+
+		executeQueryForResult("insert into "+currentTable+" select "+getIdColumnName()+" from " + dstVertexTable, false);
+		executeQueryForResult("insert into "+answerTable+" select "+getIdColumnName()+" from " + currentTable, false);
+		
+		final String filter = queryEnvironment.isBaseGraph(instruction.subjectGraph) 
+				? "" : " and "+getEdgeAnnotationTableName()+"."+getIdColumnName()+" in (select "+getIdColumnName()+" from " + subjectEdgeTable + ")";
+		
+		final String q0 = "insert into " + currentSubgraphTable + " select \"" + getIdColumnNameChildVertex() + "\", \""
+				+ getIdColumnNameParentVertex() + "\", %s from " + getEdgeAnnotationTableName() + " where \""
+				+ getIdColumnNameParentVertex() + "\" in (select " + getIdColumnName() + " from " + currentTable + ")"
+				+ " " + filter + ";";
+		final String q1 = ""; // createUUIDTable(nextTable, true);
+		final String q2 = "insert into " + nextTable + " select \"" + getIdColumnNameChildVertex() + "\" from "
+				+ getEdgeAnnotationTableName() + " where \"" + getIdColumnNameParentVertex() + "\" in (select "
+				+ getIdColumnName() + " from " + currentTable + ")" + " " + filter + " group by \""
+				+ getIdColumnNameChildVertex() + "\";";
+		final String q3 = ""; // createUUIDTable(cursorTable, true);
+		final String q4 = "insert into " + currentTable + " select " + getIdColumnName() + " from " + nextTable
+				+ " where " + getIdColumnName() + " not in (select " + getIdColumnName() + " from " + answerTable
+				+ ");";
+		final String q5 = "insert into " + answerTable + " select " + getIdColumnName() + " from " + currentTable + ";";
+		
+		for(int i = 0; i < maxDepth; ++i){
+			final String formattedQ0 = String.format(q0, i+1);
+			
+			executeQueryForResult(formattedQ0, false);
+			createUUIDTable(nextTable, true);
+			executeQueryForResult(q2, false);
+			createUUIDTable(currentTable, true);
+			executeQueryForResult(q4, false);
+			executeQueryForResult(q5, false);
+
+			List<List<String>> countResult = executeQueryForResult("select count(*) from "+currentTable+";", false);
+			long cursorTableCount = Long.parseLong(countResult.get(0).get(0));
+			if(cursorTableCount == 0){
+				break;
+			}
+		}
+
+		createUUIDTable(currentTable, true);
+		createUUIDTable(nextTable, true);
+		
+		executeQueryForResult("insert into " + currentTable + " select " + getIdColumnName() + " from " + srcVertexTable
+				+ " where " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+answerTable+");", false);
+
+		createUUIDTable(answerTable, true);
+		
+		executeQueryForResult("insert into " + answerTable + " select " + getIdColumnName() + " from " + currentTable, false);
+
+		final String qq0 = ""; // createUUIDTable(nextTable, true);
+		final String qq1 = "insert into " + nextTable + " select \"" + getIdColumnNameParentVertex() + "\" from " + currentSubgraphTable
+				+ " where \"" + getIdColumnNameChildVertex() + "\" in (select "+getIdColumnName()+" from "+currentTable+")"
+				+ " and " + depthColumnName + " + %s <= " + instruction.maxDepth + " group by \""+getIdColumnNameParentVertex()+"\";";
+		final String qq2 = "insert into " + targetEdgeTable + " select " + getIdColumnName() + " from " + getEdgeAnnotationTableName()
+				+ " where \""+getIdColumnNameChildVertex()+"\" in (select " + getIdColumnName() + " from " + currentTable + ")"
+				+ " and \""+getIdColumnNameParentVertex()+"\" in (select "+getIdColumnName()+" from "+nextTable+") " + filter + ";";
+		final String qq3 = ""; // createUUIDTable(cursorTable, true);
+		final String qq4 = "insert into " + currentTable + " select " + getIdColumnName() + " from " + nextTable 
+				+ " where " + getIdColumnName() + " not in (select "+getIdColumnName()+" from "+answerTable+");";
+		final String qq5 = "insert into " + answerTable + " select " + getIdColumnName() + " from " + currentTable + ";";
+
+		for(int i = 0; i < maxDepth; ++i){
+			createUUIDTable(nextTable, true);
+			final String formattedQq1 = String.format(qq1, i);
+			executeQueryForResult(formattedQq1, false);
+			executeQueryForResult(qq2, false);
+			createUUIDTable(currentTable, true);
+			executeQueryForResult(qq4, false);
+			executeQueryForResult(qq5, false);
+			
+			List<List<String>> countResult = executeQueryForResult("select count(*) from "+currentTable+";", false);
+			long cursorTableCount = Long.parseLong(countResult.get(0).get(0));
+			if(cursorTableCount == 0){
+				break;
+			}
+		}
+
+		executeQueryForResult("insert into " + targetVertexTable + " select " + getIdColumnName() + " from " + answerTable, false);
+		dropTable(currentSubgraphTable);
+		dropTable(currentTable);
+		dropTable(nextTable);
+		dropTable(answerTable);
+	}
+	
+	@Override
+	public void getLink(GetLink instruction){
+		if(instruction.maxDepth <= 0){
+			return;
+		}
+		
+		final int maxDepth = instruction.maxDepth - 1;
+		
+		final String depthColumnName = "depth";
+		final String currentTable = "m_cur";
+		final String nextTable = "m_next";
+		final String answerTable = "m_answer";
+		final String currentSubgraphTable = "m_sgconn";
+		
+		final String dstVertexTable = getVertexTableName(instruction.dstGraph);
+		final String srcVertexTable = getVertexTableName(instruction.srcGraph);
+		final String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
+		final String targetVertexTable = getVertexTableName(instruction.targetGraph);
+		final String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+		
+		createUUIDTable(currentTable, true);
+		createUUIDTable(nextTable, true);
+		createUUIDTable(answerTable, true);
+		
+		dropTable(currentSubgraphTable);
+		executeQueryForResult("create table " + currentSubgraphTable + "("
+				+ "\""+getIdColumnNameChildVertex()+"\" uuid, "
+				+ "\""+getIdColumnNameParentVertex()+"\" uuid, "
+				+ depthColumnName + " int);", false);
+		
+		executeQueryForResult("insert into "+currentTable+" select "+getIdColumnName()+" from " + dstVertexTable, false);
+		executeQueryForResult("insert into "+answerTable+" select "+getIdColumnName()+" from " + currentTable, false);
+		
+		
+		final String filter = queryEnvironment.isBaseGraph(instruction.subjectGraph) 
+				? "" : " and "+getEdgeAnnotationTableName()+"."+getIdColumnName()+" in (select "+getIdColumnName()+" from " + subjectEdgeTable + ")";
+		final String q0 = "insert into "+currentSubgraphTable+" select \""+getIdColumnNameChildVertex()+"\", \""+getIdColumnNameParentVertex()+"\", %s from " + getEdgeAnnotationTableName()
+				+ " where \""+getIdColumnNameParentVertex()+"\" in (select "+getIdColumnName()+" from " + currentTable + ")"
+				+ " " + filter + ";";
+		final String q1 = "insert into " + currentSubgraphTable + " select \"" + getIdColumnNameChildVertex() + "\", \"" +getIdColumnNameParentVertex() + "\", %s from " + getEdgeAnnotationTableName()
+				+ " where \"" + getIdColumnNameChildVertex() + "\" in (select "+getIdColumnName()+" from "+currentTable+")"
+				+ " " + filter + ";";
+		final String q2 = ""; // createUUIDTable(nextTable, true);
+		final String q3 = "insert into " + nextTable + " select \"" + getIdColumnNameChildVertex() + "\" from " + getEdgeAnnotationTableName()
+				+ " where \"" + getIdColumnNameParentVertex() + "\" in (select "+getIdColumnName()+" from "+currentTable+")"
+				+ " " + filter + " group by \""+getIdColumnNameChildVertex()+"\";";
+		final String q4 = "insert into " +nextTable + " select \"" + getIdColumnNameParentVertex() + "\" from " + getEdgeAnnotationTableName()
+				+ " where \""+getIdColumnNameChildVertex()+"\" in (select "+getIdColumnName()+" from "+currentTable+")"
+				+ " " + filter + " group by \""+getIdColumnNameParentVertex()+"\";";
+		final String q5 = ""; // createUUIDTable(cursorTable, true);
+		final String q6 = "insert into " + currentTable + " select " + getIdColumnName() + " from " +nextTable
+				+ " where " + getIdColumnName() + " not in (select "+getIdColumnName()+" from "+answerTable+");";
+		final String q7 = "insert into " + answerTable + " select " + getIdColumnName() + " from " + currentTable + ";";
+		
+		for(int i = 0; i < maxDepth; ++i){
+			final String formattedQ0 = String.format(q0, i+1);
+			final String formattedQ1 = String.format(q1, i+1);
+			
+			executeQueryForResult(formattedQ0, false);
+			executeQueryForResult(formattedQ1, false);
+			createUUIDTable(nextTable, true);
+			executeQueryForResult(q3, false);
+			executeQueryForResult(q4, false);
+			createUUIDTable(currentTable, true);
+			executeQueryForResult(q6, false);
+			executeQueryForResult(q7, false);
+
+			List<List<String>> countResult = executeQueryForResult("select count(*) from "+currentTable+";", false);
+			long cursorTableCount = Long.parseLong(countResult.get(0).get(0));
+			if(cursorTableCount == 0){
+				break;
+			}
+		}
+		
+		createUUIDTable(currentTable, true);
+		createUUIDTable(nextTable, true);
+		
+		executeQueryForResult("insert into " + currentTable + " select " + getIdColumnName() + " from " + srcVertexTable
+				+ " where " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+answerTable+");", false);
+
+		createUUIDTable(answerTable, true);
+		
+		executeQueryForResult("insert into " + answerTable + " select " + getIdColumnName() + " from " + currentTable, false);
+
+		final String qq0 = ""; // createUUIDTable(nextTable, true);
+		final String qq1 = "insert into " + nextTable + " select \"" + getIdColumnNameParentVertex() + "\" from " + currentSubgraphTable
+				+ " where \"" + getIdColumnNameChildVertex() + "\" in (select "+getIdColumnName()+" from "+currentTable+")"
+				+ " and " + depthColumnName + " + %s <= " + instruction.maxDepth + " group by \""+getIdColumnNameParentVertex()+"\";";
+		final String qq2 = "insert into " + nextTable + " select \"" + getIdColumnNameChildVertex() + "\" from " + currentSubgraphTable
+				+ " where \"" + getIdColumnNameParentVertex() + "\" in (select "+getIdColumnName()+" from "+currentTable+")"
+				+ " and " + depthColumnName + " + %s <= " + instruction.maxDepth + " group by \""+getIdColumnNameChildVertex()+"\";";
+		final String qq3 = ""; // createUUIDTable(cursorTable, true);
+		final String qq4 = "insert into " + currentTable + " select " + getIdColumnName() + " from " + nextTable 
+				+ " where " + getIdColumnName() + " not in (select "+getIdColumnName()+" from "+answerTable+");";
+		final String qq5 = "insert into " + answerTable + " select " + getIdColumnName() + " from " + currentTable + ";";
+		
+		for(int i = 0; i < maxDepth; ++i){
+			createUUIDTable(nextTable, true);
+			final String formattedQq1 = String.format(qq1, i);
+			final String formattedQq2 = String.format(qq2, i);
+			executeQueryForResult(formattedQq1, false);
+			executeQueryForResult(formattedQq2, false);
+			createUUIDTable(currentTable, true);
+			executeQueryForResult(qq4, false);
+			executeQueryForResult(qq5, false);
+			
+			List<List<String>> countResult = executeQueryForResult("select count(*) from "+currentTable+";", false);
+			long cursorTableCount = Long.parseLong(countResult.get(0).get(0));
+			if(cursorTableCount == 0){
+				break;
+			}
+		}
+		
+		executeQueryForResult("insert into " + targetVertexTable + " select "+getIdColumnName()+" from "+answerTable+";", false);
+		executeQueryForResult("insert into " + targetEdgeTable + " select " +getIdColumnName() + " from " + getEdgeAnnotationTableName()
+				+ " where \""+getIdColumnNameChildVertex()+"\" in (select "+getIdColumnName()+" from "+answerTable+")"
+				+ " and \""+getIdColumnNameParentVertex()+"\" in (select "+getIdColumnName()+" from "+answerTable+")"
+				+ " " + filter + ";", false);
+
+		dropTable(currentSubgraphTable);
+		dropTable(currentTable);
+		dropTable(nextTable);
+		dropTable(answerTable);
+	}
+	
+	@Override
+	public void createEmptyGraphMetadata(CreateEmptyGraphMetadata instruction){
+		String vertexTable = getMetadataVertexTableName(instruction.metadata);
+		String edgeTable = getMetadataEdgeTableName(instruction.metadata);
+
+		StringBuilder sb = new StringBuilder();
+		sb.append("DROP TABLE " + vertexTable + ";\n");
+		sb.append("DROP TABLE " + edgeTable + ";\n");
+		sb.append("CREATE TABLE " + vertexTable + " (id INT, name VARCHAR(64), value VARCHAR(256));");
+		sb.append("CREATE TABLE " + edgeTable + " (id LONG, name VARCHAR(64), value VARCHAR(256));");
+		executeQueryForResult(sb.toString(), false);
+	}
+
+	@Override
+	public void overwriteGraphMetadata(OverwriteGraphMetadata instruction){
+		String targetVertexTable = getMetadataVertexTableName(instruction.targetMetadata);
+		String targetEdgeTable = getMetadataEdgeTableName(instruction.targetMetadata);
+		String lhsVertexTable = getMetadataVertexTableName(instruction.lhsMetadata);
+		String lhsEdgeTable = getMetadataEdgeTableName(instruction.lhsMetadata);
+		String rhsVertexTable = getMetadataVertexTableName(instruction.rhsMetadata);
+		String rhsEdgeTable = getMetadataEdgeTableName(instruction.rhsMetadata);
+
+		executeQueryForResult("INSERT INTO " + targetVertexTable + " SELECT id, name, value FROM " + lhsVertexTable
+				+ " l" + " WHERE NOT EXISTS (SELECT * FROM " + rhsVertexTable + " r"
+				+ " WHERE l.id = r.id AND l.name = r.name);\n" + "INSERT INTO " + targetEdgeTable
+				+ " SELECT id, name, value FROM " + lhsEdgeTable + " l" + " WHERE NOT EXISTS (SELECT * FROM "
+				+ rhsEdgeTable + " r" + " WHERE l.id = r.id AND l.name = r.name);\n" + "INSERT INTO "
+				+ targetVertexTable + " SELECT id, name, value FROM " + rhsVertexTable + ";\n" + "INSERT INTO "
+				+ targetEdgeTable + " SELECT id, name, value FROM " + rhsEdgeTable + ";", false);
+	}
+
+	@Override
+	public void setGraphMetadata(SetGraphMetadata instruction){
+		String targetVertexTable = getMetadataVertexTableName(instruction.targetMetadata);
+		String targetEdgeTable = getMetadataEdgeTableName(instruction.targetMetadata);
+		String sourceVertexTable = getVertexTableName(instruction.sourceGraph);
+		String sourceEdgeTable = getEdgeTableName(instruction.sourceGraph);
+
+		if(instruction.component == Component.kVertex || instruction.component == Component.kBoth){
+//			executeQueryForResult("INSERT INTO " + targetVertexTable + " SELECT id, " + FormatStringLiteral(instruction.name)
+//					+ ", " + FormatStringLiteral(instruction.value) + " FROM " + sourceVertexTable + " GROUP BY id;");
+		}
+
+		if(instruction.component == Component.kEdge || instruction.component == Component.kBoth){
+//			executeQueryForResult("INSERT INTO " + targetEdgeTable + " SELECT id, " + FormatStringLiteral(instruction.name)
+//					+ ", " + FormatStringLiteral(instruction.value) + " FROM " + sourceEdgeTable + " GROUP BY id;");
+		}
+	}
+}

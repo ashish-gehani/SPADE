@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2018 SRI International
+ Copyright (C) 2020 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -19,8 +19,33 @@
  */
 package spade.query.quickgrail.entities;
 
-public enum EntityType {
-  kGraph,
-  kGraphMetadata,
-  kGraphPredicate;
+import java.util.ArrayList;
+
+import spade.query.quickgrail.utility.TreeStringSerializable;
+
+public class GraphPredicate extends Entity{
+	public final String name;
+
+	public GraphPredicate(String name){
+		this.name = name;
+	}
+
+	@Override
+	public EntityType getEntityType(){
+		return EntityType.kGraphPredicate;
+	}
+
+	@Override
+	public String getLabel(){
+		return "GraphPredicate";
+	}
+
+	@Override
+	protected void getFieldStringItems(ArrayList<String> inline_field_names, ArrayList<String> inline_field_values,
+			ArrayList<String> non_container_child_field_names,
+			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
+			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
+		inline_field_names.add("name");
+		inline_field_values.add(name);
+	}
 }

@@ -23,9 +23,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import spade.query.quickgrail.core.QueryEnvironment;
-import spade.query.quickgrail.core.QueryInstructionExecutor.GraphStats;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.entities.GraphMetadata;
 import spade.query.quickgrail.utility.QuickstepUtil;
@@ -35,16 +35,21 @@ import spade.query.quickgrail.utility.TreeStringSerializable;
  * QuickGrail compile-time environment (also used in runtime) mainly for
  * managing symbols (e.g. mapping from graph variables to underlying Quickstep
  * tables).
+ * 
+ * @author Jianqiao
+ * 
+ * Source: https://github.com/jianqiao/SPADE/tree/grail-dev/src/spade/query/quickgrail/execution
+ * 
  */
 public class QuickstepQueryEnvironment extends TreeStringSerializable implements QueryEnvironment{
 
 	private final String tableNameGraphSymbols = "graph_symbols";
-	private final String tableNameGraphMetadataSymbols = "graph_metadata_symbols";
+	private final String tableNameGraphMetadataSymbols = "meta_symbols";
 	private final String columnNameIdCounter = "id_counter";
 	
 	private final String baseString = "base";
 	private final String baseVariable = "$" + baseString;
-	public final Graph kBaseGraph = new Graph(createGraphName(baseString));
+	private final Graph kBaseGraph = new Graph(createGraphName(baseString));
 
 	private Integer idCounter = null;
 	private final HashMap<String, Graph> graphSymbols = new HashMap<String, Graph>();
@@ -55,6 +60,10 @@ public class QuickstepQueryEnvironment extends TreeStringSerializable implements
 	public QuickstepQueryEnvironment(QuickstepExecutor qs){
 		this.qs = qs;
 		initialize(false);
+	}
+	
+	public HashMap<String, Graph> getSymbolsCopy(){
+		return new HashMap<String, Graph>(graphSymbols);
 	}
 
 	private String executeQuery(String query){
@@ -228,6 +237,8 @@ public class QuickstepQueryEnvironment extends TreeStringSerializable implements
 		HashSet<String> referencedTables = new HashSet<String>();
 		referencedTables.add(getVertexTableName(kBaseGraph));
 		referencedTables.add(getEdgeTableName(kBaseGraph));
+		referencedTables.add(tableNameGraphSymbols);
+		referencedTables.add(tableNameGraphMetadataSymbols);
 		for(Graph graph : graphSymbols.values()){
 			referencedTables.add(getVertexTableName(graph));
 			referencedTables.add(getEdgeTableName(graph));
@@ -265,16 +276,7 @@ public class QuickstepQueryEnvironment extends TreeStringSerializable implements
 	public String GetBaseEdgeAnnotationTableName(){
 		return "edge_anno";
 	}
-
-	public String GetBaseTableName(Graph.Component component){
-		return component == Graph.Component.kVertex ? GetBaseVertexTableName() : GetBaseEdgeTableName();
-	}
-
-	public String GetBaseAnnotationTableName(Graph.Component component){
-		return component == Graph.Component.kVertex ? GetBaseVertexAnnotationTableName()
-				: GetBaseEdgeAnnotationTableName();
-	}
-
+	
 	public String getVertexTableName(Graph graph){
 		return graph.name + "_vertex";
 	}
@@ -283,11 +285,6 @@ public class QuickstepQueryEnvironment extends TreeStringSerializable implements
 		return graph.name + "_edge";
 	}
 
-	public String getTableName(Graph.Component component, Graph graph){
-		return component == Graph.Component.kVertex ? getVertexTableName(graph) : getEdgeTableName(graph);
-	}
-	
-	
 	public String getMetadataVertexTableName(GraphMetadata graphMetadata){
 		return graphMetadata.name + "_vertex";
 	}
@@ -296,6 +293,21 @@ public class QuickstepQueryEnvironment extends TreeStringSerializable implements
 		return graphMetadata.name + "_edge";
 	}
 
+	@Override
+	public String getBaseSymbolName(){
+		return baseVariable;
+	}
+	
+	@Override
+	public Graph getBaseGraph(){
+		return kBaseGraph;
+	}
+	
+	@Override
+	public Set<String> getAllGraphSymbolNames(){
+		return graphSymbols.keySet();
+	}
+	
 	@Override
 	public String getLabel(){
 		return "Environment";
@@ -315,11 +327,4 @@ public class QuickstepQueryEnvironment extends TreeStringSerializable implements
 			inline_field_values.add(entry.getValue().name);
 		}
 	}
-
-	@Override
-	public GraphStats getGraphStats(Graph graph){
-		// TODO Auto-generated method stub
-		return null;
-	}
-	
 }

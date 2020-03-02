@@ -1,3 +1,22 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2020 SRI International
+
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
 package spade.storage.neo4j;
 
 import java.util.ArrayList;
@@ -11,36 +30,24 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.query.quickgrail.core.QueryEnvironment;
-import spade.query.quickgrail.core.QueryInstructionExecutor.GraphStats;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.entities.GraphMetadata;
-import spade.query.quickgrail.types.LongType;
-import spade.query.quickgrail.types.StringType;
-import spade.query.quickgrail.utility.ResultTable;
-import spade.query.quickgrail.utility.Schema;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 import spade.storage.Neo4j;
 import spade.utility.CommonFunctions;
 
 public class Neo4jQueryEnvironment extends TreeStringSerializable implements QueryEnvironment{
 
+	private final Logger logger = Logger.getLogger(this.getClass().getName());
+	
 	private final String symbolNodeLabel = "spade_symbols";
 	private final String propertyNameIdCounter = "id_counter";
 	private final String propertyNameGraphSymbols = "graph";
 	private final String propertyNameGraphMetadataSymbols = "graph_metadata";
 
-	// match (a:spade_symbols) delete a;
-	// match (a:spade_symbols) return a; // must be one
-	// create (a:spade_symbols{id_counter:1, graph:"", graph_metadata:""})
-	// match (a:spade_symbols) set a.graph='$a=hasjkd,$x=123';
-
-	// get all edge property keys: match ()-[e]->() unwind keys(e) as ee return collect(distinct ee) as kk
-	// get all vertex property keys: match (n) unwind keys(n) as nn return collect(distinct nn) as jj
-	
-	
 	private final String baseString = "base";
 	private final String baseVariable = "$" + baseString;
-	private final Graph kBaseGraph;// = new Graph(createGraphName(baseString));
+	private final Graph kBaseGraph;
 	
 	private Integer idCounter = null;
 	private final HashMap<String, Graph> graphSymbols = new HashMap<String, Graph>();
@@ -60,24 +67,25 @@ public class Neo4jQueryEnvironment extends TreeStringSerializable implements Que
 		initialize(false);
 	}
 
+	@Override
+	public String getBaseSymbolName(){
+		return baseVariable;
+	}
+	
+	@Override
+	public Graph getBaseGraph(){
+		return kBaseGraph;
+	}
+	
+	@Override
+	public Set<String> getAllGraphSymbolNames(){
+		return graphSymbols.keySet();
+	}
+	
 	private boolean symbolNodeExists(){
 		return storage.executeQueryForSmallResult(
 				"match (v:" + symbolNodeLabel + ") return v limit 1;"
 				).size() > 0;
-	}
-	
-	private final Logger logger = Logger.getLogger(this.getClass().getName());
-	public void printSymbolsNode(){
-		logger.log(Level.SEVERE, "hassaan3: " + 
-				storage.executeQueryForSmallResult(
-						"match (v:" + symbolNodeLabel + ") "
-								+ "return "
-								+ "v."+propertyNameIdCounter+" as "+propertyNameIdCounter+", "
-								+ "v."+propertyNameGraphSymbols+" as "+propertyNameGraphSymbols+", "
-								+ "v."+propertyNameGraphMetadataSymbols+" as "+propertyNameGraphMetadataSymbols+" "
-								+ "limit 1;"
-						)
-		);
 	}
 
 	private Integer symbolNodeGetPropertyIdCounter(){
@@ -197,7 +205,7 @@ public class Neo4jQueryEnvironment extends TreeStringSerializable implements Que
 		gc(); // TODO can be done quicker since we have all the valid names
 	}
 	
-	public Set<String> getAllVertexLabels(){
+	private Set<String> getAllVertexLabels(){
 		final Set<String> allLabels = new HashSet<String>();
 		final List<Map<String, Object>> callDbLabelsResult = storage.executeQueryForSmallResult("call db.labels();");
 		for(final Map<String, Object> map : callDbLabelsResult){
@@ -206,7 +214,7 @@ public class Neo4jQueryEnvironment extends TreeStringSerializable implements Que
 		return allLabels;
 	}
 	
-	public Set<String> getAllEdgeLabels(){
+	private Set<String> getAllEdgeLabels(){
 		final Set<String> allEdgeSymbols = new HashSet<String>();
 		final List<Map<String, Object>> edgeSymbolsPropertyValues = storage.executeQueryForSmallResult(
 				"match ()-[e]->() with distinct e."
@@ -344,7 +352,6 @@ public class Neo4jQueryEnvironment extends TreeStringSerializable implements Que
 	}
 
 	@Override
-
 	public GraphMetadata lookupGraphMetadataSymbol(String symbol){
 		// @<name>
 		return graphMetadataSymbols.get(symbol);
@@ -423,66 +430,6 @@ public class Neo4jQueryEnvironment extends TreeStringSerializable implements Que
 	public boolean isBaseGraph(Graph graph){
 		return graph.equals(kBaseGraph);
 	}
-
-	public ResultTable listGraphs(String style){
-		ResultTable table = new ResultTable();
-		for(Entry<String, Graph> entry : graphSymbols.entrySet()){
-			String symbol = entry.getKey();
-			addSymbol(symbol, entry.getValue(), table, style);
-		}
-		addSymbol(baseVariable, kBaseGraph, table, style);
-
-		Schema schema = new Schema();
-		schema.addColumn("Graph Name", StringType.GetInstance());
-		if(!style.equals("name")){
-			schema.addColumn("Number of Vertices", LongType.GetInstance());
-			schema.addColumn("Number of Edges", LongType.GetInstance());
-//			if(style.equals("detail")){
-//				schema.addColumn("Start Time", LongType.GetInstance());
-//				schema.addColumn("End Time", LongType.GetInstance());
-//			}
-		}
-		table.setSchema(schema);
-		return table;
-	}
-	
-	private void addSymbol(String symbol, Graph graph, ResultTable table, String style){
-		ResultTable.Row row = new ResultTable.Row();
-		row.add(symbol);
-		if(!style.equals("name")){
-			GraphStats stats = getGraphStats(graph);
-			row.add(stats.vertices);
-			row.add(stats.edges);
-//			if(style.equals("detail")){
-//				Long[] span = QuickstepUtil.GetTimestampRange(qs, graph);
-//				row.add(span[0]);
-//				row.add(span[1]);
-//			}
-		}
-		table.addRow(row);
-	}
-
-	@Override
-	public GraphStats getGraphStats(Graph graph){
-		long vertices = 0;
-		long edges = 0;
-		List<Map<String, Object>> result = storage
-				.executeQueryForSmallResult("match (v:" + graph.name + ") return count(v) as vcount;");
-		if(result.size() > 0){
-			vertices = Long.parseLong(String.valueOf(result.get(0).get("vcount")));
-		}
-		if(isBaseGraph(graph)){
-			result = storage.executeQueryForSmallResult("match ()-[e]->() return count(e) as ecount;");
-		}else{
-			final String edgeProperty = "e.`" + edgeSymbolsPropertyKey + "`";
-			result = storage.executeQueryForSmallResult("match ()-[e]->() " + "where " + edgeProperty + " contains ',"
-					+ graph.name + ",' " + "return count(e) as ecount;");
-		}
-		if(result.size() > 0){
-			edges = Long.parseLong(String.valueOf(result.get(0).get("ecount")));
-		}
-		return new GraphStats(vertices, edges);
-	}
 	
 	@Override
 	public String getLabel(){
@@ -503,4 +450,25 @@ public class Neo4jQueryEnvironment extends TreeStringSerializable implements Que
 			inline_field_values.add(entry.getValue().name);
 		}
 	}
+	
+	private void printSymbolsNode(){
+		logger.log(Level.INFO, "Neo4j Query Environment: " + 
+				storage.executeQueryForSmallResult(
+						"match (v:" + symbolNodeLabel + ") "
+								+ "return "
+								+ "v."+propertyNameIdCounter+" as "+propertyNameIdCounter+", "
+								+ "v."+propertyNameGraphSymbols+" as "+propertyNameGraphSymbols+", "
+								+ "v."+propertyNameGraphMetadataSymbols+" as "+propertyNameGraphMetadataSymbols+" "
+								+ "limit 1;"
+						)
+		);
+	}
+	// match (a:spade_symbols) delete a;
+	// match (a:spade_symbols) return a; // must be one
+	// create (a:spade_symbols{id_counter:1, graph:"", graph_metadata:""})
+	// match (a:spade_symbols) set a.graph='$a=hasjkd,$x=123';
+
+	// get all edge property keys: match ()-[e]->() unwind keys(e) as ee return collect(distinct ee) as kk
+	// get all vertex property keys: match (n) unwind keys(n) as nn return collect(distinct nn) as jj
+	
 }

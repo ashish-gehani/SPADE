@@ -28,7 +28,7 @@ public class DSLParser extends Parser {
 		TOKEN_ASSIGN=20, TOKEN_PLUS_ASSIGN=21, TOKEN_MINUS_ASSIGN=22, TOKEN_INTERSECT_ASSIGN=23, 
 		TOKEN_NAME=24, TOKEN_NUMBER=25, TOKEN_SINGLE_QUOTED_STRING_LITERAL=26, 
 		TOKEN_DOUBLE_QUOTED_NAME=27, TOKEN_GRAPH_VARIABLE=28, TOKEN_GRAPH_METADATA_VARIABLE=29, 
-		TOKEN_COMMENTS=30, TOKEN_WS=31;
+		TOKEN_GRAPH_PREDICATE_VARIABLE=30, TOKEN_COMMENTS=31, TOKEN_WS=32;
 	public static final int
 		RULE_program = 0, RULE_statement = 1, RULE_expression = 2, RULE_or_expression = 3, 
 		RULE_and_expression = 4, RULE_not_expression = 5, RULE_comparison_expression = 6, 
@@ -53,8 +53,8 @@ public class DSLParser extends Parser {
 		"TOKEN_GREATER", "TOKEN_LESS_EQUAL", "TOKEN_GREATER_EQUAL", "TOKEN_REGEX", 
 		"TOKEN_ASSIGN", "TOKEN_PLUS_ASSIGN", "TOKEN_MINUS_ASSIGN", "TOKEN_INTERSECT_ASSIGN", 
 		"TOKEN_NAME", "TOKEN_NUMBER", "TOKEN_SINGLE_QUOTED_STRING_LITERAL", "TOKEN_DOUBLE_QUOTED_NAME", 
-		"TOKEN_GRAPH_VARIABLE", "TOKEN_GRAPH_METADATA_VARIABLE", "TOKEN_COMMENTS", 
-		"TOKEN_WS"
+		"TOKEN_GRAPH_VARIABLE", "TOKEN_GRAPH_METADATA_VARIABLE", "TOKEN_GRAPH_PREDICATE_VARIABLE", 
+		"TOKEN_COMMENTS", "TOKEN_WS"
 	};
 	public static final Vocabulary VOCABULARY = new VocabularyImpl(_LITERAL_NAMES, _SYMBOLIC_NAMES);
 
@@ -159,6 +159,14 @@ public class DSLParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_program; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).enterProgram(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).exitProgram(this);
+		}
 	}
 
 	public final ProgramContext program() throws RecognitionException {
@@ -175,7 +183,7 @@ public class DSLParser extends Parser {
 			setState(45);
 			_errHandler.sync(this);
 			_la = _input.LA(1);
-			if ((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << TOKEN_NAME) | (1L << TOKEN_DOUBLE_QUOTED_NAME) | (1L << TOKEN_GRAPH_VARIABLE) | (1L << TOKEN_GRAPH_METADATA_VARIABLE))) != 0)) {
+			if ((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << TOKEN_NAME) | (1L << TOKEN_DOUBLE_QUOTED_NAME) | (1L << TOKEN_GRAPH_VARIABLE) | (1L << TOKEN_GRAPH_METADATA_VARIABLE) | (1L << TOKEN_GRAPH_PREDICATE_VARIABLE))) != 0)) {
 				{
 				setState(31);
 				((ProgramContext)_localctx).h = statement();
@@ -257,6 +265,14 @@ public class DSLParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_statement; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).enterStatement(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).exitStatement(this);
+		}
 	}
 
 	public final StatementContext statement() throws RecognitionException {
@@ -269,6 +285,7 @@ public class DSLParser extends Parser {
 			switch (_input.LA(1)) {
 			case TOKEN_GRAPH_VARIABLE:
 			case TOKEN_GRAPH_METADATA_VARIABLE:
+			case TOKEN_GRAPH_PREDICATE_VARIABLE:
 				enterOuterAlt(_localctx, 1);
 				{
 				setState(49);
@@ -306,7 +323,7 @@ public class DSLParser extends Parser {
 				setState(61);
 				_errHandler.sync(this);
 				_la = _input.LA(1);
-				while ((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << TOKEN_LPAREN) | (1L << TOKEN_NOT) | (1L << TOKEN_NAME) | (1L << TOKEN_NUMBER) | (1L << TOKEN_SINGLE_QUOTED_STRING_LITERAL) | (1L << TOKEN_DOUBLE_QUOTED_NAME) | (1L << TOKEN_GRAPH_VARIABLE) | (1L << TOKEN_GRAPH_METADATA_VARIABLE))) != 0)) {
+				while ((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << TOKEN_LPAREN) | (1L << TOKEN_NOT) | (1L << TOKEN_NAME) | (1L << TOKEN_NUMBER) | (1L << TOKEN_SINGLE_QUOTED_STRING_LITERAL) | (1L << TOKEN_DOUBLE_QUOTED_NAME) | (1L << TOKEN_GRAPH_VARIABLE) | (1L << TOKEN_GRAPH_METADATA_VARIABLE) | (1L << TOKEN_GRAPH_PREDICATE_VARIABLE))) != 0)) {
 					{
 					{
 					setState(56);
@@ -354,6 +371,14 @@ public class DSLParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_expression; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).enterExpression(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).exitExpression(this);
+		}
 	}
 
 	public final ExpressionContext expression() throws RecognitionException {
@@ -415,6 +440,14 @@ public class DSLParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_or_expression; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).enterOr_expression(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).exitOr_expression(this);
+		}
 	}
 
 	public final Or_expressionContext or_expression() throws RecognitionException {
@@ -486,6 +519,14 @@ public class DSLParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_and_expression; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).enterAnd_expression(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).exitAnd_expression(this);
+		}
 	}
 
 	public final And_expressionContext and_expression() throws RecognitionException {
@@ -554,6 +595,14 @@ public class DSLParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_not_expression; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).enterNot_expression(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).exitNot_expression(this);
+		}
 	}
 
 	public final Not_expressionContext not_expression() throws RecognitionException {
@@ -651,6 +700,14 @@ public class DSLParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_comparison_expression; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).enterComparison_expression(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).exitComparison_expression(this);
+		}
 	}
 
 	public final Comparison_expressionContext comparison_expression() throws RecognitionException {
@@ -744,6 +801,14 @@ public class DSLParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_add_expression; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).enterAdd_expression(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).exitAdd_expression(this);
+		}
 	}
 
 	public final Add_expressionContext add_expression() throws RecognitionException {
@@ -824,6 +889,14 @@ public class DSLParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_intersect_expression; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).enterIntersect_expression(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).exitIntersect_expression(this);
+		}
 	}
 
 	public final Intersect_expressionContext intersect_expression() throws RecognitionException {
@@ -913,6 +986,14 @@ public class DSLParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_function_call; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).enterFunction_call(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).exitFunction_call(this);
+		}
 	}
 
 	public final Function_callContext function_call() throws RecognitionException {
@@ -962,7 +1043,7 @@ public class DSLParser extends Parser {
 				setState(160);
 				_errHandler.sync(this);
 				_la = _input.LA(1);
-				if ((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << TOKEN_LPAREN) | (1L << TOKEN_NOT) | (1L << TOKEN_NAME) | (1L << TOKEN_NUMBER) | (1L << TOKEN_SINGLE_QUOTED_STRING_LITERAL) | (1L << TOKEN_DOUBLE_QUOTED_NAME) | (1L << TOKEN_GRAPH_VARIABLE) | (1L << TOKEN_GRAPH_METADATA_VARIABLE))) != 0)) {
+				if ((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << TOKEN_LPAREN) | (1L << TOKEN_NOT) | (1L << TOKEN_NAME) | (1L << TOKEN_NUMBER) | (1L << TOKEN_SINGLE_QUOTED_STRING_LITERAL) | (1L << TOKEN_DOUBLE_QUOTED_NAME) | (1L << TOKEN_GRAPH_VARIABLE) | (1L << TOKEN_GRAPH_METADATA_VARIABLE) | (1L << TOKEN_GRAPH_PREDICATE_VARIABLE))) != 0)) {
 					{
 					setState(157);
 					((Function_callContext)_localctx).al = argument_list();
@@ -1002,7 +1083,7 @@ public class DSLParser extends Parser {
 					setState(171);
 					_errHandler.sync(this);
 					_la = _input.LA(1);
-					if ((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << TOKEN_LPAREN) | (1L << TOKEN_NOT) | (1L << TOKEN_NAME) | (1L << TOKEN_NUMBER) | (1L << TOKEN_SINGLE_QUOTED_STRING_LITERAL) | (1L << TOKEN_DOUBLE_QUOTED_NAME) | (1L << TOKEN_GRAPH_VARIABLE) | (1L << TOKEN_GRAPH_METADATA_VARIABLE))) != 0)) {
+					if ((((_la) & ~0x3f) == 0 && ((1L << _la) & ((1L << TOKEN_LPAREN) | (1L << TOKEN_NOT) | (1L << TOKEN_NAME) | (1L << TOKEN_NUMBER) | (1L << TOKEN_SINGLE_QUOTED_STRING_LITERAL) | (1L << TOKEN_DOUBLE_QUOTED_NAME) | (1L << TOKEN_GRAPH_VARIABLE) | (1L << TOKEN_GRAPH_METADATA_VARIABLE) | (1L << TOKEN_GRAPH_PREDICATE_VARIABLE))) != 0)) {
 						{
 						setState(168);
 						((Function_callContext)_localctx).al = argument_list();
@@ -1069,6 +1150,14 @@ public class DSLParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_factor; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).enterFactor(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).exitFactor(this);
+		}
 	}
 
 	public final FactorContext factor() throws RecognitionException {
@@ -1091,6 +1180,7 @@ public class DSLParser extends Parser {
 				break;
 			case TOKEN_GRAPH_VARIABLE:
 			case TOKEN_GRAPH_METADATA_VARIABLE:
+			case TOKEN_GRAPH_PREDICATE_VARIABLE:
 				enterOuterAlt(_localctx, 2);
 				{
 				setState(186);
@@ -1158,6 +1248,14 @@ public class DSLParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_argument_list; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).enterArgument_list(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).exitArgument_list(this);
+		}
 	}
 
 	public final Argument_listContext argument_list() throws RecognitionException {
@@ -1214,6 +1312,14 @@ public class DSLParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_name; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).enterName(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).exitName(this);
+		}
 	}
 
 	public final NameContext name() throws RecognitionException {
@@ -1266,17 +1372,26 @@ public class DSLParser extends Parser {
 		public Token v;
 		public TerminalNode TOKEN_GRAPH_VARIABLE() { return getToken(DSLParser.TOKEN_GRAPH_VARIABLE, 0); }
 		public TerminalNode TOKEN_GRAPH_METADATA_VARIABLE() { return getToken(DSLParser.TOKEN_GRAPH_METADATA_VARIABLE, 0); }
+		public TerminalNode TOKEN_GRAPH_PREDICATE_VARIABLE() { return getToken(DSLParser.TOKEN_GRAPH_PREDICATE_VARIABLE, 0); }
 		public VariableContext(ParserRuleContext parent, int invokingState) {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_variable; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).enterVariable(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).exitVariable(this);
+		}
 	}
 
 	public final VariableContext variable() throws RecognitionException {
 		VariableContext _localctx = new VariableContext(_ctx, getState());
 		enterRule(_localctx, 26, RULE_variable);
 		try {
-			setState(220);
+			setState(222);
 			_errHandler.sync(this);
 			switch (_input.LA(1)) {
 			case TOKEN_GRAPH_VARIABLE:
@@ -1300,6 +1415,18 @@ public class DSLParser extends Parser {
 				  ParseString name = new ParseString(((VariableContext)_localctx).v.getLine(), ((VariableContext)_localctx).v.getCharPositionInLine(), (((VariableContext)_localctx).v!=null?((VariableContext)_localctx).v.getText():null));
 				  ((VariableContext)_localctx).r =  new ParseVariable(((VariableContext)_localctx).v.getLine(), ((VariableContext)_localctx).v.getCharPositionInLine(),
 				                         name, GraphMetadataType.GetInstance());
+
+				}
+				break;
+			case TOKEN_GRAPH_PREDICATE_VARIABLE:
+				enterOuterAlt(_localctx, 3);
+				{
+				setState(220);
+				((VariableContext)_localctx).v = match(TOKEN_GRAPH_PREDICATE_VARIABLE);
+
+				  ParseString name = new ParseString(((VariableContext)_localctx).v.getLine(), ((VariableContext)_localctx).v.getCharPositionInLine(), (((VariableContext)_localctx).v!=null?((VariableContext)_localctx).v.getText():null));
+				  ((VariableContext)_localctx).r =  new ParseVariable(((VariableContext)_localctx).v.getLine(), ((VariableContext)_localctx).v.getCharPositionInLine(),
+				                         name, GraphPredicateType.GetInstance());
 
 				}
 				break;
@@ -1327,19 +1454,27 @@ public class DSLParser extends Parser {
 			super(parent, invokingState);
 		}
 		@Override public int getRuleIndex() { return RULE_literal; }
+		@Override
+		public void enterRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).enterLiteral(this);
+		}
+		@Override
+		public void exitRule(ParseTreeListener listener) {
+			if ( listener instanceof DSLListener ) ((DSLListener)listener).exitLiteral(this);
+		}
 	}
 
 	public final LiteralContext literal() throws RecognitionException {
 		LiteralContext _localctx = new LiteralContext(_ctx, getState());
 		enterRule(_localctx, 28, RULE_literal);
 		try {
-			setState(226);
+			setState(228);
 			_errHandler.sync(this);
 			switch (_input.LA(1)) {
 			case TOKEN_NUMBER:
 				enterOuterAlt(_localctx, 1);
 				{
-				setState(222);
+				setState(224);
 				((LiteralContext)_localctx).t = match(TOKEN_NUMBER);
 
 				  Integer value = Integer.parseInt((((LiteralContext)_localctx).t!=null?((LiteralContext)_localctx).t.getText():null));
@@ -1351,7 +1486,7 @@ public class DSLParser extends Parser {
 			case TOKEN_SINGLE_QUOTED_STRING_LITERAL:
 				enterOuterAlt(_localctx, 2);
 				{
-				setState(224);
+				setState(226);
 				((LiteralContext)_localctx).t = match(TOKEN_SINGLE_QUOTED_STRING_LITERAL);
 
 				  String value = StripQuotedStringLiteral((((LiteralContext)_localctx).t!=null?((LiteralContext)_localctx).t.getText():null));
@@ -1376,7 +1511,7 @@ public class DSLParser extends Parser {
 	}
 
 	public static final String _serializedATN =
-		"\3\u608b\ua72a\u8133\ub9ed\u417c\u3be7\u7786\u5964\3!\u00e7\4\2\t\2\4"+
+		"\3\u608b\ua72a\u8133\ub9ed\u417c\u3be7\u7786\u5964\3\"\u00e9\4\2\t\2\4"+
 		"\3\t\3\4\4\t\4\4\5\t\5\4\6\t\6\4\7\t\7\4\b\t\b\4\t\t\t\4\n\t\n\4\13\t"+
 		"\13\4\f\t\f\4\r\t\r\4\16\t\16\4\17\t\17\4\20\t\20\3\2\3\2\3\2\3\2\3\2"+
 		"\3\2\3\2\7\2(\n\2\f\2\16\2+\13\2\3\2\5\2.\n\2\5\2\60\n\2\3\2\3\2\3\3\3"+
@@ -1391,63 +1526,64 @@ public class DSLParser extends Parser {
 		"\3\13\5\13\u00ae\n\13\3\13\3\13\3\13\7\13\u00b3\n\13\f\13\16\13\u00b6"+
 		"\13\13\5\13\u00b8\n\13\3\f\3\f\3\f\3\f\3\f\3\f\3\f\3\f\3\f\3\f\3\f\3\f"+
 		"\3\f\3\f\5\f\u00c8\n\f\3\r\3\r\3\r\3\r\3\r\3\r\7\r\u00d0\n\r\f\r\16\r"+
-		"\u00d3\13\r\3\16\3\16\3\16\3\16\5\16\u00d9\n\16\3\17\3\17\3\17\3\17\5"+
-		"\17\u00df\n\17\3\20\3\20\3\20\3\20\5\20\u00e5\n\20\3\20\2\2\21\2\4\6\b"+
-		"\n\f\16\20\22\24\26\30\32\34\36\2\5\3\2\26\31\3\2\16\26\3\2\b\t\2\u00f0"+
-		"\2 \3\2\2\2\4D\3\2\2\2\6L\3\2\2\2\bN\3\2\2\2\nY\3\2\2\2\fd\3\2\2\2\16"+
-		"s\3\2\2\2\20}\3\2\2\2\22\u0088\3\2\2\2\24\u00b7\3\2\2\2\26\u00c7\3\2\2"+
-		"\2\30\u00c9\3\2\2\2\32\u00d8\3\2\2\2\34\u00de\3\2\2\2\36\u00e4\3\2\2\2"+
-		" /\b\2\1\2!\"\5\4\3\2\")\b\2\1\2#$\7\5\2\2$%\5\4\3\2%&\b\2\1\2&(\3\2\2"+
-		"\2\'#\3\2\2\2(+\3\2\2\2)\'\3\2\2\2)*\3\2\2\2*-\3\2\2\2+)\3\2\2\2,.\7\5"+
-		"\2\2-,\3\2\2\2-.\3\2\2\2.\60\3\2\2\2/!\3\2\2\2/\60\3\2\2\2\60\61\3\2\2"+
-		"\2\61\62\7\2\2\3\62\3\3\2\2\2\63\64\5\34\17\2\64\65\t\2\2\2\65\66\5\6"+
-		"\4\2\66\67\b\3\1\2\67E\3\2\2\289\5\32\16\29?\b\3\1\2:;\5\6\4\2;<\b\3\1"+
-		"\2<>\3\2\2\2=:\3\2\2\2>A\3\2\2\2?=\3\2\2\2?@\3\2\2\2@B\3\2\2\2A?\3\2\2"+
-		"\2BC\b\3\1\2CE\3\2\2\2D\63\3\2\2\2D8\3\2\2\2E\5\3\2\2\2FG\5\20\t\2GH\b"+
-		"\4\1\2HM\3\2\2\2IJ\5\b\5\2JK\b\4\1\2KM\3\2\2\2LF\3\2\2\2LI\3\2\2\2M\7"+
-		"\3\2\2\2NO\5\n\6\2OV\b\5\1\2PQ\7\13\2\2QR\5\n\6\2RS\b\5\1\2SU\3\2\2\2"+
-		"TP\3\2\2\2UX\3\2\2\2VT\3\2\2\2VW\3\2\2\2W\t\3\2\2\2XV\3\2\2\2YZ\5\f\7"+
-		"\2Za\b\6\1\2[\\\7\f\2\2\\]\5\f\7\2]^\b\6\1\2^`\3\2\2\2_[\3\2\2\2`c\3\2"+
-		"\2\2a_\3\2\2\2ab\3\2\2\2b\13\3\2\2\2ca\3\2\2\2dg\b\7\1\2ef\7\r\2\2fh\b"+
-		"\7\1\2ge\3\2\2\2gh\3\2\2\2ho\3\2\2\2ij\5\16\b\2jk\b\7\1\2kp\3\2\2\2lm"+
-		"\5\24\13\2mn\b\7\1\2np\3\2\2\2oi\3\2\2\2ol\3\2\2\2pq\3\2\2\2qr\b\7\1\2"+
-		"r\r\3\2\2\2st\b\b\1\2tw\5\20\t\2uv\7\r\2\2vx\b\b\1\2wu\3\2\2\2wx\3\2\2"+
-		"\2xy\3\2\2\2yz\t\3\2\2z{\5\20\t\2{|\b\b\1\2|\17\3\2\2\2}~\5\22\n\2~\u0085"+
-		"\b\t\1\2\177\u0080\t\4\2\2\u0080\u0081\5\22\n\2\u0081\u0082\b\t\1\2\u0082"+
-		"\u0084\3\2\2\2\u0083\177\3\2\2\2\u0084\u0087\3\2\2\2\u0085\u0083\3\2\2"+
-		"\2\u0085\u0086\3\2\2\2\u0086\21\3\2\2\2\u0087\u0085\3\2\2\2\u0088\u0089"+
-		"\5\24\13\2\u0089\u0090\b\n\1\2\u008a\u008b\7\n\2\2\u008b\u008c\5\24\13"+
-		"\2\u008c\u008d\b\n\1\2\u008d\u008f\3\2\2\2\u008e\u008a\3\2\2\2\u008f\u0092"+
-		"\3\2\2\2\u0090\u008e\3\2\2\2\u0090\u0091\3\2\2\2\u0091\23\3\2\2\2\u0092"+
-		"\u0090\3\2\2\2\u0093\u0094\5\26\f\2\u0094\u0095\b\13\1\2\u0095\u00b8\3"+
-		"\2\2\2\u0096\u009b\b\13\1\2\u0097\u0098\5\26\f\2\u0098\u0099\b\13\1\2"+
-		"\u0099\u009a\7\4\2\2\u009a\u009c\3\2\2\2\u009b\u0097\3\2\2\2\u009b\u009c"+
-		"\3\2\2\2\u009c\u009d\3\2\2\2\u009d\u009e\5\32\16\2\u009e\u00a2\7\6\2\2"+
-		"\u009f\u00a0\5\30\r\2\u00a0\u00a1\b\13\1\2\u00a1\u00a3\3\2\2\2\u00a2\u009f"+
-		"\3\2\2\2\u00a2\u00a3\3\2\2\2\u00a3\u00a4\3\2\2\2\u00a4\u00a5\7\7\2\2\u00a5"+
-		"\u00b4\b\13\1\2\u00a6\u00a7\7\4\2\2\u00a7\u00a8\5\32\16\2\u00a8\u00a9"+
-		"\7\6\2\2\u00a9\u00ad\b\13\1\2\u00aa\u00ab\5\30\r\2\u00ab\u00ac\b\13\1"+
-		"\2\u00ac\u00ae\3\2\2\2\u00ad\u00aa\3\2\2\2\u00ad\u00ae\3\2\2\2\u00ae\u00af"+
-		"\3\2\2\2\u00af\u00b0\7\7\2\2\u00b0\u00b1\b\13\1\2\u00b1\u00b3\3\2\2\2"+
-		"\u00b2\u00a6\3\2\2\2\u00b3\u00b6\3\2\2\2\u00b4\u00b2\3\2\2\2\u00b4\u00b5"+
-		"\3\2\2\2\u00b5\u00b8\3\2\2\2\u00b6\u00b4\3\2\2\2\u00b7\u0093\3\2\2\2\u00b7"+
-		"\u0096\3\2\2\2\u00b8\25\3\2\2\2\u00b9\u00ba\5\36\20\2\u00ba\u00bb\b\f"+
-		"\1\2\u00bb\u00c8\3\2\2\2\u00bc\u00bd\5\34\17\2\u00bd\u00be\b\f\1\2\u00be"+
-		"\u00c8\3\2\2\2\u00bf\u00c0\5\32\16\2\u00c0\u00c1\b\f\1\2\u00c1\u00c8\3"+
-		"\2\2\2\u00c2\u00c3\7\6\2\2\u00c3\u00c4\5\6\4\2\u00c4\u00c5\7\7\2\2\u00c5"+
-		"\u00c6\b\f\1\2\u00c6\u00c8\3\2\2\2\u00c7\u00b9\3\2\2\2\u00c7\u00bc\3\2"+
-		"\2\2\u00c7\u00bf\3\2\2\2\u00c7\u00c2\3\2\2\2\u00c8\27\3\2\2\2\u00c9\u00ca"+
-		"\5\6\4\2\u00ca\u00d1\b\r\1\2\u00cb\u00cc\7\3\2\2\u00cc\u00cd\5\6\4\2\u00cd"+
-		"\u00ce\b\r\1\2\u00ce\u00d0\3\2\2\2\u00cf\u00cb\3\2\2\2\u00d0\u00d3\3\2"+
-		"\2\2\u00d1\u00cf\3\2\2\2\u00d1\u00d2\3\2\2\2\u00d2\31\3\2\2\2\u00d3\u00d1"+
-		"\3\2\2\2\u00d4\u00d5\7\32\2\2\u00d5\u00d9\b\16\1\2\u00d6\u00d7\7\35\2"+
-		"\2\u00d7\u00d9\b\16\1\2\u00d8\u00d4\3\2\2\2\u00d8\u00d6\3\2\2\2\u00d9"+
-		"\33\3\2\2\2\u00da\u00db\7\36\2\2\u00db\u00df\b\17\1\2\u00dc\u00dd\7\37"+
-		"\2\2\u00dd\u00df\b\17\1\2\u00de\u00da\3\2\2\2\u00de\u00dc\3\2\2\2\u00df"+
-		"\35\3\2\2\2\u00e0\u00e1\7\33\2\2\u00e1\u00e5\b\20\1\2\u00e2\u00e3\7\34"+
-		"\2\2\u00e3\u00e5\b\20\1\2\u00e4\u00e0\3\2\2\2\u00e4\u00e2\3\2\2\2\u00e5"+
-		"\37\3\2\2\2\31)-/?DLVagow\u0085\u0090\u009b\u00a2\u00ad\u00b4\u00b7\u00c7"+
-		"\u00d1\u00d8\u00de\u00e4";
+		"\u00d3\13\r\3\16\3\16\3\16\3\16\5\16\u00d9\n\16\3\17\3\17\3\17\3\17\3"+
+		"\17\3\17\5\17\u00e1\n\17\3\20\3\20\3\20\3\20\5\20\u00e7\n\20\3\20\2\2"+
+		"\21\2\4\6\b\n\f\16\20\22\24\26\30\32\34\36\2\5\3\2\26\31\3\2\16\26\3\2"+
+		"\b\t\2\u00f3\2 \3\2\2\2\4D\3\2\2\2\6L\3\2\2\2\bN\3\2\2\2\nY\3\2\2\2\f"+
+		"d\3\2\2\2\16s\3\2\2\2\20}\3\2\2\2\22\u0088\3\2\2\2\24\u00b7\3\2\2\2\26"+
+		"\u00c7\3\2\2\2\30\u00c9\3\2\2\2\32\u00d8\3\2\2\2\34\u00e0\3\2\2\2\36\u00e6"+
+		"\3\2\2\2 /\b\2\1\2!\"\5\4\3\2\")\b\2\1\2#$\7\5\2\2$%\5\4\3\2%&\b\2\1\2"+
+		"&(\3\2\2\2\'#\3\2\2\2(+\3\2\2\2)\'\3\2\2\2)*\3\2\2\2*-\3\2\2\2+)\3\2\2"+
+		"\2,.\7\5\2\2-,\3\2\2\2-.\3\2\2\2.\60\3\2\2\2/!\3\2\2\2/\60\3\2\2\2\60"+
+		"\61\3\2\2\2\61\62\7\2\2\3\62\3\3\2\2\2\63\64\5\34\17\2\64\65\t\2\2\2\65"+
+		"\66\5\6\4\2\66\67\b\3\1\2\67E\3\2\2\289\5\32\16\29?\b\3\1\2:;\5\6\4\2"+
+		";<\b\3\1\2<>\3\2\2\2=:\3\2\2\2>A\3\2\2\2?=\3\2\2\2?@\3\2\2\2@B\3\2\2\2"+
+		"A?\3\2\2\2BC\b\3\1\2CE\3\2\2\2D\63\3\2\2\2D8\3\2\2\2E\5\3\2\2\2FG\5\20"+
+		"\t\2GH\b\4\1\2HM\3\2\2\2IJ\5\b\5\2JK\b\4\1\2KM\3\2\2\2LF\3\2\2\2LI\3\2"+
+		"\2\2M\7\3\2\2\2NO\5\n\6\2OV\b\5\1\2PQ\7\13\2\2QR\5\n\6\2RS\b\5\1\2SU\3"+
+		"\2\2\2TP\3\2\2\2UX\3\2\2\2VT\3\2\2\2VW\3\2\2\2W\t\3\2\2\2XV\3\2\2\2YZ"+
+		"\5\f\7\2Za\b\6\1\2[\\\7\f\2\2\\]\5\f\7\2]^\b\6\1\2^`\3\2\2\2_[\3\2\2\2"+
+		"`c\3\2\2\2a_\3\2\2\2ab\3\2\2\2b\13\3\2\2\2ca\3\2\2\2dg\b\7\1\2ef\7\r\2"+
+		"\2fh\b\7\1\2ge\3\2\2\2gh\3\2\2\2ho\3\2\2\2ij\5\16\b\2jk\b\7\1\2kp\3\2"+
+		"\2\2lm\5\24\13\2mn\b\7\1\2np\3\2\2\2oi\3\2\2\2ol\3\2\2\2pq\3\2\2\2qr\b"+
+		"\7\1\2r\r\3\2\2\2st\b\b\1\2tw\5\20\t\2uv\7\r\2\2vx\b\b\1\2wu\3\2\2\2w"+
+		"x\3\2\2\2xy\3\2\2\2yz\t\3\2\2z{\5\20\t\2{|\b\b\1\2|\17\3\2\2\2}~\5\22"+
+		"\n\2~\u0085\b\t\1\2\177\u0080\t\4\2\2\u0080\u0081\5\22\n\2\u0081\u0082"+
+		"\b\t\1\2\u0082\u0084\3\2\2\2\u0083\177\3\2\2\2\u0084\u0087\3\2\2\2\u0085"+
+		"\u0083\3\2\2\2\u0085\u0086\3\2\2\2\u0086\21\3\2\2\2\u0087\u0085\3\2\2"+
+		"\2\u0088\u0089\5\24\13\2\u0089\u0090\b\n\1\2\u008a\u008b\7\n\2\2\u008b"+
+		"\u008c\5\24\13\2\u008c\u008d\b\n\1\2\u008d\u008f\3\2\2\2\u008e\u008a\3"+
+		"\2\2\2\u008f\u0092\3\2\2\2\u0090\u008e\3\2\2\2\u0090\u0091\3\2\2\2\u0091"+
+		"\23\3\2\2\2\u0092\u0090\3\2\2\2\u0093\u0094\5\26\f\2\u0094\u0095\b\13"+
+		"\1\2\u0095\u00b8\3\2\2\2\u0096\u009b\b\13\1\2\u0097\u0098\5\26\f\2\u0098"+
+		"\u0099\b\13\1\2\u0099\u009a\7\4\2\2\u009a\u009c\3\2\2\2\u009b\u0097\3"+
+		"\2\2\2\u009b\u009c\3\2\2\2\u009c\u009d\3\2\2\2\u009d\u009e\5\32\16\2\u009e"+
+		"\u00a2\7\6\2\2\u009f\u00a0\5\30\r\2\u00a0\u00a1\b\13\1\2\u00a1\u00a3\3"+
+		"\2\2\2\u00a2\u009f\3\2\2\2\u00a2\u00a3\3\2\2\2\u00a3\u00a4\3\2\2\2\u00a4"+
+		"\u00a5\7\7\2\2\u00a5\u00b4\b\13\1\2\u00a6\u00a7\7\4\2\2\u00a7\u00a8\5"+
+		"\32\16\2\u00a8\u00a9\7\6\2\2\u00a9\u00ad\b\13\1\2\u00aa\u00ab\5\30\r\2"+
+		"\u00ab\u00ac\b\13\1\2\u00ac\u00ae\3\2\2\2\u00ad\u00aa\3\2\2\2\u00ad\u00ae"+
+		"\3\2\2\2\u00ae\u00af\3\2\2\2\u00af\u00b0\7\7\2\2\u00b0\u00b1\b\13\1\2"+
+		"\u00b1\u00b3\3\2\2\2\u00b2\u00a6\3\2\2\2\u00b3\u00b6\3\2\2\2\u00b4\u00b2"+
+		"\3\2\2\2\u00b4\u00b5\3\2\2\2\u00b5\u00b8\3\2\2\2\u00b6\u00b4\3\2\2\2\u00b7"+
+		"\u0093\3\2\2\2\u00b7\u0096\3\2\2\2\u00b8\25\3\2\2\2\u00b9\u00ba\5\36\20"+
+		"\2\u00ba\u00bb\b\f\1\2\u00bb\u00c8\3\2\2\2\u00bc\u00bd\5\34\17\2\u00bd"+
+		"\u00be\b\f\1\2\u00be\u00c8\3\2\2\2\u00bf\u00c0\5\32\16\2\u00c0\u00c1\b"+
+		"\f\1\2\u00c1\u00c8\3\2\2\2\u00c2\u00c3\7\6\2\2\u00c3\u00c4\5\6\4\2\u00c4"+
+		"\u00c5\7\7\2\2\u00c5\u00c6\b\f\1\2\u00c6\u00c8\3\2\2\2\u00c7\u00b9\3\2"+
+		"\2\2\u00c7\u00bc\3\2\2\2\u00c7\u00bf\3\2\2\2\u00c7\u00c2\3\2\2\2\u00c8"+
+		"\27\3\2\2\2\u00c9\u00ca\5\6\4\2\u00ca\u00d1\b\r\1\2\u00cb\u00cc\7\3\2"+
+		"\2\u00cc\u00cd\5\6\4\2\u00cd\u00ce\b\r\1\2\u00ce\u00d0\3\2\2\2\u00cf\u00cb"+
+		"\3\2\2\2\u00d0\u00d3\3\2\2\2\u00d1\u00cf\3\2\2\2\u00d1\u00d2\3\2\2\2\u00d2"+
+		"\31\3\2\2\2\u00d3\u00d1\3\2\2\2\u00d4\u00d5\7\32\2\2\u00d5\u00d9\b\16"+
+		"\1\2\u00d6\u00d7\7\35\2\2\u00d7\u00d9\b\16\1\2\u00d8\u00d4\3\2\2\2\u00d8"+
+		"\u00d6\3\2\2\2\u00d9\33\3\2\2\2\u00da\u00db\7\36\2\2\u00db\u00e1\b\17"+
+		"\1\2\u00dc\u00dd\7\37\2\2\u00dd\u00e1\b\17\1\2\u00de\u00df\7 \2\2\u00df"+
+		"\u00e1\b\17\1\2\u00e0\u00da\3\2\2\2\u00e0\u00dc\3\2\2\2\u00e0\u00de\3"+
+		"\2\2\2\u00e1\35\3\2\2\2\u00e2\u00e3\7\33\2\2\u00e3\u00e7\b\20\1\2\u00e4"+
+		"\u00e5\7\34\2\2\u00e5\u00e7\b\20\1\2\u00e6\u00e2\3\2\2\2\u00e6\u00e4\3"+
+		"\2\2\2\u00e7\37\3\2\2\2\31)-/?DLVagow\u0085\u0090\u009b\u00a2\u00ad\u00b4"+
+		"\u00b7\u00c7\u00d1\u00d8\u00e0\u00e6";
 	public static final ATN _ATN =
 		new ATNDeserializer().deserialize(_serializedATN.toCharArray());
 	static {

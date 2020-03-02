@@ -411,6 +411,13 @@ v=TOKEN_GRAPH_METADATA_VARIABLE
   $r = new ParseVariable($v.getLine(), $v.getCharPositionInLine(),
                          name, GraphMetadataType.GetInstance());
 }
+|
+v=TOKEN_GRAPH_PREDICATE_VARIABLE
+{
+  ParseString name = new ParseString($v.getLine(), $v.getCharPositionInLine(), $v.text);
+  $r = new ParseVariable($v.getLine(), $v.getCharPositionInLine(),
+                         name, GraphPredicateType.GetInstance());
+}
 ;
 
 literal returns [ParseLiteral r]
@@ -460,6 +467,7 @@ TOKEN_SINGLE_QUOTED_STRING_LITERAL : '\'' (~['\\] | '\\'.)* '\'';
 TOKEN_DOUBLE_QUOTED_NAME : '"' (~["\\] | '\\'.)* '"';
 TOKEN_GRAPH_VARIABLE : '$'[$A-Za-z0-9_]+;
 TOKEN_GRAPH_METADATA_VARIABLE : '@'[$A-Za-z0-9_]+;
+TOKEN_GRAPH_PREDICATE_VARIABLE : '%'[$A-Za-z0-9_]+;
 
 TOKEN_COMMENTS : ('%'|'#') (~[\n\r])* '\r'? '\n' -> skip;
 TOKEN_WS : [ \t\r\n]+ -> skip ;
