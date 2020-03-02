@@ -272,8 +272,8 @@ public class QuickGrailPredicateTree{
 		}
 		
 		public String toString(){
-//			return toStringFileTree();
-			return printInOrder();
+			return toStringFileTree();
+//			return printInOrder();
 		}
 		
 		public String printInOrder(){

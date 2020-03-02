@@ -52,6 +52,7 @@ import spade.query.quickgrail.instruction.StatGraph;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
+import spade.query.quickgrail.utility.QuickGrailPredicateTree;
 import spade.query.quickgrail.utility.ResultTable;
 
 public abstract class QueryInstructionExecutor{
@@ -96,8 +97,7 @@ public abstract class QueryInstructionExecutor{
 	}
 	
 	public final PredicateNode printPredicate(PrintPredicate instruction){
-//		getQueryEnvironment().; TODO
-		return null;
+		return QuickGrailPredicateTree.lookupPredicateSymbol(instruction.predicateSymbolName);
 	} 
 	
 	public abstract GraphStats statGraph(StatGraph instruction);
