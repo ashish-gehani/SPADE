@@ -32,7 +32,7 @@ import spade.core.Kernel;
 import spade.core.SPADEQuery;
 import spade.core.Settings;
 import spade.query.quickgrail.QuickGrailExecutor;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.Result;
 
 /**
@@ -100,7 +100,7 @@ public class CommandLine extends AbstractAnalyzer{
 	@Override
 	public final boolean initializeConcreteAnalyzer(String arguments){
 		final String queryServerPortString = Settings.getProperty(configKeyNameQueryServerPort);
-		final Result<Long> queryServerPortResult = CommonFunctions.parseLong(queryServerPortString, 10, 0,
+		final Result<Long> queryServerPortResult = HelperFunctions.parseLong(queryServerPortString, 10, 0,
 				Integer.MAX_VALUE);
 		if(queryServerPortResult.error){
 			logger.log(Level.SEVERE,
@@ -166,10 +166,10 @@ public class CommandLine extends AbstractAnalyzer{
 	public synchronized final void shutdown(){
 		if(!shutdown){
 			shutdown = true;
-			CommonFunctions.sleepSafe(millisWaitSocketClose);
+			HelperFunctions.sleepSafe(millisWaitSocketClose);
 			// Stop listening for any more client connections
 			closeServerSocket(this.queryServerListenerSocket);
-			CommonFunctions.sleepSafe(millisWaitSocketClose);
+			HelperFunctions.sleepSafe(millisWaitSocketClose);
 			// Close all the clients
 			synchronized(queryClientConnections){
 				for(QueryConnection queryConnection : new ArrayList<QueryConnection>(queryClientConnections)){
@@ -261,3 +261,18 @@ public class CommandLine extends AbstractAnalyzer{
 		}
 	}
 }
+
+/*
+ * How to use discrepancy-dev branch:
+ * 
+ * 1) 2 machines. file send between the two machines
+ * 2) copy cfg/keys/public/self.*.public to cfg/keys/public/<hostname>.*.public to the each other host
+ * 2) same network artifacts in both graphs on the machines (complete one)
+ * 4) get lineage that would go to the remote host
+ * 5) remote resolution would be set automatically
+ * 6) true should be in find_inconsistency.txt file
+ * 7) to introduce discrepancy -> 
+ * 	a) get lineage q1 with real data
+ *  b) get lineage q2 with the deletion of an edge or a vertex from the result of q1 previously gotten
+ */
+                 

@@ -16,6 +16,13 @@
  */
 package spade.client;
 
+import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.FILE_SEPARATOR;
+import static spade.core.Kernel.KEYSTORE_FOLDER;
+import static spade.core.Kernel.KEYS_FOLDER;
+import static spade.core.Kernel.PASSWORD_PRIVATE_KEYSTORE;
+import static spade.core.Kernel.PASSWORD_PUBLIC_KEYSTORE;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
@@ -26,6 +33,8 @@ import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.security.KeyStore;
 import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -33,11 +42,14 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import jline.ConsoleReader;
 import spade.core.SPADEQuery;
 import spade.core.Settings;
+import spade.utility.HelperFunctions;
+import spade.utility.HostInfo;
 
 /**
  * @author raza
@@ -48,37 +60,101 @@ public class CommandLine{
 	private static final String historyFile = SPADE_ROOT + "cfg/query.history";
 	private static final String COMMAND_PROMPT = "-> ";
 	private static String RESULT_EXPORT_PATH = null;
+	
+	private static final String hostNameFilePath = SPADE_ROOT + File.separator + "hostname.txt";
 
 	// Members for creating secure sockets
 	private static KeyStore clientKeyStorePrivate;
 	private static KeyStore serverKeyStorePublic;
 	private static SSLSocketFactory sslSocketFactory;
+	
+	private static void setupKeyStores() throws Exception
+    {
+        String KEYS_PATH = CONFIG_PATH + FILE_SEPARATOR + KEYS_FOLDER;
+        String KEYSTORE_PATH = KEYS_PATH + FILE_SEPARATOR + KEYSTORE_FOLDER;
+        String SERVER_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "serverpublic.keystore";
+        String CLIENT_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "clientprivate.keystore";
 
-	private static void setupKeyStores() throws Exception{
-		String serverPublicPath = SPADE_ROOT + "cfg/ssl/server.public";
-		String clientPrivatePath = SPADE_ROOT + "cfg/ssl/client.private";
+        serverKeyStorePublic = KeyStore.getInstance("JKS");
+        serverKeyStorePublic.load(new FileInputStream(SERVER_PUBLIC_PATH), PASSWORD_PUBLIC_KEYSTORE.toCharArray());
+        clientKeyStorePrivate = KeyStore.getInstance("JKS");
+        clientKeyStorePrivate.load(new FileInputStream(CLIENT_PRIVATE_PATH), PASSWORD_PRIVATE_KEYSTORE.toCharArray());
+    }
 
-		serverKeyStorePublic = KeyStore.getInstance("JKS");
-		serverKeyStorePublic.load(new FileInputStream(serverPublicPath), "public".toCharArray());
-		clientKeyStorePrivate = KeyStore.getInstance("JKS");
-		clientKeyStorePrivate.load(new FileInputStream(clientPrivatePath), "private".toCharArray());
-	}
+    private static void setupClientSSLContext() throws Exception
+    {
+        SecureRandom secureRandom = new SecureRandom();
+        secureRandom.nextInt();
 
-	private static void setupClientSSLContext() throws Exception{
-		SecureRandom secureRandom = new SecureRandom();
-		secureRandom.nextInt();
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
+        tmf.init(serverKeyStorePublic);
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+        kmf.init(clientKeyStorePrivate, PASSWORD_PRIVATE_KEYSTORE.toCharArray());
 
-		TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
-		tmf.init(serverKeyStorePublic);
-		KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-		kmf.init(clientKeyStorePrivate, "private".toCharArray());
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
+        sslSocketFactory = sslContext.getSocketFactory();
+    }
 
-		SSLContext sslContext = SSLContext.getInstance("TLS");
-		sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
-		sslSocketFactory = sslContext.getSocketFactory();
-	}
-
+    private static String getHostName(String args[]){
+    	if(args.length > 0){
+    		// Host name read from arguments
+    		return args[0];
+    	}
+    	try{
+    		File hostNameFile = new File(hostNameFilePath);
+    		try{
+    			if(hostNameFile.exists()){
+    				try{
+	    				if(!hostNameFile.isFile() || !hostNameFile.canRead()){
+	    					System.err.println("Invalid configuration to read host name from file: Path is not readable or file '"+hostNameFilePath+"'");
+	        				return null;
+	    				}else{
+	    					try{
+	    						List<String> lines = FileUtils.readLines(hostNameFile);
+	    						if(!lines.isEmpty()){
+	    							String hostName = lines.get(0);
+	    							if(!hostName.isEmpty()){
+	    								return hostName;	
+	    							}
+	    						}
+	    					}catch(Exception e){
+	    						System.err.println("Invalid configuration to read host name from a file: "+ e.getMessage());
+	        	        		return null;
+	    					}
+	    				}
+    				}catch(Exception e){
+    					System.err.println("Invalid configuration to read host name from a file: "+ e.getMessage());
+    	        		return null;
+    				}
+    			}
+    		}catch(Exception e){
+    			System.err.println("Invalid configuration to read host name from a file: "+ e.getMessage());
+        		return null;
+    		}
+    	}catch(Exception e){
+    		System.err.println("Invalid configuration to read host name from a file: "+ e.getMessage());
+    		return null;
+    	}
+    	String hostNameFromSystem = HostInfo.getHostName();
+    	if(hostNameFromSystem == null){
+    		System.err.println("Failed to get host name from system");
+    		return null;
+    	}else{
+    		return hostNameFromSystem;
+    	}
+    }
+    
 	public static void main(String args[]){
+		final StringBuffer nameOfSetStorage = new StringBuffer();
+		boolean setInitialStorageFromConfig = readStorageNameFromConfig(nameOfSetStorage);
+		
+		final String localHostName = getHostName(args);
+		if(localHostName == null){
+			// Error printed by the function getHostName
+			return;
+		}
+		
 		ObjectOutputStream clientOutputWriter = null;
 		ObjectInputStream clientInputReader = null;
 		SSLSocket remoteSocket = null;
@@ -90,7 +166,7 @@ public class CommandLine{
 			System.err.println(CommandLine.class.getName() + " Error setting up context for secure connection. " + ex);
 		}
 		try{
-			String host = "localhost";
+			final String host = "localhost"; // Have you changed this to allow remote? If yes, then have you changed the nonce in the query?
 			int port = Integer.parseInt(Settings.getProperty("commandline_query_port"));
 			remoteSocket = (SSLSocket)sslSocketFactory.createSocket(host, port);
 			OutputStream outStream = remoteSocket.getOutputStream();
@@ -103,7 +179,18 @@ public class CommandLine{
 			System.exit(-1);
 		}
 		try{
-			System.out.println("SPADE 3.0 Query Client");
+			/*
+			 * Current protocol:
+			 * 1) Read query from user
+			 * 2) Create SPADEQuery object with nonce = null
+			 * 3) Send SPADEQuery object to the server
+			 * 4) Wait for and receive SPADEQuery object from server
+			 * 5) Ignore nonce since local query
+			 * 6) Go to (1)
+			 */
+			
+			System.out.println("Host '"+localHostName+"': SPADE 3.0 Query Client");
+			System.out.println();
 			// Set up command history and tab completion.
 			ConsoleReader commandReader = new ConsoleReader();
 			try{
@@ -114,14 +201,24 @@ public class CommandLine{
 
 			while(true){
 				try{
+					String line = null;
+					
 					System.out.flush();
-					System.out.print(COMMAND_PROMPT);
-					String line = commandReader.readLine();
+					
+					if(setInitialStorageFromConfig){
+						line = "set storage " + nameOfSetStorage.toString();
+						setInitialStorageFromConfig = false;
+					}else{
+						System.out.print(COMMAND_PROMPT);
+						line = commandReader.readLine();
+					}
+					
 					if(StringUtils.isBlank(line)){
 						continue;
 					}
 					if(line.trim().toLowerCase().equals("exit") || line.trim().toLowerCase().equals("quit")){
-						SPADEQuery spadeQuery = new SPADEQuery("localname", "remotename", line);
+						final String queryNonce = null; // Keep the nonce null to indicate that the query is local
+						SPADEQuery spadeQuery = new SPADEQuery(localHostName, localHostName, line, queryNonce);
 						spadeQuery.setQuerySentByClientAtMillis();
 						
 						clientOutputWriter.writeObject(spadeQuery);
@@ -135,7 +232,10 @@ public class CommandLine{
 							//line = "export " + line;
 						}
 						
-						SPADEQuery spadeQuery = new SPADEQuery("localname", "remotename", line);
+						boolean isSetStorage = checkAndGetSetStorageCommand(line, nameOfSetStorage);
+						
+						final String queryNonce = null; // Keep the nonce null to indicate that the query is local
+						SPADEQuery spadeQuery = new SPADEQuery(localHostName, localHostName, line, queryNonce);
 						spadeQuery.setQuerySentByClientAtMillis();
 						
 						clientOutputWriter.writeObject(spadeQuery);
@@ -150,6 +250,11 @@ public class CommandLine{
 							spadeQuery.setQueryReceivedBackByClientAtMillis();
 
 							if(spadeQuery.wasQuerySuccessful()){
+								
+								if(isSetStorage){
+									writeStorageNameToConfig(nameOfSetStorage);
+								}
+								
 								if(spadeQuery.getResult() == null){
 									System.out.println("No result!");
 								}else{
@@ -168,7 +273,11 @@ public class CommandLine{
 									}else{ // Other types
 										if(spadeResult.getClass().equals(spade.core.Graph.class)){
 											spade.core.Graph graph = (spade.core.Graph)spadeResult;
-											resultAsString = graph.exportGraph();
+											if(RESULT_EXPORT_PATH != null){
+												resultAsString = graph.exportGraph();
+											}else{
+												resultAsString = graph.prettyPrint();
+											}
 											alreadyPrinted = false;
 										}else{
 											// default!
@@ -192,6 +301,11 @@ public class CommandLine{
 									}
 								}
 							}else{
+								
+								if(isSetStorage){
+									resetStorageNameInConfig();
+								}
+								
 								if(spadeQuery.getError() == null){
 									System.out.println("No result!");
 								}else{
@@ -235,6 +349,65 @@ public class CommandLine{
 			}
 		}catch(Exception ex){
 			System.err.println(CommandLine.class.getName() + " Insufficient arguments!");
+		}
+	}
+	
+	private static boolean checkAndGetSetStorageCommand(String query, StringBuffer storageName){
+		if(storageName != null){
+			storageName.setLength(0);
+			if(query != null){
+				String tokens[] = query.split("\\s+", 3);
+				if(tokens.length == 3){
+					if(tokens[0].equals("set") && tokens[1].equals("storage")){
+						storageName.append(tokens[2]);
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+	
+	private static void writeStorageNameToConfig(StringBuffer buffer){
+		if(buffer != null && !buffer.toString().trim().isEmpty()){
+			try{
+				String configFile = Settings.getDefaultConfigFilePath(CommandLine.class);
+				List<String> lines = new ArrayList<String>();
+				lines.add(buffer.toString());
+				FileUtils.writeLines(new File(configFile), lines);
+			}catch(Exception e){
+				// TODO error message?
+			}
+		}
+	}
+	
+	private static boolean readStorageNameFromConfig(StringBuffer buffer){
+		if(buffer != null){
+			buffer.setLength(0);
+			try{
+				String configFile = Settings.getDefaultConfigFilePath(CommandLine.class);
+				List<String> lines = FileUtils.readLines(new File(configFile));
+				if(!lines.isEmpty()){
+					String first = lines.get(0);
+					if(!HelperFunctions.isNullOrEmpty(first)){
+						buffer.append(first.trim());
+						return true;
+					}
+				}
+			}catch(Exception e){
+				// TODO error message?
+			}
+		}
+		return false;
+	}
+	
+	private static boolean resetStorageNameInConfig(){
+		try{
+			String configFile = Settings.getDefaultConfigFilePath(CommandLine.class);
+			FileUtils.writeStringToFile(new File(configFile), "");
+			return true;
+		}catch(Exception e){
+			return false;
 		}
 	}
 }

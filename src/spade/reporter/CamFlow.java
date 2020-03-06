@@ -43,7 +43,7 @@ import spade.edge.prov.WasAttributedTo;
 import spade.edge.prov.WasDerivedFrom;
 import spade.edge.prov.WasGeneratedBy;
 import spade.edge.prov.WasInformedBy;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.FileUtility;
 import spade.utility.LoadableField;
 import spade.utility.LoadableFieldHelper;
@@ -56,7 +56,7 @@ import spade.vertex.prov.Entity;
  * 
  * Assumes that the duplicate flag is true in camflow for now.
  *
- * @author Aurélien Chaline from the original file JSON.java by Hasanat Kazmi
+ * @author Aurelien Chaline from the original file JSON.java by Hasanat Kazmi
  */
 public class CamFlow extends AbstractReporter {
 
@@ -212,7 +212,7 @@ public class CamFlow extends AbstractReporter {
 	private boolean initGlobals(String arguments){
 		Map<String, String> globalsMap = null;
 		try{
-			globalsMap = CommonFunctions.getGlobalsMapFromConfigAndArguments(this.getClass(), arguments);
+			globalsMap = HelperFunctions.getGlobalsMapFromConfigAndArguments(this.getClass(), arguments);
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to build globals map", e);
 			return false;

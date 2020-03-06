@@ -23,7 +23,7 @@ package spade.filter;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 
 import java.util.HashSet;
 import java.util.Map;
@@ -59,7 +59,7 @@ public class DropKeys extends AbstractFilter{
 			return false;
 		}else{
 				
-			Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+			Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(arguments);
 			
 			//Must have 'keys' argument
 			if(argsMap.get("keys") == null){

@@ -19,17 +19,7 @@
  */
 package spade.storage;
 
-import spade.core.AbstractEdge;
-import spade.core.AbstractStorage;
-import spade.core.AbstractVertex;
-import spade.core.Cache;
-import spade.core.Edge;
-import spade.core.Graph;
-import spade.core.Vertex;
-
-import java.io.File;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -37,12 +27,17 @@ import java.sql.Statement;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static spade.core.Kernel.DB_ROOT;
+import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
+import spade.core.AbstractVertex;
+import spade.core.Cache;
+import spade.core.Edge;
+import spade.core.Graph;
+import spade.core.Vertex;
 
 
 /**
@@ -170,7 +165,7 @@ public abstract class SQL extends AbstractStorage
     @Override
     public AbstractEdge getEdge(String childVertexHash, String parentVertexHash)
     {
-        if(!Cache.isPresent(childVertexHash) || !Cache.isPresent(parentVertexHash))
+        if(!Cache.isVertexPresent(childVertexHash) || !Cache.isVertexPresent(parentVertexHash))
         return null;
 
     AbstractEdge edge = null;
@@ -232,7 +227,7 @@ public abstract class SQL extends AbstractStorage
     @Override
     public AbstractVertex getVertex(String vertexHash)
     {
-        if(!Cache.isPresent(vertexHash))
+        if(!Cache.isVertexPresent(vertexHash))
             return null;
 
         String query = "SELECT * FROM " +
@@ -263,7 +258,7 @@ public abstract class SQL extends AbstractStorage
     @Override
     public Graph getChildren(String parentHash)
     {
-        if(!Cache.isPresent(parentHash))
+        if(!Cache.isVertexPresent(parentHash))
             return null;
 
         Graph children = null;
@@ -343,7 +338,7 @@ public abstract class SQL extends AbstractStorage
     @Override
     public Graph getParents(String childVertexHash)
     {
-        if(!Cache.isPresent(childVertexHash))
+        if(!Cache.isVertexPresent(childVertexHash))
             return null;
 
         Graph parents = null;

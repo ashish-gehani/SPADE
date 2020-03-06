@@ -28,7 +28,7 @@ import org.apache.commons.io.FileUtils;
 import org.iq80.leveldb.DB;
 import org.iq80.leveldb.Options;
 
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.map.external.store.db.DatabaseHandle;
 
 /**
@@ -77,7 +77,7 @@ public class LevelDBHandle implements DatabaseHandle{
 
 	@Override
 	public BigInteger sizeOnDiskInBytes() throws Exception{
-		if(CommonFunctions.isNullOrEmpty(dbPath)){
+		if(HelperFunctions.isNullOrEmpty(dbPath)){
 			throw new Exception("NULL database path");
 		}else{
 			BigInteger sizeBytes = FileUtils.sizeOfDirectoryAsBigInteger(new File(dbPath));

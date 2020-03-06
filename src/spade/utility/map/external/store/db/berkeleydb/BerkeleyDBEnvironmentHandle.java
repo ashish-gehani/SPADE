@@ -25,7 +25,7 @@ import java.util.Map;
 
 import com.sleepycat.je.Environment;
 
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.Result;
 
 /**
@@ -83,7 +83,7 @@ public class BerkeleyDBEnvironmentHandle{
 			return Result.failed("NULL database handle");
 		}else{
 			String dbName = dbHandle.dbName;
-			if(CommonFunctions.isNullOrEmpty(dbName)){
+			if(HelperFunctions.isNullOrEmpty(dbName)){
 				return Result.failed("NULL/Empty database name in database handle");
 			}else{
 				if(dbHandles.get(dbName) != null){
@@ -103,7 +103,7 @@ public class BerkeleyDBEnvironmentHandle{
 	 * @return Result with true/false or with error
 	 */
 	protected synchronized Result<Boolean> containsDBHandleWithName(String dbName){
-		if(CommonFunctions.isNullOrEmpty(dbName)){
+		if(HelperFunctions.isNullOrEmpty(dbName)){
 			return Result.failed("NULL/Empty database name");
 		}else{
 			if(dbHandles.get(dbName) == null){
@@ -121,7 +121,7 @@ public class BerkeleyDBEnvironmentHandle{
 	 * @return Result with true/false or with error
 	 */
 	protected synchronized Result<Boolean> containsDatabaseInEnvironmentWithName(String dbName){
-		if(CommonFunctions.isNullOrEmpty(dbName)){
+		if(HelperFunctions.isNullOrEmpty(dbName)){
 			return Result.failed("NULL/Empty database name");
 		}else{
 			Result<ArrayList<String>> databaseNamesResult = getDatabaseNamesInEnvironment();

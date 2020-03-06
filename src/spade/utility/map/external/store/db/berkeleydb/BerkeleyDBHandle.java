@@ -31,7 +31,7 @@ import com.sleepycat.je.Environment;
 import com.sleepycat.je.LockMode;
 import com.sleepycat.je.OperationStatus;
 
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.map.external.store.db.DatabaseHandle;
 
 /**
@@ -124,7 +124,7 @@ public class BerkeleyDBHandle implements DatabaseHandle{
 			throw new Exception("NULL enviroment handle");
 		}else{
 			String envPath = environmentHandle.directoryPath;
-			if(CommonFunctions.isNullOrEmpty(envPath)){
+			if(HelperFunctions.isNullOrEmpty(envPath)){
 				throw new Exception("NULL environment path");
 			}else{
 				BigInteger sizeBytes = FileUtils.sizeOfDirectoryAsBigInteger(new File(envPath));
@@ -188,7 +188,7 @@ public class BerkeleyDBHandle implements DatabaseHandle{
 		if(environmentHandle == null){
 			if(other.environmentHandle != null)
 				return false;
-		}else if(!CommonFunctions.objectsEqual(environmentHandle.directoryPath, other.environmentHandle.directoryPath))
+		}else if(!HelperFunctions.objectsEqual(environmentHandle.directoryPath, other.environmentHandle.directoryPath))
 			return false;
 		return true;
 	}

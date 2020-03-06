@@ -19,7 +19,7 @@
  */
 package spade.utility.map.external.store;
 
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.Converter;
 import spade.utility.Result;
 import spade.utility.map.external.store.db.DatabaseArgument;
@@ -40,7 +40,7 @@ public class StoreManager{
 	 * @return StoreArgument or error
 	 */
 	public static Result<StoreArgument> parseArgument(String storeNameString, String storeArgumentString){
-		if(CommonFunctions.isNullOrEmpty(storeNameString)){
+		if(HelperFunctions.isNullOrEmpty(storeNameString)){
 			return Result.failed("NULL/Empty store name");
 		}else{
 			Result<ReportingArgument> reportingResult = ReportingArgument.parseReportingArgument(storeArgumentString);
@@ -48,7 +48,7 @@ public class StoreManager{
 				return Result.failed("Failed to parse reporting argument", reportingResult);
 			}else{
 				ReportingArgument reportingArgument = reportingResult.result;
-				Result<StoreName> storeNameResult = CommonFunctions.parseEnumValue(StoreName.class, storeNameString);
+				Result<StoreName> storeNameResult = HelperFunctions.parseEnumValue(StoreName.class, storeNameString);
 				if(storeNameResult.error){
 					return Result.failed("Failed store name parsing", storeNameResult);
 				}else{

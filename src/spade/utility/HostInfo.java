@@ -50,7 +50,31 @@ import spade.reporter.audit.VertexIdentifier;
 public class HostInfo{
 
 	private static final Logger logger = Logger.getLogger(HostInfo.class.getName());
-	
+
+
+	public static String getHostName()
+	{
+		Host host = HostInfo.ReadFromOperatingSystem.readSafe();
+		if(host != null)
+		{
+			Map<String, String> hostMap = Host.hostToMap(host);
+			String hostName = hostMap.get(OPMConstants.ARTIFACT_HOST_NETWORK_NAME);
+			if(hostName == null || hostName.isEmpty())
+			{
+				logger.log(Level.WARNING, "unable to get host name");
+			}
+			else
+			{
+				return hostName;
+			}
+		}
+		else
+		{
+			logger.log(Level.WARNING, "unable to get host information");
+		}
+		return null;
+	}
+
 	/**
 	 * Class to read host information from the underlying operating system.
 	 * Currently only for Ubuntu 14.04.
@@ -586,12 +610,12 @@ public class HostInfo{
 			Map<String, String> map = host.getAnnotationsMap();
 			JSONObject jsonObject = new JSONObject(map);
 			String jsonObjectString = jsonObject.toString();
-			String jsonHexObjectString = CommonFunctions.encodeHex(jsonObjectString);
+			String jsonHexObjectString = HelperFunctions.encodeHex(jsonObjectString);
 			return jsonHexObjectString;
 		}
 		
 		private static Host hexStringToHost(String objectAsString){
-			String jsonObjectString = CommonFunctions.decodeHex(objectAsString);
+			String jsonObjectString = HelperFunctions.decodeHex(objectAsString);
 			try{
 				@SuppressWarnings("unchecked")
 				Map<String, String> map = (TreeMap<String, String>)new ObjectMapper().readValue(
@@ -636,7 +660,7 @@ public class HostInfo{
 			host.hostType = unNullify(map.get(OPMConstants.ARTIFACT_HOST_TYPE));
 			host.serialNumber = unNullify(map.get(OPMConstants.ARTIFACT_HOST_SERIAL_NUMBER));
 			host.operationSystem = unNullify(map.get(OPMConstants.ARTIFACT_HOST_OPERATING_SYSTEM));
-			Integer a = CommonFunctions.parseInt(unNullify(map.get(OPMConstants.ARTIFACT_HOST_INTERFACES_COUNT)), 0);
+			Integer a = HelperFunctions.parseInt(unNullify(map.get(OPMConstants.ARTIFACT_HOST_INTERFACES_COUNT)), 0);
 			for(int b = 0; b < a; b++){
 				String interfaceNameKey = OPMConstants.buildHostNetworkInterfaceNameKey(b);
 				String interfaceMacAddressKey = OPMConstants.buildHostNetworkInterfaceMacAddressKey(b);

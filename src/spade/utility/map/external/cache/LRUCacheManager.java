@@ -22,7 +22,7 @@ package spade.utility.map.external.cache;
 import java.util.HashMap;
 import java.util.Map;
 
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.Result;
 
 /**
@@ -41,10 +41,10 @@ public class LRUCacheManager extends CacheManager{
 	 */
 	@Override
 	public Result<CacheArgument> parseArgument(String arguments){
-		if(CommonFunctions.isNullOrEmpty(arguments)){
+		if(HelperFunctions.isNullOrEmpty(arguments)){
 			return Result.failed("NULL/Empty arguments");
 		}else{
-			Result<HashMap<String, String>> mapResult = CommonFunctions.parseKeysValuesInString(arguments);
+			Result<HashMap<String, String>> mapResult = HelperFunctions.parseKeysValuesInString(arguments);
 			if(mapResult.error){
 				return Result.failed("Failed to parse arguments to map", mapResult);
 			}else{
@@ -66,7 +66,7 @@ public class LRUCacheManager extends CacheManager{
 		}else if(arguments.isEmpty()){
 			return Result.failed("Empty arguments");
 		}else{
-			Result<Long> sizeResult = CommonFunctions.parseLong(
+			Result<Long> sizeResult = HelperFunctions.parseLong(
 					arguments.get(LRUCacheArgument.keySize), 10, 0, Integer.MAX_VALUE);
 			if(sizeResult.error){
 				return Result.failed("Failed to parse '"+LRUCacheArgument.keySize+"'", sizeResult);

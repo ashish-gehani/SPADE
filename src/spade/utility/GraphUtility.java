@@ -19,6 +19,11 @@
  */
 package spade.utility;
 
+import java.io.PrintStream;
+import java.util.HashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import jline.ConsoleReader;
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
@@ -26,12 +31,7 @@ import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.filter.FinalCommitFilter;
 
-import java.io.PrintStream;
-import java.util.HashMap;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
+@Deprecated
 public class GraphUtility {
 
     private static PrintStream outputStream = System.out;
@@ -102,11 +102,11 @@ public class GraphUtility {
             return;
         }
         Graph graph = graphObjects.get(input);
-        List<Integer> vertices = graph.listVertices(expression);
-        outputStream.println(String.format("%d vertices matched expression:", vertices.size()));
-        for (int id : vertices) {
-            outputStream.println(String.format(" - %d\t\t%s", id, graph.getVertex(id)));
-        }
+//        List<Integer> vertices = graph.listVertices(expression); TODO
+//        outputStream.println(String.format("%d vertices matched expression:", vertices.size()));TODO
+//        for (int id : vertices) {TODO
+//            outputStream.println(String.format(" - %d\t\t%s", id, graph.getVertex(id))); TODO
+//        }TODO
     }
 
     private static void getPaths(String target, String input, String expression) {
@@ -120,11 +120,11 @@ public class GraphUtility {
         try {
             int src = Integer.parseInt(args[0].trim());
             int dst = Integer.parseInt(args[1].trim());
-            result = graph.getPaths(src, dst);
+//            result = graph.getPaths(src, dst); TODO
         } catch (Exception exception) {
             String src = args[0].trim();
             String dst = args[1].trim();
-            result = (graphObjects.containsKey(src) && graphObjects.containsKey(dst)) ? graph.getPaths(graphObjects.get(src), graphObjects.get(dst)) : graph.getPaths(src, dst);
+//            result = (graphObjects.containsKey(src) && graphObjects.containsKey(dst)) ? graph.getPaths(graphObjects.get(src), graphObjects.get(dst)) : graph.getPaths(src, dst); TODO
         }
         if (result != null) {
             graphObjects.put(target, result);
@@ -145,10 +145,10 @@ public class GraphUtility {
         String direction = args[1].trim();
         try {
             int src = Integer.parseInt(args[0].trim());
-            result = graph.getLineage(src, direction);
+//            result = graph.getLineage(src, direction); TODO
         } catch (Exception exception) {
             String src = args[0].trim();
-            result = graphObjects.containsKey(src) ? graph.getLineage(graphObjects.get(src), direction) : graph.getLineage(src, direction);
+//            result = graphObjects.containsKey(src) ? graph.getLineage(graphObjects.get(src), direction) : graph.getLineage(src, direction); TODO
         }
         if (result != null) {
             graphObjects.put(target, result);
@@ -172,7 +172,7 @@ public class GraphUtility {
             return;
         }
         FinalCommitFilter finalFilter = new FinalCommitFilter();
-        finalFilter.storages.add(result);
+        //finalFilter.storages.add(result); TODO
         filter.setNextFilter(finalFilter);
         Graph graph = graphObjects.get(input);
         for (AbstractVertex v : graph.vertexSet()) {
@@ -181,7 +181,6 @@ public class GraphUtility {
         for (AbstractEdge e : graph.edgeSet()) {
             filter.putEdge(e);
         }
-        result.commitIndex();
         finalFilter.storages.remove(graph);
         graphObjects.put(target, result);
         outputStream.println(String.format("Result saved in graph %s", target));

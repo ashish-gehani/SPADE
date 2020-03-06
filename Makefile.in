@@ -60,7 +60,7 @@ REPORTERS = Graphviz DSL Network LLVM Facebook Bitcoin StraceLinux JSON CDM CamF
 
 all:    build
 	./bin/keys/generatekeys.sh
- 
+
 help:
 	@echo 'Usage:'
 	@echo '  	make                	- to compile the code'
@@ -72,7 +72,9 @@ help:
 
 build: | prepare-dirs
 build: build-java $$(OS_BUILD) lib/spade.jar
-build-java: download-neo4j core clients utilities storages filters query analyzers sketches transformers reporters
+# No sketches at the moment available
+#build-java: download-neo4j core clients utilities storages filters query analyzers sketches transformers reporters
+build-java: download-neo4j core clients utilities storages filters query analyzers transformers reporters
 
 NEO4J_DIR=lib/neo4j-community-3.4.4
 download-neo4j:

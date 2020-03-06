@@ -29,16 +29,32 @@ import java.util.Map;
  */
 public abstract class AbstractSketch implements Serializable {
 
-    /**
+	private static final long serialVersionUID = -3747042008910150947L;
+	
+	/**
      * The matrix filter belonging to this sketch.
      */
-    public MatrixFilter matrixFilter;
+    private MatrixFilter matrixFilter;
     /**
      * A generic map used to store objects for various purposes (querying, etc.)
      */
-    public Map<String, Object> objects;
+    private Map<String, Object> objects;
+    
+    public AbstractSketch(MatrixFilter matrixFilter, Map<String, Object> objects)
+    {
+        this.matrixFilter = matrixFilter;
+        this.objects = objects;
+    }
+    
+    public MatrixFilter getMatrixFilter(){
+		return matrixFilter;
+	}
 
-    /**
+	public Map<String, Object> getObjects(){
+		return objects;
+	}
+
+	/**
      * This method is triggered when the sketch receives a vertex.
      *
      * @param incomingVertex The vertex received by this sketch.

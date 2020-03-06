@@ -78,7 +78,7 @@ import spade.core.Vertex;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.storage.neo4j.Neo4jInstructionExecutor;
 import spade.storage.neo4j.Neo4jQueryEnvironment;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 
 /**
  * Neo4j storage implementation.
@@ -183,7 +183,7 @@ public class Neo4j extends AbstractStorage
     {
         try
         {
-            Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+            Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(arguments);
             database = argsMap.get("database");
             if(database == null)
             {
@@ -355,7 +355,6 @@ public class Neo4j extends AbstractStorage
 
             queryHits.close();
             tx.success();
-            children.commitIndex();
 
             return children;
         }
@@ -393,7 +392,6 @@ public class Neo4j extends AbstractStorage
 
             queryHits.close();
             tx.success();
-            parents.commitIndex();
 
             return parents;
         }
@@ -687,7 +685,6 @@ public class Neo4j extends AbstractStorage
             }
             queryHits.close();
             tx.success();
-            resultGraph.commitIndex();
             return resultGraph;
         }
     }
@@ -764,7 +761,6 @@ public class Neo4j extends AbstractStorage
             queryHits.close();
             tx.success();
         }
-        resultGraph.commitIndex();
         return resultGraph;
     }
 
@@ -783,7 +779,6 @@ public class Neo4j extends AbstractStorage
             queryHits.close();
             tx.success();
         }
-        resultGraph.commitIndex();
         return resultGraph;
     }
 
@@ -837,7 +832,6 @@ public class Neo4j extends AbstractStorage
             }
         }
 
-        resultGraph.commitIndex();
         return resultGraph;
     }
 
@@ -877,7 +871,7 @@ public class Neo4j extends AbstractStorage
 					String hashAnnotationValue = null;
 					Map<String, String> annotations = new HashMap<String, String>();
 					for(String key : node.getPropertyKeys()){
-						if(!CommonFunctions.isNullOrEmpty(key)){
+						if(!HelperFunctions.isNullOrEmpty(key)){
 							String annotationValueString = null;
 							Object annotationValueObject = node.getProperty(key);
 							if(annotationValueObject == null){
@@ -926,7 +920,7 @@ public class Neo4j extends AbstractStorage
 					AbstractVertex parentVertex = hashToVertexMap.get(parentVertexHashString);
 					Map<String, String> annotations = new HashMap<String, String>();
 					for(String key : relationship.getPropertyKeys()){
-						if(!CommonFunctions.isNullOrEmpty(key)){
+						if(!HelperFunctions.isNullOrEmpty(key)){
 							if(key.equalsIgnoreCase(PRIMARY_KEY) || key.equalsIgnoreCase(CHILD_VERTEX_KEY)
 									|| key.equalsIgnoreCase(PARENT_VERTEX_KEY)
 									|| key.equalsIgnoreCase(edgeSymbolsPropertyKey)){
@@ -1058,7 +1052,6 @@ public class Neo4j extends AbstractStorage
             currentDepth++;
         }
 
-        resultGraph.commitIndex();
         return resultGraph;
     }
 

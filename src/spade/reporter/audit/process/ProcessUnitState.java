@@ -23,7 +23,7 @@ import java.io.Serializable;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.Series;
 
 /**
@@ -60,7 +60,7 @@ public class ProcessUnitState implements Serializable{
 		this.agent = agent;
 		threadGroupId = process.pid;
 		String timeString = process.startTime == null ? process.seenTime : process.startTime;
-		Double time = CommonFunctions.parseDouble(timeString, null);
+		Double time = HelperFunctions.parseDouble(timeString, null);
 		if(time != null){
 			timeToAgent.add(time, agent);
 		}else{

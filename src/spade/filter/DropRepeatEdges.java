@@ -34,7 +34,7 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.Result;
 import spade.utility.map.external.ExternalMap;
 import spade.utility.map.external.ExternalMapArgument;
@@ -67,9 +67,9 @@ public class DropRepeatEdges extends AbstractFilter{
 	private BigInteger totalDropped = BigInteger.ZERO;
 	
 	private boolean parseArguments(String arguments){
-		Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+		Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(arguments);
 		String byArgValue = argsMap.get(dropByArgName);
-		if(CommonFunctions.isNullOrEmpty(byArgValue)){
+		if(HelperFunctions.isNullOrEmpty(byArgValue)){
 			logger.log(Level.SEVERE, "NULL/Empty '"+dropByArgName+"' arg value");
 			return false;
 		}else{

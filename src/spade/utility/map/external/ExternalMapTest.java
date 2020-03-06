@@ -27,7 +27,7 @@ import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.FileUtility;
 import spade.utility.Result;
 import spade.utility.map.external.cache.CacheArgument;
@@ -159,7 +159,7 @@ public class ExternalMapTest{
 					// Should get all values
 					for(int i = 0; i < total; i++){
 						Integer j = map.get(i);
-						if(!CommonFunctions.objectsEqual(j, (total - i))){
+						if(!HelperFunctions.objectsEqual(j, (total - i))){
 							System.err.println("'"+j+"' != '"+(total - i)+"' for '"+i+"'");
 						}
 					}
@@ -204,7 +204,7 @@ public class ExternalMapTest{
 							// Should get all values
 							for(int i = 0; i < total; i++){
 								Integer j = reopenedMap.get(i);
-								if(!CommonFunctions.objectsEqual(j, (-1 * (total - i)))){
+								if(!HelperFunctions.objectsEqual(j, (-1 * (total - i)))){
 									System.err.println("'"+j+"' != '"+(-1 * (total - i))+"' for '"+i+"'");
 								}
 							}

@@ -22,7 +22,7 @@ package spade.transformer;
 import spade.client.QueryMetaData;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 
 import java.util.Map;
 import java.util.logging.Level;
@@ -38,7 +38,7 @@ public class Prune extends AbstractTransformer
 	public boolean initialize(String arguments)
 	{
 		// startingHash can possibly replace vertexExpression in the new world?
-		Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
+		Map<String, String> argumentsMap = HelperFunctions.parseKeyValPairs(arguments);
 		if(argumentsMap.get("startingHash") == null || argumentsMap.get("startingHash").trim().isEmpty())
 		{
 			logger.log(Level.SEVERE, "Must specify a starting Hash for vertex selection");

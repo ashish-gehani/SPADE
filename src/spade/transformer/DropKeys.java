@@ -27,7 +27,7 @@ import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Settings;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 
 import java.io.File;
 import java.util.Map;
@@ -46,7 +46,7 @@ public class DropKeys extends AbstractTransformer
 	{
 		try
 		{
-			Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
+			Map<String, String> argumentsMap = HelperFunctions.parseKeyValPairs(arguments);
 			boolean doDefaultAction = true;
 			if(argumentsMap != null)
 			{

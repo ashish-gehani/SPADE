@@ -55,7 +55,6 @@ public class OPM2ProvTC extends OPM2Prov
 	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
 	{
 		graph = super.putGraph(graph, queryMetaData);
-		graph.commitIndex();
 
 		Graph resultGraph = new Graph();
 

@@ -20,7 +20,7 @@ package spade.storage;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Cache;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -78,7 +78,7 @@ public class MySQL extends SQL
         try
         {
 
-            Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+            Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(arguments);
             // These arguments could be provided: database databaseUsername databasePassword
             String database = (argsMap.get("database") != null) ? argsMap.get("database") :
                     databaseConfigs.getProperty("database");
@@ -249,7 +249,7 @@ public class MySQL extends SQL
     public boolean putEdge(AbstractEdge incomingEdge)
     {
         String edgeHash = incomingEdge.bigHashCode();
-        if(Cache.isPresent(edgeHash))
+        if(Cache.isEdgePresent(edgeHash))
             return true;
 
         String childVertexHash = incomingEdge.getChildVertex().bigHashCode();
@@ -353,7 +353,7 @@ public class MySQL extends SQL
     public boolean putVertex(AbstractVertex incomingVertex)
     {
         String vertexHash = incomingVertex.bigHashCode();
-        if(Cache.isPresent(vertexHash))
+        if(Cache.isVertexPresent(vertexHash))
             return true;
 
         // Use StringBuilder to build the MySQL insert statement

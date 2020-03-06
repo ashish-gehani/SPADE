@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import spade.core.AbstractStorage;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
@@ -58,6 +59,7 @@ import spade.query.quickgrail.utility.ResultTable;
 public abstract class QueryInstructionExecutor{
 	
 	public abstract QueryEnvironment getQueryEnvironment();
+	public abstract Class<? extends AbstractStorage> getStorageClass();
 	
 	//////////////////////////////////////////////////////////////
 	// METADATA

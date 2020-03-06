@@ -171,10 +171,6 @@ public class BEEP extends AbstractTransformer
 			if(graph != null)
 			{
 				graph = transformer.putGraph(graph, queryMetaData);
-				if(graph != null)
-				{
-					graph.commitIndex();
-				}
 			}
 			else
 			{

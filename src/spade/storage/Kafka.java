@@ -34,7 +34,7 @@ import spade.storage.kafka.GraphElement;
 import spade.storage.kafka.JsonFileWriter;
 import spade.storage.kafka.ServerWriter;
 import spade.storage.kafka.Vertex;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.FileUtility;
 
 import java.util.ArrayList;
@@ -82,7 +82,7 @@ public class Kafka extends AbstractStorage{
 		try {
             arguments = arguments == null ? "" : arguments.trim();
            
-            Map<String, String> passedArguments = CommonFunctions.makeKeysLowerCase(CommonFunctions.parseKeyValPairs(arguments));
+            Map<String, String> passedArguments = HelperFunctions.makeKeysLowerCase(HelperFunctions.parseKeyValPairs(arguments));
             
             //if output file key exists then handle as file 
             if(passedArguments.get(OUTPUT_FILE_KEY) != null){  
@@ -91,7 +91,7 @@ public class Kafka extends AbstractStorage{
             	schemaFilename = schemaFilename == null ? "" : schemaFilename.trim();
             	
             	if(schemaFilename.isEmpty()){
-            		Map<String, String> defaultArguments = CommonFunctions.makeKeysLowerCase(FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "="));
+            		Map<String, String> defaultArguments = HelperFunctions.makeKeysLowerCase(FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "="));
             		schemaFilename = defaultArguments.get(SCHEMA_FILE_KEY);
             		if(schemaFilename == null || schemaFilename.trim().isEmpty()){
             			logger.log(Level.WARNING, "Failed to initialize storage. Missing schema file path.");
@@ -129,7 +129,7 @@ public class Kafka extends AbstractStorage{
 	            //if any of the values not gotten from user then get them from the default location
 	            Map<String, String> defaultArguments = null;
 	            if(kafkaServer == null || kafkaProducerID == null || kafkaTopic == null || schemaFilename == null){ 
-	            	defaultArguments = CommonFunctions.makeKeysLowerCase(FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "="));
+	            	defaultArguments = HelperFunctions.makeKeysLowerCase(FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "="));
 	            }
 	            
 	            if(kafkaServer == null){

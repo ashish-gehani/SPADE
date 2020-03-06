@@ -49,7 +49,7 @@ import spade.reporter.audit.artifact.NamedPipeIdentifier;
 import spade.reporter.audit.artifact.NetworkSocketIdentifier;
 import spade.reporter.audit.artifact.UnixSocketIdentifier;
 import spade.reporter.audit.artifact.UnnamedPipeIdentifier;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.Execute;
 import spade.utility.Result;
 import spade.utility.map.external.ExternalMap;
@@ -489,7 +489,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		String commandLine = null;
 		String execveArgcString = eventData.get(AuditEventReader.EXECVE_ARGC);
 		if(execveArgcString != null){
-			int execveArgc = CommonFunctions.parseInt(execveArgcString, null);
+			int execveArgc = HelperFunctions.parseInt(execveArgcString, null);
 			commandLine = "";
 			for(int a = 0; a < execveArgc; a++){
 				String execveArg = eventData.get(AuditEventReader.EXECVE_PREFIX + "a" + a);
@@ -531,7 +531,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		
-		long flags = CommonFunctions.parseLong(flagsString, 0L);
+		long flags = HelperFunctions.parseLong(flagsString, 0L);
 		String parentPid = eventData.get(AuditEventReader.PID);
 		String childPid = eventData.get(AuditEventReader.EXIT);
 		
@@ -815,7 +815,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		String readingUnitIteration = eventData.get(AuditEventReader.UNIT_ITERATION);
 		String readingUnitCount = eventData.get(AuditEventReader.UNIT_COUNT);
 		String readingUnitStartTimeString = eventData.get(AuditEventReader.UNIT_TIME);
-		Double readingUnitStartTime = CommonFunctions.parseDouble(readingUnitStartTimeString, null);
+		Double readingUnitStartTime = HelperFunctions.parseDouble(readingUnitStartTimeString, null);
 		
 		String writingUnitPid = eventData.get(AuditEventReader.UNIT_PID+0);
 		String writingUnitThreadStartTime = eventData.get(AuditEventReader.UNIT_THREAD_START_TIME+0);
@@ -823,7 +823,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		String writingUnitIteration = eventData.get(AuditEventReader.UNIT_ITERATION+0);
 		String writingUnitCount = eventData.get(AuditEventReader.UNIT_COUNT+0);
 		String writingUnitStartTimeString = eventData.get(AuditEventReader.UNIT_TIME+0);
-		Double writingUnitStartTime = CommonFunctions.parseDouble(writingUnitStartTimeString, null);
+		Double writingUnitStartTime = HelperFunctions.parseDouble(writingUnitStartTimeString, null);
 		
 		ProcessUnitState readingProcessState = getProcessUnitState(readingUnitPid, readingUnitThreadStartTime);
 		ProcessUnitState writingProcessState = getProcessUnitState(writingUnitPid, writingUnitThreadStartTime);
@@ -881,7 +881,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 					if(listOfFiles[i].isDirectory()){
 						String pid = listOfFiles[i].getName();
 						// Only handle numeric directory names
-						Integer pidInt = CommonFunctions.parseInt(pid, null);
+						Integer pidInt = HelperFunctions.parseInt(pid, null);
 						if(pidInt != null){
 							SimpleEntry<ProcessIdentifier, AgentIdentifier> processAndAgent = 
 									createProcessFromProcFS(pid, boottime);
@@ -1055,7 +1055,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 				cmdlineReader.close();
 
 				String stats[] = statline.split("\\s+");
-				double elapsedtime = CommonFunctions.parseDouble(stats[21], null) * 10;
+				double elapsedtime = HelperFunctions.parseDouble(stats[21], null) * 10;
 				String startTime = String.valueOf(boottime + elapsedtime);
 				
 				String ppidString = ppidline.split("\\s+")[1];

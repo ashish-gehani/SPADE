@@ -73,7 +73,7 @@ import spade.reporter.audit.artifact.UnnamedUnixSocketPairIdentifier;
 import spade.reporter.audit.process.ProcessManager;
 import spade.reporter.audit.process.ProcessWithAgentManager;
 import spade.reporter.audit.process.ProcessWithoutAgentManager;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.Execute;
 import spade.utility.Execute.Output;
 import spade.utility.FileUtility;
@@ -317,7 +317,7 @@ public class Audit extends AbstractReporter {
 	 * @param reportingIntervalSeconds Interval time in seconds to report stats after
 	 */
 	private boolean initReporting(String reportingIntervalSeconds){
-		Long reportingInterval = CommonFunctions.parseLong(reportingIntervalSeconds, null);
+		Long reportingInterval = HelperFunctions.parseLong(reportingIntervalSeconds, null);
 		if(reportingInterval != null){
 			if(reportingInterval < 1){ //at least 1 ms
 				logger.log(Level.INFO, "Statistics reporting turned off");
@@ -570,7 +570,7 @@ public class Audit extends AbstractReporter {
 		String mergeUnitKey = "mergeUnit";
 		String mergeUnitValue = args.get(mergeUnitKey);
 		if(mergeUnitValue != null){
-			mergeUnit = CommonFunctions.parseInt(mergeUnitValue, null);
+			mergeUnit = HelperFunctions.parseInt(mergeUnitValue, null);
 			if(mergeUnit != null){
 				if(mergeUnit < 0){ // must be positive
 					mergeUnit = null;
@@ -748,7 +748,7 @@ public class Audit extends AbstractReporter {
 		String rulesType = null;
 		String logListFile = null;
 		
-		Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+		Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(arguments);
 		Map<String, String> configMap = readDefaultConfigMap();
 		
 		// Init reporting globals
@@ -807,7 +807,7 @@ public class Audit extends AbstractReporter {
 			}
 			String recordsToRotateOutputLogAfterArgument = argsMap.get("outputLogRotate");
 			if(recordsToRotateOutputLogAfterArgument != null){
-				Long parsedOutputLogRotate = CommonFunctions.parseLong(recordsToRotateOutputLogAfterArgument, null);
+				Long parsedOutputLogRotate = HelperFunctions.parseLong(recordsToRotateOutputLogAfterArgument, null);
 				if(parsedOutputLogRotate == null){
 					logger.log(Level.SEVERE, "Invalid value for 'outputLogRotate': "+ recordsToRotateOutputLogAfterArgument);
 					return false;
@@ -1551,11 +1551,11 @@ public class Audit extends AbstractReporter {
 	
 	private boolean removeControllerNetworkKernelModule(){
 		String controllerModulePath = kernelModuleControllerPath;
-		if(CommonFunctions.isNullOrEmpty(controllerModulePath)){
+		if(HelperFunctions.isNullOrEmpty(controllerModulePath)){
 			logger.log(Level.WARNING, "NULL/Empty controller kernel module path: " + controllerModulePath);
 		}else{
 			String controllerModuleName = getKernelModuleName(controllerModulePath);
-			if(CommonFunctions.isNullOrEmpty(controllerModuleName)){
+			if(HelperFunctions.isNullOrEmpty(controllerModuleName)){
 				logger.log(Level.SEVERE, "Failed to get module name from module path: " + controllerModulePath);
 			}else{
 				Boolean controllerModuleExists = kernelModuleExists(controllerModuleName);
@@ -2025,9 +2025,9 @@ public class Audit extends AbstractReporter {
 		SYSCALL syscall = null;
 		try{
 			String pid = eventData.get(AuditEventReader.PID);
-			Integer syscallNumber = CommonFunctions.parseInt(eventData.get(AuditEventReader.SYSCALL), null);
+			Integer syscallNumber = HelperFunctions.parseInt(eventData.get(AuditEventReader.SYSCALL), null);
 			String exit = eventData.get(AuditEventReader.EXIT);
-			int success = CommonFunctions.parseInt(eventData.get(AuditEventReader.SUCCESS), -1);
+			int success = HelperFunctions.parseInt(eventData.get(AuditEventReader.SUCCESS), -1);
 			String sockFd = eventData.get(AuditEventReader.KMODULE_FD);
 			int sockType = Integer.parseInt(eventData.get(AuditEventReader.KMODULE_SOCKTYPE));
 			String localSaddr = eventData.get(AuditEventReader.KMODULE_LOCAL_SADDR);
@@ -2141,7 +2141,7 @@ public class Audit extends AbstractReporter {
 			
 			processManager.processSeenInUnsupportedSyscall(eventData); // Always set first because that is what is done in spadeAuditBridge and it is updated if syscall handled.
 			
-			int syscallNum = CommonFunctions.parseInt(eventData.get(AuditEventReader.SYSCALL), -1);
+			int syscallNum = HelperFunctions.parseInt(eventData.get(AuditEventReader.SYSCALL), -1);
 			
 			if(syscallNum == -1){
 				return;
@@ -2408,7 +2408,7 @@ public class Audit extends AbstractReporter {
 		String length = new BigInteger(eventData.get(AuditEventReader.ARG1)).toString(16);
 		String adviceString = eventData.get(AuditEventReader.ARG2);
 
-		Integer adviceInt = CommonFunctions.parseInt(adviceString, null);
+		Integer adviceInt = HelperFunctions.parseInt(adviceString, null);
 		if(adviceInt == null){
 			log(Level.WARNING, "Expected 3rd argument (a2) to be integer but is '"+adviceString+"'", 
 					null, time, eventId, syscall);
@@ -2463,7 +2463,7 @@ public class Audit extends AbstractReporter {
 		String whenceString = eventData.get(AuditEventReader.ARG2);
 		String offsetActual = eventData.get(AuditEventReader.EXIT);
 		
-		Integer whence = CommonFunctions.parseInt(whenceString, null);
+		Integer whence = HelperFunctions.parseInt(whenceString, null);
 		if(whence == null){
 			log(Level.WARNING, "Expected 3rd argument (a2) to be integer but is '"+whenceString+"'", 
 					null, time, eventId, syscall);
@@ -2563,8 +2563,8 @@ public class Audit extends AbstractReporter {
 		String cmdString = eventData.get(AuditEventReader.ARG1);
 		String flagsString = eventData.get(AuditEventReader.ARG2);
 		
-		int cmd = CommonFunctions.parseInt(cmdString, -1);
-		int flags = CommonFunctions.parseInt(flagsString, -1);
+		int cmd = HelperFunctions.parseInt(cmdString, -1);
+		int flags = HelperFunctions.parseInt(flagsString, -1);
 		
 		if(cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC){
 			// In eventData, there should be a pid, a0 should be fd, and exit should be the new fd 
@@ -2608,7 +2608,7 @@ public class Audit extends AbstractReporter {
 		String length = new BigInteger(eventData.get(AuditEventReader.ARG1)).toString(16); //convert to hexadecimal
 		String protection = new BigInteger(eventData.get(AuditEventReader.ARG2)).toString(16); //convert to hexadecimal
 		
-		int flags = CommonFunctions.parseInt(eventData.get(AuditEventReader.ARG3), 0);
+		int flags = HelperFunctions.parseInt(eventData.get(AuditEventReader.ARG3), 0);
 		
 		// Put Process, Memory artifact and WasGeneratedBy edge always but return if flag
 		// is MAP_ANONYMOUS
@@ -2782,7 +2782,7 @@ public class Audit extends AbstractReporter {
 		String path = pathRecord.getPath();
 		// If not absolute then only run the following logic according to the manpage
 		if(!path.startsWith(File.separator)){
-			Long dirFd = CommonFunctions.parseLong(eventData.get(AuditEventReader.ARG0), -1L);
+			Long dirFd = HelperFunctions.parseLong(eventData.get(AuditEventReader.ARG0), -1L);
 	
 			//according to manpage if following true then use cwd if path not absolute, which is already handled by open
 			if(dirFd != AT_FDCWD){ //checking if cwd needs to be replaced by dirFd's path
@@ -2819,8 +2819,8 @@ public class Audit extends AbstractReporter {
 
 		//three syscalls can come here: OPEN (for files and pipes), OPENAT (for files and pipes), CREAT (only for files)
 
-		Long flags = CommonFunctions.parseLong(eventData.get(AuditEventReader.ARG1), 0L);
-		Long modeArg = CommonFunctions.parseLong(eventData.get(AuditEventReader.ARG2), 0L);
+		Long flags = HelperFunctions.parseLong(eventData.get(AuditEventReader.ARG1), 0L);
+		Long modeArg = HelperFunctions.parseLong(eventData.get(AuditEventReader.ARG2), 0L);
 		
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String pid = eventData.get(AuditEventReader.PID);
@@ -2929,7 +2929,7 @@ public class Audit extends AbstractReporter {
 		// - SYSCALL
 		// - EOE
 		String pid = eventData.get(AuditEventReader.PID);
-		String fd = String.valueOf(CommonFunctions.parseLong(eventData.get(AuditEventReader.ARG0), -1L));
+		String fd = String.valueOf(HelperFunctions.parseLong(eventData.get(AuditEventReader.ARG0), -1L));
 		ArtifactIdentifier closedArtifactIdentifier = processManager.removeFd(pid, fd);
 		
 		if(CONTROL){
@@ -3363,7 +3363,7 @@ public class Audit extends AbstractReporter {
 		// If not absolute then only run the following logic according to the manpage
 		if(!path.startsWith(File.separator)){
 			String fd = eventData.get(AuditEventReader.ARG0);
-			Long fdLong = CommonFunctions.parseLong(fd, null);
+			Long fdLong = HelperFunctions.parseLong(fd, null);
 
 			ArtifactIdentifier artifactIdentifier = null;
 
@@ -3681,7 +3681,7 @@ public class Audit extends AbstractReporter {
 			// have enough annotations for the target process.
 			if(targetProcess != null){
 				String signalString = eventData.get(AuditEventReader.ARG1);
-				Integer signal = CommonFunctions.parseInt(signalString, null);
+				Integer signal = HelperFunctions.parseInt(signalString, null);
 				
 				if(signal != null){
 					String signalAnnotation = String.valueOf(signal);
@@ -3711,7 +3711,7 @@ public class Audit extends AbstractReporter {
 		// have enough annotations for the target process.
 		if(targetProcess != null){
 			String actionString = eventData.get(AuditEventReader.ARG0);
-			Integer action = CommonFunctions.parseInt(actionString, null);
+			Integer action = HelperFunctions.parseInt(actionString, null);
 			
 			// If the action argument is valid only then can continue because only handling some
 			if(action != null){
@@ -3745,8 +3745,8 @@ public class Audit extends AbstractReporter {
 		String sockTypeString = eventData.get(AuditEventReader.ARG1);
 		String fdTgid = processManager.getFdTgid(pid);
 		
-		int domain = CommonFunctions.parseInt(domainString, null); // Let exception be thrown
-		int sockType = CommonFunctions.parseInt(sockTypeString, null);
+		int domain = HelperFunctions.parseInt(domainString, null); // Let exception be thrown
+		int sockType = HelperFunctions.parseInt(sockTypeString, null);
 		
 		String protocol = getProtocolNameBySockType(sockType);
 		
@@ -3832,7 +3832,7 @@ public class Audit extends AbstractReporter {
     		return;
     	}
     	
-    	Integer protocolNumber = CommonFunctions.parseInt(protocolNumberString, null);
+    	Integer protocolNumber = HelperFunctions.parseInt(protocolNumberString, null);
     	String protocolName = getProtocolName(protocolNumber);
     	protocolName = protocolName == null ? "" : protocolName; // put empty if null
     	
@@ -3946,7 +3946,7 @@ public class Audit extends AbstractReporter {
 		// - SYSCALL
 		// - EOE
 		String sockFd = eventData.get(AuditEventReader.EXIT);
-		Integer socketType = CommonFunctions.parseInt(eventData.get(AuditEventReader.ARG1), null);
+		Integer socketType = HelperFunctions.parseInt(eventData.get(AuditEventReader.ARG1), null);
 		String protocolName = getProtocolNameBySockType(socketType);
 		
 		if(protocolName != null){
@@ -4097,7 +4097,7 @@ public class Audit extends AbstractReporter {
 		String saddr = eventData.get(AuditEventReader.SADDR);
 		String sockFd = eventData.get(AuditEventReader.ARG0);
 		
-		Integer exit = CommonFunctions.parseInt(eventData.get(AuditEventReader.EXIT), null);
+		Integer exit = HelperFunctions.parseInt(eventData.get(AuditEventReader.EXIT), null);
 		if(exit == null){
 			log(Level.WARNING, "Failed to parse exit value: " + eventData.get(AuditEventReader.EXIT), 
 					null, time, eventId, syscall);
@@ -4318,7 +4318,7 @@ public class Audit extends AbstractReporter {
 			ArtifactIdentifier fdIdentifier = processManager.getFd(pid, sockFd);
 			if(fdIdentifier instanceof NetworkSocketIdentifier){
 				NetworkSocketIdentifier fdNetworkIdentifier = (NetworkSocketIdentifier)fdIdentifier;
-				if(CommonFunctions.isNullOrEmpty(fdNetworkIdentifier.getRemoteHost())){
+				if(HelperFunctions.isNullOrEmpty(fdNetworkIdentifier.getRemoteHost())){
 					// Connection based IO
 					identifier = recordIdentifier;
 				}else{
@@ -4500,7 +4500,7 @@ public class Audit extends AbstractReporter {
 				log(Level.INFO, "Missing FD", null, time, eventId, syscall);
 				return null;
 			}else{
-				Long fd = CommonFunctions.parseLong(fdString, -1L);
+				Long fd = HelperFunctions.parseLong(fdString, -1L);
 				if(fd == AT_FDCWD){
 					if(cwd == null){
 						log(Level.INFO, "Missing CWD record", null, time, eventId, syscall);
@@ -4638,7 +4638,7 @@ public class Audit extends AbstractReporter {
 	private List<PathRecord> getPathsWithNametype(Map<String, String> eventData, String nametypeValue){
 		List<PathRecord> pathRecords = new ArrayList<PathRecord>();
 		if(eventData != null && nametypeValue != null){
-			Long items = CommonFunctions.parseLong(eventData.get(AuditEventReader.ITEMS), 0L);
+			Long items = HelperFunctions.parseLong(eventData.get(AuditEventReader.ITEMS), 0L);
 			for(int itemcount = 0; itemcount < items; itemcount++){
 				if(nametypeValue.equals(eventData.get(AuditEventReader.NAMETYPE_PREFIX+itemcount))){
 					PathRecord pathRecord = new PathRecord(itemcount, 

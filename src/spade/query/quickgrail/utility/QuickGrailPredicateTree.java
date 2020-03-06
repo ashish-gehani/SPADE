@@ -27,6 +27,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
 
@@ -205,45 +206,66 @@ public class QuickGrailPredicateTree{
 		System.out.println("***Test2-end");
 	}
 	
+	public static void testSer3(PredicateNode node) throws Throwable{
+		System.out.println("***Test3-start");
+		System.out.println("original="+node);
+		String serialized = serializePredicateNode(node);
+		System.out.println("byteslength=" + serialized.length() + ", " + serialized);
+		PredicateNode newNode = deserializePredicateNodePostfix(serialized);
+		System.out.println("copy="+newNode);
+		System.out.println("***Test3-end");
+	}
+	
 	public static String serializePredicateNode(PredicateNode node){
 		StringBuilder buffer = new StringBuilder(50);
-		serializePredicateNodeInOrder(node, buffer);
+		serializePredicateNodePostfix(node, buffer);
 		return buffer.toString();
 	}
 	
-	private static void serializePredicateNodeInOrder(PredicateNode node, StringBuilder buffer){
+	private static void serializePredicateNodePostfix(PredicateNode node, StringBuilder buffer){
 		if(node.left != null){
-			serializePredicateNodeInOrder(node.left, buffer);
+			serializePredicateNodePostfix(node.left, buffer);
+		}
+		if(node.right != null){
+			serializePredicateNodePostfix(node.right, buffer);
 		}
 		if(node.left == null && node.right == null){ // encode terminal nodes
-			buffer.append(Hex.encodeHexString(node.value.getBytes()) + " ");
+			String newValue = "'" + node.value + "'";
+			buffer.append(Hex.encodeHexString(newValue.getBytes()) + " ");
 		}else{
 			buffer.append(node.value + " ");
 		}
-		if(node.right != null){
-			serializePredicateNodeInOrder(node.right, buffer);
-		}
 	}
 	
-	public static PredicateNode deserializePredicateNode(String predicateNodeString){
+	public static PredicateNode deserializePredicateNodePostfix(String predicateNodeString) throws Throwable{
+		LinkedList<PredicateNode> stack = new LinkedList<PredicateNode>();
 		String[] tokens = predicateNodeString.split("\\s+");
-		
-		PredicateNode node = null;
 		
 		for(int i = 0; i < tokens.length; i++){
 			String token = tokens[i];
 			if(validComparators.contains(token)
 					|| token.equals(BOOLEAN_OPERATOR_AND)
 					|| token.equals(BOOLEAN_OPERATOR_OR)){ // must have two operands
-				
+				PredicateNode operator = new PredicateNode(token);
+				PredicateNode right = stack.pop();
+				PredicateNode left = stack.pop();
+				operator.right = right;
+				operator.left = left;
+				stack.push(operator);
 			}else if(token.equals(BOOLEAN_OPERATOR_NOT)){ // must have one operand
-				
+				PredicateNode operator = new PredicateNode(token);
+				PredicateNode left = stack.pop();
+				operator.left = left;
+				stack.push(operator);
 			}else{ // terminal node
-				
+				String newToken = new String(Hex.decodeHex(token.toCharArray()));
+				newToken = newToken.substring(1, newToken.length() - 1);
+				PredicateNode newNode = new PredicateNode(newToken);
+				stack.push(newNode);
 			}
 		}
 		
-		return null;
+		return stack.pop();
 	}
 	
 	public static class PredicateNode implements Serializable{
@@ -273,38 +295,64 @@ public class QuickGrailPredicateTree{
 		
 		public String toString(){
 			return toStringFileTree();
-//			return printInOrder();
 		}
 		
-		public String printInOrder(){
-			StringBuilder buffer = new StringBuilder(50);
-			printInOrder(buffer);
-			return buffer.toString();
-		}
-		
-		private void printInOrder(StringBuilder buffer){
-			if(left != null)
-				left.printInOrder(buffer);
-			if(left == null && right == null){ // encode terminal nodes
-				buffer.append(Hex.encodeHexString(value.getBytes()) + " ");
-			}else{
-				buffer.append(value + " ");
+		public String toStringInOrder(){
+			LinkedList<String> values = new LinkedList<String>();
+			printToStringInOrder(values);
+			
+			String str = "";
+			for(String value : values){
+				if(validComparators.contains(value) || value.equals(BOOLEAN_OPERATOR_AND) || value.equals(BOOLEAN_OPERATOR_OR) || value.equals(BOOLEAN_OPERATOR_NOT)){
+					str += " " + value + " ";
+				}else{
+					str += value;
+				}
 			}
-			if(right != null)
-				right.printInOrder(buffer);
+			return str;
 		}
+		
+		private void printToStringInOrder(LinkedList<String> values){
+			boolean isNot = value.equals(BOOLEAN_OPERATOR_NOT);
+			if(isNot){
+				values.add(value);
+			}
+			
+			if(left != null){
+				values.add("(");
+				left.printToStringInOrder(values);
+			}
+//			boolean printParens = validComparators.contains(value)  || value.equals(BOOLEAN_OPERATOR_AND)  || value.equals(BOOLEAN_OPERATOR_OR);
+//			boolean printParens = left == null && right == null;
+//			if(printParens){
+//				str.append("(");
+//			}
+			
+			if(!isNot){
+				values.addLast(value);
+			}
+//			if(printParens){
+//				str.append(")");
+//			}
+//			str.append(" ");
+			if(right != null){
+				right.printToStringInOrder(values);
+				values.add(")");
+			}
+		}
+
 
 		private void print(StringBuilder buffer, String prefix, String childrenPrefix){
 			buffer.append(prefix);
 			buffer.append(value);
 			buffer.append('\n');
 			if(left != null && right != null){
-				left.print(buffer, childrenPrefix + "├── ", childrenPrefix + "│   ");
-				right.print(buffer, childrenPrefix + "└── ", childrenPrefix + "    ");
+				left.print(buffer, childrenPrefix + "|-- ", childrenPrefix + "|   ");
+				right.print(buffer, childrenPrefix + "|-- ", childrenPrefix + "    ");
 			}else if(left != null && right == null){
-				left.print(buffer, childrenPrefix + "└── ", childrenPrefix + "    ");
+				left.print(buffer, childrenPrefix + "|-- ", childrenPrefix + "    ");
 			}else if(left == null && right != null){
-				right.print(buffer, childrenPrefix + "└── ", childrenPrefix + "    ");
+				right.print(buffer, childrenPrefix + "|-- ", childrenPrefix + "    ");
 			}
 		}
 	}

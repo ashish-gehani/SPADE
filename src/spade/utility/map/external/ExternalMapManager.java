@@ -23,7 +23,7 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.Converter;
 import spade.utility.FileUtility;
 import spade.utility.Result;
@@ -41,7 +41,7 @@ import spade.utility.map.external.store.StoreManager;
 public class ExternalMapManager{
 
 	public static Result<Boolean> validateMapId(String mapId){
-		if(CommonFunctions.isNullOrEmpty(mapId)){
+		if(HelperFunctions.isNullOrEmpty(mapId)){
 			return Result.failed("NULL/Empty external map id");
 		}else if(mapId.contains(" ") || mapId.contains(".")){
 			return Result.failed("External map id must not contain empty spaces or dot ('.'): '"+mapId+"'");
@@ -55,7 +55,7 @@ public class ExternalMapManager{
 		if(validMapIdResult.error){
 			return Result.failed("Invalid external map id", validMapIdResult);
 		}else{
-			if(CommonFunctions.isNullOrEmpty(filePath)){
+			if(HelperFunctions.isNullOrEmpty(filePath)){
 				return Result.failed("NULL/Empty external map argument file path");
 			}else{
 				Result<HashMap<String, String>> mapResult = FileUtility.parseKeysValuesInConfigFile(filePath);
@@ -147,7 +147,7 @@ public class ExternalMapManager{
 		if(validMapIdResult.error){
 			return Result.failed("Invalid external map id", validMapIdResult);
 		}else{
-			Result<HashMap<String, String>> mapArgumentParseResult = CommonFunctions.parseKeysValuesInString(mapArgumentString);
+			Result<HashMap<String, String>> mapArgumentParseResult = HelperFunctions.parseKeysValuesInString(mapArgumentString);
 			if(mapArgumentParseResult.error){
 				return Result.failed("Failed to parse map argument", mapArgumentParseResult);
 			}else{
@@ -155,14 +155,14 @@ public class ExternalMapManager{
 				String reportingSecondsString = mapArgumentMap.get(ExternalMapArgument.keyMapReportingSeconds);
 				Long reportingIntervalMillis = null;
 				if(reportingSecondsString != null){
-					Result<Long> reportingResult = CommonFunctions.parseLong(reportingSecondsString, 10, 1, Integer.MAX_VALUE);
+					Result<Long> reportingResult = HelperFunctions.parseLong(reportingSecondsString, 10, 1, Integer.MAX_VALUE);
 					if(reportingResult.error){
 						return Result.failed("Invalid map reporting seconds", reportingResult);
 					}else{
 						reportingIntervalMillis = reportingResult.result * 1000;
 					}
 				}
-				Result<Boolean> flushResult = CommonFunctions.parseBoolean(mapArgumentMap.get(ExternalMapArgument.keyMapFlushOnClose));
+				Result<Boolean> flushResult = HelperFunctions.parseBoolean(mapArgumentMap.get(ExternalMapArgument.keyMapFlushOnClose));
 				if(flushResult.error){
 					return Result.failed("Failed to parse flush on close value", flushResult);
 				}else{

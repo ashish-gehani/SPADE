@@ -29,7 +29,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -37,7 +39,10 @@ import java.net.SocketTimeoutException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.KeyStore;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.cert.Certificate;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Collections;
 import java.util.Date;
@@ -58,12 +63,12 @@ import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
-import org.apache.commons.io.FileUtils;
-
 import spade.filter.FinalCommitFilter;
+import spade.utility.HostInfo;
 import spade.utility.LogManager;
 
 /**
@@ -96,6 +101,34 @@ public class Kernel
      * Path to configuration files.
      */
     public static final String CONFIG_PATH = SPADE_ROOT + FILE_SEPARATOR + "cfg";
+    /**
+     * Name of keys folder.
+     */
+    public static final String KEYS_FOLDER = "keys";
+    /**
+     * Name of keystore folders.
+     */
+    public static final String KEYSTORE_FOLDER = "keystore";
+    /**
+     * Name of private keys folder.
+     */
+    public static final String PRIVATE_KEYS_FOLDER = "private";
+    /**
+     * Name of public keys folder.
+     */
+    public static final String PUBLIC_KEYS_FOLDER = "public";
+    /**
+     * Password for private keystore.
+     */
+    public static final String PASSWORD_PRIVATE_KEYSTORE = "private_password";
+    /**
+     * Password for public keystore.
+     */
+    public static final String PASSWORD_PUBLIC_KEYSTORE = "public_password";
+    /**
+     * Public name for this host.
+     */
+    public static String HOST_NAME = null;
     /**
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
@@ -228,7 +261,31 @@ public class Kernel
     public static SSLSocketFactory sslSocketFactory;
     public static SSLServerSocketFactory sslServerSocketFactory;
 
-    private final static int CONTROL_CLIENT_READ_TIMEOUT = 1000; //time to timeout after when reading from the control client socket
+    //time to timeout after when reading from the control client socket
+    private final static int CONTROL_CLIENT_READ_TIMEOUT = 1000;
+
+    // reads name of the host
+    private static void getHostName()
+    {
+        String hostName = HostInfo.getHostName();
+        if(hostName != null)
+        {
+            try(PrintWriter out = new PrintWriter("hostname.txt"))
+            {
+                HOST_NAME = hostName;
+                out.println(hostName);
+            } catch(Exception ex)
+            {
+                logger.log(Level.WARNING, "error saving hostname to file");
+            }
+        }
+    }
+    
+    public static SSLSocket sslConnect(String remoteAddress, int port, int timeout) throws Exception{
+    	SSLSocket socket = (SSLSocket)sslSocketFactory.createSocket();
+    	socket.connect(new InetSocketAddress(remoteAddress, port), timeout);
+    	return socket;
+    }
 
     /**
      * The main initialization function.
@@ -273,6 +330,8 @@ public class Kernel
             System.err.println("Error initializing exception logger");
         }
 
+        getHostName();
+
         registerShutdownThread();
 
         initializeObjects();
@@ -287,20 +346,21 @@ public class Kernel
 
     private static void setupKeyStores() throws Exception
     {
-        String KEYSTORE_PATH = CONFIG_PATH + FILE_SEPARATOR + "ssl";
-        String SERVER_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "server.public";
-        String SERVER_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "server.private";
-        String CLIENT_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "client.public";
-        String CLIENT_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "client.private";
-        
+        String KEYS_PATH = CONFIG_PATH + FILE_SEPARATOR + KEYS_FOLDER;
+        String KEYSTORE_PATH = KEYS_PATH + FILE_SEPARATOR + KEYSTORE_FOLDER;
+        String SERVER_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "serverpublic.keystore";
+        String SERVER_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "serverprivate.keystore";
+        String CLIENT_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "clientpublic.keystore";
+        String CLIENT_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "clientprivate.keystore";
+
         serverKeyStorePublic = KeyStore.getInstance("JKS");
-        serverKeyStorePublic.load(new FileInputStream(SERVER_PUBLIC_PATH), "public".toCharArray());
+        serverKeyStorePublic.load(new FileInputStream(SERVER_PUBLIC_PATH), PASSWORD_PUBLIC_KEYSTORE.toCharArray());
         serverKeyStorePrivate = KeyStore.getInstance("JKS");
-        serverKeyStorePrivate.load(new FileInputStream(SERVER_PRIVATE_PATH), "private".toCharArray());
+        serverKeyStorePrivate.load(new FileInputStream(SERVER_PRIVATE_PATH), PASSWORD_PRIVATE_KEYSTORE.toCharArray());
         clientKeyStorePublic = KeyStore.getInstance("JKS");
-        clientKeyStorePublic.load(new FileInputStream(CLIENT_PUBLIC_PATH), "public".toCharArray());
+        clientKeyStorePublic.load(new FileInputStream(CLIENT_PUBLIC_PATH), PASSWORD_PUBLIC_KEYSTORE.toCharArray());
         clientKeyStorePrivate = KeyStore.getInstance("JKS");
-        clientKeyStorePrivate.load(new FileInputStream(CLIENT_PRIVATE_PATH), "private".toCharArray());
+        clientKeyStorePrivate.load(new FileInputStream(CLIENT_PRIVATE_PATH), PASSWORD_PRIVATE_KEYSTORE.toCharArray());
     }
 
     private static void setupClientSSLContext() throws Exception
@@ -311,7 +371,7 @@ public class Kernel
         TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
         tmf.init(serverKeyStorePublic);
         KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-        kmf.init(clientKeyStorePrivate, "private".toCharArray());
+        kmf.init(clientKeyStorePrivate, PASSWORD_PRIVATE_KEYSTORE.toCharArray());
 
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
@@ -326,7 +386,7 @@ public class Kernel
         TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
         tmf.init(clientKeyStorePublic);
         KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-        kmf.init(serverKeyStorePrivate, "private".toCharArray());
+        kmf.init(serverKeyStorePrivate, PASSWORD_PRIVATE_KEYSTORE.toCharArray());
 
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
@@ -338,6 +398,34 @@ public class Kernel
         ((SSLServerSocket) serverSocket).setNeedClientAuth(true);
         addServerSocket(serverSocket);
         return serverSocket;
+    }
+
+    public static PrivateKey getServerPrivateKey(String alias)
+    {
+        try
+        {
+            KeyStore.ProtectionParameter protectionParameter =
+                    new KeyStore.PasswordProtection(PASSWORD_PRIVATE_KEYSTORE.toCharArray());
+            KeyStore.PrivateKeyEntry privateKeyEntry = (KeyStore.PrivateKeyEntry) serverKeyStorePrivate.getEntry(alias, protectionParameter);
+            return privateKeyEntry.getPrivateKey();
+        } catch(Exception ex)
+        {
+            logger.log(Level.SEVERE, "Error getting server private key", ex);
+            return null;
+        }
+    }
+
+    public static PublicKey getServerPublicKey(String alias)
+    {
+        try
+        {
+            Certificate certificate = serverKeyStorePublic.getCertificate(alias);
+            return certificate.getPublicKey();
+        } catch(Exception ex)
+        {
+            logger.log(Level.SEVERE, "Error getting server public key", ex);
+            return null;
+        }
     }
 
     public static void addServerSocket(ServerSocket socket)
@@ -911,7 +999,6 @@ public class Kernel
                         storage.edgeCount = 0;
                         storages.add(storage);
                         logger.log(Level.INFO, "Storage added: {0}", className + " " + arguments);
-                        logger.log(Level.INFO, "currentStorage set to "+ storage.getClass().getName());
                         outputStream.println("done");
                     }
                     else

@@ -38,7 +38,7 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang.exception.ExceptionUtils;
 
 import spade.core.Settings;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.FileUtility;
 
 /**
@@ -237,7 +237,7 @@ public class AuditEventReader {
 			if(new File(defaultConfigFilePath).exists()){
 				Map<String, String> properties = FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "=");
 				if(properties != null && properties.size() > 0){
-					Long reportingInterval = CommonFunctions.parseLong(properties.get("reportingIntervalSeconds"), null);
+					Long reportingInterval = HelperFunctions.parseLong(properties.get("reportingIntervalSeconds"), null);
 					if(reportingInterval != null){
 						if(reportingInterval < 1){ //at least 1 ms
 							logger.log(Level.INFO, "Statistics reporting turned off");
@@ -581,7 +581,7 @@ public class AuditEventReader {
 						valueEndIndex = originalRecord.length();
 					}
 					String hexValue = originalRecord.substring(valueStartIndex, valueEndIndex);
-					return CommonFunctions.decodeHex(hexValue);
+					return HelperFunctions.decodeHex(hexValue);
 				}
 			}
 		}
@@ -662,7 +662,7 @@ public class AuditEventReader {
 			auditRecordKeyValues.put(EVENT_ID, String.valueOf(UBSIEntryEventId));
 			
 			String msgData = line.substring(line.indexOf(" ppid="));
-			auditRecordKeyValues.putAll(CommonFunctions.parseKeyValPairs(msgData));
+			auditRecordKeyValues.putAll(HelperFunctions.parseKeyValPairs(msgData));
 			
 			String comm = _parseAuditString(line, " comm=");
 			auditRecordKeyValues.put(COMM, comm);
@@ -683,9 +683,9 @@ public class AuditEventReader {
 					if(indexOfData != -1){
 						String data = messageData.substring(indexOfData + KMODULE_DATA_KEY.length() + 1);
 						data = data.substring(1, data.length() - 1);// remove quotes
-						Map<String, String> eventData = CommonFunctions.parseKeyValPairs(data);
+						Map<String, String> eventData = HelperFunctions.parseKeyValPairs(data);
 						eventData.put(RECORD_TYPE_KEY, KMODULE_RECORD_TYPE);
-						eventData.put(COMM, CommonFunctions.decodeHex(eventData.get(COMM)));
+						eventData.put(COMM, HelperFunctions.decodeHex(eventData.get(COMM)));
 						eventData.put(TIME, time);
 						auditRecordKeyValues.putAll(eventData);
 					}else{
@@ -693,22 +693,22 @@ public class AuditEventReader {
 						if(indexOfData != -1){
 							String data = messageData.substring(indexOfData + UBSI_INTERCEPTED_DATA_KEY.length() + 1);
 							data = data.substring(1, data.length() - 1);// remove quotes
-							Map<String, String> eventData = CommonFunctions.parseKeyValPairs(data);
+							Map<String, String> eventData = HelperFunctions.parseKeyValPairs(data);
 							eventData.put(RECORD_TYPE_KEY, RECORD_TYPE_SYSCALL);
-							eventData.put(COMM, CommonFunctions.decodeHex(eventData.get(COMM)));
+							eventData.put(COMM, HelperFunctions.decodeHex(eventData.get(COMM)));
 							eventData.put(TIME, time);
 							auditRecordKeyValues.putAll(eventData);
 						}else{
 							indexOfData = messageData.indexOf(" syscall=62 ");
-							Map<String, String> eventData = CommonFunctions.parseKeyValPairs(messageData);
+							Map<String, String> eventData = HelperFunctions.parseKeyValPairs(messageData);
 							eventData.put(RECORD_TYPE_KEY, RECORD_TYPE_SYSCALL);
-							eventData.put(COMM, CommonFunctions.decodeHex(eventData.get(COMM)));
+							eventData.put(COMM, HelperFunctions.decodeHex(eventData.get(COMM)));
 							eventData.put(TIME, time);
 							auditRecordKeyValues.putAll(eventData);
 						}
 					}
 				}else if (type.equals(RECORD_TYPE_SYSCALL)) {
-					Map<String, String> eventData = CommonFunctions.parseKeyValPairs(messageData);
+					Map<String, String> eventData = HelperFunctions.parseKeyValPairs(messageData);
 					String commValue = _parseAuditString(line, " comm=");
 					eventData.put(COMM, commValue);
 					eventData.put(TIME, time);
@@ -717,7 +717,7 @@ public class AuditEventReader {
 					String cwd = _parseAuditString(line, " cwd=");
 					auditRecordKeyValues.put(CWD, cwd);
 				} else if (type.equals(RECORD_TYPE_PATH)) {
-					Map<String, String> pathKeyValues = CommonFunctions.parseKeyValPairs(messageData);
+					Map<String, String> pathKeyValues = HelperFunctions.parseKeyValPairs(messageData);
 					String itemNumber = pathKeyValues.get("item");
 					String mode = pathKeyValues.get("mode");
 					mode = mode == null ? "0" : mode;
@@ -729,10 +729,10 @@ public class AuditEventReader {
 					auditRecordKeyValues.put(NAMETYPE_PREFIX + itemNumber, nametype);
 					auditRecordKeyValues.put(MODE_PREFIX + itemNumber, mode);
 				} else if (type.equals(RECORD_TYPE_EXECVE)) {
-					Map<String, String> tempKeyValues = CommonFunctions.parseKeyValPairs(line);
+					Map<String, String> tempKeyValues = HelperFunctions.parseKeyValPairs(line);
 					String argcString = tempKeyValues.get("argc");
 					auditRecordKeyValues.put(EXECVE_ARGC, argcString);
-					Integer argc = CommonFunctions.parseInt(argcString, null);
+					Integer argc = HelperFunctions.parseInt(argcString, null);
 					if(argc != null){
 						for(int i = 0; i < argc; i++){
 							String key = "a"+i;

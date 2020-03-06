@@ -22,7 +22,7 @@ package spade.utility.profile;
 import java.util.HashMap;
 import java.util.Map;
 
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.Result;
 
 /**
@@ -79,10 +79,10 @@ public class ReportingArgument{
 	}
 	
 	public static Result<ReportingArgument> parseReportingArgument(final String argumentString){
-		if(CommonFunctions.isNullOrEmpty(argumentString)){
+		if(HelperFunctions.isNullOrEmpty(argumentString)){
 			return Result.successful(null);
 		}else{
-			Result<HashMap<String, String>> mapResult = CommonFunctions.parseKeysValuesInString(argumentString);
+			Result<HashMap<String, String>> mapResult = HelperFunctions.parseKeysValuesInString(argumentString);
 			if(mapResult.error){
 				return Result.failed("Failed to parse map from argument string", mapResult);
 			}else{
@@ -108,13 +108,13 @@ public class ReportingArgument{
 		}else if(id == null && secondsString == null){
 			return Result.successful(null);
 		}else{
-			if(CommonFunctions.isNullOrEmpty(id)){
+			if(HelperFunctions.isNullOrEmpty(id)){
 				return Result.failed("NULL/Empty '"+ReportingArgument.keyReportingId+"'");
 			}else{
-				if(CommonFunctions.isNullOrEmpty(secondsString)){
+				if(HelperFunctions.isNullOrEmpty(secondsString)){
 					return Result.failed("NULL/Empty '"+ReportingArgument.keyReportingSeconds+"'");
 				}else{
-					Result<Long> secondsResult = CommonFunctions.parseLong(secondsString, 10, 1, Integer.MAX_VALUE);
+					Result<Long> secondsResult = HelperFunctions.parseLong(secondsString, 10, 1, Integer.MAX_VALUE);
 					if(secondsResult.error){
 						return Result.failed("Invalid '"+ReportingArgument.keyReportingSeconds+"'", secondsResult);
 					}else{

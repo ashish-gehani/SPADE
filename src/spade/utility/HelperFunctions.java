@@ -36,9 +36,9 @@ import org.apache.commons.codec.binary.Hex;
 
 import spade.core.Settings;
 
-public class CommonFunctions {
+public class HelperFunctions{
 
-	private static final Logger logger = Logger.getLogger(CommonFunctions.class.getName());
+	private static final Logger logger = Logger.getLogger(HelperFunctions.class.getName());
 	// Group 1: key
     // Group 2: value
     private static final Pattern pattern_key_value = Pattern.compile("(\\w+)=\"*((?<=\")[^\"]+(?=\")|([^\\s]+))\"*");
@@ -439,7 +439,7 @@ public class CommonFunctions {
 	public static <X extends Enum<X>> Result<X> parseEnumValue(Class<X> clazz, String value){
 		if(clazz == null){
 			return Result.failed("NULL enum class");
-		}else if(CommonFunctions.isNullOrEmpty(value)){
+		}else if(HelperFunctions.isNullOrEmpty(value)){
 			return Result.failed("NULL/Empty enum value for class: '"+clazz.getName()+"'");
 		}else{
 			for(X x : clazz.getEnumConstants()){

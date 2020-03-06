@@ -46,7 +46,7 @@ import spade.core.Cache;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.storage.postgresql.PostgreSQLInstructionExecutor;
 import spade.storage.postgresql.PostgreSQLQueryEnvironment;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 
 /**
  * Basic PostgreSQL storage implementation.
@@ -136,7 +136,7 @@ public class PostgreSQL extends SQL
     {
         try
         {
-            Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+            Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(arguments);
             String database = (argsMap.get("database") != null) ? argsMap.get("database") :
                     databaseConfigs.getProperty("database");
             String databaseUsername = (argsMap.get("databaseUsername") != null) ? argsMap.get("databaseUsername") :
@@ -382,7 +382,7 @@ public class PostgreSQL extends SQL
             return true;
         }
         String edgeHash = incomingEdge.bigHashCode();
-        if(Cache.isPresent(edgeHash))
+        if(Cache.isEdgePresent(edgeHash))
             return true;
 
         String childVertexHash = incomingEdge.getChildVertex().bigHashCode();
@@ -461,7 +461,6 @@ public class PostgreSQL extends SQL
             insertStringBuilder.append("', ");
         }
         insertString = insertStringBuilder.substring(0, insertStringBuilder.length() - 2) + ")";
-
         try
         {
             Statement s = dbConnection.createStatement();
@@ -713,7 +712,7 @@ public class PostgreSQL extends SQL
             return true;
         }
         String vertexHash = incomingVertex.bigHashCode();
-        if(Cache.isPresent(vertexHash))
+        if(Cache.isVertexPresent(vertexHash))
             return true;
 
         // Use StringBuilder to build the PostgreSQL insert statement

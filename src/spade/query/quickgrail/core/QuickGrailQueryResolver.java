@@ -210,6 +210,8 @@ public class QuickGrailQueryResolver{
 				// TODO
 				//try{QuickGrailPredicateTree.testSer(predicateNode);}catch(Throwable e){ throw new RuntimeException("Failed ser test", e);}
 //				try{QuickGrailPredicateTree.testSer2(predicateNode);}catch(Throwable e){ throw new RuntimeException("Failed ser test", e);}
+//				try{QuickGrailPredicateTree.testSer3(predicateNode);}catch(Throwable e){ throw new RuntimeException("Failed ser test", e);}
+//				System.out.println(predicateNode.toStringInOrder());
 				QuickGrailPredicateTree.setPredicateSymbol(var.getValue(), predicateNode);
 			}
 		}else{

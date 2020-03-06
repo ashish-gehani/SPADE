@@ -33,7 +33,7 @@ import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasGeneratedBy;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.LoadableField;
 import spade.utility.LoadableFieldHelper;
 import spade.vertex.opm.Artifact;
@@ -87,7 +87,7 @@ public class IORuns extends AbstractFilter {
     private boolean initGlobals(String arguments){
 		Map<String, String> globalsMap = null;
 		try{
-			globalsMap = CommonFunctions.getGlobalsMapFromConfigAndArguments(this.getClass(), arguments);
+			globalsMap = HelperFunctions.getGlobalsMapFromConfigAndArguments(this.getClass(), arguments);
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to build globals map", e);
 			return false;

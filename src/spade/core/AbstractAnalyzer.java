@@ -22,8 +22,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.client.QueryMetaData;
-import spade.utility.CommonFunctions;
-import spade.utility.DiscrepancyDetector;
+import spade.utility.HelperFunctions;
 import spade.utility.FileUtility;
 import spade.utility.Result;
 
@@ -39,27 +38,6 @@ public abstract class AbstractAnalyzer{
 	
 	private Boolean useScaffold = null;
 	private Boolean useTransformer = null;
-	
-	protected AbstractResolver remoteResolver;
-	/**
-	 * remoteResolutionRequired is used by query module to signal the Analyzer to
-	 * resolve any outstanding remote parts of result graph.
-	 */
-	private static boolean remoteResolutionRequired = false;
-
-	protected static final DiscrepancyDetector discrepancyDetector = new DiscrepancyDetector();
-
-	public static void setRemoteResolutionRequired(){
-		remoteResolutionRequired = true;
-	}
-
-	public static void clearRemoteResolutionRequired(){
-		remoteResolutionRequired = false;
-	}
-
-	public static boolean isRemoteResolutionRequired(){
-		return remoteResolutionRequired;
-	}
 	
 	// true return means can continue. false return means that cannot continue.
 	private final boolean readGlobalConfigFromConfigFile(Class<? extends AbstractAnalyzer> clazz){
@@ -111,7 +89,7 @@ public abstract class AbstractAnalyzer{
 		if(value == null){
 			return true;
 		}else{
-			Result<Boolean> result = CommonFunctions.parseBoolean(value);
+			Result<Boolean> result = HelperFunctions.parseBoolean(value);
 			if(result.error){
 				logger.log(Level.SEVERE, "Invalid boolean value for '"+configKeyNameUseScaffold + "' in " + valueSource);
 				logger.log(Level.SEVERE, result.toErrorString());
@@ -128,7 +106,7 @@ public abstract class AbstractAnalyzer{
 		if(value == null){
 			return true;
 		}else{
-			Result<Boolean> result = CommonFunctions.parseBoolean(value);
+			Result<Boolean> result = HelperFunctions.parseBoolean(value);
 			if(result.error){
 				logger.log(Level.SEVERE, "Invalid boolean value for '"+configKeyNameUseTransformer + "' in " + valueSource);
 				logger.log(Level.SEVERE, result.toErrorString());
@@ -141,7 +119,7 @@ public abstract class AbstractAnalyzer{
 	}
 
 	public final boolean initialize(String arguments){
-		Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+		Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(arguments);
 		
 		if(!setGlobalConfigUseScaffold("Arguments", argsMap.get(configKeyNameUseScaffold))){
 			return false;
@@ -193,7 +171,7 @@ public abstract class AbstractAnalyzer{
 		private AbstractStorage currentStorage;
 
 		private SPADEQuery getErrorSPADEQuery(){
-			SPADEQuery spadeQuery = new SPADEQuery("<NULL>", "<NULL>", "<NULL>");
+			SPADEQuery spadeQuery = new SPADEQuery("<NULL>", "<NULL>", "<NULL>", "<NULL>");
 			spadeQuery.queryFailed("Exiting!");
 			return spadeQuery;
 		}
@@ -376,10 +354,6 @@ public abstract class AbstractAnalyzer{
 					if(graph != null){
 						try{
 							graph = transformer.putGraph(graph, queryMetaData);
-							if(graph != null){
-								// commit after every transformer to enable reading without error
-								graph.commitIndex();
-							}
 						}catch(Exception ex){
 							Logger.getLogger(QueryConnection.class.getName()).log(Level.SEVERE,
 									"Error in applying transformer!", ex);

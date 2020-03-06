@@ -21,7 +21,7 @@ package spade.reporter.audit;
 
 import java.util.Map;
 
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 
 // Global Audit reporter flags
 public class Globals{
@@ -92,7 +92,7 @@ public class Globals{
 	}
 	
 	public static Globals parseArguments(String arguments) throws Exception{
-		Map<String, String> map = CommonFunctions.parseKeyValPairs(arguments);
+		Map<String, String> map = HelperFunctions.parseKeyValPairs(arguments);
 		return parseArguments(map);
 	}
 	
@@ -118,7 +118,7 @@ public class Globals{
 		if(map == null){
 			throw new Exception("NULL arguments map");
 		}else{
-			if(CommonFunctions.isNullOrEmpty(key)){
+			if(HelperFunctions.isNullOrEmpty(key)){
 				throw new Exception("NULL/Empty argument key: " + "'"+key+"'");
 			}else{
 				String value = map.get(key);

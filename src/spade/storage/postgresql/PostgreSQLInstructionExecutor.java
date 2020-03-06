@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import spade.core.AbstractStorage;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
@@ -70,7 +71,7 @@ import spade.query.quickgrail.types.StringType;
 import spade.query.quickgrail.utility.ResultTable;
 import spade.query.quickgrail.utility.Schema;
 import spade.storage.PostgreSQL;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 
 /**
  * @author Raza
@@ -102,21 +103,26 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		if(this.storage == null){
 			throw new IllegalArgumentException("NULL query executor");
 		}
-		if(CommonFunctions.isNullOrEmpty(this.idColumnName)){
+		if(HelperFunctions.isNullOrEmpty(this.idColumnName)){
 			throw new IllegalArgumentException("NULL/Empty id column name: " + this.idColumnName);
 		}
-		if(CommonFunctions.isNullOrEmpty(this.idChildVertexColumnName)){
+		if(HelperFunctions.isNullOrEmpty(this.idChildVertexColumnName)){
 			throw new IllegalArgumentException("NULL/Empty child vertex id column name: " + this.idChildVertexColumnName);
 		}
-		if(CommonFunctions.isNullOrEmpty(this.idParentVertexColumnName)){
+		if(HelperFunctions.isNullOrEmpty(this.idParentVertexColumnName)){
 			throw new IllegalArgumentException("NULL/Empty parent vertex id column name: " + this.idParentVertexColumnName);
 		}
-		if(CommonFunctions.isNullOrEmpty(this.vertexAnnotationTableName)){
+		if(HelperFunctions.isNullOrEmpty(this.vertexAnnotationTableName)){
 			throw new IllegalArgumentException("NULL/Empty vertex table name: " + this.vertexAnnotationTableName);
 		}
-		if(CommonFunctions.isNullOrEmpty(this.edgeAnnotationTableName)){
+		if(HelperFunctions.isNullOrEmpty(this.edgeAnnotationTableName)){
 			throw new IllegalArgumentException("NULL/Empty edge table name: " + this.edgeAnnotationTableName);
 		}
+	}
+
+	@Override
+	public Class<? extends AbstractStorage> getStorageClass(){
+		return storage.getClass();
 	}
 
 	private String getIdColumnName(){

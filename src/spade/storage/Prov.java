@@ -30,7 +30,7 @@ import spade.edge.prov.WasAssociatedWith;
 import spade.edge.prov.WasDerivedFrom;
 import spade.edge.prov.WasGeneratedBy;
 import spade.edge.prov.WasInformedBy;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.vertex.prov.Activity;
 import spade.vertex.prov.Agent;
 import spade.vertex.prov.Entity;
@@ -106,7 +106,7 @@ public class Prov extends AbstractStorage{
 
 	@Override
 	public boolean initialize(String arguments) {
-		Map<String, String> args = CommonFunctions.parseKeyValPairs(arguments);
+		Map<String, String> args = HelperFunctions.parseKeyValPairs(arguments);
 
 		Map<String, String> nsPrefixToFileMap = new HashMap<String, String>();
 		nsPrefixToFileMap.putAll(args);

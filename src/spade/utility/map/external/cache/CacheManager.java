@@ -21,7 +21,7 @@ package spade.utility.map.external.cache;
 
 import java.util.Map;
 
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.Result;
 import spade.utility.profile.ReportingArgument;
 
@@ -42,7 +42,7 @@ public abstract class CacheManager{
 	 * @return CacheArgument or error
 	 */
 	public static Result<CacheArgument> parseArgument(String cacheNameString, String cacheArgumentString){
-		if(CommonFunctions.isNullOrEmpty(cacheNameString)){
+		if(HelperFunctions.isNullOrEmpty(cacheNameString)){
 			return Result.failed("NULL/Empty cache name");
 		}else{
 			Result<ReportingArgument> reportingResult = ReportingArgument.parseReportingArgument(cacheArgumentString);
@@ -50,7 +50,7 @@ public abstract class CacheManager{
 				return Result.failed("Invalid reporting argument", reportingResult);
 			}else{
 				ReportingArgument reportingArgument = reportingResult.result;
-				Result<CacheName> cacheNameResult = CommonFunctions.parseEnumValue(CacheName.class, cacheNameString);
+				Result<CacheName> cacheNameResult = HelperFunctions.parseEnumValue(CacheName.class, cacheNameString);
 				if(cacheNameResult.error){
 					return Result.failed("Failed cache name parsing", cacheNameResult);
 				}else{

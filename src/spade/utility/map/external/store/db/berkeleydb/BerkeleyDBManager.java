@@ -31,7 +31,7 @@ import com.sleepycat.je.DatabaseConfig;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
 
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.FileUtility;
 import spade.utility.Result;
 import spade.utility.map.external.store.db.DatabaseArgument;
@@ -66,10 +66,10 @@ public class BerkeleyDBManager extends DatabaseManager{
 	 */
 	@Override
 	public synchronized Result<DatabaseArgument> parseArgument(final String arguments){
-		if(CommonFunctions.isNullOrEmpty(arguments)){
+		if(HelperFunctions.isNullOrEmpty(arguments)){
 			return Result.failed("NULL/Empty arguments");
 		}else{
-			Result<HashMap<String, String>> mapResult = CommonFunctions.parseKeysValuesInString(arguments);
+			Result<HashMap<String, String>> mapResult = HelperFunctions.parseKeysValuesInString(arguments);
 			if(mapResult.error){
 				return Result.failed("Failed to parse arguments to map", mapResult);
 			}else{
@@ -95,14 +95,14 @@ public class BerkeleyDBManager extends DatabaseManager{
 			return Result.failed("Empty arguments map");
 		}else{
 			final String envPathUser = arguments.get(BerkeleyDBArgument.keyEnvironmentPath);
-			if(CommonFunctions.isNullOrEmpty(envPathUser)){
+			if(HelperFunctions.isNullOrEmpty(envPathUser)){
 				return Result.failed("NULL/Empty '"+BerkeleyDBArgument.keyEnvironmentPath+"'");
 			}else{
 				final String dbName = arguments.get(BerkeleyDBArgument.keyDatabaseName);
-				if(CommonFunctions.isNullOrEmpty(dbName)){
+				if(HelperFunctions.isNullOrEmpty(dbName)){
 					return Result.failed("NULL/Empty '"+BerkeleyDBArgument.keyDatabaseName+"'");
 				}else{
-					Result<Boolean> deleteDbOnCloseResult = CommonFunctions.parseBoolean(
+					Result<Boolean> deleteDbOnCloseResult = HelperFunctions.parseBoolean(
 							arguments.get(BerkeleyDBArgument.keyDeleteDbOnClose)
 							);
 					if(deleteDbOnCloseResult.error){
@@ -129,8 +129,8 @@ public class BerkeleyDBManager extends DatabaseManager{
 			return Result.failed("Database argument class must be BerkeleyDBArgument but is '"+genericArgument.getClass()+"'");
 		}else{
 			BerkeleyDBArgument argument = (BerkeleyDBArgument)genericArgument;
-			if(CommonFunctions.isNullOrEmpty(argument.environmentPath) || 
-					CommonFunctions.isNullOrEmpty(argument.dbName)){
+			if(HelperFunctions.isNullOrEmpty(argument.environmentPath) || 
+					HelperFunctions.isNullOrEmpty(argument.dbName)){
 				return Result.failed("Must specify environment path and database name");
 			}else{
 				return Result.successful(argument);
@@ -162,7 +162,7 @@ public class BerkeleyDBManager extends DatabaseManager{
 				}
 			}
 		}
-		if(!CommonFunctions.isNullOrEmpty(envPath)){
+		if(!HelperFunctions.isNullOrEmpty(envPath)){
 			if(envPathCreated){
 				try{
 					FileUtils.forceDelete(new File(envPath));

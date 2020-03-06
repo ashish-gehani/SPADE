@@ -24,7 +24,7 @@ import java.io.FileOutputStream;
 import java.io.ObjectOutputStream;
 
 import spade.core.BloomFilter;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 
 /**
  * Bloom filter screen
@@ -76,7 +76,7 @@ public class BloomFilterScreen<K> implements Screen<K>{
 
 	@Override
 	public void close() throws Exception{
-		if(!CommonFunctions.isNullOrEmpty(savePath)){
+		if(!HelperFunctions.isNullOrEmpty(savePath)){
 			FileOutputStream fos = new FileOutputStream(new File(savePath));
 			ObjectOutputStream oos = new ObjectOutputStream(fos);
 			oos.writeObject(bloomFilter);

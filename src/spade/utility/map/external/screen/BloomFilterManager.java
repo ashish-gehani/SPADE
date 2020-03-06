@@ -26,7 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import spade.core.BloomFilter;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.Result;
 
 /**
@@ -47,10 +47,10 @@ public class BloomFilterManager extends ScreenManager{
 	 */
 	@Override
 	public Result<ScreenArgument> parseArgument(String arguments){
-		if(CommonFunctions.isNullOrEmpty(arguments)){
+		if(HelperFunctions.isNullOrEmpty(arguments)){
 			return Result.failed("NULL/Empty arguments");
 		}else{
-			Result<HashMap<String, String>> mapResult = CommonFunctions.parseKeysValuesInString(arguments);
+			Result<HashMap<String, String>> mapResult = HelperFunctions.parseKeysValuesInString(arguments);
 			if(mapResult.error){
 				return Result.failed("Failed to parse arguments to map", mapResult);
 			}else{
@@ -105,14 +105,14 @@ public class BloomFilterManager extends ScreenManager{
 			}
 			
 			String loadFromPath = arguments.get(BloomFilterArgument.keyLoadPath);
-			if(CommonFunctions.isNullOrEmpty(loadFromPath)){
-				Result<Long> expectedElementsResult = CommonFunctions.parseLong(
+			if(HelperFunctions.isNullOrEmpty(loadFromPath)){
+				Result<Long> expectedElementsResult = HelperFunctions.parseLong(
 						arguments.get(BloomFilterArgument.keyExpectedElements), 10, 1, Integer.MAX_VALUE);
 				if(expectedElementsResult.error){
 					return Result.failed("Failed to parse '"+BloomFilterArgument.keyExpectedElements+"'", expectedElementsResult);
 				}else{
 					int expectedElements = expectedElementsResult.result.intValue();
-					Result<Double> falsePositiveProbResult = CommonFunctions.parseDouble(
+					Result<Double> falsePositiveProbResult = HelperFunctions.parseDouble(
 							arguments.get(BloomFilterArgument.keyFalsePositiveProbability), 0, 1);
 					if(falsePositiveProbResult.error){
 						return Result.failed("Failed to parse '"+BloomFilterArgument.keyFalsePositiveProbability+"'", falsePositiveProbResult);
@@ -154,7 +154,7 @@ public class BloomFilterManager extends ScreenManager{
 			return Result.successful(argument);
 		}else if(genericArgument.getClass().equals(BloomFilterArgument.LoadFromFile.class)){
 			BloomFilterArgument.LoadFromFile argument = (BloomFilterArgument.LoadFromFile)genericArgument;
-			if(CommonFunctions.isNullOrEmpty(argument.loadPath)){
+			if(HelperFunctions.isNullOrEmpty(argument.loadPath)){
 				return Result.failed("NULL/Empty path to load bloomfilter from");
 			}else{
 				return Result.successful(argument);

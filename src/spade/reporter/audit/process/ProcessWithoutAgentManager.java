@@ -26,7 +26,7 @@ import java.util.logging.Level;
 import spade.edge.opm.WasControlledBy;
 import spade.reporter.Audit;
 import spade.reporter.audit.OPMConstants;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.vertex.opm.Agent;
 import spade.vertex.opm.Process;
 
@@ -128,7 +128,7 @@ public class ProcessWithoutAgentManager extends ProcessManager{
 	protected void handleAgentUpdate(String timeString, String eventId, String pid, AgentIdentifier newAgent, String operation){
 		String source = OPMConstants.SOURCE_AUDIT_SYSCALL;
 		ProcessUnitState state = getProcessUnitState(pid);
-		Double time = CommonFunctions.parseDouble(timeString, null);
+		Double time = HelperFunctions.parseDouble(timeString, null);
 		if(state != null){
 			Process processVertex = buildVertex(state.getProcess(), null, null);
 			Agent newAgentVertex = putAgentVertex(newAgent, source);

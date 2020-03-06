@@ -19,18 +19,18 @@
  */
 package spade.filter;
 
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import com.somethingsimilar.opposite_of_a_bloom_filter.ByteArrayFilter;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
-import spade.utility.CommonFunctions;
 import spade.utility.FileUtility;
-
-import java.io.UnsupportedEncodingException;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import spade.utility.HelperFunctions;
 
 /**
  * A filter to remove 'most' of the duplicate vertices and edges.
@@ -65,7 +65,7 @@ public class Deduplicate extends AbstractFilter{
 	 */
 	public boolean initialize(String arguments){
 		String expectedNumberOfElementsString = null;
-		Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+		Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(arguments);
 		expectedNumberOfElementsString = argsMap.get(ARG_EXPECTEDNUMBEROFELEMENTS_KEY);
 		if(expectedNumberOfElementsString == null){
 			try{

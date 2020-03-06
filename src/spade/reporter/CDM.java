@@ -66,7 +66,7 @@ import spade.core.AbstractVertex;
 import spade.core.Settings;
 import spade.edge.cdm.SimpleEdge;
 import spade.reporter.audit.OPMConstants;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.FileUtility;
 import spade.utility.Result;
 import spade.utility.map.external.ExternalMap;
@@ -160,7 +160,7 @@ public class CDM extends AbstractReporter{
 		
 	private void initReporting(String reportingIntervalSecondsConfig){
 		if(reportingIntervalSecondsConfig != null){
-			Integer reportingIntervalSeconds = CommonFunctions.parseInt(reportingIntervalSecondsConfig.trim(), null);
+			Integer reportingIntervalSeconds = HelperFunctions.parseInt(reportingIntervalSecondsConfig.trim(), null);
 			if(reportingIntervalSeconds != null){
 				reportingEnabled = true;
 				reportEveryMs = reportingIntervalSeconds * 1000;
@@ -173,13 +173,13 @@ public class CDM extends AbstractReporter{
 	
 	@Override
 	public boolean launch(String arguments){
-		Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+		Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(arguments);
 		
 		String inputFileArgument = argsMap.get("inputFile");
 		String rotateArgument = argsMap.get("rotate");
 		String waitForLogArgument = argsMap.get("waitForLog");
 		
-		if(CommonFunctions.isNullOrEmpty(inputFileArgument)){
+		if(HelperFunctions.isNullOrEmpty(inputFileArgument)){
 			logger.log(Level.SEVERE, "NULL/Empty 'inputFile' argument: " + inputFileArgument);
 			return false;
 		}else{
@@ -246,7 +246,7 @@ public class CDM extends AbstractReporter{
 				return false;
 			}else{
 				schemaFilePath = configMap.get(CONFIG_KEY_SCHEMA);
-				if(CommonFunctions.isNullOrEmpty(schemaFilePath)){
+				if(HelperFunctions.isNullOrEmpty(schemaFilePath)){
 					logger.log(Level.SEVERE, "NULL/Empty '"+CONFIG_KEY_SCHEMA+"' in config file: "+schemaFilePath);
 					return false;
 				}else{

@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
+import spade.core.AbstractStorage;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.query.quickgrail.core.GraphStats;
@@ -80,7 +81,12 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	public final QueryEnvironment getQueryEnvironment(){
 		return neo4jQueryEnvironment;
 	}
-	
+
+	@Override
+	public Class<? extends AbstractStorage> getStorageClass(){
+		return storage.getClass();
+	}
+
 	@Override
 	public void insertLiteralEdge(InsertLiteralEdge instruction){
 		List<String> ids = instruction.getEdges();

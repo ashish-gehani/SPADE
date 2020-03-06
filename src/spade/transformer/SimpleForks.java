@@ -25,7 +25,7 @@ import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.reporter.audit.OPMConstants;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -64,8 +64,8 @@ public class SimpleForks extends AbstractTransformer
 					// pending list, else add the newer one to the pending list.
 					//the execve edge with the smallest event id by a process should be merged with fork/clone (if any)
 					// of that process
-					Long newEdgeEventId = CommonFunctions.parseLong(getAnnotationSafe(newEdge, OPMConstants.EDGE_EVENT_ID), null);
-					Long previousEdgeEventId = CommonFunctions.parseLong(getAnnotationSafe(
+					Long newEdgeEventId = HelperFunctions.parseLong(getAnnotationSafe(newEdge, OPMConstants.EDGE_EVENT_ID), null);
+					Long previousEdgeEventId = HelperFunctions.parseLong(getAnnotationSafe(
 							execveEdges.get(pid), OPMConstants.EDGE_EVENT_ID), null);
 					if(previousEdgeEventId > newEdgeEventId)
 					{

@@ -21,7 +21,7 @@ package spade.utility.map.external.screen;
 
 import java.util.Map;
 
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.Result;
 import spade.utility.profile.ReportingArgument;
 
@@ -42,7 +42,7 @@ public abstract class ScreenManager{
 	 * @return ScreenArgument or error
 	 */
 	public static Result<ScreenArgument> parseArgument(String screenNameString, String screenArgumentString){
-		if(CommonFunctions.isNullOrEmpty(screenNameString)){
+		if(HelperFunctions.isNullOrEmpty(screenNameString)){
 			return Result.failed("NULL/Empty screen name");
 		}else{
 			Result<ReportingArgument> reportingResult = ReportingArgument.parseReportingArgument(screenArgumentString);
@@ -50,7 +50,7 @@ public abstract class ScreenManager{
 				return Result.failed("Invalid reporting argument", reportingResult);
 			}else{
 				ReportingArgument reportingArgument = reportingResult.result;
-				Result<ScreenName> screenNameResult = CommonFunctions.parseEnumValue(ScreenName.class, screenNameString);
+				Result<ScreenName> screenNameResult = HelperFunctions.parseEnumValue(ScreenName.class, screenNameString);
 				if(screenNameResult.error){
 					return Result.failed("Failed screen name parsing", screenNameResult);
 				}else{

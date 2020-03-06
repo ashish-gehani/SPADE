@@ -32,7 +32,7 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.reporter.audit.OPMConstants;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 
 import static spade.core.Kernel.CONFIG_PATH;
 import static spade.core.Kernel.FILE_SEPARATOR;
@@ -69,7 +69,7 @@ public class Graphviz extends AbstractStorage
     {
         try
         {
-            Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
+            Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(arguments);
             output = (argsMap.get("output") != null) ? argsMap.get("output") :
                     databaseConfigs.getProperty("output");
 

@@ -26,7 +26,7 @@ import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.reporter.audit.OPMConstants;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 
 import java.util.Map;
 import java.util.logging.Level;
@@ -45,7 +45,7 @@ public class TemporalTraversal extends AbstractTransformer
     //must specify the name of an annotation
     public boolean initialize(String arguments)
 	{
-    	Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
+    	Map<String, String> argumentsMap = HelperFunctions.parseKeyValPairs(arguments);
     	if("timestamp".equals(argumentsMap.get("order")))
     	{
     		annotationName = OPMConstants.EDGE_TIME;

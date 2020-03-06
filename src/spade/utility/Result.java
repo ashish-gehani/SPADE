@@ -50,7 +50,7 @@ public class Result<T>{
 		if(error){
 			String str = "";
 			str += (errorMessage == null) ? "" : errorMessage +System.lineSeparator();
-			str += (exception	 == null) ? "" : CommonFunctions.formatExceptionStackTrace(exception) + System.lineSeparator();
+			str += (exception	 == null) ? "" : HelperFunctions.formatExceptionStackTrace(exception) + System.lineSeparator();
 			str += (cause		 == null) ? "" : cause.toErrorString() + System.lineSeparator();
 			return str;
 		}else{

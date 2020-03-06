@@ -26,7 +26,7 @@ import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.reporter.audit.OPMConstants;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.FileUtility;
 
 import java.util.HashMap;
@@ -47,7 +47,7 @@ public class NoEphemeralReads extends AbstractTransformer
 	// limited = false means that all files in the graph should be checked for ephemeral reads.
 	public boolean initialize(String arguments)
 	{
-		Map<String, String> argumentsMap = CommonFunctions.parseKeyValPairs(arguments);
+		Map<String, String> argumentsMap = HelperFunctions.parseKeyValPairs(arguments);
 		if("false".equals(argumentsMap.get("limited")))
 		{
 			return true;

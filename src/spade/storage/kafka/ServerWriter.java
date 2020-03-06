@@ -26,7 +26,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import spade.core.Settings;
 import spade.storage.Kafka;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.FileUtility;
 
 import java.io.File;
@@ -58,7 +58,7 @@ public class ServerWriter implements DataWriter{
 				if(additionalProperties != null && additionalProperties.size() > 0){
 					properties.putAll(additionalProperties);
 
-					Long reportingInterval = CommonFunctions.parseLong(additionalProperties.get("reportingIntervalSeconds"), null);
+					Long reportingInterval = HelperFunctions.parseLong(additionalProperties.get("reportingIntervalSeconds"), null);
 					if(reportingInterval != null){
 						if(reportingInterval < 1){ //at least 1 ms
 							logger.log(Level.INFO, "Statistics reporting turned off");

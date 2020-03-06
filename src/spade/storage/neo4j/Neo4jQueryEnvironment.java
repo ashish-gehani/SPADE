@@ -34,7 +34,7 @@ import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.entities.GraphMetadata;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 import spade.storage.Neo4j;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 
 public class Neo4jQueryEnvironment extends TreeStringSerializable implements QueryEnvironment{
 
@@ -93,7 +93,7 @@ public class Neo4jQueryEnvironment extends TreeStringSerializable implements Que
 				"match (v:" + symbolNodeLabel + ") return v." + propertyNameIdCounter + 
 				" as " + propertyNameIdCounter + " limit 1;");
 		if(result.size() > 0){
-			return CommonFunctions.parseInt(String.valueOf(result.get(0).get(propertyNameIdCounter)), null);
+			return HelperFunctions.parseInt(String.valueOf(result.get(0).get(propertyNameIdCounter)), null);
 		}else{
 			return null;
 		}
@@ -123,7 +123,7 @@ public class Neo4jQueryEnvironment extends TreeStringSerializable implements Que
 
 	private Map<String, String> inflateMapFromString(String str){
 		Map<String, String> map = new HashMap<String, String>();
-		if(!CommonFunctions.isNullOrEmpty(str)){
+		if(!HelperFunctions.isNullOrEmpty(str)){
 			String[] tokens = str.split(",");
 			for(String token : tokens){
 				String[] keyValue = token.split("=");
@@ -181,7 +181,7 @@ public class Neo4jQueryEnvironment extends TreeStringSerializable implements Que
 		}
 
 		String graphProperty = symbolNodeGetPropertyGraph();
-		if(!CommonFunctions.isNullOrEmpty(graphProperty)){
+		if(!HelperFunctions.isNullOrEmpty(graphProperty)){
 			Map<String, String> map = inflateMapFromString(graphProperty);
 			for(Map.Entry<String, String> entry : map.entrySet()){
 				graphSymbols.put(entry.getKey(), new Graph(entry.getValue()));
@@ -189,7 +189,7 @@ public class Neo4jQueryEnvironment extends TreeStringSerializable implements Que
 		}
 
 		String graphMetadataProperty = symbolNodeGetPropertyGraphMetadata();
-		if(!CommonFunctions.isNullOrEmpty(graphMetadataProperty)){
+		if(!HelperFunctions.isNullOrEmpty(graphMetadataProperty)){
 			Map<String, String> map = inflateMapFromString(graphMetadataProperty);
 			for(Map.Entry<String, String> entry : map.entrySet()){
 				graphMetadataSymbols.put(entry.getKey(), new GraphMetadata(entry.getValue()));
@@ -241,7 +241,7 @@ public class Neo4jQueryEnvironment extends TreeStringSerializable implements Que
 		if(labels != null){
 			String queryLabels = "";
 			for(String label : labels){
-				if(!CommonFunctions.isNullOrEmpty(label)){
+				if(!HelperFunctions.isNullOrEmpty(label)){
 					queryLabels += ":" + label.trim();
 				}
 			}
@@ -254,7 +254,7 @@ public class Neo4jQueryEnvironment extends TreeStringSerializable implements Que
 	}
 	
 	public void dropEdgeSymbol(String symbol){
-		if(!CommonFunctions.isNullOrEmpty(symbol)){
+		if(!HelperFunctions.isNullOrEmpty(symbol)){
 			symbol = symbol.trim();
 			String matchClause = "match ()-[e]->()";
 			String whereClause = "where e." + edgeSymbolsPropertyKey + " contains ',"+symbol+",'";

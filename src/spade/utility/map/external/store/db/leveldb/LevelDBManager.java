@@ -31,7 +31,7 @@ import org.apache.commons.io.FileUtils;
 import org.iq80.leveldb.DB;
 import org.iq80.leveldb.Options;
 
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.FileUtility;
 import spade.utility.Result;
 import spade.utility.map.external.store.db.DatabaseArgument;
@@ -66,10 +66,10 @@ public class LevelDBManager extends DatabaseManager{
 	 */
 	@Override
 	public synchronized Result<DatabaseArgument> parseArgument(String arguments){
-		if(CommonFunctions.isNullOrEmpty(arguments)){
+		if(HelperFunctions.isNullOrEmpty(arguments)){
 			return Result.failed("NULL/Empty arguments");
 		}else{
-			Result<HashMap<String, String>> mapResult = CommonFunctions.parseKeysValuesInString(arguments);
+			Result<HashMap<String, String>> mapResult = HelperFunctions.parseKeysValuesInString(arguments);
 			if(mapResult.error){
 				return Result.failed("Failed to parse arguments to map", mapResult);
 			}else{
@@ -94,10 +94,10 @@ public class LevelDBManager extends DatabaseManager{
 			return Result.failed("Empty arguments map");
 		}else{
 			final String dbPathUser = arguments.get(LevelDBArgument.keyDatabasePath);
-			if(CommonFunctions.isNullOrEmpty(dbPathUser)){
+			if(HelperFunctions.isNullOrEmpty(dbPathUser)){
 				return Result.failed("NULL/Empty '"+LevelDBArgument.keyDatabasePath+"'");
 			}else{
-				Result<Boolean> deleteDbOnCloseResult = CommonFunctions.parseBoolean(
+				Result<Boolean> deleteDbOnCloseResult = HelperFunctions.parseBoolean(
 						arguments.get(LevelDBArgument.keyDeleteDbOnClose)
 						);
 				if(deleteDbOnCloseResult.error){
@@ -123,7 +123,7 @@ public class LevelDBManager extends DatabaseManager{
 			return Result.failed("Database argument class must be LevelDBArgument but is '"+genericArgument.getClass()+"'");
 		}else{
 			LevelDBArgument argument = (LevelDBArgument)genericArgument;
-			if(CommonFunctions.isNullOrEmpty(argument.databasePath)){
+			if(HelperFunctions.isNullOrEmpty(argument.databasePath)){
 				return Result.failed("Must specify database path");
 			}else{
 				return Result.successful(argument);

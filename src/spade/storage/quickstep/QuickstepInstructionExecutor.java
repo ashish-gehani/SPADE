@@ -23,6 +23,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+import spade.core.AbstractStorage;
+import spade.storage.Quickstep;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.query.quickgrail.core.GraphStats;
@@ -88,6 +90,11 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	@Override
 	public QueryEnvironment getQueryEnvironment(){
 		return queryEnvironment;
+	}
+
+	@Override
+	public Class<? extends AbstractStorage> getStorageClass(){
+		return Quickstep.class;
 	}
 
 	@Override

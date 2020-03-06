@@ -40,7 +40,7 @@ import spade.reporter.Audit;
 //import spade.reporter.Audit;
 import spade.reporter.audit.Globals;
 import spade.reporter.audit.OPMConstants;
-import spade.utility.CommonFunctions;
+import spade.utility.HelperFunctions;
 import spade.utility.Converter;
 import spade.utility.Result;
 import spade.utility.Serializable2ByteArrayConverter;
@@ -541,11 +541,11 @@ public class ArtifactManager{
 					String lastPermissions = state.getLastPutPermissions();
 					
 					// Special check
-					if((config.hasVersion && lastVersion == null) || (config.hasEpoch && (lastEpoch == null || !CommonFunctions.bigIntegerEquals(lastEpoch, epoch)))){
+					if((config.hasVersion && lastVersion == null) || (config.hasEpoch && (lastEpoch == null || !HelperFunctions.bigIntegerEquals(lastEpoch, epoch)))){
 						// First one so no derived edge
 					}else{
 						boolean permissionedUpdated = config.hasPermissions && config.canBePermissioned && !StringUtils.equals(lastPermissions, permissions);
-						boolean versionUpdated = config.hasVersion && config.canBeVersioned && lastVersion != null && !CommonFunctions.bigIntegerEquals(lastVersion, version);
+						boolean versionUpdated = config.hasVersion && config.canBeVersioned && lastVersion != null && !HelperFunctions.bigIntegerEquals(lastVersion, version);
 						if(versionUpdated || permissionedUpdated){
 							Artifact lastArtifact = 
 									getArtifact(identifier, lastEpoch, lastVersion, lastPermissions, source);

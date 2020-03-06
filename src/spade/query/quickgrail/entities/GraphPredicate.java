@@ -21,13 +21,14 @@ package spade.query.quickgrail.entities;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 public class GraphPredicate extends Entity{
-	public final String name;
+	public final PredicateNode predicateRoot;
 
-	public GraphPredicate(String name){
-		this.name = name;
+	public GraphPredicate(PredicateNode predicateRoot){
+		this.predicateRoot = predicateRoot;
 	}
 
 	@Override
@@ -45,7 +46,7 @@ public class GraphPredicate extends Entity{
 			ArrayList<String> non_container_child_field_names,
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("name");
-		inline_field_values.add(name);
+		inline_field_names.add("predicateTree");
+		inline_field_values.add(predicateRoot.toStringInOrder()); // print infix
 	}
 }
