@@ -19,28 +19,25 @@
  */
 package spade.transformer;
 
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import spade.client.QueryMetaData;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
 import spade.utility.HelperFunctions;
 
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+public class Prune extends AbstractTransformer{
 
-public class Prune extends AbstractTransformer
-{
-	
 	private static final Logger logger = Logger.getLogger(Prune.class.getName());
-	
+
 	private String startingHash;
-	
-	public boolean initialize(String arguments)
-	{
+
+	public boolean initialize(String arguments){
 		// startingHash can possibly replace vertexExpression in the new world?
 		Map<String, String> argumentsMap = HelperFunctions.parseKeyValPairs(arguments);
-		if(argumentsMap.get("startingHash") == null || argumentsMap.get("startingHash").trim().isEmpty())
-		{
+		if(argumentsMap.get("startingHash") == null || argumentsMap.get("startingHash").trim().isEmpty()){
 			logger.log(Level.SEVERE, "Must specify a starting Hash for vertex selection");
 			return false;
 		}
@@ -49,39 +46,32 @@ public class Prune extends AbstractTransformer
 	}
 
 	@Override
-	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
-    {
-		try
-        {
-			if(queryMetaData.getMaxLength() == null)
-			{
+	public Graph transform(Graph graph, QueryMetaData queryMetaData){
+		try{
+			if(queryMetaData.getMaxLength() == null){
 				throw new IllegalArgumentException("Depth cannot be null");
 			}
-			if(queryMetaData.getDirection() == null)
-			{
+			if(queryMetaData.getDirection() == null){
 				throw new IllegalArgumentException("Direction cannot be null");
 			}
-			
-		}
-		catch(Exception e)
-        {
+
+		}catch(Exception e){
 			logger.log(Level.WARNING, "Missing arguments for the current query", e);
 
-            return graph;
+			return graph;
 		}
-		
+
 		Graph resultGraph = new Graph();
-		
-		Graph toRemoveGraph = graph.getLineage(this.startingHash, queryMetaData.getDirection(), queryMetaData.getMaxLength());
-		
-		if(toRemoveGraph != null)
-		{
+
+		Graph toRemoveGraph = graph.getLineage(this.startingHash, 
+				queryMetaData.getDirection().toString().substring(1).toLowerCase(),
+				queryMetaData.getMaxLength());
+
+		if(toRemoveGraph != null){
 			removeEdges(resultGraph, graph, toRemoveGraph);
 
-            return resultGraph;
-		}
-		else
-        {
+			return resultGraph;
+		}else{
 			return graph;
 		}
 	}

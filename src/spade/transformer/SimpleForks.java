@@ -35,7 +35,7 @@ import java.util.Set;
 public class SimpleForks extends AbstractTransformer
 {
 
-	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	public Graph transform(Graph graph, QueryMetaData queryMetaData)
 	{
 		Map<String, AbstractEdge> forkcloneEdges = new HashMap<>();
 		Map<String, AbstractEdge> execveEdges = new HashMap<>();

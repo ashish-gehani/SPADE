@@ -28,7 +28,7 @@ import spade.reporter.audit.OPMConstants;
 public class MergeIO extends AbstractTransformer
 {
 
-	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	public Graph transform(Graph graph, QueryMetaData queryMetaData)
 	{
 		Graph resultGraph = new Graph();
 		for(AbstractEdge edge : graph.edgeSet())

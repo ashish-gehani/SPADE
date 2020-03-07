@@ -52,7 +52,7 @@ public class Prov2OPM extends AbstractTransformer
 		prov2OPMEdgeMappings.put("WasInformedBy",OPMConstants.WAS_TRIGGERED_BY);
 	}
 
-	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	public Graph transform(Graph graph, QueryMetaData queryMetaData)
 	{
 		Graph resultGraph = new Graph();
 

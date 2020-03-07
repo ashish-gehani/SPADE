@@ -20,86 +20,45 @@
 
 package spade.client;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import spade.core.AbstractVertex;
+import spade.query.quickgrail.instruction.GetLineage;
 
-import java.util.Map;
+public class QueryMetaData{
 
-public class QueryMetaData
-{
-
-	private String storage;
-	private String operation;
-	private String rootVertexHash;
-	private AbstractVertex rootVertex;
-	private String childVertexHash;
-	private AbstractVertex childVertex;
-	private String parentVertexHash;
-	private AbstractVertex parentVertex;
+	private Set<AbstractVertex> rootVertices = new HashSet<>();
 	private Integer maxLength;
-	private String direction;
+	private GetLineage.Direction direction;
 
-	public QueryMetaData(Map<String, Object> queryMetaData)
-	{
-		storage = (String) queryMetaData.get("storage");
-		operation = (String) queryMetaData.get("operation");
-		rootVertex = (AbstractVertex) queryMetaData.get("rootVertex");
-		rootVertexHash = (String) queryMetaData.get("rootVertexHash");
-		childVertex = (AbstractVertex) queryMetaData.get("childVertex");
-		childVertexHash = (String) queryMetaData.get("childVertexHash");
-		parentVertex = (AbstractVertex) queryMetaData.get("parentVertex");
-		parentVertexHash = (String) queryMetaData.get("parentVertexHash");
-		maxLength = (Integer) queryMetaData.get("maxLength");
-		direction = (String) queryMetaData.get("direction");
+	public Set<AbstractVertex> getRootVertices(){
+		return rootVertices;
 	}
 
-
-	public String getStorage()
-	{
-		return storage;
-	}
-
-	public String getOperation()
-	{
-		return operation;
-	}
-
-	public String getRootVertexHash()
-	{
-		return rootVertexHash;
-	}
-
-	public AbstractVertex getRootVertex()
-	{
-		return rootVertex;
-	}
-
-	public String getChildVertexHash()
-	{
-		return childVertexHash;
-	}
-
-	public AbstractVertex getChildVertex()
-	{
-		return childVertex;
-	}
-
-	public String getParentVertexHash()
-	{
-		return parentVertexHash;
-	}
-
-	public AbstractVertex getParentVertex()
-	{
-		return parentVertex;
-	}
-
-	public Integer getMaxLength()
-	{
+	public Integer getMaxLength(){
 		return maxLength;
 	}
 
-	public String getDirection()
-	{
+	public GetLineage.Direction getDirection(){
 		return direction;
+	}
+
+	public void addRootVertices(Set<AbstractVertex> rootVertices){
+		this.rootVertices.addAll(rootVertices);
+	}
+
+	public void setMaxLength(Integer maxLength){
+		this.maxLength = maxLength;
+	}
+
+	public void setDirection(GetLineage.Direction direction){
+		this.direction = direction;
+	}
+
+	@Override
+	public String toString(){
+		return "QueryMetaData [rootVertices=" + rootVertices + ", maxLength=" + maxLength + ", direction=" + direction
+				+ "]";
 	}
 }

@@ -20,151 +20,127 @@
 
 package spade.transformer;
 
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
+import spade.query.quickgrail.instruction.GetLineage;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.HelperFunctions;
 
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+public class TemporalTraversal extends AbstractTransformer{
 
-import static spade.core.AbstractStorage.DIRECTION_ANCESTORS;
-import static spade.core.AbstractStorage.DIRECTION_DESCENDANTS;
-
-public class TemporalTraversal extends AbstractTransformer
-{
-	
 	private static final Logger logger = Logger.getLogger(TemporalTraversal.class.getName());
 
-    private String annotationName;
-    
-    //must specify the name of an annotation
-    public boolean initialize(String arguments)
-	{
-    	Map<String, String> argumentsMap = HelperFunctions.parseKeyValPairs(arguments);
-    	if("timestamp".equals(argumentsMap.get("order")))
-    	{
-    		annotationName = OPMConstants.EDGE_TIME;
-    	}
-    	else
-		{
-    		annotationName = OPMConstants.EDGE_EVENT_ID;
-    	}
+	private String annotationName;
 
-    	return true;
-    }
+	// must specify the name of an annotation
+	public boolean initialize(String arguments){
+		Map<String, String> argumentsMap = HelperFunctions.parseKeyValPairs(arguments);
+		if("timestamp".equals(argumentsMap.get("order"))){
+			annotationName = OPMConstants.EDGE_TIME;
+		}else{
+			annotationName = OPMConstants.EDGE_EVENT_ID;
+		}
 
-	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
-	{
-		String direction = queryMetaData.getDirection();
-		if(direction == null)
-		{
+		return true;
+	}
+
+	public Graph transform(Graph graph, QueryMetaData queryMetaData){
+		GetLineage.Direction direction = queryMetaData.getDirection();
+		if(direction == null){
 			logger.log(Level.SEVERE, "Direction cannot be null");
 
 			return graph;
-		}
-		else if((!DIRECTION_ANCESTORS.startsWith(direction) && !DIRECTION_DESCENDANTS.startsWith(direction)))
-		{
-			logger.log(Level.SEVERE, "Direction cannot be '"+direction+"' for this transformer");
+		}else if((!direction.equals(GetLineage.Direction.kAncestor) && !direction.equals(GetLineage.Direction.kDescendant))){
+			logger.log(Level.SEVERE, "Direction cannot be '" + direction + "' for this transformer");
 
 			return graph;
 		}
-		
+
 		Graph resultGraph = new Graph();
-		AbstractVertex queriedVertex = createNewWithoutAnnotations(queryMetaData.getRootVertex());
-				
-		if(DIRECTION_ANCESTORS.startsWith(direction))
-		{
+
+		Set<AbstractVertex> queriedVerticesToUse = new HashSet<AbstractVertex>();
+		Set<AbstractVertex> queriedVerticesFromQuery = queryMetaData == null ? new HashSet<AbstractVertex>()
+				: queryMetaData.getRootVertices();
+		for(AbstractVertex queriedVertexFromQuery : queriedVerticesFromQuery){
+			queriedVerticesToUse.add(createNewWithoutAnnotations(queriedVertexFromQuery));
+		}
+
+		if(direction.equals(GetLineage.Direction.kAncestor)){
 			Double maxValue = Double.MIN_VALUE;
-			for(AbstractEdge edge : graph.edgeSet())
-			{
+			for(AbstractEdge edge : graph.edgeSet()){
 				AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-				if(newEdge.getChildVertex().equals(queriedVertex) || newEdge.getParentVertex().equals(queriedVertex))
-				{
-					try
-					{
+				if(queriedVerticesToUse.contains(newEdge.getChildVertex())
+						|| queriedVerticesToUse.contains(newEdge.getParentVertex())){
+					try{
 						Double value = Double.parseDouble(getAnnotationSafe(newEdge, annotationName));
-						if(value > maxValue)
-						{
+						if(value > maxValue){
 							maxValue = value;
 						}
-					}
-					catch(Exception e)
-					{
-						logger.log(Level.SEVERE, "Failed to parse where "+annotationName+"='"+getAnnotationSafe(newEdge, annotationName)+"'");
+					}catch(Exception e){
+						logger.log(Level.SEVERE, "Failed to parse where " + annotationName + "='"
+								+ getAnnotationSafe(newEdge, annotationName) + "'");
 					}
 				}
-			} 
-			
-			for(AbstractEdge edge : graph.edgeSet())
-			{
+			}
+
+			for(AbstractEdge edge : graph.edgeSet()){
 				AbstractEdge newEdge = createNewWithoutAnnotations(edge);
 				boolean add = true;
-				try
-				{
+				try{
 					Double value = Double.parseDouble(getAnnotationSafe(newEdge, annotationName));
-					if(value > maxValue)
-					{
+					if(value > maxValue){
 						add = false;
 					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to parse where " + annotationName + "='"
+							+ getAnnotationSafe(newEdge, annotationName) + "'");
 				}
-				catch(Exception e)
-				{
-					logger.log(Level.SEVERE, "Failed to parse where "+annotationName+"='"+getAnnotationSafe(newEdge, annotationName)+"'");
-				}
-				if(add)
-				{
+				if(add){
 					resultGraph.putVertex(newEdge.getChildVertex());
 					resultGraph.putVertex(newEdge.getParentVertex());
 					resultGraph.putEdge(newEdge);
 				}
 			}
-		}
-		else if(DIRECTION_DESCENDANTS.startsWith(direction))
-		{
+		}else if(direction.equals(GetLineage.Direction.kDescendant)){
 			Double minValue = Double.MAX_VALUE;
-			for(AbstractEdge edge : graph.edgeSet())
-			{
+			for(AbstractEdge edge : graph.edgeSet()){
 				AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-				if(newEdge.getChildVertex().equals(queriedVertex) || newEdge.getParentVertex().equals(queriedVertex))
-				{
-					try
-					{
+				if(queriedVerticesToUse.contains(newEdge.getChildVertex())
+						|| queriedVerticesToUse.contains(newEdge.getParentVertex())){
+					try{
 						Double value = Double.parseDouble(getAnnotationSafe(newEdge, annotationName));
-						if(value < minValue)
-						{
+						if(value < minValue){
 							minValue = value;
 						}
-					}
-					catch(Exception e)
-					{
-						logger.log(Level.SEVERE, "Failed to parse where "+annotationName+"='"+getAnnotationSafe(newEdge, annotationName)+"'");
+					}catch(Exception e){
+						logger.log(Level.SEVERE, "Failed to parse where " + annotationName + "='"
+								+ getAnnotationSafe(newEdge, annotationName) + "'");
 					}
 				}
-			} 
-			
-			for(AbstractEdge edge : graph.edgeSet())
-			{
+			}
+
+			for(AbstractEdge edge : graph.edgeSet()){
 				AbstractEdge newEdge = createNewWithoutAnnotations(edge);
 				boolean add = true;
-				try
-				{
+				try{
 					Double value = Double.parseDouble(getAnnotationSafe(newEdge, annotationName));
-					if(value < minValue)
-					{
+					if(value < minValue){
 						add = false;
 					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to parse where " + annotationName + "='"
+							+ getAnnotationSafe(newEdge, annotationName) + "'");
 				}
-				catch(Exception e)
-				{
-					logger.log(Level.SEVERE, "Failed to parse where "+annotationName+"='"+getAnnotationSafe(newEdge, annotationName)+"'");
-				}
-				if(add)
-				{
+				if(add){
 					resultGraph.putVertex(newEdge.getChildVertex());
 					resultGraph.putVertex(newEdge.getParentVertex());
 					resultGraph.putEdge(newEdge);

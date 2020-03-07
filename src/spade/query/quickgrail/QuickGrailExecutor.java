@@ -89,6 +89,7 @@ import spade.query.quickgrail.utility.ResultTable;
 import spade.query.quickgrail.utility.Schema;
 import spade.reporter.audit.OPMConstants;
 import spade.resolver.RemoteLineageResolver;
+import spade.utility.ABEGraph;
 import spade.utility.DiscrepancyDetector;
 import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
@@ -164,6 +165,7 @@ public class QuickGrailExecutor{
 
 	public SPADEQuery execute(SPADEQuery query){
 		try{
+			
 			DSLParserWrapper parserWrapper = new DSLParserWrapper();
 
 			query.setQueryParsingStartedAtMillis();
@@ -296,6 +298,15 @@ public class QuickGrailExecutor{
 				getLineage(getLineage, query);
 			}else{
 				instructionExecutor.getLineage(getLineage);
+			}
+			
+			// if here then it means that it was successful
+			query.getQueryMetaData().setMaxLength(getLineage.depth);
+			query.getQueryMetaData().setDirection(getLineage.direction);
+			try{
+				query.getQueryMetaData().addRootVertices(exportGraph(getLineage.targetGraph).vertexSet());
+			}catch(Exception e){
+				logger.log(Level.WARNING, "Failed to root vertices for transformers from get lineage query");
 			}
 
 		}else if(instruction.getClass().equals(GetLink.class)){
@@ -571,8 +582,16 @@ public class QuickGrailExecutor{
 			subQueries.addAll(remoteLineageResolver.resolve());
 			subGraphs.addAll(getAllGraphs(subQueries));
 
+			// Decryption code if required
+//			ABE abe = new ABE();
+//			if(abe.initialize(null)){
+//				resultGraph = abe.decryptGraph((ABEGraph)resultGraph);
+//			}else{
+//				logger.log(Level.SEVERE, "Unable to decrypt the remote response graph");
+//			}
+			
 			if(isDiscrepancyDetectionEnabled){
-				doDiscrepancyDetection(subGraphs, instruction.direction);
+				doDiscrepancyDetection(subGraphs, instruction.direction); // some graphs might encrypted TODO
 			}
 
 			boolean areAllGraphsVerified = true;
@@ -584,13 +603,13 @@ public class QuickGrailExecutor{
 				for(SPADEQuery subQuery : subQueries){
 					if(subQuery != null && subQuery.getResult() != null
 							&& subQuery.getResult().getClass().equals(spade.core.Graph.class)){
-						AbstractVertex sourceNetworkVertex = ((spade.core.Graph)(subQuery.getResult())).getRootVertex();
+						AbstractVertex sourceNetworkVertex = ((spade.core.Graph)(subQuery.getResult())).getRootVertex(); // root might be encrypted TODO
 						AbstractVertex targetNetworkVertex = RemoteResolver
 								.findInverseNetworkVertex(networkVertexToMinimumLevel.keySet(), sourceNetworkVertex);
 						AbstractEdge localToRemoteEdge = new Edge(sourceNetworkVertex, targetNetworkVertex);
-						localToRemoteEdge.addAnnotation("type", "WasDerivedFrom");
+						localToRemoteEdge.addAnnotation(OPMConstants.TYPE, OPMConstants.WAS_DERIVED_FROM);
 						AbstractEdge remoteToLocalEdge = new Edge(targetNetworkVertex, sourceNetworkVertex);
-						remoteToLocalEdge.addAnnotation("type", "WasDerivedFrom");
+						remoteToLocalEdge.addAnnotation(OPMConstants.TYPE, OPMConstants.WAS_DERIVED_FROM);
 						localLineageGraph.putVertex(sourceNetworkVertex);
 						localLineageGraph.putVertex(targetNetworkVertex);
 						localLineageGraph.putEdge(localToRemoteEdge);
@@ -604,7 +623,7 @@ public class QuickGrailExecutor{
 
 		if(originalSPADEQuery.queryNonce == null){ // Going back to the original query sender
 			// union all graphs and set
-			for(spade.core.Graph subGraph : subGraphs){
+			for(spade.core.Graph subGraph : subGraphs){ // some graphs might be encrypted TODO
 				localLineageGraph.union(subGraph);
 			}
 		}else{
@@ -679,6 +698,7 @@ public class QuickGrailExecutor{
 
 		for(SPADEQuery spadeQuery : spadeQueries){
 			graphs.addAll(spadeQuery.getAllResultsOfExactType(spade.core.Graph.class));
+			graphs.addAll(spadeQuery.getAllResultsOfExactType(ABEGraph.class));
 		}
 
 		return graphs;

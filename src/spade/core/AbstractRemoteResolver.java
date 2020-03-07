@@ -19,6 +19,7 @@ package spade.core;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -27,6 +28,7 @@ import java.util.logging.Logger;
 
 import javax.net.ssl.SSLSocket;
 
+import spade.utility.ABEGraph;
 import spade.utility.HelperFunctions;
 
 /**
@@ -102,15 +104,20 @@ public abstract class AbstractRemoteResolver{
 					// Have the result.
 					// int vertexCount = 0, edgeCount = 0;;
 					boolean allVerified = true;
-					Set<spade.core.Graph> graphs = spadeQuery.getAllResultsOfExactType(spade.core.Graph.class);
-					for(Graph graph : graphs){
+					Set<spade.core.Graph> simpleGraphs = spadeQuery.getAllResultsOfExactType(spade.core.Graph.class);
+					Set<ABEGraph> encyrpytedGraphs = spadeQuery.getAllResultsOfExactType(ABEGraph.class);
+					Set<spade.core.Graph> allGraphs = new HashSet<spade.core.Graph>();
+					allGraphs.addAll(simpleGraphs);
+					allGraphs.addAll(encyrpytedGraphs);
+					
+					for(Graph allGraph : allGraphs){
 						// vertexCount += graph.vertexSet().size();
 						// edgeCount += graph.edgeSet().size();
-						boolean verified = graph.verifySignature(newNonce);
+						boolean verified = allGraph.verifySignature(newNonce);
 						allVerified = allVerified && verified;
 						if(!verified){
 							logger.log(Level.WARNING, "Not able to verify signature of remote graph by host '"
-									+ graph.getHostName() + "'");
+									+ allGraph.getHostName() + "'");
 						}
 					}
 

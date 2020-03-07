@@ -26,6 +26,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
+import spade.client.QueryMetaData;
+
 public class SPADEQuery implements Serializable{
 
 	private static final long serialVersionUID = -4867369163497687639L;
@@ -64,6 +66,9 @@ public class SPADEQuery implements Serializable{
 	private long queryReceivedBackByClientAtMillis;
 	
 	private List<SPADEQuery> remoteSubqueries = new ArrayList<SPADEQuery>();
+	
+	// Only required for local transformation of queries
+	private transient final QueryMetaData queryMetaData = new QueryMetaData();
 	
 	public SPADEQuery(String localName, String remoteName,
 			String query, String queryNonce){
@@ -114,6 +119,8 @@ public class SPADEQuery implements Serializable{
 	public void addRemoteSubquery(SPADEQuery subquery){ if(subquery != null){ remoteSubqueries.add(subquery); } }
 	public List<SPADEQuery> getRemoteSubqueries(){ return new ArrayList<SPADEQuery>(remoteSubqueries); }
 
+	public QueryMetaData getQueryMetaData(){ return queryMetaData; }
+	
 	@Override
 	public String toString(){
 		return "SPADEQuery [localName=" + localName + ", remoteName=" + remoteName + ", query=" + query
@@ -127,7 +134,7 @@ public class SPADEQuery implements Serializable{
 				+ ", queryExecutionCompletedAtMillis=" + queryExecutionCompletedAtMillis + ", success=" + success
 				+ ", error=" + error + ", result=" + result + ", querySentBackToClientAtMillis="
 				+ querySentBackToClientAtMillis + ", queryReceivedBackByClientAtMillis="
-				+ queryReceivedBackByClientAtMillis + ", remoteSubqueries=" + remoteSubqueries + "]";
+				+ queryReceivedBackByClientAtMillis + ", remoteSubqueries=" + remoteSubqueries + ", queryMetaData=" + queryMetaData + "]";
 	}
 	
 	public static class QuickGrailInstruction implements Serializable{

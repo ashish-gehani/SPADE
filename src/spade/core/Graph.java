@@ -42,6 +42,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import spade.reporter.audit.OPMConstants;
+
 /**
  * This class is used to represent query responses using sets for edges and
  * vertices.
@@ -49,9 +50,9 @@ import spade.reporter.audit.OPMConstants;
  * @author Dawood Tariq
  */
 public class Graph implements Serializable{
-	
+
 	private static final long serialVersionUID = -219720065503901539L;
-	
+
 	private static final Logger logger = Logger.getLogger(Graph.class.getName());
 	//////////////////////////////////////////////////////
 	private static final Pattern nodePattern = Pattern
@@ -75,7 +76,6 @@ public class Graph implements Serializable{
 
 	//////////////////////////////////////////////////////
 
-	// TODO must be populated from query. rename
 	// network vertex to depth map (depth from root vertex for this query)
 	private Map<AbstractVertex, Integer> networkMap = new HashMap<>();
 	/**
@@ -100,13 +100,11 @@ public class Graph implements Serializable{
 	private AbstractVertex destinationVertex;
 
 	private boolean isResultVerified = false;
-    public boolean getIsResultVerified(){return isResultVerified;}
 
-	/**
-	 * For query results spanning multiple hosts, this is used to indicate whether
-	 * the network boundaries have been properly transformed.
-	 */
-	public boolean transformed = false; // TODO double-check
+	public boolean getIsResultVerified(){
+		return isResultVerified;
+	}
+
 
 	public String getHash(AbstractVertex vertex){
 		return (reverseVertexIdentifiers.containsKey(vertex)) ? reverseVertexIdentifiers.get(vertex) : null;
@@ -171,7 +169,6 @@ public class Graph implements Serializable{
 	 * 
 	 * @return True if both graphs have the same vertices and edges
 	 */
-	@Deprecated
 	public boolean equals(Graph otherGraph){
 		if(this.vertexSet().size() != otherGraph.vertexSet().size())
 			return false;
@@ -183,17 +180,17 @@ public class Graph implements Serializable{
 		 * work with hashes and overriding equals() and hashCode() methods. hashCode()
 		 * is buggy. Meanwhile adding this method to compare two graphs.
 		 */
-// TODO
+
 		// Compares the sets of vertices
 		Iterator<AbstractVertex> thisVertex = this.vertexSet().iterator();
 		Set<String> thisVertexIds = new HashSet<>();
 		while(thisVertex.hasNext()){
-			thisVertexIds.add(thisVertex.next().getAnnotation("vertexId"));
+			thisVertexIds.add(thisVertex.next().bigHashCode());
 		}
 		Iterator<AbstractVertex> otherVertex = otherGraph.vertexSet().iterator();
 		Set<String> otherVertexIds = new HashSet<>();
 		while(otherVertex.hasNext()){
-			otherVertexIds.add(otherVertex.next().getAnnotation("vertexId"));
+			otherVertexIds.add(otherVertex.next().bigHashCode());
 		}
 		if(!thisVertexIds.equals(otherVertexIds))
 			return false;
@@ -202,29 +199,17 @@ public class Graph implements Serializable{
 		Iterator<AbstractEdge> thisEdge = this.edgeSet().iterator();
 		Set<String> thisEdgeIds = new HashSet<>();
 		while(thisEdge.hasNext()){
-			thisEdgeIds.add(thisEdge.next().getAnnotation("edgeId"));
+			thisEdgeIds.add(thisEdge.next().bigHashCode());
 		}
 		Iterator<AbstractEdge> otherEdge = otherGraph.edgeSet().iterator();
 		Set<String> otherEdgeIds = new HashSet<>();
 		while(otherEdge.hasNext()){
-			otherEdgeIds.add(otherEdge.next().getAnnotation("edgeId"));
+			otherEdgeIds.add(otherEdge.next().bigHashCode());
 		}
 		if(!thisEdgeIds.equals(otherEdgeIds))
 			return false;
 
 		return true;
-
-	}
-	
-	public static void main(String[] args){
-		Vertex v0 = new Vertex();
-		Vertex v1 = new Vertex();
-		
-		Graph g0 = new Graph();
-		g0.putVertex(v0);
-		Graph g1 = new Graph();
-		g1.putVertex(v1);
-		System.out.println(g0.equals(g1));
 	}
 
 	/**
@@ -290,7 +275,7 @@ public class Graph implements Serializable{
 		for(AbstractEdge edge : edges){
 			resultGraph.putEdge(edge);
 		}
-		
+
 		return resultGraph;
 	}
 
@@ -429,20 +414,25 @@ public class Graph implements Serializable{
 				AbstractVertex childVertex = vertexMap.get(childkey);
 				AbstractVertex parentVertex = vertexMap.get(dstkey);
 				if(color.equals("green")){
-					edge = new spade.edge.opm.Used((spade.vertex.opm.Process)childVertex, (spade.vertex.opm.Artifact)parentVertex); // TODO use vertex and edge from spade.core
+					edge = new spade.edge.opm.Used((spade.vertex.opm.Process)childVertex,
+							(spade.vertex.opm.Artifact)parentVertex);
 				}else if(color.equals("red")){
-					edge = new spade.edge.opm.WasGeneratedBy((spade.vertex.opm.Artifact)childVertex, (spade.vertex.opm.Process)parentVertex);
+					edge = new spade.edge.opm.WasGeneratedBy((spade.vertex.opm.Artifact)childVertex,
+							(spade.vertex.opm.Process)parentVertex);
 				}else if(color.equals("blue")){
-					edge = new spade.edge.opm.WasTriggeredBy((spade.vertex.opm.Process)childVertex, (spade.vertex.opm.Process)parentVertex);
+					edge = new spade.edge.opm.WasTriggeredBy((spade.vertex.opm.Process)childVertex,
+							(spade.vertex.opm.Process)parentVertex);
 				}else if(color.equals("purple")){
-					edge = new spade.edge.opm.WasControlledBy((spade.vertex.opm.Process)childVertex, (spade.vertex.opm.Agent)parentVertex);
+					edge = new spade.edge.opm.WasControlledBy((spade.vertex.opm.Process)childVertex,
+							(spade.vertex.opm.Agent)parentVertex);
 				}else if(color.equals("orange")){
-					edge = new spade.edge.opm.WasDerivedFrom((spade.vertex.opm.Artifact)childVertex, (spade.vertex.opm.Artifact)parentVertex);
+					edge = new spade.edge.opm.WasDerivedFrom((spade.vertex.opm.Artifact)childVertex,
+							(spade.vertex.opm.Artifact)parentVertex);
 				}else{
 					edge = new spade.core.Edge(childVertex, parentVertex);
 				}
 				if((label != null) && (label.length() > 2)){
-					//label = label.substring(1, label.length() - 1);
+					// label = label.substring(1, label.length() - 1);
 					String[] pairs = label.split("\\\\n");
 					for(String pair : pairs){
 						String key_value[] = pair.split(":", 2);
@@ -458,7 +448,6 @@ public class Graph implements Serializable{
 		}
 	}
 
-	
 	public String exportGraph(){
 		StringBuilder outputString = new StringBuilder(500);
 		try{
@@ -642,6 +631,17 @@ public class Graph implements Serializable{
 	public AbstractVertex getVertex(String vertexHash){
 		return (vertexIdentifiers.containsKey(vertexHash)) ? vertexIdentifiers.get(vertexHash) : null;
 	}
+	
+	public Set<AbstractVertex> getVertices(Set<String> vertexHashes){
+		Set<AbstractVertex> vertices = new HashSet<>();
+		for(String vertexHash : vertexHashes){
+			AbstractVertex vertex = getVertex(vertexHash);
+			if(vertex != null){
+				vertices.add(vertex);
+			}
+		}
+		return vertices;
+	}
 
 	/**
 	 * This function finds the children of a given vertex. A child is defined as a
@@ -704,7 +704,7 @@ public class Graph implements Serializable{
 			Set<String> currentSet = new HashSet<>();
 			for(String vertexHash : remainingVertices){
 				Graph neighbors;
-				if(AbstractStorage.DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())){ // TODO
+				if(AbstractStorage.DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())){
 					neighbors = getParents(vertexHash);
 				}else{
 					neighbors = getChildren(vertexHash);
@@ -823,7 +823,7 @@ public class Graph implements Serializable{
 		return "Graph:\n{\n" + "\tvertexSet:\n\t{\n" + prettyPrintVertices() + "\n\t},\n" + "\tedgeSet:\n\t{\n"
 				+ prettyPrintEdges() + "\n\t}\n}";
 	}
-	
+
 	public boolean addSignature(String nonce){
 		try{
 			SecureRandom secureRandom = new SecureRandom();
@@ -851,14 +851,14 @@ public class Graph implements Serializable{
 
 			// Set to false until verified again
 			this.isResultVerified = false;
-			
+
 			return true;
 		}catch(Exception ex){
 			logger.log(Level.SEVERE, "Error signing the result graph!", ex);
 		}
 		return false;
 	}
-	
+
 	public boolean verifySignature(String nonce){
 		try{
 			Signature signature = Signature.getInstance("SHA256withRSA");
@@ -890,4 +890,16 @@ public class Graph implements Serializable{
 		}
 		return false;
 	}
+
+	public Graph copy(){
+		Graph newGraph = new Graph();
+		for(AbstractVertex vertex : this.vertexSet){
+			newGraph.putVertex(vertex);
+		}
+		for(AbstractEdge edge : this.edgeSet){
+			newGraph.putEdge(edge);
+		}
+		return newGraph;
+	}
+
 }

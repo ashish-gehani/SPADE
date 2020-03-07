@@ -271,7 +271,7 @@ public class CommandLine{
 											alreadyPrinted = false;
 										}
 									}else{ // Other types
-										if(spadeResult.getClass().equals(spade.core.Graph.class)){
+										if(spadeResult instanceof spade.core.Graph){
 											spade.core.Graph graph = (spade.core.Graph)spadeResult;
 											if(RESULT_EXPORT_PATH != null){
 												resultAsString = graph.exportGraph();

@@ -51,9 +51,9 @@ public class ProvTC2OPM extends Prov2OPM
 		}
 	}
 
-	public Graph putGraph(Graph graph, QueryMetaData queryMetaData)
+	public Graph transform(Graph graph, QueryMetaData queryMetaData)
 	{
-		graph = super.putGraph(graph, queryMetaData);
+		graph = super.transform(graph, queryMetaData);
 
 		Graph resultGraph = new Graph();
 

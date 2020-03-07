@@ -41,7 +41,7 @@ public abstract class AbstractTransformer{
        		return true;
 	}
 
-	public abstract Graph putGraph(Graph graph, QueryMetaData digQueryParams);
+	public abstract Graph transform(Graph graph, QueryMetaData queryMetaData);
 
 	public static String getAnnotationSafe(AbstractVertex vertex, String annotation)
 	{

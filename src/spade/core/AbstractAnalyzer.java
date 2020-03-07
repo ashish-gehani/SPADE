@@ -22,8 +22,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.client.QueryMetaData;
-import spade.utility.HelperFunctions;
 import spade.utility.FileUtility;
+import spade.utility.HelperFunctions;
 import spade.utility.Result;
 
 /**
@@ -245,11 +245,16 @@ public abstract class AbstractAnalyzer{
 								// Can execute query
 								try{
 									spadeQuery = executeQuery(spadeQuery);
-									try{
-										// TODO iterate transformers on the result
-									}catch(Exception e){
-
+									
+									boolean isResultAGraph = spadeQuery != null && spadeQuery.getResult() instanceof spade.core.Graph;
+									if(isResultAGraph){
+										Graph finalGraph = (spade.core.Graph)spadeQuery.getResult();
+										if(useTransformer){
+											finalGraph = iterateTransformers(finalGraph, spadeQuery.getQueryMetaData());
+										}
+										finalGraph.addSignature(spadeQuery.queryNonce);
 									}
+									
 									safeWriteToClient(spadeQuery);
 								}catch(Exception e){
 									logger.log(Level.SEVERE, "Failed to execute query: '" + spadeQuery.query + "'", e);
@@ -350,16 +355,16 @@ public abstract class AbstractAnalyzer{
 		private Graph iterateTransformers(Graph graph, QueryMetaData queryMetaData){
 			synchronized(Kernel.transformers){
 				for(int i = 0; i < Kernel.transformers.size(); i++){
-					AbstractTransformer transformer = Kernel.transformers.get(i);
-					if(graph != null){
-						try{
-							graph = transformer.putGraph(graph, queryMetaData);
-						}catch(Exception ex){
-							Logger.getLogger(QueryConnection.class.getName()).log(Level.SEVERE,
-									"Error in applying transformer!", ex);
+					try{
+						AbstractTransformer transformer = Kernel.transformers.get(i);
+						graph = transformer.transform(graph, queryMetaData);
+						if(graph == null){
+							throw new RuntimeException("Graph transformation resulted in NULL graph");
 						}
-					}else{
-						break;
+					}catch(Exception e){
+						throw new RuntimeException("Failed to apply transformer '"
+								+Kernel.transformers.get(i) == null ? "<NULL transformer>" : Kernel.transformers.get(i).getClass().getSimpleName()
+								+"'", e);
 					}
 				}
 			}
