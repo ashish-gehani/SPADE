@@ -45,23 +45,13 @@ public class Neo4jQueryEnvironment extends AbstractQueryEnvironment{
 				.executeQueryForSmallResult("match (v:" + symbolNodeLabel + ") return v limit 1;");
 
 		if(result.size() == 1){
-			// already exists
-			Map<String, Object> nodeMap = result.get(0);
-			if(nodeMap.containsKey(propertyNameIdCounter) && nodeMap.containsKey(propertyNameGraphSymbols)
-					&& nodeMap.containsKey(propertyNameMetadataSymbols)
-					&& nodeMap.containsKey(propertyNamePredicateSymbols)){
-				// valid
-			}else{
-				throw new RuntimeException("Query storage in undefined state. " + "Node with label '" + symbolNodeLabel
-						+ "' must have all the keys: " + "'" + propertyNameIdCounter + "', '" + propertyNameGraphSymbols
-						+ "', '" + propertyNameMetadataSymbols + "', '" + propertyNamePredicateSymbols + "'.");
-			}
+			// Already present
 		}else if(result.size() == 0){
 			storage.executeQueryForSmallResult("create (x:" + symbolNodeLabel + "{" + propertyNameIdCounter + ":'0', "
 					+ propertyNameGraphSymbols + ":'', " + propertyNameMetadataSymbols + ":'', "
 					+ propertyNamePredicateSymbols + ":''});");
 		}else{
-			// More than one node with this symbol. Error
+			// More than one node with this label. Error
 			throw new RuntimeException("Query storage in undefined state. " + "Expected only one node with label: '"
 					+ symbolNodeLabel + "'.");
 		}

@@ -23,9 +23,10 @@ import java.io.Serializable;
 import java.util.Map;
 import java.util.TreeMap;
 
-import com.mysql.jdbc.StringUtils;
 import org.apache.commons.codec.digest.DigestUtils;
+
 import spade.reporter.audit.OPMConstants;
+import spade.utility.HelperFunctions;
 
 /**
  * This is the class from which other edge classes (e.g., OPM edges) are
@@ -43,7 +44,7 @@ public abstract class AbstractEdge implements Serializable
 	/**
      * A map containing the annotations for this edge.
      */
-    protected Map<String, String> annotations = new TreeMap<>();
+    private final Map<String, String> annotations = new TreeMap<>();
     private AbstractVertex childVertex;
     private AbstractVertex parentVertex;
 
@@ -76,7 +77,7 @@ public abstract class AbstractEdge implements Serializable
      */
     public final void addAnnotation(String key, String value)
     {
-        if(!StringUtils.isNullOrEmpty(key))
+        if(!HelperFunctions.isNullOrEmpty(key))
         {
             if(value == null)
             {
@@ -97,14 +98,7 @@ public abstract class AbstractEdge implements Serializable
         {
             String key = currentEntry.getKey();
             String value = currentEntry.getValue();
-            if(!StringUtils.isNullOrEmpty(key))
-            {
-                if(value == null)
-                {
-                    value = "";
-                }
-                addAnnotation(key, value);
-            }
+            addAnnotation(key, value);
         }
     }
 

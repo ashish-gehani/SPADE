@@ -577,6 +577,7 @@ public class Quickstep extends AbstractStorage {
 		synchronized(this){
 			if(queryEnvironment == null){
 				queryEnvironment = new QuickstepQueryEnvironment(baseGraphName, qs);
+				queryEnvironment.initialize();
 			}
 			if(queryInstructionExecutor == null){
 				queryInstructionExecutor = new QuickstepInstructionExecutor(qs, queryEnvironment, 

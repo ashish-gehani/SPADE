@@ -25,8 +25,6 @@ import java.util.TreeMap;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
-import com.mysql.jdbc.StringUtils;
-
 import spade.reporter.audit.OPMConstants;
 import spade.utility.HelperFunctions;
 
@@ -46,7 +44,7 @@ public abstract class AbstractVertex implements Serializable
 	/**
      * A map containing the annotations for this vertex.
      */
-    protected Map<String, String> annotations = new TreeMap<>();
+    private final Map<String, String> annotations = new TreeMap<>();
 
     /**
      * An integer indicating the depth of the vertex in the graph
@@ -88,7 +86,7 @@ public abstract class AbstractVertex implements Serializable
      */
     public final void addAnnotation(String key, String value)
     {
-        if(!StringUtils.isNullOrEmpty(key))
+        if(!HelperFunctions.isNullOrEmpty(key))
         {
             if(value == null)
             {
@@ -109,14 +107,7 @@ public abstract class AbstractVertex implements Serializable
         {
             String key = currentEntry.getKey();
             String value = currentEntry.getValue();
-            if(!StringUtils.isNullOrEmpty(key))
-            {
-                if(value == null)
-                {
-                    value = "";
-                }
-                addAnnotation(key, value);
-            }
+            addAnnotation(key, value);
         }
     }
 

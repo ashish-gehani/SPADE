@@ -1,3 +1,22 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2020 SRI International
+
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
 package spade.query.quickgrail.core;
 
 import java.util.ArrayList;
@@ -335,11 +354,8 @@ public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
 		}
 
 		if(set){
-			// Call child
-			saveGraphSymbol(symbol, graph.name, symbolNameWasPresent);
-			// Do after the call to child so that it is never updated if the child throws an
-			// exception
 			symbolsGraph.put(symbol, graph);
+			saveGraphSymbol(symbol, graph.name, symbolNameWasPresent);
 		}
 	}
 
@@ -364,11 +380,8 @@ public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
 		}
 
 		if(set){
-			// Call child
-			saveMetadataSymbol(symbol, metadata.name, symbolNameWasPresent);
-			// Do after the call to child so that it is never updated if the child throws an
-			// exception
 			symbolsMetadata.put(symbol, metadata);
+			saveMetadataSymbol(symbol, metadata.name, symbolNameWasPresent);
 		}
 	}
 
@@ -393,12 +406,9 @@ public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
 		}
 
 		if(set){
-			// Call child
+			symbolsPredicate.put(symbol, predicate);
 			String predicateAsString = QuickGrailPredicateTree.serializePredicateNodeForStorage(predicate.predicateRoot);
 			savePredicateSymbol(symbol, predicateAsString, symbolNameWasPresent);
-			// Do after the call to child so that it is never updated if the child throws an
-			// exception
-			symbolsPredicate.put(symbol, predicate);
 		}
 	}
 	//////////////////

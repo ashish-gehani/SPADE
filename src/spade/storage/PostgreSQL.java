@@ -875,6 +875,7 @@ public class PostgreSQL extends SQL
 		synchronized(this){
 			if(queryEnvironment == null){
 				queryEnvironment = new PostgreSQLQueryEnvironment(baseGraphName, this);
+				queryEnvironment.initialize();
 			}
 			if(queryInstructionExecutor == null){
 				queryInstructionExecutor = new PostgreSQLInstructionExecutor(
