@@ -68,7 +68,7 @@ public class SPADEQuery implements Serializable{
 	private List<SPADEQuery> remoteSubqueries = new ArrayList<SPADEQuery>();
 	
 	// Only required for local transformation of queries
-	private transient final QueryMetaData queryMetaData = new QueryMetaData();
+	private final QueryMetaData queryMetaData = new QueryMetaData();
 	
 	public SPADEQuery(String localName, String remoteName,
 			String query, String queryNonce){

@@ -19,20 +19,16 @@
  */
 package spade.query.quickgrail.utility;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.Map;
 import java.util.Set;
 
 import org.apache.commons.codec.binary.Hex;
 
+import spade.query.quickgrail.core.AbstractQueryEnvironment;
+import spade.query.quickgrail.entities.GraphPredicate;
 import spade.query.quickgrail.parser.ParseExpression;
 import spade.query.quickgrail.parser.ParseExpression.ExpressionType;
 import spade.query.quickgrail.parser.ParseLiteral;
@@ -73,17 +69,7 @@ public class QuickGrailPredicateTree{
 		validComparators.add(COMPARATOR_REGEX1);	validComparators.add(COMPARATOR_REGEX2);
 	}
 	
-	private final static Map<String, PredicateNode> predicates = new HashMap<String, PredicateNode>();
-	
-	public static PredicateNode lookupPredicateSymbol(String symbol){
-		return predicates.get(symbol);
-	}
-	
-	public static void setPredicateSymbol(String symbol, PredicateNode node){
-		predicates.put(symbol, node);
-	}
-	
-	public static PredicateNode resolveGraphPredicate(ParseExpression expression){
+	public static PredicateNode resolveGraphPredicate(ParseExpression expression, AbstractQueryEnvironment env){
 		ExpressionType expressionType = expression.getExpressionType();
 		switch(expressionType){
 			case kOperation:{
@@ -97,8 +83,8 @@ public class QuickGrailPredicateTree{
 							throw new RuntimeException("Unexpected '"+operator.getValue()+"' operands count: " + operands.size() + ". Expected: " + 2);
 						}
 						PredicateNode result = new PredicateNode(operator.getValue().toLowerCase());
-						result.left = (resolveGraphPredicate(operands.get(0)));
-						result.right = (resolveGraphPredicate(operands.get(1)));
+						result.left = (resolveGraphPredicate(operands.get(0), env));
+						result.right = (resolveGraphPredicate(operands.get(1), env));
 						return result;
 					}
 					case BOOLEAN_OPERATOR_NOT:{
@@ -106,7 +92,7 @@ public class QuickGrailPredicateTree{
 							throw new RuntimeException("Unexpected 'not' operands count: " + operands.size() + ". Expected: " + 1);
 						}
 						PredicateNode result = new PredicateNode(operator.getValue().toLowerCase());
-						result.left = (resolveGraphPredicate(operands.get(0)));
+						result.left = (resolveGraphPredicate(operands.get(0), env));
 						return result;
 					}
 					default:{
@@ -139,12 +125,13 @@ public class QuickGrailPredicateTree{
 				ParseVariable parseVariable = (ParseVariable)expression;
 				if(parseVariable.getType().getTypeID().equals(TypeID.kGraphPredicate)){
 					String symbolName = parseVariable.getName().getValue();
-					PredicateNode existingNode = lookupPredicateSymbol(symbolName);
-					if(existingNode != null){
-						return copy(existingNode);
-					}else{
+					GraphPredicate graphPredicate = env.getPredicateSymbol(symbolName);
+					if(graphPredicate == null){
 						throw new RuntimeException(
 								"Cannot resolve Graph predicate variable " + symbolName + " at " + parseVariable.getLocationString());
+					}else{
+						PredicateNode existingNode = graphPredicate.predicateRoot;
+						return copy(existingNode);
 					}
 				}else{
 					throw new RuntimeException("Illegal predicate variable assignment to type: " 
@@ -167,61 +154,16 @@ public class QuickGrailPredicateTree{
 		}
 	}
 	
-	public static byte[] serializeToBytes(PredicateNode node) throws Throwable{
-		ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-		try(ObjectOutputStream writer = new ObjectOutputStream(byteStream)){
-			writer.writeObject(node);
-			return byteStream.toByteArray();
-		}
-	}
-	
-	public static PredicateNode deserializeFromBytes(byte[] bytes) throws Throwable{
-		ByteArrayInputStream byteStream = new ByteArrayInputStream(bytes);
-		try(ObjectInputStream reader = new ObjectInputStream(byteStream)){
-			return (PredicateNode)reader.readObject();
-		}
-	}
-	
-	public static void testSer(PredicateNode node) throws Throwable{
-		System.out.println("***Test1-start");
-		System.out.println("original="+node);
-		byte[] bytes = serializeToBytes(node);
-		System.out.println("byteslength=" + bytes.length);
-		PredicateNode newNode = deserializeFromBytes(bytes);
-		System.out.println("copy="+newNode);
-		System.out.println("***Test1-end");
-	}
-	
-	public static void testSer2(PredicateNode node) throws Throwable{
-		System.out.println("***Test2-start");
-		System.out.println("original="+node);
-		byte[] bytes = serializeToBytes(node);
-		String stringFromBytes = Hex.encodeHexString(bytes);
-		System.out.println("byteslengthoriginal=" + bytes.length);
-		System.out.println("stringFromBytesLength=" + stringFromBytes.length());
-		byte[] bytesFromString = Hex.decodeHex(stringFromBytes.toCharArray());
-		System.out.println("byteslengthcopy=" + bytes.length);
-		PredicateNode newNode = deserializeFromBytes(bytesFromString);
-		System.out.println("copy="+newNode);
-		System.out.println("***Test2-end");
-	}
-	
-	public static void testSer3(PredicateNode node) throws Throwable{
-		System.out.println("***Test3-start");
-		System.out.println("original="+node);
-		String serialized = serializePredicateNode(node);
-		System.out.println("byteslength=" + serialized.length() + ", " + serialized);
-		PredicateNode newNode = deserializePredicateNodePostfix(serialized);
-		System.out.println("copy="+newNode);
-		System.out.println("***Test3-end");
-	}
-	
-	public static String serializePredicateNode(PredicateNode node){
-		StringBuilder buffer = new StringBuilder(50);
-		serializePredicateNodePostfix(node, buffer);
+	public static String serializePredicateNodeForStorage(PredicateNode predicateNode){
+		StringBuilder buffer = new StringBuilder(100);
+		serializePredicateNodePostfix(predicateNode, buffer);
 		return buffer.toString();
 	}
 	
+	public static PredicateNode deserializePredicateNodeFromStorage(String predicateNodeString) throws Throwable{
+		return deserializePredicateNodePostfix(predicateNodeString);
+	}
+
 	private static void serializePredicateNodePostfix(PredicateNode node, StringBuilder buffer){
 		if(node.left != null){
 			serializePredicateNodePostfix(node.left, buffer);
@@ -229,7 +171,7 @@ public class QuickGrailPredicateTree{
 		if(node.right != null){
 			serializePredicateNodePostfix(node.right, buffer);
 		}
-		if(node.left == null && node.right == null){ // encode terminal nodes
+		if(node.left == null && node.right == null){ // encode terminal nodes to avoid special characters like quotes
 			String newValue = "'" + node.value + "'";
 			buffer.append(Hex.encodeHexString(newValue.getBytes()) + " ");
 		}else{
@@ -237,10 +179,9 @@ public class QuickGrailPredicateTree{
 		}
 	}
 	
-	public static PredicateNode deserializePredicateNodePostfix(String predicateNodeString) throws Throwable{
+	private static PredicateNode deserializePredicateNodePostfix(String predicateNodeStringPostfix) throws Throwable{
 		LinkedList<PredicateNode> stack = new LinkedList<PredicateNode>();
-		String[] tokens = predicateNodeString.split("\\s+");
-		
+		String[] tokens = predicateNodeStringPostfix.split("\\s+");
 		for(int i = 0; i < tokens.length; i++){
 			String token = tokens[i];
 			if(validComparators.contains(token)
@@ -264,8 +205,29 @@ public class QuickGrailPredicateTree{
 				stack.push(newNode);
 			}
 		}
-		
 		return stack.pop();
+	}
+	
+	private static boolean arePredicateNodesEqual(PredicateNode a, PredicateNode b){
+		if(a == null && b == null){
+			return true;
+		}else if(a != null && b != null){
+			return arePredicateNodesEqual(a.left, b.left) 
+					&& a.value.equals(b.value) 
+					&& arePredicateNodesEqual(a.right, b.right);
+		}else{
+			return false;
+		}
+	}
+	
+	public static void testSer3(PredicateNode node) throws Throwable{
+		System.out.println("***Test3-start");
+		System.out.println("original="+node);
+		String serialized = serializePredicateNodeForStorage(node);
+		System.out.println("length=" + serialized.length() + ", data=" + serialized);
+		PredicateNode newNode = deserializePredicateNodeFromStorage(serialized);
+		System.out.println("newNode="+newNode);
+		System.out.println("***Test3-end ("+arePredicateNodesEqual(node, newNode)+")");
 	}
 	
 	public static class PredicateNode implements Serializable{
@@ -279,32 +241,30 @@ public class QuickGrailPredicateTree{
 			this.value = value;
 		}
 		
-		public PredicateNode getLeft(){
+		public final PredicateNode getLeft(){
 			return left;
 		}
 		
-		public PredicateNode getRight(){
+		public final PredicateNode getRight(){
 			return right;
 		}
-		
-		private String toStringFileTree(){
-			StringBuilder buffer = new StringBuilder(50);
-			print(buffer, "", "");
-			return buffer.toString();
-		}
-		
+
 		public String toString(){
-			return toStringFileTree();
+			return toStringInOrder();
 		}
 		
-		public String toStringInOrder(){
+		private String toStringInOrder(){
 			LinkedList<String> values = new LinkedList<String>();
 			printToStringInOrder(values);
 			
 			String str = "";
 			for(String value : values){
 				if(validComparators.contains(value) || value.equals(BOOLEAN_OPERATOR_AND) || value.equals(BOOLEAN_OPERATOR_OR) || value.equals(BOOLEAN_OPERATOR_NOT)){
-					str += " " + value + " ";
+					if(value.equals(BOOLEAN_OPERATOR_NOT)){
+						str += value + " ";
+					}else{
+						str += " " + value + " ";
+					}
 				}else{
 					str += value;
 				}
@@ -318,42 +278,37 @@ public class QuickGrailPredicateTree{
 				values.add(value);
 			}
 			
-			if(left != null){
+			if(!(left == null && right == null)){
 				values.add("(");
+			}
+			if(left != null){
+				
 				left.printToStringInOrder(values);
 			}
-//			boolean printParens = validComparators.contains(value)  || value.equals(BOOLEAN_OPERATOR_AND)  || value.equals(BOOLEAN_OPERATOR_OR);
-//			boolean printParens = left == null && right == null;
-//			if(printParens){
-//				str.append("(");
-//			}
 			
 			if(!isNot){
 				values.addLast(value);
 			}
-//			if(printParens){
-//				str.append(")");
-//			}
-//			str.append(" ");
+
 			if(right != null){
 				right.printToStringInOrder(values);
+				
+			}
+			if(!(left == null && right == null)){
 				values.add(")");
 			}
 		}
 
-
-		private void print(StringBuilder buffer, String prefix, String childrenPrefix){
-			buffer.append(prefix);
-			buffer.append(value);
-			buffer.append('\n');
-			if(left != null && right != null){
-				left.print(buffer, childrenPrefix + "|-- ", childrenPrefix + "|   ");
-				right.print(buffer, childrenPrefix + "|-- ", childrenPrefix + "    ");
-			}else if(left != null && right == null){
-				left.print(buffer, childrenPrefix + "|-- ", childrenPrefix + "    ");
-			}else if(left == null && right != null){
-				right.print(buffer, childrenPrefix + "|-- ", childrenPrefix + "    ");
-			}
+		@Override
+		public boolean equals(Object obj){
+			if(this == obj)
+				return true;
+			if(obj == null)
+				return false;
+			if(getClass() != obj.getClass())
+				return false;
+			PredicateNode other = (PredicateNode)obj;
+			return arePredicateNodesEqual(this, other);
 		}
 	}
 }

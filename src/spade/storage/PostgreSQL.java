@@ -58,10 +58,9 @@ public class PostgreSQL extends SQL
 	private PostgreSQLInstructionExecutor queryInstructionExecutor = null;
 	private PostgreSQLQueryEnvironment queryEnvironment = null;
 
-	private static String tableNameBaseVertex = 
-			PostgreSQLQueryEnvironment.getVertexTableName(PostgreSQLQueryEnvironment.kBaseGraph);
-    private static String tableNameBaseEdge = 
-    		PostgreSQLQueryEnvironment.getEdgeTableName(PostgreSQLQueryEnvironment.kBaseGraph);
+	private final String baseGraphName = "spade_base_graph";
+	private String tableNameBaseVertex = PostgreSQLQueryEnvironment.getVertexTableName(baseGraphName);
+    private String tableNameBaseEdge = PostgreSQLQueryEnvironment.getEdgeTableName(baseGraphName);
 	
     // Performance tuning note: Set this to higher value (e.g. 100000) to commit less often to db - This increases ingestion rate.
     // Downside: Any external (non atomic) quering to database won't report non-committed data.
@@ -875,7 +874,7 @@ public class PostgreSQL extends SQL
 	public QueryInstructionExecutor getQueryInstructionExecutor(){
 		synchronized(this){
 			if(queryEnvironment == null){
-				queryEnvironment = new PostgreSQLQueryEnvironment(this);
+				queryEnvironment = new PostgreSQLQueryEnvironment(baseGraphName, this);
 			}
 			if(queryInstructionExecutor == null){
 				queryInstructionExecutor = new PostgreSQLInstructionExecutor(

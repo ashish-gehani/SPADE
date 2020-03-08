@@ -53,12 +53,11 @@ import spade.query.quickgrail.instruction.StatGraph;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
-import spade.query.quickgrail.utility.QuickGrailPredicateTree;
 import spade.query.quickgrail.utility.ResultTable;
 
 public abstract class QueryInstructionExecutor{
 	
-	public abstract QueryEnvironment getQueryEnvironment();
+	public abstract AbstractQueryEnvironment getQueryEnvironment();
 	public abstract Class<? extends AbstractStorage> getStorageClass();
 	
 	//////////////////////////////////////////////////////////////
@@ -75,7 +74,6 @@ public abstract class QueryInstructionExecutor{
 	public abstract void insertLiteralVertex(InsertLiteralVertex instruction);
 	public abstract void createEmptyGraph(CreateEmptyGraph instruction);
 	public abstract void distinctifyGraph(DistinctifyGraph instruction);
-	public abstract void eraseSymbols(EraseSymbols instruction);
 	public abstract void getVertex(GetVertex instruction);
 	public abstract ResultTable evaluateQuery(EvaluateQuery instruction);
 	public abstract void getEdge(GetEdge instruction);
@@ -83,15 +81,21 @@ public abstract class QueryInstructionExecutor{
 	public abstract void intersectGraph(IntersectGraph instruction);
 	public abstract void limitGraph(LimitGraph instruction);
 	
+	public final void eraseSymbols(EraseSymbols instruction){
+		for(String symbol : instruction.getSymbols()){
+			getQueryEnvironment().removeSymbol(symbol);
+		}
+	}
+	
 	public final Map<String, GraphStats> listGraphs(ListGraphs instruction){
 		Map<String, GraphStats> allGraphStats = new HashMap<String, GraphStats>();
-		Set<String> allGraphSymbolNames = getQueryEnvironment().getAllGraphSymbolNames();
+		Set<String> allGraphSymbolNames = getQueryEnvironment().getCurrentGraphSymbolsStringMap().keySet();
 		for(String graphSymbol : allGraphSymbolNames){
-			Graph graph = getQueryEnvironment().lookupGraphSymbol(graphSymbol);
+			Graph graph = getQueryEnvironment().getGraphSymbol(graphSymbol);
 			GraphStats stats = statGraph(new StatGraph(graph));
 			allGraphStats.put(graphSymbol, stats);
 		}
-		String baseSymbol = getQueryEnvironment().getBaseSymbolName();
+		String baseSymbol = getQueryEnvironment().getBaseGraphSymbol();
 		Graph baseGraph = getQueryEnvironment().getBaseGraph();
 		GraphStats stats = statGraph(new StatGraph(baseGraph));
 		allGraphStats.put(baseSymbol, stats);
@@ -99,7 +103,7 @@ public abstract class QueryInstructionExecutor{
 	}
 	
 	public final PredicateNode printPredicate(PrintPredicate instruction){
-		return QuickGrailPredicateTree.lookupPredicateSymbol(instruction.predicateSymbolName);
+		return instruction.predicateRoot;
 	} 
 	
 	public abstract GraphStats statGraph(StatGraph instruction);

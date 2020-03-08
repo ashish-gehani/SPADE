@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import spade.query.quickgrail.entities.Entity;
 import spade.query.quickgrail.entities.EntityType;
 import spade.query.quickgrail.entities.Graph;
+import spade.query.quickgrail.entities.GraphPredicate;
 import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
@@ -83,7 +84,7 @@ public class QuickGrailQueryResolver{
 	}
 	
 	private ArrayList<Instruction> instructions;
-	private QueryEnvironment env;
+	private AbstractQueryEnvironment env;
 
 	class ExpressionStream{
 		private ArrayList<ParseExpression> stream;
@@ -146,7 +147,7 @@ public class QuickGrailQueryResolver{
 	 * queries) into a low-level program (a list of primitive instructions ready to
 	 * be executed).
 	 */
-	public Program resolveProgram(ParseProgram parseProgram, QueryEnvironment env){
+	public Program resolveProgram(ParseProgram parseProgram, AbstractQueryEnvironment env){
 		// Initialize
 		this.instructions = new ArrayList<Instruction>();
 		this.env = env;
@@ -203,16 +204,13 @@ public class QuickGrailQueryResolver{
 
 		if(parseAssignment.getAssignmentType() == ParseAssignment.AssignmentType.kEqual){
 			ParseString var = parseAssignment.getLhs().getName();
-			PredicateNode predicateNode = QuickGrailPredicateTree.resolveGraphPredicate(parseAssignment.getRhs());
+			PredicateNode predicateNode = QuickGrailPredicateTree.resolveGraphPredicate(parseAssignment.getRhs(), env);
 			if(predicateNode == null){
 				throw new RuntimeException("Failed to resolve predicate");
 			}else{
-				// TODO
-				//try{QuickGrailPredicateTree.testSer(predicateNode);}catch(Throwable e){ throw new RuntimeException("Failed ser test", e);}
-//				try{QuickGrailPredicateTree.testSer2(predicateNode);}catch(Throwable e){ throw new RuntimeException("Failed ser test", e);}
 //				try{QuickGrailPredicateTree.testSer3(predicateNode);}catch(Throwable e){ throw new RuntimeException("Failed ser test", e);}
-//				System.out.println(predicateNode.toStringInOrder());
-				QuickGrailPredicateTree.setPredicateSymbol(var.getValue(), predicateNode);
+				// TODO hassaan2
+				env.setPredicateSymbol(var.getValue(), new GraphPredicate(predicateNode));
 			}
 		}else{
 			throw new RuntimeException(
@@ -235,7 +233,7 @@ public class QuickGrailQueryResolver{
 		if(atype == ParseAssignment.AssignmentType.kEqual){
 			resultGraph = resolveGraphExpression(rhs, null, true);
 		}else{
-			Graph lhsGraph = env.lookupGraphSymbol(var.getValue());
+			Graph lhsGraph = env.getGraphSymbol(var.getValue());
 			if(lhsGraph == null){
 				throw new RuntimeException(
 						"Cannot resolve Graph variable " + var.getValue() + " at " + var.getLocationString());
@@ -421,20 +419,20 @@ public class QuickGrailQueryResolver{
 		}
 		
 		String predicateSymbolName = parseVariable.getName().getValue();
-		PredicateNode predicateNode = QuickGrailPredicateTree.lookupPredicateSymbol(predicateSymbolName);
-		if(predicateNode == null){
+		GraphPredicate graphPredicate = env.getPredicateSymbol(predicateSymbolName);
+		if(graphPredicate == null){
 			throw new RuntimeException(
 					"Cannot resolve Graph predicate variable " + predicateSymbolName + " at " + parseVariable.getLocationString());
 		}
-		
-		instructions.add(new PrintPredicate(predicateSymbolName));
+		PredicateNode predicateNode = graphPredicate.predicateRoot;
+		instructions.add(new PrintPredicate(predicateNode));
 	}
 	
 	private void resolveResetCommand(ArrayList<ParseExpression> arguments){
 		if(arguments.size() == 1){
 			String target = resolveNameAsString(arguments.get(0));
 			if(target.equals("workspace")){
-				env.clear();
+				env.resetWorkspace();
 			}
 		}
 	}
@@ -607,7 +605,7 @@ public class QuickGrailQueryResolver{
 		if(var.getType().getTypeID() != TypeID.kGraph){
 			throw new RuntimeException("Unexpected variable type: " + var.getType().getTypeID() + ". Expected: " + TypeID.kGraph);
 		}
-		Graph savedGraph = env.lookupGraphSymbol(var.getName().getValue());
+		Graph savedGraph = env.getGraphSymbol(var.getName().getValue());
 		if(savedGraph == null){
 			throw new RuntimeException(
 					"Cannot resolve Graph variable " + var.getName().getValue() + " at " + var.getLocationString());
@@ -682,7 +680,7 @@ public class QuickGrailQueryResolver{
 			
 			return outputGraph;
 		}else{
-			PredicateNode predicateNode = QuickGrailPredicateTree.resolveGraphPredicate(arguments.get(0));
+			PredicateNode predicateNode = QuickGrailPredicateTree.resolveGraphPredicate(arguments.get(0), env);
 			if(predicateNode == null){
 				throw new RuntimeException("Failed to resolve predicate");
 			}

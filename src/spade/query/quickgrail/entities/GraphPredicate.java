@@ -35,10 +35,35 @@ public class GraphPredicate extends Entity{
 	public EntityType getEntityType(){
 		return EntityType.kGraphPredicate;
 	}
+	
+	@Override
+	public int hashCode(){
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((predicateRoot == null) ? 0 : predicateRoot.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj){
+		if(this == obj)
+			return true;
+		if(obj == null)
+			return false;
+		if(getClass() != obj.getClass())
+			return false;
+		GraphPredicate other = (GraphPredicate)obj;
+		if(predicateRoot == null){
+			if(other.predicateRoot != null)
+				return false;
+		}else if(!predicateRoot.equals(other.predicateRoot))
+			return false;
+		return true;
+	}
 
 	@Override
 	public String getLabel(){
-		return "GraphPredicate";
+		return this.getClass().getSimpleName();
 	}
 
 	@Override
@@ -46,7 +71,7 @@ public class GraphPredicate extends Entity{
 			ArrayList<String> non_container_child_field_names,
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("predicateTree");
-		inline_field_values.add(predicateRoot.toStringInOrder()); // print infix
+		inline_field_names.add("predicate");
+		inline_field_values.add(predicateRoot.toString());
 	}
 }

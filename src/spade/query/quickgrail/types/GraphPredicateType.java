@@ -55,7 +55,7 @@ public class GraphPredicateType extends Type{
 				throw new RuntimeException("Unexpected type '"+value.getClass()+"'. Expected '"+GraphPredicate.class+"'");
 			}
 		}else{
-			return ((GraphPredicate)value).predicateRoot.toStringInOrder();
+			return ((GraphPredicate)value).predicateRoot.toString();
 		}
 	}
 }

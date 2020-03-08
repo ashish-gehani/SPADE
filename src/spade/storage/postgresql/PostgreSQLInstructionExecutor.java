@@ -19,9 +19,6 @@
  */
 package spade.storage.postgresql;
 
-import static spade.storage.postgresql.PostgreSQLQueryEnvironment.getEdgeTableName;
-import static spade.storage.postgresql.PostgreSQLQueryEnvironment.getVertexTableName;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -29,13 +26,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import spade.core.AbstractStorage;
 import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Vertex;
 import spade.query.quickgrail.core.GraphStats;
-import spade.query.quickgrail.core.QueryEnvironment;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
@@ -44,7 +40,6 @@ import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
-import spade.query.quickgrail.instruction.EraseSymbols;
 import spade.query.quickgrail.instruction.EvaluateQuery;
 import spade.query.quickgrail.instruction.ExportGraph;
 import spade.query.quickgrail.instruction.GetAdjacentVertex;
@@ -145,6 +140,14 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		return edgeAnnotationTableName;
 	}
 	
+	private String getVertexTableName(Graph graph){
+		return queryEnvironment.getGraphVertexTableName(graph);
+	}
+	
+	private String getEdgeTableName(Graph graph){
+		return queryEnvironment.getGraphEdgeTableName(graph);
+	}
+	
 	private Set<String> getColumnNamesOfVertexAnnotationTable(){
 		Set<String> columnNames = new HashSet<String>();
 		columnNames.addAll(
@@ -162,7 +165,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public QueryEnvironment getQueryEnvironment(){
+	public PostgreSQLQueryEnvironment getQueryEnvironment(){
 		return queryEnvironment;
 	}
 
@@ -231,14 +234,6 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 				+ sourceVertexTable + " group by " + getIdColumnName() + ";", false);
 		executeQueryForResult("insert into " + targetEdgeTable + " select " + getIdColumnName() + " from "
 				+ sourceEdgeTable + " group by " + getIdColumnName() + ";", false);
-	}
-
-	@Override
-	public void eraseSymbols(EraseSymbols instruction){
-		for(String symbol : instruction.getSymbols()){
-			queryEnvironment.eraseGraphSymbol(symbol);
-			queryEnvironment.eraseGraphMetadataSymbol(symbol);
-		}
 	}
 
 	private String buildComparison(String columnName, PredicateOperator operator, String value){

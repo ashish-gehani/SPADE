@@ -24,11 +24,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
-import spade.core.AbstractStorage;
 import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.query.quickgrail.core.GraphStats;
-import spade.query.quickgrail.core.QueryEnvironment;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
@@ -36,7 +35,6 @@ import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
-import spade.query.quickgrail.instruction.EraseSymbols;
 import spade.query.quickgrail.instruction.EvaluateQuery;
 import spade.query.quickgrail.instruction.ExportGraph;
 import spade.query.quickgrail.instruction.GetAdjacentVertex;
@@ -78,7 +76,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		}
 	}
 	
-	public final QueryEnvironment getQueryEnvironment(){
+	public final Neo4jQueryEnvironment getQueryEnvironment(){
 		return neo4jQueryEnvironment;
 	}
 
@@ -132,13 +130,6 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	@Override
 	public void distinctifyGraph(DistinctifyGraph instruction){
 		unionGraph(new UnionGraph(instruction.targetGraph, instruction.sourceGraph));
-	}
-
-	@Override
-	public void eraseSymbols(EraseSymbols instruction){
-		for(String symbol : instruction.getSymbols()){
-			neo4jQueryEnvironment.eraseGraphSymbol(symbol);
-		}
 	}
 
 	private String buildComparison(
@@ -238,7 +229,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	private String buildSubqueryForUpdatingEdgeSymbols(String edgeAlias, String targetGraphName){
-		final String edgeProperty = edgeAlias + ".`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		final String edgeProperty = edgeAlias + ".`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		targetGraphName = "'," + targetGraphName + ",'";
 		String query = "set " + edgeProperty + " = "
 				+ "case "
@@ -258,7 +249,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		
 		String vertexQuery = "match (v:" + instruction.sourceGraph.name + ") set v:" + instruction.targetGraph.name + ";";
 		
-		final String edgeProperty = "e0.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		final String edgeProperty = "e0.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		String query = "match (x)-[e0]->(y) ";
 		if(!neo4jQueryEnvironment.isBaseGraph(instruction.sourceGraph)){
 			query += "where " + edgeProperty + " contains ',"+instruction.sourceGraph.name+",'";
@@ -272,7 +263,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	
 	@Override
 	public void getEdge(GetEdge instruction){
-		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		String query = "";
 		query += "match ()-[e]->() ";
 		if(!neo4jQueryEnvironment.isBaseGraph(instruction.subjectGraph)){
@@ -300,7 +291,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 
 	@Override
 	public void getEdgeEndpoint(GetEdgeEndpoint instruction){
-		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		String query = "";
 		query += "match (a:" + instruction.subjectGraph.name + ")-[e]->(b:" + instruction.subjectGraph.name + ") ";
 		if(!neo4jQueryEnvironment.isBaseGraph(instruction.subjectGraph)){
@@ -328,7 +319,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		
 		storage.executeQuery(vertexQuery);
 		
-		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		String edgeQuery = "";
 		edgeQuery = "match ()-[e]->()";
 		if(neo4jQueryEnvironment.isBaseGraph(instruction.lhsGraph) && neo4jQueryEnvironment.isBaseGraph(instruction.rhsGraph)){
@@ -348,7 +339,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 
 	@Override
 	public void limitGraph(LimitGraph instruction){
-		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		String vertexQuery = 
 				"match (v:" + instruction.sourceGraph.name + ") with v order by id(v) asc limit " 
 				+ instruction.limit + " set v:" + instruction.targetGraph.name + ";";
@@ -374,7 +365,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		if(neo4jQueryEnvironment.isBaseGraph(instruction.targetGraph)){
 			result = storage.executeQueryForSmallResult("match ()-[e]->() return count(e) as ecount;");
 		}else{
-			final String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeSymbolsPropertyKey + "`";
+			final String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
 			result = storage.executeQueryForSmallResult("match ()-[e]->() " + "where " + edgeProperty + " contains ',"
 					+ instruction.targetGraph.name + ",' " + "return count(e) as ecount;");
 		}
@@ -386,7 +377,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 
 	@Override
 	public void subtractGraph(SubtractGraph instruction){
-		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		if(neo4jQueryEnvironment.isBaseGraph(instruction.minuendGraph) && neo4jQueryEnvironment.isBaseGraph(instruction.subtrahendGraph)){
 			// no resulting vertices and edge since both are base
 		}else if(!neo4jQueryEnvironment.isBaseGraph(instruction.minuendGraph) && neo4jQueryEnvironment.isBaseGraph(instruction.subtrahendGraph)){
@@ -425,7 +416,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		String edgeQuery = "match ()-[e]->()";
 		String vertexQuery = "match (v:" + instruction.sourceGraph.name + ") set v:" + instruction.targetGraph.name + ";";
 		if(!neo4jQueryEnvironment.isBaseGraph(instruction.sourceGraph)){
-			final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+			final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 			edgeQuery += " where " + edgeProperty + " contains '," + instruction.sourceGraph.name + ",'";
 		}
 		edgeQuery += " " + buildSubqueryForUpdatingEdgeSymbols("e", instruction.targetGraph.name);
@@ -436,7 +427,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 
 	@Override
 	public void getAdjacentVertex(GetAdjacentVertex instruction){ // TODO rename to get adjacent graph
-		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		if(instruction.direction.equals(GetLineage.Direction.kAncestor) || instruction.direction.equals(GetLineage.Direction.kBoth)){
 			String query = "match (a:"+instruction.sourceGraph.name+":"+instruction.subjectGraph.name+")-[e]->"
 					+ "(b:"+instruction.subjectGraph.name+")";
@@ -464,7 +455,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 
 	@Override
 	public spade.core.Graph exportGraph(ExportGraph instruction){
-		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		String edgeQuery = "match ()-[e]->()";
 		String nodesQuery = "match (v:" + instruction.targetGraph.name + ") return v;";
 		if(!neo4jQueryEnvironment.isBaseGraph(instruction.targetGraph)){
@@ -482,7 +473,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	
 	@Override
 	public void getLineage(GetLineage instruction){
-		final String edgeProperty = "e1.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		final String edgeProperty = "e1.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		if(instruction.direction.equals(GetLineage.Direction.kAncestor) || instruction.direction.equals(GetLineage.Direction.kBoth)){
 			String query = "match ";
 			query += "p=(a:"+instruction.startGraph.name+":"+instruction.subjectGraph.name+")"
@@ -512,7 +503,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 
 	@Override
 	public void getPath(GetPath instruction){
-		final String edgeProperty = "e1.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		final String edgeProperty = "e1.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		String query = "match ";
 		query += "p=(a:"+instruction.srcGraph.name+":"+instruction.subjectGraph.name+")"
 				+ "-[e0*0.."+instruction.maxDepth+"]->"
@@ -527,7 +518,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	
 	@Override
 	public void getLink(GetLink instruction){
-		final String edgeProperty = "e1.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		final String edgeProperty = "e1.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		String query = "match ";
 		query += "p=(a:"+instruction.srcGraph.name+":"+instruction.subjectGraph.name+")"
 				+ "-[e0*0.."+instruction.maxDepth+"]->"
@@ -553,7 +544,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 
 	@Override
 	public void getShortestPath(GetShortestPath instruction){
-		final String edgeProperty = "e1.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		final String edgeProperty = "e1.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		String query = "match ";
 		query += "p=shortestPath((a:"+instruction.srcGraph.name+":"+instruction.subjectGraph.name+")"
 				+ "-[e0*0.."+instruction.maxDepth+"]->"
@@ -568,7 +559,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 
 	@Override
 	public void getSubgraph(GetSubgraph instruction){
-		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeSymbolsPropertyKey+"`";
+		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		String vertexQuery = 
 				"match (n:" + instruction.skeletonGraph.name + ":" + instruction.subjectGraph.name + ") "
 				+ "set n:" + instruction.targetGraph.name + ";";

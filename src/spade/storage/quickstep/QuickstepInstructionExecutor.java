@@ -23,12 +23,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import spade.core.AbstractStorage;
-import spade.storage.Quickstep;
 import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.query.quickgrail.core.GraphStats;
-import spade.query.quickgrail.core.QueryEnvironment;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
@@ -36,7 +34,6 @@ import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
-import spade.query.quickgrail.instruction.EraseSymbols;
 import spade.query.quickgrail.instruction.EvaluateQuery;
 import spade.query.quickgrail.instruction.ExportGraph;
 import spade.query.quickgrail.instruction.GetAdjacentVertex;
@@ -63,6 +60,8 @@ import spade.query.quickgrail.types.StringType;
 import spade.query.quickgrail.utility.QuickstepUtil;
 import spade.query.quickgrail.utility.ResultTable;
 import spade.query.quickgrail.utility.Schema;
+import spade.storage.Quickstep;
+import spade.utility.HelperFunctions;
 
 /**
  * 
@@ -75,20 +74,39 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 
 	private final QuickstepExecutor qs;
 	private final QuickstepQueryEnvironment queryEnvironment;
+	
+	private final String vertexTableName, edgeTableName, vertexAnnotationsTableName, edgeAnnotationTableName;
 
-	public QuickstepInstructionExecutor(QuickstepExecutor qs, QuickstepQueryEnvironment queryEnvironment){
+	public QuickstepInstructionExecutor(QuickstepExecutor qs, QuickstepQueryEnvironment queryEnvironment,
+			String vertexTableName, String vertexAnnotationsTableName, String edgeTableName, String edgeAnnotationTableName){
 		this.qs = qs;
 		this.queryEnvironment = queryEnvironment;
+		this.vertexTableName = vertexTableName;
+		this.vertexAnnotationsTableName = vertexAnnotationsTableName;
+		this.edgeTableName = edgeTableName;
+		this.edgeAnnotationTableName = edgeAnnotationTableName;
 		if(this.queryEnvironment == null){
 			throw new IllegalArgumentException("NULL Query Environment");
 		}
 		if(this.qs == null){
 			throw new IllegalArgumentException("NULL query executor");
 		}
+		if(HelperFunctions.isNullOrEmpty(vertexTableName)){
+			throw new IllegalArgumentException("NULL/Empty vertex table name");
+		}
+		if(HelperFunctions.isNullOrEmpty(vertexAnnotationsTableName)){
+			throw new IllegalArgumentException("NULL/Empty vertex annotations table name");
+		}
+		if(HelperFunctions.isNullOrEmpty(edgeTableName)){
+			throw new IllegalArgumentException("NULL/Empty edge table name");
+		}
+		if(HelperFunctions.isNullOrEmpty(edgeAnnotationTableName)){
+			throw new IllegalArgumentException("NULL/Empty edge annotations table name");
+		}
 	}
 
 	@Override
-	public QueryEnvironment getQueryEnvironment(){
+	public QuickstepQueryEnvironment getQueryEnvironment(){
 		return queryEnvironment;
 	}
 
@@ -170,19 +188,11 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void eraseSymbols(EraseSymbols instruction){
-		for(String symbol : instruction.getSymbols()){
-			queryEnvironment.eraseGraphSymbol(symbol);
-			queryEnvironment.eraseGraphMetadataSymbol(symbol);
-		}
-	}
-
-	@Override
 	public void getVertex(GetVertex instruction){
 		if(!instruction.hasArguments()){
 			StringBuilder sqlQuery = new StringBuilder();
 			sqlQuery.append("INSERT INTO " + getVertexTableName(instruction.targetGraph) + " SELECT id FROM "
-					+ queryEnvironment.GetBaseVertexAnnotationTableName());
+					+ vertexAnnotationsTableName);
 			if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
 				String analyzeQuery = "\\analyzerange " + getVertexTableName(instruction.subjectGraph) + "\n";
 				qs.executeQuery(analyzeQuery);
@@ -193,7 +203,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		}else{
 			StringBuilder sqlQuery = new StringBuilder();
 			sqlQuery.append("INSERT INTO " + getVertexTableName(instruction.targetGraph) + " SELECT id FROM "
-					+ queryEnvironment.GetBaseVertexAnnotationTableName() + " WHERE");
+					+ vertexAnnotationsTableName + " WHERE");
 			if(!instruction.annotationKey.equals("*")){
 				sqlQuery.append(" field = " + formatString(instruction.annotationKey) + " AND");
 			}
@@ -253,7 +263,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		if(!instruction.hasArguments()){
 			StringBuilder sqlQuery = new StringBuilder();
 			sqlQuery.append("INSERT INTO " + getEdgeTableName(instruction.targetGraph) + " SELECT id FROM "
-					+ queryEnvironment.GetBaseEdgeAnnotationTableName());
+					+ edgeAnnotationTableName);
 			if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
 				String analyzeQuery = "\\analyzerange " + getEdgeTableName(instruction.subjectGraph) + "\n";
 				evaluateQuery(new EvaluateQuery(analyzeQuery));
@@ -264,7 +274,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		}else{
 			StringBuilder sqlQuery = new StringBuilder();
 			sqlQuery.append("INSERT INTO " + getEdgeTableName(instruction.targetGraph) + " SELECT id FROM "
-					+ queryEnvironment.GetBaseEdgeAnnotationTableName() + " WHERE");
+					+ edgeAnnotationTableName + " WHERE");
 			if(!instruction.annotationKey.equals("*")){
 				sqlQuery.append(" field = " + formatString(instruction.annotationKey) + " AND");
 			}
@@ -500,8 +510,8 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				+ "CREATE TABLE m_init_vertex(id INT);\n" + "CREATE TABLE m_vertex(id INT);\n"
 				+ "CREATE TABLE m_edge(id LONG);");
 
-		String targetVertexTable = queryEnvironment.getVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = queryEnvironment.getEdgeTableName(instruction.targetGraph);
+		String targetVertexTable = queryEnvironment.getGraphVertexTableName(instruction.targetGraph);
+		String targetEdgeTable = queryEnvironment.getGraphEdgeTableName(instruction.targetGraph);
 		qs.executeQuery("INSERT INTO m_init_vertex" + " SELECT id FROM " + targetVertexTable + ";\n"
 				+ "INSERT INTO m_init_vertex" + " SELECT src FROM edge WHERE id IN (SELECT id FROM " + targetEdgeTable
 				+ ");\n" + "INSERT INTO m_init_vertex" + " SELECT dst FROM edge WHERE id IN (SELECt id FROM "
@@ -873,11 +883,11 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	private String getVertexTableName(Graph graph){
-		return queryEnvironment.getVertexTableName(graph);
+		return queryEnvironment.getGraphVertexTableName(graph);
 	}
 
 	private String getEdgeTableName(Graph graph){
-		return queryEnvironment.getEdgeTableName(graph);
+		return queryEnvironment.getGraphEdgeTableName(graph);
 	}
 
 	private boolean isBaseGraph(Graph graph){
@@ -929,8 +939,8 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	public void setGraphMetadata(SetGraphMetadata instruction){
 		String targetVertexTable = queryEnvironment.getMetadataVertexTableName(instruction.targetMetadata);
 		String targetEdgeTable = queryEnvironment.getMetadataEdgeTableName(instruction.targetMetadata);
-		String sourceVertexTable = queryEnvironment.getVertexTableName(instruction.sourceGraph);
-		String sourceEdgeTable = queryEnvironment.getEdgeTableName(instruction.sourceGraph);
+		String sourceVertexTable = queryEnvironment.getGraphVertexTableName(instruction.sourceGraph);
+		String sourceEdgeTable = queryEnvironment.getGraphEdgeTableName(instruction.sourceGraph);
 
 		qs.executeQuery("\\analyzerange " + sourceVertexTable + " " + sourceEdgeTable + "\n");
 

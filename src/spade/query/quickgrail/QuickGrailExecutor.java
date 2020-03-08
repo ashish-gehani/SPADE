@@ -19,8 +19,6 @@
  */
 package spade.query.quickgrail;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.Serializable;
 import java.io.StringWriter;
@@ -42,9 +40,9 @@ import spade.core.Edge;
 import spade.core.Kernel;
 import spade.core.SPADEQuery;
 import spade.core.SPADEQuery.QuickGrailInstruction;
+import spade.query.quickgrail.core.AbstractQueryEnvironment;
 import spade.query.quickgrail.core.GraphStats;
 import spade.query.quickgrail.core.Program;
-import spade.query.quickgrail.core.QueryEnvironment;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
@@ -106,7 +104,7 @@ public class QuickGrailExecutor{
 
 	private final static long exportGraphDumpLimit = 4096, exportGraphVisualizeLimit = 4096;
 
-	private final QueryEnvironment queryEnvironment;
+	private final AbstractQueryEnvironment queryEnvironment;
 	private final QueryInstructionExecutor instructionExecutor;
 
 	public QuickGrailExecutor(QueryInstructionExecutor instructionExecutor){
@@ -120,48 +118,50 @@ public class QuickGrailExecutor{
 		}
 	}
 
-	public static void main(String[] args) throws Exception{
-		BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-
-		System.out.print("-> ");
-
-		String line = null;
-		while((line = reader.readLine()) != null){
-			if(line.trim().equalsIgnoreCase("quit") || line.trim().equalsIgnoreCase("exit")){
-				break;
-			}
-			try{
-				DSLParserWrapper parserWrapper = new DSLParserWrapper();
-				ParseProgram parseProgram = parserWrapper.fromText(line);
-				System.out.println(parseProgram);
-//				for(ParseStatement statement : parseProgram.getStatements()){
-//					System.out.println(statement);
-//					ParseAssignment assign = (ParseAssignment)statement;
-				// System.out.println(QuickGrailPredicateTree.resolveGraphPredicate(assign.getRhs()));
-//					ParseOperation rhs = (ParseOperation)assign.getRhs();
-//					System.out.println(rhs);
-
-//					ArrayList<ParseExpression> operands = rhs.getOperands();
-//					for(ParseExpression operand : operands){
-//						System.out.println(operand);
-//					}
-//				}
-
-				QuickGrailQueryResolver resolver = new QuickGrailQueryResolver();
-				System.out.println();
-				Program program = resolver.resolveProgram(parseProgram, null);
-				System.out.println();
-				System.out.println(program);
-//				System.out.println(parseProgram);
-			}catch(Exception e){
-				e.printStackTrace();
-			}
-			System.out.println();
-			System.out.print("-> ");
-		}
-
-		reader.close();
-	}// java -jar ../../../../../lib/antlr-4.7-complete.jar DSL.g4
+//	public static void main(String[] args) throws Exception{
+//		BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+//
+//		System.out.print("-> ");
+//
+//		String line = null;
+//		while((line = reader.readLine()) != null){
+//			if(line.trim().equalsIgnoreCase("quit") || line.trim().equalsIgnoreCase("exit")){
+//				break;
+//			}
+//			try{
+//				DSLParserWrapper parserWrapper = new DSLParserWrapper();
+//				ParseProgram parseProgram = parserWrapper.fromText(line);
+//				//System.out.println(parseProgram);
+////				for(ParseStatement statement : parseProgram.getStatements()){
+////					System.out.println(statement);
+////					ParseAssignment assign = (ParseAssignment)statement;
+//				// System.out.println(QuickGrailPredicateTree.resolveGraphPredicate(assign.getRhs()));
+////					ParseOperation rhs = (ParseOperation)assign.getRhs();
+////					System.out.println(rhs);
+//
+////					ArrayList<ParseExpression> operands = rhs.getOperands();
+////					for(ParseExpression operand : operands){
+////						System.out.println(operand);
+////					}
+////				}
+//
+//				QuickGrailQueryResolver resolver = new QuickGrailQueryResolver();
+//				System.out.println();
+//				Program program = resolver.resolveProgram(parseProgram, null);
+//				System.out.println();
+//				//System.out.println(program);
+////				System.out.println(parseProgram);
+//			}catch(Exception e){
+//				e.printStackTrace();
+//			}
+//			System.out.println();
+//			System.out.print("-> ");
+//		}
+//
+//		reader.close();
+//	}
+	// java -jar ../../../../../lib/antlr-4.7-complete.jar DSL.g4
+	// hassaan3
 
 	public SPADEQuery execute(SPADEQuery query){
 		try{
@@ -214,7 +214,7 @@ public class QuickGrailExecutor{
 				}
 
 			}finally{
-				queryEnvironment.gc();
+				queryEnvironment.doGarbageCollection();
 				query.setQueryExecutionCompletedAtMillis();
 			}
 
@@ -296,19 +296,19 @@ public class QuickGrailExecutor{
 			GetLineage getLineage = (GetLineage)instruction;
 			if(getLineage.remoteResolve){
 				getLineage(getLineage, query);
+				// if here then it means that it was successful and a graph has been set as result
+				query.getQueryMetaData().setMaxLength(getLineage.depth);
+				query.getQueryMetaData().setDirection(getLineage.direction);
+				try{
+					Set<AbstractVertex> rootVertices = new HashSet<AbstractVertex>();
+					rootVertices.add(((spade.core.Graph)query.getResult()).getRootVertex());
+					query.getQueryMetaData().addRootVertices(rootVertices);
+				}catch(Exception e){
+					logger.log(Level.WARNING, "Failed to root vertices for transformers from get lineage query");
+				}
 			}else{
 				instructionExecutor.getLineage(getLineage);
 			}
-			
-			// if here then it means that it was successful
-			query.getQueryMetaData().setMaxLength(getLineage.depth);
-			query.getQueryMetaData().setDirection(getLineage.direction);
-			try{
-				query.getQueryMetaData().addRootVertices(exportGraph(getLineage.targetGraph).vertexSet());
-			}catch(Exception e){
-				logger.log(Level.WARNING, "Failed to root vertices for transformers from get lineage query");
-			}
-
 		}else if(instruction.getClass().equals(GetLink.class)){
 			instructionExecutor.getLink((GetLink)instruction);
 
@@ -403,7 +403,7 @@ public class QuickGrailExecutor{
 
 		List<String> sortedNonBaseSymbolNames = new ArrayList<String>();
 		sortedNonBaseSymbolNames.addAll(graphsMap.keySet());
-		sortedNonBaseSymbolNames.remove(queryEnvironment.getBaseSymbolName());
+		sortedNonBaseSymbolNames.remove(queryEnvironment.getBaseGraphSymbol());
 		Collections.sort(sortedNonBaseSymbolNames);
 
 		ResultTable table = new ResultTable();
@@ -417,9 +417,9 @@ public class QuickGrailExecutor{
 		}
 
 		// Add base last
-		GraphStats graphStats = graphsMap.get(queryEnvironment.getBaseSymbolName());
+		GraphStats graphStats = graphsMap.get(queryEnvironment.getBaseGraphSymbol());
 		ResultTable.Row row = new ResultTable.Row();
-		row.add(queryEnvironment.getBaseSymbolName());
+		row.add(queryEnvironment.getBaseGraphSymbol());
 		row.add(graphStats.vertices);
 		row.add(graphStats.edges);
 		table.addRow(row);

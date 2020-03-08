@@ -1,209 +1,213 @@
-/*
- --------------------------------------------------------------------------------
- SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2020 SRI International
-
- This program is free software: you can redistribute it and/or
- modify it under the terms of the GNU General Public License as
- published by the Free Software Foundation, either version 3 of the
- License, or (at your option) any later version.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with this program. If not, see <http://www.gnu.org/licenses/>.
- --------------------------------------------------------------------------------
- */
 package spade.storage.neo4j;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
-import spade.query.quickgrail.core.QueryEnvironment;
-import spade.query.quickgrail.entities.Graph;
-import spade.query.quickgrail.entities.GraphMetadata;
-import spade.query.quickgrail.utility.TreeStringSerializable;
+import spade.query.quickgrail.core.AbstractQueryEnvironment;
 import spade.storage.Neo4j;
 import spade.utility.HelperFunctions;
 
-public class Neo4jQueryEnvironment extends TreeStringSerializable implements QueryEnvironment{
+public class Neo4jQueryEnvironment extends AbstractQueryEnvironment{
 
-	private final Logger logger = Logger.getLogger(this.getClass().getName());
-	
-	private final String symbolNodeLabel = "spade_symbols";
+	private final String symbolNodeLabel = "spade_query_symbols";
 	private final String propertyNameIdCounter = "id_counter";
-	private final String propertyNameGraphSymbols = "graph";
-	private final String propertyNameGraphMetadataSymbols = "graph_metadata";
-
-	private final String baseString = "base";
-	private final String baseVariable = "$" + baseString;
-	private final Graph kBaseGraph;
-	
-	private Integer idCounter = null;
-	private final HashMap<String, Graph> graphSymbols = new HashMap<String, Graph>();
-	private final HashMap<String, GraphMetadata> graphMetadataSymbols = new HashMap<String, GraphMetadata>();
+	private final String propertyNameGraphSymbols = "graphs";
+	private final String propertyNameMetadataSymbols = "metadatas";
+	private final String propertyNamePredicateSymbols = "predicates";
 
 	private final Neo4j storage;
-	public final String mainVertexLabel;
-	public final String edgeSymbolsPropertyKey;
 	
-	public Neo4jQueryEnvironment(Neo4j storage, 
-			String mainVertexLabel,
-			String edgeSymbolsPropertyKey){
+	public final String edgeLabelsPropertyName;
+
+	public Neo4jQueryEnvironment(String baseGraphName, Neo4j storage, String edgeLabelsPropertyName){
+		super(baseGraphName);
 		this.storage = storage;
-		this.mainVertexLabel = mainVertexLabel;
-		this.edgeSymbolsPropertyKey = edgeSymbolsPropertyKey;
-		this.kBaseGraph = new Graph(mainVertexLabel);
-		initialize(false);
-	}
-
-	@Override
-	public String getBaseSymbolName(){
-		return baseVariable;
-	}
-	
-	@Override
-	public Graph getBaseGraph(){
-		return kBaseGraph;
-	}
-	
-	@Override
-	public Set<String> getAllGraphSymbolNames(){
-		return graphSymbols.keySet();
-	}
-	
-	private boolean symbolNodeExists(){
-		return storage.executeQueryForSmallResult(
-				"match (v:" + symbolNodeLabel + ") return v limit 1;"
-				).size() > 0;
-	}
-
-	private Integer symbolNodeGetPropertyIdCounter(){
-		List<Map<String, Object>> result = storage.executeQueryForSmallResult(
-				"match (v:" + symbolNodeLabel + ") return v." + propertyNameIdCounter + 
-				" as " + propertyNameIdCounter + " limit 1;");
-		if(result.size() > 0){
-			return HelperFunctions.parseInt(String.valueOf(result.get(0).get(propertyNameIdCounter)), null);
-		}else{
-			return null;
+		this.edgeLabelsPropertyName = edgeLabelsPropertyName;
+		if(this.storage == null){
+			throw new RuntimeException("NULL storage");
+		}
+		if(HelperFunctions.isNullOrEmpty(this.edgeLabelsPropertyName)){
+			throw new RuntimeException("NULL/Empty property name for edge labels: '"+this.edgeLabelsPropertyName+"'.");
 		}
 	}
 
-	private String symbolNodeGetPropertyGraph(){
-		List<Map<String, Object>> result = storage.executeQueryForSmallResult(
-				"match (v:" + symbolNodeLabel + ") return v." + propertyNameGraphSymbols + 
-				" as " + propertyNameGraphSymbols + " limit 1;");
-		if(result.size() > 0){
-			return String.valueOf(result.get(0).get(propertyNameGraphSymbols));
+	////////////////////
+	// Setup
+	////////////////////
+
+	@Override
+	public void createSymbolStorageIfNotPresent(){
+		List<Map<String, Object>> result = storage
+				.executeQueryForSmallResult("match (v:" + symbolNodeLabel + ") return v limit 1;");
+
+		if(result.size() == 1){
+			// already exists
+			Map<String, Object> nodeMap = result.get(0);
+			if(nodeMap.containsKey(propertyNameIdCounter) && nodeMap.containsKey(propertyNameGraphSymbols)
+					&& nodeMap.containsKey(propertyNameMetadataSymbols)
+					&& nodeMap.containsKey(propertyNamePredicateSymbols)){
+				// valid
+			}else{
+				throw new RuntimeException("Query storage in undefined state. " + "Node with label '" + symbolNodeLabel
+						+ "' must have all the keys: " + "'" + propertyNameIdCounter + "', '" + propertyNameGraphSymbols
+						+ "', '" + propertyNameMetadataSymbols + "', '" + propertyNamePredicateSymbols + "'.");
+			}
+		}else if(result.size() == 0){
+			storage.executeQueryForSmallResult("create (x:" + symbolNodeLabel + "{" + propertyNameIdCounter + ":'0', "
+					+ propertyNameGraphSymbols + ":'', " + propertyNameMetadataSymbols + ":'', "
+					+ propertyNamePredicateSymbols + ":''});");
 		}else{
-			return null;
+			// More than one node with this symbol. Error
+			throw new RuntimeException("Query storage in undefined state. " + "Expected only one node with label: '"
+					+ symbolNodeLabel + "'.");
 		}
 	}
 
-	private String symbolNodeGetPropertyGraphMetadata(){
+	@Override
+	public void deleteSymbolStorageIfPresent(){
+		storage.executeQueryForSmallResult("match (x:" + symbolNodeLabel + ") delete x;");
+	}
+
+	private String readSymbolNodePropertyAndValidate(String propertyName){
 		List<Map<String, Object>> result = storage.executeQueryForSmallResult(
-				"match (v:" + symbolNodeLabel + ") return v." + propertyNameGraphMetadataSymbols + 
-				" as " + propertyNameGraphMetadataSymbols + " limit 1;");
-		if(result.size() > 0){
-			return String.valueOf(result.get(0).get(propertyNameGraphMetadataSymbols));
-		}else{
-			return null;
+				"match (v:" + symbolNodeLabel + ") return v." + propertyName + " as " + propertyName + ";");
+		if(result.size() == 1){
+			Object o = result.get(0).get(propertyName);
+			if(o == null){
+				throw new RuntimeException("Query symbol storage in undefined state. " + "Expected property '"
+						+ propertyName + "' to exist on node with label: '" + symbolNodeLabel + "'.");
+			}else{
+				return o.toString();
+			}
+		}else if(result.size() == 0){
+			throw new RuntimeException("Query symbol storage in undefined state. " + "Expected property '"
+					+ propertyName + "' to exist on node with label: '" + symbolNodeLabel + "'.");
+		}else{ // > 1
+			throw new RuntimeException("Query symbol storage in undefined state. "
+					+ "Expected only one node with label: '" + symbolNodeLabel + "'.");
 		}
 	}
 
-	private Map<String, String> inflateMapFromString(String str){
+	private void writeSymbolNodeProperty(String propertyName, String propertyValue){
+		storage.executeQuery(
+				"match (x:" + symbolNodeLabel + ") " + "set x." + propertyName + "='" + propertyValue + "';");
+	}
+
+	private Map<String, String> inflateMapFromString(String propertyName, String str, String listSplit, String keyValueSplit){
 		Map<String, String> map = new HashMap<String, String>();
 		if(!HelperFunctions.isNullOrEmpty(str)){
-			String[] tokens = str.split(",");
+			String[] tokens = str.split(listSplit);
 			for(String token : tokens){
-				String[] keyValue = token.split("=");
+				String[] keyValue = token.split(keyValueSplit);
 				if(keyValue.length == 2){
-					map.put(keyValue[0].trim(), keyValue[1].trim());
+					String key = keyValue[0].trim();
+					String value = keyValue[1].trim();
+					if(map.containsKey(key)){
+						throw new RuntimeException("Duplicate '"+propertyName+"' symbol key: '"+key+"'");
+					}
+					map.put(key, value);
 				}
 			}
 		}
 		return map;
 	}
 
-	private String deflateGraphSymbolsToString(Map<String, Graph> map){
+	private String deflateMapToString(Map<String, String> map, String listJoiner, String keyValueJoiner){
 		String str = "";
-		for(Map.Entry<String, Graph> entry : map.entrySet()){
-			str += entry.getKey() + "=" + entry.getValue().name + ",";
+		for(Map.Entry<String, String> entry : map.entrySet()){
+			str += entry.getKey() + keyValueJoiner + entry.getValue() + listJoiner;
 		}
 		if(!str.isEmpty()){
-			str = str.substring(0, str.length() - 1);
+			str = str.substring(0, str.length() - listJoiner.length());
 		}
 		return str;
 	}
 
-	private String deflateGraphMetadataSymbolsToString(Map<String, GraphMetadata> map){
-		String str = "";
-		for(Map.Entry<String, GraphMetadata> entry : map.entrySet()){
-			str += entry.getKey() + "=" + entry.getValue().name + ",";
-		}
-		if(!str.isEmpty()){
-			str = str.substring(0, str.length() - 1);
-		}
-		return str;
+	@Override
+	public int readIdCount(){
+		String idCountString = readSymbolNodePropertyAndValidate(propertyNameIdCounter);
+		return Integer.parseInt(idCountString);
 	}
 
-	public synchronized void initialize(boolean deleteFirst){
-		if(deleteFirst){
-			storage.executeQueryForSmallResult("match (x:" + symbolNodeLabel + ") delete x;");
-			idCounter = null;
-			graphSymbols.clear();
-			graphMetadataSymbols.clear();
-		}
+	@Override
+	public Map<String, String> readGraphSymbols(){
+		String graphSymbolsString = readSymbolNodePropertyAndValidate(propertyNameGraphSymbols);
+		return inflateMapFromString(propertyNameGraphSymbols, graphSymbolsString, ",", "=");
+	}
 
-		if(!symbolNodeExists()){
-			storage.executeQueryForSmallResult(
-					"create (x:" + symbolNodeLabel + "{"
-					+ propertyNameIdCounter + ":0, "
-					+ propertyNameGraphSymbols + ":'', "
-					+ propertyNameGraphMetadataSymbols + ":''});");
-		}
+	@Override
+	public Map<String, String> readMetadataSymbols(){
+		String metadataSymbolsString = readSymbolNodePropertyAndValidate(propertyNameMetadataSymbols);
+		return inflateMapFromString(propertyNameMetadataSymbols, metadataSymbolsString, ",", "=");
+	}
 
-		idCounter = symbolNodeGetPropertyIdCounter();
-		if(idCounter == null){
-			idCounter = 0;
-			storage.executeQueryForSmallResult("match (x:" + symbolNodeLabel + ") "
-					+ "set x." + propertyNameIdCounter + "=" + String.valueOf(idCounter) + ";");
-		}
+	@Override
+	public Map<String, String> readPredicateSymbols(){
+		String predicateSymbolsString = readSymbolNodePropertyAndValidate(propertyNamePredicateSymbols);
+		return inflateMapFromString(propertyNamePredicateSymbols, predicateSymbolsString, ",", "#");
+	}
 
-		String graphProperty = symbolNodeGetPropertyGraph();
-		if(!HelperFunctions.isNullOrEmpty(graphProperty)){
-			Map<String, String> map = inflateMapFromString(graphProperty);
-			for(Map.Entry<String, String> entry : map.entrySet()){
-				graphSymbols.put(entry.getKey(), new Graph(entry.getValue()));
-			}
-		}
+	@Override
+	public void saveIdCounter(int idCounter){
+		writeSymbolNodeProperty(propertyNameIdCounter, String.valueOf(idCounter));
+	}
 
-		String graphMetadataProperty = symbolNodeGetPropertyGraphMetadata();
-		if(!HelperFunctions.isNullOrEmpty(graphMetadataProperty)){
-			Map<String, String> map = inflateMapFromString(graphMetadataProperty);
-			for(Map.Entry<String, String> entry : map.entrySet()){
-				graphMetadataSymbols.put(entry.getKey(), new GraphMetadata(entry.getValue()));
-			}
-		}
+	@Override
+	public void saveGraphSymbol(String symbol, String graphName, boolean symbolNameWasPresent){
+		updateGraphSymbols();
+	}
 
-		logger.log(Level.SEVERE, "Neo4j:Symbols:ID-Counter="+idCounter+", Graph="+ graphSymbols +", GraphMetadata="+ graphMetadataSymbols);
+	@Override
+	public void saveMetadataSymbol(String symbol, String metadataName, boolean symbolNameWasPresent){
+		updateMetadataSymbols();
+	}
+
+	@Override
+	public void savePredicateSymbol(String symbol, String predicate, boolean symbolNameWasPresent){
+		updatePredicateSymbols();
+	}
+
+	@Override
+	public void deleteGraphSymbol(String symbol){
+		updateGraphSymbols();
+	}
+
+	@Override
+	public void deleteMetadataSymbol(String symbol){
+		updateMetadataSymbols();
+	}
+
+	@Override
+	public void deletePredicateSymbol(String symbol){
+		updatePredicateSymbols();
+	}
+
+	private void updateGraphSymbols(){
+		Map<String, String> map = getCurrentGraphSymbolsStringMap();
+		String value = deflateMapToString(map, ",", "=");
+		storage.executeQuery(
+				"match (x:" + symbolNodeLabel + ") " + "set x." + propertyNameGraphSymbols + "='" + value + "';");
+	}
+
+	private void updateMetadataSymbols(){
+		Map<String, String> map = getCurrentMetadataSymbolsStringMap();
+		String value = deflateMapToString(map, ",", "=");
+		storage.executeQuery(
+				"match (x:" + symbolNodeLabel + ") " + "set x." + propertyNameMetadataSymbols + "='" + value + "';");
+	}
+
+	private void updatePredicateSymbols(){
+		Map<String, String> map = getCurrentPredicateSymbolsStringMap();
+		String value = deflateMapToString(map, ",", "#");
+		storage.executeQuery(
+				"match (x:" + symbolNodeLabel + ") " + "set x." + propertyNamePredicateSymbols + "='" + value + "';");
 	}
 	
-	@Override
-	public void clear(){
-		initialize(true);
-		gc(); // TODO can be done quicker since we have all the valid names
-	}
+	//////////////////////////////////
 	
 	private Set<String> getAllVertexLabels(){
 		final Set<String> allLabels = new HashSet<String>();
@@ -218,12 +222,12 @@ public class Neo4jQueryEnvironment extends TreeStringSerializable implements Que
 		final Set<String> allEdgeSymbols = new HashSet<String>();
 		final List<Map<String, Object>> edgeSymbolsPropertyValues = storage.executeQueryForSmallResult(
 				"match ()-[e]->() with distinct e."
-						+ edgeSymbolsPropertyKey + " as "
-						+ edgeSymbolsPropertyKey + " return "
-						+ edgeSymbolsPropertyKey
+						+ edgeLabelsPropertyName + " as "
+						+ edgeLabelsPropertyName + " return "
+						+ edgeLabelsPropertyName
 				);
 		for(final Map<String, Object> map : edgeSymbolsPropertyValues){
-			final Object object = map.get(edgeSymbolsPropertyKey);
+			final Object object = map.get(edgeLabelsPropertyName); // format of value = '<,a,>(repeat)'
 			if(object != null){ // ignore the null i.e. only exists in base
 				final String edgeSymbolsList = String.valueOf(object);
 				final String[] edgeSymbolsTokens = edgeSymbolsList.split(",");
@@ -236,8 +240,61 @@ public class Neo4jQueryEnvironment extends TreeStringSerializable implements Que
 		}
 		return allEdgeSymbols;
 	}
+
+	@Override
+	public final void doGarbageCollection(){
+		// Get all non-garbage labels
+		final Set<String> referencedGraphNames = new HashSet<String>();
+		referencedGraphNames.addAll(getCurrentGraphSymbolsStringMap().values());
+
+		final Set<String> nonGarbageNames = new HashSet<String>();
+		nonGarbageNames.addAll(referencedGraphNames); // Don't delete a label if it is reference in the symbol graph map
+		nonGarbageNames.add(getBaseGraph().name); // Don't delete the base vertex label i.e. VERTEX but depends on config
+		nonGarbageNames.add(symbolNodeLabel); // Don't delete the symbol node label used to store symbol info
+
+		// Get all labels from the storage
+		final Set<String> allLabels = getAllVertexLabels();
+
+		// Collect garbage labels
+		final Set<String> garbageLabels = new HashSet<String>();
+		for(String label : allLabels){ // Collect all labels which have been generated by us
+			if(isSPADEGraphOrSPADEMetadataName(label)){
+				garbageLabels.add(label);
+			}
+		}
+		garbageLabels.removeAll(nonGarbageNames); // Must never remove the non garbage labels
+
+		try{
+			dropVertexLabels(garbageLabels.toArray(new String[]{}));
+		}catch(Throwable t){
+			logger.log(Level.WARNING, "Failed to delete garbage labels from nodes: " + garbageLabels, t);
+		}
+		
+		// Garbage labels dropped from nodes by now
+
+		// Get all symbols from the property
+		final Set<String> allEdgeSymbols = getAllEdgeLabels();
+
+		final Set<String> garbageEdgeSymbols = new HashSet<String>();
+		for(String allEdgeSymbol : allEdgeSymbols){
+			if(isSPADEGraphOrSPADEMetadataName(allEdgeSymbol)){
+				garbageEdgeSymbols.add(allEdgeSymbol);
+			}
+		}
+		garbageEdgeSymbols.removeAll(referencedGraphNames);
+
+		if(!garbageEdgeSymbols.isEmpty()){
+			for(String garbageEdgeSymbol : garbageEdgeSymbols){
+				try{
+					dropEdgeSymbol(garbageEdgeSymbol);
+				}catch(Throwable t){
+					logger.log(Level.WARNING, "Failed to delete garbage value in '"+edgeLabelsPropertyName+"' key of edges: '" + garbageEdgeSymbol + "'.", t);
+				}
+			}
+		}
+	}
 	
-	public void dropVertexLabels(String... labels){
+	public final void dropVertexLabels(String... labels){
 		if(labels != null){
 			String queryLabels = "";
 			for(String label : labels){
@@ -253,222 +310,15 @@ public class Neo4jQueryEnvironment extends TreeStringSerializable implements Que
 		}
 	}
 	
-	public void dropEdgeSymbol(String symbol){
+	public final void dropEdgeSymbol(String symbol){
 		if(!HelperFunctions.isNullOrEmpty(symbol)){
 			symbol = symbol.trim();
 			String matchClause = "match ()-[e]->()";
-			String whereClause = "where e." + edgeSymbolsPropertyKey + " contains ',"+symbol+",'";
-			String setClause = "set e." + edgeSymbolsPropertyKey + " = replace(e." + edgeSymbolsPropertyKey+ ", "
+			String whereClause = "where e." + edgeLabelsPropertyName + " contains ',"+symbol+",'";
+			String setClause = "set e." + edgeLabelsPropertyName + " = replace(e." + edgeLabelsPropertyName+ ", "
 					+ "',"+symbol+",', '');";
 			String query = matchClause + " " + whereClause + " " + setClause;
 			storage.executeQuery(query);
 		}
 	}
-	
-	@Override
-	public void gc(){
-		// Get all non-garbage labels
-		final Set<String> graphVariables = new HashSet<String>();
-		for(final Graph graph : graphSymbols.values()){
-			graphVariables.add(graph.name);
-		}
-		
-		final Set<String> nonGarbageVariables = new HashSet<String>();
-		nonGarbageVariables.addAll(graphVariables);
-		nonGarbageVariables.add(mainVertexLabel);
-		nonGarbageVariables.add(symbolNodeLabel);
-		
-		// Get all labels
-		final Set<String> allLabels = getAllVertexLabels();
-		
-		// Collect garbage labels
-		final Set<String> garbageLabels = new HashSet<String>();
-		for(String allLabel : allLabels){
-			if(isGraphOrGraphMetadataName(allLabel)){
-				garbageLabels.add(allLabel);
-			}
-		}
-		garbageLabels.removeAll(nonGarbageVariables);
-		
-		// Build the query to delete the garbage labels
-		dropVertexLabels(garbageLabels.toArray(new String[]{}));
-		
-		// Get all symbols from the property
-		final Set<String> allEdgeSymbols = getAllEdgeLabels();
-		
-		final Set<String> garbageEdgeSymbols = new HashSet<String>();
-		for(String allEdgeSymbol : allEdgeSymbols){
-			if(isGraphOrGraphMetadataName(allEdgeSymbol)){
-				garbageEdgeSymbols.add(allEdgeSymbol);
-			}
-		}
-		garbageEdgeSymbols.removeAll(graphVariables);
-		
-		if(!garbageEdgeSymbols.isEmpty()){
-			for(String garbageEdgeSymbol : garbageEdgeSymbols){
-				dropEdgeSymbol(garbageEdgeSymbol);
-			}
-		}
-	}
-
-	//////////
-	private String createGraphName(String suffix){
-		return "graph_" + suffix;
-	}
-
-	private String createGraphMetadataName(String suffix){
-		return "meta_" + suffix;
-	}
-
-	private boolean isGraphOrGraphMetadataName(String name){
-		return name.startsWith("graph_") || name.startsWith("meta_");
-	}
-	//////////
-
-	private synchronized String incrementIdCounter(){
-		idCounter++;
-		String result = String.valueOf(idCounter);
-		storage.executeQuery("match (x:" + symbolNodeLabel + ") "
-				+ "set x." + propertyNameIdCounter + "=" + result + ";");
-		return result;
-	}
-
-	@Override
-	public Graph allocateGraph(){
-		return new Graph(createGraphName(incrementIdCounter()));
-	}
-
-	@Override
-	public GraphMetadata allocateGraphMetadata(){
-		return new GraphMetadata(createGraphMetadataName(incrementIdCounter()));
-	}
-
-	@Override
-	public Graph lookupGraphSymbol(String symbol){
-		switch(symbol){
-			case baseVariable: return kBaseGraph;
-		}
-		return graphSymbols.get(symbol);
-	}
-
-	@Override
-	public GraphMetadata lookupGraphMetadataSymbol(String symbol){
-		// @<name>
-		return graphMetadataSymbols.get(symbol);
-	}
-
-	@Override
-	public void setGraphSymbol(String symbol, Graph graph){
-		switch(symbol){
-		case baseVariable:
-			throw new RuntimeException("Cannot reassign reserved variables.");
-		}
-		boolean update;
-		Graph existing = graphSymbols.get(symbol);
-		if(existing != null){
-			if(existing.equals(graph)){
-				update = false;
-			}else{
-				update = true;
-			}
-		}else{
-			update = true;
-		}
-		if(update){
-			graphSymbols.put(symbol, graph);
-			storage.executeQuery("match (x:" + symbolNodeLabel + ") "
-					+ "set x." + propertyNameGraphSymbols + "='" 
-					+ deflateGraphSymbolsToString(graphSymbols) + "';");
-		}
-	}
-
-	@Override
-	public void setGraphMetadataSymbol(String symbol, GraphMetadata graphMetadata){
-		boolean update;
-		GraphMetadata existing = graphMetadataSymbols.get(symbol);
-		if(existing != null){
-			if(existing.equals(graphMetadata)){
-				update = false;
-			}else{
-				update = true;
-			}
-		}else{
-			update = true;
-		}
-		if(update){
-			graphMetadataSymbols.put(symbol, graphMetadata);
-			storage.executeQuery("match (x:" + symbolNodeLabel + ") "
-					+ "set x." + propertyNameGraphMetadataSymbols + "='"
-					+ deflateGraphMetadataSymbolsToString(graphMetadataSymbols) + "';");
-		}
-	}
-
-	@Override
-	public void eraseGraphSymbol(String symbol){
-		switch(symbol){
-			case baseVariable: throw new RuntimeException("Cannot erase reserved variables.");
-		}
-		if(graphSymbols.containsKey(symbol)){
-			graphSymbols.remove(symbol);
-			storage.executeQuery("match (x:" + symbolNodeLabel + ") "
-					+ "set x." + propertyNameGraphSymbols + "='" 
-					+ deflateGraphSymbolsToString(graphSymbols) + "';");
-		}
-	}
-
-	@Override
-	public void eraseGraphMetadataSymbol(String symbol){
-		if(graphMetadataSymbols.containsKey(symbol)){
-			graphMetadataSymbols.remove(symbol);
-			storage.executeQuery("match (x:" + symbolNodeLabel + ") "
-					+ "set x." + propertyNameGraphMetadataSymbols + "='"
-					+ deflateGraphMetadataSymbolsToString(graphMetadataSymbols) + "';");
-		}
-	}
-
-	@Override
-	public boolean isBaseGraph(Graph graph){
-		return graph.equals(kBaseGraph);
-	}
-	
-	@Override
-	public String getLabel(){
-		return "Environment";
-	}
-
-	@Override
-	protected void getFieldStringItems(ArrayList<String> inline_field_names, ArrayList<String> inline_field_values,
-			ArrayList<String> non_container_child_field_names,
-			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
-			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		for(Entry<String, Graph> entry : graphSymbols.entrySet()){
-			inline_field_names.add(entry.getKey());
-			inline_field_values.add(entry.getValue().name);
-		}
-		for(Entry<String, GraphMetadata> entry : graphMetadataSymbols.entrySet()){
-			inline_field_names.add(entry.getKey());
-			inline_field_values.add(entry.getValue().name);
-		}
-	}
-	
-	private void printSymbolsNode(){
-		logger.log(Level.INFO, "Neo4j Query Environment: " + 
-				storage.executeQueryForSmallResult(
-						"match (v:" + symbolNodeLabel + ") "
-								+ "return "
-								+ "v."+propertyNameIdCounter+" as "+propertyNameIdCounter+", "
-								+ "v."+propertyNameGraphSymbols+" as "+propertyNameGraphSymbols+", "
-								+ "v."+propertyNameGraphMetadataSymbols+" as "+propertyNameGraphMetadataSymbols+" "
-								+ "limit 1;"
-						)
-		);
-	}
-	// match (a:spade_symbols) delete a;
-	// match (a:spade_symbols) return a; // must be one
-	// create (a:spade_symbols{id_counter:1, graph:"", graph_metadata:""})
-	// match (a:spade_symbols) set a.graph='$a=hasjkd,$x=123';
-
-	// get all edge property keys: match ()-[e]->() unwind keys(e) as ee return collect(distinct ee) as kk
-	// get all vertex property keys: match (n) unwind keys(n) as nn return collect(distinct nn) as jj
-	
 }

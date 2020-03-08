@@ -104,8 +104,7 @@ public class Graph implements Serializable{
 	public boolean getIsResultVerified(){
 		return isResultVerified;
 	}
-
-
+	
 	public String getHash(AbstractVertex vertex){
 		return (reverseVertexIdentifiers.containsKey(vertex)) ? reverseVertexIdentifiers.get(vertex) : null;
 	}

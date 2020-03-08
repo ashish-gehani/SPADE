@@ -39,8 +39,8 @@ public class QuickstepUtil{
 	private static Pattern tableNamePattern = Pattern.compile("([^ \n]+)[ |].*table.*");
 
 	public static void CreateEmptyGraph(QuickstepExecutor qs, QuickstepQueryEnvironment qqe, Graph graph){
-		String vertexTable = qqe.getVertexTableName(graph);
-		String edgeTable = qqe.getEdgeTableName(graph);
+		String vertexTable = qqe.getGraphVertexTableName(graph);
+		String edgeTable = qqe.getGraphEdgeTableName(graph);
 
 		StringBuilder sb = new StringBuilder();
 		sb.append("DROP TABLE " + vertexTable + ";\n");
@@ -76,16 +76,16 @@ public class QuickstepUtil{
 	}
 
 	public static long GetNumVertices(QuickstepExecutor qs, QuickstepQueryEnvironment qqe, Graph graph){
-		return qs.executeQueryForLongResult("COPY SELECT COUNT(*) FROM " + qqe.getVertexTableName(graph) + " TO stdout;");
+		return qs.executeQueryForLongResult("COPY SELECT COUNT(*) FROM " + qqe.getGraphVertexTableName(graph) + " TO stdout;");
 	}
 
 	public static long GetNumEdges(QuickstepExecutor qs, QuickstepQueryEnvironment qqe, Graph graph){
-		return qs.executeQueryForLongResult("COPY SELECT COUNT(*) FROM " + qqe.getEdgeTableName(graph) + " TO stdout;");
+		return qs.executeQueryForLongResult("COPY SELECT COUNT(*) FROM " + qqe.getGraphEdgeTableName(graph) + " TO stdout;");
 	}
 
 	public static long GetNumTimestamps(QuickstepExecutor qs, QuickstepQueryEnvironment qqe, Graph graph){
 		return qs.executeQueryForLongResult(
-				"COPY SELECT COUNT(*) FROM edge_anno" + " WHERE id IN (SELECT id FROM " + qqe.getEdgeTableName(graph) + ")" +
+				"COPY SELECT COUNT(*) FROM edge_anno" + " WHERE id IN (SELECT id FROM " + qqe.getGraphEdgeTableName(graph) + ")" +
 						" AND field = 'timestampNanos' TO stdout;");
 	}
 
@@ -97,7 +97,7 @@ public class QuickstepUtil{
 
 		String span = qs.executeQuery(
 				"COPY SELECT MIN(value), MAX(value) FROM edge_anno" + " WHERE id IN (SELECT id FROM " 
-						+ qqe.getEdgeTableName(graph) + ")" +
+						+ qqe.getGraphEdgeTableName(graph) + ")" +
 						" AND field = 'timestampNanos' TO stdout WITH (DELIMITER '|');");
 		String[] timestamps = span.trim().split("\\|");
 		return new Long[]{Long.parseLong(timestamps[0]), Long.parseLong(timestamps[1])};

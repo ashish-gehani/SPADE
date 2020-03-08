@@ -235,12 +235,7 @@ public class Neo4j extends AbstractStorage
     public QueryInstructionExecutor getQueryInstructionExecutor(){
     	synchronized(this){
 			if(queryEnvironment == null){
-				queryEnvironment = 
-						new Neo4jQueryEnvironment(
-								this, 
-								NodeTypes.VERTEX.name().toUpperCase(), 
-								edgeSymbolsPropertyKey
-								);
+				queryEnvironment = new Neo4jQueryEnvironment(NodeTypes.VERTEX.name().toUpperCase(), this, edgeSymbolsPropertyKey);
 			}
 			if(queryInstructionExecutor == null){
 				queryInstructionExecutor = new Neo4jInstructionExecutor(this, queryEnvironment);

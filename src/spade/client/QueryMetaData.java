@@ -20,14 +20,17 @@
 
 package spade.client;
 
+import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
 
 import spade.core.AbstractVertex;
 import spade.query.quickgrail.instruction.GetLineage;
 
-public class QueryMetaData{
+public class QueryMetaData implements Serializable{
 
+	private static final long serialVersionUID = -6071212141422611083L;
+	
 	private Set<AbstractVertex> rootVertices = new HashSet<>();
 	private Integer maxLength;
 	private GetLineage.Direction direction;

@@ -29,11 +29,8 @@ import java.util.Set;
 
 import spade.core.AbstractVertex;
 import spade.core.Kernel;
-import spade.core.SPADEQuery;
-import spade.core.SPADEQuery.QuickGrailInstruction;
 import spade.core.Settings;
 import spade.query.quickgrail.core.GraphStats;
-import spade.query.quickgrail.core.QueryEnvironment;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
@@ -221,7 +218,7 @@ public class RemoteResolver{
 	}
 	
 	// post instruction execution. Only called if resolve remotely is true in get lineage
-	public static void resolveRemotely(
+/*	public static void resolveRemotely(
 			QuickGrailExecutor queryExecutor,
 			QueryInstructionExecutor instructionExecutor,
 			QueryEnvironment queryEnvironment,
@@ -280,7 +277,7 @@ public class RemoteResolver{
 				// wait for all asynchronous calls to finish
 			}
 		}
-	}
+	}*/
 	
 	//////
 	// remote

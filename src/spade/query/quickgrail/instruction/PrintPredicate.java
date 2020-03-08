@@ -21,14 +21,15 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 public class PrintPredicate extends Instruction{
 
-	public final String predicateSymbolName;
+	public final PredicateNode predicateRoot;
 	
-	public PrintPredicate(String predicateSymbolName){
-		this.predicateSymbolName = predicateSymbolName;
+	public PrintPredicate(PredicateNode predicateRoot){
+		this.predicateRoot = predicateRoot;
 	}
 	
 	@Override
@@ -41,8 +42,8 @@ public class PrintPredicate extends Instruction{
 			ArrayList<String> non_container_child_field_names,
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("predicateSymbolName");
-		inline_field_values.add(predicateSymbolName);
+		inline_field_names.add("predicateRoot");
+		inline_field_values.add(predicateRoot.toString());
 	}
 
 }

@@ -19,9 +19,6 @@
  */
 package spade.storage;
 
-import static spade.core.Kernel.CONFIG_PATH;
-import static spade.core.Kernel.FILE_SEPARATOR;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
@@ -43,6 +40,7 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
+import spade.core.Settings;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.utility.QuickstepUtil;
 import spade.storage.quickstep.GraphBatch;
@@ -61,6 +59,16 @@ import spade.utility.map.external.ExternalMapManager;
 public class Quickstep extends AbstractStorage {
 	private QuickstepInstructionExecutor queryInstructionExecutor = null;
 	private QuickstepQueryEnvironment queryEnvironment = null;
+	
+	private final String baseGraphName = "spade_base_graph";
+	private String tableNameBaseVertex = QuickstepQueryEnvironment.getVertexTableName(baseGraphName);
+    private String tableNameBaseEdge = QuickstepQueryEnvironment.getEdgeTableName(baseGraphName);
+    
+    private final String 
+    		vertexTableName = "vertex",
+    		edgeTableName = "edge",
+    		vertexAnnotationsTableName = "vertex_anno",
+    		edgeAnnotationTableName = "edge_anno";
 	
   private PrintWriter debugLogWriter = null;
   private long timeExecutionStart;
@@ -108,20 +116,20 @@ public class Quickstep extends AbstractStorage {
 
     public void initStorage() {
       StringBuilder initQuery = new StringBuilder();
-      initQuery.append("CREATE TABLE vertex (\n" +
+      initQuery.append("CREATE TABLE "+vertexTableName+" (\n" +
                        "  id INT,\n" +
                        "  md5 CHAR(32)\n" +
                        ") WITH BLOCKPROPERTIES (\n" +
                        "  TYPE columnstore,\n" +
                        "  SORT id);");
-      initQuery.append("CREATE TABLE edge (\n" +
+      initQuery.append("CREATE TABLE "+edgeTableName+" (\n" +
                        "  id LONG,\n" +
                        "  src INT,\n" +
                        "  dst INT\n" +
                        ") WITH BLOCKPROPERTIES (\n" +
                        "  TYPE columnstore,\n" +
                        "  SORT id);");
-      initQuery.append("CREATE TABLE vertex_anno (\n" +
+      initQuery.append("CREATE TABLE "+vertexAnnotationsTableName+" (\n" +
                        "  id INT,\n" +
                        "  field VARCHAR(" + maxVertexKeyLength + "),\n" +
                        "  value VARCHAR(" + maxVertexValueLength + ")\n" +
@@ -129,7 +137,7 @@ public class Quickstep extends AbstractStorage {
                        "  TYPE compressed_columnstore,\n" +
                        "  SORT id,\n" +
                        "  COMPRESS (id, field, value));");
-      initQuery.append("CREATE TABLE edge_anno (\n" +
+      initQuery.append("CREATE TABLE "+edgeAnnotationTableName+" (\n" +
                        "  id LONG,\n" +
                        "  field VARCHAR(" + maxEdgeKeyLength + "),\n" +
                        "  value VARCHAR(" + maxEdgeValueLength + ")\n" +
@@ -137,11 +145,11 @@ public class Quickstep extends AbstractStorage {
                        "  TYPE compressed_columnstore,\n" +
                        "  SORT id,\n" +
                        "  COMPRESS (id, field, value));");
-      initQuery.append("CREATE TABLE trace_base_vertex (\n" +
+      initQuery.append("CREATE TABLE "+tableNameBaseVertex+" (\n" +
                        "  id INT\n" +
                        ") WITH BLOCKPROPERTIES (\n" +
                        "  TYPE columnstore, SORT id);");
-      initQuery.append("CREATE TABLE trace_base_edge (\n" +
+      initQuery.append("CREATE TABLE "+tableNameBaseEdge+" (\n" +
                        "  id LONG\n" +
                        ") WITH BLOCKPROPERTIES (\n" +
                        "  TYPE columnstore, SORT id);");
@@ -167,12 +175,12 @@ public class Quickstep extends AbstractStorage {
         tableSet.add(table);
       }
       String[] requiredTables = new String[] {
-          "vertex",
-          "vertex_anno",
-          "edge",
-          "edge_anno",
-          "trace_base_vertex",
-          "trace_base_edge",
+    	  vertexTableName,
+          vertexAnnotationsTableName,
+          edgeTableName,
+          edgeAnnotationTableName,
+          tableNameBaseVertex,
+          tableNameBaseEdge,
       };
 
       boolean isInvalid = false;
@@ -231,7 +239,7 @@ public class Quickstep extends AbstractStorage {
 
       int lastNumVertices;
       try {
-        String sn = qs.executeQuery("COPY SELECT COUNT(*) FROM trace_base_vertex TO stdout;");
+        String sn = qs.executeQuery("COPY SELECT COUNT(*) FROM "+tableNameBaseVertex+" TO stdout;");
         lastNumVertices = Integer.parseInt(sn.trim());
       } catch (Exception e) {
         logger.log(Level.SEVERE, e.getMessage());
@@ -240,7 +248,7 @@ public class Quickstep extends AbstractStorage {
 
       long lastNumEdges;
       try {
-        String sn = qs.executeQuery("COPY SELECT COUNT(*) FROM trace_base_edge TO stdout;");
+        String sn = qs.executeQuery("COPY SELECT COUNT(*) FROM "+tableNameBaseEdge+" TO stdout;");
         lastNumEdges = Long.parseLong(sn.trim());
       } catch (Exception e) {
         logger.log(Level.SEVERE, e.getMessage());
@@ -282,26 +290,26 @@ public class Quickstep extends AbstractStorage {
       }
 
       if (vertexIdCounter > lastNumVertices) {
-        qs.submitQuery("INSERT INTO trace_base_vertex SELECT idx" +
+        qs.submitQuery("INSERT INTO "+tableNameBaseVertex+" SELECT idx" +
                        " FROM generate_series(" + (lastNumVertices + 1) +
                        ", " + vertexIdCounter +  ") AS t(idx);");
 
-        qs.submitQuery("COPY vertex FROM stdin WITH (DELIMITER '|');",
+        qs.submitQuery("COPY "+vertexTableName+" FROM stdin WITH (DELIMITER '|');",
                        vertexMD5.toString());
 
-        qs.submitQuery("COPY vertex_anno FROM stdin WITH (DELIMITER '|');",
+        qs.submitQuery("COPY "+vertexAnnotationsTableName+" FROM stdin WITH (DELIMITER '|');",
                        vertexAnnos.toString());
       }
 
       if (edgeIdCounter > lastNumEdges) {
-        qs.submitQuery("INSERT INTO trace_base_edge SELECT idx" +
+        qs.submitQuery("INSERT INTO "+tableNameBaseEdge+" SELECT idx" +
                        " FROM generate_series(" + (lastNumEdges + 1) +
                        ", " + edgeIdCounter +  ") AS t(idx);");
 
-        qs.submitQuery("COPY edge FROM stdin WITH (DELIMITER '|');",
+        qs.submitQuery("COPY "+edgeTableName+" FROM stdin WITH (DELIMITER '|');",
                        edgeLinks.toString());
 
-        qs.submitQuery("COPY edge_anno FROM stdin WITH (DELIMITER '|');",
+        qs.submitQuery("COPY "+edgeAnnotationTableName+" FROM stdin WITH (DELIMITER '|');",
                        edgeAnnos.toString());
       }
 
@@ -396,7 +404,7 @@ public class Quickstep extends AbstractStorage {
 
   @Override
   public boolean initialize(String arguments) {
-    String configFile = CONFIG_PATH + FILE_SEPARATOR + "spade.storage.Quickstep.config";
+    String configFile = Settings.getDefaultConfigFilePath(Quickstep.class);
     conf = new QuickstepConfiguration(configFile, arguments);
 
     // Initialize log file writer.
@@ -568,10 +576,11 @@ public class Quickstep extends AbstractStorage {
 	public QueryInstructionExecutor getQueryInstructionExecutor(){
 		synchronized(this){
 			if(queryEnvironment == null){
-				queryEnvironment = new QuickstepQueryEnvironment(qs);
+				queryEnvironment = new QuickstepQueryEnvironment(baseGraphName, qs);
 			}
 			if(queryInstructionExecutor == null){
-				queryInstructionExecutor = new QuickstepInstructionExecutor(qs, queryEnvironment);
+				queryInstructionExecutor = new QuickstepInstructionExecutor(qs, queryEnvironment, 
+						vertexTableName, vertexAnnotationsTableName, edgeTableName, edgeAnnotationTableName);
 			}
 		}
 		return queryInstructionExecutor;
