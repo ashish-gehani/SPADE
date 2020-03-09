@@ -1612,7 +1612,11 @@ public class Kernel
         // Shut down storages.
         for (AbstractStorage storage : storages)
         {
+	    long vertexCount = storage.vertexCount;
+            long edgeCount = storage.edgeCount;
             storage.shutdown();
+            logger.log(Level.INFO, "Storage shut down: {0} ({1} vertices and {2} edges were added)",
+                    new Object[]{storage.getClass().getSimpleName(), vertexCount, edgeCount});
         }
         // Shut down analzers.
         for(AbstractAnalyzer analyzer: analyzers)

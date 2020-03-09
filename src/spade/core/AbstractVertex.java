@@ -257,7 +257,7 @@ public abstract class AbstractVertex implements Serializable
 	{
 		return "\t\tVertex:{\n" +
 				"\t\t\thash:" + bigHashCode() + ",\n" +
-				"\t\t\tannotations:" + annotations + "'\n" +
+				"\t\t\tannotations:" + annotations + "\n" +
 				"\t\t}";
 	}
 

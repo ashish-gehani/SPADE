@@ -21,6 +21,7 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Cache;
 import spade.core.Graph;
+import spade.core.Settings;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -69,9 +70,7 @@ public class DiscrepancyDetector
 	{
 		try
 		{
-			Properties props = new Properties();
-			props.load(new FileInputStream("update_cache.txt"));
-			boolean update_cache = Boolean.parseBoolean(props.getProperty("update_cache"));
+			boolean update_cache = Boolean.parseBoolean(Settings.getProperty("update_cache"));
 
 			File file = null;
 			if(!update_cache)
@@ -151,9 +150,7 @@ public class DiscrepancyDetector
 			totalDiscrepancyCount += discrepancyCount;
 			try
 			{
-				Properties props = new Properties();
-				props.load(new FileInputStream("prune_graph.txt"));
-				boolean prune_graph = Boolean.parseBoolean(props.getProperty("prune_graph"));
+				boolean prune_graph = Boolean.parseBoolean(Settings.getProperty("prune_graph"));
 				if(prune_graph)
 				{
 					logger.log(Level.INFO, "prune_graph: true");

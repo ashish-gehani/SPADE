@@ -255,8 +255,8 @@ public abstract class AbstractEdge implements Serializable
 	{
 		return "\t\tEdge:{\n" +
 				"\t\t\thash:" + bigHashCode() + ",\n" +
-				"\t\t\tchildHash:" + childVertex == null ? "<NULL>" : childVertex.bigHashCode() + ",\n" +
-				"\t\t\tparentHash:" + parentVertex == null ? "<NULL>" : parentVertex.bigHashCode() + ",\n" +
+				"\t\t\tchildHash:" + (childVertex == null ? "<NULL>" : childVertex.bigHashCode()) + ",\n" +
+				"\t\t\tparentHash:" + (parentVertex == null ? "<NULL>" : parentVertex.bigHashCode()) + ",\n" +
 				"\t\t\tannotations:" + annotations + "\n" +
 				"\t\t}";
 	}

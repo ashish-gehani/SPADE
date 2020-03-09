@@ -840,7 +840,9 @@ public class Graph implements Serializable{
 			for(AbstractEdge edge : edgeSet()){
 				signature.update(edge.bigHashCodeBytes());
 			}
-			signature.update(getQueryString().getBytes("UTF-8"));
+			if(getQueryString() != null){
+				signature.update(getQueryString().getBytes("UTF-8"));
+			}
 			if(nonce != null){
 				signature.update(nonce.getBytes("UTF-8"));
 			}
@@ -876,8 +878,12 @@ public class Graph implements Serializable{
 				for(AbstractEdge edge : edgeSet()){
 					signature.update(edge.bigHashCodeBytes());
 				}
-				signature.update(getQueryString().getBytes("UTF-8"));
-				signature.update(nonce.getBytes("UTF-8"));
+				if(getQueryString() != null){
+					signature.update(getQueryString().getBytes("UTF-8"));
+				}
+				if(nonce != null){
+					signature.update(nonce.getBytes("UTF-8"));
+				}
 
 				this.isResultVerified = signature.verify(getSignature());
 				return this.isResultVerified;

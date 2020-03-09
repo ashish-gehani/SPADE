@@ -38,6 +38,7 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Kernel;
+import spade.core.Settings;
 import spade.core.SPADEQuery;
 import spade.core.SPADEQuery.QuickGrailInstruction;
 import spade.core.Vertex;
@@ -676,14 +677,13 @@ public class QuickGrailExecutor{
 	//////////////////////////////////////////////////
 
 	private boolean isDiscrepancyDetectionEnabled(){
-		final String configFile = "find_inconsistency.txt";
 		final String key = "find_inconsistency";
 		try{
 			return HelperFunctions
-					.parseBoolean(FileUtility.readConfigFileAsKeyValueMap(configFile, "=").get(key)).result;
+					.parseBoolean(Settings.getProperty(key)).result;
 		}catch(Exception e){
 			logger.log(Level.WARNING, "Not doing discrepancy detection. Failed to read key '" + key + "' config file '"
-					+ configFile + "'", e);
+					+ "cfg/spade.core.Kernel.config" + "'", e);
 			return false;
 		}
 	}
