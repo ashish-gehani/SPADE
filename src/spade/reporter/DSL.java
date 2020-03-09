@@ -192,7 +192,7 @@ public class DSL extends AbstractReporter {
             } else if ((type.equalsIgnoreCase("wasassociatedwith")) && (from != null) && (to != null)) {
                 if ((vertices.get((from)) instanceof Activity) && (vertices.get((to)) instanceof Agent)) {
                 	spade.vertex.prov.Agent agent = new spade.vertex.prov.Agent();
-                	agent.addAnnotations(((Agent) vertices.get(to)).getAnnotations());
+                	agent.addAnnotations(((Agent) vertices.get(to)).getCopyOfAnnotations());
                     edge = new WasAssociatedWith((Activity) vertices.get(from), agent);
                 } else {
                     logger.log(Level.WARNING, "WasAssociatedWith edge must be from an Acivity to an Agent");
@@ -210,7 +210,7 @@ public class DSL extends AbstractReporter {
             }
             // Finally, pass vertex or edge to buffer.
             if ((id != null) && (vertex != null)) {
-                vertex.getAnnotations().putAll(annotations);
+                vertex.addAnnotations(annotations);
                 vertices.put(id, vertex);
                 putVertex(vertex);
             } else if (edge != null) {

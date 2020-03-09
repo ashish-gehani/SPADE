@@ -24,10 +24,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
-import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
-import spade.core.AbstractVertex;
 import spade.query.quickgrail.core.GraphStats;
+import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
@@ -452,23 +451,23 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 			storage.executeQuery(query);
 		}
 	}
-
+	
 	@Override
-	public spade.core.Graph exportGraph(ExportGraph instruction){
+	public Map<String, Map<String, String>> exportVertices(ExportGraph instruction){
+		String nodesQuery = "match (v:" + instruction.targetGraph.name + ") return v;";
+		return storage.readHashToVertexMap("v", nodesQuery);
+	}
+	
+	@Override
+	public Set<QueriedEdge> exportEdges(ExportGraph instruction){
 		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		String edgeQuery = "match ()-[e]->()";
-		String nodesQuery = "match (v:" + instruction.targetGraph.name + ") return v;";
 		if(!neo4jQueryEnvironment.isBaseGraph(instruction.targetGraph)){
 			edgeQuery += " where " + edgeProperty + " contains '," + instruction.targetGraph.name + ",'";
 		}
 		edgeQuery += " return e;";
-		Map<String, AbstractVertex> hashToVertex = storage.readHashToVertexMap("v", nodesQuery);
-		Set<AbstractEdge> edgeSet = storage.readEdgeSet("e", edgeQuery, hashToVertex);
 		
-		spade.core.Graph spadeCoreGraph = new spade.core.Graph();
-		spadeCoreGraph.vertexSet().addAll(hashToVertex.values());
-		spadeCoreGraph.edgeSet().addAll(edgeSet);
-		return spadeCoreGraph;
+		return storage.readEdgeSet("e", edgeQuery);
 	}
 	
 	@Override

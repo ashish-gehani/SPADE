@@ -47,10 +47,49 @@ public abstract class AbstractVertex implements Serializable
     private final Map<String, String> annotations = new TreeMap<>();
 
     /**
+     * String big hash to be returned by bigHashCode function only if not null.
+     * If null then big hash computed using the annotations map.
+     */
+    private final String bigHashCode;
+    
+    /**
      * An integer indicating the depth of the vertex in the graph
      */
     private int depth;
 
+    /**
+     * Create a vertex without a fixed big hash.
+     */
+    public AbstractVertex(){
+    	this.bigHashCode = null;
+    }
+    
+    /**
+     * Create a vertex with a fixed big hash.
+     * 
+     * @param md5HexBigHashCode String
+     */
+    public AbstractVertex(String md5HexBigHashCode){
+    	this.bigHashCode = md5HexBigHashCode;
+    	// TODO required for future changes?
+    	/*
+    	if(this.bigHashCode != null){
+    		if(this.bigHashCode.length() != 32){
+    			throw new RuntimeException("The big hash code length must be '32' to work with all storages");
+    		}
+    	}
+    	*/
+    }
+    
+    /**
+     * Returns true if the vertex has a fixed big hash otherwise false
+     * 
+     * @return true/false
+     */
+    public final boolean isReferenceVertex(){
+    	return bigHashCode != null;
+    }
+    
     public int getDepth() {
 		return depth;
 	}
@@ -74,9 +113,20 @@ public abstract class AbstractVertex implements Serializable
      *
      * @return The map containing the annotations.
      */
-    public final Map<String, String> getAnnotations() {
-        return annotations;
-    }
+//    public final Map<String, String> getAnnotations() {
+//        return annotations;
+//    }
+    
+    /**
+     * Returns the copy of the map containing the annotations for this vertex.
+     *
+     * Updated because if copy needs to be made then it should be made using the explicit function below
+     *
+     * @return The map containing the annotations.
+     */
+	public final Map<String, String> getCopyOfAnnotations(){
+		return new TreeMap<String, String>(annotations);
+	}
 
     /**
      * Adds an annotation.
@@ -146,49 +196,27 @@ public abstract class AbstractVertex implements Serializable
      *
      @return A 128-bit hash digest.
      */
-    public String bigHashCode()
-    {
-        return DigestUtils.md5Hex(this.toString());
-    }
-
+	public final String bigHashCode(){
+		if(bigHashCode == null){
+			return DigestUtils.md5Hex(annotations.toString()); // calculated at runtime
+		}else{
+			return bigHashCode;
+		}
+	}
 
     /**
      * Computes MD5 hash of annotations in the vertex
      * @return 16 element byte array of the digest.
      */
-    public byte[] bigHashCodeBytes()
-    {
-        return DigestUtils.md5(this.toString());
+	public final byte[] bigHashCodeBytes(){
+    	if(bigHashCode == null){
+    		return DigestUtils.md5(annotations.toString()); // calculated at runtime
+    	}else{
+    		return bigHashCode.getBytes();
+    	}
     }
 
-    public boolean isCompleteNetworkVertex()
-    {
-        if(isNetworkVertex())
-        {
-            String localAddress = this.getAnnotation(OPMConstants.ARTIFACT_LOCAL_ADDRESS);
-            String localPort = this.getAnnotation(OPMConstants.ARTIFACT_LOCAL_PORT);
-            String remoteAddress = this.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS);
-            String remotePort = this.getAnnotation(OPMConstants.ARTIFACT_REMOTE_PORT);
-            return !HelperFunctions.isNullOrEmpty(localAddress) &&
-                    !HelperFunctions.isNullOrEmpty(localPort) &&
-                    !HelperFunctions.isNullOrEmpty(remoteAddress) &&
-                    !HelperFunctions.isNullOrEmpty(remotePort);
-        }
-        return false;
-    }
-
-    public boolean isNetworkVertex()
-    {
-        String subtype = this.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE);
-        if(subtype != null && subtype.equalsIgnoreCase(OPMConstants.SUBTYPE_NETWORK_SOCKET))
-        {
-            return true;
-        }
-
-        return false;
-    }
-    
-    /**
+	/**
      * Computes a function of the annotations in the vertex.
      *
      * This takes less time to compute than bigHashCode() but is less collision-resistant.
@@ -199,7 +227,7 @@ public abstract class AbstractVertex implements Serializable
 	public int hashCode(){
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((annotations == null) ? 0 : annotations.hashCode());
+		result = prime * result + bigHashCode().hashCode();
 		return result;
 	}
 
@@ -209,21 +237,15 @@ public abstract class AbstractVertex implements Serializable
 			return true;
 		if(obj == null)
 			return false;
-		if(getClass() != obj.getClass())
-			return false;
 		AbstractVertex other = (AbstractVertex) obj;
-		if(annotations == null){
-			if(other.annotations != null)
-				return false;
-		}else if(!annotations.equals(other.annotations))
-			return false;
-		return true;
+		return bigHashCode().equals(other.bigHashCode());
 	}
 	
     @Override
-    public String toString()
+    public final String toString()
     {
         return "AbstractVertex{" +
+        		"hash=" + bigHashCode() + "," +
                 "annotations=" + annotations +
                 '}';
     }
@@ -231,11 +253,18 @@ public abstract class AbstractVertex implements Serializable
     /*
      * @Author Raza
      */
-    public String prettyPrint()
+    public final String prettyPrint()
 	{
-		return "\t\tVertex:\n\t\t{\n" +
+		return "\t\tVertex:{\n" +
 				"\t\t\thash:" + bigHashCode() + ",\n" +
-				"\t\t\tannotations:" + annotations + ",\n" +
+				"\t\t\tannotations:" + annotations + "'\n" +
 				"\t\t}";
+	}
+
+	public final AbstractVertex copyAsVertex(){
+		AbstractVertex copy = new Vertex(this.bigHashCode);
+		copy.annotations.putAll(this.annotations);
+		copy.depth = this.depth;
+		return copy;
 	}
 }

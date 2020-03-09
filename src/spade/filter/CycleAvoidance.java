@@ -19,17 +19,16 @@
  */
 package spade.filter;
 
-import spade.core.AbstractEdge;
-import spade.core.AbstractFilter;
-import spade.core.AbstractVertex;
-import spade.core.Edge;
-import spade.core.Vertex;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractFilter;
+import spade.core.AbstractVertex;
+import spade.core.Edge;
 
 public class CycleAvoidance extends AbstractFilter {
 
@@ -52,7 +51,7 @@ public class CycleAvoidance extends AbstractFilter {
             // We've already seen this vertex.
             return;
         }
-        if (!incomingVertex.getAnnotations().containsKey(versionAnnotation)) {
+        if (incomingVertex.getAnnotation(versionAnnotation) == null) {
             incomingVertex.addAnnotation(versionAnnotation, Integer.toString(initialVersion));
         }
         passedVertices.put(incomingVertex, Boolean.FALSE);
@@ -77,19 +76,19 @@ public class CycleAvoidance extends AbstractFilter {
         }
 
         Map<String, String> currentAnnotations = new HashMap<>();
-        currentAnnotations.putAll(destination.getAnnotations());
+        currentAnnotations.putAll(destination.getCopyOfAnnotations());
         int currentVersion = Integer.parseInt(currentAnnotations.remove(versionAnnotation));
         // Look for ancestor vertex.
         for (AbstractVertex ancestor : ancestors.get(source)) {
             Map<String, String> annotations = new HashMap<>();
-            annotations.putAll(ancestor.getAnnotations());
+            annotations.putAll(ancestor.getCopyOfAnnotations());
             int existingVersion = Integer.parseInt(annotations.remove(versionAnnotation));
             if (currentAnnotations.equals(annotations)) {
                 if (currentVersion == existingVersion || currentVersion < existingVersion) {
                     return;
                 } else {
                     currentVersion++;
-                    destination = copyVertex(destination);
+                    destination = destination.copyAsVertex();
                     destination.addAnnotation(versionAnnotation, Integer.toString(currentVersion));
                     copyEdge.setParentVertex(destination);
                 }
@@ -107,13 +106,6 @@ public class CycleAvoidance extends AbstractFilter {
             putInNextFilter(vertex);
             passedVertices.put(vertex, Boolean.TRUE);
         }
-    }
-
-    private AbstractVertex copyVertex(AbstractVertex vertex) {
-        AbstractVertex copy = new Vertex();
-        copy.getAnnotations().clear();
-        copy.addAnnotations(vertex.getAnnotations());
-        return copy;
     }
 
     private AbstractEdge copyEdge(AbstractEdge edge) {

@@ -1234,7 +1234,7 @@ public class CompressedStorage extends AbstractStorage {
 			idToHash.put(vertexID, vertexHash);
 			StringBuilder annotationString = new StringBuilder();
 			//annotationString.append("VERTEX (" + vertexId + "): {");
-			for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
+			for (Map.Entry<String, String> currentEntry : incomingVertex.getCopyOfAnnotations().entrySet()) {
 				String key = currentEntry.getKey();
 				String value = currentEntry.getValue();
 				if (key == null || value == null) {

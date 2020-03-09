@@ -28,6 +28,7 @@ import java.util.logging.Logger;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
+import spade.utility.HelperFunctions;
 
 /**
  * All constants and convenience functions for OPM related to Audit data.
@@ -423,6 +424,18 @@ public class OPMConstants {
 	public static boolean isNetworkArtifact(AbstractVertex vertex){
 		if(vertex != null){
 			return SUBTYPE_NETWORK_SOCKET.equals(vertex.getAnnotation(ARTIFACT_SUBTYPE));
+		}
+		return false;
+	}
+	
+	public static boolean isCompleteNetworkArtifact(AbstractVertex vertex){
+		if(isNetworkArtifact(vertex)){
+			String localAddress = vertex.getAnnotation(ARTIFACT_LOCAL_ADDRESS);
+			String localPort = vertex.getAnnotation(ARTIFACT_LOCAL_PORT);
+			String remoteAddress = vertex.getAnnotation(ARTIFACT_REMOTE_ADDRESS);
+			String remotePort = vertex.getAnnotation(ARTIFACT_REMOTE_PORT);
+			return !HelperFunctions.isNullOrEmpty(localAddress) && !HelperFunctions.isNullOrEmpty(localPort)
+					&& !HelperFunctions.isNullOrEmpty(remoteAddress) && !HelperFunctions.isNullOrEmpty(remotePort);
 		}
 		return false;
 	}

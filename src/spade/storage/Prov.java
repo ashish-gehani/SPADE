@@ -302,7 +302,7 @@ public class Prov extends AbstractStorage{
 						DigestUtils.sha256Hex(vertex.toString()),
 						provNamespacePrefix,
 						vertex.getClass().getSimpleName(),
-						getProvOFormattedKeyValPair(vertex.getAnnotations()));
+						getProvOFormattedKeyValPair(vertex.getCopyOfAnnotations()));
 
 				break;
 			case PROVN:
@@ -311,7 +311,7 @@ public class Prov extends AbstractStorage{
 						vertex.getClass().getSimpleName().toLowerCase(),
 						defaultNamespacePrefix,
 						DigestUtils.sha256Hex(vertex.toString()),
-						getProvNFormattedKeyValPair(vertex.getAnnotations()));
+						getProvNFormattedKeyValPair(vertex.getCopyOfAnnotations()));
 
 				break;
 			default:

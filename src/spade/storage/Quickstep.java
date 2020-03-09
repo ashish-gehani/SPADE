@@ -326,7 +326,7 @@ public class Quickstep extends AbstractStorage {
       vertexMD5.append(md5);
       vertexMD5.append('\n');
 
-      for (Map.Entry<String, String> annoEntry : vertex.getAnnotations().entrySet()) {
+      for (Map.Entry<String, String> annoEntry : vertex.getCopyOfAnnotations().entrySet()) {
         vertexAnnos.append(vertexId);
         vertexAnnos.append('|');
         appendEscaped(vertexAnnos, annoEntry.getKey(), maxVertexKeyLength);

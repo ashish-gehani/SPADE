@@ -184,7 +184,7 @@ public abstract class SQLQueryEnvironment extends AbstractQueryEnvironment{
 		List<String> dropQueriesList = new ArrayList<String>();
 		for(String table : allTables){
 			boolean drop = false;
-			if(table.startsWith(prefixSPADETempTableName) || table.startsWith("m_")){ // drop right away if temp table TODO hassaan
+			if(table.startsWith(prefixSPADETempTableName) || table.startsWith("m_")){ // drop right away if temp table TODO
 				drop = true;
 			}else{
 				if(isSPADEGraphOrSPADEMetadataName(table)){
@@ -195,7 +195,6 @@ public abstract class SQLQueryEnvironment extends AbstractQueryEnvironment{
 			}
 			if(drop){
 				dropQueriesList.add("drop table " + table + "");
-//				dropQuery.append("DROP TABLE " + table + ";\n"); quickstep TODO
 			}
 		}
 		if(dropQueriesList.size() > 0){

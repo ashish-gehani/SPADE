@@ -20,16 +20,16 @@
  */
 package spade.filter;
 
-import spade.core.AbstractEdge;
-import spade.core.AbstractFilter;
-import spade.core.AbstractVertex;
-import spade.utility.HelperFunctions;
-
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractFilter;
+import spade.core.AbstractVertex;
+import spade.utility.HelperFunctions;
 
 /**
  * A filter to drop annotations passed in arguments.
@@ -134,9 +134,10 @@ public class DropKeys extends AbstractFilter{
 	 */
 	private AbstractVertex createCopyWithoutKeys(AbstractVertex vertex, Set<String> dropAnnotations){
 		try{
-			AbstractVertex vertexCopy = vertex.getClass().newInstance();
-			vertexCopy.addAnnotations(vertex.getAnnotations());
-			dropKeys(vertexCopy.getAnnotations(), dropAnnotations);
+			AbstractVertex vertexCopy = vertex.copyAsVertex();
+			for(String dropAnnotation : dropAnnotations){
+				vertexCopy.removeAnnotation(dropAnnotation);
+			}
 			return vertexCopy;
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to initialize vertex: " + vertex, e);
@@ -165,23 +166,13 @@ public class DropKeys extends AbstractFilter{
 			AbstractEdge edgeCopy = edge.getClass().getConstructor(edge.getChildVertex().getClass(),
 					edge.getParentVertex().getClass()).newInstance(source, destination);
 			edgeCopy.addAnnotations(edge.getAnnotations());
-			dropKeys(edgeCopy.getAnnotations(), dropAnnotations);
+			for(String dropAnnotation : dropAnnotations){
+				edgeCopy.removeAnnotation(dropAnnotation);
+			}
 			return edgeCopy;
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to initialize edge: " + edge, e);
 			return null;
 		}
 	}
-	
-	/**
-	 * Removes the given annotations from the passed map
-	 * 
-	 * @param annotations map to remove keys from
-	 * @param dropKeys set of keys to remove
-	 */
-	private void dropKeys(Map<String, String> annotations, Set<String> dropKeys){
-		for(String dropKey : dropKeys){
-			annotations.remove(dropKey);
-		}
-	}	
 }

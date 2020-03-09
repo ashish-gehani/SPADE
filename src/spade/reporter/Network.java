@@ -192,7 +192,7 @@ public class Network extends AbstractReporter implements Runnable {
             annotations = new LinkedHashMap<>();
             annotations.put("pid", pid);
             processVertex = new spade.vertex.opm.Process();
-            processVertex.getAnnotations().putAll(annotations);
+            processVertex.addAnnotations(annotations);
 
             if (!putVertex(processVertex)) {
                 errorStream.println("Buffer did not accept process artifact:" + "\n\t pid" + pid);
@@ -215,7 +215,7 @@ public class Network extends AbstractReporter implements Runnable {
             annotations.put("destination port", port);
 
             networkVertex = new spade.vertex.opm.Artifact();
-            networkVertex.getAnnotations().putAll(annotations);
+            networkVertex.addAnnotations(annotations);
 
             if (!putVertex(networkVertex)) {
                 errorStream.println("Buffer did not accept connection artifact:" + "\n\t " + connection);

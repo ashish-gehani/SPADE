@@ -19,16 +19,15 @@
  */
 package spade.storage;
 
-import org.apache.commons.codec.digest.DigestUtils;
-import spade.core.AbstractEdge;
-import spade.core.AbstractStorage;
-import spade.core.AbstractVertex;
-import spade.core.Graph;
-
 import java.io.FileWriter;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
+import spade.core.AbstractVertex;
+import spade.core.Graph;
 
 /**
  * A storage implementation that simply outputs plain text to a file.
@@ -79,7 +78,7 @@ public class TextFile extends AbstractStorage
             String vertexHash = incomingVertex.bigHashCode();
             StringBuilder annotationString = new StringBuilder();
             annotationString.append("VERTEX (" + vertexHash + "): {");
-            for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet())
+            for (Map.Entry<String, String> currentEntry : incomingVertex.getCopyOfAnnotations().entrySet())
             {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();

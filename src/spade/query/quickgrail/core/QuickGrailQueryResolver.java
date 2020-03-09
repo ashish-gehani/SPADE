@@ -208,8 +208,6 @@ public class QuickGrailQueryResolver{
 			if(predicateNode == null){
 				throw new RuntimeException("Failed to resolve predicate");
 			}else{
-//				try{QuickGrailPredicateTree.testSer3(predicateNode);}catch(Throwable e){ throw new RuntimeException("Failed ser test", e);}
-				// TODO hassaan2
 				env.setPredicateSymbol(var.getValue(), new GraphPredicate(predicateNode));
 			}
 		}else{

@@ -4234,7 +4234,7 @@ public class Audit extends AbstractReporter {
 	    			if(!localPortFromSyscall.equals(netfilterAnnotations.get(OPMConstants.ARTIFACT_LOCAL_PORT))){
 	    				// different connection
 	    				// basically further pruning
-	    				networkAnnotationsFromSyscalls.add(syscallArtifact.getAnnotations());
+	    				networkAnnotationsFromSyscalls.add(syscallArtifact.getCopyOfAnnotations());
 	    				return;
 	    			}
 	    		}
@@ -4266,7 +4266,7 @@ public class Audit extends AbstractReporter {
 				
 				matchedSyscallNetfilter++;
 			}else{
-				networkAnnotationsFromSyscalls.add(syscallArtifact.getAnnotations());
+				networkAnnotationsFromSyscalls.add(syscallArtifact.getCopyOfAnnotations());
 			}
 		}
 	}

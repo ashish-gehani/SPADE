@@ -66,8 +66,8 @@ import spade.core.AbstractVertex;
 import spade.core.Settings;
 import spade.edge.cdm.SimpleEdge;
 import spade.reporter.audit.OPMConstants;
-import spade.utility.HelperFunctions;
 import spade.utility.FileUtility;
+import spade.utility.HelperFunctions;
 import spade.utility.Result;
 import spade.utility.map.external.ExternalMap;
 import spade.utility.map.external.ExternalMapArgument;
@@ -343,13 +343,17 @@ public class CDM extends AbstractReporter{
 		EventType type = event.getType();
 		if(type != null){
 			Map<String, String> edgeMap = new HashMap<String, String>();
-			addAnnotationIfNotNull(edgeMap, "sequence", event.getSequence());
-			addAnnotationIfNotNull(edgeMap, "threadId", event.getThreadId());
-			addAnnotationIfNotNull(edgeMap, "timestampNanos", event.getTimestampNanos());
-			addAnnotationIfNotNull(edgeMap, "location", event.getLocation());
-			addAnnotationIfNotNull(edgeMap, "size", event.getSize());
+			if(event.getSequence() != null){ edgeMap.put("sequence", event.getSequence().toString()); }
+			if(event.getThreadId() != null){ edgeMap.put("threadId", event.getThreadId().toString()); }
+			if(event.getTimestampNanos() != null){ edgeMap.put("timestampNanos", event.getTimestampNanos().toString()); }
+			if(event.getLocation() != null){ edgeMap.put("location", event.getLocation().toString()); }
+			if(event.getSize() != null){ edgeMap.put("size", event.getSize().toString()); }
 			
-			addAnnotationsIfNotNull(edgeMap, event.getProperties());
+			for(Map.Entry<CharSequence, CharSequence> entry : event.getProperties().entrySet()){
+				if(entry.getKey() != null && entry.getValue() != null){
+					edgeMap.put(entry.getKey().toString(), entry.getValue().toString());
+				}
+			}
 			
 			UUID src1 = null, dst1 = null, src2 = null, dst2 = null, src3 = null, dst3 = null;
 			
@@ -747,59 +751,49 @@ public class CDM extends AbstractReporter{
 	}
 	
 	private void addSource(AbstractVertex vertex, InstrumentationSource source){
-		addSource(vertex.getAnnotations(), source);
+		addAnnotationIfNotNull(vertex, OPMConstants.SOURCE, source);
 	}
 	
 	private void addSource(AbstractEdge edge, InstrumentationSource source){
-		addSource(edge.getAnnotations(), source);
-	}
-	
-	private void addSource(Map<String, String> map, InstrumentationSource source){
-		addAnnotationIfNotNull(map, "source", source);
+		addAnnotationIfNotNull(edge, OPMConstants.SOURCE, source);
 	}
 	
 	private void addCdmType(AbstractVertex vertex, Object value){
-		addCdmType(vertex.getAnnotations(), value);
+		addAnnotationIfNotNull(vertex, KEY_CDM_TYPE, value);
 	}
 	
 	private void addCdmType(AbstractEdge edge, Object value){
-		addCdmType(edge.getAnnotations(), value);
-	}
-	
-	private void addCdmType(Map<String, String> map, Object value){
-		addAnnotationIfNotNull(map, KEY_CDM_TYPE, value);
-	}
-	
-	private void addAnnotationIfNotNull(AbstractVertex vertex, String key, Object value){
-		addAnnotationIfNotNull(vertex.getAnnotations(), key, value);
+		addAnnotationIfNotNull(edge, KEY_CDM_TYPE, value);
 	}
 	
 	private void addAnnotationsIfNotNull(AbstractVertex vertex, AbstractObject object){
 		if(object != null){
-			addAnnotationIfNotNull(vertex, "epoch", object.getEpoch());
-			addAnnotationIfNotNull(vertex, "permission", getPermissionSHORTAsString(object.getPermission()));
+			addAnnotationIfNotNull(vertex, OPMConstants.ARTIFACT_EPOCH, object.getEpoch());
+			addAnnotationIfNotNull(vertex, OPMConstants.ARTIFACT_PERMISSIONS, getPermissionSHORTAsString(object.getPermission()));
 			addAnnotationsIfNotNull(vertex, object.getProperties());
 		}
 	}
 	
-	private void addAnnotationIfNotNull(Map<String, String> map, String key, Object value){
+	private void addAnnotationIfNotNull(AbstractVertex vertex, String key, Object value){
 		if(value != null){
-			map.put(key, value.toString());
+			vertex.addAnnotation(key, value.toString());
 		}
 	}
 	
-	private void addAnnotationsIfNotNull(Map<String, String> map, Map<CharSequence, CharSequence> properties){
+	private void addAnnotationIfNotNull(AbstractEdge edge, String key, Object value){
+		if(value != null){
+			edge.addAnnotation(key, value.toString());
+		}
+	}
+	
+	private void addAnnotationsIfNotNull(AbstractVertex vertex, Map<CharSequence, CharSequence> properties){
 		if(properties != null){
 			for(Map.Entry<CharSequence, CharSequence> entry : properties.entrySet()){
-				addAnnotationIfNotNull(map, String.valueOf(entry.getKey()), entry.getValue());
+				addAnnotationIfNotNull(vertex, String.valueOf(entry.getKey()), entry.getValue());
 			}
 		}
 	}
-	
-	
-	private void addAnnotationsIfNotNull(AbstractVertex vertex, Map<CharSequence, CharSequence> properties){
-		addAnnotationsIfNotNull(vertex.getAnnotations(), properties);
-	}
+
 	
 	/**
 	 * Returns null if null arguments

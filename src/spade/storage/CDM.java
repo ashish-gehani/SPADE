@@ -73,8 +73,8 @@ import spade.core.AbstractVertex;
 import spade.core.Settings;
 import spade.reporter.Audit;
 import spade.reporter.audit.OPMConstants;
-import spade.utility.HelperFunctions;
 import spade.utility.FileUtility;
+import spade.utility.HelperFunctions;
 import spade.utility.HostInfo;
 import spade.vertex.opm.Artifact;
 import spade.vertex.prov.Agent;
@@ -478,10 +478,11 @@ public class CDM extends Kafka {
 							String ppid = process.getAnnotation(OPMConstants.PROCESS_PPID);
 							
 							Map<CharSequence, CharSequence> properties = new HashMap<>();
-							addIfNotNull(OPMConstants.PROCESS_NAME, process.getAnnotations(), properties);
-							addIfNotNull(OPMConstants.PROCESS_CWD, process.getAnnotations(), properties);
-							addIfNotNull(OPMConstants.PROCESS_PPID, process.getAnnotations(), properties);
-							addIfNotNull(OPMConstants.PROCESS_SEEN_TIME, process.getAnnotations(), properties);
+							final Map<String, String> vertexAnnotationsCopy = process.getCopyOfAnnotations();
+							addIfNotNull(OPMConstants.PROCESS_NAME, vertexAnnotationsCopy, properties);
+							addIfNotNull(OPMConstants.PROCESS_CWD, vertexAnnotationsCopy, properties);
+							addIfNotNull(OPMConstants.PROCESS_PPID, vertexAnnotationsCopy, properties);
+							addIfNotNull(OPMConstants.PROCESS_SEEN_TIME, vertexAnnotationsCopy, properties);
 
 							Subject subject = new Subject(subjectUUID, subjectType, pid, 
 									pidSubjectUUID.get(ppid), principalUUID, startTime, 
@@ -514,9 +515,10 @@ public class CDM extends Kafka {
 			String userId = agentVertex.getAnnotation(OPMConstants.AGENT_UID);
 			if(userId != null){
 				Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
-				addIfNotNull(OPMConstants.AGENT_EUID, agentVertex.getAnnotations(), properties);
-				addIfNotNull(OPMConstants.AGENT_SUID, agentVertex.getAnnotations(), properties);
-				addIfNotNull(OPMConstants.AGENT_FSUID, agentVertex.getAnnotations(), properties);
+				final Map<String, String> vertexAnnotationsCopy = agentVertex.getCopyOfAnnotations();
+				addIfNotNull(OPMConstants.AGENT_EUID, vertexAnnotationsCopy, properties);
+				addIfNotNull(OPMConstants.AGENT_SUID, vertexAnnotationsCopy, properties);
+				addIfNotNull(OPMConstants.AGENT_FSUID, vertexAnnotationsCopy, properties);
 
 				List<CharSequence> groupIds = new ArrayList<CharSequence>();
 				if(agentVertex.getAnnotation(OPMConstants.AGENT_GID) != null){
@@ -626,7 +628,7 @@ public class CDM extends Kafka {
 					destPort = srcPort == null ? "0" : destPort;
 
 					Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
-					addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
+					addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getCopyOfAnnotations(), properties);
 
 					AbstractObject baseObject = new AbstractObject(null, epoch, properties);
 
@@ -645,8 +647,9 @@ public class CDM extends Kafka {
 						}
 
 						Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
-						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
-						addIfNotNull(OPMConstants.ARTIFACT_TGID, vertex.getAnnotations(), properties);
+						final Map<String, String> copyOfAnnotations = vertex.getCopyOfAnnotations();
+						addIfNotNull(OPMConstants.ARTIFACT_VERSION, copyOfAnnotations, properties);
+						addIfNotNull(OPMConstants.ARTIFACT_TGID, copyOfAnnotations, properties);
 
 						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
 
@@ -672,8 +675,9 @@ public class CDM extends Kafka {
 						return false;
 					}else{
 						Map<CharSequence, CharSequence> properties = new HashMap<>();
-						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
-						addIfNotNull(OPMConstants.ARTIFACT_TGID, vertex.getAnnotations(), OPMConstants.ARTIFACT_PID, properties);
+						final Map<String, String> copyOfAnnotations = vertex.getCopyOfAnnotations();
+						addIfNotNull(OPMConstants.ARTIFACT_VERSION, copyOfAnnotations, properties);
+						addIfNotNull(OPMConstants.ARTIFACT_TGID, copyOfAnnotations, OPMConstants.ARTIFACT_PID, properties);
 
 						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
 
@@ -697,7 +701,7 @@ public class CDM extends Kafka {
 						}
 						properties.put(OPMConstants.ARTIFACT_PID, String.valueOf(tgid));
 						properties.put(OPMConstants.ARTIFACT_SUBTYPE, artifactType);
-						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
+						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getCopyOfAnnotations(), properties);
 						
 						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
 
@@ -715,7 +719,7 @@ public class CDM extends Kafka {
 
 						Map<CharSequence, CharSequence> properties = new HashMap<CharSequence, CharSequence>();
 						properties.put(OPMConstants.ARTIFACT_PID, String.valueOf(tgid));
-						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);	                    		
+						addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getCopyOfAnnotations(), properties);	                    		
 
 						AbstractObject baseObject = new AbstractObject(null, epoch, properties);
 
@@ -729,8 +733,9 @@ public class CDM extends Kafka {
 					SHORT permissions = getPermissionsAsCDMSHORT(permissionsAnnotation);
 
 					Map<CharSequence, CharSequence> properties = new HashMap<>();
-					addIfNotNull(OPMConstants.ARTIFACT_VERSION, vertex.getAnnotations(), properties);
-					addIfNotNull(OPMConstants.ARTIFACT_PATH, vertex.getAnnotations(), properties);
+					final Map<String, String> copyOfAnnotations = vertex.getCopyOfAnnotations();
+					addIfNotNull(OPMConstants.ARTIFACT_VERSION, copyOfAnnotations, properties);
+					addIfNotNull(OPMConstants.ARTIFACT_PATH, copyOfAnnotations, properties);
 
 					AbstractObject baseObject = new AbstractObject(permissions, epoch, properties);
 

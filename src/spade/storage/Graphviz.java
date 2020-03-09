@@ -19,6 +19,9 @@
  */
 package spade.storage;
 
+import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.FILE_SEPARATOR;
+
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -33,9 +36,6 @@ import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.HelperFunctions;
-
-import static spade.core.Kernel.CONFIG_PATH;
-import static spade.core.Kernel.FILE_SEPARATOR;
 
 /**
  * A storage implementation that writes data to a DOT file.
@@ -106,7 +106,7 @@ public class Graphviz extends AbstractStorage
     public boolean putVertex(AbstractVertex incomingVertex) {
         try {
             StringBuilder annotationString = new StringBuilder();
-            for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet()) {
+            for (Map.Entry<String, String> currentEntry : incomingVertex.getCopyOfAnnotations().entrySet()) {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
                 if (key == null || value == null) {

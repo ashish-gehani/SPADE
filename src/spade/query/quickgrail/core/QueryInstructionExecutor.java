@@ -115,7 +115,9 @@ public abstract class QueryInstructionExecutor{
 	
 	//////////////////////////////////////////////////////////////
 	// special
-	public abstract spade.core.Graph exportGraph(ExportGraph instruction);
+	public abstract Map<String, Map<String, String>> exportVertices(ExportGraph instruction);
+	public abstract Set<QueriedEdge> exportEdges(ExportGraph instruction);
+	
 	public abstract void collapseEdge(CollapseEdge instruction);
 	//////////////////////////////////////////////////////////////
 	// composite operations

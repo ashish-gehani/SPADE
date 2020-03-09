@@ -40,14 +40,17 @@ import spade.core.Edge;
 import spade.core.Kernel;
 import spade.core.SPADEQuery;
 import spade.core.SPADEQuery.QuickGrailInstruction;
+import spade.core.Vertex;
 import spade.query.quickgrail.core.AbstractQueryEnvironment;
 import spade.query.quickgrail.core.GraphStats;
 import spade.query.quickgrail.core.Program;
+import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.entities.Graph.Component;
+import spade.query.quickgrail.entities.GraphPredicate;
 import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
@@ -117,51 +120,6 @@ public class QuickGrailExecutor{
 			throw new IllegalArgumentException("NULL variable manager");
 		}
 	}
-
-//	public static void main(String[] args) throws Exception{
-//		BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-//
-//		System.out.print("-> ");
-//
-//		String line = null;
-//		while((line = reader.readLine()) != null){
-//			if(line.trim().equalsIgnoreCase("quit") || line.trim().equalsIgnoreCase("exit")){
-//				break;
-//			}
-//			try{
-//				DSLParserWrapper parserWrapper = new DSLParserWrapper();
-//				ParseProgram parseProgram = parserWrapper.fromText(line);
-//				//System.out.println(parseProgram);
-////				for(ParseStatement statement : parseProgram.getStatements()){
-////					System.out.println(statement);
-////					ParseAssignment assign = (ParseAssignment)statement;
-//				// System.out.println(QuickGrailPredicateTree.resolveGraphPredicate(assign.getRhs()));
-////					ParseOperation rhs = (ParseOperation)assign.getRhs();
-////					System.out.println(rhs);
-//
-////					ArrayList<ParseExpression> operands = rhs.getOperands();
-////					for(ParseExpression operand : operands){
-////						System.out.println(operand);
-////					}
-////				}
-//
-//				QuickGrailQueryResolver resolver = new QuickGrailQueryResolver();
-//				System.out.println();
-//				Program program = resolver.resolveProgram(parseProgram, null);
-//				System.out.println();
-//				//System.out.println(program);
-////				System.out.println(parseProgram);
-//			}catch(Exception e){
-//				e.printStackTrace();
-//			}
-//			System.out.println();
-//			System.out.print("-> ");
-//		}
-//
-//		reader.close();
-//	}
-	// java -jar ../../../../../lib/antlr-4.7-complete.jar DSL.g4
-	// hassaan3
 
 	public SPADEQuery execute(SPADEQuery query){
 		try{
@@ -337,11 +295,11 @@ public class QuickGrailExecutor{
 			instructionExecutor.limitGraph((LimitGraph)instruction);
 
 		}else if(instruction.getClass().equals(ListGraphs.class)){
-			ResultTable table = listGraphs((ListGraphs)instruction);
-			if(table == null){
+			String tablesAsString = listGraphs((ListGraphs)instruction);
+			if(tablesAsString == null){
 				result = "No Result!";
 			}else{
-				result = String.valueOf(table);
+				result = tablesAsString;
 			}
 
 		}else if(instruction.getClass().equals(OverwriteGraphMetadata.class)){
@@ -394,11 +352,39 @@ public class QuickGrailExecutor{
 						+ "Please use 'force visualize ...' to force the transfer.");
 			}
 		}
-		spade.core.Graph resultGraph = instructionExecutor.exportGraph(instruction);
+		final Map<String, Map<String, String>> queriedVerticesMap = instructionExecutor.exportVertices(instruction);
+		final Map<String, AbstractVertex> verticesMap = new HashMap<String, AbstractVertex>();
+		for(Map.Entry<String, Map<String, String>> entry : queriedVerticesMap.entrySet()){
+			AbstractVertex vertex = new Vertex(entry.getKey()); // always create reference vertices
+			vertex.addAnnotations(entry.getValue());
+			verticesMap.put(entry.getKey(), vertex);
+		}
+		
+		final Set<QueriedEdge> queriedEdges = instructionExecutor.exportEdges(instruction);
+		final Set<AbstractEdge> edges = new HashSet<AbstractEdge>();
+		for(QueriedEdge queriedEdge : queriedEdges){
+			AbstractVertex child = verticesMap.get(queriedEdge.childHash);
+			AbstractVertex parent = verticesMap.get(queriedEdge.parentHash);
+			if(child == null){
+				child = new Vertex(queriedEdge.childHash);
+				verticesMap.put(queriedEdge.childHash, child);
+			}
+			if(parent == null){
+				parent = new Vertex(queriedEdge.parentHash);
+				verticesMap.put(queriedEdge.parentHash, parent);
+			}
+			AbstractEdge edge = new Edge(child, parent);
+			edge.addAnnotations(queriedEdge.getCopyOfAnnotations());
+			edges.add(edge);
+		}
+		
+		spade.core.Graph resultGraph = new spade.core.Graph();
+		resultGraph.vertexSet().addAll(verticesMap.values());
+		resultGraph.edgeSet().addAll(edges);
 		return resultGraph;
 	}
 
-	private ResultTable listGraphs(ListGraphs instruction){
+	private String listGraphs(ListGraphs instruction){
 		Map<String, GraphStats> graphsMap = instructionExecutor.listGraphs(instruction);
 
 		List<String> sortedNonBaseSymbolNames = new ArrayList<String>();
@@ -431,8 +417,27 @@ public class QuickGrailExecutor{
 			schema.addColumn("Number of Edges", LongType.GetInstance());
 		}
 		table.setSchema(schema);
+		
+		
+		ResultTable ptable = new ResultTable();
+		List<String> predicateSymbolsSorted = new ArrayList<String>(queryEnvironment.getCurrentPredicateSymbolsStringMap().keySet());
+		Collections.sort(predicateSymbolsSorted);
+		for(String predicateSymbolName : predicateSymbolsSorted){
+			GraphPredicate predicate = queryEnvironment.getPredicateSymbol(predicateSymbolName);
+			if(predicate != null){
+				ResultTable.Row prow = new ResultTable.Row();
+				prow.add(predicateSymbolName);
+				prow.add(predicate.predicateRoot.toString());
+				ptable.addRow(prow);
+			}
+		}
 
-		return table;
+		Schema pschema = new Schema();
+		pschema.addColumn("Predicate Name", StringType.GetInstance());
+		pschema.addColumn("Value", StringType.GetInstance());
+		ptable.setSchema(pschema);
+		
+		return table + System.lineSeparator() + ptable;
 	}
 
 	// TODO not a good location
@@ -530,7 +535,7 @@ public class QuickGrailExecutor{
 					Set<AbstractVertex> thisLevelNetworkVertices = getNetworkVertices(thisLevelResultGraph);
 					if(!thisLevelNetworkVertices.isEmpty()){
 						for(AbstractVertex networkVertex : thisLevelNetworkVertices){
-							if(networkVertex.isCompleteNetworkVertex() && // this is the 'abcdef' comment
+							if(OPMConstants.isCompleteNetworkArtifact(networkVertex) && // this is the 'abcdef' comment
 									RemoteResolver.isRemoteAddressRemoteInNetworkVertex(networkVertex)
 									&& !startVertex.equals(networkVertex)){
 								if(networkVertexToMinimumLevel.get(networkVertex) == null){

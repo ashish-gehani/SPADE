@@ -19,11 +19,6 @@
  */
 package spade.filter;
 
-import spade.core.AbstractEdge;
-import spade.core.AbstractFilter;
-import spade.core.AbstractVertex;
-import spade.vertex.opm.Process;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,6 +26,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractFilter;
+import spade.core.AbstractVertex;
+import spade.reporter.audit.OPMConstants;
+import spade.vertex.opm.Process;
 
 /**
  * This filter groups together threads of same processes in one node It might
@@ -62,8 +63,10 @@ public class AndroidThreadAggregator extends AbstractFilter {
         }
 
         public void addAnotherVertexAnnotations(AbstractVertex vertex) {
-            assert vertex.type().equalsIgnoreCase("Process");
-            Map<String, String> annotations = vertex.getAnnotations();
+            if(!OPMConstants.PROCESS.equals(vertex.type())){
+            	throw new RuntimeException("Expected '"+OPMConstants.PROCESS+"' vertex type but is '"+vertex.type()+"'");
+            }
+            Map<String, String> annotations = vertex.getCopyOfAnnotations();
             for (String k : annotations.keySet()) {
                 // logger.log(Level.INFO, "Adding annotation k=" + k + " Value=" + annotations.get(k));
                 addAttribute(k, annotations.get(k));

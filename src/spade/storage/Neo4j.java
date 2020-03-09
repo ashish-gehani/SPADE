@@ -75,6 +75,7 @@ import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.core.Vertex;
+import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.storage.neo4j.Neo4jInstructionExecutor;
 import spade.storage.neo4j.Neo4jQueryEnvironment;
@@ -509,7 +510,7 @@ public class Neo4j extends AbstractStorage
         Node newVertex = graphDb.createNode(NodeTypes.VERTEX);
         newVertex.setProperty(PRIMARY_KEY, bigHashCode);
         vertexIndex.add(newVertex, PRIMARY_KEY, bigHashCode);
-        for (Map.Entry<String, String> currentEntry : incomingVertex.getAnnotations().entrySet())
+        for (Map.Entry<String, String> currentEntry : incomingVertex.getCopyOfAnnotations().entrySet())
         {
           String key = currentEntry.getKey();
           String value = currentEntry.getValue();
@@ -855,8 +856,8 @@ public class Neo4j extends AbstractStorage
     }
     
     /// START[FOR-QUERY-SURFACE]
-	public Map<String, AbstractVertex> readHashToVertexMap(String vertexAliasInQuery, String query){
-		Map<String, AbstractVertex> hashToVertex = new HashMap<String, AbstractVertex>();
+	public Map<String, Map<String, String>> readHashToVertexMap(String vertexAliasInQuery, String query){
+		Map<String, Map<String, String>> hashToVertexAnnotations = new HashMap<String, Map<String, String>>();
 		try(Transaction tx = graphDb.beginTx()){
 			globalTxCheckin();
 			try{
@@ -882,23 +883,20 @@ public class Neo4j extends AbstractStorage
 							}
 						}
 					}
-					Vertex vertex = new Vertex();
-					vertex.addAnnotations(annotations);
-					hashToVertex.put(hashAnnotationValue, vertex);
+					hashToVertexAnnotations.put(hashAnnotationValue, annotations);
 				}
-				return hashToVertex;
+				return hashToVertexAnnotations;
 			}catch(QueryExecutionException ex){
 				logger.log(Level.SEVERE, "Neo4j Cypher query execution not successful!", ex);
 			}finally{
 				tx.success();
 			}
 		}
-		return hashToVertex;
+		return hashToVertexAnnotations;
 	}
 
-	public Set<AbstractEdge> readEdgeSet(String relationshipAliasInQuery, String query,
-			Map<String, AbstractVertex> hashToVertexMap){
-		Set<AbstractEdge> edgeSet = new HashSet<AbstractEdge>();
+	public Set<QueriedEdge> readEdgeSet(String relationshipAliasInQuery, String query){
+		Set<QueriedEdge> edgeSet = new HashSet<QueriedEdge>();
 		try(Transaction tx = graphDb.beginTx()){
 			globalTxCheckin();
 			try{
@@ -909,11 +907,12 @@ public class Neo4j extends AbstractStorage
 					Object childVertexHashObject = relationship.getProperty(CHILD_VERTEX_KEY);
 					String childVertexHashString = childVertexHashObject == null ? null
 							: childVertexHashObject.toString();
-					AbstractVertex childVertex = hashToVertexMap.get(childVertexHashString);
 					Object parentVertexHashObject = relationship.getProperty(PARENT_VERTEX_KEY);
 					String parentVertexHashString = parentVertexHashObject == null ? null
 							: parentVertexHashObject.toString();
-					AbstractVertex parentVertex = hashToVertexMap.get(parentVertexHashString);
+					Object edgeHashObject = relationship.getProperty(PRIMARY_KEY);
+					String edgeHashString = edgeHashObject == null ? null
+							: edgeHashObject.toString();
 					Map<String, String> annotations = new HashMap<String, String>();
 					for(String key : relationship.getPropertyKeys()){
 						if(!HelperFunctions.isNullOrEmpty(key)){
@@ -929,9 +928,7 @@ public class Neo4j extends AbstractStorage
 							}
 						}
 					}
-					Edge edge = new Edge(childVertex, parentVertex);
-					edge.addAnnotations(annotations);
-					edgeSet.add(edge);
+					edgeSet.add(new QueriedEdge(edgeHashString, childVertexHashString, parentVertexHashString, annotations));
 				}
 			}catch(QueryExecutionException ex){
 				logger.log(Level.SEVERE, "Neo4j Cypher query execution not successful!", ex);

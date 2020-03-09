@@ -363,7 +363,7 @@ public class MySQL extends SQL
         insertStringBuilder.append(" (");
         insertStringBuilder.append(PRIMARY_KEY);
         insertStringBuilder.append(", ");
-        for (String annotationKey : incomingVertex.getAnnotations().keySet())
+        for (String annotationKey : incomingVertex.getCopyOfAnnotations().keySet())
         {
             // Sanitize column name to remove special characters
             String newAnnotationKey;
@@ -394,7 +394,7 @@ public class MySQL extends SQL
         insertStringBuilder.append("', ");
 
         // Add the annotation values
-        for (String annotationKey : incomingVertex.getAnnotations().keySet())
+        for (String annotationKey : incomingVertex.getCopyOfAnnotations().keySet())
         {
             String value = (ENABLE_SANITIZATION) ? incomingVertex.getAnnotation(annotationKey).replace("'", "\"") :
                     incomingVertex.getAnnotation(annotationKey);

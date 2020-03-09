@@ -19,15 +19,14 @@
  */
 package spade.core;
 
-import spade.client.QueryMetaData;
-
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
 import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
 import static spade.core.AbstractStorage.PRIMARY_KEY;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import spade.client.QueryMetaData;
 
 public abstract class AbstractTransformer{
 
@@ -47,7 +46,11 @@ public abstract class AbstractTransformer{
 	{
 		if(vertex != null)
 		{
-			return getAnnotationSafe(vertex.getAnnotations(), annotation);
+			String value;
+			if((value = vertex.getAnnotation(annotation)) != null)
+			{
+				return value;
+			}
 		}
 		return "";
 	}
@@ -56,17 +59,8 @@ public abstract class AbstractTransformer{
 	{
 		if(edge != null)
 		{
-			return getAnnotationSafe(edge.getAnnotations(), annotation);
-		}
-		return "";
-	}
-
-	public static String getAnnotationSafe(Map<String, String> annotations, String annotation)
-	{
-		if(annotations != null)
-		{
 			String value;
-			if((value = annotations.get(annotation)) != null)
+			if((value = edge.getAnnotation(annotation)) != null)
 			{
 				return value;
 			}
@@ -76,8 +70,7 @@ public abstract class AbstractTransformer{
 
 	public static AbstractVertex createNewWithoutAnnotations(AbstractVertex vertex, String... annotations)
 	{
-		AbstractVertex newVertex = new Vertex();
-		newVertex.addAnnotations(vertex.getAnnotations());
+		AbstractVertex newVertex = vertex.copyAsVertex();
 		if(annotations != null)
 		{
 			for(String annotation : annotations)

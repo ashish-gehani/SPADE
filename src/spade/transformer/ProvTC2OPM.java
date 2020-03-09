@@ -20,15 +20,16 @@
 
 package spade.transformer;
 
-import spade.client.QueryMetaData;
-import spade.core.AbstractEdge;
-import spade.core.Graph;
-import spade.core.Settings;
-import spade.utility.FileUtility;
-
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import spade.client.QueryMetaData;
+import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
+import spade.core.Graph;
+import spade.core.Settings;
+import spade.utility.FileUtility;
 
 public class ProvTC2OPM extends Prov2OPM
 {
@@ -62,9 +63,9 @@ public class ProvTC2OPM extends Prov2OPM
 			if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null)
 			{
 				AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-				replaceAnnotations(newEdge.getAnnotations(), provTC2OpmMapping);
-				replaceAnnotations(newEdge.getChildVertex().getAnnotations(), provTC2OpmMapping);
-				replaceAnnotations(newEdge.getParentVertex().getAnnotations(), provTC2OpmMapping);
+				replaceAnnotations(newEdge, provTC2OpmMapping);
+				replaceAnnotations(newEdge.getChildVertex(), provTC2OpmMapping);
+				replaceAnnotations(newEdge.getParentVertex(), provTC2OpmMapping);
 				resultGraph.putVertex(newEdge.getChildVertex());
 				resultGraph.putVertex(newEdge.getParentVertex());
 				resultGraph.putEdge(newEdge);
@@ -74,14 +75,20 @@ public class ProvTC2OPM extends Prov2OPM
 		return resultGraph;
 	}
 
-	private void replaceAnnotations(Map<String, String> annotations, Map<String, String> newMapping)
-	{
-		for(String annotation : annotations.keySet())
-		{
-			if(newMapping.get(annotation) != null)
-			{
-				annotations.put(newMapping.get(annotation), annotations.get(annotation));
-				annotations.remove(annotation);
+	private void replaceAnnotations(AbstractVertex vertex, Map<String, String> newMapping){
+		for(String annotation : vertex.getCopyOfAnnotations().keySet()){
+			if(newMapping.get(annotation) != null){
+				vertex.addAnnotation(newMapping.get(annotation), vertex.getAnnotation(annotation));
+				vertex.removeAnnotation(annotation);
+			}
+		}
+	}
+
+	private void replaceAnnotations(AbstractEdge edge, Map<String, String> newMapping){
+		for(String annotation : edge.getAnnotations().keySet()){
+			if(newMapping.get(annotation) != null){
+				edge.addAnnotation(newMapping.get(annotation), edge.getAnnotation(annotation));
+				edge.removeAnnotation(annotation);
 			}
 		}
 	}

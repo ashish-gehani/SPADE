@@ -528,7 +528,7 @@ public class Graph implements Serializable{
 	private String exportVertex(AbstractVertex vertex){
 		try{
 			StringBuilder annotationString = new StringBuilder();
-			for(Map.Entry<String, String> currentEntry : vertex.getAnnotations().entrySet()){
+			for(Map.Entry<String, String> currentEntry : vertex.getCopyOfAnnotations().entrySet()){
 				String key = currentEntry.getKey();
 				String value = currentEntry.getValue();
 				annotationString.append(key.replace("\\", "\\\\")).append(":").append(value.replace("\\", "\\\\"))
@@ -819,7 +819,7 @@ public class Graph implements Serializable{
 	 */
 	// prints in a JSON like format
 	public String prettyPrint(){
-		return "Graph:\n{\n" + "\tvertexSet:\n\t{\n" + prettyPrintVertices() + "\n\t},\n" + "\tedgeSet:\n\t{\n"
+		return "Graph:{\n" + "\tvertexSet:{\n" + prettyPrintVertices() + "\n\t},\n" + "\tedgeSet:{\n"
 				+ prettyPrintEdges() + "\n\t}\n}";
 	}
 

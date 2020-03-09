@@ -88,7 +88,7 @@ public class ABEGraph extends Graph
 	public static AbstractVertex copyVertex(AbstractVertex vertex)
 	{
 		AbstractVertex newVertex = new Vertex();
-		newVertex.addAnnotations(vertex.getAnnotations());
+		newVertex.addAnnotations(vertex.getCopyOfAnnotations());
 		newVertex.setDepth(vertex.getDepth());
 
 		return newVertex;

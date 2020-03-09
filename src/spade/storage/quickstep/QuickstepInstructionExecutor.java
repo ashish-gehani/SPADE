@@ -19,14 +19,17 @@
  */
 package spade.storage.quickstep;
 
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
-import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
-import spade.core.AbstractVertex;
 import spade.query.quickgrail.core.GraphStats;
+import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
@@ -421,16 +424,43 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				+ "DROP TABLE m_answer_edge;");
 	}
 
-	private HashMap<Integer, AbstractVertex> exportVertices(QuickstepExecutor qs, String targetVertexTable){
-		HashMap<Integer, AbstractVertex> vertices = new HashMap<Integer, AbstractVertex>();
+	private Map<String, String> _getIdToHashOfVertices(String targetVertexTable){
 		long numVertices = qs
 				.executeQueryForLongResult("COPY SELECT COUNT(*) FROM " + targetVertexTable + " TO stdout;");
 		if(numVertices == 0){
-			return vertices;
+			return new HashMap<String, String>();
 		}
-
+		
 		qs.executeQuery("\\analyzerange " + targetVertexTable + "\n");
 
+		Map<String, String> idToHash = new HashMap<String, String>();
+		
+		String vertexHashStr = qs.executeQuery("COPY SELECT * FROM vertex WHERE id IN (SELECT id FROM "
+				+ targetVertexTable + ") TO stdout WITH (DELIMITER e'\\n');");
+		String[] vertexHashLines = vertexHashStr.split("\n");
+		vertexHashStr = null;
+
+		if(vertexHashLines.length % 2 != 0){
+			throw new RuntimeException("Unexpected export vertex annotations query output");
+		}
+		for(int i = 0; i < vertexHashLines.length; i += 2){
+			// TODO: accelerate with cache.
+			String id = vertexHashLines[i];
+			String hash = vertexHashLines[i+1];
+			idToHash.put(id, hash);
+		}
+		
+		return idToHash;
+	}
+	
+	private Map<String, Map<String, String>> _exportVertices(String targetVertexTable){
+		Map<String, Map<String, String>> idToAnnos = new HashMap<String, Map<String, String>>();
+		
+		Map<String, String> idToHash = _getIdToHashOfVertices(targetVertexTable);
+		if(idToHash.size() == 0){
+			return idToAnnos;
+		}
+		
 		String vertexAnnoStr = qs.executeQuery("COPY SELECT * FROM vertex_anno WHERE id IN (SELECT id FROM "
 				+ targetVertexTable + ") TO stdout WITH (DELIMITER e'\\n');");
 		String[] vertexAnnoLines = vertexAnnoStr.split("\n");
@@ -441,47 +471,78 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		}
 		for(int i = 0; i < vertexAnnoLines.length; i += 3){
 			// TODO: accelerate with cache.
-			Integer id = Integer.parseInt(vertexAnnoLines[i]);
-			AbstractVertex vertex = vertices.get(id);
-			if(vertex == null){
-				vertex = new spade.core.Vertex();
-				vertices.put(id, vertex);
+			String id = vertexAnnoLines[i];
+			Map<String, String> annotations = idToAnnos.get(id);
+			if(annotations == null){
+				annotations = new HashMap<String, String>();
+				idToAnnos.put(id, annotations);
 			}
-			vertex.addAnnotation(vertexAnnoLines[i + 1], vertexAnnoLines[i + 2]);
+			annotations.put(vertexAnnoLines[i + 1], vertexAnnoLines[i + 2]);
 		}
-		return vertices;
+		
+		////////////
+		
+		Set<String> allIds = new HashSet<String>();
+		allIds.addAll(idToHash.keySet());
+		allIds.addAll(idToAnnos.keySet());
+		
+		Map<String, Map<String, String>> result = new HashMap<String, Map<String, String>>();
+		
+		for(String id : allIds){
+			String hash = idToHash.get(id);
+			Map<String, String> annos = idToAnnos.get(id);
+			result.put(hash, annos);
+		}
+		
+		return result;
+	}
+	
+	private Map<String, String> _getIdToHashOfSrcDstVertices(String targetEdgeTable){
+		qs.executeQuery("drop table m_export_edge;\n" + "create table m_export_edge (id INT);\n");
+		
+		qs.executeQuery("insert into m_export_edge select src from edge e where e.id in (select id from "+targetEdgeTable+");\n");
+		qs.executeQuery("insert into m_export_edge select dst from edge e where e.id in (select id from "+targetEdgeTable+");\n");
+		
+		Map<String, String> idToHash = _getIdToHashOfVertices("m_export_edge");
+
+		qs.executeQuery("drop table m_export_edge;\n");
+		
+		return idToHash;
 	}
 
-	private HashMap<Long, AbstractEdge> exportEdges(QuickstepExecutor qs, String targetEdgeTable){
-		HashMap<Long, AbstractEdge> edges = new HashMap<Long, AbstractEdge>();
+	private Set<QueriedEdge> _exportEdges(String targetVertexTable, String targetEdgeTable){
+		Set<QueriedEdge> edges = new HashSet<QueriedEdge>();
 
 		long numEdges = qs.executeQueryForLongResult("COPY SELECT COUNT(*) FROM " + targetEdgeTable + " TO stdout;");
 		if(numEdges == 0){
 			return edges;
 		}
 
-		qs.executeQuery("DROP TABLE m_answer;\n" + "CREATE TABLE m_answer(id INT);\n" + "DROP TABLE m_answer_edge;\n"
-				+ "CREATE TABLE m_answer_edge(id LONG, src INT, dst INT);\n" + "\\analyzerange " + targetEdgeTable
-				+ "\n" + "INSERT INTO m_answer_edge SELECT * FROM edge" + " WHERE id IN (SELECT id FROM "
-				+ targetEdgeTable + ");\n" + "INSERT INTO m_answer SELECT src FROM m_answer_edge;\n"
-				+ "INSERT INTO m_answer SELECT dst FROM m_answer_edge;");
+		qs.executeQuery("\\analyzerange " + targetEdgeTable + "\n");
+		
+		Map<String, SimpleEntry<String, String>> edgeIdToSrcDstIds = new HashMap<String, SimpleEntry<String, String>>();
 
-		HashMap<Integer, AbstractVertex> vertices = exportVertices(qs, "m_answer");
+		String edgeIdSrcDstIdStr = qs.executeQuery("COPY SELECT * FROM edge WHERE id IN (SELECT id FROM "
+				+ targetEdgeTable + ") TO stdout WITH (DELIMITER e'\\n');");
+		String[] edgeIdSrcDstId = edgeIdSrcDstIdStr.split("\n");
+		edgeIdSrcDstIdStr = null;
 
-		String edgeStr = qs.executeQuery("COPY SELECT * FROM m_answer_edge TO stdout WITH (DELIMITER e'\\n');");
-		String[] edgeLines = edgeStr.split("\n");
-		edgeStr = null;
-
-		if(edgeLines.length % 3 != 0){
+		if(edgeIdSrcDstId.length % 3 != 0){
 			throw new RuntimeException("Unexpected export edge query output");
 		}
-		for(int i = 0; i < edgeLines.length; i += 3){
-			Long id = Long.parseLong(edgeLines[i]);
-			Integer src = Integer.parseInt(edgeLines[i + 1]);
-			Integer dst = Integer.parseInt(edgeLines[i + 2]);
-			edges.put(id, new spade.core.Edge(vertices.get(src), vertices.get(dst)));
+		for(int i = 0; i < edgeIdSrcDstId.length; i += 3){
+			// TODO: accelerate with cache.
+			String eid = edgeIdSrcDstId[i];
+			String sid = edgeIdSrcDstId[i + 1];
+			String did = edgeIdSrcDstId[i + 2];
+			edgeIdToSrcDstIds.put(eid, new SimpleEntry<String, String>(sid, did));
 		}
-		edgeLines = null;
+		
+		//////
+		
+		Map<String, String> vertexIdToHash = _getIdToHashOfSrcDstVertices(targetEdgeTable);
+		
+		//////
 
 		String edgeAnnoStr = qs.executeQuery("COPY SELECT * FROM edge_anno WHERE id IN (SELECT id FROM "
 				+ targetEdgeTable + ") TO stdout WITH (DELIMITER e'\\n');");
@@ -491,43 +552,54 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		if(edgeAnnoLines.length % 3 != 0){
 			throw new RuntimeException("Unexpected export edge annotations query output");
 		}
+		
+		final Map<String, Map<String, String>> edgeIdToAnnos = new HashMap<String, Map<String, String>>();
+		
 		for(int i = 0; i < edgeAnnoLines.length; i += 3){
 			// TODO: accelerate with cache.
-			Long id = Long.parseLong(edgeAnnoLines[i]);
-			AbstractEdge edge = edges.get(id);
-			if(edge == null){
-				continue;
+			String id = edgeAnnoLines[i];
+			Map<String, String> annos = edgeIdToAnnos.get(id);
+			if(annos == null){
+				annos = new HashMap<String, String>();
+				edgeIdToAnnos.put(id, annos);
 			}
-			edge.addAnnotation(edgeAnnoLines[i + 1], edgeAnnoLines[i + 2]);
+			annos.put(edgeAnnoLines[i + 1], edgeAnnoLines[i + 2]);
 		}
-		qs.executeQuery("DROP TABLE m_answer;\n" + "DROP TABLE m_answer_edge;");
+		
+		Set<String> edgeIds = new HashSet<String>();
+		edgeIds.addAll(edgeIdToSrcDstIds.keySet());
+		edgeIds.addAll(edgeIdToAnnos.keySet());
+		
+		for(String edgeId : edgeIds){
+			SimpleEntry<String, String> srcDst = edgeIdToSrcDstIds.get(edgeId);
+			String childHash = null; String parentHash = null;
+			if(srcDst != null){
+				childHash = vertexIdToHash.get(srcDst.getKey());
+				parentHash = vertexIdToHash.get(srcDst.getValue());
+			}
+			edges.add(new QueriedEdge(edgeId, childHash, parentHash, edgeIdToAnnos.get(edgeId)));
+		}
+		
 		return edges;
 	}
 
 	@Override
-	public spade.core.Graph exportGraph(ExportGraph instruction){
-		qs.executeQuery("DROP TABLE m_init_vertex;\n" + "DROP TABLE m_vertex;\n" + "DROP TABLE m_edge;\n"
-				+ "CREATE TABLE m_init_vertex(id INT);\n" + "CREATE TABLE m_vertex(id INT);\n"
-				+ "CREATE TABLE m_edge(id LONG);");
+	public Map<String, Map<String, String>> exportVertices(ExportGraph instruction){
+		String targetVertexTable = queryEnvironment.getGraphVertexTableName(instruction.targetGraph);
 
+		Map<String, Map<String, String>> result = _exportVertices(targetVertexTable);
+
+		return result;
+	}
+	
+	@Override
+	public Set<QueriedEdge> exportEdges(ExportGraph instruction){
 		String targetVertexTable = queryEnvironment.getGraphVertexTableName(instruction.targetGraph);
 		String targetEdgeTable = queryEnvironment.getGraphEdgeTableName(instruction.targetGraph);
-		qs.executeQuery("INSERT INTO m_init_vertex" + " SELECT id FROM " + targetVertexTable + ";\n"
-				+ "INSERT INTO m_init_vertex" + " SELECT src FROM edge WHERE id IN (SELECT id FROM " + targetEdgeTable
-				+ ");\n" + "INSERT INTO m_init_vertex" + " SELECT dst FROM edge WHERE id IN (SELECt id FROM "
-				+ targetEdgeTable + ");\n" + "\\analyzerange " + targetVertexTable + " " + targetEdgeTable + "\n"
-				+ "INSERT INTO m_vertex SELECT id FROM m_init_vertex GROUP BY id;\n"
-				+ "INSERT INTO m_edge SELECt id FROM " + targetEdgeTable + " GROUP BY id;");
+		
+		Set<QueriedEdge> edges = _exportEdges(targetVertexTable, targetEdgeTable);
 
-		HashMap<Integer, AbstractVertex> vertices = exportVertices(qs, "m_vertex");
-		HashMap<Long, AbstractEdge> edges = exportEdges(qs, "m_edge");
-
-		qs.executeQuery("DROP TABLE m_init_vertex;\n" + "DROP TABLE m_vertex;\n" + "DROP TABLE m_edge;");
-
-		spade.core.Graph graph = new spade.core.Graph();
-		graph.vertexSet().addAll(vertices.values());
-		graph.edgeSet().addAll(edges.values());
-		return graph;
+		return edges;
 	}
 
 	@Override

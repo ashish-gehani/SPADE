@@ -40,8 +40,8 @@ import spade.reporter.Audit;
 //import spade.reporter.Audit;
 import spade.reporter.audit.Globals;
 import spade.reporter.audit.OPMConstants;
-import spade.utility.HelperFunctions;
 import spade.utility.Converter;
+import spade.utility.HelperFunctions;
 import spade.utility.Result;
 import spade.utility.Serializable2ByteArrayConverter;
 import spade.utility.map.external.ExternalMap;
@@ -597,12 +597,8 @@ public class ArtifactManager{
 		return annotations;
 	}
 	
-	private void addSourceAnnotation(Map<String, String> annotations, String source){
-		annotations.put(OPMConstants.SOURCE, source);
-	}
-	
 	private void addSourceAnnotation(Artifact artifact, String source){
-		addSourceAnnotation(artifact.getAnnotations(), source);;
+		artifact.addAnnotation(OPMConstants.SOURCE, source);
 	}
 	
 	public void doCleanUp(){

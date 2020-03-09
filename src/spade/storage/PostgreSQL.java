@@ -597,7 +597,7 @@ public class PostgreSQL extends SQL
 
     private void processBulkVertices(AbstractVertex incomingVertex)
     {
-        Map<String, String> annotations = new HashMap<>(incomingVertex.getAnnotations());
+        Map<String, String> annotations = incomingVertex.getCopyOfAnnotations();
         annotations.put(PRIMARY_KEY, incomingVertex.bigHashCode());
         vertexList.add(annotations);
         for(String annotationKey: annotations.keySet())
@@ -723,7 +723,7 @@ public class PostgreSQL extends SQL
         insertStringBuilder.append(PRIMARY_KEY);
         insertStringBuilder.append("\"");
         insertStringBuilder.append(", ");
-        for (String annotationKey : incomingVertex.getAnnotations().keySet())
+        for (String annotationKey : incomingVertex.getCopyOfAnnotations().keySet())
         {
             // Sanitize column name to remove special characters
             String newAnnotationKey;
@@ -754,7 +754,7 @@ public class PostgreSQL extends SQL
         insertStringBuilder.append("', ");
 
         // Add the annotation values
-        for (String annotationValue : incomingVertex.getAnnotations().keySet())
+        for (String annotationValue : incomingVertex.getCopyOfAnnotations().keySet())
         {
             String value = (ENABLE_SANITIZATION) ? incomingVertex.getAnnotation(annotationValue).replace("'", "\"") :
                     incomingVertex.getAnnotation(annotationValue);

@@ -73,7 +73,8 @@ public abstract class OPM2ProvVertexEdge extends AbstractFilter {
         } else if (vertex instanceof spade.vertex.opm.Process) {
             newVertex = new spade.vertex.prov.Activity();
         }
-        for (Map.Entry<String, String> entry : vertex.getAnnotations().entrySet()) {
+        Map<String, String> annotationsCopy = vertex.getCopyOfAnnotations();
+        for (Map.Entry<String, String> entry : annotationsCopy.entrySet()) {
         	if(entry.getKey().equals(OPMConstants.TYPE))
         		continue;
             newVertex.addAnnotation(entry.getKey(), entry.getValue());

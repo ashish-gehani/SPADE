@@ -220,7 +220,7 @@ public class Kafka extends AbstractStorage{
 		try{
 			List<GenericContainer> recordsToPublish = new ArrayList<GenericContainer>();
 			Vertex.Builder vertexBuilder = Vertex.newBuilder();
-			vertexBuilder.setAnnotations(vertex.getAnnotations());
+			vertexBuilder.setAnnotations(vertex.getCopyOfAnnotations());
 			vertexBuilder.setHash(String.valueOf(vertex.bigHashCode()));
 			Vertex kafkaVertex = vertexBuilder.build();
 			recordsToPublish.add(GraphElement.newBuilder().setElement(kafkaVertex).build());

@@ -26,12 +26,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
-import spade.core.AbstractVertex;
-import spade.core.Edge;
-import spade.core.Vertex;
 import spade.query.quickgrail.core.GraphStats;
+import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
@@ -556,71 +553,70 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public spade.core.Graph exportGraph(ExportGraph instruction){
+	public Map<String, Map<String, String>> exportVertices(ExportGraph instruction){
 		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
 		
 		List<List<String>> verticesListOfList = executeQueryForResult("select * from " + getVertexAnnotationTableName() 
 				+ " where " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+targetVertexTable+")", true);
 		
 		List<String> vertexHeader = verticesListOfList.remove(0); // remove the header
 		
-		Map<String, AbstractVertex> hashToVertexMap = new HashMap<String, AbstractVertex>();
+		Map<String, Map<String, String>> hashToVertexMap = new HashMap<String, Map<String, String>>();
 		
 		for(List<String> vertexList : verticesListOfList){
 			String hash = null;
-			AbstractVertex vertex = new Vertex();
+			Map<String, String> annotations = new HashMap<String, String>();
 			for(int i = 0; i < vertexHeader.size(); i++){
 				String annotationKey = vertexHeader.get(i);
 				String annotationValue = vertexList.get(i);
 				if(annotationKey.equals(getIdColumnName())){
-					hash = annotationValue;
+					hash = annotationValue.replaceAll("\\-", "");
 				}else{
 					if(annotationValue != null){
-						vertex.addAnnotation(annotationKey, annotationValue);
+						annotations.put(annotationKey, annotationValue);
 					}
 				}
 			}
-			hashToVertexMap.put(hash, vertex);
+			hashToVertexMap.put(hash, annotations);
 		}
-		
+		return hashToVertexMap;
+	}
+	
+	@Override
+	public Set<QueriedEdge> exportEdges(ExportGraph instruction){
+		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
 		
 		List<List<String>> edgesListOfList = executeQueryForResult("select * from " + getEdgeAnnotationTableName() 
 		+ " where " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+targetEdgeTable+")", true);
 
 		List<String> edgeHeader = edgesListOfList.remove(0); // remove the header
 		
-		Set<AbstractEdge> edgeSet = new HashSet<AbstractEdge>();
+		Set<QueriedEdge> edgeSet = new HashSet<QueriedEdge>();
 		
 		for(List<String> edgeList : edgesListOfList){
 			String hash = null;
 			String childHash = null;
 			String parentHash = null;
-			AbstractEdge edge = new Edge(null, null);
+			Map<String, String> annotations = new HashMap<String, String>();
 			for(int i = 0; i < edgeHeader.size(); i++){
 				String annotationKey = edgeHeader.get(i);
 				String annotationValue = edgeList.get(i);
 				if(annotationKey.equals(getIdColumnName())){
-					hash = annotationValue;
+					hash = annotationValue.replaceAll("\\-", "");
 				}else if(annotationKey.equals(getIdColumnNameChildVertex())){
-					childHash = annotationValue;
+					childHash = annotationValue.replaceAll("\\-", "");
 				}else if(annotationKey.equals(getIdColumnNameParentVertex())){
-					parentHash = annotationValue;
+					parentHash = annotationValue.replaceAll("\\-", "");
 				}else{
 					if(annotationValue != null){
-						edge.addAnnotation(annotationKey, annotationValue);
+						annotations.put(annotationKey, annotationValue);
 					}
 				}
 			}
-			edge.setChildVertex(hashToVertexMap.get(childHash));
-			edge.setParentVertex(hashToVertexMap.get(parentHash));
-			edgeSet.add(edge);
+			edgeSet.add(new QueriedEdge(hash, childHash, parentHash, annotations));
 		}
 		
-		spade.core.Graph graph = new spade.core.Graph();
-		graph.vertexSet().addAll(hashToVertexMap.values());
-		graph.edgeSet().addAll(edgeSet);
-		return graph;
+		return edgeSet;
 	}
 
 	@Override

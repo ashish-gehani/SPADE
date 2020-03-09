@@ -814,7 +814,7 @@ public class Strace extends AbstractReporter {
 
     private Process copyProcess(Process input) {
         Process output = new Process();
-        for (Map.Entry<String, String> entry : input.getAnnotations().entrySet()) {
+        for (Map.Entry<String, String> entry : input.getCopyOfAnnotations().entrySet()) {
             output.addAnnotation(entry.getKey(), entry.getValue());
         }
         return output;
