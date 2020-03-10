@@ -176,7 +176,7 @@ public class DiscrepancyDetector
 		logger.log(Level.INFO, "g_earlier size, vertices: " + g_earlier.vertexSet().size() + ", edges: " + g_earlier.edgeSet().size());
 		logger.log(Level.INFO, "g_later size, vertices: " + g_later.vertexSet().size() + ", edges: " + g_later.edgeSet().size());
 		logger.log(Level.INFO, "re-running remote query on cache. direction: " + queryDirection + ", depth: " + g_later.getMaxDepth());
-		Graph cache_result = g_earlier.getLineage(g_later.getRootVertex().bigHashCode(), queryDirection, g_later.getMaxDepth());
+		Graph cache_result = g_earlier.getLineage(g_later.getFirstRootVertex().bigHashCode(), queryDirection, g_later.getMaxDepth());
 
 		Set<AbstractVertex> cache_resultVertexSet = cache_result.vertexSet();
 		logger.log(Level.INFO, "cache_result vertices: " + cache_resultVertexSet.size());
@@ -278,7 +278,7 @@ public class DiscrepancyDetector
 				{
 					endpoint = e.getParentVertex();
 				}
-				if(endpoint.equals(x) || x.equals(g_later.getRootVertex()))
+				if(endpoint.equals(x) || x.equals(g_later.getFirstRootVertex()))
 				{
 					isChildOrParent = true;
 					// break;

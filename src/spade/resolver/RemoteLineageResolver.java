@@ -95,17 +95,20 @@ public class RemoteLineageResolver extends AbstractRemoteResolver{
 	@Override
 	public List<SPADEQuery> resolve(){
 		int clientPort = Integer.parseInt(Settings.getProperty("commandline_query_port"));
-		
-		Map<String, List<String>> allQueries = new HashMap<String, List<String>>();
+				
+		Map<String, List<SPADEQuery>> allQueries = new HashMap<String, List<SPADEQuery>>();
 		for(Map.Entry<String, Set<AbstractVertex>> entry : remoteIpToNetworkVertices.entrySet()){
 			String remoteAddress = entry.getKey();
 			Set<AbstractVertex> vertices = entry.getValue();
-			List<String> queriesForSingleHost = new ArrayList<String>();
-			queriesForSingleHost.add("set storage " + storageClassName);
+			
+			List<SPADEQuery> queriesForSingleHost = new ArrayList<SPADEQuery>();
 			allQueries.put(remoteAddress, queriesForSingleHost);
+			
 			for(AbstractVertex vertex : vertices){
 				String query = buildRemoteGetLineageQuery(vertex, localNetworkVertexToLocalDepth.get(vertex));
-				queriesForSingleHost.add(query);
+				SPADEQuery q = new SPADEQuery(Kernel.HOST_NAME, remoteAddress, query, nonce);
+				q.setPrivateVertex(vertex);
+				queriesForSingleHost.add(q);
 			}
 		}
 		
@@ -115,12 +118,12 @@ public class RemoteLineageResolver extends AbstractRemoteResolver{
 		try{
 			List<Future<List<SPADEQuery>>> futures = new ArrayList<>();
 			
-			for(Map.Entry<String, List<String>> entry : allQueries.entrySet()){
+			for(Map.Entry<String, List<SPADEQuery>> entry : allQueries.entrySet()){
 				String remoteAddress = entry.getKey();
-				List<String> queries = entry.getValue();
+				List<SPADEQuery> queries = entry.getValue();
 				if(queries.size() > 0){
 					Callable<List<SPADEQuery>> queryExecutor = new ExecuteRemoteQuery(
-							Kernel.HOST_NAME, null, remoteAddress, clientPort, queries, nonce);
+							remoteAddress, clientPort, storageClassName, queries);
 					Future<List<SPADEQuery>> future = executorService.submit(queryExecutor);
 					futures.add(future);
 				}
@@ -148,10 +151,8 @@ public class RemoteLineageResolver extends AbstractRemoteResolver{
 
 	private String buildRemoteGetLineageQuery(AbstractVertex localNetworkVertex, final int localDepth){
 		final int remoteDepth = maxDepth - localDepth;
-//		final String resultSymbol = "$tempVar";
 		String query = "";
-//		query += resultSymbol + " = $base.getLineage($base.getVertex(";
-		query += "dump $base.getLineage($base.getVertex(";
+		query += "dump $base.getLineage($base.getVertex("; // Dump so that we don't have to store it anywhere
 		query += formatQueryName(RemoteResolver.getAnnotationLocalAddress()) + "="
 				+ formatQueryValue(RemoteResolver.getRemoteAddress(localNetworkVertex));
 		query += " and ";
@@ -163,10 +164,10 @@ public class RemoteLineageResolver extends AbstractRemoteResolver{
 		query += " and ";
 		query += formatQueryName(RemoteResolver.getAnnotationRemotePort()) + "="
 				+ formatQueryValue(RemoteResolver.getLocalPort(localNetworkVertex));
-		query += ").limit(1)"; // finish of get vertex and limit it to 1 TODO
+		query += ")";
 		query += ", " + remoteDepth;
 		query += ", " + getFormattedDirection(direction);
-		query += ", 1);"; // finish of get lineage with remote resolve = 1
+		query += ", 1);"; // finish of get lineage with remote resolve & export = 1
 		return query;
 	}
 

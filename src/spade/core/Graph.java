@@ -96,7 +96,7 @@ public class Graph implements Serializable{
 	 */
 	private int TTL = 1;
 	// SET
-	private AbstractVertex rootVertex;
+	private Set<AbstractVertex> rootVertices;
 	private AbstractVertex destinationVertex;
 
 	private boolean isResultVerified = false;
@@ -695,7 +695,7 @@ public class Graph implements Serializable{
 		remainingVertices.add(startingVertex.bigHashCode());
 		startingVertex.setDepth(current_depth);
 		result.putVertex(startingVertex);
-		result.setRootVertex(startingVertex);
+		result.setFirstRootVertex(startingVertex);
 		result.setMaxDepth(maxDepth);
 		Set<String> visitedVertices = new HashSet<>();
 		while(!remainingVertices.isEmpty() && current_depth < maxDepth){
@@ -753,12 +753,27 @@ public class Graph implements Serializable{
 		this.maxDepth = maxDepth;
 	}
 
-	public AbstractVertex getRootVertex(){
-		return rootVertex;
+	public AbstractVertex getFirstRootVertex(){
+		if(rootVertices == null || rootVertices.size() == 0){
+			return null;
+		}else{
+			return (rootVertices).iterator().next();
+		}
+	}
+	
+	public void setFirstRootVertex(AbstractVertex vertex){
+		if(rootVertices == null){
+			rootVertices = new HashSet<AbstractVertex>();
+		}
+		rootVertices.add(vertex);
+	}
+	
+	public Set<AbstractVertex> getRootVertices(){
+		return rootVertices;
 	}
 
-	public void setRootVertex(AbstractVertex rootVertex){
-		this.rootVertex = rootVertex;
+	public void setRootVertices(Set<AbstractVertex> rootVertices){
+		this.rootVertices = rootVertices;
 	}
 
 	public byte[] getSignature(){

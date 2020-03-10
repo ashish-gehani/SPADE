@@ -16,7 +16,9 @@
  */
 package spade.core;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.ObjectOutputStream;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -246,13 +248,29 @@ public abstract class AbstractAnalyzer{
 								try{
 									spadeQuery = executeQuery(spadeQuery);
 									
+									// The following should be outside the try catch TODO
 									boolean isResultAGraph = spadeQuery != null && spadeQuery.getResult() instanceof spade.core.Graph;
 									if(isResultAGraph){
 										Graph finalGraph = (spade.core.Graph)spadeQuery.getResult();
 										if(useTransformer){
 											finalGraph = iterateTransformers(finalGraph, spadeQuery.getQueryMetaData());
 										}
-										finalGraph.addSignature(spadeQuery.queryNonce);
+										finalGraph.addSignature(spadeQuery.getQueryNonce());
+									}
+									
+									if(spadeQuery.getError() != null){
+										// Check if exception is serializable
+										try{
+											new ObjectOutputStream(new ByteArrayOutputStream()).writeObject(spadeQuery.getError());
+										}catch(Exception e){
+											// The exception is not serializable
+											if(spadeQuery.getError() instanceof Throwable){
+												spadeQuery.queryFailed(new Exception("Query error was not serializable. Class '"+spadeQuery.getError().getClass()
+													+"'. Message: " + ((Throwable)(spadeQuery.getError())).getMessage()));
+											}else{
+												spadeQuery.queryFailed(new Exception("Query error was not serializable. Class '"+spadeQuery.getError().getClass()+"'"));
+											}
+										}
 									}
 									
 									safeWriteToClient(spadeQuery);

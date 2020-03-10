@@ -59,6 +59,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
+import javax.net.SocketFactory;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
@@ -281,10 +282,8 @@ public class Kernel
         }
     }
     
-    public static SSLSocket sslConnect(String remoteAddress, int port, int timeout) throws Exception{
-    	SSLSocket socket = (SSLSocket)sslSocketFactory.createSocket();
-    	socket.connect(new InetSocketAddress(remoteAddress, port), timeout);
-    	return socket;
+    public static SocketFactory getClientSocketFactory(){
+    	return sslSocketFactory;
     }
 
     /**

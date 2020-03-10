@@ -40,7 +40,7 @@ public class SPADEQuery implements Serializable{
 	 * If the query is being sent from a local client then the query nonce should be null
 	 * The server uses the null value to identify local query vs remote query
 	 */
-	public final String queryNonce;
+	private String queryNonce;
 	
 	private long querySentByClientAtMillis;
 	private long queryReceivedByServerAtMillis;
@@ -69,6 +69,16 @@ public class SPADEQuery implements Serializable{
 	
 	// Only required for local transformation of queries
 	private final QueryMetaData queryMetaData = new QueryMetaData();
+	
+	////////////////
+	// Temporary workaround for testing TODO
+	// network vertex that caused the remote lineage query
+	private AbstractVertex privateVertex;
+	public AbstractVertex getPrivateVertex(){ return privateVertex; }
+	public void setPrivateVertex(AbstractVertex privateVertex){ this.privateVertex = privateVertex; }
+	public void setQueryNonce(String queryNonce){ this.queryNonce = queryNonce; }
+	public String getQueryNonce(){ return queryNonce; }
+	////////////////
 	
 	public SPADEQuery(String localName, String remoteName,
 			String query, String queryNonce){

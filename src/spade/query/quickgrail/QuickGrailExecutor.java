@@ -38,9 +38,9 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Kernel;
-import spade.core.Settings;
 import spade.core.SPADEQuery;
 import spade.core.SPADEQuery.QuickGrailInstruction;
+import spade.core.Settings;
 import spade.core.Vertex;
 import spade.query.quickgrail.core.AbstractQueryEnvironment;
 import spade.query.quickgrail.core.GraphStats;
@@ -93,7 +93,6 @@ import spade.reporter.audit.OPMConstants;
 import spade.resolver.RemoteLineageResolver;
 import spade.utility.ABEGraph;
 import spade.utility.DiscrepancyDetector;
-import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 
 /**
@@ -259,11 +258,9 @@ public class QuickGrailExecutor{
 				query.getQueryMetaData().setMaxLength(getLineage.depth);
 				query.getQueryMetaData().setDirection(getLineage.direction);
 				try{
-					Set<AbstractVertex> rootVertices = new HashSet<AbstractVertex>();
-					rootVertices.add(((spade.core.Graph)query.getResult()).getRootVertex());
-					query.getQueryMetaData().addRootVertices(rootVertices);
+					query.getQueryMetaData().addRootVertices(((spade.core.Graph)query.getResult()).getRootVertices());
 				}catch(Exception e){
-					logger.log(Level.WARNING, "Failed to root vertices for transformers from get lineage query");
+					logger.log(Level.WARNING, "Failed to add root vertices for transformers from get lineage query");
 				}
 			}else{
 				instructionExecutor.getLineage(getLineage);
@@ -496,12 +493,8 @@ public class QuickGrailExecutor{
 //			return empty TODO
 		}
 
-		if(startGraphStats.vertices > 1){
-			throw new RuntimeException("Remote resolution of lineage of multiple vertices not supported yet");
-		}
-
 		spade.core.Graph startVertexGraph = exportGraph(instruction.startGraph);
-		AbstractVertex startVertex = startVertexGraph.vertexSet().iterator().next(); // Only one allowed TODO
+		Set<AbstractVertex> startVertices = startVertexGraph.vertexSet();
 
 		Map<AbstractVertex, Integer> networkVertexToMinimumLevel = new HashMap<AbstractVertex, Integer>();
 
@@ -538,7 +531,7 @@ public class QuickGrailExecutor{
 						for(AbstractVertex networkVertex : thisLevelNetworkVertices){
 							if(OPMConstants.isCompleteNetworkArtifact(networkVertex) && // this is the 'abcdef' comment
 									RemoteResolver.isRemoteAddressRemoteInNetworkVertex(networkVertex)
-									&& !startVertex.equals(networkVertex)){
+									&& !startVertices.contains(networkVertex)){
 								if(networkVertexToMinimumLevel.get(networkVertex) == null){
 									networkVertexToMinimumLevel.put(networkVertex, currentLevel);
 								}else{
@@ -559,13 +552,15 @@ public class QuickGrailExecutor{
 		Graph finalGraph = createNewGraph();
 		instructionExecutor.distinctifyGraph(new DistinctifyGraph(finalGraph, instruction.targetGraph));
 
-		startVertex.setDepth(0);
+		for(AbstractVertex startVertex : startVertices){
+			startVertex.setDepth(0);
+		}
 
 		spade.core.Graph localLineageGraph = exportGraph(finalGraph);
 		localLineageGraph.setQueryString(originalSPADEQuery.query);
 		localLineageGraph.setMaxDepth(instruction.depth);
 		localLineageGraph.setHostName(Kernel.HOST_NAME);
-		localLineageGraph.setRootVertex(startVertex);
+		localLineageGraph.setRootVertices(startVertices);
 		localLineageGraph.setComputeTime(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").format(new Date()));
 
 		for(Map.Entry<AbstractVertex, Integer> entry : networkVertexToMinimumLevel.entrySet()){
@@ -584,7 +579,7 @@ public class QuickGrailExecutor{
 		if(isRemoteResolutionRequired){
 			String storageClassName = instructionExecutor.getStorageClass().getSimpleName();
 			RemoteLineageResolver remoteLineageResolver = new RemoteLineageResolver(networkVertexToMinimumLevel,
-					instruction.depth, instruction.direction, originalSPADEQuery.queryNonce, storageClassName);
+					instruction.depth, instruction.direction, originalSPADEQuery.getQueryNonce(), storageClassName);
 			subQueries.addAll(remoteLineageResolver.resolve());
 			subGraphs.addAll(getAllGraphs(subQueries));
 
@@ -608,26 +603,27 @@ public class QuickGrailExecutor{
 				// patching has to be done before adding the signature
 				for(SPADEQuery subQuery : subQueries){
 					if(subQuery != null && subQuery.getResult() != null
-							&& subQuery.getResult().getClass().equals(spade.core.Graph.class)){
-						AbstractVertex sourceNetworkVertex = ((spade.core.Graph)(subQuery.getResult())).getRootVertex(); // root might be encrypted TODO
-						AbstractVertex targetNetworkVertex = RemoteResolver
-								.findInverseNetworkVertex(networkVertexToMinimumLevel.keySet(), sourceNetworkVertex);
-						AbstractEdge localToRemoteEdge = new Edge(sourceNetworkVertex, targetNetworkVertex);
-						localToRemoteEdge.addAnnotation(OPMConstants.TYPE, OPMConstants.WAS_DERIVED_FROM);
-						AbstractEdge remoteToLocalEdge = new Edge(targetNetworkVertex, sourceNetworkVertex);
-						remoteToLocalEdge.addAnnotation(OPMConstants.TYPE, OPMConstants.WAS_DERIVED_FROM);
-						localLineageGraph.putVertex(sourceNetworkVertex);
-						localLineageGraph.putVertex(targetNetworkVertex);
-						localLineageGraph.putEdge(localToRemoteEdge);
-						localLineageGraph.putEdge(remoteToLocalEdge);
+							&& subQuery.getResult() instanceof spade.core.Graph){
+						Set<AbstractVertex> sourceNetworkVertices = 
+								((spade.core.Graph)(subQuery.getResult())).getRootVertices(); // root might be encrypted TODO
+						if(sourceNetworkVertices != null && subQuery.getPrivateVertex() != null){
+							for(AbstractVertex sourceNetworkVertex : sourceNetworkVertices){
+								AbstractEdge localToRemoteEdge = new Edge(sourceNetworkVertex, subQuery.getPrivateVertex());
+								localToRemoteEdge.addAnnotation(OPMConstants.TYPE, OPMConstants.WAS_DERIVED_FROM);
+								AbstractEdge remoteToLocalEdge = new Edge(subQuery.getPrivateVertex(), sourceNetworkVertex);
+								remoteToLocalEdge.addAnnotation(OPMConstants.TYPE, OPMConstants.WAS_DERIVED_FROM);
+								localLineageGraph.putVertex(sourceNetworkVertex);
+								localLineageGraph.putVertex(subQuery.getPrivateVertex());
+								localLineageGraph.putEdge(localToRemoteEdge);
+								localLineageGraph.putEdge(remoteToLocalEdge);
+							}
+						}
 					}
 				}
 			}
 		}
 
-		localLineageGraph.addSignature(originalSPADEQuery.queryNonce);
-
-		if(originalSPADEQuery.queryNonce == null){ // Going back to the original query sender
+		if(originalSPADEQuery.getQueryNonce() == null){ // Going back to the original query sender
 			// union all graphs and set
 			for(spade.core.Graph subGraph : subGraphs){ // some graphs might be encrypted TODO
 				localLineageGraph.union(subGraph);

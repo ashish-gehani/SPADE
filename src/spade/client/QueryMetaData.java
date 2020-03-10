@@ -48,7 +48,9 @@ public class QueryMetaData implements Serializable{
 	}
 
 	public void addRootVertices(Set<AbstractVertex> rootVertices){
-		this.rootVertices.addAll(rootVertices);
+		if(rootVertices != null){
+			this.rootVertices.addAll(rootVertices);
+		}
 	}
 
 	public void setMaxLength(Integer maxLength){
