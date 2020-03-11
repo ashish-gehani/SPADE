@@ -31,6 +31,7 @@
 #include <linux/unistd.h>  // __NR_<system-call-name>
 #include <linux/version.h>
 
+#include "globals.h"
 
 #define UENTRY		0xffffff9c // -100
 #define UENTRY_ID	0xffffff9a // -102
