@@ -16,12 +16,7 @@
  */
 package spade.utility;
 
-import org.apache.commons.collections.CollectionUtils;
-import spade.core.AbstractEdge;
-import spade.core.AbstractVertex;
-import spade.core.Cache;
-import spade.core.Graph;
-import spade.core.Settings;
+import static spade.core.AbstractStorage.DIRECTION_DESCENDANTS;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -31,13 +26,20 @@ import java.io.ObjectOutputStream;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.Properties;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static spade.core.AbstractStorage.DIRECTION_DESCENDANTS;
+import org.apache.commons.collections.CollectionUtils;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
+import spade.core.Cache;
+import spade.core.Graph;
+import spade.core.Settings;
+import spade.query.quickgrail.instruction.GetLineage;
 
 /**
  * @author Carolina de Senne Garcia
@@ -52,6 +54,9 @@ public class DiscrepancyDetector
 	private String queryDirection;
 	private static final Logger logger = Logger.getLogger(DiscrepancyDetector.class.getName());
 
+	private boolean isConfigValid = false;
+	private Boolean findInconsistency, pruneGraph, updateCache;
+	
 	/**
 	 * Constructs a new Discrepancy Detector
 	 *
@@ -61,19 +66,75 @@ public class DiscrepancyDetector
 		graphCache = Cache.getInstance();
 		responseGraphs = new HashSet<>();
 	}
+	
+	private void loadConfig(){
+		final String keyFindInconsistency = "find_inconsistency";
+		final String keyPruneGraph = "prune_graph";
+		final String keyUpdateCache = "update_cache";
+		
+		final String configFilePath = Settings.getDefaultConfigFilePath(this.getClass());
+		
+		Map<String, String> map = null;
+		try{
+			map = FileUtility.readConfigFileAsKeyValueMap(configFilePath, "=");
+			if(map == null){
+				throw new Exception("NULL config map");
+			}
+			
+			final String findInconsistencyString = map.get(keyFindInconsistency);
+			final String pruneGraphString = map.get(keyPruneGraph);
+			final String updateCacheString = map.get(keyUpdateCache);
+			
+			Result<Boolean> findInconsistencyResult = HelperFunctions.parseBoolean(findInconsistencyString);
+			if(findInconsistencyResult.error){
+				throw new Exception("Failed to read key value '"+keyFindInconsistency+"': " + findInconsistencyResult.toErrorString());
+			}
+			
+			findInconsistency = findInconsistencyResult.result.booleanValue();
+			
+			Result<Boolean> pruneGraphResult = HelperFunctions.parseBoolean(pruneGraphString);
+			if(pruneGraphResult.error){
+				throw new Exception("Failed to read key value '"+keyPruneGraph+"': " + pruneGraphResult.toErrorString());
+			}
+			
+			pruneGraph = pruneGraphResult.result.booleanValue();
+			
+			Result<Boolean> updateCacheResult = HelperFunctions.parseBoolean(updateCacheString);
+			if(updateCacheResult.error){
+				throw new Exception("Failed to read key value '"+keyUpdateCache+"': " + updateCacheResult.toErrorString());
+			}
+			
+			updateCache = updateCacheResult.result.booleanValue();
+			isConfigValid = true;
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to read config file: " + configFilePath, e);
+			isConfigValid = false;
+		}
+	}
+
+	public synchronized void doDiscrepancyDetection(Set<spade.core.Graph> graphs, final GetLineage.Direction direction){
+		loadConfig();
+		if(isConfigValid){
+			setQueryDirection(direction.toString().toLowerCase().substring(1));
+			setResponseGraph(graphs);
+			int discrepancyCount = findDiscrepancy();
+			logger.log(Level.INFO, "Discrepancy Count: " + discrepancyCount);
+			if(discrepancyCount == 0){
+				update();
+			}
+		}
+	}
 
 	/**
 	 * Updates the cached graph by adding a checked response graph to it
 	 *  should be called after an discrepancy detection that returned false
 	 */
-	public void update()
+	private void update()
 	{
 		try
 		{
-			boolean update_cache = Boolean.parseBoolean(Settings.getProperty("update_cache"));
-
 			File file = null;
-			if(!update_cache)
+			if(!updateCache)
 			{
 				logger.log(Level.INFO, "update_cache: false");
 				file = new File("graph_cache");
@@ -106,7 +167,7 @@ public class DiscrepancyDetector
 			}
 			long execution_time = System.nanoTime() - start_time;
 			logger.log(Level.INFO, "cache merge time(ns): " + execution_time);
-			if(!update_cache)
+			if(!updateCache)
 			{
 				FileInputStream fis = new FileInputStream(file);
 				ObjectInputStream ois = new ObjectInputStream(fis);
@@ -138,7 +199,7 @@ public class DiscrepancyDetector
 	 *
 	 * @return true if found discrepancy or false if not
 	 */
-	public int findDiscrepancy()
+	private int findDiscrepancy()
 	{
 		int totalDiscrepancyCount = 0;
 		for(Graph g_later : responseGraphs)
@@ -150,8 +211,7 @@ public class DiscrepancyDetector
 			totalDiscrepancyCount += discrepancyCount;
 			try
 			{
-				boolean prune_graph = Boolean.parseBoolean(Settings.getProperty("prune_graph"));
-				if(prune_graph)
+				if(pruneGraph)
 				{
 					logger.log(Level.INFO, "prune_graph: true");
 					logger.log(Level.INFO, "g_later size before pruning, vertices: " + g_later.vertexSet().size() + ", edges: " + g_later.edgeSet().size());
@@ -300,7 +360,7 @@ public class DiscrepancyDetector
 		return discrepancyCount;
 	}
 
-	public void setResponseGraph(Set<Graph> t)
+	private void setResponseGraph(Set<Graph> t)
 	{
 		responseGraphs = t;
 	}
@@ -308,17 +368,17 @@ public class DiscrepancyDetector
 	/**
 	 * @return Graph testGraph
 	 */
-	public Set<Graph> getResponseGraph()
+	private Set<Graph> getResponseGraph()
 	{
 		return responseGraphs;
 	}
 
-	public String getQueryDirection()
+	private String getQueryDirection()
 	{
 		return queryDirection;
 	}
 
-	public void setQueryDirection(String queryDirection)
+	private void setQueryDirection(String queryDirection)
 	{
 		this.queryDirection = queryDirection;
 	}

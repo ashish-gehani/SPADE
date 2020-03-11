@@ -573,7 +573,6 @@ public class QuickGrailExecutor{
 		Set<spade.core.Graph> subGraphs = new HashSet<spade.core.Graph>();
 		List<SPADEQuery> subQueries = new ArrayList<SPADEQuery>();
 
-		final boolean isDiscrepancyDetectionEnabled = isDiscrepancyDetectionEnabled();
 		final boolean isRemoteResolutionRequired = networkVertexToMinimumLevel.size() > 0;// see 'abcdef' comment
 
 		if(isRemoteResolutionRequired){
@@ -591,9 +590,7 @@ public class QuickGrailExecutor{
 //				logger.log(Level.SEVERE, "Unable to decrypt the remote response graph");
 //			}
 			
-			if(isDiscrepancyDetectionEnabled){
-				doDiscrepancyDetection(subGraphs, instruction.direction); // some graphs might encrypted TODO
-			}
+			discrepancyDetector.doDiscrepancyDetection(subGraphs, instruction.direction); // some graphs might encrypted TODO
 
 			boolean areAllGraphsVerified = true;
 			for(spade.core.Graph subGraph : subGraphs){
@@ -672,27 +669,7 @@ public class QuickGrailExecutor{
 
 	//////////////////////////////////////////////////
 
-	private boolean isDiscrepancyDetectionEnabled(){
-		final String key = "find_inconsistency";
-		try{
-			return HelperFunctions
-					.parseBoolean(Settings.getProperty(key)).result;
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Not doing discrepancy detection. Failed to read key '" + key + "' config file '"
-					+ "cfg/spade.core.Kernel.config" + "'", e);
-			return false;
-		}
-	}
-
-	private void doDiscrepancyDetection(Set<spade.core.Graph> graphs, final GetLineage.Direction direction){
-		discrepancyDetector.setQueryDirection(direction.toString().toLowerCase().substring(1));
-		discrepancyDetector.setResponseGraph(graphs);
-		int discrepancyCount = discrepancyDetector.findDiscrepancy();
-		logger.log(Level.INFO, "Discrepancy Count: " + discrepancyCount);
-		if(discrepancyCount == 0){
-			discrepancyDetector.update();
-		}
-	}
+	
 
 	private Set<spade.core.Graph> getAllGraphs(List<SPADEQuery> spadeQueries){
 		Set<spade.core.Graph> graphs = new HashSet<spade.core.Graph>();

@@ -260,8 +260,8 @@ public abstract class AbstractAnalyzer{
 									
 									if(spadeQuery.getError() != null){
 										// Check if exception is serializable
-										try{
-											new ObjectOutputStream(new ByteArrayOutputStream()).writeObject(spadeQuery.getError());
+										try(ObjectOutputStream oos = new ObjectOutputStream(new ByteArrayOutputStream())){
+											oos.writeObject(spadeQuery.getError());
 										}catch(Exception e){
 											// The exception is not serializable
 											if(spadeQuery.getError() instanceof Throwable){
