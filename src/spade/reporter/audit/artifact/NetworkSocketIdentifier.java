@@ -31,14 +31,17 @@ public class NetworkSocketIdentifier extends ArtifactIdentifier {
 	private String localHost, localPort,
 					remoteHost, remotePort,
 					protocol;
+	
+	public final String netNamespaceId;
 
 	public NetworkSocketIdentifier(String localHost, String localPort, 
-			String remoteHost, String remotePort, String protocol){
+			String remoteHost, String remotePort, String protocol, String netNamespaceId){
 		this.localHost = localHost;
 		this.localPort = localPort;
 		this.remoteHost = remoteHost;
 		this.remotePort = remotePort;
 		this.protocol = protocol;
+		this.netNamespaceId = netNamespaceId;
 	}
 
 	public String getLocalHost() {
@@ -69,6 +72,9 @@ public class NetworkSocketIdentifier extends ArtifactIdentifier {
 		annotations.put(OPMConstants.ARTIFACT_REMOTE_ADDRESS, remoteHost == null ? "" : remoteHost);
 		annotations.put(OPMConstants.ARTIFACT_REMOTE_PORT, remotePort == null ? "" : remotePort);
 		annotations.put(OPMConstants.ARTIFACT_PROTOCOL, protocol == null ? "" : protocol);
+		if(netNamespaceId != null){
+			annotations.put(OPMConstants.PROCESS_NET_NAMESPACE, netNamespaceId);
+		}
 		return annotations;
 	}
 
@@ -85,6 +91,7 @@ public class NetworkSocketIdentifier extends ArtifactIdentifier {
 		result = prime * result + ((protocol == null) ? 0 : protocol.hashCode());
 		result = prime * result + ((localHost == null) ? 0 : localHost.hashCode());
 		result = prime * result + ((localPort == null) ? 0 : localPort.hashCode());
+		result = prime * result + ((netNamespaceId == null) ? 0 : netNamespaceId.hashCode());
 		return result;
 	}
 
@@ -122,13 +129,18 @@ public class NetworkSocketIdentifier extends ArtifactIdentifier {
 				return false;
 		} else if (!localPort.equals(other.localPort))
 			return false;
+		if (netNamespaceId == null) {
+			if (other.netNamespaceId != null)
+				return false;
+		} else if (!netNamespaceId.equals(other.netNamespaceId))
+			return false;
 		return true;
 	}
 
 	@Override
 	public String toString() {
 		return "NetworkSocketIdentifier [localHost=" + localHost + ", localPort=" + localPort + ", remoteHost="
-				+ remoteHost + ", remotePort=" + remotePort + ", protocol=" + protocol + "]";
+				+ remoteHost + ", remotePort=" + remotePort + ", protocol=" + protocol + ", netNamespaceId="+netNamespaceId+"]";
 	}
 	
 }

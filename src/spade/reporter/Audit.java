@@ -3754,7 +3754,15 @@ public class Audit extends AbstractReporter {
 			return null;
 		}
 	}
-		
+	
+	private String getNetworkNamespaceForPid(String pid){
+		if(HANDLE_NAMESPACES){
+			return processManager.getNetNamespace(pid);
+		}else{
+			return null;
+		}
+	}
+	
 	private void handleSocket(Map<String, String> eventData, SYSCALL syscall){
 		// socket() receives the following message(s):
 		// - SYSCALL
@@ -3767,7 +3775,7 @@ public class Audit extends AbstractReporter {
 			String pid = eventData.get(AuditEventReader.PID);
 
 			NetworkSocketIdentifier identifierForProtocol = new NetworkSocketIdentifier(
-					null, null, null, null, protocolName);
+					null, null, null, null, protocolName, getNetworkNamespaceForPid(eventData.get(AuditEventReader.PID)));
 			processManager.setFd(pid, sockFd, new FileDescriptor(identifierForProtocol, null)); // no close edge
 		}
 	}
@@ -3817,7 +3825,8 @@ public class Audit extends AbstractReporter {
 				if(addressPort != null){
 					String protocolName = getProtocol(syscall, time, eventId, pid, sockFd);
 					identifier = new NetworkSocketIdentifier(
-							addressPort.address, addressPort.port, null, null, protocolName);
+							addressPort.address, addressPort.port, null, null, protocolName,
+							getNetworkNamespaceForPid(pid));
 				}
 			}else if(isUnixSaddr(saddr)){
 				identifier = parseUnixSaddr(pid, saddr);
@@ -3832,7 +3841,7 @@ public class Audit extends AbstractReporter {
 	}
 	
 	private NetworkSocketIdentifier constructNetworkIdentifier(SYSCALL syscall, String time, String eventId, 
-			String localSaddr, String remoteSaddr, Integer sockType){
+			String localSaddr, String remoteSaddr, Integer sockType, String pid){
 		String protocolName = getProtocolNameBySockType(sockType);
 		AddressPort local = parseNetworkSaddr(localSaddr);
 		AddressPort remote = parseNetworkSaddr(remoteSaddr);
@@ -3849,7 +3858,7 @@ public class Audit extends AbstractReporter {
 				remotePort = remote.port;
 			}
 			return new NetworkSocketIdentifier(localAddress, localPort, 
-					remoteAddress, remotePort, protocolName);
+					remoteAddress, remotePort, protocolName, getNetworkNamespaceForPid(pid));
 		}
 		return null;
 	}
@@ -3882,7 +3891,7 @@ public class Audit extends AbstractReporter {
 		ArtifactIdentifier identifier = null;
 		
 		if(isNetwork){
-			identifier = constructNetworkIdentifier(syscall, time, eventId, localSaddr, remoteSaddr, sockType);
+			identifier = constructNetworkIdentifier(syscall, time, eventId, localSaddr, remoteSaddr, sockType, pid);
 		}else{ // is unix socket
 			identifier = parseUnixSaddr(pid, remoteSaddr); // address in remote unlike accept
 			if(identifier == null){
@@ -3925,7 +3934,7 @@ public class Audit extends AbstractReporter {
 				if(addressPort != null){
 					String protocolName = getProtocol(syscall, time, eventId, pid, sockFd);
 					identifier = new NetworkSocketIdentifier(
-							null, null, addressPort.address, addressPort.port, protocolName);
+							null, null, addressPort.address, addressPort.port, protocolName, getNetworkNamespaceForPid(pid));
 					
 				}
 			}else if(isUnixSaddr(saddr)){
@@ -3968,7 +3977,7 @@ public class Audit extends AbstractReporter {
 		
 		ArtifactIdentifier identifier = null;
 		if(isNetwork){
-			identifier = constructNetworkIdentifier(syscall, time, eventId, localSaddr, remoteSaddr, sockType);
+			identifier = constructNetworkIdentifier(syscall, time, eventId, localSaddr, remoteSaddr, sockType, pid);
 		}else{ // is unix socket
 			identifier = parseUnixSaddr(pid, localSaddr);
 			if(identifier == null){
@@ -4006,7 +4015,7 @@ public class Audit extends AbstractReporter {
 						localPort = localAddressPort.port;
 					}
 					identifier = new NetworkSocketIdentifier(localAddress, localPort, 
-							addressPort.address, addressPort.port, protocol);
+							addressPort.address, addressPort.port, protocol, getNetworkNamespaceForPid(pid));
 				}
 			}else if(isUnixSaddr(saddr)){
 				// The unix saddr in accept is empty. So, use the bound one.
@@ -4099,7 +4108,7 @@ public class Audit extends AbstractReporter {
 						// Protocol can only be UDP because saddr only present when SOCK_DGRAM
 						// and family is AF_INET or AF_INET6.
 						identifier = new NetworkSocketIdentifier(localAddress, localPort, 
-								addressPort.address, addressPort.port, PROTOCOL_NAME_UDP);
+								addressPort.address, addressPort.port, PROTOCOL_NAME_UDP, getNetworkNamespaceForPid(pid));
 					}
 				}else if(isUnixSaddr(saddr)){
 					identifier = parseUnixSaddr(pid, saddr);
@@ -4126,7 +4135,7 @@ public class Audit extends AbstractReporter {
 		ArtifactIdentifier identifier = null;
 		if(isNetwork){
 			NetworkSocketIdentifier recordIdentifier =
-					constructNetworkIdentifier(syscall, time, eventId, localSaddr, remoteSaddr, sockType);
+					constructNetworkIdentifier(syscall, time, eventId, localSaddr, remoteSaddr, sockType, pid);
 			FileDescriptor fileDescriptor = processManager.getFd(pid, sockFd);
 			if(fileDescriptor != null && fileDescriptor.identifier instanceof NetworkSocketIdentifier){
 				NetworkSocketIdentifier fdNetworkIdentifier = (NetworkSocketIdentifier)fileDescriptor.identifier;

@@ -219,7 +219,8 @@ public class ArtifactManager{
 									append(str, net.getLocalPort()).append(",");
 									append(str, net.getRemoteHost()).append(",");
 									append(str, net.getRemotePort()).append(",");
-									append(str, net.getProtocol());
+									append(str, net.getProtocol()).append(",");
+									append(str, net.netNamespaceId);
 									break;
 								case OPMConstants.SUBTYPE_UNKNOWN:
 									UnknownIdentifier unknown = (UnknownIdentifier)i;
