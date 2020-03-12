@@ -55,6 +55,7 @@ public enum SYSCALL{
 	CHDIR, FCHDIR,
 	CHROOT,
 	PIVOT_ROOT,
+	SETNS, UNSHARE,
 	UNSUPPORTED; // Used for system calls not in this enum (not an actual system call)
 	
 	public static SYSCALL get64BitSyscall(int syscallNum){
@@ -63,6 +64,8 @@ public enum SYSCALL{
 		
 		// source : https://github.com/bnoordhuis/strace/blob/master/linux/x86_64/syscallent.h
 		switch(syscallNum){
+			case 308:	return SETNS;
+			case 272:	return UNSHARE;
 			case 155:	return PIVOT_ROOT;
 			case 161:	return CHROOT;
 			case 80:	return CHDIR;

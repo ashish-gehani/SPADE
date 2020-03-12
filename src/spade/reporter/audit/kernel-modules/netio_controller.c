@@ -23,6 +23,8 @@ module_param(syscall_success, int, 0000);
 MODULE_PARM_DESC(syscall_success, "0 for failed, 1 for success, don't specify for all");
 module_param(net_io, int, 0000);
 MODULE_PARM_DESC(net_io, "0 for no, 1 for yes. default=0");
+module_param(namespaces, int, 0000);
+MODULE_PARM_DESC(namespaces, "0 for no, 1 for yes. default=0");
 module_param(ignore_uids, int, 0000);
 MODULE_PARM_DESC(ignore_uids, "0 for capturing the given uid only, 1 for ignoring the given uid only. default=1");
 module_param_array(pids_ignore, int, &pids_ignore_len, 0000);
@@ -36,7 +38,7 @@ MODULE_PARM_DESC(key, "Optional key for preventing SPADE from dying");
 module_param_array(harden_tgids, int, &harden_tgids_len, 0000);
 MODULE_PARM_DESC(harden_tgids, "Comma-separated tgids list to harden");
 
-extern int netio_logging_start(char* caller_build_hash, int, int, int, int[], int, int[], int, int[], int, char*, int, int[]); // starts logging
+extern int netio_logging_start(char* caller_build_hash, int, int, int, int[], int, int[], int, int[], int, char*, int, int[], int); // starts logging
 extern void netio_logging_stop(char* caller_build_hash); // stops logging
 
 static int __init onload(void){
@@ -50,6 +52,10 @@ static int __init onload(void){
 	if(net_io != 0 && net_io != 1){
 		printk(KERN_EMERG "[%s] SEVERE Invalid net_io value: %d (Only 0 or 1 allowed)\n", module_name, net_io);
 		success = -1;	
+	}
+	if(namespaces != 0 && namespaces != 1){
+		printk(KERN_EMERG "[%s] SEVERE Invalid namespaces value: %d (Only 0 or 1 allowed)\n", module_name, namespaces);
+		success = -1;
 	}
 	if(ignore_uids != 0 && ignore_uids != 1){
 		printk(KERN_EMERG "[%s] SEVERE Invalid ignore_uids value: %d (Only 0 or 1 allowed)\n", module_name, ignore_uids);
@@ -86,7 +92,7 @@ static int __init onload(void){
 		return -1;
 	}else{
 		if(netio_logging_start(BUILD_HASH, net_io, syscall_success, pids_ignore_len, pids_ignore,
-						ppids_ignore_len, ppids_ignore, uids_len, uids, ignore_uids, key, harden_tgids_len, harden_tgids) == 1){
+						ppids_ignore_len, ppids_ignore, uids_len, uids, ignore_uids, key, harden_tgids_len, harden_tgids, namespaces) == 1){
 			return 0;
 		}else{
 			return -1;

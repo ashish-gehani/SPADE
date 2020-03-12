@@ -35,12 +35,12 @@ import spade.utility.CommonFunctions;
  */
 public abstract class ProcessStateManager{
 	
-	private Map<String, ProcessState> processStates = new HashMap<String, ProcessState>();
+	private final Map<String, ProcessState> processStates = new HashMap<String, ProcessState>();
 	
 	public void pivot_root(String pid, String root, String cwd){
-		String mntId = _getProcessState(pid).mntId;
+		String mntId = _getProcessState(pid).nsMntId;
 		for(ProcessState processState : processStates.values()){
-			if(processState.mntId.equals(mntId)){
+			if(processState.nsMntId.equals(mntId)){
 				processState.fs.root = root;
 			}
 		}
@@ -72,12 +72,40 @@ public abstract class ProcessStateManager{
 	///////////////////////////////////////////////////////////////
 	
 	public String getMountNamespace(String pid){
-		return _getProcessState(pid).mntId;
+		return _getProcessState(pid).nsMntId;
 	}
 	
-	private void setMountNamespace(String pid, String id){
-		if(!CommonFunctions.isNullOrEmpty(id)){
-			_getProcessState(pid).mntId = id;
+	public String getUsrNamespace(String pid){
+		return _getProcessState(pid).nsUsrId;
+	}
+	
+	public String getNetNamespace(String pid){
+		return _getProcessState(pid).nsNetId;
+	}
+	
+	public String getPidNamespace(String pid){
+		return _getProcessState(pid).nsPidId;
+	}
+	
+	public String getPidChildrenNamespace(String pid){
+		return _getProcessState(pid).nsPidChildrenId;
+	}
+	
+	public void setNamespaces(String pid, NamespaceIdentifier namespace){
+		if(!CommonFunctions.isNullOrEmpty(namespace.mount)){
+			_getProcessState(pid).nsMntId = namespace.mount;
+		}
+		if(!CommonFunctions.isNullOrEmpty(namespace.net)){
+			_getProcessState(pid).nsNetId = namespace.net;
+		}
+		if(!CommonFunctions.isNullOrEmpty(namespace.pid)){
+			_getProcessState(pid).nsPidId = namespace.pid;
+		}
+		if(!CommonFunctions.isNullOrEmpty(namespace.user)){
+			_getProcessState(pid).nsUsrId = namespace.user;
+		}
+		if(!CommonFunctions.isNullOrEmpty(namespace.pid_children)){
+			_getProcessState(pid).nsPidChildrenId = namespace.pid_children;
 		}
 	}
 	
@@ -179,24 +207,24 @@ public abstract class ProcessStateManager{
 	
 	////////
 	
-	protected void processForked(String parentPid, String childPid, String newMnt){
+	protected void processForked(String parentPid, String childPid, NamespaceIdentifier namespaces){
 		// only fds copied
 		copyFds(parentPid, childPid);
 		copyFS(parentPid, childPid);
-		setMountNamespace(childPid, newMnt);
+		setNamespaces(childPid, namespaces);
 	}
 	
-	protected void processVforked(String parentPid, String childPid, String newMnt){
+	protected void processVforked(String parentPid, String childPid, NamespaceIdentifier namespaces){
 		// fds copied and memory shared (parent suspended)
 		setMemoryTgid(childPid, getMemoryTgid(parentPid));
 		copyFds(parentPid, childPid);
 		copyFS(parentPid, childPid);
-		setMountNamespace(childPid, newMnt);
+		setNamespaces(childPid, namespaces);
 	}
 	
 	protected void processCloned(String parentPid, String childPid, 
 			boolean linkFds, boolean shareMemory, boolean shareFS,
-			String newMnt){
+			NamespaceIdentifier namespaces){
 		if(linkFds){
 			setFdTgid(childPid, getFdTgid(parentPid));
 			linkFds(parentPid, childPid);
@@ -211,15 +239,16 @@ public abstract class ProcessStateManager{
 		}else{
 			copyFS(parentPid, childPid);
 		}
-		setMountNamespace(childPid, newMnt);
+		setNamespaces(childPid, namespaces);
 	}
 	
-	protected void processExecved(String pid, String cwd, String newMnt){
+	protected void processExecved(String pid, String cwd, NamespaceIdentifier namespaces){
 		setMemoryTgid(pid, pid);
 		setFdTgid(pid, pid);
 		unlinkFds(pid);
 		unlinkFS(pid);
 		_getProcessState(pid).fs.cwd = cwd;
+		setNamespaces(pid, namespaces);
 	}
 	
 	protected void processExited(String pid){
@@ -232,7 +261,11 @@ public abstract class ProcessStateManager{
 }
 
 class ProcessState{
-	String mntId = "-1";
+	String nsMntId = "-1";
+	String nsPidId = "-1";
+	String nsUsrId = "-1";
+	String nsNetId = "-1";
+	String nsPidChildrenId = "-1";
 	
 	String memoryTgid;
 	String fdTgid;

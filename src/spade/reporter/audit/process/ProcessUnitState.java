@@ -20,6 +20,7 @@
 package spade.reporter.audit.process;
 
 import java.io.Serializable;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -44,25 +45,30 @@ public class ProcessUnitState implements Serializable{
 	// The currently active unit or null (no active unit).
 	private UnitIdentifier unit;
 	
+	// The current set of namespace identifiers
+	private NamespaceIdentifier namespace;
+	
 	// Id of the thread group leader. Refers to self by default
 	// Not keeping the time because there can be only one active process with the same pid at a time.
 	private String threadGroupId;
 	
-	private Series<Double, AgentIdentifier> timeToAgent = new Series<Double, AgentIdentifier>();
+	private Series<Double, SimpleEntry<AgentIdentifier, NamespaceIdentifier>> timeToAgentAndNamespace = 
+			new Series<Double, SimpleEntry<AgentIdentifier, NamespaceIdentifier>>();
 	
 	// Needed when a process exits and it's state is being removed.
 	// If true then information needed to recreate a unit vertex is not removed.
 	// If false then everything cleared.
 	private boolean hadUnits = false;
 	
-	protected ProcessUnitState(ProcessIdentifier process, AgentIdentifier agent){
+	protected ProcessUnitState(ProcessIdentifier process, AgentIdentifier agent, NamespaceIdentifier namespace){
 		this.process = process;
 		this.agent = agent;
+		this.namespace = namespace;
 		threadGroupId = process.pid;
 		String timeString = process.startTime == null ? process.seenTime : process.startTime;
 		Double time = CommonFunctions.parseDouble(timeString, null);
 		if(time != null){
-			timeToAgent.add(time, agent);
+			timeToAgentAndNamespace.add(time, new SimpleEntry<AgentIdentifier, NamespaceIdentifier>(agent, namespace));
 		}else{
 			logger.log(Level.WARNING, "Failed to get start/seen time for process: " + process);
 		}
@@ -84,6 +90,10 @@ public class ProcessUnitState implements Serializable{
 		return agent;
 	}
 	
+	protected NamespaceIdentifier getNamespace(){
+		return namespace;
+	}
+	
 	protected UnitIdentifier getUnit(){
 		return unit;
 	}
@@ -95,13 +105,23 @@ public class ProcessUnitState implements Serializable{
 	 * @param agent new agent for the process
 	 * @param time the time when the agent was set
 	 */
-	protected void setAgent(Double time, AgentIdentifier agent){
+	protected void setAgentAndNamespace(Double time, AgentIdentifier agent, NamespaceIdentifier namespace){
 		this.agent = agent;
+		this.namespace = namespace;
 		if(time != null){
-			timeToAgent.add(time, agent);
+			timeToAgentAndNamespace.add(time, new SimpleEntry<AgentIdentifier, NamespaceIdentifier>(agent, namespace));
 		}else{
-			logger.log(Level.WARNING, "Failed to set agent because time is NULL");
+			logger.log(Level.WARNING, "Failed to set agent and/or namespace because time is NULL");
 		}
+	}
+	
+	protected boolean hasTheNamespaceEverBeenSeenForProcess(NamespaceIdentifier namespace){
+		for(SimpleEntry<AgentIdentifier, NamespaceIdentifier> value : timeToAgentAndNamespace.getValues()){
+			if(namespace.equals(value.getValue())){
+				return true;
+			}
+		}
+		return false;
 	}
 	
 	protected void unitEnter(UnitIdentifier unit){
@@ -123,11 +143,11 @@ public class ProcessUnitState implements Serializable{
 		return hadUnits;
 	}
 	
-	protected AgentIdentifier getAgentByTime(Double time){
+	protected SimpleEntry<AgentIdentifier, NamespaceIdentifier> getAgentAndNamespaceByTime(Double time){
 		if(time == null){
 			return null;
 		}else{
-			return timeToAgent.getBestMatch(time);
+			return timeToAgentAndNamespace.getBestMatch(time);
 		}
 	}
 	

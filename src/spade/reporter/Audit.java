@@ -259,11 +259,11 @@ public class Audit extends AbstractReporter {
 	private String REPORT_KILL_KEY = "reportKill";
 	private boolean REPORT_KILL = true;
 	private final String HANDLE_CHDIR_KEY = "cwd";
-	private boolean HANDLE_CHDIR = false;
-	private final String HANDLE_CHROOT_KEY = "chroot";
-	private boolean HANDLE_CHROOT = false;
-	private final String HANDLE_MOUNT_NS_KEY = "mountNamespace";
-	private boolean HANDLE_MOUNT_NS = false;
+	private boolean HANDLE_CHDIR = true;
+	private final String HANDLE_ROOTFS_KEY = "rootFS";
+	private boolean HANDLE_ROOTFS = true;
+	private final String HANDLE_NAMESPACES_KEY = "namespaces";
+	private boolean HANDLE_NAMESPACES = true;
 	
 	private String deleteModuleBinaryPath = null;
 	/********************** BEHAVIOR FLAGS - END *************************/
@@ -472,6 +472,10 @@ public class Audit extends AbstractReporter {
 		argValue = args.get("procFS");
 		if(isValidBoolean(argValue)){
 			PROCFS = parseBoolean(argValue, PROCFS);
+			if(PROCFS){
+				logger.log(Level.SEVERE, "'procFS' cannot be enabled!");
+				return false;
+			}
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'procFS': " + argValue);
 			return false;
@@ -620,40 +624,29 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 		
-		argValue = args.get(HANDLE_CHROOT_KEY);
+		argValue = args.get(HANDLE_ROOTFS_KEY);
 		if(isValidBoolean(argValue)){
-			HANDLE_CHROOT = parseBoolean(argValue, HANDLE_CHROOT);
+			HANDLE_ROOTFS = parseBoolean(argValue, HANDLE_ROOTFS);
 		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_CHROOT_KEY+"': " + argValue);
+			logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_ROOTFS_KEY+"': " + argValue);
 			return false;
 		}
 		
-		if(HANDLE_CHROOT){
+		if(HANDLE_ROOTFS){
 			if(!HANDLE_CHDIR){
-				logger.log(Level.INFO, "'"+HANDLE_CHDIR_KEY+"' set to 'true' because '"+HANDLE_CHROOT_KEY+"'='true'");
+				logger.log(Level.INFO, "'"+HANDLE_CHDIR_KEY+"' set to 'true' because '"+HANDLE_ROOTFS_KEY+"'='true'");
 				HANDLE_CHDIR = true;
 			}
 		}
 		
-		argValue = args.get(HANDLE_MOUNT_NS_KEY);
+		argValue = args.get(HANDLE_NAMESPACES_KEY);
 		if(isValidBoolean(argValue)){
-			HANDLE_MOUNT_NS = parseBoolean(argValue, HANDLE_MOUNT_NS);
+			HANDLE_NAMESPACES = parseBoolean(argValue, HANDLE_NAMESPACES);
 		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_MOUNT_NS_KEY+"': " + argValue);
+			logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_NAMESPACES_KEY+"': " + argValue);
 			return false;
 		}
-		
-		if(HANDLE_MOUNT_NS){
-			if(!HANDLE_CHROOT){
-				logger.log(Level.INFO, "'"+HANDLE_CHROOT_KEY+"' set to 'true' because '"+HANDLE_MOUNT_NS_KEY+"'='true'");
-				HANDLE_CHROOT = true;
-			}
-			if(!HANDLE_CHDIR){
-				logger.log(Level.INFO, "'"+HANDLE_CHDIR_KEY+"' set to 'true' because '"+HANDLE_MOUNT_NS_KEY+"'='true'");
-				HANDLE_CHDIR = true;
-			}
-		}
-		
+//		
 		if((ADD_KM && NETFILTER_RULES) // both can't be true
 				|| ((HANDLE_KM_RECORDS != null && HANDLE_KM_RECORDS) && REFINE_NET)){ // both can't be true
 			logger.log(Level.SEVERE, "Incompatible flags value (Can only handle data from either module or iptables): "
@@ -676,8 +669,8 @@ public class Audit extends AbstractReporter {
 								HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS, "failfast", FAIL_FAST,
 								mergeUnitKey, mergeUnit, HARDEN_KEY, HARDEN, REPORT_KILL_KEY, REPORT_KILL,
 								HANDLE_CHDIR_KEY, HANDLE_CHDIR,
-								HANDLE_CHROOT_KEY, HANDLE_CHROOT,
-								HANDLE_MOUNT_NS_KEY, HANDLE_MOUNT_NS});
+								HANDLE_ROOTFS_KEY, HANDLE_ROOTFS,
+								HANDLE_NAMESPACES_KEY, HANDLE_NAMESPACES});
 				logger.log(Level.INFO, globals.toString());
 				return true;
 			}
@@ -1039,9 +1032,9 @@ public class Audit extends AbstractReporter {
 		if(success){
 			try{
 				if(AGENTS){ // Make sure that this is done before starting the event reader thread
-					processManager = new ProcessWithoutAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS);
+					processManager = new ProcessWithoutAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS, HANDLE_NAMESPACES);
 				}else{
-					processManager = new ProcessWithAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS);
+					processManager = new ProcessWithAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS, HANDLE_NAMESPACES);
 				}
 			}catch(Exception e){
 				logger.log(Level.SEVERE, "Failed to instantiate process manager", e);
@@ -1266,7 +1259,8 @@ public class Audit extends AbstractReporter {
 				
 				if(isLiveAudit){
 					if(PROCFS){
-						processManager.putProcessesFromProcFs();
+						// Proc filesystem read not done
+//						processManager.putProcessesFromProcFs();
 					}
 				}
 				
@@ -1516,9 +1510,10 @@ public class Audit extends AbstractReporter {
 								String kernelModuleControllerAddCommand = 
 										String.format("insmod %s uids=\"%s\" syscall_success=\"1\" "
 										+ "pids_ignore=\"%s\" ppids_ignore=\"%s\" net_io=\"%s\" "
-										+ "ignore_uids=\"%s\"", 
+										+ "ignore_uids=\"%s\" namespaces=\"%s\"", 
 										kernelModuleControllerPath, uid, pids, ppids,
-										interceptSendRecv ? "1" : "0", ignoreUidsArg);
+										interceptSendRecv ? "1" : "0", ignoreUidsArg, 
+										HANDLE_NAMESPACES ? "1" : "0");
 								
 								if(harden){
 									kernelModuleControllerAddCommand += " key=\""+kernelModuleKey+"\"";
@@ -1785,11 +1780,11 @@ public class Audit extends AbstractReporter {
 					if(HANDLE_CHDIR){
 						auditRuleWithSuccess += "-S chdir -S fchdir ";
 					}
-					if(HANDLE_CHROOT){
-						auditRuleWithSuccess += "-S chroot ";
+					if(HANDLE_ROOTFS){
+						auditRuleWithSuccess += "-S chroot -S pivot_root ";
 					}
-					if(HANDLE_MOUNT_NS){
-						auditRuleWithSuccess += "-S pivot_root ";
+					if(HANDLE_NAMESPACES){
+						auditRuleWithSuccess += "-S setns -S unshare ";
 					}
 					
 					auditRuleWithSuccess += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
@@ -2274,13 +2269,23 @@ public class Audit extends AbstractReporter {
 			}
 
 			switch (syscall) {
+			case SETNS:
+				if(HANDLE_NAMESPACES){
+					processManager.handleSetns(eventData, syscall);
+				}
+				break;
+			case UNSHARE:
+				if(HANDLE_NAMESPACES){
+					processManager.handleUnshare(eventData, syscall);
+				}
+				break;
 			case PIVOT_ROOT:
-				if(HANDLE_MOUNT_NS){
+				if(HANDLE_ROOTFS){
 					handlePivotRoot(eventData, syscall);
 				}
 				break;
 			case CHROOT:
-				if(HANDLE_CHROOT){
+				if(HANDLE_ROOTFS){
 					handleChroot(eventData, syscall);
 				}
 				break;

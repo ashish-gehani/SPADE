@@ -28,8 +28,9 @@ import spade.reporter.audit.VertexIdentifier;
 public class ProcessIdentifier implements VertexIdentifier{
 
 	private static final long serialVersionUID = -8035203971144574644L;
-	public final String pid, ppid, name, cwd, commandLine, startTime, seenTime, processUnitId, processSource,
-			mountNamespace;
+	public final String pid, ppid, name, cwd, commandLine, startTime, seenTime, processUnitId, processSource;
+	
+	public final String nsPid;
 	
 	/**
 	 * Process information
@@ -49,7 +50,7 @@ public class ProcessIdentifier implements VertexIdentifier{
 	 */
 	public ProcessIdentifier(String pid, String ppid, String name, String cwd, String commandLine,
 			String startTime, String seenTime, String processUnitId, String processSource,
-			String mountNamespace){
+			String nsPid){
 		this.pid = pid;
 		this.ppid = ppid;
 		this.name = name;
@@ -59,7 +60,7 @@ public class ProcessIdentifier implements VertexIdentifier{
 		this.seenTime = seenTime;
 		this.processUnitId = processUnitId;
 		this.processSource = processSource;
-		this.mountNamespace = mountNamespace;
+		this.nsPid = nsPid;
 	}
 	
 	public Map<String, String> getAnnotationsMap(){
@@ -83,8 +84,10 @@ public class ProcessIdentifier implements VertexIdentifier{
 		if(processUnitId != null){
 			map.put(OPMConstants.PROCESS_UNIT, processUnitId);
 		}
+		if(nsPid != null){
+			map.put(OPMConstants.PROCESS_NS_PID, nsPid);
+		}
 		map.put(OPMConstants.SOURCE, processSource);
-		map.put(OPMConstants.PROCESS_MOUNT_NAMESPACE, mountNamespace);
 		return map;
 	}
 
@@ -101,7 +104,7 @@ public class ProcessIdentifier implements VertexIdentifier{
 		result = prime * result + ((processUnitId == null) ? 0 : processUnitId.hashCode());
 		result = prime * result + ((seenTime == null) ? 0 : seenTime.hashCode());
 		result = prime * result + ((startTime == null) ? 0 : startTime.hashCode());
-		result = prime * result + ((mountNamespace == null) ? 0 : mountNamespace.hashCode());
+		result = prime * result + ((nsPid == null) ? 0 : nsPid.hashCode());
 		return result;
 	}
 
@@ -159,10 +162,10 @@ public class ProcessIdentifier implements VertexIdentifier{
 				return false;
 		} else if (!startTime.equals(other.startTime))
 			return false;
-		if (mountNamespace == null) {
-			if (other.mountNamespace != null)
+		if (nsPid == null) {
+			if (other.nsPid != null)
 				return false;
-		} else if (!mountNamespace.equals(other.mountNamespace))
+		} else if (!nsPid.equals(other.nsPid))
 			return false;
 		return true;
 	}
@@ -171,7 +174,7 @@ public class ProcessIdentifier implements VertexIdentifier{
 	public String toString() {
 		return "ProcessIdentifier [pid=" + pid + ", ppid=" + ppid + ", name=" + name + ", cwd=" + cwd + ", commandLine="
 				+ commandLine + ", startTime=" + startTime + ", seenTime=" + seenTime + ", processUnitId="
-				+ processUnitId + ", processSource=" + processSource + ", mountNamespace=" + mountNamespace + "]";
+				+ processUnitId + ", processSource=" + processSource + ", nsPid=" + nsPid + "]";
 	}
 
 }

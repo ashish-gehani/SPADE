@@ -85,7 +85,9 @@ asmlinkage long (*original_tgkill)(int tgid, int tid, int sig);
 asmlinkage long (*original_clone)(unsigned long flags, void *child_stack, int *ptid, int *ctid, unsigned long newtls);
 asmlinkage long (*original_fork)(void);
 asmlinkage long (*original_vfork)(void);
-asmlinkage long (*original_execve)(const char *filename, char *const argv[], char *const envp[]);
+//asmlinkage long (*original_execve)(const char *filename, char *const argv[], char *const envp[]);
+asmlinkage long (*original_setns)(int fd, int nstype);
+asmlinkage long (*original_unshare)(int flags);
 
 static int is_sockaddr_size_valid(uint32_t size);
 static void to_hex(unsigned char *dst, uint32_t dst_len, unsigned char *src, uint32_t src_len);
@@ -100,7 +102,7 @@ static int netio_logging_start(char* caller_build_hash, int net_io_flag, int sys
 									int pids_ignore_length, int pids_ignore_list[],
 									int ppids_ignore_length, int ppids_ignore_list[],
 									int uids_len, int uids[], int ignore_uids, char* passed_key,
-									int harden_tgids_length, int harden_tgids_list[]); // 1 success, 0 failure
+									int harden_tgids_length, int harden_tgids_list[], int namespaces_flag); // 1 success, 0 failure
 static void netio_logging_stop(char* caller_build_hash);
 static int get_tgid(int);
 static int special_str_equal(const char* hay, const char* constantModuleName);
@@ -442,31 +444,64 @@ static void log_namespace_audit_msg(const int syscall, const char* msg_type, con
 asmlinkage long new_clone(unsigned long flags, void *child_stack, int *ptid, int *ctid, unsigned long newtls){
 	int success;
 	long childPid = original_clone(flags, child_stack, ptid, ctid, newtls);
-	success = childPid == -1 ? 0 : 1;
-	log_namespaces_info_newprocess(__NR_clone, childPid, success);
+	if(namespaces == 1){
+		success = childPid == -1 ? 0 : 1;
+		log_namespaces_info_newprocess(__NR_clone, childPid, success);
+	}
 	return childPid;
 }
 
 asmlinkage long new_fork(void){
 	int success;
 	long childPid = original_fork();
-	success = childPid == -1 ? 0 : 1;
-	log_namespaces_info_newprocess(__NR_fork, childPid, success);
+	if(namespaces == 1){
+		success = childPid == -1 ? 0 : 1;
+		log_namespaces_info_newprocess(__NR_fork, childPid, success);
+	}
 	return childPid;
 }
 
 asmlinkage long new_vfork(void){
 	int success;
 	long childPid = original_vfork();
-	success = childPid == -1 ? 0 : 1;
-	log_namespaces_info_newprocess(__NR_vfork, childPid, success);
+	if(namespaces == 1){
+		success = childPid == -1 ? 0 : 1;
+		log_namespaces_info_newprocess(__NR_vfork, childPid, success);
+	}
 	return childPid;
 }
 
-asmlinkage long new_execve(const char *filename, char *const argv[], char *const envp[]){
-	log_namespaces_info_newprocess(__NR_execve, (int)(current->pid), 1);
-	return original_execve(filename, argv, envp);
+asmlinkage long new_setns(int fd, int nstype){
+	int success;
+	long result;
+
+	result = original_setns(fd, nstype);
+	if(namespaces == 1){
+		success = result == -1 ? 0 : 1;
+		log_namespaces_info(__NR_setns, "SETNS", (int)(current->pid), success);
+	}
+	return result;
 }
+
+asmlinkage long new_unshare(int flags){
+	int success;
+	long result;
+
+	result = original_unshare(flags);
+
+	if(namespaces == 1){
+		success = result == -1 ? 0 : 1;
+		log_namespaces_info(__NR_unshare, "UNSHARE", (int)(current->pid), success);
+	}
+	return result;
+}
+
+//asmlinkage long new_execve(const char *filename, char *const argv[], char *const envp[]){
+//	if(namespaces == 1){
+//		log_namespaces_info_newprocess(__NR_execve, (int)(current->pid), 1);
+//	}
+//	return original_execve(filename, argv, envp);
+//}
 
 asmlinkage long new_bind(int fd, const struct sockaddr __user *addr, uint32_t addr_size){
 	long retval = original_bind(fd, addr, addr_size);
@@ -904,14 +939,18 @@ static int __init onload(void) {
 		unsigned long* syscall_table = (unsigned long*)syscall_table_address;
 		write_cr0 (read_cr0 () & (~ 0x10000));
 
+		original_setns = (void *)syscall_table[__NR_setns];
+		syscall_table[__NR_setns] = (unsigned long)&new_setns;
+		original_unshare = (void *)syscall_table[__NR_unshare];
+		syscall_table[__NR_unshare] = (unsigned long)&new_unshare;
 		original_fork = (void *)syscall_table[__NR_fork];
 		syscall_table[__NR_fork] = (unsigned long)&new_fork;
 		original_vfork = (void *)syscall_table[__NR_vfork];
 		syscall_table[__NR_vfork] = (unsigned long)&new_vfork;
 		original_clone = (void *)syscall_table[__NR_clone];
 		syscall_table[__NR_clone] = (unsigned long)&new_clone;
-		original_execve = (void *)syscall_table[__NR_execve];
-		syscall_table[__NR_execve] = (unsigned long)&new_execve;
+//		original_execve = (void *)syscall_table[__NR_execve];
+//		syscall_table[__NR_execve] = (unsigned long)&new_execve;
 
 		original_bind = (void *)syscall_table[__NR_bind];
 		syscall_table[__NR_bind] = (unsigned long)&new_bind;
@@ -961,10 +1000,12 @@ static void __exit onunload(void) {
     if (syscall_table_address != 0) {
 		unsigned long* syscall_table = (unsigned long*)syscall_table_address;
         write_cr0 (read_cr0 () & (~ 0x10000));
+        syscall_table[__NR_unshare] = (unsigned long)original_unshare;
+        syscall_table[__NR_setns] = (unsigned long)original_setns;
         syscall_table[__NR_clone] = (unsigned long)original_clone;
         syscall_table[__NR_fork] = (unsigned long)original_fork;
         syscall_table[__NR_vfork] = (unsigned long)original_vfork;
-        syscall_table[__NR_execve] = (unsigned long)original_execve;
+        //syscall_table[__NR_execve] = (unsigned long)original_execve;
 
 		syscall_table[__NR_bind] = (unsigned long)original_bind;
 		syscall_table[__NR_connect] = (unsigned long)original_connect;
@@ -994,7 +1035,8 @@ static int netio_logging_start(char* caller_build_hash, int net_io_flag, int sys
 									int pids_ignore_length, int pids_ignore_list[],
 									int ppids_ignore_length, int ppids_ignore_list[],
 									int uids_length, int uids_list[], int ignore_uids_flag, char* passed_key,
-									int harden_tgids_length, int harden_tgids_list[]){
+									int harden_tgids_length, int harden_tgids_list[],
+									int namespaces_flag){
 	if(str_equal(caller_build_hash, BUILD_HASH) == 1){
 		net_io = net_io_flag;
 		syscall_success = syscall_success_flag;
@@ -1004,6 +1046,7 @@ static int netio_logging_start(char* caller_build_hash, int net_io_flag, int sys
 		uids_len = uids_length;
 		key = passed_key;
 		harden_tgids_len = harden_tgids_length;
+		namespaces = namespaces_flag;
 		
 		copy_array(&pids_ignore[0], &pids_ignore_list[0], pids_ignore_len);
 		copy_array(&ppids_ignore[0], &ppids_ignore_list[0], ppids_ignore_len);

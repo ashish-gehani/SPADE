@@ -32,6 +32,7 @@ MODULE_LICENSE("GPL");
 
 static int syscall_success = -1;
 static int net_io = 0;
+static int namespaces = 0;
 static int ignore_uids = 1;
 static int pids_ignore[MAX_FIELDS];
 static int ppids_ignore[MAX_FIELDS];
@@ -67,8 +68,8 @@ void print_args(const char* module_name){
 	memset(&args_string[args_string_index], 0, args_string_len);
 
 	args_string_index += sprintf(&args_string[args_string_index], 
-				"[%s] ARGS : syscall_success = %d, net_io = %d, uid_mode = %s, ", 
-				module_name, syscall_success, net_io, ignore_uids == 1 ? "ignore" : "capture");
+				"[%s] ARGS : syscall_success = %d, net_io = %d, uid_mode = %s, namespaces = %d, ",
+				module_name, syscall_success, net_io, (ignore_uids == 1 ? "ignore" : "capture"), namespaces);
 
 	args_string_index += sprintf(&args_string[args_string_index], "pids_ignore = [ ");
 	
