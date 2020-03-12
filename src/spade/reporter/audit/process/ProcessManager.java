@@ -490,7 +490,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		Process parentProcessVertex = handleProcessFromSyscall(eventData);
 
 		// look at code
-		processExecved(pid, cwd);
+		processExecved(pid, cwd, eventData.get(AuditEventReader.NS_INUM_MNT));
 		
 		String commandLine = null;
 		String execveArgcString = eventData.get(AuditEventReader.EXECVE_ARGC);
@@ -564,20 +564,20 @@ public abstract class ProcessManager extends ProcessStateManager{
 			}
 		}
 		
-		boolean newMnt = (flags & CLONE_NEWNS) == CLONE_NEWNS;
+		String mountNamespaceId = eventData.get(AuditEventReader.NS_INUM_MNT); // can null. ProcessStateManager decides what to do with it
 		
 		boolean handle = true;
 		String flagsAnnotation = "";
 		
 		if(syscall == SYSCALL.FORK){
-			processForked(parentPid, childPid, newMnt);
+			processForked(parentPid, childPid, mountNamespaceId);
 		}else if(syscall == SYSCALL.VFORK){
-			processVforked(parentPid, childPid, newMnt);
+			processVforked(parentPid, childPid, mountNamespaceId);
 		}else if(syscall == SYSCALL.CLONE){
 			boolean shareMemory = (flags & CLONE_VM) == CLONE_VM;
 			boolean linkFds = (flags & CLONE_FILES) == CLONE_FILES;
 			boolean shareFS = (flags & CLONE_FS) == CLONE_FS;
-			processCloned(parentPid, childPid, linkFds, shareMemory, shareFS, newMnt);
+			processCloned(parentPid, childPid, linkFds, shareMemory, shareFS, mountNamespaceId);
 			
 			boolean isThread = (flags & CLONE_THREAD) == CLONE_THREAD;
 			if(isThread){
@@ -1078,7 +1078,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 				commandLine = (commandLine == null) ? "" : commandLine.replace("\0", " ").replace("\"", "'").trim();
 
 				ProcessIdentifier process = new ProcessIdentifier(pid, ppidString, name, cwd, commandLine, startTime, 
-						null, getUnitId(), source, String.valueOf(ProcessStateManager.defaultMntId));
+						null, getUnitId(), source, "-1");
 
 				AgentIdentifier agent = null;
 				if(simplify){

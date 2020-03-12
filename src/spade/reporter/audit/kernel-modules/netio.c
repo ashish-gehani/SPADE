@@ -23,6 +23,9 @@
 #include <linux/file.h>
 #include <linux/kallsyms.h>
 #include <linux/mnt_namespace.h>
+#include <linux/pid_namespace.h>
+#include <linux/net_namespace.h>
+#include <linux/user_namespace.h>
 #include <linux/net.h>
 #include <linux/ns_common.h>
 #include <linux/nsproxy.h>
@@ -54,6 +57,9 @@ static volatile int stop = 1;
 static volatile int usingKey = 0;
 
 static struct proc_ns_operations *struct_mntns_operations;
+static struct proc_ns_operations *struct_pidns_operations;
+static struct proc_ns_operations *struct_netns_operations;
+static struct proc_ns_operations *struct_userns_operations;
 
 static unsigned long syscall_table_address = 0;
 
@@ -77,6 +83,9 @@ asmlinkage long (*original_delete_module)(const char *name, int flags);
 asmlinkage long (*original_tkill)(int tid, int sig);
 asmlinkage long (*original_tgkill)(int tgid, int tid, int sig);
 asmlinkage long (*original_clone)(unsigned long flags, void *child_stack, int *ptid, int *ctid, unsigned long newtls);
+asmlinkage long (*original_fork)(void);
+asmlinkage long (*original_vfork)(void);
+asmlinkage long (*original_execve)(const char *filename, char *const argv[], char *const envp[]);
 
 static int is_sockaddr_size_valid(uint32_t size);
 static void to_hex(unsigned char *dst, uint32_t dst_len, unsigned char *src, uint32_t src_len);
@@ -97,10 +106,13 @@ static int get_tgid(int);
 static int special_str_equal(const char* hay, const char* constantModuleName);
 static int get_hex_saddr_from_fd_getname(char* result, int max_result_size, int *fd_sock_type, int sock_fd, int peer);
 
+static int load_namespace_symbols(void);
 static long get_ns_inum(struct task_struct *struct_task_struct, const struct proc_ns_operations *proc_ns_operations);
-static void log_namespace_audit_msg(const long pid, const long inum_mnt, const long inum_net, const long inum_pid, const long inum_usr);
-static void log_namespaces_task(struct task_struct *struct_task_struct);
-static void log_namespaces_pid(const long pid);
+static void log_namespace_audit_msg(const int syscall, const char* msg_type, const long ns_pid, const long host_pid, const long inum_mnt, const long inum_net, const long inum_pid, const long inum_pid_children, const long inum_usr);
+static void log_namespaces_task(const int syscall, const char* msg_type, struct task_struct *struct_task_struct, const long ns_pid, const long host_pid);
+static void log_namespaces_pid(const int syscall, const char* msg_type, const long pid);
+static void log_namespaces_info(const int syscall, const char* msg_type, const long pid, const int success);
+static void log_namespaces_info_newprocess(const int syscall, const long pid, const int success);
 
 static int special_str_equal(const char* hay, const char* constantModuleName){
 	int hayLength = strlen(hay);
@@ -348,7 +360,20 @@ static long get_ns_inum(struct task_struct *struct_task_struct,
 	return inum;
 }
 
-static void log_namespaces_pid(const long pid){
+static void log_namespaces_info_newprocess(const int syscall, const long pid, const int success){
+	log_namespaces_info(syscall, "NEWPROCESS", pid, success);
+}
+
+static void log_namespaces_info(const int syscall, const char* msg_type, const long pid, const int success){
+	if(stop == 0){
+		if(log_syscall((int) (current->pid), (int) (current->real_parent->pid),
+				(int) (current->real_cred->uid.val), success) > 0){
+			log_namespaces_pid(syscall, msg_type, pid);
+		}
+	}
+}
+
+static void log_namespaces_pid(const int syscall, const char* msg_type, const long pid){
 	struct pid *struct_pid;
 	struct task_struct *struct_task_struct;
 
@@ -356,50 +381,91 @@ static void log_namespaces_pid(const long pid){
 	struct_task_struct = NULL;
 
 	rcu_read_lock();
-	struct_pid = find_vpid(pid); // TODO
+	struct_pid = find_vpid(pid);
 	if(struct_pid != NULL){
 		struct_task_struct = pid_task(struct_pid, PIDTYPE_PID);
 		if(struct_task_struct != NULL){
 			// ns specific
-			log_namespaces_task(struct_task_struct);
+			long host_pid;
+
+			host_pid = pid_nr(struct_pid);
+			log_namespaces_task(syscall, msg_type, struct_task_struct, pid, host_pid);
 		}
 	}
 	rcu_read_unlock();
 }
 
-static void log_namespaces_task(struct task_struct *struct_task_struct){
+// Don't call this
+static void log_namespaces_task(const int syscall, const char* msg_type, struct task_struct *struct_task_struct, const long ns_pid, const long host_pid){
 	long inum_mnt;
+	long inum_pid;
+	long inum_pid_children;
+	long inum_net;
+	long inum_user;
+	struct pid_namespace * struct_nspid;
 
 	inum_mnt = -1;
+	inum_pid_children = -1;
+	inum_pid = -1;
+	inum_net = -1;
+	inum_user = -1;
+	struct_nspid = NULL;
 
-	rcu_read_lock();
+	struct_nspid = task_active_pid_ns(struct_task_struct);
+	if(struct_nspid != NULL){
+		inum_pid = struct_nspid->ns.inum;
+	}
+
+	if(struct_task_struct != NULL && struct_task_struct->nsproxy != NULL
+			&& struct_task_struct->nsproxy->pid_ns_for_children != NULL){
+		inum_pid_children = struct_task_struct->nsproxy->pid_ns_for_children->ns.inum;
+	}
+
 	// ns specific
 	inum_mnt = get_ns_inum(struct_task_struct, struct_mntns_operations);
-	rcu_read_unlock();
+	inum_net = get_ns_inum(struct_task_struct, struct_netns_operations);
+	//inum_pid_children = get_ns_inum(struct_task_struct, struct_pidns_operations);
+	inum_user = get_ns_inum(struct_task_struct, struct_userns_operations);
 
-	log_namespace_audit_msg(struct_task_struct->pid, inum_mnt, -1, -1, -1);
+	log_namespace_audit_msg(syscall, msg_type, ns_pid, host_pid, inum_mnt, inum_net, inum_pid, inum_pid_children, inum_user);
 }
 
-static void log_namespace_audit_msg(const long pid,
-		const long inum_mnt, const long inum_net, const long inum_pid, const long inum_usr){
+static void log_namespace_audit_msg(const int syscall, const char* msg_type, const long ns_pid, const long host_pid,
+		const long inum_mnt, const long inum_net, const long inum_pid, const long inum_pid_children, const long inum_usr){
 	audit_log(current->audit_context,
 					GFP_KERNEL, AUDIT_USER,
-					"subtype=namespaces pid=%ld inum_mnt=%ld inum_net=%ld inum_pid=%ld inum_usr=%ld",
-					pid,
-					inum_mnt, inum_net, inum_pid, inum_usr);
+					"ns_syscall=%d ns_subtype=ns_namespaces ns_operation=ns_%s ns_ns_pid=%ld ns_host_pid=%ld ns_inum_mnt=%ld ns_inum_net=%ld ns_inum_pid=%ld ns_inum_pid_children=%ld ns_inum_usr=%ld",
+					syscall, msg_type, ns_pid, host_pid,
+					inum_mnt, inum_net, inum_pid, inum_pid_children, inum_usr);
 }
 
 asmlinkage long new_clone(unsigned long flags, void *child_stack, int *ptid, int *ctid, unsigned long newtls){
+	int success;
 	long childPid = original_clone(flags, child_stack, ptid, ctid, newtls);
-	if(stop == 0){
-		int success;
-		success = childPid == -1 ? 0 : 1;
-		if(log_syscall((int)(current->pid), (int)(current->real_parent->pid),
-								(int)(current->real_cred->uid.val), success) > 0){
-			log_namespaces_pid(childPid);
-		}
-	}
+	success = childPid == -1 ? 0 : 1;
+	log_namespaces_info_newprocess(__NR_clone, childPid, success);
 	return childPid;
+}
+
+asmlinkage long new_fork(void){
+	int success;
+	long childPid = original_fork();
+	success = childPid == -1 ? 0 : 1;
+	log_namespaces_info_newprocess(__NR_fork, childPid, success);
+	return childPid;
+}
+
+asmlinkage long new_vfork(void){
+	int success;
+	long childPid = original_vfork();
+	success = childPid == -1 ? 0 : 1;
+	log_namespaces_info_newprocess(__NR_vfork, childPid, success);
+	return childPid;
+}
+
+asmlinkage long new_execve(const char *filename, char *const argv[], char *const envp[]){
+	log_namespaces_info_newprocess(__NR_execve, (int)(current->pid), 1);
+	return original_execve(filename, argv, envp);
 }
 
 asmlinkage long new_bind(int fd, const struct sockaddr __user *addr, uint32_t addr_size){
@@ -789,22 +855,46 @@ asmlinkage long new_delete_module(const char* name, int flags){
 	}
 }
 
+static int load_namespace_symbols(){
+	unsigned long symbol_address;
+	symbol_address = 0;
+
+	symbol_address = kallsyms_lookup_name("mntns_operations");
+	if(symbol_address == 0){
+		printk(KERN_EMERG "[%s] mount namespace inaccessible\n", MAIN_MODULE_NAME);
+		return 0;
+	}
+	struct_mntns_operations = (struct proc_ns_operations*)symbol_address;
+
+	symbol_address = kallsyms_lookup_name("netns_operations");
+	if(symbol_address == 0){
+		printk(KERN_EMERG "[%s] network namespace inaccessible\n", MAIN_MODULE_NAME);
+		return 0;
+	}
+	struct_netns_operations = (struct proc_ns_operations*)symbol_address;
+
+	symbol_address = kallsyms_lookup_name("pidns_operations");
+	if(symbol_address == 0){
+		printk(KERN_EMERG "[%s] pid namespace inaccessible\n", MAIN_MODULE_NAME);
+		return 0;
+	}
+	struct_pidns_operations = (struct proc_ns_operations*)symbol_address;
+
+	symbol_address = kallsyms_lookup_name("userns_operations");
+	if(symbol_address == 0){
+		printk(KERN_EMERG "[%s] user namespace inaccessible\n", MAIN_MODULE_NAME);
+		return 0;
+	}
+	struct_userns_operations = (struct proc_ns_operations*)symbol_address;
+	return 1;
+}
+
 static int __init onload(void) {
 	int success;
-	unsigned long mntns_operations_address;
 
 	success = -1;
-	mntns_operations_address = 0;
-	struct_mntns_operations = NULL;
 
-	mntns_operations_address = kallsyms_lookup_name("mntns_operations");
-	if(mntns_operations_address != 0){
-		struct_mntns_operations = (struct proc_ns_operations*)mntns_operations_address;
-//		printk(KERN_EMERG "mnt_operations address = %lx\n", mntns_operations_address);
-	}
-
-	if(struct_mntns_operations == NULL){
-		printk(KERN_EMERG "[%s] mount namespace inaccessible\n", MAIN_MODULE_NAME);
+	if(load_namespace_symbols() == 0){
 		return success;
 	}
 
@@ -813,8 +903,16 @@ static int __init onload(void) {
 	if(syscall_table_address != 0){
 		unsigned long* syscall_table = (unsigned long*)syscall_table_address;
 		write_cr0 (read_cr0 () & (~ 0x10000));
+
+		original_fork = (void *)syscall_table[__NR_fork];
+		syscall_table[__NR_fork] = (unsigned long)&new_fork;
+		original_vfork = (void *)syscall_table[__NR_vfork];
+		syscall_table[__NR_vfork] = (unsigned long)&new_vfork;
 		original_clone = (void *)syscall_table[__NR_clone];
 		syscall_table[__NR_clone] = (unsigned long)&new_clone;
+		original_execve = (void *)syscall_table[__NR_execve];
+		syscall_table[__NR_execve] = (unsigned long)&new_execve;
+
 		original_bind = (void *)syscall_table[__NR_bind];
 		syscall_table[__NR_bind] = (unsigned long)&new_bind;
 		original_connect = (void *)syscall_table[__NR_connect];
@@ -864,6 +962,10 @@ static void __exit onunload(void) {
 		unsigned long* syscall_table = (unsigned long*)syscall_table_address;
         write_cr0 (read_cr0 () & (~ 0x10000));
         syscall_table[__NR_clone] = (unsigned long)original_clone;
+        syscall_table[__NR_fork] = (unsigned long)original_fork;
+        syscall_table[__NR_vfork] = (unsigned long)original_vfork;
+        syscall_table[__NR_execve] = (unsigned long)original_execve;
+
 		syscall_table[__NR_bind] = (unsigned long)original_bind;
 		syscall_table[__NR_connect] = (unsigned long)original_connect;
 		syscall_table[__NR_accept] = (unsigned long)original_accept;

@@ -129,7 +129,19 @@ public class AuditEventReader {
 			KMODULE_FD = "fd",
 			KMODULE_SOCKTYPE = "sock_type",
 			KMODULE_LOCAL_SADDR = "local_saddr",
-			KMODULE_REMOTE_SADDR = "remote_saddr";
+			KMODULE_REMOTE_SADDR = "remote_saddr",
+			NS_SUBTYPE_KEY = "ns_subtype",
+			NS_SUBTYPE_VALUE = "ns_namespaces",
+			NS_OPERATION_KEY = "ns_operation",
+			NS_OPERATION_VALUE_NEWPROCESS = "ns_NEWPROCESS",
+			NS_SYSCALL_KEY = "ns_syscall",
+			NS_NS_PID = "ns_ns_pid",
+			NS_HOST_PID = "ns_host_pid",
+			NS_INUM_MNT = "ns_inum_mnt",
+			NS_INUM_NET = "ns_inum_net",
+			NS_INUM_PID = "ns_inum_pid",
+			NS_INUM_PID_FOR_CHILDREN = "ns_inum_pid_children",
+			NS_INUM_USER = "ns_inum_usr";
 	
 	//Reporting variables
 	private boolean reportingEnabled = false;
@@ -679,32 +691,38 @@ public class AuditEventReader {
 				auditRecordKeyValues.put(RECORD_TYPE_KEY, type);
 	
 				if(type.equals(RECORD_TYPE_USER)){
-					int indexOfData = messageData.indexOf(KMODULE_DATA_KEY);
-					if(indexOfData != -1){
-						String data = messageData.substring(indexOfData + KMODULE_DATA_KEY.length() + 1);
-						data = data.substring(1, data.length() - 1);// remove quotes
-						Map<String, String> eventData = CommonFunctions.parseKeyValPairs(data);
-						eventData.put(RECORD_TYPE_KEY, KMODULE_RECORD_TYPE);
-						eventData.put(COMM, CommonFunctions.decodeHex(eventData.get(COMM)));
-						eventData.put(TIME, time);
-						auditRecordKeyValues.putAll(eventData);
+					Map<String, String> nsEventData = CommonFunctions.parseKeyValPairs(messageData);
+					if(NS_SUBTYPE_VALUE.equals(nsEventData.get(NS_SUBTYPE_KEY))){
+						auditRecordKeyValues.putAll(nsEventData);
 					}else{
-						indexOfData = messageData.indexOf(UBSI_INTERCEPTED_DATA_KEY);
+						int indexOfData = messageData.indexOf(KMODULE_DATA_KEY);
 						if(indexOfData != -1){
-							String data = messageData.substring(indexOfData + UBSI_INTERCEPTED_DATA_KEY.length() + 1);
+							String data = messageData.substring(indexOfData + KMODULE_DATA_KEY.length() + 1);
 							data = data.substring(1, data.length() - 1);// remove quotes
 							Map<String, String> eventData = CommonFunctions.parseKeyValPairs(data);
-							eventData.put(RECORD_TYPE_KEY, RECORD_TYPE_SYSCALL);
+							eventData.put(RECORD_TYPE_KEY, KMODULE_RECORD_TYPE);
 							eventData.put(COMM, CommonFunctions.decodeHex(eventData.get(COMM)));
 							eventData.put(TIME, time);
 							auditRecordKeyValues.putAll(eventData);
 						}else{
-							indexOfData = messageData.indexOf(" syscall=62 ");
-							Map<String, String> eventData = CommonFunctions.parseKeyValPairs(messageData);
-							eventData.put(RECORD_TYPE_KEY, RECORD_TYPE_SYSCALL);
-							eventData.put(COMM, CommonFunctions.decodeHex(eventData.get(COMM)));
-							eventData.put(TIME, time);
-							auditRecordKeyValues.putAll(eventData);
+							indexOfData = messageData.indexOf(UBSI_INTERCEPTED_DATA_KEY);
+							if(indexOfData != -1){
+								String data = messageData
+										.substring(indexOfData + UBSI_INTERCEPTED_DATA_KEY.length() + 1);
+								data = data.substring(1, data.length() - 1);// remove quotes
+								Map<String, String> eventData = CommonFunctions.parseKeyValPairs(data);
+								eventData.put(RECORD_TYPE_KEY, RECORD_TYPE_SYSCALL);
+								eventData.put(COMM, CommonFunctions.decodeHex(eventData.get(COMM)));
+								eventData.put(TIME, time);
+								auditRecordKeyValues.putAll(eventData);
+							}else{
+								indexOfData = messageData.indexOf(" syscall=62 ");
+								Map<String, String> eventData = CommonFunctions.parseKeyValPairs(messageData);
+								eventData.put(RECORD_TYPE_KEY, RECORD_TYPE_SYSCALL);
+								eventData.put(COMM, CommonFunctions.decodeHex(eventData.get(COMM)));
+								eventData.put(TIME, time);
+								auditRecordKeyValues.putAll(eventData);
+							}
 						}
 					}
 				}else if (type.equals(RECORD_TYPE_SYSCALL)) {
