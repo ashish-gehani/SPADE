@@ -39,7 +39,6 @@ import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
-import spade.core.Graph;
 import spade.core.Settings;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.utility.QuickstepUtil;
@@ -125,7 +124,8 @@ public class Quickstep extends AbstractStorage {
       initQuery.append("CREATE TABLE "+edgeTableName+" (\n" +
                        "  id LONG,\n" +
                        "  src INT,\n" +
-                       "  dst INT\n" +
+                       "  dst INT,\n" +
+                       "  md5 CHAR(32)\n" +
                        ") WITH BLOCKPROPERTIES (\n" +
                        "  TYPE columnstore,\n" +
                        "  SORT id);");
@@ -157,7 +157,7 @@ public class Quickstep extends AbstractStorage {
     }
 
     public void resetStorage() {
-      ArrayList<String> allTables = QuickstepUtil.GetAllTableNames(qs);
+      ArrayList<String> allTables = QuickstepUtil.GetAllTableNames(Quickstep.this);
       if (!allTables.isEmpty()) {
         StringBuilder dropQuery = new StringBuilder();
         for (String table : allTables) {
@@ -169,7 +169,7 @@ public class Quickstep extends AbstractStorage {
     }
 
     public void resetStorageIfInvalid() {
-      ArrayList<String> allTables = QuickstepUtil.GetAllTableNames(qs);
+      ArrayList<String> allTables = QuickstepUtil.GetAllTableNames(Quickstep.this);
       HashSet<String> tableSet = new HashSet<String>();
       for (String table : allTables) {
         tableSet.add(table);
@@ -271,6 +271,7 @@ public class Quickstep extends AbstractStorage {
       edgeLinks.setLength(0);
       edgeAnnos.setLength(0);
       for (AbstractEdge edge : batchBuffer.getEdges()) {
+    	  final String md5 = edge.bigHashCode();
         final AbstractVertex srcVertex = edge.getChildVertex();
         final AbstractVertex dstVertex = edge.getParentVertex();
         final String srcVertexMd5 = srcVertex.bigHashCode();
@@ -286,7 +287,7 @@ public class Quickstep extends AbstractStorage {
           dstVertexId = ++vertexIdCounter;
           appendVertex(dstVertex, dstVertexMd5, dstVertexId);
         }
-        appendEdge(edge, ++edgeIdCounter, srcVertexId, dstVertexId);
+        appendEdge(edge, md5, ++edgeIdCounter, srcVertexId, dstVertexId);
       }
 
       if (vertexIdCounter > lastNumVertices) {
@@ -338,16 +339,18 @@ public class Quickstep extends AbstractStorage {
       md5ToIdMap.put(md5, vertexId);
     }
 
-    private void appendEdge(AbstractEdge edge, final long edgeId,
+    private void appendEdge(AbstractEdge edge, final String md5, final long edgeId,
                             final int srcVertexId, final int dstVertexId) {
       edgeLinks.append(String.valueOf(edgeId));
       edgeLinks.append('|');
       edgeLinks.append(String.valueOf(srcVertexId));
       edgeLinks.append('|');
       edgeLinks.append(String.valueOf(dstVertexId));
+      edgeLinks.append('|');
+      edgeLinks.append(md5);
       edgeLinks.append('\n');
 
-      for (Map.Entry<String, String> annoEntry : edge.getAnnotations().entrySet()) {
+      for (Map.Entry<String, String> annoEntry : edge.getCopyOfAnnotations().entrySet()) {
         edgeAnnos.append(edgeId);
         edgeAnnos.append('|');
         appendEscaped(edgeAnnos, annoEntry.getKey(), maxEdgeKeyLength);
@@ -516,45 +519,31 @@ public class Quickstep extends AbstractStorage {
     }
     return true;
   }
+  
+	@Override
+	public synchronized boolean flushTransactions(boolean force){
+		synchronized(batch){
+			if(batch.getEdges().size() >= conf.getBatchSize() || force){
+				if(batch.getVertices().size() > 0 || batch.getEdges().size() > 0){ // at least vertices or edges should be non-empty
+					copyManager.submitBatch(batch);
+				}
+				resetForceSubmitTimer();
+			}
+		}
+		return true;
+	}
 
   @Override
-  public AbstractEdge getEdge(String childVertexHash, String parentVertexHash) {
-    logger.log(Level.SEVERE, "Not supported");
-    return null;
-  }
-
-  @Override
-  public AbstractVertex getVertex(String vertexHash) {
-    logger.log(Level.SEVERE, "Not supported");
-    return null;
-  }
-
-  @Override
-  public Graph getChildren(String parentHash) {
-    logger.log(Level.SEVERE, "Not supported");
-    return null;
-  }
-
-  @Override
-  public Graph getParents(String childVertexHash) {
-    logger.log(Level.SEVERE, "Not supported");
-    return null;
-  }
-
-  @Override
-  public boolean putEdge(AbstractEdge incomingEdge) {
+  public synchronized boolean putEdge(AbstractEdge incomingEdge) {
     synchronized (batch) {
       batch.addEdge(incomingEdge);
-      if (batch.getEdges().size() >= conf.getBatchSize()) {
-        copyManager.submitBatch(batch);
-        resetForceSubmitTimer();
-      }
+      flushTransactions(false);
     }
     return true;
   }
 
   @Override
-  public boolean putVertex(AbstractVertex incomingVertex) {
+  public synchronized boolean putVertex(AbstractVertex incomingVertex) {
     synchronized (batch) {
       batch.addVertex(incomingVertex);
     }
@@ -562,8 +551,8 @@ public class Quickstep extends AbstractStorage {
   }
 
   @Override
-  public Object executeQuery(String query) {
-    Object result = null;
+  public String executeQuery(String query) {
+    String result = null;
     try {
       result = qs.executeQuery(query);
     } catch (QuickstepFailure e) {
@@ -572,15 +561,19 @@ public class Quickstep extends AbstractStorage {
     return result;
   }
 
+	public long executeQueryForLongResult(String query){
+		return qs.executeQueryForLongResult(query);
+	}
+  
 	@Override
 	public QueryInstructionExecutor getQueryInstructionExecutor(){
 		synchronized(this){
 			if(queryEnvironment == null){
-				queryEnvironment = new QuickstepQueryEnvironment(baseGraphName, qs);
+				queryEnvironment = new QuickstepQueryEnvironment(baseGraphName, this);
 				queryEnvironment.initialize();
 			}
 			if(queryInstructionExecutor == null){
-				queryInstructionExecutor = new QuickstepInstructionExecutor(qs, queryEnvironment, 
+				queryInstructionExecutor = new QuickstepInstructionExecutor(this, queryEnvironment, 
 						vertexTableName, vertexAnnotationsTableName, edgeTableName, edgeAnnotationTableName);
 			}
 		}

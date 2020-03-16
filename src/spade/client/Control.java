@@ -159,12 +159,18 @@ public class Control {
             configArguments.add(new SimpleCompletor(new String[]{"config"}));
             configArguments.add(new SimpleCompletor(new String[]{"load", "save"}));
             configArguments.add(new NullCompletor());
+            
+            List<Completor> setArguments = new LinkedList<>();
+            setArguments.add(new SimpleCompletor(new String[]{"set"}));
+            setArguments.add(new SimpleCompletor(new String[]{"storage"}));
+            setArguments.add(new NullCompletor());
 
             List<Completor> completors = new LinkedList<>();
             completors.add(new ArgumentCompletor(addArguments));
             completors.add(new ArgumentCompletor(removeArguments));
             completors.add(new ArgumentCompletor(listArguments));
             completors.add(new ArgumentCompletor(configArguments));
+            completors.add(new ArgumentCompletor(setArguments));
 
             commandReader.addCompletor(new MultiCompletor(completors));
 	        return true;
@@ -223,7 +229,7 @@ public class Control {
     			break;
     		}
     		
-    		if("exit".equals(command)){
+    		if("exit".equalsIgnoreCase(command) || "quit".equalsIgnoreCase(command)){
     			// On exit, the kernel doesn't send back any response
     			break;
     		}else{

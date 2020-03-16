@@ -6,13 +6,14 @@ import java.util.List;
 import java.util.Set;
 
 import spade.query.quickgrail.utility.QuickstepUtil;
+import spade.storage.Quickstep;
 import spade.storage.sql.SQLQueryEnvironment;
 
 public class QuickstepQueryEnvironment extends SQLQueryEnvironment{
 
-	private final QuickstepExecutor queryExecutor;
+	private final Quickstep queryExecutor;
 	
-	public QuickstepQueryEnvironment(String baseGraphName, QuickstepExecutor queryExecutor){
+	public QuickstepQueryEnvironment(String baseGraphName, Quickstep queryExecutor){
 		super(baseGraphName);
 		this.queryExecutor = queryExecutor;
 		if(this.queryExecutor == null){

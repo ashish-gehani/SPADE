@@ -38,7 +38,14 @@ public class Edge extends AbstractEdge {
      * @param parentVertex Destination vertex
      */
     public Edge(AbstractVertex childVertex, AbstractVertex parentVertex) {
+    	super();
         setChildVertex(childVertex);
+        setParentVertex(parentVertex);
+    }
+    
+    public Edge(String bigHashCode, AbstractVertex childVertex, AbstractVertex parentVertex){
+    	super(bigHashCode);
+    	setChildVertex(childVertex);
         setParentVertex(parentVertex);
     }
 }

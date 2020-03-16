@@ -31,7 +31,6 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
-import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -64,11 +63,11 @@ import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
-import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
 import spade.filter.FinalCommitFilter;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.utility.HostInfo;
 import spade.utility.LogManager;
 
@@ -163,7 +162,14 @@ public class Kernel
      * Set of storages active on the local SPADE instance.
      */
     public static Set<AbstractStorage>storages;
+    
+    private static Class<? extends AbstractStorage> defaultQueryStorageClass = null;
+    private static AbstractStorage defaultQueryStorage = null;
 
+    public static AbstractStorage getDefaultQueryStorage(){
+    	return defaultQueryStorage;
+    }
+    
     public static AbstractStorage getStorage(String storageName)
     {
         for(AbstractStorage storage : storages)
@@ -180,7 +186,7 @@ public class Kernel
     
     public static boolean isStoragePresent(AbstractStorage storage){
     	for(AbstractStorage existingStorage : storages){
-            // Search for the given storage in the storages set.
+            // Search for the given storage in the storages set by instance.
             if(existingStorage == storage){
                 return true;
             }
@@ -246,6 +252,7 @@ public class Kernel
     private static final String ADD_REPORTER_STORAGE_STRING = "add reporter|storage <class name> <initialization arguments>";
     private static final String ADD_FILTER_TRANSFORMER_STRING = "add filter|transformer <class name> position=<number> <initialization arguments>";
     private static final String ADD_ANALYZER_SKETCH_STRING = "add analyzer|sketch <class name>";
+    private static final String SET_QUERY_STORAGE_STRING = "set storage <class name>";
     private static final String REMOVE_REPORTER_STORAGE_SKETCH_ANALYZER_STRING = "remove reporter|analyzer|storage|sketch <class name>";
     private static final String REMOVE_FILTER_TRANSFORMER_STRING = "remove filter|transformer <position number>";
     private static final String LIST_STRING = "list reporters|storages|analyzers|filters|sketches|transformers|all";
@@ -490,18 +497,18 @@ public class Kernel
                 {
                     while (true)
                     {
-                        if (flushTransactions)
-                        {
-                            // Flushing of transactions is also handled by this thread to ensure that
-                            // there are no errors/problems when using storages that are sensitive to
-                            // thread-context for their transactions.
-                            // For example, this is true for the embedded neo4j graph database.
-                            for (AbstractStorage currentStorage : storages)
-                            {
-                                currentStorage.flushTransactions();
-                            }
-                            flushTransactions = false;
-                        }
+//                        if (flushTransactions)
+//                        {
+//                            // Flushing of transactions is also handled by this thread to ensure that
+//                            // there are no errors/problems when using storages that are sensitive to
+//                            // thread-context for their transactions.
+//                            // For example, this is true for the embedded neo4j graph database.
+//                            for (AbstractStorage currentStorage : storages)
+//                            {
+//                                currentStorage.flushTransactions(false);
+//                            }
+//                            flushTransactions = false;
+//                        }
 
                         if (!removeStorages.isEmpty())
                         {
@@ -652,7 +659,7 @@ public class Kernel
      */
     public static void executeCommand(String line, PrintStream outputStream)
     {
-        String commandPrefix = line.split(" ", 2)[0].toLowerCase();
+        String commandPrefix = line.split("\\s+", 2)[0].toLowerCase();
         switch(commandPrefix)
         {
             case "add":
@@ -670,7 +677,18 @@ public class Kernel
             case "config":
                 configCommand(line, outputStream);
                 break;
-
+                
+            case "set":
+            	String tokens[] = line.split("\\s+", 3);
+            	if(tokens.length > 2){ // at least 3
+            		String storageToken = tokens[1].toLowerCase();
+            		if(storageToken.equalsIgnoreCase("storage")){
+            			setQueryStorageCommand(line, outputStream);
+                    	break;
+            		}
+                	// Fall down to default. Invalid query because the second word must be storage.
+            	}
+            	// Fall down to default because 'set' must be followed by an extra word. If it doesn't then it in an invalid query.
             default:
                 outputStream.print(getControlCommands()); 
                 // Don't do println because new line already added to the control commands list
@@ -741,6 +759,10 @@ public class Kernel
                 try
                 {
                     FileWriter configWriter = new FileWriter(fileName, false);
+                    // Write out the default query storage first
+                    if(Kernel.defaultQueryStorageClass != null){
+                    	configWriter.write("set storage " + Kernel.defaultQueryStorageClass.getSimpleName() + "\n");
+                    }
                     for (int filter = 0; filter < filters.size() - 1; filter++)
                     {
                         String arguments = filters.get(filter).arguments;
@@ -824,6 +846,7 @@ public class Kernel
         string.append("\t" + ADD_REPORTER_STORAGE_STRING + "\n");
         string.append("\t" + ADD_ANALYZER_SKETCH_STRING + "\n");
         string.append("\t" + ADD_FILTER_TRANSFORMER_STRING + "\n");
+        string.append("\t" + SET_QUERY_STORAGE_STRING + "\n");
         string.append("\t" + REMOVE_REPORTER_STORAGE_SKETCH_ANALYZER_STRING + "\n");
         string.append("\t" + REMOVE_FILTER_TRANSFORMER_STRING + "\n");
         string.append("\t" + LIST_STRING + "\n");
@@ -991,6 +1014,24 @@ public class Kernel
                 {
                     if(storage.initialize(arguments))
                     {
+                    	boolean setAsDefaultQuery = false;
+                    	// If the storage classes match and the storage instance is not set for querying only then do the following.
+                    	if(storage.getClass().equals(Kernel.defaultQueryStorageClass) && Kernel.defaultQueryStorage == null){
+                    		try{
+	                    		QueryInstructionExecutor instructionExecutor = storage.getQueryInstructionExecutor();
+	                    		if(instructionExecutor == null){
+	                    			throw new RuntimeException("NULL query executor");
+	                    		}else{
+	                    			Kernel.defaultQueryStorage = storage;
+	                    			setAsDefaultQuery = true;
+	                    			logger.log(Level.INFO, "Storage '"+storage.getClass().getSimpleName()+"' successfully set as default"
+	                    					+ " for querying.");
+	                    		}
+	                    	}catch(Throwable t){
+	                    		logger.log(Level.WARNING, "Query storage not set for '"
+	                    				+defaultQueryStorageClass.getSimpleName()+"'.", t);
+	                    	}
+                    	}
                         // The initialize() method must return true to indicate
                         // successful startup.
                         storage.arguments = arguments;
@@ -998,7 +1039,7 @@ public class Kernel
                         storage.edgeCount = 0;
                         storages.add(storage);
                         logger.log(Level.INFO, "Storage added: {0}", className + " " + arguments);
-                        outputStream.println("done");
+                        outputStream.println("done" + (!setAsDefaultQuery ? "" : " [ Querying default ]"));
                     }
                     else
                     {
@@ -1171,6 +1212,126 @@ public class Kernel
         }
     }
 
+	@SuppressWarnings("unchecked")
+	private static void setQueryStorageCommand(String line, PrintStream outputStream){
+		final String tokens[] = line.split("\\s+", 3);
+		if(tokens.length < 3){
+			outputStream.println("Usage:");
+			outputStream.println("\t" + SET_QUERY_STORAGE_STRING);
+			return;
+		}
+
+		final String storageClassName = tokens[2];
+		
+		logger.log(Level.INFO, "Setting default query storage: {0}", storageClassName);
+		outputStream.print("Setting default query storage " + storageClassName + "... ");
+		
+		if(Kernel.defaultQueryStorageClass == null){
+			try{
+    			Class<? extends AbstractStorage> newQueryStorageClass = 
+    					(Class<? extends AbstractStorage>)Class.forName("spade.storage."+storageClassName);
+    			Kernel.defaultQueryStorageClass = newQueryStorageClass;
+    			if(Kernel.defaultQueryStorage != null){
+    				// remove this since the class changed
+    				logger.log(Level.INFO, "Removed existing default query storage: '"+Kernel.defaultQueryStorage.getClass().getSimpleName()+"'");
+    				Kernel.defaultQueryStorage = null;
+    			}
+    			
+    			AbstractStorage matchingStorage = null;
+    			for(AbstractStorage storage : storages){
+    				if(storage.getClass().getSimpleName().equalsIgnoreCase(storageClassName)){ // Just get the first one (in no order) TODO
+    					matchingStorage = storage;
+    					break;
+    				}
+    			}
+    			
+    			if(matchingStorage != null){
+    				try{
+    	        		QueryInstructionExecutor instructionExecutor = matchingStorage.getQueryInstructionExecutor();
+    	        		if(instructionExecutor == null){
+    	        			throw new RuntimeException("NULL query executor");
+    	        		}else{
+    	        			Kernel.defaultQueryStorage = matchingStorage;
+    	        			outputStream.println("done");
+	            			logger.log(Level.INFO, "Storage '"+matchingStorage.getClass().getSimpleName()+"' successfully set as default"
+	            					+ " for querying.");
+	            			return;
+    	        		}
+    	        	}catch(Throwable t){
+    	        		outputStream.println("done but failed to select instance: " + t.getMessage());
+    	        		logger.log(Level.WARNING, "Query storage not set for '"
+    	        				+matchingStorage.getClass().getSimpleName()+"' but the class is set successfully.", t);
+	    				return;
+    	        	}
+    			}else{ // no matching found
+    				outputStream.println("done");
+    				logger.log(Level.INFO, "No matching query storage found and set the class to '"+storageClassName+"'");
+    				return;
+    			}
+    		}catch(Throwable t){
+    			outputStream.println("Unable to find/load class");
+                logger.log(Level.SEVERE, "Invalid class name: '"+storageClassName+"'. ", t);
+                return;
+    		}
+		}else{
+			// There is an existing class
+			if(Kernel.defaultQueryStorageClass.getSimpleName().equalsIgnoreCase(storageClassName)){
+				logger.log(Level.INFO, "Class is already the default query storage: " + storageClassName);
+		        outputStream.println("Already set");
+				return;
+				// Don't need to do anything more
+			}else{
+				// If it is different
+				try{
+	    			Class<? extends AbstractStorage> newQueryStorageClass = 
+	    					(Class<? extends AbstractStorage>)Class.forName("spade.storage."+storageClassName);
+	    			Kernel.defaultQueryStorageClass = newQueryStorageClass;
+	    			if(Kernel.defaultQueryStorage != null){
+	    				// remove this since the class changed
+	    				logger.log(Level.INFO, "Removed existing default query storage: '"+Kernel.defaultQueryStorage.getClass().getSimpleName()+"'");
+	    				Kernel.defaultQueryStorage = null;
+	    			}
+	    			
+	    			AbstractStorage matchingStorage = null;
+	    			for(AbstractStorage storage : storages){
+	    				if(storage.getClass().getSimpleName().equalsIgnoreCase(storageClassName)){ // Just get the first one (in no order) TODO
+	    					matchingStorage = storage;
+	    					break;
+	    				}
+	    			}
+	    			
+	    			if(matchingStorage != null){
+	    				try{
+	    	        		QueryInstructionExecutor instructionExecutor = matchingStorage.getQueryInstructionExecutor();
+	    	        		if(instructionExecutor == null){
+	    	        			throw new RuntimeException("NULL query executor");
+	    	        		}else{
+	    	        			Kernel.defaultQueryStorage = matchingStorage;
+	    	        			outputStream.println("done");
+    	            			logger.log(Level.INFO, "Storage '"+matchingStorage.getClass().getSimpleName()+"' successfully set as default"
+    	            					+ " for querying.");
+    	            			return;
+	    	        		}
+	    	        	}catch(Throwable t){
+	    	        		outputStream.println("done but failed to select instance: " + t.getMessage());
+	    	        		logger.log(Level.WARNING, "Query storage not set for '"
+	    	        				+matchingStorage.getClass().getSimpleName()+"' but the class is set successfully.", t);
+		    				return;
+	    	        	}
+	    			}else{ // no matching found
+	    				outputStream.println("done");
+	    				logger.log(Level.INFO, "No matching query storage found and set the class to '"+storageClassName+"'");
+	    				return;
+	    			}
+	    		}catch(Throwable t){
+	    			outputStream.println("Unable to find/load class. Kept existing: '"+Kernel.defaultQueryStorageClass.getSimpleName()+"'");
+	                logger.log(Level.SEVERE, "Invalid class name: '"+storageClassName+"'. Kept existing: '"+Kernel.defaultQueryStorageClass.getSimpleName()+"'", t);
+	                return;
+	    		}
+			}
+		}
+	}
+
     /**
      * Method to list modules.
      *
@@ -1244,6 +1405,9 @@ public class Kernel
                     if (arguments != null)
                     {
                         outputStream.print(" (" + arguments + ")");
+                    }
+                    if(storage == defaultQueryStorage){
+                    	outputStream.print(" [ Querying default ]");
                     }
                     outputStream.println();
                     count++;
@@ -1454,6 +1618,38 @@ public class Kernel
                                     Thread.sleep(REMOVE_WAIT_DELAY);
                                 }
                                 storageIterator.remove();
+                                
+                                if(Kernel.defaultQueryStorage == storage){ // Equality by instance
+                                	// Find the next one with the same class and set to it (if any)
+                                	AbstractStorage newQueryStorage = null;
+                                	for(AbstractStorage checkStorage : storages){
+                                		if(checkStorage.getClass().equals(Kernel.defaultQueryStorageClass)){
+                                			newQueryStorage = checkStorage;
+                                			break;
+                                		}
+                                	}
+                                	if(newQueryStorage == null){
+	                                	logger.log(Level.WARNING, "Storage '"+storage.getClass().getSimpleName()+"'"
+	                                			+ " removed as the default storage for querying. No default storage for querying.");                                	
+	                                	Kernel.defaultQueryStorage = null;
+                                	}else{
+                                		try{
+            	                    		QueryInstructionExecutor instructionExecutor = newQueryStorage.getQueryInstructionExecutor();
+            	                    		if(instructionExecutor == null){
+            	                    			throw new RuntimeException("NULL query executor");
+            	                    		}else{
+            	                    			logger.log(Level.INFO, "Storage '"+newQueryStorage.getClass().getSimpleName()+"' successfully set as default"
+            	                    					+ " for querying.");
+            	                    			Kernel.defaultQueryStorage = newQueryStorage;
+            	                    		}
+            	                    	}catch(Throwable t){
+            	                    		logger.log(Level.WARNING, "Query storage not set for '"
+            	                    				+defaultQueryStorageClass.getSimpleName()+"'.", t);
+            	                    		Kernel.defaultQueryStorage = null;
+            	                    	}
+                                	}
+                                }
+                                
                                 logger.log(Level.INFO, "Storage shut down: {0} ({1} vertices and {2} edges were added)",
                                         new Object[]{className, vertexCount, edgeCount});
                                 outputStream.println("done (" + vertexCount + " vertices and " + edgeCount + " edges added)");
@@ -1681,7 +1877,7 @@ public class Kernel
                         try
                         {
                             String line = controlInputStream.readLine();
-                            if (line == null || line.equalsIgnoreCase(EXIT_STRING))
+                            if (line == null || line.equalsIgnoreCase(EXIT_STRING) || line.equalsIgnoreCase("quit"))
                             {
                                 break;
                             }

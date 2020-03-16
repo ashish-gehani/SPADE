@@ -22,10 +22,8 @@ package spade.query.quickgrail;
 import java.io.PrintWriter;
 import java.io.Serializable;
 import java.io.StringWriter;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -35,6 +33,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Kernel;
@@ -90,18 +89,18 @@ import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
 import spade.query.quickgrail.utility.ResultTable;
 import spade.query.quickgrail.utility.Schema;
 import spade.reporter.audit.OPMConstants;
-import spade.resolver.RemoteLineageResolver;
-import spade.utility.ABEGraph;
+import spade.transformer.ABE;
 import spade.utility.DiscrepancyDetector;
 import spade.utility.HelperFunctions;
+import spade.utility.RemoteSPADEQueryConnection;
 
 /**
  * Top level class for the QuickGrail graph query executor.
  */
 public class QuickGrailExecutor{
 
-	// TODO
-	private static final DiscrepancyDetector discrepancyDetector = new DiscrepancyDetector();
+	// TODO should this be static i.e. one for the whole system?
+	private final DiscrepancyDetector discrepancyDetector;
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
@@ -118,6 +117,11 @@ public class QuickGrailExecutor{
 		this.queryEnvironment = instructionExecutor.getQueryEnvironment();
 		if(this.queryEnvironment == null){
 			throw new IllegalArgumentException("NULL variable manager");
+		}
+		try{
+			this.discrepancyDetector = new DiscrepancyDetector();
+		}catch(Throwable t){
+			throw new RuntimeException("Failed to initialize discrepancy detection", t);
 		}
 	}
 
@@ -252,19 +256,8 @@ public class QuickGrailExecutor{
 
 		}else if(instruction.getClass().equals(GetLineage.class)){
 			GetLineage getLineage = (GetLineage)instruction;
-			if(getLineage.remoteResolve){
-				getLineage(getLineage, query);
-				// if here then it means that it was successful and a graph has been set as result
-				query.getQueryMetaData().setMaxLength(getLineage.depth);
-				query.getQueryMetaData().setDirection(getLineage.direction);
-				try{
-					query.getQueryMetaData().addRootVertices(((spade.core.Graph)query.getResult()).getRootVertices());
-				}catch(Exception e){
-					logger.log(Level.WARNING, "Failed to add root vertices for transformers from get lineage query");
-				}
-			}else{
-				instructionExecutor.getLineage(getLineage);
-			}
+			query = getLineage(getLineage, query);
+//			instructionExecutor.getLineage(getLineage); TODO give an option to execute only locally?
 		}else if(instruction.getClass().equals(GetLink.class)){
 			instructionExecutor.getLink((GetLink)instruction);
 
@@ -311,7 +304,7 @@ public class QuickGrailExecutor{
 			if(stats == null){
 				result = "No Result!";
 			}else{
-				result = String.valueOf(stats);
+				result = stats;
 			}
 
 		}else if(instruction.getClass().equals(SubtractGraph.class)){
@@ -371,7 +364,7 @@ public class QuickGrailExecutor{
 				parent = new Vertex(queriedEdge.parentHash);
 				verticesMap.put(queriedEdge.parentHash, parent);
 			}
-			AbstractEdge edge = new Edge(child, parent);
+			AbstractEdge edge = new Edge(queriedEdge.edgeHash, child, parent);
 			edge.addAnnotations(queriedEdge.getCopyOfAnnotations());
 			edges.add(edge);
 		}
@@ -438,7 +431,6 @@ public class QuickGrailExecutor{
 		return table + System.lineSeparator() + ptable;
 	}
 
-	// TODO not a good location
 	/*
 	 * private void getPath(GetPath instruction){ Graph ancestorsOfFromGraph =
 	 * queryEnvironment.allocateGraph(); instructionExecutor.createEmptyGraph(new
@@ -486,11 +478,10 @@ public class QuickGrailExecutor{
 	 * intersectionGraph)); // means we // found a path } }
 	 */
 
-	// Only called if remote resolve is true
-	private void getLineage(final GetLineage instruction, final SPADEQuery originalSPADEQuery){
+	private SPADEQuery getLineage(final GetLineage instruction, final SPADEQuery originalSPADEQuery){
 		GraphStats startGraphStats = getGraphStats(instruction.startGraph);
 		if(startGraphStats.vertices == 0){
-//			return empty TODO
+			return originalSPADEQuery;
 		}
 
 		spade.core.Graph startVertexGraph = exportGraph(instruction.startGraph);
@@ -501,12 +492,11 @@ public class QuickGrailExecutor{
 		int currentLevel = 1;
 
 		Graph fromGraph = createNewGraph();
-		instructionExecutor.distinctifyGraph(new DistinctifyGraph(fromGraph, instruction.startGraph)); // put into the
-																										// variable
+		instructionExecutor.distinctifyGraph(new DistinctifyGraph(fromGraph, instruction.startGraph)); // put into the variable
 		unionGraph(instruction.targetGraph, instruction.startGraph);
 
 		// TODO depth of every vertex for discrepancy detection needs to be set to
-		// currentLevel+1. Don't know why.
+		// currentLevel+1. Don't know why. The new algo doesn't need this.
 		while(getGraphStats(fromGraph).vertices > 0){
 			if(currentLevel > instruction.depth){
 				break;
@@ -531,7 +521,8 @@ public class QuickGrailExecutor{
 						for(AbstractVertex networkVertex : thisLevelNetworkVertices){
 							if(OPMConstants.isCompleteNetworkArtifact(networkVertex) && // this is the 'abcdef' comment
 									RemoteResolver.isRemoteAddressRemoteInNetworkVertex(networkVertex)
-									&& !startVertices.contains(networkVertex)){
+									&& !startVertices.contains(networkVertex)
+									&& Kernel.HOST_NAME.equals(networkVertex.getAnnotation("host"))){ // only need to resolve local artifacts
 								if(networkVertexToMinimumLevel.get(networkVertex) == null){
 									networkVertexToMinimumLevel.put(networkVertex, currentLevel);
 								}else{
@@ -552,91 +543,177 @@ public class QuickGrailExecutor{
 		Graph finalGraph = createNewGraph();
 		instructionExecutor.distinctifyGraph(new DistinctifyGraph(finalGraph, instruction.targetGraph));
 
-		for(AbstractVertex startVertex : startVertices){
-			startVertex.setDepth(0);
-		}
-
-		spade.core.Graph localLineageGraph = exportGraph(finalGraph);
-		localLineageGraph.setQueryString(originalSPADEQuery.query);
-		localLineageGraph.setMaxDepth(instruction.depth);
-		localLineageGraph.setHostName(Kernel.HOST_NAME);
-		localLineageGraph.setRootVertices(startVertices);
-		localLineageGraph.setComputeTime(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").format(new Date()));
-
-		for(Map.Entry<AbstractVertex, Integer> entry : networkVertexToMinimumLevel.entrySet()){
-			localLineageGraph.putNetworkVertex(entry.getKey(), entry.getValue());
-			entry.getKey().setDepth(entry.getValue());
+		try{
+			originalSPADEQuery.getQueryMetaData().setMaxLength(instruction.depth);
+			originalSPADEQuery.getQueryMetaData().setDirection(instruction.direction);
+			originalSPADEQuery.getQueryMetaData().addRootVertices(startVertices);
+		}catch(Exception e){
+			logger.log(Level.WARNING, "Failed to add root vertices for transformers from get lineage query");
 		}
 
 		// LOCAL query done by now
+		final int clientPort = Integer.parseInt(Settings.getProperty("commandline_query_port"));
+		
+		final ABE decrypter = new ABE();
+		final boolean canDecrypt = decrypter.initialize(null);
+		if(!canDecrypt){
+			logger.log(Level.SEVERE, "Failed to initialize decryption module. All encrypted graphs will be discarded");
+		}
 
-		Set<spade.core.Graph> subGraphs = new HashSet<spade.core.Graph>();
-		List<SPADEQuery> subQueries = new ArrayList<SPADEQuery>();
-
-		final boolean isRemoteResolutionRequired = networkVertexToMinimumLevel.size() > 0;// see 'abcdef' comment
-
-		if(isRemoteResolutionRequired){
-			String storageClassName = instructionExecutor.getStorageClass().getSimpleName();
-			RemoteLineageResolver remoteLineageResolver = new RemoteLineageResolver(networkVertexToMinimumLevel,
-					instruction.depth, instruction.direction, originalSPADEQuery.getQueryNonce(), storageClassName);
-			subQueries.addAll(remoteLineageResolver.resolve());
-			subGraphs.addAll(getAllGraphs(subQueries));
-
-			// Decryption code if required
-//			ABE abe = new ABE();
-//			if(abe.initialize(null)){
-//				resultGraph = abe.decryptGraph((ABEGraph)resultGraph);
-//			}else{
-//				logger.log(Level.SEVERE, "Unable to decrypt the remote response graph");
-//			}
-			
-			discrepancyDetector.doDiscrepancyDetection(subGraphs, instruction.direction); // some graphs might encrypted TODO
-
-			boolean areAllGraphsVerified = true;
-			for(spade.core.Graph subGraph : subGraphs){
-				areAllGraphsVerified = areAllGraphsVerified && subGraph.getIsResultVerified();
-			}
-			if(areAllGraphsVerified){
-				// patching has to be done before adding the signature
-				for(SPADEQuery subQuery : subQueries){
-					if(subQuery != null && subQuery.getResult() != null
-							&& subQuery.getResult() instanceof spade.core.Graph){
-						Set<AbstractVertex> sourceNetworkVertices = 
-								((spade.core.Graph)(subQuery.getResult())).getRootVertices(); // root might be encrypted TODO
-						if(sourceNetworkVertices != null && subQuery.getPrivateVertex() != null){
-							for(AbstractVertex sourceNetworkVertex : sourceNetworkVertices){
-								AbstractEdge localToRemoteEdge = new Edge(sourceNetworkVertex, subQuery.getPrivateVertex());
-								localToRemoteEdge.addAnnotation(OPMConstants.TYPE, OPMConstants.WAS_DERIVED_FROM);
-								AbstractEdge remoteToLocalEdge = new Edge(subQuery.getPrivateVertex(), sourceNetworkVertex);
-								remoteToLocalEdge.addAnnotation(OPMConstants.TYPE, OPMConstants.WAS_DERIVED_FROM);
-								localLineageGraph.putVertex(sourceNetworkVertex);
-								localLineageGraph.putVertex(subQuery.getPrivateVertex());
-								localLineageGraph.putEdge(localToRemoteEdge);
-								localLineageGraph.putEdge(remoteToLocalEdge);
+		for(final Map.Entry<AbstractVertex, Integer> entry : networkVertexToMinimumLevel.entrySet()){
+			final AbstractVertex localNetworkVertex = entry.getKey();
+			final Integer localDepth = entry.getValue();
+			final Integer remoteDepth = instruction.depth - localDepth;
+			final String remoteAddress = RemoteResolver.getRemoteAddress(localNetworkVertex);
+			if(remoteDepth > 0){
+				try(RemoteSPADEQueryConnection connection = new RemoteSPADEQueryConnection(Kernel.HOST_NAME, remoteAddress, clientPort)){
+					connection.connect(Kernel.getClientSocketFactory(), 5*1000);
+					final String remoteVertexPredicate = buildRemoteGetVertexPredicate(localNetworkVertex);
+					String remoteVerticesSymbol = connection.getBaseVertices(remoteVertexPredicate);
+					GraphStats remoteVerticesStats = connection.statGraph(remoteVerticesSymbol);
+					if(remoteVerticesStats.vertices > 0){
+						String remoteLineageSymbol = connection.getBaseLineage(remoteVerticesSymbol, remoteDepth, instruction.direction);
+						GraphStats remoteLineageStats = connection.statGraph(remoteLineageSymbol);
+						if(!remoteLineageStats.isEmpty()){
+							spade.core.Graph remoteVerticesGraph = connection.exportGraph(remoteVerticesSymbol);
+							spade.core.Graph remoteLineageGraph = connection.exportGraph(remoteLineageSymbol);
+							String remoteHostNameInGraph = remoteLineageGraph.getHostName();
+							// verification - done in export graph. if not verifiable then discarded
+							if(remoteVerticesGraph.getClass().equals(spade.utility.ABEGraph.class)){
+								if(!canDecrypt){
+									throw new RuntimeException("Remote vertices graph for get lineage discarded. Invalid decryption module");
+								}
+								remoteVerticesGraph = decrypter.decryptGraph((spade.utility.ABEGraph)remoteVerticesGraph);
+								if(remoteVerticesGraph == null){
+									throw new RuntimeException("Failed to decrypt remote vertices graph for get lineage");
+								}
+								remoteVerticesGraph.setHostName(remoteHostNameInGraph);
+							}
+							if(remoteLineageGraph.getClass().equals(spade.utility.ABEGraph.class)){
+								if(!canDecrypt){
+									throw new RuntimeException("Remote get lineage graph for get lineage discarded. Invalid decryption module");
+								}
+								remoteLineageGraph = decrypter.decryptGraph((spade.utility.ABEGraph)remoteLineageGraph);
+								if(remoteLineageGraph == null){
+									throw new RuntimeException("Failed to decrypt remote lineage graph for get lineage");
+								}
+								remoteLineageGraph.setHostName(remoteHostNameInGraph);
+							}
+							// decryption - done above
+							// discrepancy detection, and caching goes here.
+							if(discrepancyDetector.doDiscrepancyDetection(
+									remoteLineageGraph, new HashSet<AbstractVertex>(remoteVerticesGraph.vertexSet()), 
+									remoteDepth, instruction.direction, remoteHostNameInGraph)){
+								spade.core.Graph patchedGraph = patchRemoteLineageGraph(localNetworkVertex, 
+										remoteVerticesGraph, remoteLineageGraph);
+								putGraph(instructionExecutor.getStorage(), instruction.targetGraph, patchedGraph);
+							}else{
+								throw new RuntimeException("Discrepancies found in result graph. Result discarded.");
 							}
 						}
 					}
+				}catch(Throwable t){
+					logger.log(Level.SEVERE, "Failed to resolve remote get lineage for host: '"+remoteAddress+"'", t);
 				}
 			}
 		}
-
-		if(originalSPADEQuery.getQueryNonce() == null){ // Going back to the original query sender
-			// union all graphs and set
-			for(spade.core.Graph subGraph : subGraphs){ // some graphs might be encrypted TODO
-				localLineageGraph.union(subGraph);
-			}
-		}else{
-			// Send back set of graphs
-			for(SPADEQuery subQuery : subQueries){
-				originalSPADEQuery.addRemoteSubquery(subQuery);
-			}
+		
+		return originalSPADEQuery;
+		
+	}
+	//////////////////////////////////////////////////
+	private spade.core.Graph patchRemoteLineageGraph(AbstractVertex localVertex,
+			spade.core.Graph remoteVerticesGraph, spade.core.Graph remoteLineageGraph){
+		Set<AbstractVertex> commonRemoteVertices = new HashSet<AbstractVertex>();
+		
+		commonRemoteVertices.addAll(remoteVerticesGraph.vertexSet());
+		commonRemoteVertices.retainAll(remoteLineageGraph.vertexSet());
+		
+		Set<AbstractEdge> newEdges = new HashSet<AbstractEdge>();
+		for(AbstractVertex remoteVertex : commonRemoteVertices){
+			AbstractEdge e0 = new Edge(localVertex, remoteVertex);
+			AbstractEdge e1 = new Edge(remoteVertex, localVertex);
+			e0.addAnnotation(OPMConstants.TYPE, OPMConstants.WAS_DERIVED_FROM);
+			e1.addAnnotation(OPMConstants.TYPE, OPMConstants.WAS_DERIVED_FROM);
+			newEdges.add(e0);
+			newEdges.add(e1);
 		}
-
-		originalSPADEQuery.querySucceeded(localLineageGraph);
+		
+		spade.core.Graph patchedGraph = new spade.core.Graph();
+		patchedGraph.vertexSet().addAll(remoteVerticesGraph.vertexSet());
+		patchedGraph.vertexSet().addAll(remoteLineageGraph.vertexSet());
+		patchedGraph.edgeSet().addAll(remoteLineageGraph.edgeSet());
+		patchedGraph.edgeSet().addAll(newEdges);
+		return patchedGraph;
+	}
+	
+	private void putGraph(AbstractStorage storage, Graph getLineageTargetGraph, spade.core.Graph graph){
+		final Set<String> vertexHashSet = new HashSet<String>();
+		graph.vertexSet().forEach(v -> {vertexHashSet.add(v.bigHashCode());});
+		final Set<String> edgeHashSet = new HashSet<String>();
+		graph.edgeSet().forEach(e -> {edgeHashSet.add(e.bigHashCode());});
+		
+		final Graph verticesGraph = createNewGraph();
+		final Graph edgesGraph = createNewGraph();
+		
+		instructionExecutor.insertLiteralVertex(new InsertLiteralVertex(verticesGraph, new ArrayList<String>(vertexHashSet)));
+		instructionExecutor.insertLiteralEdge(new InsertLiteralEdge(edgesGraph, new ArrayList<String>(edgeHashSet)));
+		
+		final spade.core.Graph vertexGraph = exportGraph(verticesGraph);
+		final spade.core.Graph edgeGraph = exportGraph(edgesGraph);
+		
+		final spade.core.Graph subgraphNotPresent = new spade.core.Graph();
+		subgraphNotPresent.vertexSet().addAll(graph.vertexSet());
+		subgraphNotPresent.edgeSet().addAll(graph.edgeSet());
+		subgraphNotPresent.vertexSet().removeAll(vertexGraph.vertexSet());
+		subgraphNotPresent.edgeSet().removeAll(edgeGraph.edgeSet());
+		
+		for(AbstractVertex vertex : subgraphNotPresent.vertexSet()){
+			storage.putVertex(vertex);
+		}
+		
+		for(AbstractEdge edge : subgraphNotPresent.edgeSet()){
+			storage.putEdge(edge);
+		}
+		
+		storage.flushTransactions(true);
+		
+		HelperFunctions.sleepSafe(50); // TODO
+		
+		// The following variables have all the vertices and edges now
+		instructionExecutor.insertLiteralVertex(new InsertLiteralVertex(verticesGraph, new ArrayList<String>(vertexHashSet)));
+		instructionExecutor.insertLiteralEdge(new InsertLiteralEdge(edgesGraph, new ArrayList<String>(edgeHashSet)));
+		
+		unionGraph(getLineageTargetGraph, verticesGraph);
+		unionGraph(getLineageTargetGraph, edgesGraph);
+	}
+	
+	//////////////////////////////////////////////////
+	private String buildRemoteGetVertexPredicate(AbstractVertex localNetworkVertex){
+		String predicate = "";
+		predicate += formatQueryName(RemoteResolver.getAnnotationLocalAddress()) + "="
+				+ formatQueryValue(RemoteResolver.getRemoteAddress(localNetworkVertex));
+		predicate += " and ";
+		predicate += formatQueryName(RemoteResolver.getAnnotationLocalPort()) + "="
+				+ formatQueryValue(RemoteResolver.getRemotePort(localNetworkVertex));
+		predicate += " and ";
+		predicate += formatQueryName(RemoteResolver.getAnnotationRemoteAddress()) + "="
+				+ formatQueryValue(RemoteResolver.getLocalAddress(localNetworkVertex));
+		predicate += " and ";
+		predicate += formatQueryName(RemoteResolver.getAnnotationRemotePort()) + "="
+				+ formatQueryValue(RemoteResolver.getLocalPort(localNetworkVertex));
+		return predicate;
 	}
 
-	//////////////////////////////////////////////////
+	private String formatQueryName(String name){
+		return '"' + name + '"';
+	}
 
+	private String formatQueryValue(String name){
+		return "'" + name + "'";
+	}
+	//////////////////////////////////////////////////
+	
 	private GraphStats getGraphStats(Graph graph){
 		return instructionExecutor.statGraph(new StatGraph(graph));
 	}
@@ -669,16 +746,4 @@ public class QuickGrailExecutor{
 
 	//////////////////////////////////////////////////
 
-	
-
-	private Set<spade.core.Graph> getAllGraphs(List<SPADEQuery> spadeQueries){
-		Set<spade.core.Graph> graphs = new HashSet<spade.core.Graph>();
-
-		for(SPADEQuery spadeQuery : spadeQueries){
-			graphs.addAll(spadeQuery.getAllResultsOfExactType(spade.core.Graph.class));
-			graphs.addAll(spadeQuery.getAllResultsOfExactType(ABEGraph.class));
-		}
-
-		return graphs;
-	}
 }

@@ -44,15 +44,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.codec.digest.DigestUtils;
-import org.neo4j.graphalgo.GraphAlgoFactory;
-import org.neo4j.graphalgo.PathFinder;
-import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.Path;
-import org.neo4j.graphdb.PathExpanders;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
@@ -73,7 +67,6 @@ import spade.core.AbstractVertex;
 import spade.core.BloomFilter;
 import spade.core.Edge;
 import spade.core.Graph;
-import spade.core.Settings;
 import spade.core.Vertex;
 import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
@@ -94,9 +87,6 @@ public class Neo4j extends AbstractStorage
 	
     // Identifying annotation to add to each edge/vertex
     private static final String ID_STRING = "id";
-    private static final String DIRECTION_ANCESTORS = Settings.getProperty("direction_ancestors");
-    private static final String DIRECTION_DESCENDANTS = Settings.getProperty("direction_descendants");
-    private static final String DIRECTION_BOTH = Settings.getProperty("direction_both");
     private static final String VERTEX_INDEX = "vertexIndex";
     private static final String EDGE_INDEX = "edgeIndex";
     private GraphDatabaseService graphDb;
@@ -132,12 +122,12 @@ public class Neo4j extends AbstractStorage
     // Performance tuning note: This is time in sec that storage is flushed. Increase this to increase throughput / ingestion rate.
     // Downside: Any external (non atomic) quering to database won't report non-commited data.
     private final int MAX_WAIT_TIME_BEFORE_FLUSH = 15000; // ms
-    private final boolean LOG_PERFORMANCE_STATS = true;
+    private boolean LOG_PERFORMANCE_STATS = true;
     private final String NODE_BLOOMFILTER = "spade-neo4j-node-bloomfilter";
     private final String EDGE_BLOOMFILTER = "spade-neo4j-edge-bloomfilter";
 
-    private Transaction globalTx;
-  	private int globalTxCount=0;
+//    private Transaction globalTx;
+//  	private int globalTxCount=0;
 
     private Date lastFlushTime;
 
@@ -240,7 +230,7 @@ public class Neo4j extends AbstractStorage
 				queryEnvironment.initialize();
 			}
 			if(queryInstructionExecutor == null){
-				queryInstructionExecutor = new Neo4jInstructionExecutor(this, queryEnvironment);
+				queryInstructionExecutor = new Neo4jInstructionExecutor(this, queryEnvironment, PRIMARY_KEY);
 			}
 		}
     	return queryInstructionExecutor; 
@@ -285,113 +275,12 @@ public class Neo4j extends AbstractStorage
     }
 
     @Override
-    public boolean flushTransactions() {
-        if (Calendar.getInstance().getTime().getTime() - lastFlushTime.getTime() > MAX_WAIT_TIME_BEFORE_FLUSH) {
-            globalTxCheckin(true);
+    public boolean flushTransactions(boolean force) {
+        if (Calendar.getInstance().getTime().getTime() - lastFlushTime.getTime() > MAX_WAIT_TIME_BEFORE_FLUSH || force) {
+//            globalTxCheckin(true);
             lastFlushTime = Calendar.getInstance().getTime();
         }
         return true;
-    }
-
-    /**
-     * This function queries the underlying storage and retrieves the edge
-     * matching the given criteria.
-     *
-     * @param childVertexHash  hash of the child vertex.
-     * @param parentVertexHash hash of the parent vertex.
-     * @return returns edge object matching the given vertices OR NULL.
-     */
-    @Override
-    public AbstractEdge getEdge(String childVertexHash, String parentVertexHash)
-    {
-        return null;
-    }
-
-    /**
-     * This function queries the underlying storage and retrieves the vertex
-     * matching the given criteria.
-     *
-     * @param vertexHash hash of the vertex to find.
-     * @return returns vertex object matching the given hash OR NULL.
-     */
-    @Override
-    public AbstractVertex getVertex(String vertexHash)
-    {
-        return null;
-    }
-
-    /**
-     * This function finds the children of a given vertex.
-     * A child is defined as a vertex which is the source of a
-     * direct edge between itself and the given vertex.
-     *
-     * @param expression expression for the given vertex
-     * @return returns graph object containing children of the given vertex OR NULL.
-     */
-    @Override
-    public Graph getChildren(String expression)
-    {
-        try ( Transaction tx = graphDb.beginTx() )
-        {
-            IndexHits<Node> queryHits = vertexIndex.query(expression);
-            Node startingNode;
-            if(queryHits != null && queryHits.size() > 0)
-            {
-                startingNode = queryHits.iterator().next();
-            }
-            else
-            {
-                return null;
-            }
-            Iterable<Relationship> relationships = startingNode.getRelationships(Direction.INCOMING);
-            Graph children = new Graph();
-            for(Relationship relationship: relationships)
-            {
-                children.putVertex(convertNodeToVertex(relationship.getStartNode()));
-            }
-
-            queryHits.close();
-            tx.success();
-
-            return children;
-        }
-    }
-
-    /**
-     * This function finds the parents of a given vertex.
-     * A parent is defined as a vertex which is the destination of a
-     * direct edge between itself and the given vertex.
-     *
-     * @param expression expression for the given vertex
-     * @return returns graph object containing parents of the given vertex OR NULL.
-     */
-    @Override
-    public Graph getParents(String expression)
-    {
-        try ( Transaction tx = graphDb.beginTx() )
-        {
-            IndexHits<Node> queryHits = vertexIndex.query(expression);
-            Node startingNode;
-            if(queryHits != null && queryHits.size() > 0)
-            {
-                startingNode = queryHits.iterator().next();
-            }
-            else
-            {
-                return null;
-            }
-            Iterable<Relationship> relationships = startingNode.getRelationships(Direction.OUTGOING);
-            Graph parents = new Graph();
-            for(Relationship relationship: relationships)
-            {
-                parents.putVertex(convertNodeToVertex(relationship.getEndNode()));
-            }
-
-            queryHits.close();
-            tx.success();
-
-            return parents;
-        }
     }
 
     @Override
@@ -401,7 +290,7 @@ public class Neo4j extends AbstractStorage
         }
         // Flush all transactions before shutting down the database
         // make sure buffers are done, and stop and join all threads
-        globalTxFinalize();
+//        globalTxFinalize();
         graphDb.shutdown(); // look at register shutdownhook in http://neo4j.com/docs/stable/tutorials-java-embedded-setup.html
         if (LOG_PERFORMANCE_STATS==true) {
           logger.log(Level.INFO, "Database shutdown completed");
@@ -455,35 +344,35 @@ public class Neo4j extends AbstractStorage
       localNodeCache.put(bigHashCode, vertex);
     }
 
-    void globalTxCheckin() {
-        globalTxCheckin(false);
-    }
-    
-    void globalTxCheckin(boolean forcedFlush) {
-  		if ((globalTxCount % GLOBAL_TX_SIZE == 0) || (forcedFlush == true)) {
-            globalTxFinalize();
-            globalTx = graphDb.beginTx();
-  		}
-  		globalTxCount++;
-  	}
-
-  	void globalTxFinalize() {
-  		if (globalTx != null) {
-  			try {
-  				globalTx.success();
-  			} finally {
-  				globalTx.close();
-  			}
-  		}
-  		globalTxCount = 0;
-  	}
+//    void globalTxCheckin() {
+//        globalTxCheckin(false);
+//    }
+//    
+//    void globalTxCheckin(boolean forcedFlush) {
+//  		if ((globalTxCount % GLOBAL_TX_SIZE == 0) || (forcedFlush == true)) {
+//            globalTxFinalize();
+//            globalTx = graphDb.beginTx();
+//  		}
+//  		globalTxCount++;
+//  	}
+//
+//  	void globalTxFinalize() {
+//  		if (globalTx != null) {
+//  			try {
+//  				globalTx.success();
+//  			} finally {
+//  				globalTx.close();
+//  			}
+//  		}
+//  		globalTxCount = 0;
+//  	}
 
     @Override
     public boolean putVertex(AbstractVertex incomingVertex)
     {
         incomingVertex.removeAnnotation(ID_STRING);
         String bigHashCode = incomingVertex.bigHashCode();
-    	globalTxCheckin();
+    	try(Transaction tx = graphDb.beginTx()){
 
     	try {
         if (nodeBloomFilter.contains(bigHashCode)) { // L1, confirming if its false positive
@@ -524,9 +413,9 @@ public class Neo4j extends AbstractStorage
 //        vertexIndex.add(newVertex, ID_STRING, Long.toString(newVertex.getId()));
         nodeBloomFilter.add(bigHashCode);
         putInLocalCache(newVertex, bigHashCode);
-
-      } finally {
-
+    	}finally{
+    		tx.success();
+    	}
       }
       return true;
     }
@@ -551,9 +440,9 @@ public class Neo4j extends AbstractStorage
             }
         }
         
+        try(Transaction tx = graphDb.beginTx()){
         AbstractVertex childVertex = incomingEdge.getChildVertex();
         AbstractVertex parentVertex = incomingEdge.getParentVertex();
-        globalTxCheckin();
 
         try
         {
@@ -598,7 +487,7 @@ public class Neo4j extends AbstractStorage
             edgeIndex.add(newEdge, CHILD_VERTEX_KEY, childVertexHash);
             newEdge.setProperty(PARENT_VERTEX_KEY, parentVertexHash);
             edgeIndex.add(newEdge, PARENT_VERTEX_KEY, parentVertexHash);
-            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet())
+            for (Map.Entry<String, String> currentEntry : incomingEdge.getCopyOfAnnotations().entrySet())
             {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
@@ -612,6 +501,8 @@ public class Neo4j extends AbstractStorage
             edgeBloomFilter.add(bigHashCode);
 
         } finally {
+        	tx.success();
+        }
         }
         return true;
     }
@@ -779,66 +670,13 @@ public class Neo4j extends AbstractStorage
         return resultGraph;
     }
 
-    // TODO: remove all neo4j transaction creation in loops. Join that to globalTx
-    @Override
-    public Graph getPaths(String srcVertexExpression, String dstVertexExpression, int maxLength) {
-        Graph resultGraph = new Graph();
-        Set<Node> sourceNodes = new HashSet<>();
-        Set<Node> destinationNodes = new HashSet<>();
-
-        try ( Transaction tx = graphDb.beginTx() ) {
-            IndexHits<Node> queryHits = vertexIndex.query(srcVertexExpression);
-            for (Node foundNode : queryHits) {
-                sourceNodes.add(foundNode);
-            }
-            queryHits.close();
-            tx.success();
-        }
-        try ( Transaction tx = graphDb.beginTx() ) {
-            IndexHits<Node> queryHits = vertexIndex.query(dstVertexExpression);
-            for (Node foundNode : queryHits) {
-                destinationNodes.add(foundNode);
-            }
-            queryHits.close();
-            tx.success();
-        }
-
-        Set<Long> addedNodeIds = new HashSet<>();
-        Set<Long> addedEdgeIds = new HashSet<>();
-
-        PathFinder<Path> pathFinder = GraphAlgoFactory.allSimplePaths(PathExpanders.forDirection(Direction.OUTGOING), maxLength);
-        for (Node sourceNode : sourceNodes) {
-            for (Node destinationNode : destinationNodes) {
-                try ( Transaction tx = graphDb.beginTx() ) {
-                    for (Path currentPath : pathFinder.findAllPaths(sourceNode, destinationNode)) {
-                        for (Node currentNode : currentPath.nodes()) {
-                            if (!addedNodeIds.contains(currentNode.getId())) {
-                                resultGraph.putVertex(convertNodeToVertex(currentNode));
-                                addedNodeIds.add(currentNode.getId());
-                            }
-                        }
-                        for (Relationship currentRelationship : currentPath.relationships()) {
-                            if (!addedEdgeIds.contains(currentRelationship.getId())) {
-                                resultGraph.putEdge(convertRelationshipToEdge(currentRelationship));
-                                addedEdgeIds.add(currentRelationship.getId());
-                            }
-                        }
-                    }
-                    tx.success();
-                }
-            }
-        }
-
-        return resultGraph;
-    }
-
     @Override
     public Object executeQuery(String query)
     {
         try ( Transaction tx = graphDb.beginTx() )
         {
             Result result = null;
-            globalTxCheckin();
+//            globalTxCheckin();
             try
             {
                 result = graphDb.execute(query);
@@ -859,9 +697,9 @@ public class Neo4j extends AbstractStorage
 	public Map<String, Map<String, String>> readHashToVertexMap(String vertexAliasInQuery, String query){
 		Map<String, Map<String, String>> hashToVertexAnnotations = new HashMap<String, Map<String, String>>();
 		try(Transaction tx = graphDb.beginTx()){
-			globalTxCheckin();
+//			globalTxCheckin();
 			try{
-				Result result = (Result)executeQuery(query);
+				Result result = graphDb.execute(query);
 				Iterator<Node> nodes = result.columnAs(vertexAliasInQuery);
 				while(nodes.hasNext()){
 					Node node = nodes.next();
@@ -898,9 +736,9 @@ public class Neo4j extends AbstractStorage
 	public Set<QueriedEdge> readEdgeSet(String relationshipAliasInQuery, String query){
 		Set<QueriedEdge> edgeSet = new HashSet<QueriedEdge>();
 		try(Transaction tx = graphDb.beginTx()){
-			globalTxCheckin();
+//			globalTxCheckin();
 			try{
-				Result result = (Result)executeQuery(query);
+				Result result = graphDb.execute(query);
 				Iterator<Relationship> relationships = result.columnAs(relationshipAliasInQuery);
 				while(relationships.hasNext()){
 					Relationship relationship = relationships.next();
@@ -943,7 +781,7 @@ public class Neo4j extends AbstractStorage
 		try(Transaction tx = graphDb.beginTx()){
 			List<Map<String, Object>> listOfMaps = new ArrayList<Map<String, Object>>();
 			Result result = null;
-			globalTxCheckin();
+//			globalTxCheckin();
 			try{
 				result = graphDb.execute(query);
 				while(result.hasNext()){
@@ -958,108 +796,6 @@ public class Neo4j extends AbstractStorage
 		}
 	}
     /// END[FOR-QUERY-SURFACE]
-
-    public Graph getPaths(int srcVertexId, int dstVertexId, int maxLength) {
-        return getPaths(ID_STRING + ":" + srcVertexId, ID_STRING + ":" + dstVertexId, maxLength);
-    }
-
-    public Graph getLineage(String vertexExpression, int depth, String direction, String terminatingExpression) {
-        Direction dir;
-        if (DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())) {
-            dir = Direction.OUTGOING;
-        } else if (DIRECTION_DESCENDANTS.startsWith(direction.toLowerCase())) {
-            dir = Direction.INCOMING;
-        } else if (DIRECTION_BOTH.startsWith(direction.toLowerCase())) {
-            Graph ancestor = getLineage(vertexExpression, depth, DIRECTION_ANCESTORS, terminatingExpression);
-            Graph descendant = getLineage(vertexExpression, depth, DIRECTION_DESCENDANTS, terminatingExpression);
-            Graph result = Graph.union(ancestor, descendant);
-            return result;
-        } else {
-            return null;
-        }
-
-        Graph resultGraph = new Graph();
-        Set<Node> doneSet = new HashSet<>();
-        Set<Node> tempSet = new HashSet<>();
-
-        try ( Transaction tx = graphDb.beginTx() ) {
-            IndexHits<Node> queryHits = vertexIndex.query(vertexExpression);
-            for (Node foundNode : queryHits) {
-                resultGraph.putVertex(convertNodeToVertex(foundNode));
-                tempSet.add(foundNode);
-            }
-            queryHits.close();
-            tx.success();
-        }
-
-        if ((terminatingExpression != null) && (terminatingExpression.trim().equalsIgnoreCase("null"))) {
-            terminatingExpression = null;
-        }
-        Set<Node> terminatingSet = new HashSet<>();
-        if (terminatingExpression != null) {
-            try ( Transaction tx = graphDb.beginTx() ) {
-                IndexHits<Node> queryHits = vertexIndex.query(terminatingExpression);
-                for (Node foundNode : queryHits) {
-                    terminatingSet.add(foundNode);
-                }
-                queryHits.close();
-                tx.success();
-            }
-        }
-
-        int currentDepth = 0;
-        while (true) {
-            if ((tempSet.isEmpty()) || (depth == 0)) {
-                break;
-            }
-            doneSet.addAll(tempSet);
-            Set<Node> newTempSet = new HashSet<>();
-            for (Node tempNode : tempSet) {
-                try ( Transaction tx = graphDb.beginTx() ) {
-                    for (Relationship nodeRelationship : tempNode.getRelationships(dir)) {
-                        Node otherNode = nodeRelationship.getOtherNode(tempNode);
-                        if (terminatingSet.contains(otherNode)) {
-                            continue;
-                        }
-                        if (!doneSet.contains(otherNode)) {
-                            newTempSet.add(otherNode);
-                        }
-                        resultGraph.putVertex(convertNodeToVertex(otherNode));
-                        resultGraph.putEdge(convertRelationshipToEdge(nodeRelationship));
-                        // Add network artifacts to the network map of the graph.
-                        // This is needed to resolve remote queries
-                        try {
-                            if (((String) otherNode.getProperty("subtype")).equalsIgnoreCase("network")) {
-                                resultGraph.putNetworkVertex(convertNodeToVertex(otherNode), currentDepth);
-                            }
-                        } catch (Exception exception) {
-                            // Ignore
-                        }
-                    }
-                    tx.success();
-                }
-            }
-            tempSet.clear();
-            tempSet.addAll(newTempSet);
-            depth--;
-            currentDepth++;
-        }
-
-        return resultGraph;
-    }
-
-    public Graph getLineage(int vertexId, int depth, String direction, String terminatingExpression) {
-    	return getLineage(ID_STRING + ":" + vertexId, depth, direction, terminatingExpression);
-    }
-
-    public String getHashOfEdge(AbstractEdge edge){
-    	String completeEdgeString = edge.getChildVertex().toString() + edge.toString() + edge.getParentVertex().toString();
-    	return DigestUtils.sha256Hex(completeEdgeString);
-    }
-
-    public String getHashOfVertex(AbstractVertex vertex){
-    	return DigestUtils.sha256Hex(vertex.toString());
-    }
 
     public static void index(String dbpath, boolean printProgress) {
 

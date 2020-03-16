@@ -107,7 +107,6 @@ public class RemoteLineageResolver extends AbstractRemoteResolver{
 			for(AbstractVertex vertex : vertices){
 				String query = buildRemoteGetLineageQuery(vertex, localNetworkVertexToLocalDepth.get(vertex));
 				SPADEQuery q = new SPADEQuery(Kernel.HOST_NAME, remoteAddress, query, nonce);
-				q.setPrivateVertex(vertex);
 				queriesForSingleHost.add(q);
 			}
 		}
@@ -167,7 +166,7 @@ public class RemoteLineageResolver extends AbstractRemoteResolver{
 		query += ")";
 		query += ", " + remoteDepth;
 		query += ", " + getFormattedDirection(direction);
-		query += ", 1);"; // finish of get lineage with remote resolve & export = 1
+		query += ", 1);"; // finish of get lineage with remote resolve & export = 1 TODO
 		return query;
 	}
 

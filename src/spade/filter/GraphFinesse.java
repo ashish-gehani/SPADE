@@ -160,8 +160,7 @@ public class GraphFinesse extends AbstractFilter {
 
     private AbstractEdge copyEdge(AbstractEdge edge) {
         AbstractEdge copy = new Edge(edge.getChildVertex(), edge.getParentVertex());
-        copy.getAnnotations().clear();
-        copy.addAnnotations(edge.getAnnotations());
+        copy.addAnnotations(edge.getCopyOfAnnotations());
         return copy;
     }
 }

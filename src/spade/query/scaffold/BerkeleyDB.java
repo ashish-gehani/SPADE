@@ -485,9 +485,9 @@ public class BerkeleyDB extends Scaffold
     {
         AbstractVertex childVertex = incomingEdge.getChildVertex();
         AbstractVertex parentVertex = incomingEdge.getParentVertex();
-        String childHash = incomingEdge.getAnnotations().containsKey(CHILD_VERTEX_KEY) ?
+        String childHash = incomingEdge.getCopyOfAnnotations().containsKey(CHILD_VERTEX_KEY) ?
                 incomingEdge.getAnnotation(CHILD_VERTEX_KEY) : childVertex.bigHashCode();
-        String parentHash = incomingEdge.getAnnotations().containsKey(PARENT_VERTEX_KEY) ?
+        String parentHash = incomingEdge.getCopyOfAnnotations().containsKey(PARENT_VERTEX_KEY) ?
                 incomingEdge.getAnnotation(PARENT_VERTEX_KEY) : parentVertex.bigHashCode();
         try
         {

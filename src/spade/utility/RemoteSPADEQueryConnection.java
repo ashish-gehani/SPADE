@@ -23,16 +23,24 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.HashSet;
+import java.util.Random;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.net.SocketFactory;
 
+import spade.core.AbstractStorage;
 import spade.core.SPADEQuery;
+import spade.query.quickgrail.core.GraphStats;
+import spade.query.quickgrail.instruction.GetLineage;
 
 public final class RemoteSPADEQueryConnection implements Closeable{
 
 	private static final Logger logger = Logger.getLogger(RemoteSPADEQueryConnection.class.getName());
+
+	private static final String baseSymbol = "$base";
 	
 	public final String localHostName;
 	public final String serverAddress;
@@ -44,6 +52,9 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 	private Socket querySocket;
 	private ObjectOutputStream queryWriter;
 	private ObjectInputStream queryResponseReader;
+	
+	private final int symbolId;
+	private final Set<String> generatedSymbols = new HashSet<String>();
 	
 	public RemoteSPADEQueryConnection(String localHostName, String serverAddress, int queryPort) throws Exception{
 		this.localHostName = localHostName; // can be null
@@ -57,6 +68,18 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 		if(queryPort < 0){
 			throw new RuntimeException("Invalid query port: '" + queryPort + "'");
 		}
+		
+		symbolId = new Random(System.nanoTime()).nextInt(999);
+	}
+	
+	private synchronized final String generateSymbol(){
+		String symbol = "$gen_"+symbolId+"_"+(new Random(System.nanoTime()).nextInt(999));
+		generatedSymbols.add(symbol);
+		return symbol;
+	}
+	
+	private synchronized final void removeSymbol(String symbol){
+		generatedSymbols.remove(symbol);
 	}
 	
 	public synchronized void connect(final SocketFactory socketFactory, final int timeoutInMillis) throws Exception{
@@ -103,11 +126,40 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 		}
 		
 		connected = true;
+		
+		try{
+			SPADEQuery result = _executeQuery("print storage", false);
+			if(result.wasQuerySuccessful()){
+				try{
+					@SuppressWarnings("unchecked")
+					Class<? extends AbstractStorage> storageClass = 
+							(Class<? extends AbstractStorage>)Class.forName("spade.storage."+String.valueOf(result.getResult()));
+					this.storageName = storageClass.getSimpleName();
+				}catch(Throwable t){
+					// ignore. user must set it
+				}
+			}
+		}catch(Throwable t){
+			// ignore. user must set it
+		}
 	}
 	
 	@Override
 	public synchronized void close() throws IOException{
 		mustBeConnected();
+		
+		if(!generatedSymbols.isEmpty()){
+			String str = "";
+			for(String symbol : generatedSymbols){
+				str += " " + symbol;
+			}
+			try{
+				_executeQuery("erase " + str, false);
+			}catch(Throwable t){
+				logger.log(Level.WARNING, "Failed to execute 'erase' query", t);
+			}
+			generatedSymbols.clear();
+		}
 		
 		try{
 			_executeQuery("exit", true);
@@ -148,6 +200,37 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 		return storageName;
 	}
 	
+	public synchronized GraphStats statGraph(String symbol){
+		SPADEQuery response = executeQuery("stat " + symbol);
+		return (GraphStats)response.getResult();
+	}
+	
+	public synchronized String getBaseVertices(String predicate){
+		return getVertices(baseSymbol, predicate);
+	}
+	
+	public synchronized String getVertices(String subgraphSymbol, String predicate){
+		return _getVertices(subgraphSymbol, predicate);
+	}
+	
+	public synchronized String getBaseLineage(String startSymbol, int depth, GetLineage.Direction direction){
+		return getLineage(baseSymbol, startSymbol, depth, direction);
+	}
+	
+	public synchronized String getLineage(String subgraphSymbol, String startSymbol, int depth, GetLineage.Direction direction){
+		return _getLineage(subgraphSymbol, startSymbol, depth, direction);
+	}
+	
+	public synchronized spade.core.Graph exportGraph(String symbol){
+		final String nonce = String.valueOf(System.nanoTime());
+		SPADEQuery response = executeQuery("dump force " + symbol, nonce);
+		spade.core.Graph graph = (spade.core.Graph)response.getResult();
+		if(!graph.verifySignature(nonce)){
+			throw new RuntimeException("Failed to verify signature. Response graph discarded");
+		}
+		return graph;
+	}
+	
 	public synchronized SPADEQuery executeQuery(String queryString){
 		return executeQuery(queryString, null);
 	}
@@ -162,6 +245,27 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 	}
 	
 	///////////////////////////
+	
+	private synchronized String _getVertices(String subgraphSymbol, String predicate){
+		return _executeAssignment(subgraphSymbol + ".getVertex(" + predicate + ")");
+	}
+	
+	private synchronized String _getLineage(String subgraphSymbol, String startSymbol, int depth, GetLineage.Direction direction){
+		return _executeAssignment(subgraphSymbol 
+				+ ".getLineage("+startSymbol+", "+depth+", '"+direction.toString().toLowerCase().charAt(1)+"')");
+	}
+	
+	private synchronized String _executeAssignment(String rhs){
+		String newSymbol = generateSymbol();
+		try{
+			String query = newSymbol + " = " + rhs + ";";
+			executeQuery(query);
+			return newSymbol;
+		}catch(Throwable t){
+			removeSymbol(newSymbol);
+			throw t;
+		}
+	}
 	
 	private synchronized void mustBeConnected(){
 		if(!connected){

@@ -541,7 +541,9 @@ public class QuickGrailQueryResolver{
 			return outputGraph;
 		}
 		case "getLineage":
-			return resolveGetLineage(subject, arguments, ToGraph(outputEntity));
+			return resolveGetLineage(subject, arguments, ToGraph(outputEntity), false);
+		case "getLocalLineage":
+			return resolveGetLineage(subject, arguments, ToGraph(outputEntity), true);
 		case "getNeighbor":
 			return resolveGetNeighbor(subject, arguments, ToGraph(outputEntity));
 		case "getLink":
@@ -629,8 +631,8 @@ public class QuickGrailQueryResolver{
 						"Invalid argument at " + e.getLocationString() + ": expected integer literal");
 			}
 			TypedValue value = ((ParseLiteral)e).getLiteralValue();
-			if(value.getType().getTypeID() != TypeID.kString && value.getType().getTypeID() != TypeID.kInteger){
-				throw new RuntimeException("Invalid argument type at " + e.getLocationString() + ": expected string or int");
+			if(value.getType().getTypeID() != TypeID.kString){
+				throw new RuntimeException("Invalid argument type at " + e.getLocationString() + ": expected string hash");
 			}
 			vertices.add(String.valueOf(value.getValue()));
 		}
@@ -649,8 +651,8 @@ public class QuickGrailQueryResolver{
 						"Invalid argument at " + e.getLocationString() + ": expected integer literal");
 			}
 			TypedValue value = ((ParseLiteral)e).getLiteralValue();
-			if(value.getType().getTypeID() != TypeID.kString && value.getType().getTypeID() != TypeID.kInteger){
-				throw new RuntimeException("Invalid argument type at " + e.getLocationString() + ": expected string or int");
+			if(value.getType().getTypeID() != TypeID.kString){
+				throw new RuntimeException("Invalid argument type at " + e.getLocationString() + ": expected string hash");
 			}
 			edges.add(String.valueOf(value.getValue()));
 		}
@@ -778,8 +780,8 @@ public class QuickGrailQueryResolver{
 		return outputGraph;
 	}
 	
-	private Graph resolveGetLineage(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
-		if(arguments.size() != 3 && arguments.size() != 4){
+	private Graph resolveGetLineage(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph, boolean onlyLocal){
+		if(arguments.size() != 3){
 			throw new RuntimeException("Invalid number of arguments for getLineage: expected 3");
 		}
 
@@ -787,18 +789,6 @@ public class QuickGrailQueryResolver{
 		Integer depth = resolveInteger(arguments.get(1));
 
 		String dirStr = resolveString(arguments.get(2));
-		
-		boolean remoteResolve = false;
-		if(arguments.size() == 4){
-			Integer remoteResolveInt = resolveInteger(arguments.get(3));
-			if(remoteResolveInt == 0){
-				remoteResolve = false;
-			}else if(remoteResolveInt == 1){
-				remoteResolve = true;
-			}else{
-				throw new RuntimeException("Invalid value for remoteResolve argument: Allowed 0 or 1");
-			}
-		}
 
 		GetLineage.Direction direction;
 		if(dirStr.startsWith("a")){
@@ -813,7 +803,7 @@ public class QuickGrailQueryResolver{
 			outputGraph = allocateEmptyGraph();
 		}
 
-		instructions.add(new GetLineage(outputGraph, subjectGraph, startGraph, depth, direction, remoteResolve));
+		instructions.add(new GetLineage(outputGraph, subjectGraph, startGraph, depth, direction, onlyLocal));
 		return outputGraph;
 	}
 

@@ -51,11 +51,6 @@ public abstract class AbstractVertex implements Serializable
      * If null then big hash computed using the annotations map.
      */
     private final String bigHashCode;
-    
-    /**
-     * An integer indicating the depth of the vertex in the graph
-     */
-    private int depth;
 
     /**
      * Create a vertex without a fixed big hash.
@@ -89,14 +84,6 @@ public abstract class AbstractVertex implements Serializable
     public final boolean isReferenceVertex(){
     	return bigHashCode != null;
     }
-    
-    public int getDepth() {
-		return depth;
-	}
-
-	public void setDepth(int depth) {
-		this.depth = depth;
-	}
 
 	/**
      * Checks if vertex is empty
@@ -264,7 +251,6 @@ public abstract class AbstractVertex implements Serializable
 	public final AbstractVertex copyAsVertex(){
 		AbstractVertex copy = new Vertex(this.bigHashCode);
 		copy.annotations.putAll(this.annotations);
-		copy.depth = this.depth;
 		return copy;
 	}
 }

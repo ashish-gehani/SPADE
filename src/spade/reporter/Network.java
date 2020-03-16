@@ -227,7 +227,7 @@ public class Network extends AbstractReporter implements Runnable {
                 currentTime = new Date();
                 annotations.put("time", currentTime.toString());
                 usedEdge = new Used(processVertex, networkVertex);
-                usedEdge.getAnnotations().putAll(annotations);
+                usedEdge.addAnnotations(annotations);
                 if (!putEdge(usedEdge)) {
                     errorStream.println("Buffer did not accept outgoing "
                             + "connection edge:\n\t pid: " + pid
@@ -244,7 +244,7 @@ public class Network extends AbstractReporter implements Runnable {
                 annotations.put("time", currentTime.toString());
                 wasGeneratedByEdge
                         = new WasGeneratedBy(networkVertex, processVertex);
-                wasGeneratedByEdge.getAnnotations().putAll(annotations);
+                wasGeneratedByEdge.addAnnotations(annotations);
                 if (!putEdge(wasGeneratedByEdge)) {
                     errorStream.println("Buffer did not accept incoming "
                             + "connection edge:\n\t pid: " + pid

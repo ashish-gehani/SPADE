@@ -75,12 +75,13 @@ import spade.utility.HelperFunctions;
  */
 public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 
-	private final QuickstepExecutor qs;
+	private final Quickstep qs;
+//	private final QuickstepExecutor qs;
 	private final QuickstepQueryEnvironment queryEnvironment;
 	
 	private final String vertexTableName, edgeTableName, vertexAnnotationsTableName, edgeAnnotationTableName;
 
-	public QuickstepInstructionExecutor(QuickstepExecutor qs, QuickstepQueryEnvironment queryEnvironment,
+	public QuickstepInstructionExecutor(Quickstep qs, QuickstepQueryEnvironment queryEnvironment,
 			String vertexTableName, String vertexAnnotationsTableName, String edgeTableName, String edgeAnnotationTableName){
 		this.qs = qs;
 		this.queryEnvironment = queryEnvironment;
@@ -112,30 +113,60 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	public QuickstepQueryEnvironment getQueryEnvironment(){
 		return queryEnvironment;
 	}
-
+	
 	@Override
-	public Class<? extends AbstractStorage> getStorageClass(){
-		return Quickstep.class;
+	public AbstractStorage getStorage(){
+		return qs;
 	}
 
 	@Override
 	public void insertLiteralEdge(InsertLiteralEdge instruction){
-		String prefix = "INSERT INTO " + getEdgeTableName(instruction.targetGraph) + " VALUES(";
-		StringBuilder sqlQuery = new StringBuilder();
-		for(String edge : instruction.getEdges()){
-			sqlQuery.append(prefix + edge + ");\n");
+		if(!instruction.getEdges().isEmpty()){
+			String insertSubpart = "";
+			for(String edge : instruction.getEdges()){
+				if(edge.length() <= 32){
+					insertSubpart += "('" + edge + "'), ";
+				}
+			}
+			
+			if(!insertSubpart.isEmpty()){
+				final String tempEdgeTable = "m_edgehash";
+				qs.executeQuery("drop table " + tempEdgeTable + ";\n");
+				qs.executeQuery("create table " + tempEdgeTable + " (md5 char(32));\n");
+				insertSubpart = insertSubpart.substring(0, insertSubpart.length() - 2);
+				qs.executeQuery("insert into " + tempEdgeTable + " values " + insertSubpart + ";\n");
+				
+				qs.executeQuery("insert into " + getEdgeTableName(instruction.targetGraph)
+						+ " select id from " + edgeTableName + " where md5 in (select md5 from "+tempEdgeTable+" group by md5);\n");
+				
+				qs.executeQuery("drop table " + tempEdgeTable + ";\n");
+			}
 		}
-		qs.executeQuery(sqlQuery.toString());
 	}
 
 	@Override
 	public void insertLiteralVertex(InsertLiteralVertex instruction){
-		String prefix = "INSERT INTO " + getVertexTableName(instruction.targetGraph) + " VALUES(";
-		StringBuilder sqlQuery = new StringBuilder();
-		for(String vertex : instruction.getVertices()){
-			sqlQuery.append(prefix + vertex + ");\n");
+		if(!instruction.getVertices().isEmpty()){
+			String insertSubpart = "";
+			for(String vertex : instruction.getVertices()){
+				if(vertex.length() <= 32){
+					insertSubpart += "('" + vertex + "'), ";
+				}
+			}
+			
+			if(!insertSubpart.isEmpty()){
+				final String tempVertexTable = "m_vertexhash";
+				qs.executeQuery("drop table " + tempVertexTable + ";\n");
+				qs.executeQuery("create table " + tempVertexTable + " (md5 char(32));\n");
+				insertSubpart = insertSubpart.substring(0, insertSubpart.length() - 2);
+				qs.executeQuery("insert into " + tempVertexTable + " values " + insertSubpart + ";\n");
+				
+				qs.executeQuery("insert into " + getVertexTableName(instruction.targetGraph)
+						+ " select id from " + vertexTableName + " where md5 in (select md5 from "+tempVertexTable+" group by md5);\n");
+				
+				qs.executeQuery("drop table " + tempVertexTable + ";\n");
+			}
 		}
-		qs.executeQuery(sqlQuery.toString());
 	}
 
 	private String formatString(String str){
@@ -520,22 +551,25 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 
 		qs.executeQuery("\\analyzerange " + targetEdgeTable + "\n");
 		
+		Map<String, String> edgeIdToHash = new HashMap<String, String>();
 		Map<String, SimpleEntry<String, String>> edgeIdToSrcDstIds = new HashMap<String, SimpleEntry<String, String>>();
 
-		String edgeIdSrcDstIdStr = qs.executeQuery("COPY SELECT * FROM edge WHERE id IN (SELECT id FROM "
+		String edgeIdSrcDstIdStr = qs.executeQuery("COPY SELECT * FROM "+edgeTableName+" WHERE id IN (SELECT id FROM "
 				+ targetEdgeTable + ") TO stdout WITH (DELIMITER e'\\n');");
 		String[] edgeIdSrcDstId = edgeIdSrcDstIdStr.split("\n");
 		edgeIdSrcDstIdStr = null;
 
-		if(edgeIdSrcDstId.length % 3 != 0){
+		if(edgeIdSrcDstId.length % 4 != 0){
 			throw new RuntimeException("Unexpected export edge query output");
 		}
-		for(int i = 0; i < edgeIdSrcDstId.length; i += 3){
+		for(int i = 0; i < edgeIdSrcDstId.length; i += 4){
 			// TODO: accelerate with cache.
 			String eid = edgeIdSrcDstId[i];
 			String sid = edgeIdSrcDstId[i + 1];
 			String did = edgeIdSrcDstId[i + 2];
+			String edgeHash = edgeIdSrcDstId[i + 3];
 			edgeIdToSrcDstIds.put(eid, new SimpleEntry<String, String>(sid, did));
+			edgeIdToHash.put(eid, edgeHash);
 		}
 		
 		//////
@@ -577,7 +611,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				childHash = vertexIdToHash.get(srcDst.getKey());
 				parentHash = vertexIdToHash.get(srcDst.getValue());
 			}
-			edges.add(new QueriedEdge(edgeId, childHash, parentHash, edgeIdToAnnos.get(edgeId)));
+			edges.add(new QueriedEdge(edgeIdToHash.get(edgeId), childHash, parentHash, edgeIdToAnnos.get(edgeId)));
 		}
 		
 		return edges;

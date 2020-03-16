@@ -89,8 +89,6 @@ public class ABEGraph extends Graph
 	{
 		AbstractVertex newVertex = new Vertex();
 		newVertex.addAnnotations(vertex.getCopyOfAnnotations());
-		newVertex.setDepth(vertex.getDepth());
-
 		return newVertex;
 	}
 
@@ -99,8 +97,7 @@ public class ABEGraph extends Graph
 		AbstractEdge newEdge = new Edge(null, null);
 		newEdge.setChildVertex(copyVertex(edge.getChildVertex()));
 		newEdge.setParentVertex(copyVertex(edge.getParentVertex()));
-		newEdge.addAnnotations(edge.getAnnotations());
-
+		newEdge.addAnnotations(edge.getCopyOfAnnotations());
 		return newEdge;
 	}
 }

@@ -28,6 +28,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.core.AbstractAnalyzer;
+import spade.core.AbstractStorage;
 import spade.core.Kernel;
 import spade.core.SPADEQuery;
 import spade.core.Settings;
@@ -138,7 +139,7 @@ public class CommandLine extends AbstractAnalyzer{
 				try{
 					Socket queryClientSocket = queryServerListenerSocket.accept();
 					try{
-						QueryConnection thisConnection = new QueryConnection(queryClientSocket);
+						QueryConnection thisConnection = new QueryConnection(queryClientSocket, Kernel.getDefaultQueryStorage());
 						Thread connectionThread = new Thread(thisConnection);
 						connectionThread.start(); // Start
 						// Add to the list at the end
@@ -188,7 +189,7 @@ public class CommandLine extends AbstractAnalyzer{
 		
 		private QuickGrailExecutor quickGrailExecutor = null;
 
-		private QueryConnection(Socket socket){
+		private QueryConnection(Socket socket, AbstractStorage defaultStorageInKernel){
 			if(socket == null){
 				throw new IllegalArgumentException("NULL query client socket");
 			}else{
@@ -200,6 +201,21 @@ public class CommandLine extends AbstractAnalyzer{
 					this.clientSocket = socket;
 				}catch(Exception e){
 					throw new IllegalArgumentException("Failed to create query IO streams", e);
+				}
+			}
+
+			if(defaultStorageInKernel != null){
+				try{
+					setCurrentStorage(defaultStorageInKernel);
+					doQueryingSetupForCurrentStorage();
+				}catch(Throwable t){
+					logger.log(Level.SEVERE, "Failed to do storage query setup", t);
+					try{
+						doQueryingShutdownForCurrentStorage();
+					}catch(Throwable t2){
+						logger.log(Level.SEVERE, "Failed to do storage query shutdown", t);
+					}
+					setCurrentStorage(null);
 				}
 			}
 		}

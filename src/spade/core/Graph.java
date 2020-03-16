@@ -28,8 +28,6 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Signature;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -41,6 +39,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import spade.query.quickgrail.instruction.GetLineage;
 import spade.reporter.audit.OPMConstants;
 
 /**
@@ -76,8 +75,6 @@ public class Graph implements Serializable{
 
 	//////////////////////////////////////////////////////
 
-	// network vertex to depth map (depth from root vertex for this query)
-	private Map<AbstractVertex, Integer> networkMap = new HashMap<>();
 	/**
 	 * Fields for discrepancy check and query params
 	 */
@@ -88,22 +85,11 @@ public class Graph implements Serializable{
 	 * time at which this graph was constructed completely
 	 */
 	private String computeTime; // unix timestamp TODO
-	// user argument for getpath or getlineage. used for query and not graph
-	private int maxDepth;
 	/*
 	 * period of validity of this graph in hours, if it is stored in the cache.
 	 * Would be configurable
 	 */
 	private int TTL = 1;
-	// SET
-	private Set<AbstractVertex> rootVertices;
-	private AbstractVertex destinationVertex;
-
-	private boolean isResultVerified = false;
-
-	public boolean getIsResultVerified(){
-		return isResultVerified;
-	}
 	
 	public String getHash(AbstractVertex vertex){
 		return (reverseVertexIdentifiers.containsKey(vertex)) ? reverseVertexIdentifiers.get(vertex) : null;
@@ -111,17 +97,6 @@ public class Graph implements Serializable{
 
 	public String getHash(AbstractEdge edge){
 		return (reverseEdgeIdentifiers.containsKey(edge)) ? reverseEdgeIdentifiers.get(edge) : null;
-	}
-
-	/**
-	 * This method is used to put the network vertices in the network vertex map.
-	 * The network vertex map is used when doing remote querying.
-	 *
-	 * @param inputVertex The network vertex
-	 * @param depth       The depth of this vertex from the source vertex
-	 */
-	public void putNetworkVertex(AbstractVertex inputVertex, int depth){
-		networkMap.put(inputVertex, depth);
 	}
 
 	/**
@@ -240,16 +215,6 @@ public class Graph implements Serializable{
 	}
 
 	/**
-	 * Returns the map of network vertices for this graph.
-	 *
-	 * @return The map containing the network vertices and their depth relative to
-	 *         the source vertex.
-	 */
-	public Map<AbstractVertex, Integer> networkMap(){
-		return networkMap;
-	}
-
-	/**
 	 * This method is used to create a new graph as an intersection of the two given
 	 * input graphs. This is done simply by using set functions on the vertex and
 	 * edge sets.
@@ -281,7 +246,6 @@ public class Graph implements Serializable{
 	public void union(Graph graph){
 		this.vertexSet().addAll(graph.vertexSet());
 		this.edgeSet().addAll(graph.edgeSet());
-		this.networkMap().putAll(graph.networkMap());
 	}
 
 	/**
@@ -309,10 +273,6 @@ public class Graph implements Serializable{
 		for(AbstractEdge edge : edges){
 			resultGraph.putEdge(edge);
 		}
-
-		// adding network maps
-		resultGraph.networkMap.putAll(graph1.networkMap());
-		resultGraph.networkMap.putAll(graph2.networkMap());
 
 		return resultGraph;
 	}
@@ -567,7 +527,7 @@ public class Graph implements Serializable{
 	private String exportEdge(AbstractEdge edge){
 		try{
 			StringBuilder annotationString = new StringBuilder();
-			for(Map.Entry<String, String> currentEntry : edge.getAnnotations().entrySet()){
+			for(Map.Entry<String, String> currentEntry : edge.getCopyOfAnnotations().entrySet()){
 				String key = currentEntry.getKey();
 				String value = currentEntry.getValue();
 				annotationString.append(key.replace("\\", "\\\\")).append(":").append(value.replace("\\", "\\\\"))
@@ -685,31 +645,38 @@ public class Graph implements Serializable{
 		return result;
 	}
 
-	public Graph getLineage(String hash, String direction, int maxDepth){
+	public Graph getLineage(Set<AbstractVertex> startingVertices, GetLineage.Direction direction, int maxDepth){
 		Graph result = new Graph();
-		int current_depth = 0;
-		Set<String> remainingVertices = new HashSet<>();
-		AbstractVertex startingVertex = getVertex(hash);
-		if(startingVertex == null)
+		if(startingVertices == null || startingVertices.isEmpty()){
 			return result;
-		remainingVertices.add(startingVertex.bigHashCode());
-		startingVertex.setDepth(current_depth);
-		result.putVertex(startingVertex);
-		result.setFirstRootVertex(startingVertex);
-		result.setMaxDepth(maxDepth);
+		}
+		
+		int currentDepth = 0;
+		final Set<String> remainingVertices = new HashSet<>();
+		startingVertices.forEach(v -> {
+			remainingVertices.add(v.bigHashCode());
+			result.putVertex(v);
+			}
+		);
+		
 		Set<String> visitedVertices = new HashSet<>();
-		while(!remainingVertices.isEmpty() && current_depth < maxDepth){
+		while(!remainingVertices.isEmpty() && currentDepth < maxDepth){
 			visitedVertices.addAll(remainingVertices);
 			Set<String> currentSet = new HashSet<>();
 			for(String vertexHash : remainingVertices){
-				Graph neighbors;
-				if(AbstractStorage.DIRECTION_ANCESTORS.startsWith(direction.toLowerCase())){
-					neighbors = getParents(vertexHash);
-				}else{
-					neighbors = getChildren(vertexHash);
+				Graph neighbors = new Graph();
+				if(direction.equals(GetLineage.Direction.kAncestor)
+						|| direction.equals(GetLineage.Direction.kBoth)){
+					Graph g = getParents(vertexHash);
+					neighbors.vertexSet().addAll(g.vertexSet());
+					neighbors.edgeSet().addAll(g.edgeSet());
 				}
-				for(AbstractVertex vertex : neighbors.vertexSet())
-					vertex.setDepth(current_depth + 1);
+				if(direction.equals(GetLineage.Direction.kDescendant)
+						|| direction.equals(GetLineage.Direction.kBoth)){
+					Graph g = getChildren(vertexHash);
+					neighbors.vertexSet().addAll(g.vertexSet());
+					neighbors.edgeSet().addAll(g.edgeSet());
+				}
 				result.vertexSet().addAll(neighbors.vertexSet());
 				result.edgeSet().addAll(neighbors.edgeSet());
 				for(AbstractVertex vertex : neighbors.vertexSet()){
@@ -722,9 +689,8 @@ public class Graph implements Serializable{
 			}
 			remainingVertices.clear();
 			remainingVertices.addAll(currentSet);
-			current_depth++;
+			currentDepth++;
 		}
-		result.setComputeTime(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z").format(new Date()));
 
 		return result;
 	}
@@ -736,56 +702,13 @@ public class Graph implements Serializable{
 	public void setHostName(String hostName){
 		this.hostName = hostName;
 	}
-
-	public String getComputeTime(){
-		return computeTime;
-	}
-
-	public void setComputeTime(String computeTime){
-		this.computeTime = computeTime;
-	}
-
-	public int getMaxDepth(){
-		return maxDepth;
-	}
-
-	public void setMaxDepth(int maxDepth){
-		this.maxDepth = maxDepth;
-	}
-
-	public AbstractVertex getFirstRootVertex(){
-		if(rootVertices == null || rootVertices.size() == 0){
-			return null;
-		}else{
-			return (rootVertices).iterator().next();
-		}
-	}
 	
-	public void setFirstRootVertex(AbstractVertex vertex){
-		if(rootVertices == null){
-			rootVertices = new HashSet<AbstractVertex>();
-		}
-		rootVertices.add(vertex);
-	}
-	
-	public Set<AbstractVertex> getRootVertices(){
-		return rootVertices;
-	}
-
-	public void setRootVertices(Set<AbstractVertex> rootVertices){
-		this.rootVertices = rootVertices;
-	}
-
 	public byte[] getSignature(){
 		return signature;
 	}
 
 	public void setSignature(byte[] signature){
 		this.signature = signature;
-	}
-
-	public AbstractVertex getDestinationVertex(){
-		return destinationVertex;
 	}
 
 	public String getQueryString(){
@@ -865,9 +788,6 @@ public class Graph implements Serializable{
 			byte[] digitalSignature = signature.sign();
 			setSignature(digitalSignature);
 
-			// Set to false until verified again
-			this.isResultVerified = false;
-
 			return true;
 		}catch(Exception ex){
 			logger.log(Level.SEVERE, "Error signing the result graph!", ex);
@@ -900,8 +820,7 @@ public class Graph implements Serializable{
 					signature.update(nonce.getBytes("UTF-8"));
 				}
 
-				this.isResultVerified = signature.verify(getSignature());
-				return this.isResultVerified;
+				return signature.verify(getSignature());
 			}else{
 				throw new Exception("NULL host name in graph");
 			}

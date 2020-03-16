@@ -171,7 +171,7 @@ public abstract class AbstractAnalyzer{
 		protected final Logger logger = Logger.getLogger(this.getClass().getName());
 
 		private AbstractStorage currentStorage;
-
+		
 		private SPADEQuery getErrorSPADEQuery(){
 			SPADEQuery spadeQuery = new SPADEQuery("<NULL>", "<NULL>", "<NULL>", "<NULL>");
 			spadeQuery.queryFailed("Exiting!");
@@ -244,18 +244,18 @@ public abstract class AbstractAnalyzer{
 										+ "' has been " + "removed. Use command: '" + commandSetStorage + "'.");
 								safeWriteToClient(spadeQuery);
 							}else{
-								// Can execute query
+								// Can execute query finally
 								try{
 									spadeQuery = executeQuery(spadeQuery);
 									
-									// The following should be outside the try catch TODO
 									boolean isResultAGraph = spadeQuery != null && spadeQuery.getResult() instanceof spade.core.Graph;
 									if(isResultAGraph){
 										Graph finalGraph = (spade.core.Graph)spadeQuery.getResult();
 										if(useTransformer){
 											finalGraph = iterateTransformers(finalGraph, spadeQuery.getQueryMetaData());
 										}
-										finalGraph.addSignature(spadeQuery.getQueryNonce());
+										finalGraph.setHostName(Kernel.HOST_NAME); // Set it here because the graph might be modified by the transformers
+										finalGraph.addSignature(spadeQuery.queryNonce);
 									}
 									
 									if(spadeQuery.getError() != null){
@@ -366,7 +366,7 @@ public abstract class AbstractAnalyzer{
 			return currentStorage;
 		}
 
-		private synchronized final void setCurrentStorage(AbstractStorage storage){
+		public synchronized final void setCurrentStorage(AbstractStorage storage){
 			this.currentStorage = storage;
 		}
 

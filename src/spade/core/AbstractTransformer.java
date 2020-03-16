@@ -89,7 +89,7 @@ public abstract class AbstractTransformer{
 		AbstractVertex newChild = createNewWithoutAnnotations(edge.getChildVertex(), annotations);
 		AbstractVertex newParent = createNewWithoutAnnotations(edge.getParentVertex(), annotations);
 		AbstractEdge newEdge = new Edge(newChild, newParent);
-		newEdge.addAnnotations(edge.getAnnotations());
+		newEdge.addAnnotations(edge.getCopyOfAnnotations());
 		if(annotations != null)
 		{
 			for(String annotation : annotations)

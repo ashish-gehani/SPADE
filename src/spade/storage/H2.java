@@ -263,21 +263,21 @@ public class H2 extends SQL
         insertStringBuilder.append(PRIMARY_KEY);
         insertStringBuilder.append("\"");
         insertStringBuilder.append(", ");
-        if(!incomingEdge.getAnnotations().containsKey(CHILD_VERTEX_KEY))
+        if(!incomingEdge.getCopyOfAnnotations().containsKey(CHILD_VERTEX_KEY))
         {
             insertStringBuilder.append("\"");
             insertStringBuilder.append(CHILD_VERTEX_KEY);
             insertStringBuilder.append("\"");
             insertStringBuilder.append(", ");
         }
-        if(!incomingEdge.getAnnotations().containsKey(PARENT_VERTEX_KEY))
+        if(!incomingEdge.getCopyOfAnnotations().containsKey(PARENT_VERTEX_KEY))
         {
             insertStringBuilder.append("\"");
             insertStringBuilder.append(PARENT_VERTEX_KEY);
             insertStringBuilder.append("\"");
             insertStringBuilder.append(", ");
         }
-        for (String annotationKey : incomingEdge.getAnnotations().keySet())
+        for (String annotationKey : incomingEdge.getCopyOfAnnotations().keySet())
         {
             // Sanitize column name to remove special characters
             String newAnnotationKey;
@@ -304,13 +304,13 @@ public class H2 extends SQL
         // Add the hash code, and source and destination vertex Ids
         insertStringBuilder.append(edgeHash);
         insertStringBuilder.append("', ");
-        if(!incomingEdge.getAnnotations().containsKey(CHILD_VERTEX_KEY))
+        if(!incomingEdge.getCopyOfAnnotations().containsKey(CHILD_VERTEX_KEY))
         {
             insertStringBuilder.append("'");
             insertStringBuilder.append(childVertexHash);
             insertStringBuilder.append("', ");
         }
-        if(!incomingEdge.getAnnotations().containsKey(PARENT_VERTEX_KEY))
+        if(!incomingEdge.getCopyOfAnnotations().containsKey(PARENT_VERTEX_KEY))
         {
             insertStringBuilder.append("'");
             insertStringBuilder.append(parentVertexHash);
@@ -318,7 +318,7 @@ public class H2 extends SQL
         }
 
         // Add the annotation values
-        for (String annotationKey : incomingEdge.getAnnotations().keySet())
+        for (String annotationKey : incomingEdge.getCopyOfAnnotations().keySet())
         {
             String value = (ENABLE_SANITIZATION) ? incomingEdge.getAnnotation(annotationKey).replace("'", "\"") : incomingEdge.getAnnotation(annotationKey);
 

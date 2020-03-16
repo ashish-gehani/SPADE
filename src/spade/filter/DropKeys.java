@@ -165,7 +165,7 @@ public class DropKeys extends AbstractFilter{
 			}
 			AbstractEdge edgeCopy = edge.getClass().getConstructor(edge.getChildVertex().getClass(),
 					edge.getParentVertex().getClass()).newInstance(source, destination);
-			edgeCopy.addAnnotations(edge.getAnnotations());
+			edgeCopy.addAnnotations(edge.getCopyOfAnnotations());
 			for(String dropAnnotation : dropAnnotations){
 				edgeCopy.removeAnnotation(dropAnnotation);
 			}

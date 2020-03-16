@@ -214,7 +214,7 @@ public class DSL extends AbstractReporter {
                 vertices.put(id, vertex);
                 putVertex(vertex);
             } else if (edge != null) {
-                edge.getAnnotations().putAll(annotations);
+                edge.addAnnotations(annotations);
                 putEdge(edge);
             }
         } catch (Exception exception) {

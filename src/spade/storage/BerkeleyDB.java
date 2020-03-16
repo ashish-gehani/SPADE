@@ -16,6 +16,12 @@
  */
 package spade.storage;
 
+import java.io.File;
+import java.io.UnsupportedEncodingException;
+import java.sql.ResultSet;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import com.sleepycat.bind.EntryBinding;
 import com.sleepycat.bind.serial.SerialBinding;
 import com.sleepycat.bind.serial.StoredClassCatalog;
@@ -25,17 +31,10 @@ import com.sleepycat.je.DatabaseEntry;
 import com.sleepycat.je.DatabaseException;
 import com.sleepycat.je.Environment;
 import com.sleepycat.je.EnvironmentConfig;
-import com.sleepycat.je.LockMode;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
-import spade.core.Graph;
-
-import java.io.File;
-import java.io.UnsupportedEncodingException;
-import java.sql.ResultSet;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 
 public class BerkeleyDB extends AbstractStorage
@@ -111,102 +110,6 @@ public class BerkeleyDB extends AbstractStorage
         }
 
         return false;
-    }
-
-    /**
-     * This function queries the underlying storage and retrieves the edge
-     * matching the given criteria.
-     *
-     * @param childVertexHash      hash of the source vertex.
-     * @param parentVertexHash hash of the destination vertex.
-     * @return returns edge object matching the given vertices OR NULL.
-     */
-    @Override
-    public AbstractEdge getEdge(String childVertexHash, String parentVertexHash)
-    {
-        String hash = childVertexHash + parentVertexHash;
-        AbstractEdge edge = null;
-        try
-        {
-            // Instantiate class catalog
-            StoredClassCatalog vertexCatalog = new StoredClassCatalog(vertexDatabase);
-            // Create the binding
-            EntryBinding vertexBinding = new SerialBinding<>(vertexCatalog, AbstractEdge.class);
-            // Create DatabaseEntry for the key
-            DatabaseEntry key = new DatabaseEntry(hash.getBytes("UTF-8"));
-            // Create the DatabaseEntry for the data.
-            DatabaseEntry data = new DatabaseEntry();
-            myDatabase.get(null, key, data, LockMode.DEFAULT);
-            // Recreate the MyData object from the retrieved DatabaseEntry using
-            // the EntryBinding created above
-            edge = (AbstractEdge) vertexBinding.entryToObject(data);
-        }
-        catch (UnsupportedEncodingException ex)
-        {
-            Logger.getLogger(BerkeleyDB.class.getName()).log(Level.WARNING, null, ex);
-        }
-
-        return edge;
-    }
-
-    /**
-     * This function queries the underlying storage and retrieves the vertex
-     * matching the given criteria.
-     *
-     * @param vertexHash hash of the vertex to find.
-     * @return returns vertex object matching the given hash OR NULL.
-     */
-    @Override
-    public AbstractVertex getVertex(String vertexHash)
-    {
-        AbstractVertex vertex = null;
-        try
-        {
-            // Instantiate class catalog
-            StoredClassCatalog vertexCatalog = new StoredClassCatalog(vertexDatabase);
-            // Create the binding
-            EntryBinding vertexBinding = new SerialBinding<>(vertexCatalog, AbstractVertex.class);
-            // Create DatabaseEntry for the key
-            DatabaseEntry key = new DatabaseEntry(vertexHash.getBytes("UTF-8"));
-            // Create the DatabaseEntry for the data.
-            DatabaseEntry data = new DatabaseEntry();
-            myDatabase.get(null, key, data, LockMode.DEFAULT);
-            // Recreate the MyData object from the retrieved DatabaseEntry using
-            // the EntryBinding created above
-            vertex = (AbstractVertex) vertexBinding.entryToObject(data);
-        }
-        catch (UnsupportedEncodingException ex)
-        {
-            Logger.getLogger(BerkeleyDB.class.getName()).log(Level.WARNING, null, ex);
-        }
-
-        return vertex;
-    }
-
-    /**
-     * This function finds the children of a given vertex.
-     * A child is defined as a vertex which is the source of a
-     * direct edge between itself and the given vertex.
-     *
-     * @param parentHash hash of the given vertex
-     * @return returns graph object containing children of the given vertex OR NULL.
-     */
-    @Override
-    public Graph getChildren(String parentHash) {
-        return null;
-    }
-
-    /**
-     * This function finds the parents of a given vertex.
-     * A parent is defined as a vertex which is the destination of a
-     * direct edge between itself and the given vertex.
-     *
-     * @param childVertexHash hash of the given vertex
-     * @return returns graph object containing parents of the given vertex OR NULL.
-     */
-    @Override
-    public Graph getParents(String childVertexHash) {
-        return null;
     }
 
     /**

@@ -168,7 +168,7 @@ public class Graphviz extends AbstractStorage
     public boolean putEdge(AbstractEdge incomingEdge) {
         try {
             StringBuilder annotationString = new StringBuilder();
-            for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
+            for (Map.Entry<String, String> currentEntry : incomingEdge.getCopyOfAnnotations().entrySet()) {
                 String key = currentEntry.getKey();
                 String value = currentEntry.getValue();
                 if (key == null || value == null) {
@@ -280,58 +280,4 @@ public class Graphviz extends AbstractStorage
         }
     }
 
-    /**
-     * This function queries the underlying storage and retrieves the edge
-     * matching the given criteria.
-     *
-     * @param childVertexHash  hash of the source vertex.
-     * @param parentVertexHash hash of the destination vertex.
-     * @return returns edge object matching the given vertices OR NULL.
-     */
-    @Override
-    public spade.core.AbstractEdge getEdge(String childVertexHash, String parentVertexHash)
-    {
-        return null;
-    }
-
-    /**
-     * This function queries the underlying storage and retrieves the vertex
-     * matching the given criteria.
-     *
-     * @param vertexHash hash of the vertex to find.
-     * @return returns vertex object matching the given hash OR NULL.
-     */
-    @Override
-    public spade.core.AbstractVertex getVertex(String vertexHash)
-    {
-        return null;
-    }
-
-    /**
-     * This function finds the children of a given vertex.
-     * A child is defined as a vertex which is the source of a
-     * direct edge between itself and the given vertex.
-     *
-     * @param parentHash hash of the given vertex
-     * @return returns graph object containing children of the given vertex OR NULL.
-     */
-    @Override
-    public spade.core.Graph getChildren(String parentHash)
-    {
-        return null;
-    }
-
-    /**
-     * This function finds the parents of a given vertex.
-     * A parent is defined as a vertex which is the destination of a
-     * direct edge between itself and the given vertex.
-     *
-     * @param childVertexHash hash of the given vertex
-     * @return returns graph object containing parents of the given vertex OR NULL.
-     */
-    @Override
-    public spade.core.Graph getParents(String childVertexHash)
-    {
-        return null;
-    }
 }

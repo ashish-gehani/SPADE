@@ -41,16 +41,16 @@ public class GetLineage extends Instruction{
 	// Direction (ancestors / descendants, or both).
 	public final Direction direction;
 	
-	public final boolean remoteResolve;
+	public final boolean onlyLocal;
 
 	public GetLineage(Graph targetGraph, Graph subjectGraph, Graph startGraph, 
-			int depth, Direction direction, boolean remoteResolve){
+			int depth, Direction direction, boolean onlyLocal){
 		this.targetGraph = targetGraph;
 		this.subjectGraph = subjectGraph;
 		this.startGraph = startGraph;
 		this.depth = depth;
 		this.direction = direction;
-		this.remoteResolve = remoteResolve;
+		this.onlyLocal = onlyLocal;
 	}
 
 	@Override
@@ -73,7 +73,7 @@ public class GetLineage extends Instruction{
 		inline_field_values.add(String.valueOf(depth));
 		inline_field_names.add("direction");
 		inline_field_values.add(direction.name().substring(1));
-		inline_field_names.add("remoteResolve");
-		inline_field_values.add(String.valueOf(remoteResolve));
+		inline_field_names.add("local");
+		inline_field_values.add(String.valueOf(onlyLocal));
 	}
 }

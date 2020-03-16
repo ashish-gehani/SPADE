@@ -56,7 +56,7 @@ public abstract class OPM2ProvVertexEdge extends AbstractFilter {
         } else if (incomingEdge instanceof spade.edge.opm.WasTriggeredBy) {
             newEdge = new spade.edge.prov.WasInformedBy((Activity) childVertex, (Activity) parentVertex);
         }
-        for (Map.Entry<String, String> entry : incomingEdge.getAnnotations().entrySet()) {
+        for (Map.Entry<String, String> entry : incomingEdge.getCopyOfAnnotations().entrySet()) {
         	if(entry.getKey().equals(OPMConstants.TYPE))
         		continue;
             newEdge.addAnnotation(entry.getKey(), entry.getValue());

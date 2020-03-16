@@ -16,22 +16,6 @@
  */
 package spade.storage;
 
-import com.sleepycat.bind.EntryBinding;
-import com.sleepycat.bind.serial.SerialBinding;
-import com.sleepycat.bind.serial.StoredClassCatalog;
-import com.sleepycat.je.Database;
-import com.sleepycat.je.DatabaseConfig;
-import com.sleepycat.je.DatabaseEntry;
-import com.sleepycat.je.DatabaseException;
-import com.sleepycat.je.Environment;
-import com.sleepycat.je.EnvironmentConfig;
-import com.sleepycat.je.LockMode;
-import com.sleepycat.je.utilint.Pair;
-import spade.core.AbstractEdge;
-import spade.core.AbstractStorage;
-import spade.core.AbstractVertex;
-import spade.core.Graph;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintWriter;
@@ -51,6 +35,19 @@ import java.util.logging.Logger;
 import java.util.zip.DataFormatException;
 import java.util.zip.Deflater;
 import java.util.zip.Inflater;
+
+import com.sleepycat.je.Database;
+import com.sleepycat.je.DatabaseConfig;
+import com.sleepycat.je.DatabaseEntry;
+import com.sleepycat.je.DatabaseException;
+import com.sleepycat.je.Environment;
+import com.sleepycat.je.EnvironmentConfig;
+import com.sleepycat.je.LockMode;
+import com.sleepycat.je.utilint.Pair;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
+import spade.core.AbstractVertex;
 
 public class CompressedStorage extends AbstractStorage {
 	private static Environment DatabaseEnvironment1 = null;
@@ -1074,82 +1071,6 @@ public class CompressedStorage extends AbstractStorage {
 			}
 	}
 
-
-	@Override
-	public AbstractEdge getEdge(String childVertexHash, String parentVertexHash) {
-		//String hash = childVertexHash + parentVertexHash;
-		Integer childID = hashToID.get(childVertexHash);
-		Integer parentID = hashToID.get(parentVertexHash);
-		String key_s = parentID.toString() + "->" + childID.toString();
-		AbstractEdge edge = null;
-		try
-		{
-			// Instantiate class catalog
-			StoredClassCatalog vertexCatalog = new StoredClassCatalog(annotationsDatabase);
-			// Create the binding
-			EntryBinding vertexBinding = new SerialBinding<>(vertexCatalog, AbstractEdge.class);
-			// Create DatabaseEntry for the key
-			DatabaseEntry key = new DatabaseEntry(key_s.getBytes("UTF-8"));
-			// Create the DatabaseEntry for the data.
-			DatabaseEntry data = new DatabaseEntry();
-			annotationsDatabase.get(null, key, data, LockMode.DEFAULT);
-			// Recreate the MyData object from the retrieved DatabaseEntry using
-			// the EntryBinding created above
-			edge = (AbstractEdge) vertexBinding.entryToObject(data);
-		}
-		catch (UnsupportedEncodingException ex)
-		{
-			Logger.getLogger(BerkeleyDB.class.getName()).log(Level.WARNING, null, ex);
-		}
-
-		return edge;
-	}
-
-
-	@Override
-	public AbstractVertex getVertex(String vertexHash) {
-		AbstractVertex vertex = null;
-		Integer vertexID = hashToID.get(vertexHash);
-		try
-		{
-			// Instantiate class catalog
-			StoredClassCatalog vertexCatalog = new StoredClassCatalog(annotationsDatabase);
-			// Create the binding
-			EntryBinding vertexBinding = new SerialBinding<>(vertexCatalog, AbstractVertex.class);
-			// Create DatabaseEntry for the key
-			DatabaseEntry key = new DatabaseEntry(vertexID.toString().getBytes("UTF-8"));
-			// Create the DatabaseEntry for the data.
-			DatabaseEntry data = new DatabaseEntry();
-			annotationsDatabase.get(null, key, data, LockMode.DEFAULT);
-			// Recreate the MyData object from the retrieved DatabaseEntry using
-			// the EntryBinding created above
-			vertex = (AbstractVertex) vertexBinding.entryToObject(data);
-		}
-		catch (UnsupportedEncodingException ex)
-		{
-			Logger.getLogger(BerkeleyDB.class.getName()).log(Level.WARNING, null, ex);
-		}
-
-		return vertex;
-	}
-
-
-
-	@Override
-	public Graph getChildren(String parentHash) {
-		// TODO Auto-generated method stub
-
-		return null;
-	}
-
-
-	@Override
-	public Graph getParents(String childVertexHash) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-
 	@Override
 	public boolean putEdge(AbstractEdge incomingEdge) {
 		try {
@@ -1160,7 +1081,7 @@ public class CompressedStorage extends AbstractStorage {
 			long auxClock = System.nanoTime();
 			StringBuilder annotationString = new StringBuilder();
 			//annotationString.append("EDGE (" + srcId + " -> " + dstId + "): {");
-			for (Map.Entry<String, String> currentEntry : incomingEdge.getAnnotations().entrySet()) {
+			for (Map.Entry<String, String> currentEntry : incomingEdge.getCopyOfAnnotations().entrySet()) {
 				String key = currentEntry.getKey();
 				String value = currentEntry.getValue();
 				if (key == null || value == null) {

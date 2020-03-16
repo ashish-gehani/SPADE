@@ -33,6 +33,8 @@ import spade.utility.RemoteSPADEQueryConnection;
  */
 public abstract class AbstractRemoteResolver{
 
+	// verify the response - need the nonce
+	// decrypt the graph
 	private static final Logger logger = Logger.getLogger(AbstractRemoteResolver.class.getName());
 
 	public abstract List<SPADEQuery> resolve();
@@ -88,8 +90,8 @@ public abstract class AbstractRemoteResolver{
 				connection.setStorage(storageName);
 				
 				for(SPADEQuery query : queries){
-					final String newNonce = query.getQueryNonce() == null ? String.valueOf(System.nanoTime()) : query.getQueryNonce();
-					query.setQueryNonce(newNonce);
+					final String newNonce = query.queryNonce == null ? String.valueOf(System.nanoTime()) : query.queryNonce;
+//					query.setQueryNonce(newNonce); API changed!
 					
 					query = connection.executeQuery(query);
 					

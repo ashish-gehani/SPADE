@@ -113,8 +113,8 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public Class<? extends AbstractStorage> getStorageClass(){
-		return storage.getClass();
+	public AbstractStorage getStorage(){
+		return storage;
 	}
 
 	private String getIdColumnName(){
@@ -180,22 +180,56 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 
 	@Override
 	public void insertLiteralEdge(InsertLiteralEdge instruction){
-		String prefix = "INSERT INTO " + getEdgeTableName(instruction.targetGraph) + " VALUES(";
-		StringBuilder sqlQuery = new StringBuilder();
-		for(String edge : instruction.getEdges()){
-			sqlQuery.append(prefix + edge + ");");
+		if(!instruction.getEdges().isEmpty()){
+			String insertSubpart = "";
+			for(String edge : instruction.getEdges()){
+				if(edge.length() <= 32){
+					insertSubpart += "('" + edge + "'), ";
+				}
+			}
+
+			if(!insertSubpart.isEmpty()){
+				final String tempEdgeTable = "m_edgehash";
+				executeQueryForResult("drop table if exists " + tempEdgeTable + ";\n", false);
+				executeQueryForResult("create table " + tempEdgeTable + " (" + getIdColumnName() + " uuid);\n", false);
+				insertSubpart = insertSubpart.substring(0, insertSubpart.length() - 2);
+				executeQueryForResult("insert into " + tempEdgeTable + " values " + insertSubpart + ";\n", false);
+
+				executeQueryForResult("insert into " + getEdgeTableName(instruction.targetGraph) + " select "
+						+ getIdColumnName() + " from " + getEdgeAnnotationTableName() + " where " + getIdColumnName()
+						+ " in (select " + getIdColumnName() + " from " + tempEdgeTable + " group by "
+						+ getIdColumnName() + ");\n", false);
+
+				executeQueryForResult("drop table " + tempEdgeTable + ";\n", false);
+			}
 		}
-		executeQueryForResult(sqlQuery.toString(), false);
 	}
 
 	@Override
 	public void insertLiteralVertex(InsertLiteralVertex instruction){
-		String prefix = "INSERT INTO " + getVertexTableName(instruction.targetGraph) + " VALUES(";
-		StringBuilder sqlQuery = new StringBuilder();
-		for(String vertex : instruction.getVertices()){
-			sqlQuery.append(prefix + vertex + ");");
+		if(!instruction.getVertices().isEmpty()){
+			String insertSubpart = "";
+			for(String vertex : instruction.getVertices()){
+				if(vertex.length() <= 32){
+					insertSubpart += "('" + vertex + "'), ";
+				}
+			}
+
+			if(!insertSubpart.isEmpty()){
+				final String tempVertexTable = "m_vertexhash";
+				executeQueryForResult("drop table if exists " + tempVertexTable + ";\n", false);
+				executeQueryForResult("create table " + tempVertexTable + " (" + getIdColumnName() + " uuid);\n", false);
+				insertSubpart = insertSubpart.substring(0, insertSubpart.length() - 2);
+				executeQueryForResult("insert into " + tempVertexTable + " values " + insertSubpart + ";\n", false);
+
+				executeQueryForResult("insert into " + getVertexTableName(instruction.targetGraph) + " select "
+						+ getIdColumnName() + " from " + getVertexAnnotationTableName() + " where " + getIdColumnName()
+						+ " in (select " + getIdColumnName() + " from " + tempVertexTable + " group by "
+						+ getIdColumnName() + ");\n", false);
+
+				executeQueryForResult("drop table " + tempVertexTable + ";\n", false);
+			}
 		}
-		executeQueryForResult(sqlQuery.toString(), false);
 	}
 
 	private void createUUIDTable(String tableName, boolean deleteFirst){
@@ -203,6 +237,23 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 			dropTable(tableName);
 		}
 		String createQuery = "create table if not exists " + tableName + "(" + getIdColumnName() + " uuid" + ")";
+		executeQueryForResult(createQuery, false);
+	}
+	
+	private void createUUIDShortestPathTable(String tableName, boolean deleteFirst){
+		if(deleteFirst){
+			dropTable(tableName);
+		}
+		String createQuery = "create table if not exists " + tableName + "(" + getIdColumnName() + " uuid" + ", reaching int)";
+		executeQueryForResult(createQuery, false);
+	}
+	
+	private void createChildParentTable(String tableName, boolean deleteFirst){
+		if(deleteFirst){
+			dropTable(tableName);
+		}
+		String createQuery = "create table if not exists " + tableName + "(\"" + getIdColumnNameChildVertex() + "\" uuid" + ","
+				+ "\""+getIdColumnNameParentVertex()+"\" uuid)";
 		executeQueryForResult(createQuery, false);
 	}
 	
@@ -268,36 +319,57 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 					+ " group by " + getIdColumnName();
 			executeQueryForResult(sqlQuery, false);
 		}else{ // has arguments
-			PredicateOperator operator = instruction.operator;
+			final String wildCard = "*";
+			final Set<String> existingColumnNames = getColumnNamesOfVertexAnnotationTable();
+			final String annotationKey = instruction.annotationKey;
+			final PredicateOperator operator = instruction.operator;
 			
-			String sqlQuery = 
-					"insert into " + getVertexTableName(instruction.targetGraph) 
-					+ " select " + getIdColumnName() + " from "
-					+ getVertexAnnotationTableName();
-			
-			Set<String> columnNames = new HashSet<String>();
-			
-			if("*".equals(instruction.annotationKey)){
-				columnNames.addAll(getColumnNamesOfVertexAnnotationTable());
+			if(!annotationKey.equals(wildCard) && !existingColumnNames.contains(annotationKey)){
+				if(!operator.equals(PredicateOperator.NOT_EQUAL)){
+					// Don't insert anything since the value is null and it cannot match anything
+				}else{
+					// insert everything because the column is null so it would never equal the value passed
+					String sqlQuery = "insert into " + getVertexTableName(instruction.targetGraph)
+						+ " select " + getIdColumnName() + " from "
+						+ getVertexAnnotationTableName();
+					
+					if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
+						sqlQuery += " where  " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+getVertexTableName(instruction.subjectGraph)+")";
+					}
+					
+					sqlQuery += " group by " + getIdColumnName() + ";";
+					executeQueryForResult(sqlQuery, false);
+				}
 			}else{
-				columnNames.add(instruction.annotationKey);
+				String sqlQuery = 
+						"insert into " + getVertexTableName(instruction.targetGraph) 
+						+ " select " + getIdColumnName() + " from "
+						+ getVertexAnnotationTableName();
+				
+				Set<String> columnNames = new HashSet<String>();
+				
+				if("*".equals(instruction.annotationKey)){
+					columnNames.addAll(existingColumnNames);
+				}else{
+					columnNames.add(instruction.annotationKey);
+				}
+				
+				sqlQuery += " where (";
+				
+				for(String columnName : columnNames){
+					sqlQuery += buildComparison(columnName, operator, instruction.annotationValue) + " or ";	
+				}
+				
+				sqlQuery = sqlQuery.substring(0, sqlQuery.length() - 3); // remove the last 'or '
+				sqlQuery += ")";
+				
+				if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
+					sqlQuery += " and " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+getVertexTableName(instruction.subjectGraph)+")";
+				}
+				
+				sqlQuery += " group by " + getIdColumnName() + ";";
+				executeQueryForResult(sqlQuery, false);
 			}
-			
-			sqlQuery += " where (";
-			
-			for(String columnName : columnNames){
-				sqlQuery += buildComparison(columnName, operator, instruction.annotationValue) + " or ";	
-			}
-			
-			sqlQuery = sqlQuery.substring(0, sqlQuery.length() - 3); // remove the last 'or '
-			sqlQuery += ")";
-			
-			if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
-				sqlQuery += " and " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+getVertexTableName(instruction.subjectGraph)+")";
-			}
-			
-			sqlQuery += " group by " + getIdColumnName() + ";";
-			executeQueryForResult(sqlQuery, false);
 		}
 	}
 
@@ -335,36 +407,58 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 					+ " group by " + getIdColumnName();
 			executeQueryForResult(sqlQuery, false);
 		}else{ // has arguments
-			PredicateOperator operator = instruction.operator;
+			final String wildCard = "*";
+			final Set<String> existingColumnNames = getColumnNamesOfEdgeAnnotationTable();
+			final String annotationKey = instruction.annotationKey;
+			final PredicateOperator operator = instruction.operator;
 			
-			String sqlQuery = 
-					"insert into " + getEdgeTableName(instruction.targetGraph) 
-					+ " select " + getIdColumnName() + " from "
-					+ getEdgeAnnotationTableName();
-			
-			Set<String> columnNames = new HashSet<String>();
-			
-			if("*".equals(instruction.annotationKey)){
-				columnNames.addAll(getColumnNamesOfEdgeAnnotationTable());
+			if(!annotationKey.equals(wildCard) && !existingColumnNames.contains(annotationKey)){
+				if(!operator.equals(PredicateOperator.NOT_EQUAL)){
+					// Don't insert anything since the value is null and it cannot match anything
+				}else{
+					// insert everything because the column is null so it would never equal the value passed
+					String sqlQuery = "insert into " + getEdgeTableName(instruction.targetGraph)
+						+ " select " + getIdColumnName() + " from "
+						+ getEdgeAnnotationTableName();
+					
+					if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
+						sqlQuery += " where " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+getEdgeTableName(instruction.subjectGraph)+")";
+					}
+					
+					sqlQuery += " group by " + getIdColumnName() + ";";
+					executeQueryForResult(sqlQuery, false);
+				}
 			}else{
-				columnNames.add(instruction.annotationKey);
+			
+				String sqlQuery = 
+						"insert into " + getEdgeTableName(instruction.targetGraph) 
+						+ " select " + getIdColumnName() + " from "
+						+ getEdgeAnnotationTableName();
+				
+				Set<String> columnNames = new HashSet<String>();
+				
+				if("*".equals(instruction.annotationKey)){
+					columnNames.addAll(existingColumnNames);
+				}else{
+					columnNames.add(annotationKey);
+				}
+				
+				sqlQuery += " where (";
+				
+				for(String columnName : columnNames){
+					sqlQuery += buildComparison(columnName, operator, instruction.annotationValue) + " or ";	
+				}
+				
+				sqlQuery = sqlQuery.substring(0, sqlQuery.length() - 3); // remove the last 'or '
+				sqlQuery += ")";
+				
+				if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
+					sqlQuery += " and " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+getEdgeTableName(instruction.subjectGraph)+")";
+				}
+				
+				sqlQuery += " group by " + getIdColumnName() + ";";
+				executeQueryForResult(sqlQuery, false);
 			}
-			
-			sqlQuery += " where (";
-			
-			for(String columnName : columnNames){
-				sqlQuery += buildComparison(columnName, operator, instruction.annotationValue) + " or ";	
-			}
-			
-			sqlQuery = sqlQuery.substring(0, sqlQuery.length() - 3); // remove the last 'or '
-			sqlQuery += ")";
-			
-			if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
-				sqlQuery += " and " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+getEdgeTableName(instruction.subjectGraph)+")";
-			}
-			
-			sqlQuery += " group by " + getIdColumnName() + ";";
-			executeQueryForResult(sqlQuery, false);
 		}
 	}
 
@@ -680,8 +774,104 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	
 	@Override
 	public void getShortestPath(GetShortestPath instruction){
-		// TODO Auto-generated method stub
+		/*final String connTable = "m_conn";
+		String filter;
+		createChildParentTable(connTable, true);
+		if(queryEnvironment.isBaseGraph(instruction.subjectGraph)){
+			filter = "";
+			executeQueryForResult("insert into "+connTable
+					+" select \""+getIdColumnNameChildVertex()+"\", \""+getIdColumnNameParentVertex()+"\" from "
+					+getEdgeAnnotationTableName()+" group by \""+getIdColumnNameChildVertex()+"\", \""
+					+getIdColumnNameParentVertex()+"\";", false);
+		}else{
+			final String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
+			filter = " and "+getEdgeAnnotationTableName()+".\""+getIdColumnName()+"\" in "
+					+ "(select \""+getIdColumnName()+"\" from " + subjectEdgeTable + ")";
+			final String subgraphEdgesTable = "m_sgedge";
+			createChildParentTable(subgraphEdgesTable, true);
+			
+			executeQueryForResult("insert into "+subgraphEdgesTable
+					+" select \""+getIdColumnNameChildVertex()+"\", \""+getIdColumnNameParentVertex()+"\" from "
+					+getEdgeAnnotationTableName()+" where "+getIdColumnName()+" in (select "
+					+getIdColumnName()+" from "+subjectEdgeTable+");", false);
+			
+			executeQueryForResult("insert into "+connTable
+					+" select \""+getIdColumnNameChildVertex()+"\", \""+getIdColumnNameParentVertex()+"\" from "
+					+subgraphEdgesTable+" group by \""+getIdColumnNameChildVertex()+"\", \""
+					+getIdColumnNameParentVertex()+"\";", false);
+			
+			dropTable(subgraphEdgesTable);
+		}
+		final String connectedSubgraphTable = "m_sgconn";
+		// Create subgraph edges table.
+		dropTable(connectedSubgraphTable);
+		executeQueryForResult("create table "+connectedSubgraphTable+" (\""+getIdColumnNameChildVertex()
+			+"\" uuid, \""+getIdColumnNameParentVertex()+"\" uuid, reaching int, depth int)", false);
 
+		final String currentTable = "m_cur";
+		final String nextTable = "m_next";
+		final String answerTable = "m_answer";
+		
+		
+		qs.executeQuery("DROP TABLE m_cur;\n" + "DROP TABLE m_next;\n" + "DROP TABLE m_answer;\n"
+				+ "CREATE TABLE m_cur (id INT, reaching INT);\n" + "CREATE TABLE m_next (id INT, reaching INT);\n"
+				+ "CREATE TABLE m_answer (id INT);");
+
+		qs.executeQuery("INSERT INTO m_cur SELECT id, id FROM " + getVertexTableName(instruction.dstGraph) + ";\n"
+				+ "\\analyzerange m_cur\n" + "INSERT INTO m_answer SELECT id FROM m_cur GROUP BY id;");
+
+		String loopStmts = "\\analyzecount m_cur\n" + "INSERT INTO m_sgconn SELECT src, dst, reaching, $depth"
+				+ " FROM m_cur, m_conn WHERE id = dst;\n" + "DROP TABLE m_next;\n"
+				+ "CREATE TABLE m_next (id INT, reaching INT);\n" + "INSERT INTO m_next SELECT src, reaching"
+				+ " FROM m_cur, m_conn WHERE id = dst;\n" + "DROP TABLE m_cur;\n"
+				+ "CREATE TABLE m_cur (id INT, reaching INT);\n" + "\\analyzerange m_answer\n"
+				+ "\\analyzecount m_next\n" + "INSERT INTO m_cur SELECT id, reaching FROM m_next"
+				+ " WHERE id NOT IN (SELECT id FROM m_answer) GROUP BY id, reaching;\n" + "\\analyzerange m_cur\n"
+				+ "INSERT INTO m_answer SELECT id FROM m_cur GROUP BY id;";
+		for(int i = 0; i < instruction.maxDepth; ++i){
+			qs.executeQuery(loopStmts.replace("$depth", String.valueOf(i + 1)));
+
+			String worksetSizeQuery = "COPY SELECT COUNT(*) FROM m_cur TO stdout;";
+			if(qs.executeQueryForLongResult(worksetSizeQuery) == 0){
+				break;
+			}
+		}
+
+		qs.executeQuery("DROP TABLE m_cur;\n" + "DROP TABLE m_next;\n" + "CREATE TABLE m_cur (id INT);\n"
+				+ "CREATE TABLE m_next (id INT);");
+
+		qs.executeQuery("\\analyzerange m_answer\n" + "INSERT INTO m_cur SELECT id FROM "
+				+ getVertexTableName(instruction.srcGraph) + " WHERE id IN (SELECT id FROM m_answer);\n");
+
+		qs.executeQuery("DROP TABLE m_answer;\n" + "CREATE TABLE m_answer (id INT);\n"
+				+ "INSERT INTO m_answer SELECT id FROM m_cur;");
+
+		qs.executeQuery("\\analyzerange m_answer\n" + "\\analyze m_sgconn\n");
+
+		loopStmts = "DROP TABLE m_next;\n" + "CREATE TABLE m_next(id INT);\n" + "INSERT INTO m_next SELECT MIN(dst)"
+				+ " FROM m_cur, m_sgconn WHERE id = src" + " AND depth + $depth <= "
+				+ String.valueOf(instruction.maxDepth) + " GROUP BY src, reaching;\n" + "DROP TABLE m_cur;\n"
+				+ "CREATE TABLE m_cur(id INT);\n" + "\\analyzerange m_answer\n"
+				+ "INSERT INTO m_cur SELECT id FROM m_next WHERE id NOT IN (SELECT id FROM m_answer);\n"
+				+ "INSERT INTO m_answer SELECT id FROM m_cur;";
+		for(int i = 0; i < instruction.maxDepth; ++i){
+			qs.executeQuery(loopStmts.replace("$depth", String.valueOf(i)));
+
+			String worksetSizeQuery = "COPY SELECT COUNT(*) FROM m_cur TO stdout;";
+			if(qs.executeQueryForLongResult(worksetSizeQuery) == 0){
+				break;
+			}
+		}
+
+		String targetVertexTable = getVertexTableName(instruction.targetGraph);
+		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+
+		qs.executeQuery("\\analyzerange m_answer\n" + "INSERT INTO " + targetVertexTable + " SELECT id FROM m_answer;\n"
+				+ "INSERT INTO " + targetEdgeTable + " SELECT id FROM edge" + " WHERE src IN (SELECT id FROM m_answer)"
+				+ " AND dst IN (SELECT id FROM m_answer)" + filter + ";");
+
+		qs.executeQuery("DROP TABLE m_cur;\n" + "DROP TABLE m_next;\n" + "DROP TABLE m_answer;\n"
+				+ "DROP TABLE m_conn;\n" + "DROP TABLE m_sgconn;");*/
 	}
 
 	@Override

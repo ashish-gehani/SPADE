@@ -20,6 +20,7 @@
 package spade.core;
 
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -49,6 +50,45 @@ public abstract class AbstractEdge implements Serializable
     private AbstractVertex parentVertex;
 
     /**
+     * String big hash to be returned by bigHashCode function only if not null.
+     * If null then big hash computed using the annotations map.
+     */
+    private final String bigHashCode;
+    
+    /**
+     * Create a vertex without a fixed big hash.
+     */
+    public AbstractEdge(){
+    	this.bigHashCode = null;
+    }
+    
+    /**
+     * Create a vertex with a fixed big hash.
+     * 
+     * @param md5HexBigHashCode String
+     */
+    public AbstractEdge(String md5HexBigHashCode){
+    	this.bigHashCode = md5HexBigHashCode;
+    	// TODO required for future changes?
+    	/*
+    	if(this.bigHashCode != null){
+    		if(this.bigHashCode.length() != 32){
+    			throw new RuntimeException("The big hash code length must be '32' to work with all storages");
+    		}
+    	}
+    	*/
+    }
+    
+    /**
+     * Returns true if the vertex has a fixed big hash otherwise false
+     * 
+     * @return true/false
+     */
+    public final boolean isReferenceEdge(){
+    	return bigHashCode != null;
+    }
+    
+    /**
      * Checks if edge is empty
      *
      * @return Returns true if edge contains no annotation,
@@ -65,10 +105,10 @@ public abstract class AbstractEdge implements Serializable
      *
      * @return The map containing the annotations.
      */
-    public final Map<String, String> getAnnotations() {
-        return annotations;
+    public final Map<String, String> getCopyOfAnnotations() {
+        return new HashMap<String, String>(annotations);
     }
-
+    
     /**
      * Adds an annotation.
      *
@@ -175,50 +215,44 @@ public abstract class AbstractEdge implements Serializable
     }
 
     /**
-     * Computes MD5 hash of annotations in the edge and its end point vertices.
-     *
-     @return A 128-bit hash digest.
-     */
-    public String bigHashCode()
-    {
-        return DigestUtils.md5Hex(this.toString());
-    }
-
-    /**
      * Computes MD5 hash of annotations in the vertex.
      *
      @return A 128-bit hash digest.
      */
-    public byte[] bigHashCodeBytes()
-    {
-        return DigestUtils.md5(this.toString());
+	public final String bigHashCode(){
+		if(bigHashCode == null){
+			return DigestUtils.md5Hex(
+					childVertex.bigHashCode() + "," +
+					annotations.toString() + "," +
+					parentVertex.bigHashCode()); // calculated at runtime
+		}else{
+			return bigHashCode;
+		}
+	}
+
+    /**
+     * Computes MD5 hash of annotations in the vertex
+     * @return 16 element byte array of the digest.
+     */
+	public final byte[] bigHashCodeBytes(){
+    	if(bigHashCode == null){
+    		return DigestUtils.md5(
+					childVertex.bigHashCode() + "," +
+					annotations.toString() + "," + 
+					parentVertex.bigHashCode()); // calculated at runtime
+    	}else{
+    		return bigHashCode.getBytes();
+    	}
     }
 
     @Override
 	public boolean equals(Object obj){
-		if(this == obj)
+    	if(this == obj)
 			return true;
 		if(obj == null)
 			return false;
-		if(getClass() != obj.getClass())
-			return false;
 		AbstractEdge other = (AbstractEdge) obj;
-		if(annotations == null){
-			if(other.annotations != null)
-				return false;
-		}else if(!annotations.equals(other.annotations))
-			return false;
-		if(childVertex == null){
-			if(other.childVertex != null)
-				return false;
-		}else if(!childVertex.equals(other.childVertex))
-			return false;
-		if(parentVertex == null){
-			if(other.parentVertex != null)
-				return false;
-		}else if(!parentVertex.equals(other.parentVertex))
-			return false;
-		return true;
+		return bigHashCode().equals(other.bigHashCode());
 	}    
 
     /**
@@ -230,16 +264,14 @@ public abstract class AbstractEdge implements Serializable
      */
     @Override
 	public int hashCode(){
-		final int prime = 31;
+    	final int prime = 31;
 		int result = 1;
-		result = prime * result + ((annotations == null) ? 0 : annotations.hashCode());
-		result = prime * result + ((childVertex == null) ? 0 : childVertex.hashCode());
-		result = prime * result + ((parentVertex == null) ? 0 : parentVertex.hashCode());
+		result = prime * result + bigHashCode().hashCode();
 		return result;
 	}
 
     @Override
-    public String toString()
+    public final String toString()
     {
         return "AbstractEdge{" +
                 "annotations=" + annotations +

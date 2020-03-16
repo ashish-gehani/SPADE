@@ -36,17 +36,9 @@ public class Cache implements Serializable
 {
     private Set<Graph> cachedGraphs;
     private Graph mainGraphCache;
-    private static Cache cacheInstance;
+    public final static Cache instance = new Cache();
     private static final Logger logger = Logger.getLogger(Cache.class.getName());
 
-    public static Cache getInstance()
-    {
-        if(cacheInstance == null)
-        {
-            cacheInstance = new Cache();
-        }
-        return cacheInstance;
-    }
 
     private Cache()
     {

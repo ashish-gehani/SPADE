@@ -22,6 +22,7 @@ package spade.filter;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
+import spade.core.Edge;
 import spade.core.Settings;
 import spade.core.Vertex;
 import spade.utility.FileUtility;
@@ -62,8 +63,15 @@ public class OPM2ProvTC extends OPM2ProvVertexEdge{
 
 	@Override
 	public void putEdge(AbstractEdge incomingEdge) {
-		convertAnnotationsInMap(incomingEdge.getAnnotations());
-		super.putEdge(incomingEdge);
+		if(incomingEdge != null){
+			AbstractEdge edgeCopy = new Edge(incomingEdge.getChildVertex(), incomingEdge.getParentVertex());
+			Map<String, String> annotationsCopy = incomingEdge.getCopyOfAnnotations();
+			convertAnnotationsInMap(annotationsCopy);
+			edgeCopy.addAnnotations(annotationsCopy);
+			super.putEdge(incomingEdge);
+		}else{
+			super.putEdge(incomingEdge);
+		}
 	}
 	
 	private void convertAnnotationsInMap(Map<String, String> map){

@@ -16,25 +16,6 @@
  */
 package spade.storage;
 
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.jena.rdf.model.Model;
-import org.apache.jena.rdf.model.Statement;
-import org.apache.jena.rdf.model.StmtIterator;
-import org.apache.jena.util.FileManager;
-import spade.core.AbstractEdge;
-import spade.core.AbstractStorage;
-import spade.core.AbstractVertex;
-import spade.core.Graph;
-import spade.edge.prov.Used;
-import spade.edge.prov.WasAssociatedWith;
-import spade.edge.prov.WasDerivedFrom;
-import spade.edge.prov.WasGeneratedBy;
-import spade.edge.prov.WasInformedBy;
-import spade.utility.HelperFunctions;
-import spade.vertex.prov.Activity;
-import spade.vertex.prov.Agent;
-import spade.vertex.prov.Entity;
-
 import java.io.FileWriter;
 import java.sql.ResultSet;
 import java.text.SimpleDateFormat;
@@ -48,8 +29,25 @@ import java.util.Set;
 import java.util.TimeZone;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.jena.rdf.model.Model;
+import org.apache.jena.rdf.model.Statement;
+import org.apache.jena.rdf.model.StmtIterator;
+import org.apache.jena.util.FileManager;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractStorage;
+import spade.core.AbstractVertex;
+import spade.edge.prov.Used;
+import spade.edge.prov.WasAssociatedWith;
+import spade.edge.prov.WasDerivedFrom;
+import spade.edge.prov.WasGeneratedBy;
+import spade.edge.prov.WasInformedBy;
+import spade.utility.HelperFunctions;
+import spade.vertex.prov.Activity;
+import spade.vertex.prov.Agent;
+import spade.vertex.prov.Entity;
 
 public class Prov extends AbstractStorage{
 
@@ -230,58 +228,6 @@ public class Prov extends AbstractStorage{
 		}
 	}
 
-	/**
-	 * This function queries the underlying storage and retrieves the edge
-	 * matching the given criteria.
-	 *
-	 * @param childVertexHash      hash of the source vertex.
-	 * @param parentVertexHash hash of the destination vertex.
-	 * @return returns edge object matching the given vertices OR NULL.
-	 */
-	@Override
-	public AbstractEdge getEdge(String childVertexHash, String parentVertexHash) {
-		return null;
-	}
-
-	/**
-	 * This function queries the underlying storage and retrieves the vertex
-	 * matching the given criteria.
-	 *
-	 * @param vertexHash hash of the vertex to find.
-	 * @return returns vertex object matching the given hash OR NULL.
-	 */
-	@Override
-	public AbstractVertex getVertex(String vertexHash) {
-		return null;
-	}
-
-	/**
-	 * This function finds the children of a given vertex.
-	 * A child is defined as a vertex which is the source of a
-	 * direct edge between itself and the given vertex.
-	 *
-	 * @param parentHash hash of the given vertex
-	 * @return returns graph object containing children of the given vertex OR NULL.
-	 */
-	@Override
-	public Graph getChildren(String parentHash) {
-		return null;
-	}
-
-	/**
-	 * This function finds the parents of a given vertex.
-	 * A parent is defined as a vertex which is the destination of a
-	 * direct edge between itself and the given vertex.
-	 *
-	 * @param childVertexHash hash of the given vertex
-	 * @return returns graph object containing parents of the given vertex OR NULL.
-	 */
-	@Override
-	public Graph getParents(String childVertexHash) {
-		return null;
-	}
-
-
 	public ProvFormat getProvFormatByFileExt(String filepath){
 		filepath = String.valueOf(filepath).trim().toLowerCase();
 		if(filepath.endsWith(".ttl")){
@@ -334,7 +280,7 @@ public class Prov extends AbstractStorage{
 						provNamespacePrefix,
 						defaultNamespacePrefix,
 						destVertexKey,
-						getProvOFormattedKeyValPair(edge.getAnnotations()));
+						getProvOFormattedKeyValPair(edge.getCopyOfAnnotations()));
 
 				break;
 			case PROVN:
@@ -343,7 +289,7 @@ public class Prov extends AbstractStorage{
 						childVertexKey,
 						defaultNamespacePrefix,
 						destVertexKey,
-						getProvNFormattedKeyValPair(edge.getAnnotations()));
+						getProvNFormattedKeyValPair(edge.getCopyOfAnnotations()));
 				break;
 			default:
 				break;

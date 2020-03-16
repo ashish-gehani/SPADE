@@ -58,20 +58,27 @@ import spade.query.quickgrail.types.StringType;
 import spade.query.quickgrail.utility.ResultTable;
 import spade.query.quickgrail.utility.Schema;
 import spade.storage.Neo4j;
+import spade.utility.HelperFunctions;
 
 public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 
 	private final Neo4j storage;
 	private final Neo4jQueryEnvironment neo4jQueryEnvironment;
+	private final String hashKey;
 	
-	public Neo4jInstructionExecutor(Neo4j storage, Neo4jQueryEnvironment neo4jQueryEnvironment){
+	public Neo4jInstructionExecutor(Neo4j storage, Neo4jQueryEnvironment neo4jQueryEnvironment,
+			String hashKey){
 		this.storage = storage;
 		this.neo4jQueryEnvironment = neo4jQueryEnvironment;
+		this.hashKey = hashKey;
 		if(this.neo4jQueryEnvironment == null){
 			throw new IllegalArgumentException("NULL Query Environment");
 		}
 		if(this.storage == null){
 			throw new IllegalArgumentException("NULL storage");
+		}
+		if(HelperFunctions.isNullOrEmpty(this.hashKey)){
+			throw new IllegalArgumentException("NULL/Empty hash key: '"+this.hashKey+"'");
 		}
 	}
 	
@@ -80,20 +87,20 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public Class<? extends AbstractStorage> getStorageClass(){
-		return storage.getClass();
+	public AbstractStorage getStorage(){
+		return storage;
 	}
 
 	@Override
 	public void insertLiteralEdge(InsertLiteralEdge instruction){
-		List<String> ids = instruction.getEdges();
-		if(ids == null || ids.isEmpty()){
+		List<String> hashes = instruction.getEdges();
+		if(hashes == null || hashes.isEmpty()){
 			// Empty graph already
 		}else{
 			String query = "match ()-[e]->() where ";
 			String whereClause = "";
-			for(String id : ids){
-				whereClause += "id(e)=" + id + " or ";
+			for(String hash : hashes){
+				whereClause += "e.`"+hashKey+"`='" + hash + "' or ";
 			}
 			whereClause = whereClause.substring(0, whereClause.length() - 3);
 			query += whereClause;
@@ -104,14 +111,14 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 
 	@Override
 	public void insertLiteralVertex(InsertLiteralVertex instruction){
-		List<String> ids = instruction.getVertices();
-		if(ids == null || ids.isEmpty()){
+		List<String> hashes = instruction.getVertices();
+		if(hashes == null || hashes.isEmpty()){
 			// Empty graph already
 		}else{
 			String query = "match (v) where ";
 			String whereClause = "";
-			for(String id : ids){
-				whereClause += "id(v)=" + id + " or ";
+			for(String hash : hashes){
+				whereClause += "v.`"+hashKey+"`='" + hash + "' or ";
 			}
 			whereClause = whereClause.substring(0, whereClause.length() - 3);
 			query += whereClause;

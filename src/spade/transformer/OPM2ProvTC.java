@@ -85,7 +85,7 @@ public class OPM2ProvTC extends OPM2Prov
 	}
 
 	private void replaceAnnotations(AbstractEdge edge, Map<String, String> newMapping){
-		for(String annotation : edge.getAnnotations().keySet()){
+		for(String annotation : edge.getCopyOfAnnotations().keySet()){
 			if(newMapping.get(annotation) != null){
 				edge.addAnnotation(newMapping.get(annotation), edge.getAnnotation(annotation));
 				edge.removeAnnotation(annotation);

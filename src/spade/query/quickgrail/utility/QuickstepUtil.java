@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
 
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.entities.GraphMetadata;
-import spade.storage.quickstep.QuickstepExecutor;
+import spade.storage.Quickstep;
 import spade.storage.quickstep.QuickstepQueryEnvironment;
 
 /**
@@ -38,7 +38,7 @@ import spade.storage.quickstep.QuickstepQueryEnvironment;
 public class QuickstepUtil{
 	private static Pattern tableNamePattern = Pattern.compile("([^ \n]+)[ |].*table.*");
 
-	public static void CreateEmptyGraph(QuickstepExecutor qs, QuickstepQueryEnvironment qqe, Graph graph){
+	public static void CreateEmptyGraph(Quickstep qs, QuickstepQueryEnvironment qqe, Graph graph){
 		String vertexTable = qqe.getGraphVertexTableName(graph);
 		String edgeTable = qqe.getGraphEdgeTableName(graph);
 
@@ -52,7 +52,7 @@ public class QuickstepUtil{
 		qs.executeQuery(sb.toString());
 	}
 
-	public static void CreateEmptyGraphMetadata(QuickstepExecutor qs, QuickstepQueryEnvironment qqe,
+	public static void CreateEmptyGraphMetadata(Quickstep qs, QuickstepQueryEnvironment qqe,
 			GraphMetadata metadata){
 		String vertexTable = qqe.getMetadataVertexTableName(metadata);
 		String edgeTable = qqe.getMetadataEdgeTableName(metadata);
@@ -65,7 +65,7 @@ public class QuickstepUtil{
 		qs.executeQuery(sb.toString());
 	}
 
-	public static ArrayList<String> GetAllTableNames(QuickstepExecutor qs){
+	public static ArrayList<String> GetAllTableNames(Quickstep qs){
 		ArrayList<String> tableNames = new ArrayList<String>();
 		String output = qs.executeQuery("\\d\n");
 		Matcher matcher = tableNamePattern.matcher(output);
@@ -75,21 +75,21 @@ public class QuickstepUtil{
 		return tableNames;
 	}
 
-	public static long GetNumVertices(QuickstepExecutor qs, QuickstepQueryEnvironment qqe, Graph graph){
+	public static long GetNumVertices(Quickstep qs, QuickstepQueryEnvironment qqe, Graph graph){
 		return qs.executeQueryForLongResult("COPY SELECT COUNT(*) FROM " + qqe.getGraphVertexTableName(graph) + " TO stdout;");
 	}
 
-	public static long GetNumEdges(QuickstepExecutor qs, QuickstepQueryEnvironment qqe, Graph graph){
+	public static long GetNumEdges(Quickstep qs, QuickstepQueryEnvironment qqe, Graph graph){
 		return qs.executeQueryForLongResult("COPY SELECT COUNT(*) FROM " + qqe.getGraphEdgeTableName(graph) + " TO stdout;");
 	}
 
-	public static long GetNumTimestamps(QuickstepExecutor qs, QuickstepQueryEnvironment qqe, Graph graph){
+	public static long GetNumTimestamps(Quickstep qs, QuickstepQueryEnvironment qqe, Graph graph){
 		return qs.executeQueryForLongResult(
 				"COPY SELECT COUNT(*) FROM edge_anno" + " WHERE id IN (SELECT id FROM " + qqe.getGraphEdgeTableName(graph) + ")" +
 						" AND field = 'timestampNanos' TO stdout;");
 	}
 
-	public static Long[] GetTimestampRange(QuickstepExecutor qs, QuickstepQueryEnvironment qqe, Graph graph){
+	public static Long[] GetTimestampRange(Quickstep qs, QuickstepQueryEnvironment qqe, Graph graph){
 		// TODO(jianqiao): Fix the return type problem in Quickstep.
 		if(GetNumTimestamps(qs, qqe, graph) == 0){
 			return new Long[]{0L, 0L};
@@ -103,7 +103,7 @@ public class QuickstepUtil{
 		return new Long[]{Long.parseLong(timestamps[0]), Long.parseLong(timestamps[1])};
 	}
 
-	public static String[] GetTimestampRangeString(QuickstepExecutor qs, QuickstepQueryEnvironment qqe, Graph graph){
+	public static String[] GetTimestampRangeString(Quickstep qs, QuickstepQueryEnvironment qqe, Graph graph){
 		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("E, dd MMM yyyy HH:mm:ss z");
 		Long[] span = QuickstepUtil.GetTimestampRange(qs, qqe, graph);
 		String startDateStr = "";

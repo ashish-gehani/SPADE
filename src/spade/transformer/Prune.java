@@ -63,8 +63,8 @@ public class Prune extends AbstractTransformer{
 
 		Graph resultGraph = new Graph();
 
-		Graph toRemoveGraph = graph.getLineage(this.startingHash, 
-				queryMetaData.getDirection().toString().substring(1).toLowerCase(),
+		Graph toRemoveGraph = graph.getLineage(queryMetaData.getRootVertices(), 
+				queryMetaData.getDirection(),
 				queryMetaData.getMaxLength());
 
 		if(toRemoveGraph != null){

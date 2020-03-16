@@ -19,6 +19,14 @@
  */
 package spade.storage;
 
+import java.sql.ResultSet;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import org.deri.iris.Configuration;
 import org.deri.iris.EvaluationException;
 import org.deri.iris.KnowledgeBaseFactory;
@@ -31,18 +39,11 @@ import org.deri.iris.api.terms.IVariable;
 import org.deri.iris.compiler.Parser;
 import org.deri.iris.compiler.ParserException;
 import org.deri.iris.storage.IRelation;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
-
-import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -119,57 +120,6 @@ public class Datalog extends AbstractStorage {
         }
 
         return result;
-    }
-
-    /**
-     * This function queries the underlying storage and retrieves the edge
-     * matching the given criteria.
-     *
-     * @param childVertexHash      hash of the source vertex.
-     * @param parentVertexHash hash of the destination vertex.
-     * @return returns edge object matching the given vertices OR NULL.
-     */
-    @Override
-    public AbstractEdge getEdge(String childVertexHash, String parentVertexHash) {
-        return null;
-    }
-
-    /**
-     * This function queries the underlying storage and retrieves the vertex
-     * matching the given criteria.
-     *
-     * @param vertexHash hash of the vertex to find.
-     * @return returns vertex object matching the given hash OR NULL.
-     */
-    @Override
-    public AbstractVertex getVertex(String vertexHash) {
-        return null;
-    }
-
-    /**
-     * This function finds the children of a given vertex.
-     * A child is defined as a vertex which is the source of a
-     * direct edge between itself and the given vertex.
-     *
-     * @param parentHash hash of the given vertex
-     * @return returns graph object containing children of the given vertex OR NULL.
-     */
-    @Override
-    public Graph getChildren(String parentHash) {
-        return null;
-    }
-
-    /**
-     * This function finds the parents of a given vertex.
-     * A parent is defined as a vertex which is the destination of a
-     * direct edge between itself and the given vertex.
-     *
-     * @param childVertexHash hash of the given vertex
-     * @return returns graph object containing parents of the given vertex OR NULL.
-     */
-    @Override
-    public Graph getParents(String childVertexHash) {
-        return null;
     }
 
 

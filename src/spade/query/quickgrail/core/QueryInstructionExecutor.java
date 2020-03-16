@@ -58,7 +58,7 @@ import spade.query.quickgrail.utility.ResultTable;
 public abstract class QueryInstructionExecutor{
 	
 	public abstract AbstractQueryEnvironment getQueryEnvironment();
-	public abstract Class<? extends AbstractStorage> getStorageClass();
+	public abstract AbstractStorage getStorage();
 	
 	//////////////////////////////////////////////////////////////
 	// METADATA

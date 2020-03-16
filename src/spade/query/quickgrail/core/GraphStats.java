@@ -16,7 +16,11 @@
  */
 package spade.query.quickgrail.core;
 
-public class GraphStats{
+import java.io.Serializable;
+
+public class GraphStats implements Serializable{
+	
+	private static final long serialVersionUID = -5687449560082206524L;
 	public final long vertices, edges;
 
 	public GraphStats(long vertices, long edges){
