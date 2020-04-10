@@ -51,28 +51,31 @@ public class HostInfo{
 
 	private static final Logger logger = Logger.getLogger(HostInfo.class.getName());
 
-
-	public static String getHostName()
-	{
-		Host host = HostInfo.ReadFromOperatingSystem.readSafe();
-		if(host != null)
-		{
-			Map<String, String> hostMap = Host.hostToMap(host);
-			String hostName = hostMap.get(OPMConstants.ARTIFACT_HOST_NETWORK_NAME);
-			if(hostName == null || hostName.isEmpty())
-			{
-				logger.log(Level.WARNING, "unable to get host name");
-			}
-			else
-			{
-				return hostName;
+	/**
+	 * Returns host name using the command 'uname -a'
+	 * 
+	 * @return The non-null host name
+	 * @throws Exception
+	 */
+	public static String getHostName() throws Exception{
+		String command = "uname -a";
+		Execute.Output output = Execute.getOutput(command);
+		if(output.hasError()){
+			throw new Exception("'uname' error: " + output.getStdErr());
+		}else{
+			List<String> stdOutLines = output.getStdOut();
+			if(stdOutLines.isEmpty()){
+				throw new Exception("Unexpected 'uname' output: Empty");
+			}else{
+				String line = stdOutLines.get(0);
+				String unameTokens[] = line.split("\\s+");
+				if(unameTokens.length > 1){
+					return unameTokens[1];
+				}else{
+					throw new Exception("Unexpected 'uname' output: No hostname token at index 1: " + line);
+				}
 			}
 		}
-		else
-		{
-			logger.log(Level.WARNING, "unable to get host information");
-		}
-		return null;
 	}
 
 	/**

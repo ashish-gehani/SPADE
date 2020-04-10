@@ -106,7 +106,7 @@ public class RemoteLineageResolver extends AbstractRemoteResolver{
 			
 			for(AbstractVertex vertex : vertices){
 				String query = buildRemoteGetLineageQuery(vertex, localNetworkVertexToLocalDepth.get(vertex));
-				SPADEQuery q = new SPADEQuery(Kernel.HOST_NAME, remoteAddress, query, nonce);
+				SPADEQuery q = new SPADEQuery(Kernel.getHostName(), remoteAddress, query, nonce);
 				queriesForSingleHost.add(q);
 			}
 		}

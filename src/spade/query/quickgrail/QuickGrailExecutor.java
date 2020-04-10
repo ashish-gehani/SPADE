@@ -560,7 +560,7 @@ public class QuickGrailExecutor{
 								if(OPMConstants.isCompleteNetworkArtifact(networkVertex) // this is the 'abcdef' comment
 										&& RemoteResolver.isRemoteAddressRemoteInNetworkVertex(networkVertex)
 										&& !startGraphVertices.contains(networkVertex)
-										&& Kernel.HOST_NAME.equals(networkVertex.getAnnotation("host"))){ // only need to resolve local artifacts
+										&& Kernel.getHostName().equals(networkVertex.getAnnotation("host"))){ // only need to resolve local artifacts
 									if(direction2Network2MinDepth.get(direction) == null){
 										direction2Network2MinDepth.put(direction, new HashMap<AbstractVertex, Integer>());
 									}
@@ -600,7 +600,7 @@ public class QuickGrailExecutor{
 				final Integer remoteDepth = instruction.depth - localDepth;
 				final String remoteAddress = RemoteResolver.getRemoteAddress(localNetworkVertex);
 				if(remoteDepth > 0){
-					try(RemoteSPADEQueryConnection connection = new RemoteSPADEQueryConnection(Kernel.HOST_NAME, remoteAddress, clientPort)){
+					try(RemoteSPADEQueryConnection connection = new RemoteSPADEQueryConnection(Kernel.getHostName(), remoteAddress, clientPort)){
 						connection.connect(Kernel.getClientSocketFactory(), 5*1000);
 						final String remoteVertexPredicate = buildRemoteGetVertexPredicate(localNetworkVertex);
 						final String remoteVerticesSymbol = connection.getBaseVertices(remoteVertexPredicate);

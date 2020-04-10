@@ -128,7 +128,8 @@ public class Kernel
     /**
      * Public name for this host.
      */
-    public static String HOST_NAME = null;
+    private static String HOST_NAME = null;
+    public final static String HOST_FILE_PATH = SPADE_ROOT + File.separator + "spade.host";
     /**
      * Path to configuration file for storing state of SPADE instance (includes
      * currently added modules).
@@ -273,21 +274,23 @@ public class Kernel
     private final static int CONTROL_CLIENT_READ_TIMEOUT = 1000;
 
     // reads name of the host
-    private static void getHostName()
-    {
-        String hostName = HostInfo.getHostName();
-        if(hostName != null)
-        {
-            try(PrintWriter out = new PrintWriter("hostname.txt"))
-            {
-                HOST_NAME = hostName;
-                out.println(hostName);
-            } catch(Exception ex)
-            {
-                logger.log(Level.WARNING, "error saving hostname to file");
-            }
-        }
-    }
+	public synchronized static String getHostName(){
+		if(HOST_NAME == null){
+			try{
+				HOST_NAME = HostInfo.getHostName();
+			}catch(Exception e){
+				logger.log(Level.WARNING, "Failed to retrieve host name. Using empty string!", e);
+				HOST_NAME = "";
+			}
+			try(PrintWriter out = new PrintWriter(HOST_FILE_PATH)){
+				out.println(HOST_NAME);
+			}catch(Exception e){
+				logger.log(Level.WARNING, "Failed to write host name to file: " + HOST_FILE_PATH, e);
+			}
+			logger.log(Level.INFO, "SPADE host name: '" + HOST_NAME + "'");
+		}
+		return HOST_NAME;
+	}
     
     public static SocketFactory getClientSocketFactory(){
     	return sslSocketFactory;
@@ -336,6 +339,7 @@ public class Kernel
             System.err.println("Error initializing exception logger");
         }
 
+        // Initialize host name
         getHostName();
 
         registerShutdownThread();

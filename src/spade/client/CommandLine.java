@@ -46,6 +46,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import jline.ConsoleReader;
+import spade.core.Kernel;
 import spade.core.SPADEQuery;
 import spade.core.Settings;
 import spade.utility.HelperFunctions;
@@ -60,8 +61,6 @@ public class CommandLine{
 	private static final String historyFile = SPADE_ROOT + "cfg/query.history";
 	private static final String COMMAND_PROMPT = "-> ";
 	private static String RESULT_EXPORT_PATH = null;
-	
-	private static final String hostNameFilePath = SPADE_ROOT + File.separator + "hostname.txt";
 
 	// Members for creating secure sockets
 	private static KeyStore clientKeyStorePrivate;
@@ -102,12 +101,12 @@ public class CommandLine{
     		return args[0];
     	}
     	try{
-    		File hostNameFile = new File(hostNameFilePath);
+    		File hostNameFile = new File(Kernel.HOST_FILE_PATH);
     		try{
     			if(hostNameFile.exists()){
     				try{
 	    				if(!hostNameFile.isFile() || !hostNameFile.canRead()){
-	    					System.err.println("Invalid configuration to read host name from file: Path is not readable or file '"+hostNameFilePath+"'");
+	    					System.err.println("Invalid configuration to read host name from file: Path is not readable or file '"+Kernel.HOST_FILE_PATH+"'");
 	        				return null;
 	    				}else{
 	    					try{
@@ -136,12 +135,11 @@ public class CommandLine{
     		System.err.println("Invalid configuration to read host name from a file: "+ e.getMessage());
     		return null;
     	}
-    	String hostNameFromSystem = HostInfo.getHostName();
-    	if(hostNameFromSystem == null){
-    		System.err.println("Failed to get host name from system");
+    	try{
+    		return HostInfo.getHostName();
+    	}catch(Exception e){
+    		System.err.println("Failed to get host name from system: " + e.getMessage());
     		return null;
-    	}else{
-    		return hostNameFromSystem;
     	}
     }
     

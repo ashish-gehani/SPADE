@@ -254,7 +254,7 @@ public abstract class AbstractAnalyzer{
 										if(useTransformer){
 											finalGraph = iterateTransformers(finalGraph, spadeQuery.getQueryMetaData());
 										}
-										finalGraph.setHostName(Kernel.HOST_NAME); // Set it here because the graph might be modified by the transformers
+										finalGraph.setHostName(Kernel.getHostName()); // Set it here because the graph might be modified by the transformers
 										finalGraph.addSignature(spadeQuery.queryNonce);
 									}
 									

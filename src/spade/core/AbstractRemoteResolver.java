@@ -83,7 +83,7 @@ public abstract class AbstractRemoteResolver{
 		public List<SPADEQuery> call() throws Exception{
 			List<SPADEQuery> queryResponses = new ArrayList<SPADEQuery>();
 
-			try(RemoteSPADEQueryConnection connection = new RemoteSPADEQueryConnection(Kernel.HOST_NAME, remoteAddress, remotePort)){
+			try(RemoteSPADEQueryConnection connection = new RemoteSPADEQueryConnection(Kernel.getHostName(), remoteAddress, remotePort)){
 
 				connection.connect(Kernel.getClientSocketFactory(), 5*1000);
 				
