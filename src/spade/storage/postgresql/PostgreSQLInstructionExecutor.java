@@ -783,14 +783,14 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		noResultExecuteQuery("create table m_conn ("+getIdColumnNameChildVertex()+" uuid, "+getIdColumnNameParentVertex()+" uuid)");
 		if(queryEnvironment.isBaseGraph(instruction.subjectGraph)){
 			filter = "";
-			noResultExecuteQuery("insert into m_conn select " + getIdColumnNameChildVertex() + ", " + getIdColumnNameParentVertex() + " "
-					+ "from " + getEdgeAnnotationTableName() + " group by " + getIdColumnNameChildVertex() + ", " + getIdColumnNameParentVertex());
+			noResultExecuteQuery("insert into m_conn select \"" + getIdColumnNameChildVertex() + "\", \"" + getIdColumnNameParentVertex() + "\" "
+					+ "from " + getEdgeAnnotationTableName() + " group by \"" + getIdColumnNameChildVertex() + "\", \"" + getIdColumnNameParentVertex() + "\"");
 		}else{
 			String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
-			filter = " and "+getEdgeAnnotationTableName()+"."+getIdColumnName()+" in (select "+getIdColumnName()+" from " + subjectEdgeTable + ")";
+			filter = " and "+getEdgeAnnotationTableName()+".\""+getIdColumnName()+"\" in (select "+getIdColumnName()+" from " + subjectEdgeTable + ")";
 			dropTable("m_sgedge");
 			noResultExecuteQuery("create table m_sgedge ("+getIdColumnNameChildVertex()+" uuid, "+getIdColumnNameParentVertex()+" uuid)");
-			noResultExecuteQuery("insert into m_sgedge select " + getIdColumnNameChildVertex() + ", " + getIdColumnNameParentVertex() + " "
+			noResultExecuteQuery("insert into m_sgedge select \"" + getIdColumnNameChildVertex() + "\", \"" + getIdColumnNameParentVertex() + "\" "
 					+ "from " + getEdgeAnnotationTableName() + " where " + getIdColumnName() + " in (select "+getIdColumnName()+" from "
 					+ subjectEdgeTable + ")");
 			noResultExecuteQuery("insert into m_conn select "+getIdColumnNameChildVertex()+", "+getIdColumnNameParentVertex()+" from "
@@ -866,9 +866,9 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
 
 		noResultExecuteQuery("insert into " + targetVertexTable + " select " + getIdColumnName() + " from m_answer");
-		noResultExecuteQuery("insert into " + targetEdgeTable + " select " + getIdColumnName() + " from " + getEdgeAnnotationTableName()
-			+ " where " + getIdColumnNameChildVertex() + " in (select "+getIdColumnName()+" from m_answer)"
-			+ " and " + getIdColumnNameParentVertex() + " in (select "+getIdColumnName()+" from m_answer) " + filter);
+		noResultExecuteQuery("insert into " + targetEdgeTable + " select \"" + getIdColumnName() + "\" from " + getEdgeAnnotationTableName()
+			+ " where \"" + getIdColumnNameChildVertex() + "\" in (select "+getIdColumnName()+" from m_answer)"
+			+ " and \"" + getIdColumnNameParentVertex() + "\" in (select "+getIdColumnName()+" from m_answer) " + filter);
 		dropTable("m_cur");dropTable("m_next");dropTable("m_answer");dropTable("m_conn");dropTable("m_sgconn");
 	}
 	

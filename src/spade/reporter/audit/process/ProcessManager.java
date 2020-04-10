@@ -66,7 +66,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 	//  AND  
 	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/signal.h
 	public static final Map<String, Integer> cloneFlags = new HashMap<String, Integer>();
-	public static final int SIGCHLD, CLONE_VFORK, CLONE_VM, CLONE_FILES, CLONE_THREAD;
+	public static final int SIGCHLD, CLONE_VFORK, CLONE_VM, CLONE_FILES, CLONE_THREAD, CLONE_FS;
 
 	static{
 		cloneFlags.put("CLONE_CHILD_CLEARTID", 0x00200000);
@@ -96,6 +96,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		CLONE_VM = cloneFlags.get("CLONE_VM");
 		CLONE_FILES = cloneFlags.get("CLONE_FILES");
 		CLONE_THREAD = cloneFlags.get("CLONE_THREAD");
+		CLONE_FS = cloneFlags.get("CLONE_FS");
 	}
 	
 	private Audit reporter;
@@ -445,6 +446,8 @@ public abstract class ProcessManager extends ProcessStateManager{
 		AgentIdentifier agentIdentifier = buildAgentIdentifierFromSyscall(eventData);
 		ProcessIdentifier processIdentifier = null;
 		ProcessUnitState state = getProcessUnitState(pid);
+		// Updates the cwd based on this syscall as a backup measure in case 'chdir' is missed ever
+		setCwd(pid, eventData.get(AuditEventReader.CWD));
 		if(state == null){
 			processIdentifier = buildProcessIdentifierFromSyscall(eventData);
 			putProcessVertex(time, eventId, processIdentifier, agentIdentifier, source);
@@ -573,7 +576,8 @@ public abstract class ProcessManager extends ProcessStateManager{
 		}else if(syscall == SYSCALL.CLONE){
 			boolean shareMemory = (flags & CLONE_VM) == CLONE_VM;
 			boolean linkFds = (flags & CLONE_FILES) == CLONE_FILES;
-			processCloned(parentPid, childPid, linkFds, shareMemory);
+			boolean shareFS = (flags & CLONE_FS) == CLONE_FS;
+			processCloned(parentPid, childPid, linkFds, shareMemory, shareFS);
 			
 			boolean isThread = (flags & CLONE_THREAD) == CLONE_THREAD;
 			if(isThread){
@@ -896,8 +900,8 @@ public abstract class ProcessManager extends ProcessStateManager{
 								if(fds != null){
 									for(Map.Entry<String, ArtifactIdentifier> entry : fds.entrySet()){
 										ArtifactIdentifier fdIdentifier = entry.getValue();
-										fdIdentifier.setOpenedForRead(null); // Don't want the close edge
-										setFd(pid, entry.getKey(), fdIdentifier);
+										FileDescriptor fd = new FileDescriptor(fdIdentifier, null); // Don't want the close edge
+										setFd(pid, entry.getKey(), fd);
 									}
 								}
 							}else{

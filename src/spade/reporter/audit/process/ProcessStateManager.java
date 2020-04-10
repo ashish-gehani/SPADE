@@ -22,8 +22,6 @@ package spade.reporter.audit.process;
 import java.util.HashMap;
 import java.util.Map;
 
-import spade.reporter.audit.artifact.ArtifactIdentifier;
-
 /**
  * Manages any state for the currently active processes
  * 
@@ -35,6 +33,31 @@ import spade.reporter.audit.artifact.ArtifactIdentifier;
 public abstract class ProcessStateManager{
 
 	private Map<String, ProcessState> processStates = new HashMap<String, ProcessState>();
+	
+	public String getCwd(String pid){
+		ProcessState state = _getProcessState(pid);
+		if(state.cwd == null){
+			return null;
+		}else{
+			String cwd = state.cwd.toString().trim();
+			if(cwd.isEmpty()){
+				return null;
+			}else{
+				return cwd;
+			}
+		}
+	}
+	
+	public void setCwd(String pid, String cwd){
+		if(cwd != null && !cwd.trim().isEmpty()){
+			ProcessState state = _getProcessState(pid);
+			if(state.cwd == null){
+				state.cwd = new StringBuffer();
+			}
+			state.cwd.setLength(0);
+			state.cwd.append(cwd.trim());
+		}
+	}
 	
 	private void setMemoryTgid(String pid, String memoryTgid){
 		_getProcessState(pid).memoryTgid = memoryTgid;
@@ -52,27 +75,34 @@ public abstract class ProcessStateManager{
 		return _getProcessState(pid).fdTgid;
 	}
 	
-	public void setFd(String pid, String fd, ArtifactIdentifier fdIdentifier){
-		_getProcessState(pid).fds.put(fd, fdIdentifier);
+	public void setFd(String pid, String fd, FileDescriptor fileDescriptor){
+		_getProcessState(pid).fds.put(fd, fileDescriptor);
 	}
 	
-	public void setFd(String pid, String fd, ArtifactIdentifier fdIdentifier, Boolean wasOpenedForRead){
-		fdIdentifier.setOpenedForRead(wasOpenedForRead);
-		_getProcessState(pid).fds.put(fd, fdIdentifier);
-	}
-	
-	public ArtifactIdentifier getFd(String pid, String fd){
+	public FileDescriptor getFd(String pid, String fd){
 		return _getProcessState(pid).fds.get(fd);
 	}
 	
-	public ArtifactIdentifier removeFd(String pid, String fd){
+	public FileDescriptor removeFd(String pid, String fd){
 		return _getProcessState(pid).fds.remove(fd);
 	}
 	
 	private void copyFds(String fromPid, String toPid){
 		ProcessState fromState = _getProcessState(fromPid);
 		ProcessState toState = _getProcessState(toPid);
-		toState.fds = new HashMap<String, ArtifactIdentifier>(fromState.fds);
+		toState.fds = new HashMap<String, FileDescriptor>(fromState.fds);
+	}
+	
+	private void copyCwd(String fromPid, String toPid){
+		ProcessState fromState = _getProcessState(fromPid);
+		ProcessState toState = _getProcessState(toPid);
+		if(fromState.cwd != null){
+			if(toState.cwd == null){
+				toState.cwd = new StringBuffer();
+			}
+			toState.cwd.setLength(0);
+			toState.cwd.append(fromState.cwd);
+		}
 	}
 	
 	private void linkFds(String fromPid, String toPid){
@@ -81,9 +111,27 @@ public abstract class ProcessStateManager{
 		toState.fds = fromState.fds;
 	}
 	
+	private void linkCwd(String fromPid, String toPid){
+		ProcessState fromState = _getProcessState(fromPid);
+		ProcessState toState = _getProcessState(toPid);
+		if(fromState.cwd == null){
+			fromState.cwd = new StringBuffer();
+		}
+		toState.cwd = fromState.cwd;
+	}
+	
 	private void unlinkFds(String pid){
 		ProcessState state = _getProcessState(pid);
-		state.fds = new HashMap<String, ArtifactIdentifier>(state.fds);
+		state.fds = new HashMap<String, FileDescriptor>(state.fds);
+	}
+	
+	private void unlinkCwd(String pid){
+		ProcessState state = _getProcessState(pid);
+		if(state.cwd != null){
+			String existingCwd = state.cwd.toString();
+			state.cwd = new StringBuffer();
+			state.cwd.append(existingCwd);
+		}
 	}
 		
 	private ProcessState _getProcessState(String pid){
@@ -104,15 +152,18 @@ public abstract class ProcessStateManager{
 	protected void processForked(String parentPid, String childPid){
 		// only fds copied
 		copyFds(parentPid, childPid);
+		copyCwd(parentPid, childPid);
 	}
 	
 	protected void processVforked(String parentPid, String childPid){
 		// fds copied and memory shared (parent suspended)
 		setMemoryTgid(childPid, getMemoryTgid(parentPid));
 		copyFds(parentPid, childPid);
+		copyCwd(parentPid, childPid);
 	}
 	
-	protected void processCloned(String parentPid, String childPid, boolean linkFds, boolean shareMemory){
+	protected void processCloned(String parentPid, String childPid, 
+			boolean linkFds, boolean shareMemory, boolean shareFS){
 		if(linkFds){
 			setFdTgid(childPid, getFdTgid(parentPid));
 			linkFds(parentPid, childPid);
@@ -122,12 +173,18 @@ public abstract class ProcessStateManager{
 		if(shareMemory){
 			setMemoryTgid(childPid, getMemoryTgid(parentPid));
 		}
+		if(shareFS){
+			linkCwd(parentPid, childPid);
+		}else{
+			copyCwd(parentPid, childPid);
+		}
 	}
 	
 	protected void processExecved(String pid){
 		setMemoryTgid(pid, pid);
 		setFdTgid(pid, pid);
 		unlinkFds(pid);
+		unlinkCwd(pid);
 	}
 	
 	protected void processExited(String pid){
@@ -142,8 +199,8 @@ public abstract class ProcessStateManager{
 class ProcessState{
 	String memoryTgid;
 	String fdTgid;
-	Map<String, ArtifactIdentifier> fds = new HashMap<String, ArtifactIdentifier>();
-	
+	Map<String, FileDescriptor> fds = new HashMap<String, FileDescriptor>();
+	StringBuffer cwd;
 	ProcessState(String memoryTgid, String fdTgid){
 		this.memoryTgid = memoryTgid;
 		this.fdTgid = fdTgid;

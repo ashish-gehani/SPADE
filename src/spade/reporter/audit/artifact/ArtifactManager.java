@@ -43,7 +43,6 @@ import spade.reporter.audit.OPMConstants;
 import spade.utility.Converter;
 import spade.utility.HelperFunctions;
 import spade.utility.Result;
-import spade.utility.Serializable2ByteArrayConverter;
 import spade.utility.map.external.ExternalMap;
 import spade.utility.map.external.ExternalMapArgument;
 import spade.utility.map.external.ExternalMapManager;
@@ -177,6 +176,90 @@ public class ArtifactManager{
 			return (ArtifactState)objectInputStream.readObject();
 		}
 	}
+
+	private static final Converter<ArtifactIdentifier, byte[]> artifactIdentifierConverter =
+			new Converter<ArtifactIdentifier, byte[]>(){
+				private final StringBuilder append(StringBuilder str, String s){
+					return str.append(s == null ? "" : s);
+				}
+				@Override
+				public byte[] serialize(ArtifactIdentifier i) throws Exception{
+					if(i == null){
+						return null;
+					}else{
+						try{
+							StringBuilder str = new StringBuilder();
+							final String subtype = i.getSubtype();
+							append(str, subtype).append(",");
+							switch(subtype){
+								case OPMConstants.SUBTYPE_BLOCK_DEVICE:
+								case OPMConstants.SUBTYPE_CHARACTER_DEVICE:
+								case OPMConstants.SUBTYPE_DIRECTORY:
+								case OPMConstants.SUBTYPE_FILE:
+								case OPMConstants.SUBTYPE_LINK:
+								case OPMConstants.SUBTYPE_NAMED_PIPE:
+								case OPMConstants.SUBTYPE_UNIX_SOCKET:
+									append(str, ((PathIdentifier)i).getPath());
+									break;
+								case OPMConstants.SUBTYPE_MEMORY_ADDRESS: 
+									MemoryIdentifier mem = (MemoryIdentifier)i;
+									append(str, mem.getMemoryAddress()).append(",");
+									append(str, mem.getSize()).append(",");
+									append(str, mem.getTgid());
+									break;
+								case OPMConstants.SUBTYPE_NETWORK_SOCKET:
+									NetworkSocketIdentifier net = (NetworkSocketIdentifier)i;
+									append(str, net.getLocalHost()).append(",");
+									append(str, net.getLocalPort()).append(",");
+									append(str, net.getRemoteHost()).append(",");
+									append(str, net.getRemotePort()).append(",");
+									append(str, net.getProtocol());
+									break;
+								case OPMConstants.SUBTYPE_UNKNOWN:
+									UnknownIdentifier unknown = (UnknownIdentifier)i;
+									append(str, unknown.getFD()).append(",");
+									append(str, unknown.getTgid());
+									break;
+								case OPMConstants.SUBTYPE_UNNAMED_NETWORK_SOCKET_PAIR:
+									UnnamedNetworkSocketPairIdentifier unNet = (UnnamedNetworkSocketPairIdentifier)i;
+									append(str, unNet.fd0).append(",");
+									append(str, unNet.fd1).append(",");
+									append(str, unNet.protocol).append(",");
+									append(str, unNet.tgid);
+									break;
+								case OPMConstants.SUBTYPE_UNNAMED_PIPE:
+									UnnamedPipeIdentifier unPipe = (UnnamedPipeIdentifier)i;
+									append(str, unPipe.fd0).append(",");
+									append(str, unPipe.fd1).append(",");
+									append(str, unPipe.tgid);
+									break;
+								case OPMConstants.SUBTYPE_UNNAMED_UNIX_SOCKET_PAIR:
+									UnnamedUnixSocketPairIdentifier unUnix = (UnnamedUnixSocketPairIdentifier)i;
+									append(str, unUnix.fd0).append(",");
+									append(str, unUnix.fd1).append(",");
+									append(str, unUnix.tgid);
+									break;
+								default: throw new RuntimeException("Unexpected subtype: " + subtype);
+							}
+							return str.toString().getBytes();
+						}catch(Exception e){
+							throw new RuntimeException("Failed to serialize artifact identifier: " + i, e);
+						}
+					}
+				}
+				@Override
+				public byte[] serializeObject(Object o) throws Exception{
+					return serializeObject((ArtifactIdentifier)o);
+				}
+				@Override
+				public ArtifactIdentifier deserialize(byte[] j) throws Exception{
+					return null; // Only one-way needed
+				}
+				@Override
+				public ArtifactIdentifier deserializeObject(Object o) throws Exception{
+					return deserialize((byte[])o);
+				}
+			};
 	
 	private static final Converter<ArtifactState, byte[]> artifactStateConverter = 
 			new Converter<ArtifactState, byte[]>(){
@@ -361,7 +444,7 @@ public class ArtifactManager{
 			}else{
 				ExternalMapArgument externalMapArgument = externalMapArgumentResult.result;
 				Result<ExternalMap<ArtifactIdentifier, ArtifactState>> externalMapResult = ExternalMapManager.create(externalMapArgument,
-						new Serializable2ByteArrayConverter<ArtifactIdentifier>(), artifactStateConverter);
+						artifactIdentifierConverter, artifactStateConverter);
 				if(externalMapResult.error){
 					logger.log(Level.SEVERE, "Failed to create external map '"+artifactsMapId+"' from arguments: " + externalMapArgument);
 					logger.log(Level.SEVERE, externalMapResult.toErrorString());
