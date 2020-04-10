@@ -34,11 +34,8 @@ public class Execute{
 	
 	private static Logger logger = Logger.getLogger(Execute.class.getName());
 	
-	public static Output getOutput(final String command) throws Exception{
-		
+	private static Output getOutput(final String command, final Process process) throws Exception{
 		final Output output = new Output(command);
-		
-		Process process = Runtime.getRuntime().exec(command);
 		
 		final BufferedReader stdoutReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 		final BufferedReader stderrReader = new BufferedReader(new InputStreamReader(process.getErrorStream()));
@@ -85,6 +82,17 @@ public class Execute{
 		return output;
 	}
 	
+	public static Output getOutput(final String args[]) throws Exception{
+		final String command = String.join(" ", args);
+		final Process process = Runtime.getRuntime().exec(args);
+		return getOutput(command, process);
+	}
+	
+	public static Output getOutput(final String command) throws Exception{
+		final Process process = Runtime.getRuntime().exec(command);
+		return getOutput(command, process);
+	}
+	
 	/**
 	 * Class that contains the output of the executed command.
 	 */
@@ -92,7 +100,7 @@ public class Execute{
 		/**
 		 * Execute command
 		 */
-		private String command;
+		public final String command;
 		/**
 		 * Exit value of the process as returned by the JVM Process class.
 		 */
