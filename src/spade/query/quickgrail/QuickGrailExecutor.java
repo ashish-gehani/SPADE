@@ -42,6 +42,7 @@ import spade.core.SPADEQuery.QuickGrailInstruction;
 import spade.core.Settings;
 import spade.core.Vertex;
 import spade.query.quickgrail.core.AbstractQueryEnvironment;
+import spade.query.quickgrail.core.GraphDescription;
 import spade.query.quickgrail.core.GraphStats;
 import spade.query.quickgrail.core.Program;
 import spade.query.quickgrail.core.QueriedEdge;
@@ -53,6 +54,7 @@ import spade.query.quickgrail.entities.GraphPredicate;
 import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
+import spade.query.quickgrail.instruction.DescribeGraph;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
 import spade.query.quickgrail.instruction.EraseSymbols;
 import spade.query.quickgrail.instruction.EvaluateQuery;
@@ -73,7 +75,7 @@ import spade.query.quickgrail.instruction.InsertLiteralVertex;
 import spade.query.quickgrail.instruction.Instruction;
 import spade.query.quickgrail.instruction.IntersectGraph;
 import spade.query.quickgrail.instruction.LimitGraph;
-import spade.query.quickgrail.instruction.ListGraphs;
+import spade.query.quickgrail.instruction.List.ListType;
 import spade.query.quickgrail.instruction.OverwriteGraphMetadata;
 import spade.query.quickgrail.instruction.PrintPredicate;
 import spade.query.quickgrail.instruction.SetGraphMetadata;
@@ -204,7 +206,7 @@ public class QuickGrailExecutor{
 			PrintWriter pw = new PrintWriter(stackTrace);
 			pw.println("Error evaluating QuickGrail command:");
 			pw.println("------------------------------------------------------------");
-			e.printStackTrace(pw);
+			//e.printStackTrace(pw);
 			pw.println(e.getMessage());
 			pw.println("------------------------------------------------------------");
 
@@ -285,8 +287,8 @@ public class QuickGrailExecutor{
 		}else if(instruction.getClass().equals(LimitGraph.class)){
 			instructionExecutor.limitGraph((LimitGraph)instruction);
 
-		}else if(instruction.getClass().equals(ListGraphs.class)){
-			String tablesAsString = listGraphs((ListGraphs)instruction);
+		}else if(instruction.getClass().equals(spade.query.quickgrail.instruction.List.class)){
+			String tablesAsString = list((spade.query.quickgrail.instruction.List)instruction);
 			if(tablesAsString == null){
 				result = "No Result!";
 			}else{
@@ -306,7 +308,13 @@ public class QuickGrailExecutor{
 			}else{
 				result = stats;
 			}
-
+		}else if(instruction.getClass().equals(DescribeGraph.class)){
+			GraphDescription graphDescription = instructionExecutor.describeGraph((DescribeGraph)instruction);
+			if(graphDescription == null){
+				result = "No Result!";
+			}else{
+				result = graphDescription;
+			}
 		}else if(instruction.getClass().equals(SubtractGraph.class)){
 			instructionExecutor.subtractGraph((SubtractGraph)instruction);
 
@@ -375,60 +383,74 @@ public class QuickGrailExecutor{
 		return resultGraph;
 	}
 
-	private String listGraphs(ListGraphs instruction){
-		Map<String, GraphStats> graphsMap = instructionExecutor.listGraphs(instruction);
+	private String list(final spade.query.quickgrail.instruction.List instruction){
+		if(instruction.type == null){
+			throw new RuntimeException("NULL type for list instruction");
+		}else{
+			ResultTable graphTable = null;
+			ResultTable predicateTable = null;
+			
+			if(instruction.type == ListType.ALL || instruction.type == ListType.GRAPH){
+				graphTable = new ResultTable();
+				
+				Map<String, GraphStats> graphsMap = instructionExecutor.listGraphs(instruction);
 
-		List<String> sortedNonBaseSymbolNames = new ArrayList<String>();
-		sortedNonBaseSymbolNames.addAll(graphsMap.keySet());
-		sortedNonBaseSymbolNames.remove(queryEnvironment.getBaseGraphSymbol());
-		Collections.sort(sortedNonBaseSymbolNames);
+				List<String> sortedNonBaseSymbolNames = new ArrayList<String>();
+				sortedNonBaseSymbolNames.addAll(graphsMap.keySet());
+				sortedNonBaseSymbolNames.remove(queryEnvironment.getBaseGraphSymbol());
+				Collections.sort(sortedNonBaseSymbolNames);
 
-		ResultTable table = new ResultTable();
-		for(String symbolName : sortedNonBaseSymbolNames){
-			GraphStats graphStats = graphsMap.get(symbolName);
-			ResultTable.Row row = new ResultTable.Row();
-			row.add(symbolName);
-			row.add(graphStats.vertices);
-			row.add(graphStats.edges);
-			table.addRow(row);
-		}
+				for(String symbolName : sortedNonBaseSymbolNames){
+					GraphStats graphStats = graphsMap.get(symbolName);
+					ResultTable.Row row = new ResultTable.Row();
+					row.add(symbolName);
+					row.add(graphStats.vertices);
+					row.add(graphStats.edges);
+					graphTable.addRow(row);
+				}
 
-		// Add base last
-		GraphStats graphStats = graphsMap.get(queryEnvironment.getBaseGraphSymbol());
-		ResultTable.Row row = new ResultTable.Row();
-		row.add(queryEnvironment.getBaseGraphSymbol());
-		row.add(graphStats.vertices);
-		row.add(graphStats.edges);
-		table.addRow(row);
+				// Add base last
+				GraphStats graphStats = graphsMap.get(queryEnvironment.getBaseGraphSymbol());
+				ResultTable.Row row = new ResultTable.Row();
+				row.add(queryEnvironment.getBaseGraphSymbol());
+				row.add(graphStats.vertices);
+				row.add(graphStats.edges);
+				graphTable.addRow(row);
 
-		Schema schema = new Schema();
-		schema.addColumn("Graph Name", StringType.GetInstance());
-		if(!instruction.style.equals("name")){
-			schema.addColumn("Number of Vertices", LongType.GetInstance());
-			schema.addColumn("Number of Edges", LongType.GetInstance());
-		}
-		table.setSchema(schema);
-		
-		
-		ResultTable ptable = new ResultTable();
-		List<String> predicateSymbolsSorted = new ArrayList<String>(queryEnvironment.getCurrentPredicateSymbolsStringMap().keySet());
-		Collections.sort(predicateSymbolsSorted);
-		for(String predicateSymbolName : predicateSymbolsSorted){
-			GraphPredicate predicate = queryEnvironment.getPredicateSymbol(predicateSymbolName);
-			if(predicate != null){
-				ResultTable.Row prow = new ResultTable.Row();
-				prow.add(predicateSymbolName);
-				prow.add(predicate.predicateRoot.toString());
-				ptable.addRow(prow);
+				Schema schema = new Schema();
+				schema.addColumn("Graph Name", StringType.GetInstance());
+				schema.addColumn("Number of Vertices", LongType.GetInstance());
+				schema.addColumn("Number of Edges", LongType.GetInstance());
+				graphTable.setSchema(schema);
+			}
+			
+			if(instruction.type == ListType.ALL || instruction.type == ListType.PREDICATE){
+				predicateTable = new ResultTable();
+				List<String> predicateSymbolsSorted = new ArrayList<String>(queryEnvironment.getCurrentPredicateSymbolsStringMap().keySet());
+				Collections.sort(predicateSymbolsSorted);
+				for(String predicateSymbolName : predicateSymbolsSorted){
+					GraphPredicate predicate = queryEnvironment.getPredicateSymbol(predicateSymbolName);
+					if(predicate != null){
+						ResultTable.Row prow = new ResultTable.Row();
+						prow.add(predicateSymbolName);
+						prow.add(predicate.predicateRoot.toString());
+						predicateTable.addRow(prow);
+					}
+				}
+
+				Schema pschema = new Schema();
+				pschema.addColumn("Predicate Name", StringType.GetInstance());
+				pschema.addColumn("Value", StringType.GetInstance());
+				predicateTable.setSchema(pschema);
+			}
+			
+			switch(instruction.type){
+				case ALL: return graphTable.toString() + System.lineSeparator() + predicateTable.toString();
+				case GRAPH: return graphTable.toString();
+				case PREDICATE: return predicateTable.toString();
+				default: throw new RuntimeException("Unknown type for list instruction: " + instruction.type.toString().toLowerCase());
 			}
 		}
-
-		Schema pschema = new Schema();
-		pschema.addColumn("Predicate Name", StringType.GetInstance());
-		pschema.addColumn("Value", StringType.GetInstance());
-		ptable.setSchema(pschema);
-		
-		return table + System.lineSeparator() + ptable;
 	}
 
 	/*

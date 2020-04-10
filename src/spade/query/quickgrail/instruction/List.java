@@ -26,16 +26,23 @@ import spade.query.quickgrail.utility.TreeStringSerializable;
 /**
  * List all existing graphs in QuickGrail storage.
  */
-public class ListGraphs extends Instruction{
-	public final String style;
+public class List extends Instruction{
+	
+	public static enum ListType{ ALL, GRAPH, PREDICATE }
+	
+	public final ListType type;
 
-	public ListGraphs(String style){
-		this.style = style;
+	public List(ListType type){
+		if(type == null){
+			this.type = ListType.ALL;
+		}else{
+			this.type = type;
+		}
 	}
 
 	@Override
 	public String getLabel(){
-		return "ListGraphs";
+		return "List";
 	}
 
 	@Override
@@ -43,7 +50,7 @@ public class ListGraphs extends Instruction{
 			ArrayList<String> non_container_child_field_names,
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("style");
-		inline_field_values.add(style);
+		inline_field_names.add("type");
+		inline_field_values.add(type.toString().toLowerCase());
 	}
 }

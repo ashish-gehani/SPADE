@@ -69,6 +69,38 @@ public class QuickGrailPredicateTree{
 		validComparators.add(COMPARATOR_REGEX1);	validComparators.add(COMPARATOR_REGEX2);
 	}
 	
+	public static boolean isGraphPredicateExpression(final ParseExpression expression){
+		if(expression != null){
+			final ExpressionType expressionType = expression.getExpressionType();
+			switch(expressionType){
+				case kOperation:{
+					ParseOperation predicate = (ParseOperation)expression;
+					ParseString operator = predicate.getOperator();
+					switch(operator.getValue().toLowerCase()){
+						case BOOLEAN_OPERATOR_OR:
+						case BOOLEAN_OPERATOR_AND:
+						case BOOLEAN_OPERATOR_NOT:{
+							return true;
+						}
+						default:{
+							final String comparatorString = operator.getValue().toLowerCase().trim();
+							return validComparators.contains(comparatorString);
+						}
+					}
+				}
+				case kVariable:{
+					ParseVariable parseVariable = (ParseVariable)expression;
+					if(parseVariable.getType().getTypeID().equals(TypeID.kGraphPredicate)){
+						return true;
+					}
+				}
+				break;
+				default: break;
+			}
+		}
+		return false;
+	}
+	
 	public static PredicateNode resolveGraphPredicate(ParseExpression expression, AbstractQueryEnvironment env){
 		ExpressionType expressionType = expression.getExpressionType();
 		switch(expressionType){

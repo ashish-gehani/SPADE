@@ -27,6 +27,7 @@ import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.entities.GraphPredicate;
 import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
+import spade.query.quickgrail.instruction.DescribeGraph;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
 import spade.query.quickgrail.instruction.EraseSymbols;
 import spade.query.quickgrail.instruction.EvaluateQuery;
@@ -45,7 +46,8 @@ import spade.query.quickgrail.instruction.InsertLiteralVertex;
 import spade.query.quickgrail.instruction.Instruction;
 import spade.query.quickgrail.instruction.IntersectGraph;
 import spade.query.quickgrail.instruction.LimitGraph;
-import spade.query.quickgrail.instruction.ListGraphs;
+import spade.query.quickgrail.instruction.List;
+import spade.query.quickgrail.instruction.List.ListType;
 import spade.query.quickgrail.instruction.PrintPredicate;
 import spade.query.quickgrail.instruction.StatGraph;
 import spade.query.quickgrail.instruction.SubtractGraph;
@@ -283,6 +285,9 @@ public class QuickGrailQueryResolver{
 		case "stat":
 			resolveStatCommand(arguments);
 			break;
+		case "describe":
+			resolveDescribeCommand(arguments);
+			break;
 		case "list":
 			resolveListCommand(arguments);
 			break;
@@ -294,9 +299,6 @@ public class QuickGrailQueryResolver{
 			break;
 		case "native":
 			resolveNativeCommand(arguments);
-			break;
-		case "print":
-			resolvePrintCommand(arguments);
 			break;
 		default:
 			throw new RuntimeException(
@@ -326,8 +328,13 @@ public class QuickGrailQueryResolver{
 			expression = arguments.get(idx);
 		}
 
-		Graph targetGraph = resolveGraphExpression(expression, null, true);
-		instructions.add(new ExportGraph(targetGraph, ExportGraph.Format.kNormal, force));
+		if(QuickGrailPredicateTree.isGraphPredicateExpression(expression)){
+			PredicateNode predicateNode = QuickGrailPredicateTree.resolveGraphPredicate(expression, env);
+			instructions.add(new PrintPredicate(predicateNode));	
+		}else{ // Must be graph expression if not graph predicate
+			Graph targetGraph = resolveGraphExpression(expression, null, true);
+			instructions.add(new ExportGraph(targetGraph, ExportGraph.Format.kNormal, force));
+		}
 	}
 
 	private void resolveVisualizeCommand(ArrayList<ParseExpression> arguments){
@@ -362,14 +369,31 @@ public class QuickGrailQueryResolver{
 		instructions.add(new DistinctifyGraph(distinctifiedGraph, targetGraph));
 		instructions.add(new StatGraph(distinctifiedGraph));
 	}
+	
+	private void resolveDescribeCommand(ArrayList<ParseExpression> arguments){
+		if(arguments.size() != 1){
+			throw new RuntimeException("Invalid number of arguments for describe: expected 1");
+		}
+
+		Graph targetGraph = resolveGraphExpression(arguments.get(0), null, true);
+		Graph distinctifiedGraph = allocateEmptyGraph();
+		instructions.add(new DistinctifyGraph(distinctifiedGraph, targetGraph));
+		instructions.add(new DescribeGraph(distinctifiedGraph));
+	}
 
 	private void resolveListCommand(ArrayList<ParseExpression> arguments){
 		ExpressionStream stream = new ExpressionStream(arguments);
-		String style = stream.tryGetNextNameAsString();
-		if(style == null){
-			style = "standard";
+		String listTypeString = stream.tryGetNextNameAsString();
+		if(listTypeString == null){
+			instructions.add(new List(null));
+		}else{
+			try{
+				ListType listType = ListType.valueOf(listTypeString.toUpperCase());
+				instructions.add(new List(listType));
+			}catch(Exception e){
+				throw new RuntimeException("Unknown type of object to list: '"+listTypeString+"'");
+			}
 		}
-		instructions.add(new ListGraphs(style));
 	}
 
 	private void resolveEraseCommand(ArrayList<ParseExpression> arguments){
@@ -399,31 +423,6 @@ public class QuickGrailQueryResolver{
 				instructions.add(new EvaluateQuery(String.valueOf(value.getValue())));
 			}
 		}
-	}
-	
-	private void resolvePrintCommand(ArrayList<ParseExpression> arguments){
-		if(arguments.isEmpty()){
-			throw new RuntimeException("Invalid number of arguments for print predicate: expected 1");
-		}
-
-		final ParseExpression expression = arguments.get(0);
-		if(!expression.getExpressionType().equals(ExpressionType.kVariable)){
-			throw new RuntimeException("Invalid argument type for print predicate: " + expression.getExpressionType().toString().substring(1));
-		}
-		
-		final ParseVariable parseVariable = (ParseVariable)expression;
-		if(!parseVariable.getType().getTypeID().equals(TypeID.kGraphPredicate)){
-			throw new RuntimeException("Invalid variable type for print predicate: " + parseVariable.getType().getTypeID().toString().substring(1));
-		}
-		
-		String predicateSymbolName = parseVariable.getName().getValue();
-		GraphPredicate graphPredicate = env.getPredicateSymbol(predicateSymbolName);
-		if(graphPredicate == null){
-			throw new RuntimeException(
-					"Cannot resolve Graph predicate variable " + predicateSymbolName + " at " + parseVariable.getLocationString());
-		}
-		PredicateNode predicateNode = graphPredicate.predicateRoot;
-		instructions.add(new PrintPredicate(predicateNode));
 	}
 	
 	private void resolveResetCommand(ArrayList<ParseExpression> arguments){

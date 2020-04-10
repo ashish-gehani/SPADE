@@ -28,6 +28,7 @@ import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
+import spade.query.quickgrail.instruction.DescribeGraph;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
 import spade.query.quickgrail.instruction.EraseSymbols;
 import spade.query.quickgrail.instruction.EvaluateQuery;
@@ -45,7 +46,6 @@ import spade.query.quickgrail.instruction.InsertLiteralEdge;
 import spade.query.quickgrail.instruction.InsertLiteralVertex;
 import spade.query.quickgrail.instruction.IntersectGraph;
 import spade.query.quickgrail.instruction.LimitGraph;
-import spade.query.quickgrail.instruction.ListGraphs;
 import spade.query.quickgrail.instruction.OverwriteGraphMetadata;
 import spade.query.quickgrail.instruction.PrintPredicate;
 import spade.query.quickgrail.instruction.SetGraphMetadata;
@@ -87,7 +87,7 @@ public abstract class QueryInstructionExecutor{
 		}
 	}
 	
-	public final Map<String, GraphStats> listGraphs(ListGraphs instruction){
+	public final Map<String, GraphStats> listGraphs(spade.query.quickgrail.instruction.List instruction){
 		Map<String, GraphStats> allGraphStats = new HashMap<String, GraphStats>();
 		Set<String> allGraphSymbolNames = getQueryEnvironment().getCurrentGraphSymbolsStringMap().keySet();
 		for(String graphSymbol : allGraphSymbolNames){
@@ -105,6 +105,10 @@ public abstract class QueryInstructionExecutor{
 	public final PredicateNode printPredicate(PrintPredicate instruction){
 		return instruction.predicateRoot;
 	} 
+	
+	public final GraphDescription describeGraph(DescribeGraph instruction){
+		return null;
+	}
 	
 	public abstract GraphStats statGraph(StatGraph instruction);
 	public abstract void subtractGraph(SubtractGraph instruction);
