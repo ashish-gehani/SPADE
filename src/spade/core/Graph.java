@@ -28,10 +28,11 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Signature;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
@@ -39,7 +40,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import spade.query.quickgrail.instruction.GetLineage;
+import spade.query.quickgrail.instruction.GetLineage.Direction;
 import spade.reporter.audit.OPMConstants;
 
 /**
@@ -58,21 +59,10 @@ public class Graph implements Serializable{
 			.compile("\"(.*)\" \\[label=\"(.*)\" shape=\"(\\w*)\" fillcolor=\"(\\w*)\"", Pattern.DOTALL);
 	private static final Pattern edgePattern = Pattern
 			.compile("\"(.*)\" -> \"(.*)\" \\[label=\"(.*)\" color=\"(\\w*)\"", Pattern.DOTALL);
+
 	//////////////////////////////////////////////////////
-
-	// Must be ordered that's why LinkedHashSet TODO
-	private Set<AbstractVertex> vertexSet = new LinkedHashSet<>();
-	// Hash to vertex map
-	private Map<String, AbstractVertex> vertexIdentifiers = new HashMap<>();
-	// Vertex to hash map
-	private Map<AbstractVertex, String> reverseVertexIdentifiers = new HashMap<>();
-	// Must be ordered that's why LinkedHashSet
-	private Set<AbstractEdge> edgeSet = new LinkedHashSet<>();
-	// hash to edge map
-	private Map<String, AbstractEdge> edgeIdentifiers = new HashMap<>();
-	// edge to hash map
-	private Map<AbstractEdge, String> reverseEdgeIdentifiers = new HashMap<>();
-
+	private final Set<AbstractVertex> vertexSet = new LinkedHashSet<>();
+	private final Set<AbstractEdge> edgeSet = new LinkedHashSet<>();
 	//////////////////////////////////////////////////////
 
 	/**
@@ -90,14 +80,6 @@ public class Graph implements Serializable{
 	 * Would be configurable
 	 */
 	private int TTL = 1;
-	
-	public String getHash(AbstractVertex vertex){
-		return (reverseVertexIdentifiers.containsKey(vertex)) ? reverseVertexIdentifiers.get(vertex) : null;
-	}
-
-	public String getHash(AbstractEdge edge){
-		return (reverseEdgeIdentifiers.containsKey(edge)) ? reverseEdgeIdentifiers.get(edge) : null;
-	}
 
 	/**
 	 * This function inserts the given vertex into the underlying storage(s) and
@@ -108,15 +90,7 @@ public class Graph implements Serializable{
 	 *         not successful if the vertex is already present in the storage.
 	 */
 	public boolean putVertex(AbstractVertex incomingVertex){
-		if(reverseVertexIdentifiers.containsKey(incomingVertex)){
-			return false;
-		}
-
-		String hashCode = incomingVertex.bigHashCode();
-		vertexIdentifiers.put(hashCode, incomingVertex);
-		reverseVertexIdentifiers.put(incomingVertex, hashCode);
-		vertexSet.add(incomingVertex);
-		return true;
+		return vertexSet.add(incomingVertex);
 	}
 
 	/**
@@ -128,14 +102,7 @@ public class Graph implements Serializable{
 	 *         not successful if the edge is already present in the storage.
 	 */
 	public boolean putEdge(AbstractEdge incomingEdge){
-		if(reverseEdgeIdentifiers.containsKey(incomingEdge)){
-			return false;
-		}
-		String hashCode = incomingEdge.bigHashCode();
-		edgeIdentifiers.put(hashCode, incomingEdge);
-		reverseEdgeIdentifiers.put(incomingEdge, hashCode);
-		edgeSet.add(incomingEdge);
-		return true;
+		return edgeSet.add(incomingEdge);
 	}
 
 	/**
@@ -144,44 +111,22 @@ public class Graph implements Serializable{
 	 * @return True if both graphs have the same vertices and edges
 	 */
 	public boolean equals(Graph otherGraph){
-		if(this.vertexSet().size() != otherGraph.vertexSet().size())
+		if(otherGraph == null){
 			return false;
-		if(this.edgeSet().size() != otherGraph.edgeSet().size())
-			return false;
+		}
 
-		/*
-		 * Compare the sets of vertices and edges by their IDs. This should ordinarily
-		 * work with hashes and overriding equals() and hashCode() methods. hashCode()
-		 * is buggy. Meanwhile adding this method to compare two graphs.
-		 */
-
-		// Compares the sets of vertices
-		Iterator<AbstractVertex> thisVertex = this.vertexSet().iterator();
-		Set<String> thisVertexIds = new HashSet<>();
-		while(thisVertex.hasNext()){
-			thisVertexIds.add(thisVertex.next().bigHashCode());
-		}
-		Iterator<AbstractVertex> otherVertex = otherGraph.vertexSet().iterator();
-		Set<String> otherVertexIds = new HashSet<>();
-		while(otherVertex.hasNext()){
-			otherVertexIds.add(otherVertex.next().bigHashCode());
-		}
-		if(!thisVertexIds.equals(otherVertexIds))
+		if(this.vertexSet().size() != otherGraph.vertexSet().size()){
 			return false;
-
-		// Compare the sets of edges
-		Iterator<AbstractEdge> thisEdge = this.edgeSet().iterator();
-		Set<String> thisEdgeIds = new HashSet<>();
-		while(thisEdge.hasNext()){
-			thisEdgeIds.add(thisEdge.next().bigHashCode());
 		}
-		Iterator<AbstractEdge> otherEdge = otherGraph.edgeSet().iterator();
-		Set<String> otherEdgeIds = new HashSet<>();
-		while(otherEdge.hasNext()){
-			otherEdgeIds.add(otherEdge.next().bigHashCode());
-		}
-		if(!thisEdgeIds.equals(otherEdgeIds))
+		if(this.edgeSet().size() != otherGraph.edgeSet().size()){
 			return false;
+		}
+		if(!this.vertexSet().equals(otherGraph.vertexSet())){
+			return false;
+		}
+		if(!this.edgeSet().equals(otherGraph.edgeSet())){
+			return false;
+		}
 
 		return true;
 	}
@@ -192,8 +137,8 @@ public class Graph implements Serializable{
 	 *
 	 * @return True if the graph contains no vertex
 	 */
-	public boolean isEmpty(){
-		return (vertexSet().size() > 0);
+	private boolean isEmpty(){
+		return (vertexSet().size() == 0);
 	}
 
 	/**
@@ -225,21 +170,10 @@ public class Graph implements Serializable{
 	 */
 	public static Graph intersection(Graph graph1, Graph graph2){
 		Graph resultGraph = new Graph();
-		Set<AbstractVertex> vertices = new HashSet<>();
-		Set<AbstractEdge> edges = new HashSet<>();
-
-		vertices.addAll(graph1.vertexSet());
-		vertices.retainAll(graph2.vertexSet());
-		edges.addAll(graph1.edgeSet());
-		edges.retainAll(graph2.edgeSet());
-
-		for(AbstractVertex vertex : vertices){
-			resultGraph.putVertex(vertex);
-		}
-		for(AbstractEdge edge : edges){
-			resultGraph.putEdge(edge);
-		}
-
+		resultGraph.vertexSet().addAll(graph1.vertexSet());
+		resultGraph.vertexSet().retainAll(graph2.vertexSet());
+		resultGraph.edgeSet().addAll(graph1.edgeSet());
+		resultGraph.edgeSet().retainAll(graph2.edgeSet());
 		return resultGraph;
 	}
 
@@ -259,21 +193,10 @@ public class Graph implements Serializable{
 	 */
 	public static Graph union(Graph graph1, Graph graph2){
 		Graph resultGraph = new Graph();
-		Set<AbstractVertex> vertices = new HashSet<>();
-		Set<AbstractEdge> edges = new HashSet<>();
-
-		vertices.addAll(graph1.vertexSet());
-		vertices.addAll(graph2.vertexSet());
-		edges.addAll(graph1.edgeSet());
-		edges.addAll(graph2.edgeSet());
-
-		for(AbstractVertex vertex : vertices){
-			resultGraph.putVertex(vertex);
-		}
-		for(AbstractEdge edge : edges){
-			resultGraph.putEdge(edge);
-		}
-
+		resultGraph.vertexSet().addAll(graph1.vertexSet());
+		resultGraph.vertexSet().addAll(graph2.vertexSet());
+		resultGraph.edgeSet().addAll(graph1.edgeSet());
+		resultGraph.edgeSet().addAll(graph2.edgeSet());
 		return resultGraph;
 	}
 
@@ -287,27 +210,16 @@ public class Graph implements Serializable{
 	 */
 	public static Graph remove(Graph graph1, Graph graph2){
 		Graph resultGraph = new Graph();
-		Set<AbstractVertex> vertices = new HashSet<>();
-		Set<AbstractEdge> edges = new HashSet<>();
-
-		vertices.addAll(graph1.vertexSet());
-		vertices.removeAll(graph2.vertexSet());
-		edges.addAll(graph1.edgeSet());
-		edges.removeAll(graph2.edgeSet());
-
-		for(AbstractVertex vertex : vertices){
-			resultGraph.putVertex(vertex);
-		}
-		for(AbstractEdge edge : edges){
-			resultGraph.putEdge(edge);
-		}
-
+		resultGraph.vertexSet().addAll(graph1.vertexSet());
+		resultGraph.vertexSet().removeAll(graph2.vertexSet());
+		resultGraph.edgeSet().addAll(graph1.edgeSet());
+		resultGraph.edgeSet().removeAll(graph2.edgeSet());
 		return resultGraph;
 	}
 
 	public void remove(Graph graph){
-		vertexSet.removeAll(graph.vertexSet());
-		edgeSet.removeAll(graph.edgeSet());
+		this.vertexSet().removeAll(graph.vertexSet());
+		this.edgeSet().removeAll(graph.edgeSet());
 	}
 
 	public static Graph importGraph(String path){
@@ -469,7 +381,7 @@ public class Graph implements Serializable{
 	 * @param path The path to export the file to.
 	 */
 	public void exportGraph(String path){
-		if((path == null) || vertexSet.isEmpty()){
+		if((path == null)){
 			return;
 		}
 		try{
@@ -563,137 +475,167 @@ public class Graph implements Serializable{
 		}
 	}
 
-	/**
-	 * This function queries the underlying storage and retrieves the edge matching
-	 * the given criteria.
-	 *
-	 * @param childVertexHash  hash of the source vertex.
-	 * @param parentVertexHash hash of the destination vertex.
-	 * @return returns edge object matching the given vertices OR NULL.
-	 */
-	public AbstractEdge getEdge(String childVertexHash, String parentVertexHash){ // TODO how to based on current data structures
-		String jointHash = childVertexHash + parentVertexHash;
-		return (edgeIdentifiers.containsKey(jointHash)) ? edgeIdentifiers.get(jointHash) : null;
-	}
-
-	public AbstractEdge getEdge(String edgeHash){
-		return (edgeIdentifiers.containsKey(edgeHash)) ? edgeIdentifiers.get(edgeHash) : null;
-	}
-
-	/**
-	 * This function queries the underlying storage and retrieves the vertex
-	 * matching the given criteria.
-	 *
-	 * @param vertexHash hash of the vertex to find.
-	 * @return returns vertex object matching the given hash OR NULL.
-	 */
-	public AbstractVertex getVertex(String vertexHash){
-		return (vertexIdentifiers.containsKey(vertexHash)) ? vertexIdentifiers.get(vertexHash) : null;
-	}
-	
-	public Set<AbstractVertex> getVertices(Set<String> vertexHashes){
-		Set<AbstractVertex> vertices = new HashSet<>();
-		for(String vertexHash : vertexHashes){
-			AbstractVertex vertex = getVertex(vertexHash);
-			if(vertex != null){
-				vertices.add(vertex);
-			}
-		}
-		return vertices;
-	}
-
-	/**
-	 * This function finds the children of a given vertex. A child is defined as a
-	 * vertex which is the source of a direct edge between itself and the given
-	 * vertex.
-	 *
-	 * @param parentVertexHash hash of the given vertex
-	 * @return returns graph object containing children of the given vertex OR NULL.
-	 */
-	public Graph getChildren(String parentVertexHash){
+	public Graph getParents(Set<AbstractVertex> childVertices){
 		Graph result = new Graph();
 		for(AbstractEdge edge : edgeSet){
-			AbstractVertex parentVertex = edge.getParentVertex();
-			if(parentVertex.bigHashCode().equals(parentVertexHash)){
-				result.putVertex(parentVertex);
-				result.putVertex(edge.getChildVertex());
-				result.putEdge(edge);
+			AbstractVertex edgeChildVertex = edge.getChildVertex();
+			for(AbstractVertex childVertex : childVertices){
+				if(childVertex.bigHashCode().equals(edgeChildVertex.bigHashCode())){
+					result.putVertex(edgeChildVertex);
+					result.putVertex(edge.getParentVertex());
+					result.putEdge(edge);
+				}
 			}
 		}
 		return result;
 	}
 
-	/**
-	 * This function finds the parents of a given vertex. A parent is defined as a
-	 * vertex which is the destination of a direct edge between itself and the given
-	 * vertex.
-	 *
-	 * @param childVertexHash hash of the given vertex
-	 * @return returns graph object containing parents of the given vertex OR NULL.
-	 */
-	public Graph getParents(String childVertexHash){
+	public Graph getChildren(Set<AbstractVertex> parentVertices){
 		Graph result = new Graph();
 		for(AbstractEdge edge : edgeSet){
-			AbstractVertex childVertex = edge.getChildVertex();
-			if(childVertex.bigHashCode().equals(childVertexHash)){
-				result.putVertex(childVertex);
-				result.putVertex(edge.getParentVertex());
-				result.putEdge(edge);
+			AbstractVertex edgeParentVertex = edge.getParentVertex();
+			for(AbstractVertex parentVertex : parentVertices){
+				if(parentVertex.bigHashCode().equals(edgeParentVertex.bigHashCode())){
+					result.putVertex(edgeParentVertex);
+					result.putVertex(edge.getChildVertex());
+					result.putEdge(edge);
+				}
 			}
 		}
-
 		return result;
 	}
 
-	public Graph getLineage(Set<AbstractVertex> startingVertices, GetLineage.Direction direction, int maxDepth){
-		Graph result = new Graph();
-		if(startingVertices == null || startingVertices.isEmpty()){
-			return result;
+//	if(decryptionLevel.equals(HIGH))
+//
+//	{
+//		long tl = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").parse(timestamp).getTime();
+//		double td = ((double)tl) / (1000.00);
+//		timestamp = String.format("%.3f", td);
+//                                             }
+
+	public Graph getLineage(Set<AbstractVertex> startingVertices, Direction userDirection, int maxDepth){
+		if(startingVertices == null || startingVertices.isEmpty() || maxDepth < 1){
+			return new Graph();
 		}
-		
-		int currentDepth = 0;
-		final Set<String> remainingVertices = new HashSet<>();
-		startingVertices.forEach(v -> {
-			remainingVertices.add(v.bigHashCode());
-			result.putVertex(v);
-			}
-		);
-		
-		Set<String> visitedVertices = new HashSet<>();
-		while(!remainingVertices.isEmpty() && currentDepth < maxDepth){
-			visitedVertices.addAll(remainingVertices);
-			Set<String> currentSet = new HashSet<>();
-			for(String vertexHash : remainingVertices){
-				Graph neighbors = new Graph();
-				if(direction.equals(GetLineage.Direction.kAncestor)
-						|| direction.equals(GetLineage.Direction.kBoth)){
-					Graph g = getParents(vertexHash);
-					neighbors.vertexSet().addAll(g.vertexSet());
-					neighbors.edgeSet().addAll(g.edgeSet());
-				}
-				if(direction.equals(GetLineage.Direction.kDescendant)
-						|| direction.equals(GetLineage.Direction.kBoth)){
-					Graph g = getChildren(vertexHash);
-					neighbors.vertexSet().addAll(g.vertexSet());
-					neighbors.edgeSet().addAll(g.edgeSet());
-				}
-				result.vertexSet().addAll(neighbors.vertexSet());
-				result.edgeSet().addAll(neighbors.edgeSet());
-				for(AbstractVertex vertex : neighbors.vertexSet()){
-					String neighborHash = vertex.bigHashCode();
-					if(!visitedVertices.contains(neighborHash)){
-						currentSet.add(neighborHash);
+
+		final List<Direction> directions = new ArrayList<Direction>();
+		if(Direction.kAncestor.equals(userDirection) || Direction.kDescendant.equals(userDirection)){
+			directions.add(userDirection);
+		}else if(Direction.kBoth.equals(userDirection)){
+			directions.add(Direction.kAncestor);
+			directions.add(Direction.kDescendant);
+		}else{
+			throw new RuntimeException(
+					"Unexpected direction: '" + userDirection + "'. Expected: Ancestor, Descendant or Both");
+		}
+
+		Graph resultGraph = new Graph();
+
+		for(final Direction direction : directions){
+			Graph directionGraph = new Graph();
+
+			Set<AbstractVertex> currentLevelVertices = new HashSet<AbstractVertex>();
+			currentLevelVertices.addAll(startingVertices);
+
+			int currentDepth = 1;
+			while(currentLevelVertices.size() > 0){
+				if(currentDepth > maxDepth){
+					break;
+				}else{
+					Graph adjacentGraph = null;
+					if(Direction.kAncestor.equals(direction)){
+						adjacentGraph = getParents(currentLevelVertices);
+					}else if(Direction.kDescendant.equals(direction)){
+						adjacentGraph = getChildren(currentLevelVertices);
+					}else{
+						throw new RuntimeException(
+								"Unexpected direction: '" + direction + "'. Expected: Ancestor or Descendant");
+					}
+
+					if(adjacentGraph.isEmpty()){
+						break;
+					}else{
+						// Get only new vertices
+						// Get all the vertices in the adjacent graph
+						// Remove all the current level vertices from it and that means we have the only
+						// new vertices (i.e. next level)
+						// Remove all the vertices which are already in the the result graph to avoid
+						// doing duplicate work
+						Set<AbstractVertex> nextLevelVertices = new HashSet<AbstractVertex>();
+						nextLevelVertices.addAll(adjacentGraph.vertexSet());
+						nextLevelVertices.removeAll(currentLevelVertices);
+						nextLevelVertices.removeAll(directionGraph.vertexSet());
+
+						currentLevelVertices.clear();
+						currentLevelVertices.addAll(nextLevelVertices);
+
+						// Update the result graph after so that we don't remove all the relevant
+						// vertices
+						directionGraph.union(adjacentGraph);
+
+						currentDepth++;
 					}
 				}
-
 			}
-			remainingVertices.clear();
-			remainingVertices.addAll(currentSet);
-			currentDepth++;
+			resultGraph.union(directionGraph);
 		}
-
-		return result;
+		return resultGraph;
 	}
+
+	/*
+	private static Set<AbstractVertex> getVerticesWithNameA0(Graph graph){
+		Set<AbstractVertex> r = new HashSet<AbstractVertex>();
+		for(AbstractVertex vertex : graph.vertexSet()){
+			if("a0".equals(vertex.getAnnotation("name"))){
+				r.add(vertex);
+			}
+		}
+		return r;
+	}
+
+	private static Graph getTestGraph(){
+		Graph g = new Graph();
+		Process a0_0 = new Process();
+		a0_0.addAnnotation("name", "a0");
+		a0_0.addAnnotation("id", "0");
+		Process a0_1 = new Process();
+		a0_1.addAnnotation("name", "a0");
+		a0_1.addAnnotation("id", "1");
+		Process a1 = new Process();
+		a1.addAnnotation("name", "a1");
+		WasTriggeredBy wtb0 = new WasTriggeredBy(a0_0, a1);
+		WasTriggeredBy wtb1 = new WasTriggeredBy(a0_1, a1);
+		WasTriggeredBy wtb1_reverse = new WasTriggeredBy(a1, a0_1);
+
+		g.putVertex(a0_0);
+		g.putVertex(a0_1);
+		g.putVertex(a1);
+		g.putEdge(wtb0);
+		g.putEdge(wtb1);
+		g.putEdge(wtb1_reverse);
+
+		return g;
+	}
+
+	public static void main(String[] args) throws Exception{
+		String outputDot = "/tmp/delout.dot";
+		String outputSvg = "/tmp/delout.svg";
+		Graph inputGraph = getTestGraph();
+		System.out.println(inputGraph.exportGraph());
+		/////
+		Set<AbstractVertex> startVertices = getVerticesWithNameA0(inputGraph);
+		Graph outputGraph = inputGraph.getLineage(startVertices, GetLineage.Direction.kAncestor, 10);
+		/////
+		outputGraph.exportGraph(outputDot);
+		Execute.Output output = Execute.getOutput(
+				new String[]{"/bin/bash", "-c", "/usr/local/bin/dot -o " + outputSvg + " -Tsvg " + outputDot});
+//		Execute.Output output = Execute.getOutput(new String[]{"/bin/bash", "-c", "which dot"});
+		System.out.println(output.command + " = " + output.exitValue);
+		System.out.println(output.getStdOut());
+		System.out.println(output.getStdErr());
+//		Runtime.getRuntime().exec("dot -o " + outputSvg + " -Tsvg " + outputDot);
+	}
+	*/
 
 	public String getHostName(){
 		return hostName;
@@ -702,7 +644,7 @@ public class Graph implements Serializable{
 	public void setHostName(String hostName){
 		this.hostName = hostName;
 	}
-	
+
 	public byte[] getSignature(){
 		return signature;
 	}

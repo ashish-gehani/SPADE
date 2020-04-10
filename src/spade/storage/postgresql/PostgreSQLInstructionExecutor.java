@@ -772,93 +772,92 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		dropTable(answerTable);
 	}
 	
+	private void noResultExecuteQuery(String query){
+		executeQueryForResult(query, false);
+	}
+	
 	@Override
 	public void getShortestPath(GetShortestPath instruction){
-		/*final String connTable = "m_conn";
 		String filter;
-		createChildParentTable(connTable, true);
+		dropTable("m_conn");
+		noResultExecuteQuery("create table m_conn ("+getIdColumnNameChildVertex()+" uuid, "+getIdColumnNameParentVertex()+" uuid)");
 		if(queryEnvironment.isBaseGraph(instruction.subjectGraph)){
 			filter = "";
-			executeQueryForResult("insert into "+connTable
-					+" select \""+getIdColumnNameChildVertex()+"\", \""+getIdColumnNameParentVertex()+"\" from "
-					+getEdgeAnnotationTableName()+" group by \""+getIdColumnNameChildVertex()+"\", \""
-					+getIdColumnNameParentVertex()+"\";", false);
+			noResultExecuteQuery("insert into m_conn select " + getIdColumnNameChildVertex() + ", " + getIdColumnNameParentVertex() + " "
+					+ "from " + getEdgeAnnotationTableName() + " group by " + getIdColumnNameChildVertex() + ", " + getIdColumnNameParentVertex());
 		}else{
-			final String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
-			filter = " and "+getEdgeAnnotationTableName()+".\""+getIdColumnName()+"\" in "
-					+ "(select \""+getIdColumnName()+"\" from " + subjectEdgeTable + ")";
-			final String subgraphEdgesTable = "m_sgedge";
-			createChildParentTable(subgraphEdgesTable, true);
-			
-			executeQueryForResult("insert into "+subgraphEdgesTable
-					+" select \""+getIdColumnNameChildVertex()+"\", \""+getIdColumnNameParentVertex()+"\" from "
-					+getEdgeAnnotationTableName()+" where "+getIdColumnName()+" in (select "
-					+getIdColumnName()+" from "+subjectEdgeTable+");", false);
-			
-			executeQueryForResult("insert into "+connTable
-					+" select \""+getIdColumnNameChildVertex()+"\", \""+getIdColumnNameParentVertex()+"\" from "
-					+subgraphEdgesTable+" group by \""+getIdColumnNameChildVertex()+"\", \""
-					+getIdColumnNameParentVertex()+"\";", false);
-			
-			dropTable(subgraphEdgesTable);
+			String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
+			filter = " and "+getEdgeAnnotationTableName()+"."+getIdColumnName()+" in (select "+getIdColumnName()+" from " + subjectEdgeTable + ")";
+			dropTable("m_sgedge");
+			noResultExecuteQuery("create table m_sgedge ("+getIdColumnNameChildVertex()+" uuid, "+getIdColumnNameParentVertex()+" uuid)");
+			noResultExecuteQuery("insert into m_sgedge select " + getIdColumnNameChildVertex() + ", " + getIdColumnNameParentVertex() + " "
+					+ "from " + getEdgeAnnotationTableName() + " where " + getIdColumnName() + " in (select "+getIdColumnName()+" from "
+					+ subjectEdgeTable + ")");
+			noResultExecuteQuery("insert into m_conn select "+getIdColumnNameChildVertex()+", "+getIdColumnNameParentVertex()+" from "
+					+ "m_sgedge group by " + getIdColumnNameChildVertex() + ", " + getIdColumnNameParentVertex());
+			dropTable("m_sgedge");
 		}
-		final String connectedSubgraphTable = "m_sgconn";
 		// Create subgraph edges table.
-		dropTable(connectedSubgraphTable);
-		executeQueryForResult("create table "+connectedSubgraphTable+" (\""+getIdColumnNameChildVertex()
-			+"\" uuid, \""+getIdColumnNameParentVertex()+"\" uuid, reaching int, depth int)", false);
-
-		final String currentTable = "m_cur";
-		final String nextTable = "m_next";
-		final String answerTable = "m_answer";
+		dropTable("m_sgconn");
+		noResultExecuteQuery("create table m_sgconn ("+getIdColumnNameChildVertex()+" uuid, "+getIdColumnNameParentVertex()+" uuid,"
+				+ "reaching uuid, depth int)");
 		
+		dropTable("m_cur"); dropTable("m_next"); dropTable("m_answer");
+		noResultExecuteQuery("create table m_cur ("+getIdColumnName()+" uuid, reaching uuid)");
+		noResultExecuteQuery("create table m_next ("+getIdColumnName()+" uuid, reaching uuid)");
+		noResultExecuteQuery("create table m_answer ("+getIdColumnName()+" uuid)");
+
+		noResultExecuteQuery("insert into m_cur select "+getIdColumnName()+", " + getIdColumnName() + " from " 
+				+ getVertexTableName(instruction.dstGraph));
+		noResultExecuteQuery("insert into m_answer select " + getIdColumnName() + " from m_cur group by " + getIdColumnName());
 		
-		qs.executeQuery("DROP TABLE m_cur;\n" + "DROP TABLE m_next;\n" + "DROP TABLE m_answer;\n"
-				+ "CREATE TABLE m_cur (id INT, reaching INT);\n" + "CREATE TABLE m_next (id INT, reaching INT);\n"
-				+ "CREATE TABLE m_answer (id INT);");
-
-		qs.executeQuery("INSERT INTO m_cur SELECT id, id FROM " + getVertexTableName(instruction.dstGraph) + ";\n"
-				+ "\\analyzerange m_cur\n" + "INSERT INTO m_answer SELECT id FROM m_cur GROUP BY id;");
-
-		String loopStmts = "\\analyzecount m_cur\n" + "INSERT INTO m_sgconn SELECT src, dst, reaching, $depth"
-				+ " FROM m_cur, m_conn WHERE id = dst;\n" + "DROP TABLE m_next;\n"
-				+ "CREATE TABLE m_next (id INT, reaching INT);\n" + "INSERT INTO m_next SELECT src, reaching"
-				+ " FROM m_cur, m_conn WHERE id = dst;\n" + "DROP TABLE m_cur;\n"
-				+ "CREATE TABLE m_cur (id INT, reaching INT);\n" + "\\analyzerange m_answer\n"
-				+ "\\analyzecount m_next\n" + "INSERT INTO m_cur SELECT id, reaching FROM m_next"
-				+ " WHERE id NOT IN (SELECT id FROM m_answer) GROUP BY id, reaching;\n" + "\\analyzerange m_cur\n"
-				+ "INSERT INTO m_answer SELECT id FROM m_cur GROUP BY id;";
 		for(int i = 0; i < instruction.maxDepth; ++i){
-			qs.executeQuery(loopStmts.replace("$depth", String.valueOf(i + 1)));
+			noResultExecuteQuery(
+					"insert into m_sgconn select " + getIdColumnNameChildVertex() + ", " + getIdColumnNameParentVertex() + ", reaching, "+String.valueOf(i + 1)+" "
+					+ "from m_cur, m_conn where " + getIdColumnName() + " = " + getIdColumnNameParentVertex());
+			dropTable("m_next");
+			noResultExecuteQuery("create table m_next ("+getIdColumnName()+" uuid, reaching uuid)");
+			noResultExecuteQuery("insert into m_next select " + getIdColumnNameChildVertex() + ", reaching from "
+				+ "m_cur, m_conn where "+getIdColumnName()+" = " + getIdColumnNameParentVertex());
+			dropTable("m_cur");
+			noResultExecuteQuery("create table m_cur ("+getIdColumnName()+" uuid, reaching uuid)");
+			noResultExecuteQuery("insert into m_cur select " + getIdColumnName() + ", reaching from m_next where "
+				+ getIdColumnName() + " not in (select "+getIdColumnName()+" from m_answer) group by " + getIdColumnName() + ", reaching");
+			noResultExecuteQuery("insert into m_answer select " + getIdColumnName() + " from m_cur group by " + getIdColumnName());
 
-			String worksetSizeQuery = "COPY SELECT COUNT(*) FROM m_cur TO stdout;";
-			if(qs.executeQueryForLongResult(worksetSizeQuery) == 0){
+			List<List<String>> countResult = executeQueryForResult("select count(*) from m_cur", false);
+			long cursorTableCount = Long.parseLong(countResult.get(0).get(0));
+			if(cursorTableCount == 0){
 				break;
 			}
 		}
 
-		qs.executeQuery("DROP TABLE m_cur;\n" + "DROP TABLE m_next;\n" + "CREATE TABLE m_cur (id INT);\n"
-				+ "CREATE TABLE m_next (id INT);");
+		dropTable("m_cur"); dropTable("m_next");
+		noResultExecuteQuery("create table m_cur ("+getIdColumnName()+" uuid)");
+		noResultExecuteQuery("create table m_next ("+getIdColumnName()+" uuid)");
 
-		qs.executeQuery("\\analyzerange m_answer\n" + "INSERT INTO m_cur SELECT id FROM "
-				+ getVertexTableName(instruction.srcGraph) + " WHERE id IN (SELECT id FROM m_answer);\n");
+		noResultExecuteQuery("insert into m_cur select " + getIdColumnName() + " from " + getVertexTableName(instruction.srcGraph)
+				+ " where " + getIdColumnName() + " in (select "+getIdColumnName()+" from m_answer)");
 
-		qs.executeQuery("DROP TABLE m_answer;\n" + "CREATE TABLE m_answer (id INT);\n"
-				+ "INSERT INTO m_answer SELECT id FROM m_cur;");
+		dropTable("m_answer");
+		noResultExecuteQuery("create table m_answer ("+getIdColumnName()+" uuid)");
+		noResultExecuteQuery("insert into m_answer select " + getIdColumnName() + " from m_cur");
 
-		qs.executeQuery("\\analyzerange m_answer\n" + "\\analyze m_sgconn\n");
-
-		loopStmts = "DROP TABLE m_next;\n" + "CREATE TABLE m_next(id INT);\n" + "INSERT INTO m_next SELECT MIN(dst)"
-				+ " FROM m_cur, m_sgconn WHERE id = src" + " AND depth + $depth <= "
-				+ String.valueOf(instruction.maxDepth) + " GROUP BY src, reaching;\n" + "DROP TABLE m_cur;\n"
-				+ "CREATE TABLE m_cur(id INT);\n" + "\\analyzerange m_answer\n"
-				+ "INSERT INTO m_cur SELECT id FROM m_next WHERE id NOT IN (SELECT id FROM m_answer);\n"
-				+ "INSERT INTO m_answer SELECT id FROM m_cur;";
 		for(int i = 0; i < instruction.maxDepth; ++i){
-			qs.executeQuery(loopStmts.replace("$depth", String.valueOf(i)));
-
-			String worksetSizeQuery = "COPY SELECT COUNT(*) FROM m_cur TO stdout;";
-			if(qs.executeQueryForLongResult(worksetSizeQuery) == 0){
+			dropTable("m_next");
+			noResultExecuteQuery("create table m_next ("+getIdColumnName()+" uuid)");
+			noResultExecuteQuery("insert into m_next select min(" + getIdColumnNameParentVertex() + "::text)::uuid" // TODO as?
+					+ " from m_cur, m_sgconn where " + getIdColumnName() + " = " + getIdColumnNameChildVertex() + " and depth + " + String.valueOf(i) 
+					+ " <= " + String.valueOf(instruction.maxDepth) + " group by " + getIdColumnNameChildVertex() + ", reaching");
+			dropTable("m_cur");
+			noResultExecuteQuery("create table m_cur ("+getIdColumnName()+" uuid)");
+			noResultExecuteQuery("insert into m_cur select "+getIdColumnName()+" from m_next where "
+					+getIdColumnName()+" not in (select "+getIdColumnName()+" from m_answer)");
+			noResultExecuteQuery("insert into m_answer select "+getIdColumnName()+" from m_cur");
+			
+			List<List<String>> countResult = executeQueryForResult("select count(*) from m_cur", false);
+			long cursorTableCount = Long.parseLong(countResult.get(0).get(0));
+			if(cursorTableCount == 0){
 				break;
 			}
 		}
@@ -866,14 +865,13 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		String targetVertexTable = getVertexTableName(instruction.targetGraph);
 		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
 
-		qs.executeQuery("\\analyzerange m_answer\n" + "INSERT INTO " + targetVertexTable + " SELECT id FROM m_answer;\n"
-				+ "INSERT INTO " + targetEdgeTable + " SELECT id FROM edge" + " WHERE src IN (SELECT id FROM m_answer)"
-				+ " AND dst IN (SELECT id FROM m_answer)" + filter + ";");
-
-		qs.executeQuery("DROP TABLE m_cur;\n" + "DROP TABLE m_next;\n" + "DROP TABLE m_answer;\n"
-				+ "DROP TABLE m_conn;\n" + "DROP TABLE m_sgconn;");*/
+		noResultExecuteQuery("insert into " + targetVertexTable + " select " + getIdColumnName() + " from m_answer");
+		noResultExecuteQuery("insert into " + targetEdgeTable + " select " + getIdColumnName() + " from " + getEdgeAnnotationTableName()
+			+ " where " + getIdColumnNameChildVertex() + " in (select "+getIdColumnName()+" from m_answer)"
+			+ " and " + getIdColumnNameParentVertex() + " in (select "+getIdColumnName()+" from m_answer) " + filter);
+		dropTable("m_cur");dropTable("m_next");dropTable("m_answer");dropTable("m_conn");dropTable("m_sgconn");
 	}
-
+	
 	@Override
 	public void getLineage(GetLineage instruction){
 		final List<Direction> directions = new ArrayList<Direction>();
