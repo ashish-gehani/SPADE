@@ -40,7 +40,7 @@ visualize force $paths
   * _graph_ ::= _graph_ `.` _graph-method_ `(` _argument-list_ `)`
   * _graph_ ::= _graph_ ( `+` | `-` | `&` ) _graph_
 * Graph Predicates
-  * _graph-predicate_ ::= _name_ ( `=` / `<>` / `>` / `<` / `>=` / `<=` | `like` | `regexp` ) _string-literal_
+  * _graph-predicate_ ::= _name_ ( `==` / `!=` / `>` / `<` / `>=` / `<=` | `like` | `regexp` ) _string-literal_
   * _graph-predicate_ ::= _graph-predicate_ ( `and` | `or` ) _graph-predicate_
   * _graph-predicate_ ::= `not` _graph-predicate_
   * _graph-predicate_ ::= `(` _graph-predicate_ `)`
