@@ -46,18 +46,24 @@ visualize force $paths
   * _graph-predicate_ ::= `(` _graph-predicate_ `)`
 
 ## Commands
-* List all existing graphs.
+* List all existing graphs and all existing predicates.
   * `list`
+  * `list graph` will only list graphs
+  * `list predicate` will only list predicates
 * Output graph statistics.
   * `stat` _graph_
 * Output graph as a SPADE `Graph`.
   * `dump` _graph_
+* Output predicate.
+  * `dump` _predicate_
 * Output graph in DOT format.
   * `visualize` _graph_
-* Remove a list of variables and the corresponding tables.
+* Remove a list of variables (_graph_ or _predicate_).
   * `erase` (_graph_)+
-* Remove all variables and the corresponding tables.
+* Remove all variables.
   * `reset workspace`
+* Execute query directly on the underlying storage.
+  * `native` '_query_in_single_quotes_'
 
 ## Methods
 #### Method Declaration Notation
