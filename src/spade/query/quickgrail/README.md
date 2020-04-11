@@ -31,8 +31,8 @@ visualize force $paths
 * Graph Variables
   * E.g. `$ip`, `$1`
     * `$base` is a special immutable variable that represents the overall graph.
-* Graph Meta-data Variables
-  * E.g. `@ip`, `@1`
+* Graph Predicate Variables
+  * E.g. `%ip`, `%1`
 
 ## Expressions
 * Graph Expressions
