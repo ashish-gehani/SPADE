@@ -2,15 +2,21 @@
 
 ## Basic Examples
 ```
-# Find the nodes that we are interested in.
-$start_ip = $base.getVertex(* like '%128.55.12.104%');
+# Define a constraint to match all vertices with IPs that start with '128.55.12'
+%start_ip_constraint = * like '128.55.12.%'
+# Find the nodes that we are interested in by using the constraint defined above
+$start_ip = $base.getVertex(%start_ip_constraint);
+# Find the nodes that we are interested in by using the constraint directly
 $elevate_me = $base.getVertex(* like '%elevateme%');
 
-# Find the paths from $elevate_me to $start_ip.
-$si2em = $base.getPath($elevate_me, $start_ip, 4);
+# Find the paths from $elevate_me to $start_ip of length at max 4
+$paths = $base.getPath($elevate_me, $start_ip, 4);
 
-# Output the subgraph.
-dump $si2em;
+# Output the subgraph to the client terminal
+dump $paths;
+# Output the subgraph to a file
+export > /tmp/paths.dot
+visualize force $paths
 ```
 
 ## Lexical Structure
