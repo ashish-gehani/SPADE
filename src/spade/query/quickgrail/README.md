@@ -27,7 +27,7 @@ visualize force $paths
 * Name
   * E.g. `dump`, `type`, `*` (_yes "star" is a name_..), `"a name with space and double quotes"`
 * Operators
-  * E.g. `=`, `+`, `+=`, `-`, `&`, `==`
+  * E.g. `=`, `+`, `+=`, `-`, `-=`, `&`, `&=`
 * Graph Variables
   * E.g. `$ip`, `$1`
     * `$base` is a special immutable variable that represents the overall graph.
@@ -120,29 +120,12 @@ _return-type_ **method-name** ( **_argument-type_** formal-argument, ... )
   * E.g. `$2 = $1.limit(10)`
 ---
 #### Functions
-* _graph_ **vertices** ( **_int_** vertexId, ... )
-  * Get all vertices specified by the vertex ids.
-  * E.g. `$1 = vertices(31739934, 31740737, 31740738).span($base)`
-* _graph_ **edges** ( **_int_** edgeId, ... )
-  * Get all edges specified by the edge ids.
-  * E.g. `$1 = edges(121997607, 121997288).span($base)`
-* _graph_ **asVertex** ( **_string_** sqlQuery )
-  * Evaluate _sqlQuery_ and use the result table as vertex ids for the result graph.
-  * E.g. _Get the top 10 vertices which have the largest indegree:_
-    ```
-    $top10_largest_indegree =
-        asVertex('SELECT dst FROM edge GROUP by dst ORDER BY COUNT(src) DESC LIMIT 10;')
-    ```
-  * Can refer to _graph-variable_:
-    ```
-    $1 = $base.getLineage($base.getVertex(* LIKE '%elevateme%'), 1, 'b');
-    $2 = asVertex('SELECT id FROM $1.vertex;');
-    $3 = asVertex('SELECT src FROM edge WHERE id IN (SELECT id FROM $1.edge);') +
-         asVertex('SELECT dst FROM edge WHERE id IN (SELECT id FROM $1.edge);');
-    ```
-* _graph_ **asEdge** ( **_string_** sqlQuery )
-  * Evaluate _sqlQuery_ and use the result table as edge ids for the result graph.
-  * Similar to _asVertex_.
+* _graph_ **vertices** ( **_string_** vertexHash, ... )
+  * Get all vertices specified by the vertex hashes.
+  * E.g. `$1 = vertices('815fd285f16cce9ab398b5b2ce5d2d03', '087b22992d4d871dc8c9ccd837132c6a').span($base)`
+* _graph_ **edges** ( **_string_** edgeHash, ... )
+  * Get all edges specified by the edge hashes.
+  * E.g. `$1 = edges('b161b03a4365faf44d8cdd3713f811e9', 'b161b03a4365faf44d8cdd3713f811e0').span($base)`
 
 ## Operators
 * Graph Union `+`, `+=`
