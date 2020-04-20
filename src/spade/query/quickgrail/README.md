@@ -113,10 +113,6 @@ _return-type_ **method-name** ( **_argument-type_** formal-argument, ... )
 * _graph_ **getSubgraph** ( **_graph_** skeletonGraph )
   * Get all the vertices and edges that are spanned by the skeleton graph.
   * E.g. `$2 = $base.getSubgraph($1)`
-* _graph_ **span** ( **_graph_** sourceGraph )
-  * Get all the vertices and edges from _sourceGraph_ that are spanned by _this_ graph.
-  * This method is symmetric to getSubgraph, i.e. `$b.span($a)` is equivalent to `$a.getSubgraph($b)`.
-  * E.g. `$2 = $1.span($base)`
 * _graph_ **limit** ( **_int_** limit)
   * Get the first (ordered by id) _limit_ vertices / edges.
   * E.g. `$2 = $1.limit(10)`
