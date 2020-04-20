@@ -29,9 +29,11 @@ visualize force $paths
 * Operators
   * E.g. `=`, `+`, `+=`, `-`, `-=`, `&`, `&=`
 * Graph Variables
+  * Variable name format: `$[a-zA-Z0-9_]+`
   * E.g. `$ip`, `$1`
     * `$base` is a special immutable variable that represents the overall graph.
-* Graph Predicate Variables
+* Constraint Variables
+  * Variable name format: `%[a-zA-Z0-9_]+`
   * E.g. `%ip`, `%1`
 
 ## Expressions
@@ -39,26 +41,26 @@ visualize force $paths
   * _graph_ ::= _graph-variable_
   * _graph_ ::= _graph_ `.` _graph-method_ `(` _argument-list_ `)`
   * _graph_ ::= _graph_ ( `+` | `-` | `&` ) _graph_
-* Graph Predicates
-  * _graph-predicate_ ::= _name_ ( `==` / `!=` / `>` / `<` / `>=` / `<=` | `like` | `regexp` ) _string-literal_
-  * _graph-predicate_ ::= _graph-predicate_ ( `and` | `or` ) _graph-predicate_
-  * _graph-predicate_ ::= `not` _graph-predicate_
-  * _graph-predicate_ ::= `(` _graph-predicate_ `)`
+* Constraint Expressions
+  * _constraint-name_ ::= %[a-zA-Z0-9_]+
+  * _constraint-comparison-expression_ ::= _name_ ( `==` | `!=` | `>` | `<` | `>=` | `<=` | `like` ) _string-literal_
+  * _constraint-expression_ ::= [ `not` ] _constraint-comparison-expression_ | [ `not` ] _constraint-name_
+  * _constraint_ ::= _constraint-expression_ [ `and` | `or` _constraint-expression_ ]
 
 ## Commands
-* List all existing graphs and all existing predicates.
+* List all existing graphs and all existing constraints.
   * `list`
   * `list graph` will only list graphs
-  * `list predicate` will only list predicates
+  * `list constraint` will only list constraints
 * Output graph statistics.
   * `stat` _graph_
 * Output graph as a SPADE `Graph`.
   * `dump` _graph_
-* Output predicate.
-  * `dump` _predicate_
+* Output constraint.
+  * `dump` _constraint_
 * Output graph in DOT format.
-  * `visualize` _graph_
-* Remove a list of variables (_graph_ or _predicate_).
+  * `visualize` [`force`] _graph_
+* Remove a list of variables (_graph_ or _constraint_).
   * `erase` (_graph_)+
 * Remove all variables.
   * `reset workspace`
@@ -76,14 +78,14 @@ _return-type_ **method-name** ( **_argument-type_** formal-argument, ... )
 * _graph_ **getVertex** ( )
   * Get all the vertices.
   * E.g. `$2 = $1.getVertex()`
-* _graph_ **getVertex** ( **_graph-predicate_** predicate )
-  * Get all the vertices that match a predicate.
+* _graph_ **getVertex** ( **_constraint_** constraint )
+  * Get all the vertices that match a constraint.
   * E.g. `$2 = $1.getVertex(* LIKE '%firefox%')`
 * _graph_ **getEdge** ( )
   * Get all the edges.
   * E.g. `$2 = $1.getEdge()`
-* _graph_ **getEdge** ( **_graph-predicate_** predicate )
-  * Get all the edges that match a predicate.
+* _graph_ **getEdge** ( **_constraint_** constraint )
+  * Get all the edges that match a constraint.
   * E.g. `$2 = $1.getEdge(operation = 'write')`
 * _graph_ **collapseEdge** ( **_string_** annotation, ... )
   * Collapse edges with regard to the annotations.
