@@ -93,8 +93,10 @@ import spade.query.quickgrail.utility.Schema;
 import spade.reporter.audit.OPMConstants;
 import spade.transformer.ABE;
 import spade.utility.DiscrepancyDetector;
+import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 import spade.utility.RemoteSPADEQueryConnection;
+import spade.utility.Result;
 
 /**
  * Top level class for the QuickGrail graph query executor.
@@ -106,12 +108,15 @@ public class QuickGrailExecutor{
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
-	private final static long exportGraphDumpLimit = 4096, exportGraphVisualizeLimit = 4096;
+	private static final String configKeyDumpLimit = "dumpLimit", configKeyVisualizeLimit = "visualizeLimit"; 
+	private long exportGraphDumpLimit, exportGraphVisualizeLimit;
 
 	private final AbstractQueryEnvironment queryEnvironment;
 	private final QueryInstructionExecutor instructionExecutor;
 
 	public QuickGrailExecutor(QueryInstructionExecutor instructionExecutor){
+		initializeGlobalsFromDefaultConfigFile();
+		
 		this.instructionExecutor = instructionExecutor;
 		if(this.instructionExecutor == null){
 			throw new IllegalArgumentException("NULL instruction executor");
@@ -124,6 +129,32 @@ public class QuickGrailExecutor{
 			this.discrepancyDetector = new DiscrepancyDetector();
 		}catch(Throwable t){
 			throw new RuntimeException("Failed to initialize discrepancy detection", t);
+		}
+	}
+	
+	private void initializeGlobalsFromDefaultConfigFile() throws RuntimeException{
+		String configFilePath = Settings.getDefaultConfigFilePath(this.getClass());
+		try{
+			Map<String, String> map = FileUtility.readConfigFileAsKeyValueMap(configFilePath, "=");
+			Result<Long> dumpLimitResult = HelperFunctions.parseLong(map.get(configKeyDumpLimit), 10, 0, Long.MAX_VALUE);
+			if(dumpLimitResult.error){
+				throw new RuntimeException("Invalid '"+configKeyDumpLimit+"' value. " + dumpLimitResult.toErrorString());
+			}
+			exportGraphDumpLimit = dumpLimitResult.result;
+			
+			Result<Long> visualizeLimitResult = HelperFunctions.parseLong(map.get(configKeyVisualizeLimit), 10, 0, Long.MAX_VALUE);
+			if(visualizeLimitResult.error){
+				throw new RuntimeException("Invalid '"+configKeyVisualizeLimit+"' value. " + visualizeLimitResult.toErrorString());
+			}
+			exportGraphVisualizeLimit = visualizeLimitResult.result;
+			
+			logger.log(Level.INFO, "Globals: {0}={1}, {2}={3}", 
+					new Object[]{
+							configKeyDumpLimit, String.valueOf(exportGraphDumpLimit),
+							configKeyVisualizeLimit, String.valueOf(exportGraphVisualizeLimit)
+							});
+		}catch(Exception e){
+			throw new RuntimeException("Failed to initialize globals in file '"+configFilePath+"'. " + e.getMessage());
 		}
 	}
 
@@ -382,7 +413,7 @@ public class QuickGrailExecutor{
 		resultGraph.edgeSet().addAll(edges);
 		return resultGraph;
 	}
-
+	
 	private String list(final spade.query.quickgrail.instruction.List instruction){
 		if(instruction.type == null){
 			throw new RuntimeException("NULL type for list instruction");
@@ -424,7 +455,7 @@ public class QuickGrailExecutor{
 				graphTable.setSchema(schema);
 			}
 			
-			if(instruction.type == ListType.ALL || instruction.type == ListType.PREDICATE){
+			if(instruction.type == ListType.ALL || instruction.type == ListType.CONSTRAINT){
 				predicateTable = new ResultTable();
 				List<String> predicateSymbolsSorted = new ArrayList<String>(queryEnvironment.getCurrentPredicateSymbolsStringMap().keySet());
 				Collections.sort(predicateSymbolsSorted);
@@ -439,7 +470,7 @@ public class QuickGrailExecutor{
 				}
 
 				Schema pschema = new Schema();
-				pschema.addColumn("Predicate Name", StringType.GetInstance());
+				pschema.addColumn("Constraint Name", StringType.GetInstance());
 				pschema.addColumn("Value", StringType.GetInstance());
 				predicateTable.setSchema(pschema);
 			}
@@ -447,7 +478,7 @@ public class QuickGrailExecutor{
 			switch(instruction.type){
 				case ALL: return graphTable.toString() + System.lineSeparator() + predicateTable.toString();
 				case GRAPH: return graphTable.toString();
-				case PREDICATE: return predicateTable.toString();
+				case CONSTRAINT: return predicateTable.toString();
 				default: throw new RuntimeException("Unknown type for list instruction: " + instruction.type.toString().toLowerCase());
 			}
 		}
@@ -530,6 +561,11 @@ public class QuickGrailExecutor{
 		}else{
 			throw new RuntimeException(
 					"Unexpected direction: '" + instruction.direction + "'. Expected: Ancestor, Descendant or Both");
+		}
+		
+		if(instruction.onlyLocal){
+			instructionExecutor.getLineage(instruction);
+			return originalSPADEQuery;
 		}
 		
 		final Map<Direction, Map<AbstractVertex, Integer>> direction2Network2MinDepth = 

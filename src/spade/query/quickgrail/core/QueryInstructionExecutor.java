@@ -22,6 +22,8 @@ package spade.query.quickgrail.core;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import spade.core.AbstractStorage;
 import spade.query.quickgrail.entities.Graph;
@@ -56,6 +58,8 @@ import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
 import spade.query.quickgrail.utility.ResultTable;
 
 public abstract class QueryInstructionExecutor{
+	
+	private static final Logger logger = Logger.getLogger(QueryInstructionExecutor.class.getName());
 	
 	public abstract AbstractQueryEnvironment getQueryEnvironment();
 	public abstract AbstractStorage getStorage();
@@ -92,8 +96,12 @@ public abstract class QueryInstructionExecutor{
 		Set<String> allGraphSymbolNames = getQueryEnvironment().getCurrentGraphSymbolsStringMap().keySet();
 		for(String graphSymbol : allGraphSymbolNames){
 			Graph graph = getQueryEnvironment().getGraphSymbol(graphSymbol);
-			GraphStats stats = statGraph(new StatGraph(graph));
-			allGraphStats.put(graphSymbol, stats);
+			try{
+				GraphStats stats = statGraph(new StatGraph(graph));
+				allGraphStats.put(graphSymbol, stats);
+			}catch(RuntimeException e){
+				logger.log(Level.SEVERE, "Failed to stat graph: " + graphSymbol + ". Skipped.", e);
+			}	
 		}
 		String baseSymbol = getQueryEnvironment().getBaseGraphSymbol();
 		Graph baseGraph = getQueryEnvironment().getBaseGraph();

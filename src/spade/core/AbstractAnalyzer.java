@@ -33,6 +33,8 @@ import spade.utility.Result;
  */
 public abstract class AbstractAnalyzer{
 
+	public static enum HelpType{ ALL, CONTROL, CONSTRAINT, GRAPH }
+	
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 	
 	private static final String configKeyNameUseScaffold = "use_scaffold";
@@ -165,7 +167,7 @@ public abstract class AbstractAnalyzer{
 	public abstract void shutdown();
 
 	public abstract class QueryConnection implements Runnable{
-
+		
 		private static final String commandSetStorage = "set storage <storage_name>";
 
 		protected final Logger logger = Logger.getLogger(this.getClass().getName());
@@ -220,6 +222,24 @@ public abstract class AbstractAnalyzer{
 							spadeQuery.querySucceeded("No current storage set");
 						}else{
 							spadeQuery.querySucceeded(currentStorage.getClass().getSimpleName());
+						}
+						safeWriteToClient(spadeQuery);
+						continue;
+					}else if(queryTokens[0].toLowerCase().equals("help")){
+						try{
+							HelpType helpType = null;
+							if(queryTokens.length > 1){
+								if(queryTokens.length > 2){
+									throw new RuntimeException("Unexpected number of arguments to help command. Expected only one");
+								}
+								helpType = HelpType.valueOf(queryTokens[1].toUpperCase());
+							}else{
+								helpType = HelpType.ALL;
+							}
+							String result = getQueryHelpTextAsString(helpType);
+							spadeQuery.querySucceeded(result);
+						}catch(Exception e){
+							spadeQuery.queryFailed(new RuntimeException("Failed to execute help command: " + e.getMessage()));
 						}
 						safeWriteToClient(spadeQuery);
 						continue;
@@ -308,6 +328,7 @@ public abstract class AbstractAnalyzer{
 
 		public abstract void doQueryingShutdownForCurrentStorage() throws Exception;
 
+		public abstract String getQueryHelpTextAsString(HelpType type) throws Exception;
 		public abstract SPADEQuery executeQuery(SPADEQuery query) throws Exception;
 
 		public abstract void shutdown();

@@ -28,7 +28,7 @@ import spade.query.quickgrail.utility.TreeStringSerializable;
  */
 public class List extends Instruction{
 	
-	public static enum ListType{ ALL, GRAPH, PREDICATE }
+	public static enum ListType{ ALL, GRAPH, CONSTRAINT }
 	
 	public final ListType type;
 
