@@ -120,10 +120,10 @@ _return-type_ **method-name** ( **_argument-type_** formal-argument, ... )
 #### Functions
 * _graph_ **vertices** ( **_string_** vertexHash, ... )
   * Get all vertices specified by the vertex hashes.
-  * E.g. `$1 = vertices('815fd285f16cce9ab398b5b2ce5d2d03', '087b22992d4d871dc8c9ccd837132c6a').span($base)`
+  * E.g. `$1 = vertices('815fd285f16cce9ab398b5b2ce5d2d03', '087b22992d4d871dc8c9ccd837132c6a')`
 * _graph_ **edges** ( **_string_** edgeHash, ... )
   * Get all edges specified by the edge hashes.
-  * E.g. `$1 = edges('b161b03a4365faf44d8cdd3713f811e9', 'b161b03a4365faf44d8cdd3713f811e0').span($base)`
+  * E.g. `$1 = edges('b161b03a4365faf44d8cdd3713f811e9', 'b161b03a4365faf44d8cdd3713f811e0')`
 
 ## Operators
 * Graph Union `+`, `+=`
