@@ -86,11 +86,15 @@ public abstract class ProcessStateManager{
 	public String getPidNamespace(String pid){
 		return _getProcessState(pid).nsPidId;
 	}
-	
+
+	public String getIpcNamespace(String pid){
+		return _getProcessState(pid).nsIpcId;
+	}
+
 	public String getPidChildrenNamespace(String pid){
 		return _getProcessState(pid).nsPidChildrenId;
 	}
-	
+
 	public void setNamespaces(String pid, NamespaceIdentifier namespace){
 		if(!CommonFunctions.isNullOrEmpty(namespace.mount)){
 			_getProcessState(pid).nsMntId = namespace.mount;
@@ -106,6 +110,9 @@ public abstract class ProcessStateManager{
 		}
 		if(!CommonFunctions.isNullOrEmpty(namespace.pid_children)){
 			_getProcessState(pid).nsPidChildrenId = namespace.pid_children;
+		}
+		if(!CommonFunctions.isNullOrEmpty(namespace.ipc)){
+			_getProcessState(pid).nsIpcId = namespace.ipc;
 		}
 	}
 	
@@ -264,6 +271,7 @@ class ProcessState{
 	String nsMntId = "-1";
 	String nsPidId = "-1";
 	String nsUsrId = "-1";
+	String nsIpcId = "-1";
 	String nsNetId = "-1";
 	String nsPidChildrenId = "-1";
 	

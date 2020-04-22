@@ -141,7 +141,8 @@ public class AuditEventReader {
 			NS_INUM_NET = "ns_inum_net",
 			NS_INUM_PID = "ns_inum_pid",
 			NS_INUM_PID_FOR_CHILDREN = "ns_inum_pid_children",
-			NS_INUM_USER = "ns_inum_usr";
+			NS_INUM_USER = "ns_inum_usr",
+			NS_INUM_IPC = "ns_inum_ipc";
 	
 	//Reporting variables
 	private boolean reportingEnabled = false;

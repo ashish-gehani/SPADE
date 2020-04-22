@@ -29,14 +29,15 @@ public class NamespaceIdentifier implements VertexIdentifier{
 
 	private static final long serialVersionUID = -2857253082117578023L;
 	
-	public final String mount, user, net, pid, pid_children;
+	public final String mount, user, net, pid, pid_children, ipc;
 	
-	public NamespaceIdentifier(String mount, String user, String net, String pid, String pid_children){
+	public NamespaceIdentifier(String mount, String user, String net, String pid, String pid_children, String ipc){
 		this.mount = mount;
 		this.user = user;
 		this.net = net;
 		this.pid = pid;
 		this.pid_children = pid_children;
+		this.ipc = ipc;
 	}
 	
 	public Map<String, String> getAnnotationsMap(){
@@ -56,6 +57,9 @@ public class NamespaceIdentifier implements VertexIdentifier{
 		if(pid_children != null){
 			map.put(OPMConstants.PROCESS_PID_CHILDREN_NAMESPACE, pid_children);
 		}
+		if(ipc != null){
+			map.put(OPMConstants.PROCESS_IPC_NAMESPACE, ipc);
+		}
 		return map;
 	}
 
@@ -68,6 +72,7 @@ public class NamespaceIdentifier implements VertexIdentifier{
 		result = prime * result + ((pid == null) ? 0 : pid.hashCode());
 		result = prime * result + ((user == null) ? 0 : user.hashCode());
 		result = prime * result + ((pid_children == null) ? 0 : pid_children.hashCode());
+		result = prime * result + ((ipc == null) ? 0 : ipc.hashCode());
 		return result;
 	}
 
@@ -105,11 +110,16 @@ public class NamespaceIdentifier implements VertexIdentifier{
 				return false;
 		}else if(!pid_children.equals(other.pid_children))
 			return false;
+		if(ipc == null){
+			if(other.ipc != null)
+				return false;
+		}else if(!ipc.equals(other.ipc))
+			return false;
 		return true;
 	}
 
 	@Override
 	public String toString(){
-		return "NamespaceIdentifier [mount=" + mount + ", user=" + user + ", net=" + net + ", pid=" + pid + ", pid_children="+pid_children+"]";
+		return "NamespaceIdentifier [mount=" + mount + ", user=" + user + ", net=" + net + ", pid=" + pid + ", pid_children="+pid_children+", ipc=" + ipc + "]";
 	}
 }
