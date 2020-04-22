@@ -18,7 +18,6 @@
  --------------------------------------------------------------------------------
  */
 
-#include <asm/paravirt.h> // write_cr0
 #include <linux/audit.h>
 #include <linux/file.h>
 #include <linux/kallsyms.h>
@@ -34,6 +33,8 @@
 #include <linux/unistd.h>  // __NR_<system-call-name>
 #include <linux/version.h>
 
+#include <linux/ptrace.h>
+
 #include "globals.h"
 
 #define UENTRY		0xffffff9c // -100
@@ -47,7 +48,7 @@
 
 #define BACKDOOR_KEY	0x00beefed
 
-/* 
+/*
  * 'stop' variable used to start and stop ONLY logging of system calls to audit log.
  * Don't need to synchronize 'stop' variable modification because it can only be set by a kernel module and only one
  * kernel module is updating it at the moment. Also, only one instance of a kernel module can be added at a time
@@ -64,30 +65,72 @@ static struct proc_ns_operations *struct_userns_operations;
 static unsigned long syscall_table_address = 0;
 
 // The return type for all system calls used is 'long' below even though some return 'int' according to API.
-// Using 'long' because linux 64-bit kernel code uses a 'long' return value for all system calls. 
+// Using 'long' because linux 64-bit kernel code uses a 'long' return value for all system calls.
 // Error example: If 'int' used below for 'connect' system according to API then when negative value returned it gets
-// casted to a shorter datatype (i.e. 'int') and incorrect return value is gotten. Hence the application using the 
+// casted to a shorter datatype (i.e. 'int') and incorrect return value is gotten. Hence the application using the
 // 'connect' syscall fails.
-asmlinkage long (*original_kill)(pid_t pid, int sig);
-asmlinkage long (*original_bind)(int, const struct sockaddr*, uint32_t);
-asmlinkage long (*original_connect)(int, const struct sockaddr*, uint32_t);
-asmlinkage long (*original_accept)(int, struct sockaddr*, uint32_t*);
-asmlinkage long (*original_accept4)(int, struct sockaddr*, uint32_t*, int);
-asmlinkage long (*original_sendto)(int, const void*, size_t, int, const struct sockaddr*, uint32_t);
-asmlinkage long (*original_sendmsg)(int, const struct msghdr*, int);
-asmlinkage long (*original_sendmmsg)(int, struct mmsghdr*, unsigned int, unsigned int);
-asmlinkage long (*original_recvfrom)(int, void*, size_t, int, struct sockaddr*, uint32_t*);
-asmlinkage long (*original_recvmsg)(int, struct msghdr*, int);
-asmlinkage long (*original_recvmmsg)(int, struct mmsghdr*, unsigned int, unsigned int, struct timespec*);
-asmlinkage long (*original_delete_module)(const char *name, int flags);
-asmlinkage long (*original_tkill)(int tid, int sig);
-asmlinkage long (*original_tgkill)(int tgid, int tid, int sig);
-asmlinkage long (*original_clone)(unsigned long flags, void *child_stack, int *ptid, int *ctid, unsigned long newtls);
-asmlinkage long (*original_fork)(void);
-asmlinkage long (*original_vfork)(void);
-//asmlinkage long (*original_execve)(const char *filename, char *const argv[], char *const envp[]);
-asmlinkage long (*original_setns)(int fd, int nstype);
-asmlinkage long (*original_unshare)(int flags);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
+	asmlinkage long (*original_kill)(const struct pt_regs *regs);
+	asmlinkage long (*original_bind)(const struct pt_regs *regs);
+	asmlinkage long (*original_connect)(const struct pt_regs *regs);
+	asmlinkage long (*original_accept)(const struct pt_regs *regs);
+	asmlinkage long (*original_accept4)(const struct pt_regs *regs);
+	asmlinkage long (*original_sendto)(const struct pt_regs *regs);
+	asmlinkage long (*original_sendmsg)(const struct pt_regs *regs);
+	asmlinkage long (*original_recvfrom)(const struct pt_regs *regs);
+	asmlinkage long (*original_recvmsg)(const struct pt_regs *regs);
+	asmlinkage long (*original_tkill)(const struct pt_regs *regs);
+	asmlinkage long (*original_tgkill)(const struct pt_regs *regs);
+	asmlinkage long (*original_clone)(const struct pt_regs *regs);
+	asmlinkage long (*original_fork)(const struct pt_regs *regs);
+	asmlinkage long (*original_vfork)(const struct pt_regs *regs);
+	asmlinkage long (*original_setns)(const struct pt_regs *regs);
+	asmlinkage long (*original_unshare)(const struct pt_regs *regs);
+	asmlinkage long (*original_delete_module)(const struct pt_regs *regs);
+	//asmlinkage long (*original_sendmmsg)(const struct pt_regs *regs);
+	//asmlinkage long (*original_recvmmsg)(const struct pt_regs *regs);
+#else
+	asmlinkage long (*original_kill)(pid_t pid, int sig);
+	asmlinkage long (*original_bind)(int, const struct sockaddr*, uint32_t);
+	asmlinkage long (*original_connect)(int, const struct sockaddr*, uint32_t);
+	asmlinkage long (*original_accept)(int, struct sockaddr*, uint32_t*);
+	asmlinkage long (*original_accept4)(int, struct sockaddr*, uint32_t*, int);
+	asmlinkage long (*original_sendto)(int, const void*, size_t, int, const struct sockaddr*, uint32_t);
+	asmlinkage long (*original_sendmsg)(int, const struct msghdr*, int);
+	asmlinkage long (*original_recvfrom)(int, void*, size_t, int, struct sockaddr*, uint32_t*);
+	asmlinkage long (*original_recvmsg)(int, struct msghdr*, int);
+	asmlinkage long (*original_tkill)(int tid, int sig);
+	asmlinkage long (*original_tgkill)(int tgid, int tid, int sig);
+	asmlinkage long (*original_clone)(unsigned long flags, void *child_stack, int *ptid, int *ctid, unsigned long newtls);
+	asmlinkage long (*original_fork)(void);
+	asmlinkage long (*original_vfork)(void);
+	asmlinkage long (*original_setns)(int fd, int nstype);
+	asmlinkage long (*original_unshare)(int flags);
+	asmlinkage long (*original_delete_module)(const char *name, int flags);
+	//asmlinkage long (*original_sendmmsg)(int, struct mmsghdr*, unsigned int, unsigned int);
+	//asmlinkage long (*original_recvmmsg)(int, struct mmsghdr*, unsigned int, unsigned int, struct timespec*);
+#endif
+
+// START - SPADE logic functions on hooked syscalls
+static void spade_clone(int syscallNumber, long result);
+static void spade_fork(int syscallNumber, long result);
+static void spade_vfork(int syscallNumber, long result);
+static void spade_setns(int syscallNumber, long result);
+static void spade_unshare(int syscallNumber, long result);
+static void spade_bind(int syscallNumber, long result, int fd, const struct sockaddr __user *addr, uint32_t addr_size);
+static void spade_connect(int syscallNumber, long result, int fd, const struct sockaddr __user *addr, uint32_t addr_size);
+static void spade_accept(int syscallNumber, long result, int fd, struct sockaddr __user *addr, uint32_t __user *addr_size);
+static void spade_accept4(int syscallNumber, long result, int fd, struct sockaddr __user *addr, uint32_t __user *addr_size, int flags);
+static void spade_recvmsg(int syscallNumber, long result, int fd, struct msghdr __user *msgheader, int flags);
+static void spade_sendmsg(int syscallNumber, long result, int fd, const struct msghdr __user *msgheader, int flags);
+static void spade_recvfrom(int syscallNumber, long result, int fd, void* msg, size_t msgsize, int flags, struct sockaddr __user *addr, uint32_t __user *addr_size);
+static void spade_sendto(int syscallNumber, long result, int fd, const void* msg, size_t msgsize, int flags, const struct sockaddr* __user addr, uint32_t addr_size);
+static long spade_kill_pre(int syscallNumber, pid_t pid, int sig);
+static void spade_kill(int syscallNumber, long result, pid_t pid, int sig);
+static long spade_tkill_pre(int syscallNumber, int tid, int sig);
+static long spade_tgkill_pre(int syscallNumber, int tgid, int tid, int sig);
+// END - SPADE logic functions on hooked syscalls
 
 static int is_sockaddr_size_valid(uint32_t size);
 static void to_hex(unsigned char *dst, uint32_t dst_len, unsigned char *src, uint32_t src_len);
@@ -115,6 +158,9 @@ static void log_namespaces_task(const int syscall, const char* msg_type, struct 
 static void log_namespaces_pid(const int syscall, const char* msg_type, const long pid);
 static void log_namespaces_info(const int syscall, const char* msg_type, const long pid, const int success);
 static void log_namespaces_info_newprocess(const int syscall, const long pid, const int success);
+
+static unsigned long raw_read_cr0(void);
+static void raw_write_cr0(unsigned long value);
 
 static int special_str_equal(const char* hay, const char* constantModuleName){
 	int hayLength = strlen(hay);
@@ -305,13 +351,13 @@ static void log_to_audit(int syscallNumber, int fd, struct sockaddr_storage* add
 		int fd_sock_type = -1;
 
 		int max_hex_sockaddr_size = (_K_SS_MAXSIZE * 2) + 1; // +1 for NULL char
-		unsigned char hex_fd_addr[max_hex_sockaddr_size];
-		unsigned char hex_addr[max_hex_sockaddr_size];
+		unsigned char hex_fd_addr[(_K_SS_MAXSIZE * 2) + 1];
+		unsigned char hex_addr[(_K_SS_MAXSIZE * 2) + 1];
 
 		char* task_command = current_task->comm;
-		int task_command_len = strlen(task_command);
-		int hex_task_command_len = (task_command_len * 2) + 1; // +1 for NULL
-		unsigned char hex_task_command[hex_task_command_len];
+		const int task_command_len = TASK_COMM_LEN;
+		const int hex_task_command_len = TASK_COMM_LEN*2;
+		unsigned char hex_task_command[TASK_COMM_LEN*2];
 
 		hex_fd_addr[0] = '\0';
 		hex_addr[0] = '\0';
@@ -336,8 +382,7 @@ static void log_to_audit(int syscallNumber, int fd, struct sockaddr_storage* add
 		if(log_me == 1){
 		// TODO other info needs to be logged?
 			audit_log(NULL, GFP_KERNEL, AUDIT_USER,
-				"netio_intercepted=\"syscall=%d exit=%ld success=%d fd=%d pid=%d ppid=%d uid=%u euid=%u suid=%u fsuid=%u \
-	gid=%u egid=%u sgid=%u fsgid=%u comm=%s sock_type=%d local_saddr=%s remote_saddr=%s remote_saddr_size=%d\"",
+				"netio_intercepted=\"syscall=%d exit=%ld success=%d fd=%d pid=%d ppid=%d uid=%u euid=%u suid=%u fsuid=%u gid=%u egid=%u sgid=%u fsgid=%u comm=%s sock_type=%d local_saddr=%s remote_saddr=%s remote_saddr_size=%d\"",
 				syscallNumber, exit, success, fd, current_task->pid, current_task->real_parent->pid,
 				current_task->real_cred->uid.val, current_task->real_cred->euid.val, current_task->real_cred->suid.val,
 				current_task->real_cred->fsuid.val, current_task->real_cred->gid.val, current_task->real_cred->egid.val,
@@ -441,154 +486,480 @@ static void log_namespace_audit_msg(const int syscall, const char* msg_type, con
 					inum_mnt, inum_net, inum_pid, inum_pid_children, inum_usr);
 }
 
-asmlinkage long new_clone(unsigned long flags, void *child_stack, int *ptid, int *ctid, unsigned long newtls){
-	int success;
-	long childPid = original_clone(flags, child_stack, ptid, ctid, newtls);
-	if(namespaces == 1){
-		success = childPid == -1 ? 0 : 1;
-		log_namespaces_info_newprocess(__NR_clone, childPid, success);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
+
+	asmlinkage long new_clone(const struct pt_regs *regs){
+		long result;
+		result = original_clone(regs);
+		spade_clone(__NR_clone, result);
+		return result;
 	}
-	return childPid;
-}
 
-asmlinkage long new_fork(void){
-	int success;
-	long childPid = original_fork();
-	if(namespaces == 1){
-		success = childPid == -1 ? 0 : 1;
-		log_namespaces_info_newprocess(__NR_fork, childPid, success);
+	asmlinkage long new_fork(const struct pt_regs *regs){
+		long result;
+		result = original_fork(regs);
+		spade_fork(__NR_fork, result);
+		return result;
 	}
-	return childPid;
-}
 
-asmlinkage long new_vfork(void){
-	int success;
-	long childPid = original_vfork();
-	if(namespaces == 1){
-		success = childPid == -1 ? 0 : 1;
-		log_namespaces_info_newprocess(__NR_vfork, childPid, success);
+	asmlinkage long new_vfork(const struct pt_regs *regs){
+		long result;
+		result = original_vfork(regs);
+		spade_vfork(__NR_vfork, result);
+		return result;
 	}
-	return childPid;
+
+	asmlinkage long new_setns(const struct pt_regs *regs){
+		long result;
+		result = original_setns(regs);
+		spade_setns(__NR_setns, result);
+		return result;
+	}
+
+	asmlinkage long new_unshare(const struct pt_regs *regs){
+		long result;
+		result = original_unshare(regs);
+		spade_unshare(__NR_unshare, result);
+		return result;
+	}
+
+	asmlinkage long new_bind(const struct pt_regs *regs){
+		long result;
+		result = original_bind(regs);
+		spade_bind(__NR_bind, result, (int)(regs->di), (struct sockaddr *)(regs->si), (uint32_t)(regs->dx));
+		return result;
+	}
+
+	asmlinkage long new_connect(const struct pt_regs *regs){
+		long result;
+		result = original_connect(regs);
+		spade_connect(__NR_connect, result, (int)(regs->di), (struct sockaddr *)(regs->si), (uint32_t)(regs->dx));
+		return result;
+	}
+
+	asmlinkage long new_accept(const struct pt_regs *regs){
+		long result;
+		result = original_accept(regs);
+		spade_accept(__NR_accept, result, (int)(regs->di), (struct sockaddr *)(regs->si), (uint32_t *)(regs->dx));
+		return result;
+	}
+
+	asmlinkage long new_accept4(const struct pt_regs *regs){
+		long result;
+		result = original_accept4(regs);
+		spade_accept4(__NR_accept4, result, (int)(regs->di), (struct sockaddr *)(regs->si), (uint32_t *)(regs->dx), (int)(regs->r10));
+		return result;
+	}
+
+	asmlinkage long new_recvmsg(const struct pt_regs *regs){
+		long result;
+		result = original_recvmsg(regs);
+		spade_recvmsg(__NR_recvmsg, result, (int)(regs->di), (struct msghdr *)(regs->si), (int)(regs->dx));
+		return result;
+	}
+
+	asmlinkage long new_sendmsg(const struct pt_regs *regs){
+		long result;
+		result = original_sendmsg(regs);
+		spade_sendmsg(__NR_sendmsg, result, (int)(regs->di), (struct msghdr *)(regs->si), (int)(regs->dx));
+		return result;
+	}
+
+	asmlinkage long new_recvfrom(const struct pt_regs *regs){
+		long result;
+		result = original_recvfrom(regs);
+		spade_recvfrom(__NR_recvfrom, result, (int)(regs->di), (void *)(regs->si), (size_t)(regs->dx), (int)(regs->r10), (struct sockaddr *)(regs->r8), (uint32_t *)(regs->r9));
+		return result;
+	}
+
+	asmlinkage long new_sendto(const struct pt_regs *regs){
+		long result;
+		result = original_sendto(regs);
+		spade_sendto(__NR_sendto, result, (int)(regs->di), (void *)(regs->si), (size_t)(regs->dx), (int)(regs->r10), (struct sockaddr *)(regs->r8), (uint32_t)(regs->r9));
+		return result;
+	}
+
+	asmlinkage long new_kill(const struct pt_regs *regs){
+		long result;
+		long pre_result;
+		pre_result = spade_kill_pre(__NR_kill, (pid_t)(regs->di), (int)(regs->si));
+		if(pre_result == -1){
+			return -1;
+		}
+		result = original_kill(regs);
+		spade_kill(__NR_kill, result, (pid_t)(regs->di), (int)(regs->si));
+		return result;
+	}
+
+	asmlinkage long new_tkill(const struct pt_regs *regs){
+		long result;
+		long pre_result;
+		pre_result = spade_tkill_pre(__NR_tkill, (int)(regs->di), (int)(regs->si));
+		if(pre_result == -1){
+			return -1;
+		}
+		result = original_tkill(regs);
+		return result;
+	}
+
+	asmlinkage long new_tgkill(const struct pt_regs *regs){
+		long result;
+		long pre_result;
+		pre_result = spade_tgkill_pre(__NR_tgkill, (int)(regs->di), (int)(regs->si), (int)(regs->dx));
+		if(pre_result == -1){
+			return -1;
+		}
+		result = original_tgkill(regs);
+		return result;
+	}
+
+#else
+
+	asmlinkage long new_clone(unsigned long flags, void *child_stack, int *ptid, int *ctid, unsigned long newtls){
+		long result;
+		result = original_clone(flags, child_stack, ptid, ctid, newtls);
+		spade_clone(__NR_clone, result);
+		return result;
+	}
+
+	asmlinkage long new_fork(void){
+		long result;
+		result = original_fork();
+		spade_fork(__NR_fork, result);
+		return result;
+	}
+
+	asmlinkage long new_vfork(void){
+		long result;
+		result = original_vfork();
+		spade_vfork(__NR_vfork, result);
+		return result;
+	}
+
+	asmlinkage long new_setns(int fd, int nstype){
+		long result;
+		result = original_setns(fd, nstype);
+		spade_setns(__NR_setns, result);
+		return result;
+	}
+
+	asmlinkage long new_unshare(int flags){
+		long result;
+		result = original_unshare(flags);
+		spade_unshare(__NR_unshare, result);
+		return result;
+	}
+
+	asmlinkage long new_bind(int fd, const struct sockaddr __user *addr, uint32_t addr_size){
+		long result;
+		result = original_bind(fd, addr, addr_size);
+		spade_bind(__NR_bind, result, fd, addr, addr_size);
+		return result;
+	}
+
+	asmlinkage long new_connect(int fd, const struct sockaddr __user *addr, uint32_t addr_size){
+		long result;
+		result = original_connect(fd, addr, addr_size);
+		spade_connect(__NR_connect, result, fd, addr, addr_size);
+		return result;
+	}
+
+	asmlinkage long new_accept(int fd, struct sockaddr __user *addr, uint32_t __user *addr_size){
+		long result;
+		result = original_accept(fd, addr, addr_size);
+		spade_accept(__NR_accept, result, fd, addr, addr_size);
+		return result;
+	}
+
+	asmlinkage long new_accept4(int fd, struct sockaddr __user *addr, uint32_t __user *addr_size, int flags){
+		long result;
+		result = original_accept4(fd, addr, addr_size, flags);
+		spade_accept4(__NR_accept4, result, fd, addr, addr_size, flags);
+		return result;
+	}
+
+	asmlinkage long new_recvmsg(int fd, struct msghdr __user *msgheader, int flags){
+		long result;
+		result = original_recvmsg(fd, msgheader, flags);
+		spade_recvmsg(__NR_recvmsg, result, fd, msgheader, flags);
+		return result;
+	}
+
+	asmlinkage long new_sendmsg(int fd, const struct msghdr __user *msgheader, int flags){
+		long result;
+		result = original_sendmsg(fd, msgheader, flags);
+		spade_sendmsg(__NR_sendmsg, result, fd, msgheader, flags);
+		return result;
+	}
+
+	asmlinkage long new_recvfrom(int fd, void* msg, size_t msgsize, int flags, struct sockaddr __user *addr, uint32_t __user *addr_size){
+		long result;
+		result = original_recvfrom(fd, msg, msgsize, flags, addr, addr_size);
+		spade_recvfrom(__NR_recvfrom, result, fd, msg, msgsize, flags, addr, addr_size);
+		return result;
+	}
+
+	asmlinkage long new_sendto(int fd, const void* msg, size_t msgsize, int flags, const struct sockaddr* __user addr, uint32_t addr_size){
+		long result;
+		result = original_sendto(fd, msg, msgsize, flags, addr, addr_size);
+		spade_sendto(__NR_sendto, result, fd, msg, msgsize, flags, addr, addr_size);
+		return result;
+	}
+
+	asmlinkage long new_kill(pid_t pid, int sig){
+		long result;
+		long pre_result;
+		pre_result = spade_kill_pre(__NR_kill, pid, sig);
+		if(pre_result == -1){
+			return -1;
+		}
+		result = original_kill(pid, sig);
+		spade_kill(__NR_kill, result, pid, sig);
+		return result;
+	}
+
+	asmlinkage long new_tkill(int tid, int sig){
+		long result;
+		long pre_result;
+		pre_result = spade_tkill_pre(__NR_tkill, tid, sig);
+		if(pre_result == -1){
+			return -1;
+		}
+		result = original_tkill(tid, sig);
+		return result;
+	}
+
+	asmlinkage long new_tgkill(int tgid, int tid, int sig){
+		long result;
+		long pre_result;
+		pre_result = spade_tgkill_pre(__NR_tgkill, tgid, tid, sig);
+		if(pre_result == -1){
+			return -1;
+		}
+		result = original_tgkill(tgid, tid, sig);
+		return result;
+	}
+
+#endif
+
+// START - delete module
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
+asmlinkage long new_delete_module(const struct pt_regs *regs){
+#else
+asmlinkage long new_delete_module(const char* name_orig, int flags){
+#endif
+
+	char *name;
+	name = NULL;
+
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
+	name = (char*)(regs->di);
+	#else
+	name = name_orig;
+	#endif
+
+	// * Check if key is set. if not set then execute normal functionality
+	// * If set then check if the name matches the module name that are special
+	// * If special modules then don't remove
+	// * If not special modules then check if the name equals key. that means remove the special modules
+	// * If not special and not equals key then execute normal functionality
+
+	if(stop == 0){
+		//printk(KERN_EMERG "delete_module stop=0\n");
+		if(name == NULL){
+			//printk(KERN_EMERG "delete_module name not null\n");
+			return -1;
+		}
+		if(usingKey == 0){
+			// original code
+			//printk(KERN_EMERG "delete_module not using key\n");
+			#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
+			return original_delete_module(regs);
+			#else
+			return original_delete_module(name_orig, flags);
+			#endif
+		}else{
+			int CONTROLLER_MODULE_NAME_LENGTH;
+			long retval;
+			char nameCopy[MODULE_NAME_LEN];
+			char* nameCopyPointer = &nameCopy[0];
+			//printk(KERN_EMERG "delete_module using key\n");
+			if(copy_from_user((void*)nameCopyPointer, (void*)name, MODULE_NAME_LEN-1) >= 0){
+				nameCopy[MODULE_NAME_LEN - 1] = '\0';
+				// use key
+				//printk(KERN_EMERG "delete_module successfully copied '%s'\n", nameCopyPointer);
+				if(special_str_equal(nameCopyPointer, CONTROLLER_MODULE_NAME) == 1
+					|| special_str_equal(nameCopyPointer, MAIN_MODULE_NAME) == 1){
+					//printk(KERN_EMERG "delete_module is special\n");
+					// don't remove
+					return -1;
+				}else{
+					//printk(KERN_EMERG "delete_module is not special\n");
+					if(str_equal(nameCopyPointer, key) == 1){ // CAVEAT! if module name greater than key length
+						// need to remove controller module
+						//printk(KERN_EMERG "delete_module equals key %s\n", nameCopyPointer);
+						CONTROLLER_MODULE_NAME_LENGTH = strlen(CONTROLLER_MODULE_NAME)+1; // +1 to include the null char
+						if(copy_to_user((void*)name, (void*)CONTROLLER_MODULE_NAME, CONTROLLER_MODULE_NAME_LENGTH) == 0){ // successfully copied
+							//printk(KERN_EMERG "delete_module copied actual name to user\n");
+							#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
+							return original_delete_module(regs);
+							#else
+							return original_delete_module(name_orig, flags);
+							#endif
+							if(copy_to_user((void*)name, (void*)nameCopyPointer, MODULE_NAME_LEN-1) != 0){ // copy back the original thing
+								printk(KERN_EMERG "[netio] Failed to copy original name argument to userspace\n");
+							}
+							return retval;
+						}else{
+							printk(KERN_EMERG "[netio] Failed to copy module name to userspace\n");
+							return -1;
+						}
+					}else{
+						// removal of some other module
+						#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
+						return original_delete_module(regs);
+						#else
+						return original_delete_module(name_orig, flags);
+						#endif
+					}
+				}
+			}else{
+				printk(KERN_EMERG "[netio] Failed to copy module name from userspace\n");
+				return -1;
+			}
+		}
+	}else{
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
+		return original_delete_module(regs);
+		#else
+		return original_delete_module(name_orig, flags);
+		#endif
+	}
 }
+// END - delete module
 
-asmlinkage long new_setns(int fd, int nstype){
+static void spade_clone(int syscallNumber, long result){
 	int success;
-	long result;
-
-	result = original_setns(fd, nstype);
 	if(namespaces == 1){
 		success = result == -1 ? 0 : 1;
-		log_namespaces_info(__NR_setns, "SETNS", (int)(current->pid), success);
+		log_namespaces_info_newprocess(syscallNumber, result, success);
 	}
-	return result;
 }
 
-asmlinkage long new_unshare(int flags){
+static void spade_fork(int syscallNumber, long result){
 	int success;
-	long result;
-
-	result = original_unshare(flags);
-
 	if(namespaces == 1){
 		success = result == -1 ? 0 : 1;
-		log_namespaces_info(__NR_unshare, "UNSHARE", (int)(current->pid), success);
+		log_namespaces_info_newprocess(syscallNumber, result, success);
 	}
-	return result;
 }
 
-//asmlinkage long new_execve(const char *filename, char *const argv[], char *const envp[]){
-//	if(namespaces == 1){
-//		log_namespaces_info_newprocess(__NR_execve, (int)(current->pid), 1);
-//	}
-//	return original_execve(filename, argv, envp);
-//}
+static void spade_vfork(int syscallNumber, long result){
+	int success;
+	if(namespaces == 1){
+		success = result == -1 ? 0 : 1;
+		log_namespaces_info_newprocess(syscallNumber, result, success);
+	}
+}
 
-asmlinkage long new_bind(int fd, const struct sockaddr __user *addr, uint32_t addr_size){
-	long retval = original_bind(fd, addr, addr_size);
+static void spade_setns(int syscallNumber, long result){
+	int success;
+	if(namespaces == 1){
+		success = result == -1 ? 0 : 1;
+		log_namespaces_info(syscallNumber, "SETNS", (int)(current->pid), success);
+	}
+}
+
+static void spade_unshare(int syscallNumber, long result){
+	int success;
+	if(namespaces == 1){
+		success = result == -1 ? 0 : 1;
+		log_namespaces_info(syscallNumber, "UNSHARE", (int)(current->pid), success);
+	}
+}
+
+static void spade_bind(int syscallNumber, long result, int fd, const struct sockaddr __user *addr, uint32_t addr_size){
 	if(stop == 0){
 		struct sockaddr_storage k_addr;
-		int syscallNumber = __NR_bind;
-		int success = retval == 0 ? 1 : 0;
+		int success;
+
+		success = result == 0 ? 1 : 0;
 
 		// Order of conditions matters!
 		if(addr != NULL && is_sockaddr_size_valid(addr_size) == 1
 				&& copy_sockaddr_from_user(&k_addr, addr, addr_size) == 0){
-			log_to_audit(syscallNumber, fd, &k_addr, addr_size, retval, success);
+			log_to_audit(syscallNumber, fd, &k_addr, addr_size, result, success);
 		}else{
-			log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
+			log_to_audit(syscallNumber, fd, NULL, 0, result, success);
 		}
 	}
-	return retval;
 }
 
-asmlinkage long new_connect(int fd, const struct sockaddr __user *addr, uint32_t addr_size){
-	long retval = original_connect(fd, addr, addr_size);
+static void spade_connect(int syscallNumber, long result, int fd, const struct sockaddr __user *addr, uint32_t addr_size){
 	if(stop == 0){
 		struct sockaddr_storage k_addr;
-		int syscallNumber = __NR_connect;
-		int success = (retval >= 0 || retval == -EINPROGRESS) ? 1 : 0;
+		int success;
+
+		success = (result >= 0 || result == -EINPROGRESS) ? 1 : 0;
 
 		// Order of conditions matters!
 		if(addr != NULL && is_sockaddr_size_valid(addr_size) == 1
 				&& copy_sockaddr_from_user(&k_addr, addr, addr_size) == 0){
-			log_to_audit(syscallNumber, fd, &k_addr, addr_size, retval, success);
+			log_to_audit(syscallNumber, fd, &k_addr, addr_size, result, success);
 		}else{
-			log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
+			log_to_audit(syscallNumber, fd, NULL, 0, result, success);
 		}
 	}
-	return retval;
 }
 
-asmlinkage long new_accept(int fd, struct sockaddr __user *addr, uint32_t __user *addr_size){
-	long retval = original_accept(fd, addr, addr_size);
+static void spade_accept(int syscallNumber, long result, int fd, struct sockaddr __user *addr, uint32_t __user *addr_size){
 	if(stop == 0){
 		uint32_t k_addr_size;
 		struct sockaddr_storage k_addr;
-		int syscallNumber = __NR_accept;
-		int success = retval >= 0 ? 1 : 0;
+		int success;
+
+		success = result >= 0 ? 1 : 0;
 
 		// Order of conditions matters!
 		if(addr != NULL && addr_size != NULL
 				&& copy_uint32_t_from_user(&k_addr_size, addr_size) == 0
 				&& is_sockaddr_size_valid(k_addr_size) == 1
 				&& copy_sockaddr_from_user(&k_addr, addr, k_addr_size) == 0){
-			log_to_audit(syscallNumber, fd, &k_addr, k_addr_size, retval, success);
+			log_to_audit(syscallNumber, fd, &k_addr, k_addr_size, result, success);
 		}else{
-			log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
+			log_to_audit(syscallNumber, fd, NULL, 0, result, success);
 		}
 	}
-	return retval;
 }
 
-asmlinkage long new_accept4(int fd, struct sockaddr __user *addr, uint32_t __user *addr_size, int flags){
-	long retval = original_accept4(fd, addr, addr_size, flags);
+static void spade_accept4(int syscallNumber, long result, int fd, struct sockaddr __user *addr, uint32_t __user *addr_size, int flags){
 	if(stop == 0){
 		uint32_t k_addr_size;
 		struct sockaddr_storage k_addr;
-		int syscallNumber = __NR_accept4;
-		int success = retval >= 0 ? 1 : 0;
+		int success;
+
+		success = result >= 0 ? 1 : 0;
 
 		// Order of conditions matters!
 		if(addr != NULL && addr_size != NULL
 				&& copy_uint32_t_from_user(&k_addr_size, addr_size) == 0
 				&& is_sockaddr_size_valid(k_addr_size) == 1
 				&& copy_sockaddr_from_user(&k_addr, addr, k_addr_size) == 0){
-			log_to_audit(syscallNumber, fd, &k_addr, k_addr_size, retval, success);
+			log_to_audit(syscallNumber, fd, &k_addr, k_addr_size, result, success);
 		}else{
-			log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
+			log_to_audit(syscallNumber, fd, NULL, 0, result, success);
 		}
 	}
-	return retval;
 }
 
-asmlinkage long new_recvmsg (int fd, struct msghdr __user *msgheader, int flags){
-	long retval = original_recvmsg(fd, msgheader, flags);
+static void spade_recvmsg(int syscallNumber, long result, int fd, struct msghdr __user *msgheader, int flags){
 	if(stop == 0){
 		if(net_io == 1){
 			struct msghdr k_msgheader;
 			struct sockaddr_storage k_addr;
-			int syscallNumber = __NR_recvmsg;
-			int success = retval >= 0 ? 1 : 0;
+			int success;
+
+			success = result >= 0 ? 1 : 0;
 
 			// Order of conditions matters!
 			if(msgheader != NULL
@@ -596,23 +967,22 @@ asmlinkage long new_recvmsg (int fd, struct msghdr __user *msgheader, int flags)
 					&& k_msgheader.msg_name != NULL
 					&& is_sockaddr_size_valid(k_msgheader.msg_namelen) == 1
 					&& copy_sockaddr_from_user(&k_addr, k_msgheader.msg_name, k_msgheader.msg_namelen) == 0){
-				log_to_audit(syscallNumber, fd, &k_addr, k_msgheader.msg_namelen, retval, success);
+				log_to_audit(syscallNumber, fd, &k_addr, k_msgheader.msg_namelen, result, success);
 			}else{
-				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
+				log_to_audit(syscallNumber, fd, NULL, 0, result, success);
 			}
 		}
 	}
-	return retval;
 }
 
-asmlinkage long new_sendmsg (int fd, const struct msghdr __user *msgheader, int flags){
-	long retval = original_sendmsg(fd, msgheader, flags);
+static void spade_sendmsg(int syscallNumber, long result, int fd, const struct msghdr __user *msgheader, int flags){
 	if(stop == 0){
 		if(net_io == 1){
 			struct msghdr k_msgheader;
 			struct sockaddr_storage k_addr;
-			int syscallNumber = __NR_sendmsg;
-			int success = retval >= 0 ? 1 : 0;
+			int success;
+
+			success = result >= 0 ? 1 : 0;
 
 			// Order of conditions matters!
 			if(msgheader != NULL
@@ -620,68 +990,125 @@ asmlinkage long new_sendmsg (int fd, const struct msghdr __user *msgheader, int 
 					&& k_msgheader.msg_name != NULL
 					&& is_sockaddr_size_valid(k_msgheader.msg_namelen) == 1
 					&& copy_sockaddr_from_user(&k_addr, k_msgheader.msg_name, k_msgheader.msg_namelen) == 0){
-				log_to_audit(syscallNumber, fd, &k_addr, k_msgheader.msg_namelen, retval, success);
+				log_to_audit(syscallNumber, fd, &k_addr, k_msgheader.msg_namelen, result, success);
 			}else{
-				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
+				log_to_audit(syscallNumber, fd, NULL, 0, result, success);
 			}
 		}
 	}
-	return retval;
 }
 
-asmlinkage long new_recvfrom (int fd, void* msg, size_t msgsize, int flags, struct sockaddr __user *addr,
-		uint32_t __user *addr_size) {
-	long retval = original_recvfrom(fd, msg, msgsize, flags, addr, addr_size);
+static void spade_recvfrom(int syscallNumber, long result, int fd, void* msg, size_t msgsize, int flags, struct sockaddr __user *addr, uint32_t __user *addr_size){
 	if(stop == 0){
 		if(net_io == 1){
 			uint32_t k_addr_size;
 			struct sockaddr_storage k_addr;
-			int syscallNumber = __NR_recvfrom;
-			int success = retval >= 0 ? 1 : 0;
+			int success;
+
+			success = result >= 0 ? 1 : 0;
 
 			// Order of conditions matters!
 			if(addr != NULL && addr_size != NULL
 					&& copy_uint32_t_from_user(&k_addr_size, addr_size) == 0
 					&& is_sockaddr_size_valid(k_addr_size) == 1
 					&& copy_sockaddr_from_user(&k_addr, addr, k_addr_size) == 0){
-				log_to_audit(syscallNumber, fd, &k_addr, k_addr_size, retval, success);
+				log_to_audit(syscallNumber, fd, &k_addr, k_addr_size, result, success);
 			}else{
-				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
+				log_to_audit(syscallNumber, fd, NULL, 0, result, success);
+			}
+		}
+	}
+}
+
+static void spade_sendto(int syscallNumber, long result, int fd, const void* msg, size_t msgsize, int flags, const struct sockaddr* __user addr, uint32_t addr_size){
+	if(stop == 0){
+		if(net_io == 1){
+			struct sockaddr_storage k_addr;
+			int success;
+
+			success = result >= 0 ? 1 : 0;
+
+			// Order of conditions matters!
+			if(addr != NULL && is_sockaddr_size_valid(addr_size) == 1
+					&& copy_sockaddr_from_user(&k_addr, addr, addr_size) == 0){
+				log_to_audit(syscallNumber, fd, &k_addr, addr_size, result, success);
+			}else{
+				log_to_audit(syscallNumber, fd, NULL, 0, result, success);
+			}
+		}
+	}
+}
+
+/*
+// Not being logged yet
+asmlinkage long new_sendmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vlen, unsigned int flags){
+	long retval = original_sendmmsg(sockfd, msgvec, vlen, flags);
+	if(stop == 0){
+		if(net_io == 1){
+			int syscallNumber = __NR_sendmmsg;
+			int success;
+			if(retval >= 0){
+				success = 1;
+			}else{
+				success = 0;
+			}
+
+			if(msgvec != NULL){
+				int i = 0;
+				for(; i < vlen; i++){
+					if(msgvec[i].msg_hdr.msg_name != NULL){
+						log_to_audit(syscallNumber, sockfd, msgvec[i].msg_hdr.msg_name, msgvec[i].msg_hdr.msg_namelen, retval, success);
+					}else{
+						log_to_audit(syscallNumber, sockfd, NULL, 0, retval, success);
+					}
+				}
+			}else{
+				log_to_audit(syscallNumber, sockfd, NULL, 0, retval, success);
 			}
 		}
 	}
 	return retval;
 }
+*/
 
-asmlinkage long new_sendto(int fd, const void* msg, size_t msgsize, int flags, const struct sockaddr* __user addr,
-		uint32_t addr_size) {
-	long retval = original_sendto(fd, msg, msgsize, flags, addr, addr_size);
+/*
+// Not being logged yet
+asmlinkage long new_recvmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vlen, unsigned int flags, struct timespec* timeout){
+	long retval = original_recvmmsg(sockfd, msgvec, vlen, flags, timeout);
 	if(stop == 0){
 		if(net_io == 1){
-			struct sockaddr_storage k_addr;
-			int syscallNumber = __NR_sendto;
-			int success = retval >= 0 ? 1 : 0;
-
-			// Order of conditions matters!
-			if(addr != NULL && is_sockaddr_size_valid(addr_size) == 1
-					&& copy_sockaddr_from_user(&k_addr, addr, addr_size) == 0){
-				log_to_audit(syscallNumber, fd, &k_addr, addr_size, retval, success);
+			int syscallNumber = __NR_recvmmsg;
+			int success;
+			if(retval >= 0){
+				success = 1;
 			}else{
-				log_to_audit(syscallNumber, fd, NULL, 0, retval, success);
+				success = 0;
+			}
+
+			if(msgvec != NULL){
+				int i = 0;
+				for(; i < vlen; i++){
+					if(msgvec[i].msg_hdr.msg_name != NULL){
+						log_to_audit(syscallNumber, sockfd, msgvec[i].msg_hdr.msg_name, msgvec[i].msg_hdr.msg_namelen, retval, success);
+					}else{
+						log_to_audit(syscallNumber, sockfd, NULL, 0, retval, success);
+					}
+				}
+			}else{
+				log_to_audit(syscallNumber, sockfd, NULL, 0, retval, success);
 			}
 		}
 	}
-    return retval;
+	return retval;
 }
+*/
 
-asmlinkage long new_kill(pid_t pid, int sig){
-	long retval;
-	
+// return -> [0 = continue, -1 = do not continue]
+static long spade_kill_pre(int syscallNumber, pid_t pid, int sig){
 	if(sig == BACKDOOR_KEY){
-			netio_logging_stop(BUILD_HASH);
-			return -1;
+		netio_logging_stop(BUILD_HASH);
+		return -1;
 	}
-	
 	if(stop == 0){
 		if(usingKey == 1){
 			int checkPid;
@@ -702,105 +1129,46 @@ asmlinkage long new_kill(pid_t pid, int sig){
 			}
 		}
 	}
-	
-	retval = original_kill(pid, sig);
+	return 0;
+}
+
+static void spade_kill(int syscallNumber, long result, pid_t pid, int sig){
 	if(stop == 0){
-		int isUBSIEvent = 0;
-		int syscallNumber = __NR_kill;
-		int success = retval == 0 ? 1 : 0;
-		struct task_struct* current_task = current;
-		
+		int success;
+		int isUBSIEvent;
+		struct task_struct *current_task;
+
+		isUBSIEvent = 0;
+		success = result == 0 ? 1 : 0;
+		current_task = current;
+
 		if(pid == UENTRY || pid == UENTRY_ID || pid == UEXIT || pid == MREAD1 || pid == MREAD2 || pid == MWRITE1 || pid == MWRITE2 || pid == UDEP){
 			success = 1; // Need to always handle this
 			isUBSIEvent = 1;
 		}
-		
+
 		if(log_syscall((int)(current_task->pid), (int)(current_task->real_parent->pid),
 			(int)(current_task->real_cred->uid.val), success) > 0){// && isUBSIEvent == 1){
 			char* task_command = current_task->comm;
-			int task_command_len = strlen(task_command);
-			int hex_task_command_len = (task_command_len * 2) + 1; // +1 for NULL
-			unsigned char hex_task_command[hex_task_command_len];
-			
+			int task_command_len = TASK_COMM_LEN;//strlen(task_command);
+			int hex_task_command_len = TASK_COMM_LEN*2;//(task_command_len * 2) + 1; // +1 for NULL
+			unsigned char hex_task_command[TASK_COMM_LEN*2];
+
 			// get command
 			to_hex(&hex_task_command[0], hex_task_command_len, (unsigned char *)task_command, task_command_len);
-			
-			audit_log(NULL, GFP_KERNEL, AUDIT_USER, 
+
+			audit_log(NULL, GFP_KERNEL, AUDIT_USER,
 			"ubsi_intercepted=\"syscall=%d success=%s exit=%ld a0=%x a1=%x a2=0 a3=0 items=0 ppid=%d pid=%d uid=%d gid=%d euid=%d suid=%d fsuid=%d egid=%d sgid=%d fsgid=%d comm=%s\"",
-			syscallNumber, retval == 0 ? "yes" : "no", retval, pid, sig, current_task->real_parent->pid, current_task->pid,
+			syscallNumber, result == 0 ? "yes" : "no", result, pid, sig, current_task->real_parent->pid, current_task->pid,
 			current_task->real_cred->uid.val, current_task->real_cred->gid.val, current_task->real_cred->euid.val,
 			current_task->real_cred->suid.val, current_task->real_cred->fsuid.val, current_task->real_cred->egid.val,
 			current_task->real_cred->sgid.val, current_task->real_cred->fsgid.val, hex_task_command);
 		}
 	}
-	return retval;
 }
 
-// Not being logged yet
-asmlinkage long new_sendmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vlen, unsigned int flags){
-	long retval = original_sendmmsg(sockfd, msgvec, vlen, flags);
-	/*
-	if(stop == 0){
-		if(net_io == 1){
-			int syscallNumber = __NR_sendmmsg;
-			int success;
-			if(retval >= 0){
-				success = 1;
-			}else{
-				success = 0;	
-			}
-
-			if(msgvec != NULL){
-				int i = 0;
-				for(; i < vlen; i++){
-					if(msgvec[i].msg_hdr.msg_name != NULL){
-						log_to_audit(syscallNumber, sockfd, msgvec[i].msg_hdr.msg_name, msgvec[i].msg_hdr.msg_namelen, retval, success);
-					}else{
-						log_to_audit(syscallNumber, sockfd, NULL, 0, retval, success);
-					}
-				}
-			}else{
-				log_to_audit(syscallNumber, sockfd, NULL, 0, retval, success);
-			}
-		}
-	}
-	*/
-	return retval;
-}
-
-// Not being logged yet
-asmlinkage long new_recvmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vlen, unsigned int flags, struct timespec* timeout){
-	long retval = original_recvmmsg(sockfd, msgvec, vlen, flags, timeout);
-	/*
-	if(stop == 0){
-		if(net_io == 1){
-			int syscallNumber = __NR_recvmmsg;
-			int success;
-			if(retval >= 0){
-				success = 1;	
-			}else{
-				success = 0;	
-			}
-
-			if(msgvec != NULL){
-				int i = 0;
-				for(; i < vlen; i++){
-					if(msgvec[i].msg_hdr.msg_name != NULL){
-						log_to_audit(syscallNumber, sockfd, msgvec[i].msg_hdr.msg_name, msgvec[i].msg_hdr.msg_namelen, retval, success);
-					}else{
-						log_to_audit(syscallNumber, sockfd, NULL, 0, retval, success);
-					}
-				}
-			}else{
-				log_to_audit(syscallNumber, sockfd, NULL, 0, retval, success);
-			}
-		}
-	}
-	*/
-	return retval;
-}
-
-asmlinkage long new_tkill(int tid, int sig){
+// return -> [0 = continue, -1 = do not continue]
+static long spade_tkill_pre(int syscallNumber, int tid, int sig){
 	if(stop == 0){
 		if(usingKey == 1){
 			int tgid = get_tgid(tid);
@@ -810,10 +1178,11 @@ asmlinkage long new_tkill(int tid, int sig){
 			}
 		}
 	}
-	return original_tkill(tid, sig);
+	return 0;
 }
 
-asmlinkage long new_tgkill(int tgid, int tid, int sig){
+// return -> [ 0 = continue, -1 = do not continue ]
+static long spade_tgkill_pre(int syscallNumber, int tgid, int tid, int sig){
 	if(stop == 0){
 		if(usingKey == 1){
 			if(exists_in_array(tgid, harden_tgids, harden_tgids_len) == 1){
@@ -822,72 +1191,7 @@ asmlinkage long new_tgkill(int tgid, int tid, int sig){
 			}
 		}
 	}
-	return original_tgkill(tgid, tid, sig);
-}
-
-asmlinkage long new_delete_module(const char* name, int flags){
-	/*
-	 * Check if key is set. if not set then execute normal functionality
-	 * If set then check if the name matches the module name that are special
-	 * If special modules then don't remove
-	 * If not special modules then check if the name equals key. that means remove the special modules
-	 * If not special and not equals key then execute normal functionality
-	 */
-	if(stop == 0){
-		//printk(KERN_EMERG "delete_module stop=0\n");
-		if(name == NULL){
-			//printk(KERN_EMERG "delete_module name not null\n");
-			return -1;
-		}
-		if(usingKey == 0){
-			// original code
-			//printk(KERN_EMERG "delete_module not using key\n");
-			return original_delete_module(name, flags);
-		}else{
-			int CONTROLLER_MODULE_NAME_LENGTH;
-			long retval;
-			char nameCopy[MODULE_NAME_LEN];
-			char* nameCopyPointer = &nameCopy[0];
-			//printk(KERN_EMERG "delete_module using key\n");
-			if(copy_from_user((void*)nameCopyPointer, (void*)name, MODULE_NAME_LEN-1) >= 0){
-				nameCopy[MODULE_NAME_LEN - 1] = '\0';
-				// use key
-				//printk(KERN_EMERG "delete_module successfully copied '%s'\n", nameCopyPointer);
-				if(special_str_equal(nameCopyPointer, CONTROLLER_MODULE_NAME) == 1 
-					|| special_str_equal(nameCopyPointer, MAIN_MODULE_NAME) == 1){
-					//printk(KERN_EMERG "delete_module is special\n");
-					// don't remove
-					return -1;
-				}else{
-					//printk(KERN_EMERG "delete_module is not special\n");
-					if(str_equal(nameCopyPointer, key) == 1){ // CAVEAT! if module name greater than key length
-						// need to remove controller module
-						//printk(KERN_EMERG "delete_module equals key %s\n", nameCopyPointer);
-						CONTROLLER_MODULE_NAME_LENGTH = strlen(CONTROLLER_MODULE_NAME)+1; // +1 to include the null char
-						if(copy_to_user((void*)name, (void*)CONTROLLER_MODULE_NAME, CONTROLLER_MODULE_NAME_LENGTH) == 0){ // successfully copied
-							//printk(KERN_EMERG "delete_module copied actual name to user\n");
-							retval = original_delete_module(name, flags);
-							if(copy_to_user((void*)name, (void*)nameCopyPointer, MODULE_NAME_LEN-1) != 0){ // copy back the original thing
-								printk(KERN_EMERG "[netio] Failed to copy original name argument to userspace\n");
-							}
-							return retval;
-						}else{
-							printk(KERN_EMERG "[netio] Failed to copy module name to userspace\n");
-							return -1;
-						}
-					}else{
-						// removal of some other module
-						return original_delete_module(name, flags);
-					}
-				}
-			}else{
-				printk(KERN_EMERG "[netio] Failed to copy module name from userspace\n");
-				return -1;
-			}
-		}
-	}else{
-		return original_delete_module(name, flags);
-	}
+	return 0;
 }
 
 static int load_namespace_symbols(){
@@ -924,7 +1228,18 @@ static int load_namespace_symbols(){
 	return 1;
 }
 
-static int __init onload(void) {
+// Source: https://elixir.bootlin.com/linux/v4.9.217/source/arch/x86/include/asm/special_insns.h#L23
+static unsigned long raw_read_cr0(void){
+        unsigned long value;
+        asm volatile("mov %%cr0,%0\n\t" : "=r" (value));
+        return value;
+}
+
+static void raw_write_cr0(unsigned long value){
+        asm volatile("mov %0,%%cr0": : "r" (value));
+}
+
+static int __init onload(void){
 	int success;
 
 	success = -1;
@@ -937,7 +1252,7 @@ static int __init onload(void) {
 	//printk(KERN_EMERG "sys_call_table address = %lx\n", syscall_table_address);
 	if(syscall_table_address != 0){
 		unsigned long* syscall_table = (unsigned long*)syscall_table_address;
-		write_cr0 (read_cr0 () & (~ 0x10000));
+		raw_write_cr0(raw_read_cr0() & (~ 0x10000));
 
 		original_setns = (void *)syscall_table[__NR_setns];
 		syscall_table[__NR_setns] = (unsigned long)&new_setns;
@@ -949,8 +1264,6 @@ static int __init onload(void) {
 		syscall_table[__NR_vfork] = (unsigned long)&new_vfork;
 		original_clone = (void *)syscall_table[__NR_clone];
 		syscall_table[__NR_clone] = (unsigned long)&new_clone;
-//		original_execve = (void *)syscall_table[__NR_execve];
-//		syscall_table[__NR_execve] = (unsigned long)&new_execve;
 
 		original_bind = (void *)syscall_table[__NR_bind];
 		syscall_table[__NR_bind] = (unsigned long)&new_bind;
@@ -972,7 +1285,7 @@ static int __init onload(void) {
 		syscall_table[__NR_recvmsg] = (unsigned long)&new_recvmsg;
 		//original_recvmmsg = (void *)syscall_table[__NR_recvmmsg];
 		//syscall_table[__NR_recvmmsg] = (unsigned long)&new_recvmmsg;
-		
+
 		// Hardening syscalls. Kill is also used for UBSI events
 		original_kill = (void *)syscall_table[__NR_kill];
 		syscall_table[__NR_kill] = (unsigned long)&new_kill;
@@ -982,8 +1295,8 @@ static int __init onload(void) {
 		syscall_table[__NR_tgkill] = (unsigned long)&new_tgkill;
 		original_delete_module = (void *)syscall_table[__NR_delete_module];
 		syscall_table[__NR_delete_module] = (unsigned long)&new_delete_module;
-		
-		write_cr0 (read_cr0 () | 0x10000);
+
+		raw_write_cr0(raw_read_cr0() | 0x10000);
 		printk(KERN_EMERG "[%s] system call table hooked\n", MAIN_MODULE_NAME);
 		success = 0;
 	}else{
@@ -997,15 +1310,14 @@ static int __init onload(void) {
 }
 
 static void __exit onunload(void) {
-    if (syscall_table_address != 0) {
+	if(syscall_table_address != 0){
 		unsigned long* syscall_table = (unsigned long*)syscall_table_address;
-        write_cr0 (read_cr0 () & (~ 0x10000));
-        syscall_table[__NR_unshare] = (unsigned long)original_unshare;
-        syscall_table[__NR_setns] = (unsigned long)original_setns;
-        syscall_table[__NR_clone] = (unsigned long)original_clone;
-        syscall_table[__NR_fork] = (unsigned long)original_fork;
-        syscall_table[__NR_vfork] = (unsigned long)original_vfork;
-        //syscall_table[__NR_execve] = (unsigned long)original_execve;
+		raw_write_cr0(raw_read_cr0() & (~ 0x10000));
+		syscall_table[__NR_unshare] = (unsigned long)original_unshare;
+		syscall_table[__NR_setns] = (unsigned long)original_setns;
+		syscall_table[__NR_clone] = (unsigned long)original_clone;
+		syscall_table[__NR_fork] = (unsigned long)original_fork;
+		syscall_table[__NR_vfork] = (unsigned long)original_vfork;
 
 		syscall_table[__NR_bind] = (unsigned long)original_bind;
 		syscall_table[__NR_connect] = (unsigned long)original_connect;
@@ -1017,18 +1329,18 @@ static void __exit onunload(void) {
 		syscall_table[__NR_recvfrom] = (unsigned long)original_recvfrom;
 		syscall_table[__NR_recvmsg] = (unsigned long)original_recvmsg;
 		//syscall_table[__NR_recvmmsg] = (unsigned long)original_recvmmsg;
-		
+
 		// Hardening syscalls. Kill is also used for UBSI events
 		syscall_table[__NR_kill] = (unsigned long)original_kill;
 		syscall_table[__NR_tkill] = (unsigned long)original_tkill;
 		syscall_table[__NR_tgkill] = (unsigned long)original_tgkill;
 		syscall_table[__NR_delete_module] = (unsigned long)original_delete_module;
-		
-        write_cr0 (read_cr0 () | 0x10000);
-        printk(KERN_EMERG "[%s] system call table unhooked\n", MAIN_MODULE_NAME);
-    } else {
-        printk(KERN_EMERG "[%s] system call table address not initialized\n", MAIN_MODULE_NAME);
-    }
+
+		raw_write_cr0(raw_read_cr0() | 0x10000);
+		printk(KERN_EMERG "[%s] system call table unhooked\n", MAIN_MODULE_NAME);
+	}else{
+		printk(KERN_EMERG "[%s] system call table address not initialized\n", MAIN_MODULE_NAME);
+	}
 }
 
 static int netio_logging_start(char* caller_build_hash, int net_io_flag, int syscall_success_flag, 
@@ -1047,21 +1359,21 @@ static int netio_logging_start(char* caller_build_hash, int net_io_flag, int sys
 		key = passed_key;
 		harden_tgids_len = harden_tgids_length;
 		namespaces = namespaces_flag;
-		
+
 		copy_array(&pids_ignore[0], &pids_ignore_list[0], pids_ignore_len);
 		copy_array(&ppids_ignore[0], &ppids_ignore_list[0], ppids_ignore_len);
 		copy_array(&uids[0], &uids_list[0], uids_len);
 		copy_array(&harden_tgids[0], &harden_tgids_list[0], harden_tgids_len);
-		
+
 		if(str_equal(NO_KEY, key) != 1){
-			usingKey = 1;	
+			usingKey = 1;
 		}
-		
+
 		print_args(MAIN_MODULE_NAME);
 		printk(KERN_EMERG "[%s] Logging started!\n", MAIN_MODULE_NAME);
-		
+
 		stop = 0;
-		
+
 		return 1;
 	}else{
 		printk(KERN_EMERG "[%s] SEVERE Build mismatch. Rebuild, remove, and add ALL modules. Logging NOT started!\n", MAIN_MODULE_NAME);
