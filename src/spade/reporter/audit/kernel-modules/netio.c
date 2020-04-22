@@ -749,8 +749,7 @@ asmlinkage long new_delete_module(const struct pt_regs *regs){
 asmlinkage long new_delete_module(const char* name_orig, int flags){
 #endif
 
-	char *name;
-	name = NULL;
+	const char *name;
 
 	#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
 	name = (char*)(regs->di);
