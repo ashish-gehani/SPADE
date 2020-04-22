@@ -6,9 +6,11 @@ import spade.core.Graph;
 import spade.core.Vertex;
 import spade.core.Edge;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class ABEGraph extends Graph
 {
-	private String level;
 	private String lowKey;
 	private String mediumKey;
 	private String highKey;
@@ -43,26 +45,22 @@ public class ABEGraph extends Graph
 		this.highKey = highKey;
 	}
 
-	public void setLevel(String level)
-	{
-		this.level = level;
-	}
-
-	public String getLevel()
-	{
-		return level;
-	}
-
 	public static ABEGraph copy(Graph graph)
 	{
+		Map<String, AbstractVertex> vertexMap = new HashMap<>();
 		ABEGraph newGraph = new ABEGraph();
 		for(AbstractVertex vertex : graph.vertexSet())
 		{
-			newGraph.putVertex(copyVertex(vertex));
+			AbstractVertex newVertex = copyVertex(vertex);
+			newGraph.putVertex(newVertex);
+			vertexMap.put(newVertex.bigHashCode(), newVertex);
 		}
 		for(AbstractEdge edge : graph.edgeSet())
 		{
-			newGraph.putEdge(copyEdge(edge));
+			AbstractEdge newEdge = copyEdge(edge);
+			newEdge.setChildVertex(vertexMap.get(edge.getChildVertex().bigHashCode()));
+			newEdge.setParentVertex(vertexMap.get(edge.getParentVertex().bigHashCode()));
+			newGraph.putEdge(newEdge);
 		}
 		return newGraph;
 	}
@@ -72,17 +70,13 @@ public class ABEGraph extends Graph
 		AbstractVertex newVertex = new Vertex();
 		newVertex.addAnnotations(vertex.getAnnotations());
 		newVertex.setDepth(vertex.getDepth());
-
 		return newVertex;
 	}
 
 	public static AbstractEdge copyEdge(AbstractEdge edge)
 	{
 		AbstractEdge newEdge = new Edge(null, null);
-		newEdge.setChildVertex(copyVertex(edge.getChildVertex()));
-		newEdge.setParentVertex(copyVertex(edge.getParentVertex()));
 		newEdge.addAnnotations(edge.getAnnotations());
-
 		return newEdge;
 	}
 }

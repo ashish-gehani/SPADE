@@ -38,23 +38,17 @@ import static spade.core.Kernel.FILE_SEPARATOR;
 
 public class ABE extends AbstractTransformer
 {
-	private String encryptionLevel;
-	private String decryptionLevel;
 	private KeyGenerator keyGenerator;
 	private Ciphers cipher;
 	private static final String LOW = "low";
 	private static final String MEDIUM = "medium";
 	private static final String HIGH = "high";
 	private static final String BASE_ALGORITHM = "AES";
-	private static final String ENCRYPTION_LEVEL = "encryptionLevel";
-	private static final String DECRYPTION_LEVEL = "decryptionLevel";
-	private static final String DECRYPTION_KEY_FILE_NAME = "decryptionKeyFileName";
 	private static final String KEYS_DIRECTORY = "keysDirectory";
-	private File decryptionKeyFile;
 	private File KEYS_DIR;
 	private static final String EDGE = "Edge";
 	private static final String ALGORITHM = "AES/ECB/PKCS5Padding";
-	private static Logger logger = Logger.getLogger(ABE.class.getName());
+	private static final Logger logger = Logger.getLogger(ABE.class.getName());
 
 	private Map<String, List<String>> lowMap = new HashMap<>();
 	private Map<String, List<String>> mediumMap = new HashMap<>();
@@ -82,12 +76,6 @@ public class ABE extends AbstractTransformer
 		{
 			return false;
 		}
-		Map<String, String> argsMap = CommonFunctions.parseKeyValPairs(arguments);
-		String level_str = argsMap.get("encryptionLevel");
-		if(level_str != null)
-		{
-			this.encryptionLevel = level_str;
-		}
 
 		try
 		{
@@ -114,7 +102,6 @@ public class ABE extends AbstractTransformer
 		try
 		{
 			String keyDirectoryPath = null;
-			String decryptionKeyFileName = null;
 			String level = null;
 			List<String> lines = FileUtils.readLines(new File(configFileName), Charsets.UTF_8);
 			for(String line : lines)
@@ -145,59 +132,33 @@ public class ABE extends AbstractTransformer
 						}
 						String type = split[0].trim();
 						String value = split[1].trim();
-						switch(type)
-						{
-							case ENCRYPTION_LEVEL:
-							{
-								encryptionLevel = value;
-							}
-							break;
-							case DECRYPTION_LEVEL:
-							{
-								decryptionLevel = value;
-							}
-							;
-							break;
-							case DECRYPTION_KEY_FILE_NAME:
-							{
-								decryptionKeyFileName = value;
-							}
-							;
-							break;
-							case KEYS_DIRECTORY:
-							{
-								keyDirectoryPath = value;
-							}
-							;
-							break;
-							default:
-							{
-								if(level == null)
-								{
-									logger.log(Level.WARNING, "Unexpected key '" + type + "'");
-									continue;
-								}
-								else
-								{
-									String[] annotations = value.split(",");
-									switch(level)
-									{
-										case LOW:
-											lowMap.put(type, Arrays.asList(annotations));
-											break;
-										case MEDIUM:
-											mediumMap.put(type, Arrays.asList(annotations));
-											break;
-										case HIGH:
-											highMap.put(type, Arrays.asList(annotations));
-											break;
-									}
-								}
-							}
-							;
-							break;
-						}
-
+                        if (KEYS_DIRECTORY.equals(type))
+                        {
+                            keyDirectoryPath = value;
+                        }
+                        else
+                        {
+                            if (level == null)
+                            {
+                                logger.log(Level.WARNING, "Unexpected key '" + type + "'");
+                            }
+                            else
+                            {
+                                String[] annotations = value.split(",");
+                                switch (level)
+                                {
+                                    case LOW:
+                                        lowMap.put(type, Arrays.asList(annotations));
+                                        break;
+                                    case MEDIUM:
+                                        mediumMap.put(type, Arrays.asList(annotations));
+                                        break;
+                                    case HIGH:
+                                        highMap.put(type, Arrays.asList(annotations));
+                                        break;
+                                }
+                            }
+                        }
 					}
 				}
 			}
@@ -209,70 +170,26 @@ public class ABE extends AbstractTransformer
 			}
 			else
 			{
-				if(decryptionKeyFileName == null)
-				{
-					logger.log(Level.SEVERE, "NULL '" + DECRYPTION_KEY_FILE_NAME + "'");
-					return false;
-				}
-				else
-				{
-					File keyDirFile = new File(keyDirectoryPath);
-					File decryptFile = new File(keyDirectoryPath + FILE_SEPARATOR + decryptionKeyFileName);
-					try
-					{
-						if(keyDirFile.isDirectory())
-						{
-							try
-							{
-								if(decryptFile.isFile())
-								{
-									this.KEYS_DIR = keyDirFile;
-									this.decryptionKeyFile = decryptFile;
-									if(CommonFunctions.isNullOrEmpty(encryptionLevel))
-									{
-										logger.log(Level.SEVERE, "NULL '" + ENCRYPTION_LEVEL + "'");
-										return false;
-									}
-									else if(CommonFunctions.isNullOrEmpty(decryptionLevel))
-									{
-										logger.log(Level.SEVERE, "NULL '" + DECRYPTION_LEVEL + "'");
-										return false;
-									}
-									else
-									{
-										logger.log(Level.INFO, String.format("Arguments: %s=%s, %s=%s, %s=%s, %s=%s",
-												KEYS_DIRECTORY, keyDirectoryPath,
-												DECRYPTION_KEY_FILE_NAME, decryptionKeyFileName,
-												ENCRYPTION_LEVEL, encryptionLevel,
-												DECRYPTION_LEVEL, decryptionLevel));
-										return true;
-									}
-								}
-								else
-								{
-									logger.log(Level.SEVERE, "'" + DECRYPTION_KEY_FILE_NAME + "' must be a file");
-									return false;
-								}
-							}
-							catch(Exception e)
-							{
-								logger.log(Level.SEVERE, "Failed to check if '" + DECRYPTION_KEY_FILE_NAME + "' is a file", e);
-								return false;
-							}
-						}
-						else
-						{
-							logger.log(Level.SEVERE, "'" + KEYS_DIRECTORY + "' must be a directory");
-							return false;
-						}
-					}
-					catch(Exception e)
-					{
-						logger.log(Level.SEVERE, "Failed to check if '" + KEYS_DIRECTORY + "' is a directory", e);
-						return false;
-					}
-				}
-			}
+                File keyDirFile = new File(keyDirectoryPath);
+                try
+                {
+                    if(keyDirFile.isDirectory())
+                    {
+                        this.KEYS_DIR = keyDirFile;
+                        return true;
+                    }
+                    else
+                    {
+                        logger.log(Level.SEVERE, "'" + KEYS_DIRECTORY + "' must be a directory");
+                        return false;
+                    }
+                }
+                catch(Exception e)
+                {
+                    logger.log(Level.SEVERE, "Failed to check if '" + KEYS_DIRECTORY + "' is a directory", e);
+                    return false;
+                }
+            }
 		}
 		catch(Exception ex)
 		{
@@ -304,6 +221,8 @@ public class ABE extends AbstractTransformer
 	{
 		if(encryptedAnnotation == null)
 			return null;
+		if(cipher == null)
+		    return encryptedAnnotation;
 		try
 		{
 			byte[] decryptedAnnotation = cipher.doFinal(Hex.decodeHex(encryptedAnnotation.toCharArray()));
@@ -314,28 +233,31 @@ public class ABE extends AbstractTransformer
 			String message = "Unable to decrypt annotation " + "'" + encryptedAnnotation + "'.";
 			logger.log(Level.SEVERE, message, ex);
 		}
-		return null;
+		return encryptedAnnotation;
 	}
 
-	private ABEGraph decryptGraph(ABEGraph graph, SecretKeys secretKeys, String decryptionLevel)
+	private ABEGraph decryptGraph(ABEGraph graph, SecretKeys symmetricKeys)
 	{
 		ABEGraph decryptedGraph = ABEGraph.copy(graph);
 		try
 		{
 			// initialize ciphers for decryption
 			Ciphers ciphers = new Ciphers();
-			switch(decryptionLevel)
-			{
-				case HIGH:
-					ciphers.high = Cipher.getInstance(ALGORITHM);
-					ciphers.high.init(Cipher.DECRYPT_MODE, secretKeys.high);
-				case MEDIUM:
-					ciphers.medium = Cipher.getInstance(ALGORITHM);
-					ciphers.medium.init(Cipher.DECRYPT_MODE, secretKeys.medium);
-				case LOW:
-					ciphers.low = Cipher.getInstance(ALGORITHM);
-					ciphers.low.init(Cipher.DECRYPT_MODE, secretKeys.low);
-			}
+			if(symmetricKeys.high != null)
+            {
+                ciphers.high = Cipher.getInstance(ALGORITHM);
+                ciphers.high.init(Cipher.DECRYPT_MODE, symmetricKeys.high);
+            }
+			if(symmetricKeys.medium != null)
+            {
+                ciphers.medium = Cipher.getInstance(ALGORITHM);
+                ciphers.medium.init(Cipher.DECRYPT_MODE, symmetricKeys.medium);
+            }
+			if(symmetricKeys.low != null)
+            {
+                ciphers.low = Cipher.getInstance(ALGORITHM);
+                ciphers.low.init(Cipher.DECRYPT_MODE, symmetricKeys.low);
+            }
 
 			String encryptedAnnotation;
 			String decryptedAnnotation;
@@ -344,70 +266,63 @@ public class ABE extends AbstractTransformer
 				switch(vertex.type())
 				{
 					case OPMConstants.PROCESS:
-						switch(decryptionLevel)
+						// decrypt name
+						encryptedAnnotation = vertex.getAnnotation(OPMConstants.PROCESS_NAME);
+						decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.high);
+						vertex.addAnnotation(OPMConstants.PROCESS_NAME, decryptedAnnotation);
+
+						// decrypt command line
+						encryptedAnnotation = vertex.getAnnotation(OPMConstants.PROCESS_COMMAND_LINE);
+						if(encryptedAnnotation != null)
 						{
-							case HIGH:
-								// decrypt name
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.PROCESS_NAME);
-								decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.high);
-								vertex.addAnnotation(OPMConstants.PROCESS_NAME, decryptedAnnotation);
-							case MEDIUM:
-								// decrypt command line
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.PROCESS_COMMAND_LINE);
-								if(encryptedAnnotation != null)
-								{
-									decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.medium);
-									vertex.addAnnotation(OPMConstants.PROCESS_COMMAND_LINE, decryptedAnnotation);
-								}
-							case LOW:
-								// decrypt cwd
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.PROCESS_CWD);
-								if(encryptedAnnotation != null)
-								{
-									decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.low);
-									vertex.addAnnotation(OPMConstants.PROCESS_CWD, decryptedAnnotation);
-								}
+							decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.medium);
+							vertex.addAnnotation(OPMConstants.PROCESS_COMMAND_LINE, decryptedAnnotation);
+						}
+
+						// decrypt cwd
+						encryptedAnnotation = vertex.getAnnotation(OPMConstants.PROCESS_CWD);
+						if(encryptedAnnotation != null)
+						{
+							decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.low);
+							vertex.addAnnotation(OPMConstants.PROCESS_CWD, decryptedAnnotation);
 						}
 						break;
 					case OPMConstants.AGENT:
-						switch(decryptionLevel)
-						{
-							case HIGH:
-								// decrypt euid
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_EUID);
-								decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.high);
-								vertex.addAnnotation(OPMConstants.AGENT_EUID, decryptedAnnotation);
-							case MEDIUM:
-								// decrypt uid
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_UID);
-								decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.medium);
-								vertex.addAnnotation(OPMConstants.AGENT_UID, decryptedAnnotation);
+						// decrypt euid
+						encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_EUID);
+						decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.high);
+						vertex.addAnnotation(OPMConstants.AGENT_EUID, decryptedAnnotation);
 
-								// decrypt gid
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_GID);
-								decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.medium);
-								vertex.addAnnotation(OPMConstants.AGENT_GID, decryptedAnnotation);
-							case LOW:
-								// decrypt fsgid
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_FSGID);
-								decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.low);
-								vertex.addAnnotation(OPMConstants.AGENT_FSGID, decryptedAnnotation);
+						// decrypt uid
+						encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_UID);
+						decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.medium);
+						vertex.addAnnotation(OPMConstants.AGENT_UID, decryptedAnnotation);
 
-								// decrypt fsuid
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_FSUID);
-								decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.low);
-								vertex.addAnnotation(OPMConstants.AGENT_FSUID, decryptedAnnotation);
+						// decrypt gid
+						encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_GID);
+						decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.medium);
+						vertex.addAnnotation(OPMConstants.AGENT_GID, decryptedAnnotation);
 
-								//decrypt sgid
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_SGID);
-								decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.low);
-								vertex.addAnnotation(OPMConstants.AGENT_SGID, decryptedAnnotation);
+						// decrypt fsgid
+						encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_FSGID);
+						decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.low);
+						vertex.addAnnotation(OPMConstants.AGENT_FSGID, decryptedAnnotation);
 
-								// decrypt suid
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_SUID);
-								decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.low);
-								vertex.addAnnotation(OPMConstants.AGENT_SUID, decryptedAnnotation);
-						}
+						// decrypt fsuid
+						encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_FSUID);
+						decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.low);
+						vertex.addAnnotation(OPMConstants.AGENT_FSUID, decryptedAnnotation);
+
+						//decrypt sgid
+						encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_SGID);
+						decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.low);
+						vertex.addAnnotation(OPMConstants.AGENT_SGID, decryptedAnnotation);
+
+						// decrypt suid
+						encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_SUID);
+						decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.low);
+						vertex.addAnnotation(OPMConstants.AGENT_SUID, decryptedAnnotation);
+
 						break;
 					case OPMConstants.ARTIFACT:
 						// decrypt remote address
@@ -415,17 +330,13 @@ public class ABE extends AbstractTransformer
 						if(encryptedAnnotation != null)
 						{
 							String[] subnets = encryptedAnnotation.split("\\.");
-							switch(decryptionLevel)
-							{
-								case HIGH:
-									subnets[1] = decryptAnnotation(subnets[1], ciphers.high);
-								case MEDIUM:
-									subnets[2] = decryptAnnotation(subnets[2], ciphers.medium);
-								case LOW:
-									subnets[3] = decryptAnnotation(subnets[3], ciphers.low);
-									decryptedAnnotation = String.join(".", subnets);
-									vertex.addAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS, decryptedAnnotation);
-							}
+							subnets[1] = decryptAnnotation(subnets[1], ciphers.low);
+
+							subnets[2] = decryptAnnotation(subnets[2], ciphers.medium);
+
+							subnets[3] = decryptAnnotation(subnets[3], ciphers.high);
+							decryptedAnnotation = String.join(".", subnets);
+							vertex.addAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS, decryptedAnnotation);
 						}
 
 						// decrypt path
@@ -434,26 +345,22 @@ public class ABE extends AbstractTransformer
 						{
 							String[] subpaths = encryptedAnnotation.split(FILE_SEPARATOR, 5);
 							int numpaths = subpaths.length;
-							switch(decryptionLevel)
+							if(numpaths > 2)
 							{
-								case HIGH:
-									if(numpaths > 2)
-									{
-										subpaths[2] = decryptAnnotation(subpaths[2], ciphers.high);
-									}
-								case MEDIUM:
-									if(numpaths > 3)
-									{
-										subpaths[3] = decryptAnnotation(subpaths[3], ciphers.medium);
-									}
-								case LOW:
-									if(numpaths > 4)
-									{
-										subpaths[4] = decryptAnnotation(subpaths[4], ciphers.low);
-									}
-									decryptedAnnotation = String.join(FILE_SEPARATOR, subpaths);
-									vertex.addAnnotation(OPMConstants.ARTIFACT_PATH, decryptedAnnotation);
+								subpaths[2] = decryptAnnotation(subpaths[2], ciphers.low);
 							}
+
+							if(numpaths > 3)
+							{
+								subpaths[3] = decryptAnnotation(subpaths[3], ciphers.medium);
+							}
+
+							if(numpaths > 4)
+							{
+								subpaths[4] = decryptAnnotation(subpaths[4], ciphers.high);
+							}
+							decryptedAnnotation = String.join(FILE_SEPARATOR, subpaths);
+							vertex.addAnnotation(OPMConstants.ARTIFACT_PATH, decryptedAnnotation);
 						}
 						break;
 				}
@@ -474,38 +381,34 @@ public class ABE extends AbstractTransformer
 				String second = split[5];
 				String millisecond = split[6];
 
-				switch(decryptionLevel)
+				// decrypt time
+				day = decryptAnnotation(day, ciphers.high);
+
+				// decrypt operation
+				encryptedAnnotation = edge.getAnnotation(OPMConstants.EDGE_OPERATION);
+				decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.high);
+				edge.addAnnotation(OPMConstants.EDGE_OPERATION, decryptedAnnotation);
+
+				// decrypt time
+				hour = decryptAnnotation(hour, ciphers.medium);
+
+				// decrypt size
+				encryptedAnnotation = edge.getAnnotation(OPMConstants.EDGE_SIZE);
+				if(encryptedAnnotation != null)
 				{
-					case HIGH:
-						// decrypt time
-						day = decryptAnnotation(day, ciphers.high);
-
-						// decrypt operation
-						encryptedAnnotation = edge.getAnnotation(OPMConstants.EDGE_OPERATION);
-						decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.high);
-						edge.addAnnotation(OPMConstants.EDGE_OPERATION, decryptedAnnotation);
-					case MEDIUM:
-						// decrypt time
-						hour = decryptAnnotation(hour, ciphers.medium);
-
-						// decrypt size
-						encryptedAnnotation = edge.getAnnotation(OPMConstants.EDGE_SIZE);
-						if(encryptedAnnotation != null)
-						{
-							decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.medium);
-							edge.addAnnotation(OPMConstants.EDGE_SIZE, decryptedAnnotation);
-						}
-					case LOW:
-						// decrypt time
-						minute = decryptAnnotation(minute, ciphers.low);
-						second = decryptAnnotation(second, ciphers.low);
-						millisecond = decryptAnnotation(millisecond, ciphers.low);
-
-						// stitch time with format is 'yyyy-MM-dd HH:mm:ss.SSS'
-						String timestamp = year + "-" + month + "-" + day + " " + hour + ":" +
-								minute + ":" + second + "." + millisecond;
-						edge.addAnnotation(OPMConstants.EDGE_TIME, timestamp);
+					decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.medium);
+					edge.addAnnotation(OPMConstants.EDGE_SIZE, decryptedAnnotation);
 				}
+
+				// decrypt time
+				minute = decryptAnnotation(minute, ciphers.low);
+				second = decryptAnnotation(second, ciphers.low);
+				millisecond = decryptAnnotation(millisecond, ciphers.low);
+
+				// stitch time with format is 'yyyy-MM-dd HH:mm:ss.SSS'
+				String timestamp = year + "-" + month + "-" + day + " " + hour + ":" +
+						minute + ":" + second + "." + millisecond;
+				edge.addAnnotation(OPMConstants.EDGE_TIME, timestamp);
 			}
 			return decryptedGraph;
 		}
@@ -516,12 +419,7 @@ public class ABE extends AbstractTransformer
 		}
 	}
 
-	private String getAttributeKeyName()
-	{
-		return "medium.key";
-	}
-
-	private SecretKey decryptKey(String encryptedKey)
+	private SecretKey decryptKey(String encryptedKey, String level)
 	{
 		try
 		{
@@ -532,8 +430,9 @@ public class ABE extends AbstractTransformer
 
 			// perform ABE decryption
 			String keyFileName = "key.txt";
-			//TODO: decryptionLevel is not user specific. Use the key stored for this user here
-			String command = "oabe_dec -s CP -p spade -k " + decryptionKeyFile.getAbsolutePath() + " -i " + encryptedKeyFileName +
+            String decryptionKeyFileName = level + ".key";
+            String decryptionKeyFilePath = KEYS_DIR.getAbsolutePath() + FILE_SEPARATOR + decryptionKeyFileName;
+			String command = "oabe_dec -s CP -p spade -k " + decryptionKeyFilePath + " -i " + encryptedKeyFileName +
 					" -o " + keyFileName;
 			Runtime runtime = Runtime.getRuntime();
 			Process process = runtime.exec(command, null, KEYS_DIR);
@@ -571,26 +470,19 @@ public class ABE extends AbstractTransformer
 		}
 	}
 
-	private SecretKeys decryptSymmetricKeys(ABEGraph graph, String decryptionLevel)
+	private SecretKeys decryptSymmetricKeys(ABEGraph graph)
 	{
 		SecretKeys secretKeys = new SecretKeys();
-		switch(decryptionLevel)
-		{
-			case HIGH:
-				secretKeys.high = decryptKey(graph.getHighKey());
-			case MEDIUM:
-				secretKeys.medium = decryptKey(graph.getMediumKey());
-			case LOW:
-				secretKeys.low = decryptKey(graph.getLowKey());
-		}
+        secretKeys.high = decryptKey(graph.getHighKey(), HIGH);
+        secretKeys.medium = decryptKey(graph.getMediumKey(), MEDIUM);
+        secretKeys.low = decryptKey(graph.getLowKey(), LOW);
 		return secretKeys;
 	}
 
 	public ABEGraph decryptGraph(ABEGraph graph)
 	{
-		String level_str = graph.getLevel();
-		SecretKeys secretKeys = decryptSymmetricKeys(graph, level_str);
-		return decryptGraph(graph, secretKeys, level_str);
+		SecretKeys symmetricKeys = decryptSymmetricKeys(graph);
+		return decryptGraph(graph, symmetricKeys);
 	}
 
 	private String encryptAnnotation(String plainAnnotation, Cipher cipher)
@@ -613,14 +505,14 @@ public class ABE extends AbstractTransformer
 		}
 	}
 
-	private String encryptKey(SecretKey secretKey, String level)
+	private String encryptKey(SecretKey symmetricKey, String level)
 	{
 		try
 		{
 			// write secret key to a file temporarily
 			String keyFileName = "key.txt";
 			String encryptedKeyFileName = "key.cpabe";
-			String encodedKey = Hex.encodeHexString(secretKey.getEncoded());
+			String encodedKey = Hex.encodeHexString(symmetricKey.getEncoded());
 			File keyFile = new File(KEYS_DIR.getAbsolutePath() + FILE_SEPARATOR + keyFileName);
 			FileUtils.writeStringToFile(keyFile, encodedKey, StandardCharsets.UTF_8);
 
@@ -661,15 +553,15 @@ public class ABE extends AbstractTransformer
 	}
 
 	// encrypt the symmetric keys as per ABE
-	private void encryptSymmetricKeys(SecretKeys secretKeys, ABEGraph graph)
+	private void encryptSymmetricKeys(SecretKeys symmetricKeys, ABEGraph graph)
 	{
-		String low = encryptKey(secretKeys.low, this.encryptionLevel);
+		String low = encryptKey(symmetricKeys.low, LOW);
 		graph.setLowKey(low);
 
-		String medium = encryptKey(secretKeys.medium, this.encryptionLevel);
+		String medium = encryptKey(symmetricKeys.medium, MEDIUM);
 		graph.setMediumKey(medium);
 
-		String high = encryptKey(secretKeys.high, this.encryptionLevel);
+		String high = encryptKey(symmetricKeys.high, HIGH);
 		graph.setHighKey(high);
 	}
 
@@ -714,8 +606,8 @@ public class ABE extends AbstractTransformer
 		endPoints.addAll(encryptedGraph.vertexSet());
 
 		// generate 3 symmetric keys
-		SecretKeys secretKeys = generateSymmetricKeys();
-		if(secretKeys == null)
+		SecretKeys symmetricKeys = generateSymmetricKeys();
+		if(symmetricKeys == null)
 		{
 			logger.log(Level.SEVERE, "Unable to encrypt data");
 			return null;
@@ -723,9 +615,9 @@ public class ABE extends AbstractTransformer
 		try
 		{
 			// encrypt data
-			this.cipher.low.init(Cipher.ENCRYPT_MODE, secretKeys.low);
-			this.cipher.medium.init(Cipher.ENCRYPT_MODE, secretKeys.medium);
-			this.cipher.high.init(Cipher.ENCRYPT_MODE, secretKeys.high);
+			this.cipher.low.init(Cipher.ENCRYPT_MODE, symmetricKeys.low);
+			this.cipher.medium.init(Cipher.ENCRYPT_MODE, symmetricKeys.medium);
+			this.cipher.high.init(Cipher.ENCRYPT_MODE, symmetricKeys.high);
 		}
 		catch(Exception ex)
 		{
@@ -736,8 +628,7 @@ public class ABE extends AbstractTransformer
 		transformEdges(encryptedGraph.edgeSet());
 
 		// encrypt the symmetric keys as per ABE
-		encryptSymmetricKeys(secretKeys, encryptedGraph);
-		encryptedGraph.setLevel(encryptionLevel);
+		encryptSymmetricKeys(symmetricKeys, encryptedGraph);
 		return encryptedGraph;
 	}
 
@@ -759,15 +650,9 @@ public class ABE extends AbstractTransformer
 		for(AbstractEdge edge : edgeSet)
 		{
 			// encrypt non-common annotations here
-			switch(encryptionLevel)
-			{
-				case HIGH:
-					encryptAnnotations(edge, highAnnotations, this.cipher.high);
-				case MEDIUM:
-					encryptAnnotations(edge, mediumAnnotations, this.cipher.medium);
-				case LOW:
-					encryptAnnotations(edge, lowAnnotations, this.cipher.low);
-			}
+            encryptAnnotations(edge, highAnnotations, this.cipher.high);
+            encryptAnnotations(edge, mediumAnnotations, this.cipher.medium);
+            encryptAnnotations(edge, lowAnnotations, this.cipher.low);
 
 			// encrypt common annotations here
 			for(String annotation : commonAnnotations)
@@ -787,27 +672,21 @@ public class ABE extends AbstractTransformer
 					String second = String.valueOf(calendar.get(Calendar.SECOND));
 					String millisecond = String.valueOf(calendar.get(Calendar.MILLISECOND));
 
-					switch(encryptionLevel)
-					{
-						case HIGH:
-							// encrypt time
-							day = encryptAnnotation(day, this.cipher.high);
+                    // encrypt time
+                    day = encryptAnnotation(day, this.cipher.high);
 
-						case MEDIUM:
-							// encrypt time
-							hour = encryptAnnotation(hour, this.cipher.medium);
+                    // encrypt time
+                    hour = encryptAnnotation(hour, this.cipher.medium);
 
-						case LOW:
-							// encrypt time
-							minute = encryptAnnotation(minute, this.cipher.low);
-							second = encryptAnnotation(second, this.cipher.low);
-							millisecond = encryptAnnotation(millisecond, this.cipher.low);
+                    // encrypt time
+                    minute = encryptAnnotation(minute, this.cipher.low);
+                    second = encryptAnnotation(second, this.cipher.low);
+                    millisecond = encryptAnnotation(millisecond, this.cipher.low);
 
-							// stitch time with format is 'yyyy-MM-dd HH:mm:ss.SSS'
-							String timestamp = year + "-" + month + "-" + day + " " + hour + ":" +
-									minute + ":" + second + "." + millisecond;
-							edge.addAnnotation(OPMConstants.EDGE_TIME, timestamp);
-					}
+                    // stitch time with format is 'yyyy-MM-dd HH:mm:ss.SSS'
+                    String timestamp = year + "-" + month + "-" + day + " " + hour + ":" +
+                            minute + ":" + second + "." + millisecond;
+                    edge.addAnnotation(OPMConstants.EDGE_TIME, timestamp);
 				}
 			}
 		}
@@ -829,31 +708,19 @@ public class ABE extends AbstractTransformer
 				lowAnnotations = lowMap.get(OPMConstants.PROCESS);
 
 				// encrypt common annotations here. None for now
-
-				switch(encryptionLevel)
-				{
-					case HIGH:
-						encryptAnnotations(vertex, highAnnotations, this.cipher.high);
-					case MEDIUM:
-						encryptAnnotations(vertex, mediumAnnotations, this.cipher.medium);
-					case LOW:
-						encryptAnnotations(vertex, lowAnnotations, this.cipher.low);
-				}
+                encryptAnnotations(vertex, highAnnotations, this.cipher.high);
+                encryptAnnotations(vertex, mediumAnnotations, this.cipher.medium);
+                encryptAnnotations(vertex, lowAnnotations, this.cipher.low);
 				break;
 
 			case OPMConstants.AGENT:
 				highAnnotations = highMap.get(OPMConstants.AGENT);
 				mediumAnnotations = mediumMap.get(OPMConstants.AGENT);
 				lowAnnotations = lowMap.get(OPMConstants.AGENT);
-				switch(encryptionLevel)
-				{
-					case HIGH:
-						encryptAnnotations(vertex, highAnnotations, this.cipher.high);
-					case MEDIUM:
-						encryptAnnotations(vertex, mediumAnnotations, this.cipher.medium);
-					case LOW:
-						encryptAnnotations(vertex, lowAnnotations, this.cipher.low);
-				}
+
+                encryptAnnotations(vertex, highAnnotations, this.cipher.high);
+                encryptAnnotations(vertex, mediumAnnotations, this.cipher.medium);
+                encryptAnnotations(vertex, lowAnnotations, this.cipher.low);
 				break;
 
 			case OPMConstants.ARTIFACT:
@@ -873,44 +740,30 @@ public class ABE extends AbstractTransformer
 						if(annotation.equals(OPMConstants.ARTIFACT_REMOTE_ADDRESS))
 						{
 							String[] subnets = plainAnnotation.split("\\.");
-							switch(encryptionLevel)
-							{
-								case HIGH:
-									subnets[1] = encryptAnnotation(subnets[1], this.cipher.high);
-
-								case MEDIUM:
-									subnets[2] = encryptAnnotation(subnets[2], this.cipher.medium);
-
-								case LOW:
-									subnets[3] = encryptAnnotation(subnets[3], this.cipher.low);
-									encryptedAnnotation = String.join(".", subnets);
-									vertex.addAnnotation(annotation, encryptedAnnotation);
-							}
+                            subnets[1] = encryptAnnotation(subnets[1], this.cipher.low);
+                            subnets[2] = encryptAnnotation(subnets[2], this.cipher.medium);
+                            subnets[3] = encryptAnnotation(subnets[3], this.cipher.high);
+                            encryptedAnnotation = String.join(".", subnets);
+                            vertex.addAnnotation(annotation, encryptedAnnotation);
 						}
 						else if(annotation.equals(OPMConstants.ARTIFACT_PATH))
 						{
 							String[] subpaths = plainAnnotation.split(FILE_SEPARATOR, 5);
 							int numpaths = subpaths.length;
-							switch(encryptionLevel)
-							{
-								case HIGH:
-									if(numpaths > 2)
-									{
-										subpaths[2] = encryptAnnotation(subpaths[2], this.cipher.high);
-									}
-								case MEDIUM:
-									if(numpaths > 3)
-									{
-										subpaths[3] = encryptAnnotation(subpaths[3], this.cipher.medium);
-									}
-								case LOW:
-									if(numpaths > 4)
-									{
-										subpaths[4] = encryptAnnotation(subpaths[4], this.cipher.low);
-									}
-									encryptedAnnotation = String.join(FILE_SEPARATOR, subpaths);
-									vertex.addAnnotation(OPMConstants.ARTIFACT_PATH, encryptedAnnotation);
-							}
+                            if(numpaths > 2)
+                            {
+                                subpaths[2] = encryptAnnotation(subpaths[2], this.cipher.low);
+                            }
+                            if(numpaths > 3)
+                            {
+                                subpaths[3] = encryptAnnotation(subpaths[3], this.cipher.medium);
+                            }
+                                if(numpaths > 4)
+                                {
+                                    subpaths[4] = encryptAnnotation(subpaths[4], this.cipher.high);
+                                }
+                                encryptedAnnotation = String.join(FILE_SEPARATOR, subpaths);
+                                vertex.addAnnotation(OPMConstants.ARTIFACT_PATH, encryptedAnnotation);
 						}
 					}
 				}
@@ -926,19 +779,16 @@ public class ABE extends AbstractTransformer
 		}
 	}
 
-//	public static void main(String[] args)
-//	{
-//		Graph graph = Graph.importGraph("sample.dot");
-//		System.out.println(graph);
-//		ABE abe = new ABE();
-//		abe.initialize("encryptionLevel=medium");
-//		ABEGraph encryptedGraph = abe.transform(graph, null);
-//		System.out.println(encryptedGraph);
-//		encryptedGraph.setLevel("medium");
-//
-//		ABEGraph decryptedGraph = abe.decryptGraph(encryptedGraph);
-//		System.out.println(decryptedGraph);
-//		System.out.println(decryptedGraph.equals(graph));
-//		System.out.println(decryptedGraph.toString().equals(graph.toString()));
-//	}
+	public static void main(String[] args)
+	{
+		Graph graph = Graph.importGraph("sample.dot");
+		System.out.println(graph);
+		ABE abe = new ABE();
+		abe.initialize("");
+		ABEGraph encryptedGraph = abe.transform(graph, null);
+		System.out.println(encryptedGraph);
+
+		ABEGraph decryptedGraph = abe.decryptGraph(encryptedGraph);
+		System.out.println(decryptedGraph);
+	}
 }
