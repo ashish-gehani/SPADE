@@ -530,7 +530,7 @@ public class ArtifactManager{
 		// Special checks
 		if(identifier instanceof PathIdentifier){
 			PathIdentifier pathIdentifier = (PathIdentifier)identifier;
-			if(pathIdentifier.path.startsWith("/dev/")){
+			if(pathIdentifier.path != null && pathIdentifier.path.startsWith("/dev/")){
 				return false;
 			}
 		}

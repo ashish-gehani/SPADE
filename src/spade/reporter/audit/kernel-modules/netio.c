@@ -135,6 +135,7 @@ static long spade_tgkill_pre(int syscallNumber, int tgid, int tid, int sig);
 // END - SPADE logic functions on hooked syscalls
 
 static int is_sockaddr_size_valid(uint32_t size);
+static void to_hex_str(unsigned char *dst, uint32_t dst_len, unsigned char *src, uint32_t src_len);
 static void to_hex(unsigned char *dst, uint32_t dst_len, unsigned char *src, uint32_t src_len);
 static void sockaddr_to_hex(unsigned char* dst, int dst_len, unsigned char* addr, uint32_t addr_size);
 static int copy_msghdr_from_user(struct msghdr *dst, const struct msghdr __user *src);
@@ -283,6 +284,27 @@ static void to_hex(unsigned char *dst, uint32_t dst_len, unsigned char *src, uin
 	*dst = '\0'; // NULL char
 }
 
+static void to_hex_str(unsigned char *dst, uint32_t dst_len, unsigned char *src, uint32_t src_len){
+	int i;
+	int eos;
+	eos = 0;
+	memset(dst, '\0', dst_len);
+//	explicit_bzero((void*)dst, dst_len);
+	for (i = 0; i < src_len; i++){
+		if(src[i] == '\0'){
+			eos = 1;
+		}
+		if(eos == 0){
+			*dst++ = hex_asc_upper[((src[i]) & 0xf0) >> 4];
+			*dst++ = hex_asc_upper[((src[i]) & 0x0f)];
+		}else{
+			*dst++ = '\0';
+			*dst++ = '\0';
+		}
+	}
+	*dst = '\0'; // NULL char
+}
+
 // dst should be large enough and caller should ensure that.
 static void sockaddr_to_hex(unsigned char* dst, int dst_len, unsigned char* addr, uint32_t addr_size){
 	if(addr != NULL && is_sockaddr_size_valid(addr_size) == 1){
@@ -366,7 +388,7 @@ static void log_to_audit(int syscallNumber, int fd, struct sockaddr_storage* add
 		hex_task_command[0] = '\0';
 
 		// get command
-		to_hex(&hex_task_command[0], hex_task_command_len, (unsigned char *)task_command, task_command_len);
+		to_hex_str(&hex_task_command[0], hex_task_command_len, (unsigned char *)task_command, task_command_len);
 
 		// get addr passed in
 		if(addr != NULL){
@@ -1159,7 +1181,7 @@ static void spade_kill(int syscallNumber, long result, pid_t pid, int sig){
 			unsigned char hex_task_command[TASK_COMM_LEN*2];
 
 			// get command
-			to_hex(&hex_task_command[0], hex_task_command_len, (unsigned char *)task_command, task_command_len);
+			to_hex_str(&hex_task_command[0], hex_task_command_len, (unsigned char *)task_command, task_command_len);
 
 			audit_log(NULL, GFP_KERNEL, AUDIT_USER,
 			"ubsi_intercepted=\"syscall=%d success=%s exit=%ld a0=%x a1=%x a2=0 a3=0 items=0 ppid=%d pid=%d uid=%d gid=%d euid=%d suid=%d fsuid=%d egid=%d sgid=%d fsgid=%d comm=%s\"",

@@ -612,7 +612,12 @@ public abstract class ProcessManager extends ProcessStateManager{
 		
 		boolean handle = true;
 		String flagsAnnotation = "";
-		
+
+		ProcessIdentifier childProcessIdentifier = new ProcessIdentifier(childPid, parentPid, comm, cwd,
+				parentProcessIdentifier.commandLine, time, null, getUnitId(), source, nsChildPid);
+		NamespaceIdentifier childNamespaceIdentifer = buildNamespaceIdentifierForPid(childPid);
+		Process childVertex = putProcessVertex(time, eventId, childProcessIdentifier, agentIdentifier, childNamespaceIdentifer, source);
+
 		if(syscall == SYSCALL.FORK){
 			processForked(parentPid, childPid, namespaces);
 		}else if(syscall == SYSCALL.VFORK){
@@ -638,14 +643,8 @@ public abstract class ProcessManager extends ProcessStateManager{
 			handle = false;
 			reporter.log(Level.INFO, "Unexpected syscall", null, time, eventId, syscall);
 		}
-		
+
 		if(handle){
-			ProcessIdentifier childProcessIdentifier = new ProcessIdentifier(childPid, parentPid, comm, cwd, 
-					parentProcessIdentifier.commandLine, time, null, getUnitId(), source, nsChildPid);
-			NamespaceIdentifier childNamespaceIdentifer = buildNamespaceIdentifierForPid(childPid);
-			
-			Process childVertex = putProcessVertex(time, eventId, childProcessIdentifier, agentIdentifier, childNamespaceIdentifer, source);
-			
 			WasTriggeredBy edge = new WasTriggeredBy(childVertex, parentVertex);
 			for(Map.Entry<String, Integer> cloneFlag : cloneFlags.entrySet()){
 				String cloneFlagName = cloneFlag.getKey();
