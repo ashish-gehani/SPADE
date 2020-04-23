@@ -26,8 +26,8 @@ public class NamedPipeIdentifier extends PathIdentifier{
 
 	private static final long serialVersionUID = -243227327860125495L;
 
-	public NamedPipeIdentifier(String path){
-		super(path);
+	public NamedPipeIdentifier(String path, String rootFSPath){
+		super(path, rootFSPath);
 	}
 	
 	public String getSubtype(){

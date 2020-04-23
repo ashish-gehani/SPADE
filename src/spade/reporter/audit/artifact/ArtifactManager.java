@@ -39,6 +39,7 @@ import spade.edge.opm.WasDerivedFrom;
 import spade.reporter.Audit;
 //import spade.reporter.Audit;
 import spade.reporter.audit.Globals;
+import spade.reporter.audit.LinuxPathResolver;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.Converter;
 import spade.utility.HelperFunctions;
@@ -199,7 +200,12 @@ public class ArtifactManager{
 								case OPMConstants.SUBTYPE_LINK:
 								case OPMConstants.SUBTYPE_NAMED_PIPE:
 								case OPMConstants.SUBTYPE_UNIX_SOCKET:
-									append(str, ((PathIdentifier)i).getPath());
+									PathIdentifier pathIdentifier = (PathIdentifier)i;
+									append(str, pathIdentifier.rootFSPath);
+									append(str, LinuxPathResolver.PATH_SEPARATOR);
+									append(str, LinuxPathResolver.PATH_SEPARATOR);
+									append(str, LinuxPathResolver.PATH_SEPARATOR);
+									append(str, pathIdentifier.path);
 									break;
 								case OPMConstants.SUBTYPE_MEMORY_ADDRESS: 
 									MemoryIdentifier mem = (MemoryIdentifier)i;
@@ -213,7 +219,8 @@ public class ArtifactManager{
 									append(str, net.getLocalPort()).append(",");
 									append(str, net.getRemoteHost()).append(",");
 									append(str, net.getRemotePort()).append(",");
-									append(str, net.getProtocol());
+									append(str, net.getProtocol()).append(",");
+									append(str, net.netNamespaceId);
 									break;
 								case OPMConstants.SUBTYPE_UNKNOWN:
 									UnknownIdentifier unknown = (UnknownIdentifier)i;
@@ -523,8 +530,7 @@ public class ArtifactManager{
 		// Special checks
 		if(identifier instanceof PathIdentifier){
 			PathIdentifier pathIdentifier = (PathIdentifier)identifier;
-			String path = pathIdentifier.getPath();
-			if(path.startsWith("/dev/")){
+			if(pathIdentifier.path.startsWith("/dev/")){
 				return false;
 			}
 		}

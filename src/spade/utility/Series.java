@@ -24,7 +24,9 @@ import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -46,6 +48,12 @@ public class Series<T extends Serializable & Comparable<T>, V extends Serializab
 			SimpleEntry<T, V> entry = new SimpleEntry<T, V>(t, v);
 			series.add(entry);
 		}
+	}
+	
+	public Set<V> getValues(){
+		final Set<V> values = new HashSet<V>();
+		series.forEach(v -> values.add(v.getValue()));
+		return values;
 	}
 	
 	// Caller must make sure about not null

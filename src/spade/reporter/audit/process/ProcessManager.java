@@ -19,17 +19,12 @@
  */
 package spade.reporter.audit.process;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.io.Serializable;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -66,7 +61,8 @@ public abstract class ProcessManager extends ProcessStateManager{
 	//  AND  
 	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/signal.h
 	public static final Map<String, Integer> cloneFlags = new HashMap<String, Integer>();
-	public static final int SIGCHLD, CLONE_VFORK, CLONE_VM, CLONE_FILES, CLONE_THREAD, CLONE_FS;
+	public static final int SIGCHLD, CLONE_VFORK, CLONE_VM, CLONE_FILES, CLONE_THREAD, CLONE_FS,
+		CLONE_NEWNS;
 
 	static{
 		cloneFlags.put("CLONE_CHILD_CLEARTID", 0x00200000);
@@ -74,6 +70,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		cloneFlags.put("CLONE_FILES", 0x00000400);
 		cloneFlags.put("CLONE_FS", 0x00000200);
 		cloneFlags.put("CLONE_IO", 0x80000000);
+		cloneFlags.put("CLONE_NEWUSER", 0x10000000);
 		cloneFlags.put("CLONE_NEWIPC", 0x08000000);
 		cloneFlags.put("CLONE_NEWNET", 0x40000000);
 		cloneFlags.put("CLONE_NEWNS", 0x00020000);
@@ -97,6 +94,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		CLONE_FILES = cloneFlags.get("CLONE_FILES");
 		CLONE_THREAD = cloneFlags.get("CLONE_THREAD");
 		CLONE_FS = cloneFlags.get("CLONE_FS");
+		CLONE_NEWNS = cloneFlags.get("CLONE_NEWNS");
 	}
 	
 	private Audit reporter;
@@ -130,10 +128,16 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 */
 	private final boolean units;
 	
-	protected ProcessManager(Audit reporter, boolean simplify, boolean units) throws Exception{
+	/**
+	 * Used to tell whether to use namespace identifiers
+	 */
+	public final boolean namespaces;
+	
+	protected ProcessManager(Audit reporter, boolean simplify, boolean units, boolean namespaces) throws Exception{
 		this.reporter = reporter;
 		this.simplify = simplify;
 		this.units = units;
+		this.namespaces = namespaces;
 		
 		String defaultConfigFilePath = Settings.getDefaultConfigFilePath(ProcessManager.class);
 
@@ -175,7 +179,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 * @param unit
 	 * @return process vertex
 	 */
-	protected abstract Process buildVertex(ProcessIdentifier process, AgentIdentifier agent, UnitIdentifier unit);
+	protected abstract Process buildVertex(ProcessIdentifier process, AgentIdentifier agent, UnitIdentifier unit, NamespaceIdentifier namespace);
 	
 	/**
 	 * Only to be called when a new process seen. New process identified as: 
@@ -196,7 +200,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 * @return the process vertex that is put
 	 */
 	protected abstract Process putProcessVertex(String time, String eventId, ProcessIdentifier process,
-			AgentIdentifier agent, String source);
+			AgentIdentifier agent, NamespaceIdentifier namespace, String source);
 	
 	/**
 	 * Only to be called when a new unit seen. New units only come from unit entry event.
@@ -230,7 +234,9 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 * @param operation can only be either update (i.e. indirect update), or setuid, and setgid (direct update)
 	 */
 	protected abstract void handleAgentUpdate(String time, String eventId, String pid, AgentIdentifier newAgent, 
-			String operation);
+			NamespaceIdentifier namespace, String operation);
+	protected abstract void handleNamespaceUpdate(String time, String eventId, String pid, AgentIdentifier agent,
+			NamespaceIdentifier newNamespace, String operation);
 	
 	public void doCleanUp(){
 		if(processUnitStates != null){
@@ -345,7 +351,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 	public Process getVertex(String pid){
 		ProcessUnitState state = getProcessUnitState(pid);
 		if(state != null){
-			return buildVertex(state.getProcess(), state.getAgent(), state.getUnit());
+			return buildVertex(state.getProcess(), state.getAgent(), state.getUnit(), state.getNamespace());
 		}else{
 			return null;
 		}
@@ -383,9 +389,10 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 * @return process identifier
 	 */
 	protected ProcessIdentifier buildProcessIdentifierFromSyscall(Map<String, String> eventData){
-		return new ProcessIdentifier(eventData.get(AuditEventReader.PID), eventData.get(AuditEventReader.PPID), 
+		String pidInEvent = eventData.get(AuditEventReader.PID);
+		return new ProcessIdentifier(pidInEvent, eventData.get(AuditEventReader.PPID), 
 				eventData.get(AuditEventReader.COMM), eventData.get(AuditEventReader.CWD), null, null, 
-				eventData.get(AuditEventReader.TIME), getUnitId(), OPMConstants.SOURCE_AUDIT_SYSCALL);
+				eventData.get(AuditEventReader.TIME), getUnitId(), OPMConstants.SOURCE_AUDIT_SYSCALL, null);
 	}
 	
 	/**
@@ -408,6 +415,15 @@ public abstract class ProcessManager extends ProcessStateManager{
 			return new AgentIdentifier(uid, euid, gid, egid, 
 					eventData.get(AuditEventReader.SUID), eventData.get(AuditEventReader.FSUID), 
 					eventData.get(AuditEventReader.SGID), eventData.get(AuditEventReader.FSGID));
+		}
+	}
+	
+	protected NamespaceIdentifier buildNamespaceIdentifierForPid(String pid){
+		if(namespaces){
+			return new NamespaceIdentifier(getMountNamespace(pid), getUsrNamespace(pid), 
+					getNetNamespace(pid), getPidNamespace(pid), getPidChildrenNamespace(pid), getIpcNamespace(pid));
+		}else{
+			return new NamespaceIdentifier(null, null, null, null, null, null);
 		}
 	}
 	
@@ -446,15 +462,15 @@ public abstract class ProcessManager extends ProcessStateManager{
 		AgentIdentifier agentIdentifier = buildAgentIdentifierFromSyscall(eventData);
 		ProcessIdentifier processIdentifier = null;
 		ProcessUnitState state = getProcessUnitState(pid);
-		// Updates the cwd based on this syscall as a backup measure in case 'chdir' is missed ever
-		setCwd(pid, eventData.get(AuditEventReader.CWD));
 		if(state == null){
 			processIdentifier = buildProcessIdentifierFromSyscall(eventData);
-			putProcessVertex(time, eventId, processIdentifier, agentIdentifier, source);
+			putProcessVertex(time, eventId, processIdentifier, agentIdentifier, 
+					buildNamespaceIdentifierForPid(pid), source);
 		}else{
 			AgentIdentifier existingAgent = state.getAgent();
 			if(!existingAgent.equals(agentIdentifier)){
-				handleAgentUpdate(time, eventId, pid, agentIdentifier, operation);
+				handleAgentUpdate(time, eventId, pid, agentIdentifier, 
+						buildNamespaceIdentifierForPid(pid), operation);
 			}
 		}
 		
@@ -487,7 +503,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		Process parentProcessVertex = handleProcessFromSyscall(eventData);
 
 		// look at code
-		processExecved(pid);
+		processExecved(pid, cwd, getNamespaceIdentifierFromEventData(eventData));
 		
 		String commandLine = null;
 		String execveArgcString = eventData.get(AuditEventReader.EXECVE_ARGC);
@@ -501,16 +517,38 @@ public abstract class ProcessManager extends ProcessStateManager{
 			commandLine = commandLine.trim();
 		}
 
+//		String nsPid = null;
+//		if(namespaces){
+//			nsPid = eventData.get(AuditEventReader.NS_NS_PID);
+//		}
+		
 		AgentIdentifier agentIdentifier = buildAgentIdentifierFromSyscall(eventData);
 		ProcessIdentifier childProcessIdentifier = new ProcessIdentifier(pid, ppid, comm, cwd, commandLine, time, 
-				null, getUnitId(), source);
+				null, getUnitId(), source, 
+//				nsPid);
+				getProcessUnitState(pid).getProcess().nsPid);
+		NamespaceIdentifier namespaceIdentifier = buildNamespaceIdentifierForPid(pid);
 		
-		Process childProcessVertex = putProcessVertex(time, eventId, childProcessIdentifier, agentIdentifier, source);
+		Process childProcessVertex = putProcessVertex(time, eventId, childProcessIdentifier, agentIdentifier, namespaceIdentifier, source);
 		
 		WasTriggeredBy edge = new WasTriggeredBy(childProcessVertex, parentProcessVertex);
 		reporter.putEdge(edge, reporter.getOperation(syscall), time, eventId, source);
 		
 		return childProcessVertex;
+	}
+	
+	private NamespaceIdentifier getNamespaceIdentifierFromEventData(Map<String, String> eventData){
+		if(namespaces){
+			return new NamespaceIdentifier(
+					eventData.get(AuditEventReader.NS_INUM_MNT),
+					eventData.get(AuditEventReader.NS_INUM_USER),
+					eventData.get(AuditEventReader.NS_INUM_NET),
+					eventData.get(AuditEventReader.NS_INUM_PID),
+					eventData.get(AuditEventReader.NS_INUM_PID_FOR_CHILDREN),
+					eventData.get(AuditEventReader.NS_INUM_IPC));
+		}else{
+			return new NamespaceIdentifier(null, null, null, null, null, null);
+		}
 	}
 	
 	/**
@@ -536,7 +574,15 @@ public abstract class ProcessManager extends ProcessStateManager{
 		
 		long flags = HelperFunctions.parseLong(flagsString, 0L);
 		String parentPid = eventData.get(AuditEventReader.PID);
-		String childPid = eventData.get(AuditEventReader.EXIT);
+		String childPid = null;
+		String nsChildPid = null;
+		
+		if(namespaces){
+			childPid = eventData.get(AuditEventReader.NS_HOST_PID);
+			nsChildPid = eventData.get(AuditEventReader.NS_NS_PID);
+		}else{
+			childPid = eventData.get(AuditEventReader.EXIT);
+		}
 		
 		// handle the parent process vertex
 		Process parentVertex = handleProcessFromSyscall(eventData);
@@ -550,11 +596,6 @@ public abstract class ProcessManager extends ProcessStateManager{
 		
 		cwd = cwd == null ? parentProcessIdentifier.cwd : cwd;
 		comm = comm == null ? parentProcessIdentifier.name : comm;
-		
-		ProcessIdentifier childProcessIdentifier = new ProcessIdentifier(childPid, parentPid, comm, cwd, 
-				parentProcessIdentifier.commandLine, time, null, getUnitId(), source);
-		
-		Process childVertex = putProcessVertex(time, eventId, childProcessIdentifier, agentIdentifier, source);
 
 		if(syscall == SYSCALL.CLONE){
 			// Source: http://www.makelinux.net/books/lkd2/ch03lev1sec3
@@ -566,18 +607,21 @@ public abstract class ProcessManager extends ProcessStateManager{
 			}
 		}
 		
+		// ids inside can be null. ProcessStateManager decides what to do with it
+		NamespaceIdentifier namespaces = getNamespaceIdentifierFromEventData(eventData);
+		
 		boolean handle = true;
 		String flagsAnnotation = "";
 		
 		if(syscall == SYSCALL.FORK){
-			processForked(parentPid, childPid);
+			processForked(parentPid, childPid, namespaces);
 		}else if(syscall == SYSCALL.VFORK){
-			processVforked(parentPid, childPid);
+			processVforked(parentPid, childPid, namespaces);
 		}else if(syscall == SYSCALL.CLONE){
 			boolean shareMemory = (flags & CLONE_VM) == CLONE_VM;
 			boolean linkFds = (flags & CLONE_FILES) == CLONE_FILES;
 			boolean shareFS = (flags & CLONE_FS) == CLONE_FS;
-			processCloned(parentPid, childPid, linkFds, shareMemory, shareFS);
+			processCloned(parentPid, childPid, linkFds, shareMemory, shareFS, namespaces);
 			
 			boolean isThread = (flags & CLONE_THREAD) == CLONE_THREAD;
 			if(isThread){
@@ -596,6 +640,12 @@ public abstract class ProcessManager extends ProcessStateManager{
 		}
 		
 		if(handle){
+			ProcessIdentifier childProcessIdentifier = new ProcessIdentifier(childPid, parentPid, comm, cwd, 
+					parentProcessIdentifier.commandLine, time, null, getUnitId(), source, nsChildPid);
+			NamespaceIdentifier childNamespaceIdentifer = buildNamespaceIdentifierForPid(childPid);
+			
+			Process childVertex = putProcessVertex(time, eventId, childProcessIdentifier, agentIdentifier, childNamespaceIdentifer, source);
+			
 			WasTriggeredBy edge = new WasTriggeredBy(childVertex, parentVertex);
 			for(Map.Entry<String, Integer> cloneFlag : cloneFlags.entrySet()){
 				String cloneFlagName = cloneFlag.getKey();
@@ -616,6 +666,28 @@ public abstract class ProcessManager extends ProcessStateManager{
 		}
 	}
 
+	public void handleSetns(Map<String, String> eventData, SYSCALL syscall){
+		handleNamespaceUpdateFromSyscall(eventData, syscall);
+	}
+	
+	public void handleUnshare(Map<String, String> eventData, SYSCALL syscall){
+		handleNamespaceUpdateFromSyscall(eventData, syscall);
+	}
+	
+	private void handleNamespaceUpdateFromSyscall(Map<String, String> eventData, SYSCALL syscall){
+		String pid = eventData.get(AuditEventReader.PID);
+		String time = eventData.get(AuditEventReader.TIME);
+		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		String operation = reporter.getOperation(syscall);
+		
+		handleProcessFromSyscall(eventData); 
+		// created a process if did not exist otherwise got the existing one
+		
+		NamespaceIdentifier namespace = getNamespaceIdentifierFromEventData(eventData);
+		
+		handleNamespaceUpdate(time, eventId, pid, buildAgentIdentifierFromSyscall(eventData), namespace, operation);
+	}
+	
 	/**
 	 * Does the following:
 	 * 
@@ -653,7 +725,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		}
 		
 		// Force draw edge even though possible that the existing process has the same agent
-		handleAgentUpdate(time, eventId, pid, agentIdentifier, operation);
+		handleAgentUpdate(time, eventId, pid, agentIdentifier, buildNamespaceIdentifierForPid(pid), operation);
 		
 		return true;
 	}
@@ -767,7 +839,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 			if(state.isUnitActive()){
 				state.unitExit();
 			}
-			processVertex = buildVertex(state.getProcess(), state.getAgent(), state.getUnit());
+			processVertex = buildVertex(state.getProcess(), state.getAgent(), state.getUnit(), state.getNamespace());
 		}else{
 			processVertex = handleProcessFromSyscall(eventData);
 		}
@@ -838,22 +910,28 @@ public abstract class ProcessManager extends ProcessStateManager{
 			if(readingUnitStartTime == null){
 				logger.log(Level.WARNING, "NULL/Invalid reading unit start time in event data: " + eventData);
 			}else{
-				AgentIdentifier readingUnitAgent = readingProcessState.getAgentByTime(readingUnitStartTime);
-				if(readingUnitAgent == null){
+				SimpleEntry<AgentIdentifier, NamespaceIdentifier> readingUnitAgentNamespaceIdentifier = 
+						readingProcessState.getAgentAndNamespaceByTime(readingUnitStartTime);
+				if(readingUnitAgentNamespaceIdentifier == null){
 					logger.log(Level.WARNING, "Failed to find reading unit agent from event data: " + eventData);
 				}else{
-					Process readingUnitVertex = buildVertex(readingProcessState.getProcess(), readingUnitAgent, readingUnit);
+					Process readingUnitVertex = buildVertex(readingProcessState.getProcess(), 
+							readingUnitAgentNamespaceIdentifier.getKey(), readingUnit,
+							readingUnitAgentNamespaceIdentifier.getValue());
 					
 					UnitIdentifier writingUnit = new UnitIdentifier(writingUnitId, writingUnitIteration, writingUnitCount, 
 							writingUnitStartTimeString, null);
 					if(writingUnitStartTime == null){
 						logger.log(Level.WARNING, "NULL/Invalid writing unit start time in event data: " + eventData);
 					}else{
-						AgentIdentifier writingUnitAgent = writingProcessState.getAgentByTime(writingUnitStartTime);
-						if(writingUnitAgent == null){
+						SimpleEntry<AgentIdentifier, NamespaceIdentifier> writingUnitAgentNamespaceIdentifier = 
+								writingProcessState.getAgentAndNamespaceByTime(writingUnitStartTime);
+						if(writingUnitAgentNamespaceIdentifier == null){
 							logger.log(Level.WARNING, "Failed to find writing unit agent from event data: " + eventData);
 						}else{
-							Process writingUnitVertex = buildVertex(writingProcessState.getProcess(), writingUnitAgent, writingUnit);
+							Process writingUnitVertex = buildVertex(writingProcessState.getProcess(), 
+									writingUnitAgentNamespaceIdentifier.getKey(), writingUnit,
+									writingUnitAgentNamespaceIdentifier.getValue());
 							
 							WasTriggeredBy edge = new WasTriggeredBy(readingUnitVertex, writingUnitVertex);
 							reporter.putEdge(edge, OPMConstants.OPERATION_UNIT_DEPENDENCY, "0", "0", OPMConstants.SOURCE_BEEP);
@@ -870,6 +948,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 	
 	/*  PROCFS code below */
 	
+	/*
 	public void putProcessesFromProcFs(){
 		Long boottime = getBootTime();
 		if(boottime == null){
@@ -928,6 +1007,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 	}
 	
 	private Map<String, ArtifactIdentifier> getFileDescriptors(String pid){
+		final String rootFSPath = LinuxPathResolver.FS_ROOT;
 		try{
 			//LSOF args -> n = no DNS resolution, P = no port user-friendly naming, p = pid of process
 			Execute.Output output = Execute.getOutput("lsof -nPp " + pid);
@@ -957,7 +1037,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 									inodefd0.remove(inode);
 								}
 							}else{ //named pipe
-								fds.put(fdString, new NamedPipeIdentifier(path));
+								fds.put(fdString, new NamedPipeIdentifier(path, rootFSPath));
 							}	    						
 						}else if("ipv4".equals(type) && stdOutLine.contains("(ESTABLISHED)")){
 							String protocol = String.valueOf(tokens[7]).toLowerCase();
@@ -983,16 +1063,16 @@ public abstract class ProcessManager extends ProcessStateManager{
 							switch (type) {
 								case "unix": 
 									if(!"socket".equals(path)){ // abstract socket and don't know the name
-										identifier = new UnixSocketIdentifier(path);
+										identifier = new UnixSocketIdentifier(path, rootFSPath);
 									}else{
 										// identifying unnamed unix socket pairs how? TODO
 									}
 									break;
-								case "blk": identifier = new BlockDeviceIdentifier(path); break;
-								case "chr": identifier = new CharacterDeviceIdentifier(path); break;
-								case "dir": identifier = new DirectoryIdentifier(path); break;
-								case "link": identifier = new LinkIdentifier(path); break;
-								case "reg": identifier = new FileIdentifier(path); break;
+								case "blk": identifier = new BlockDeviceIdentifier(path, rootFSPath); break;
+								case "chr": identifier = new CharacterDeviceIdentifier(path, rootFSPath); break;
+								case "dir": identifier = new DirectoryIdentifier(path, rootFSPath); break;
+								case "link": identifier = new LinkIdentifier(path, rootFSPath); break;
+								case "reg": identifier = new FileIdentifier(path, rootFSPath); break;
 								default: break;
 							}
 							if(identifier != null){
@@ -1072,7 +1152,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 				commandLine = (commandLine == null) ? "" : commandLine.replace("\0", " ").replace("\"", "'").trim();
 
 				ProcessIdentifier process = new ProcessIdentifier(pid, ppidString, name, cwd, commandLine, startTime, 
-						null, getUnitId(), source);
+						null, getUnitId(), source, "-1");
 
 				AgentIdentifier agent = null;
 				if(simplify){
@@ -1117,6 +1197,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		}
 		return null;
 	}
+	*/
 }
 
 class ProcessKey implements Serializable{

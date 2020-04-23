@@ -73,10 +73,17 @@ public class OPMConstants {
 			PROCESS_ITERATION = "iteration",
 			PROCESS_NAME = "name",
 			PROCESS_PID = "pid",
+			PROCESS_NS_PID = "ns pid",
 			PROCESS_PPID = "ppid",
 			PROCESS_SEEN_TIME = "seen time",
 			PROCESS_START_TIME = "start time",
 			PROCESS_UNIT = "unit",
+			PROCESS_MOUNT_NAMESPACE = "mount namespace",
+			PROCESS_USER_NAMESPACE = "user namespace",
+			PROCESS_NET_NAMESPACE = "net namespace",
+			PROCESS_PID_NAMESPACE = "pid namespace",
+			PROCESS_IPC_NAMESPACE = "ipc namespace",
+			PROCESS_PID_CHILDREN_NAMESPACE = "children pid namespace",
 			
 			// Artifact specific annotations
 			ARTIFACT_REMOTE_ADDRESS = "remote address",
@@ -87,6 +94,7 @@ public class OPMConstants {
 			ARTIFACT_FD1 = "fd 1",
 			ARTIFACT_MEMORY_ADDRESS = "memory address",
 			ARTIFACT_PATH = "path",
+			ARTIFACT_ROOT_PATH = "root path",
 			ARTIFACT_PERMISSIONS = "permissions", 
 			//ARTIFACT_PID = PROCESS_PID,
 			ARTIFACT_PROTOCOL = "protocol",
@@ -181,7 +189,9 @@ public class OPMConstants {
 			OPERATION_VMSPLICE = "vmsplice",
 			OPERATION_INIT_MODULE = "init_module",
 			OPERATION_FINIT_MODULE = "finit_module",
-			OPERATION_KILL = "kill";
+			OPERATION_KILL = "kill",
+			OPERATION_SETNS = "setns",
+			OPERATION_UNSHARE = "unshare";
 		
 	private static final Logger logger = Logger.getLogger(OPMConstants.class.getName());
 	
@@ -230,6 +240,8 @@ public class OPMConstants {
 		addSyscallsToOperations(OPERATION_UPDATE, SYSCALL.UPDATE);
 		addSyscallsToOperations(OPERATION_VMSPLICE, SYSCALL.VMSPLICE);
 		addSyscallsToOperations(OPERATION_WRITE, SYSCALL.WRITE, SYSCALL.WRITEV, SYSCALL.PWRITE, SYSCALL.PWRITEV);
+		addSyscallsToOperations(OPERATION_UNSHARE, SYSCALL.UNSHARE);
+		addSyscallsToOperations(OPERATION_SETNS, SYSCALL.SETNS);
 	}
 	
 	/**

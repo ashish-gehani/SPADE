@@ -19,6 +19,7 @@
  */
 package spade.reporter.audit.process;
 
+import java.util.AbstractMap.SimpleEntry;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -26,45 +27,45 @@ public class ProcessWithAgentState extends ProcessUnitState{
 
 	private static final long serialVersionUID = -614042966379285211L;
 	
-	// Needed to tell whether the process vertex with the new agent has already been reported or not.
-	private Set<AgentIdentifier> previousProcessAgents = new HashSet<AgentIdentifier>();
-	// Needed to tell whether the unit vertex with the new agent has already been reported or not.
-	private Set<AgentIdentifier> previousUnitAgents = new HashSet<AgentIdentifier>();
+	private final Set<SimpleEntry<AgentIdentifier, NamespaceIdentifier>> previousProcessAgentsAndNamespaces = 
+			new HashSet<SimpleEntry<AgentIdentifier, NamespaceIdentifier>>();
+	private final Set<SimpleEntry<AgentIdentifier, NamespaceIdentifier>> previousUnitAgentsAndNamespaces = 
+			new HashSet<SimpleEntry<AgentIdentifier, NamespaceIdentifier>>();
 	
-	protected ProcessWithAgentState(ProcessIdentifier process, AgentIdentifier agent){
-		super(process, agent);
-		previousProcessAgents.add(agent);
+	protected ProcessWithAgentState(ProcessIdentifier process, AgentIdentifier agent, NamespaceIdentifier namespace){
+		super(process, agent, namespace);
+		previousProcessAgentsAndNamespaces.add(new SimpleEntry<AgentIdentifier, NamespaceIdentifier>(agent, namespace));
 	}
 	
-	protected void setAgent(Double time, AgentIdentifier agent){
-		super.setAgent(time, agent);
-		previousProcessAgents.add(agent);
+	protected void setAgentAndNamespace(Double time, AgentIdentifier agent, NamespaceIdentifier namespace){
+		super.setAgentAndNamespace(time, agent, namespace);
+		previousProcessAgentsAndNamespaces.add(new SimpleEntry<AgentIdentifier, NamespaceIdentifier>(agent, namespace));
 		if(isUnitActive()){
-			previousUnitAgents.add(agent);
+			previousUnitAgentsAndNamespaces.add(new SimpleEntry<AgentIdentifier, NamespaceIdentifier>(agent, namespace));
 		}
 	}
 	
-	protected boolean isAgentSeenBeforeForUnit(AgentIdentifier agent){
-		return previousUnitAgents.contains(agent);
+	protected boolean isAgentAndNamespaceSeenBeforeForUnit(AgentIdentifier agent, NamespaceIdentifier namespace){
+		return previousUnitAgentsAndNamespaces.contains(new SimpleEntry<AgentIdentifier, NamespaceIdentifier>(agent, namespace));
 	}
 	
-	protected boolean isAgentSeenBeforeForProcess(AgentIdentifier agent){
-		return previousProcessAgents.contains(agent);
+	protected boolean isAgentAndNamespaceSeenBeforeForProcess(AgentIdentifier agent, NamespaceIdentifier namespace){
+		return previousProcessAgentsAndNamespaces.contains(new SimpleEntry<AgentIdentifier, NamespaceIdentifier>(agent, namespace));
 	}
 	
 	protected void unitEnter(UnitIdentifier unit){
 		super.unitEnter(unit);
-		previousUnitAgents.add(getAgent());
+		previousUnitAgentsAndNamespaces.add(new SimpleEntry<AgentIdentifier, NamespaceIdentifier>(getAgent(), getNamespace()));
 	}
 	
 	protected void unitExit(){
 		super.unitExit();
-		previousUnitAgents.clear();
+		previousUnitAgentsAndNamespaces.clear();
 	}
 	
 	protected void partialClean(){
 		super.partialClean();
-		previousProcessAgents.clear();
-		previousUnitAgents.clear();
+		previousProcessAgentsAndNamespaces.clear();
+		previousUnitAgentsAndNamespaces.clear();
 	}
 }

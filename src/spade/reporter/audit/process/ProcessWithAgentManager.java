@@ -34,13 +34,14 @@ import spade.vertex.opm.Process;
  */
 public class ProcessWithAgentManager extends ProcessManager{
 
-	public ProcessWithAgentManager(Audit reporter, boolean simplify, boolean units) throws Exception{
-		super(reporter, simplify, units);
+	public ProcessWithAgentManager(Audit reporter, boolean simplify, boolean units, boolean namespaces) throws Exception{
+		super(reporter, simplify, units, namespaces);
 	}
 	
 	protected void clearAll(){}
 
-	protected Process buildVertex(ProcessIdentifier process, AgentIdentifier agent, UnitIdentifier unit){
+	protected Process buildVertex(ProcessIdentifier process, AgentIdentifier agent, UnitIdentifier unit,
+			NamespaceIdentifier namespace){
 		Process vertex = new Process();
 		vertex.addAnnotations(process.getAnnotationsMap());
 		vertex.addAnnotations(agent.getAnnotationsMap());
@@ -50,12 +51,13 @@ public class ProcessWithAgentManager extends ProcessManager{
 			// replaces 'unit', 'source', and 'start time' annotations
 			vertex.addAnnotations(unit.getAnnotationsMap());
 		}
+		vertex.addAnnotations(namespace.getAnnotationsMap());
 		return vertex;
 	}
 
 	protected Process putProcessVertex(String time, String eventId, ProcessIdentifier process, AgentIdentifier agent, 
-			String source){
-		ProcessWithAgentState state = new ProcessWithAgentState(process, agent);
+			NamespaceIdentifier namespace, String source){
+		ProcessWithAgentState state = new ProcessWithAgentState(process, agent, namespace);
 		setProcessUnitState(state);
 
 		String pid = process.pid;
@@ -75,27 +77,28 @@ public class ProcessWithAgentManager extends ProcessManager{
 		return getVertex(pid);
 	}
 
-	protected void handleAgentUpdate(String timeString, String eventId, String pid, AgentIdentifier newAgent, String operation){
+	protected void handleAgentUpdate(String timeString, String eventId, String pid, AgentIdentifier newAgent, 
+			NamespaceIdentifier namespace, String operation){
 		String source = OPMConstants.SOURCE_AUDIT_SYSCALL;
 		ProcessWithAgentState state = (ProcessWithAgentState)getProcessUnitState(pid);
 		Double time = HelperFunctions.parseDouble(timeString, null);
 		if(state != null){
-			Process oldProcessVertex = buildVertex(state.getProcess(), state.getAgent(), null);
-			Process newProcessVertex = buildVertex(state.getProcess(), newAgent, null);
+			Process oldProcessVertex = buildVertex(state.getProcess(), state.getAgent(), null, namespace);
+			Process newProcessVertex = buildVertex(state.getProcess(), newAgent, null, namespace);
 			if(state.isUnitActive()){
 				UnitIdentifier unit = state.getUnit();
 				
-				Process oldUnitVertex = buildVertex(state.getProcess(), state.getAgent(), unit);
-				Process newUnitVertex = buildVertex(state.getProcess(), newAgent, unit);
+				Process oldUnitVertex = buildVertex(state.getProcess(), state.getAgent(), unit, namespace);
+				Process newUnitVertex = buildVertex(state.getProcess(), newAgent, unit, namespace);
 
-				if(!state.isAgentSeenBeforeForProcess(newAgent)){
+				if(!state.isAgentAndNamespaceSeenBeforeForProcess(newAgent, namespace)){
 					getReporter().putVertex(newProcessVertex);
 				}
 				
 				WasTriggeredBy newToOldProcess = new WasTriggeredBy(newProcessVertex, oldProcessVertex);
 				getReporter().putEdge(newToOldProcess, operation, timeString, eventId, source);
 
-				if(!state.isAgentSeenBeforeForUnit(newAgent)){
+				if(!state.isAgentAndNamespaceSeenBeforeForUnit(newAgent, namespace)){
 					getReporter().putVertex(newUnitVertex);
 				}
 				
@@ -108,17 +111,65 @@ public class ProcessWithAgentManager extends ProcessManager{
 				
 				// TODO order of vertices and edges
 				
-				state.setAgent(time, newAgent);
+				state.setAgentAndNamespace(time, newAgent, namespace);
 			}else{
-				if(!state.isAgentSeenBeforeForProcess(newAgent)){
+				if(!state.isAgentAndNamespaceSeenBeforeForProcess(newAgent, namespace)){
 					getReporter().putVertex(newProcessVertex);
 				}
-				state.setAgent(time, newAgent);
+				state.setAgentAndNamespace(time, newAgent, namespace);
 				WasTriggeredBy newToOldProcess = new WasTriggeredBy(newProcessVertex, oldProcessVertex);
 				getReporter().putEdge(newToOldProcess, operation, timeString, eventId, source);
 			}
 		}else{
 			getReporter().log(Level.INFO, "Tried to update agent without seeing process", null, timeString, eventId, null);
+		}
+	}
+	
+	protected void handleNamespaceUpdate(String timeString, String eventId, String pid, AgentIdentifier agent, 
+			NamespaceIdentifier newNamespace, String operation){
+		String source = OPMConstants.SOURCE_AUDIT_SYSCALL;
+		ProcessWithAgentState state = (ProcessWithAgentState)getProcessUnitState(pid);
+		Double time = HelperFunctions.parseDouble(timeString, null);
+		if(state != null){
+			Process oldProcessVertex = buildVertex(state.getProcess(), state.getAgent(), null, state.getNamespace());
+			Process newProcessVertex = buildVertex(state.getProcess(), state.getAgent(), null, newNamespace);
+			if(state.isUnitActive()){
+				UnitIdentifier unit = state.getUnit();
+				
+				Process oldUnitVertex = buildVertex(state.getProcess(), state.getAgent(), unit, state.getNamespace());
+				Process newUnitVertex = buildVertex(state.getProcess(), state.getAgent(), unit, newNamespace);
+
+				if(!state.isAgentAndNamespaceSeenBeforeForProcess(agent, newNamespace)){
+					getReporter().putVertex(newProcessVertex);
+				}
+				
+				WasTriggeredBy newToOldProcess = new WasTriggeredBy(newProcessVertex, oldProcessVertex);
+				getReporter().putEdge(newToOldProcess, operation, timeString, eventId, source);
+
+				if(!state.isAgentAndNamespaceSeenBeforeForUnit(agent, newNamespace)){
+					getReporter().putVertex(newUnitVertex);
+				}
+				
+				WasTriggeredBy newToOldUnit = new WasTriggeredBy(newUnitVertex, oldUnitVertex);
+				getReporter().putEdge(newToOldUnit, operation, timeString, eventId, source);
+
+				WasTriggeredBy newUnitToNewProcess = new WasTriggeredBy(newUnitVertex, newProcessVertex);
+				getReporter().putEdge(newUnitToNewProcess, OPMConstants.OPERATION_UNIT, unit.startTime, unit.eventId,
+						OPMConstants.SOURCE_BEEP);
+				
+				// TODO order of vertices and edges
+				
+				state.setAgentAndNamespace(time, agent, newNamespace);
+			}else{
+				if(!state.isAgentAndNamespaceSeenBeforeForProcess(agent, newNamespace)){
+					getReporter().putVertex(newProcessVertex);
+				}
+				state.setAgentAndNamespace(time, agent, newNamespace);
+				WasTriggeredBy newToOldProcess = new WasTriggeredBy(newProcessVertex, oldProcessVertex);
+				getReporter().putEdge(newToOldProcess, operation, timeString, eventId, source);
+			}
+		}else{
+			getReporter().log(Level.INFO, "Tried to update namespace without seeing a process", null, timeString, eventId, null);
 		}
 	}
 }
