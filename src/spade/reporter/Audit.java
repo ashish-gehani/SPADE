@@ -263,7 +263,7 @@ public class Audit extends AbstractReporter {
 	private final String HANDLE_ROOTFS_KEY = "rootFS";
 	private boolean HANDLE_ROOTFS = true;
 	private final String HANDLE_NAMESPACES_KEY = "namespaces";
-	private boolean HANDLE_NAMESPACES = true;
+	private boolean HANDLE_NAMESPACES = false;
 	
 	private String deleteModuleBinaryPath = null;
 	/********************** BEHAVIOR FLAGS - END *************************/
@@ -582,7 +582,7 @@ public class Audit extends AbstractReporter {
 			boolean addKmUserArgument;
 			// Parsing the values for the KM vars after the default values have be set appropriately (see above)
 			if(isValidBoolean(addKmArgValue)){
-				addKmUserArgument = parseBoolean(addKmArgValue, ADD_KM);
+				addKmUserArgument = parseBoolean(addKmArgValue, false);//ADD_KM);
 			}else{
 				logger.log(Level.SEVERE, "Invalid flag value for '"+ADD_KM_KEY+"': " + addKmArgValue);
 				return false;

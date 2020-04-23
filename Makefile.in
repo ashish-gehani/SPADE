@@ -24,6 +24,10 @@ LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
  
 OS_NAME = $(shell uname)
 OS_ARCH = $(shell uname -m)
+OS_KERNEL_RELEASE = $(shell uname -r)
+OS_KERNEL_MAJOR = $(shell uname -r | cut -d '.' -f 1)
+OS_KERNEL_MINOR = $(shell uname -r | cut -d '.' -f 2 | xargs printf "%02d")
+OS_KERNEL_NUMBER = $(OS_KERNEL_MAJOR)$(OS_KERNEL_MINOR)
 ifeq ($(OS_NAME), Darwin)
 	OS_BUILD = build-openbsm
 	NO_FUSE = $(shell pkg-config fuse; echo $$?)
@@ -47,7 +51,12 @@ endif
 ifneq (, $(findstring CYGWIN, $(OS_NAME)))
 	JAVAC_CP = build;lib\*;lib\neo4j-community-3.4.4\lib\*
 endif
- 
+
+# kernel modules build default = true
+ifndef KERNEL_MODULES
+	KERNEL_MODULES = true
+endif
+
 # -------- Default Build Configuration -----
 REPORTERS = Graphviz DSL Network LLVM Facebook Bitcoin StraceLinux JSON CDM CamFlow ProcMon
 # -------------------------------------------
@@ -145,7 +154,17 @@ bin/deleteModule: src/spade/reporter/audit/deleteModule.c
 audit-kernel-module:
 	@if [ "$(findstring Microsoft, $(OS_KERNEL_RELEASE))" = "" ]; then \
 		if [ "$(KERNEL_MODULES)" = "true" ]; then \
-			$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE); \
+			if [ -z "$(OS_KERNEL_NUMBER)" ]; then \
+				echo 'ERROR: Kernel modules build failed. Failed to get current kernel release number.'; \
+				exit 1; \
+			else \
+				if [ $(OS_KERNEL_NUMBER) -ge 9999 ]; then \
+					echo 'ERROR: Kernel modules not supported for the current kernel release.'; \
+					exit 1; \
+				else \
+					$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE); \
+				fi \
+			fi \
 		else \
 			$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE) clean; \
 		fi \
@@ -274,3 +293,4 @@ install:
 	cp -R cfg $(DESTDIR)
  
  
+

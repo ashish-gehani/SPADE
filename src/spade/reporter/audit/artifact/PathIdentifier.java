@@ -50,7 +50,9 @@ public abstract class PathIdentifier extends ArtifactIdentifier{
 	public Map<String, String> getAnnotationsMap(){
 		Map<String, String> annotations = new HashMap<String, String>();
 		annotations.put(OPMConstants.ARTIFACT_PATH, path);
-		annotations.put(OPMConstants.ARTIFACT_ROOT_PATH, rootFSPath);
+		if(!"/".equals(rootFSPath)){
+			annotations.put(OPMConstants.ARTIFACT_ROOT_PATH, rootFSPath);
+		}
 //		annotations.put(OPMConstants.ARTIFACT_PATH, combinedPath);
 		return annotations;
 	}
