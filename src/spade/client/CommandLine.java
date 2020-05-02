@@ -210,7 +210,11 @@ public class CommandLine{
 						System.out.print(COMMAND_PROMPT);
 						line = commandReader.readLine();
 					}
-					
+
+					// If end of stream then set the command to exit
+					if(line == null){ // End of input
+						line = "exit";
+					}
 					if(StringUtils.isBlank(line)){
 						continue;
 					}
