@@ -188,10 +188,13 @@ public class Sanitization extends AbstractTransformer
 					{
 						case HIGH:
 							sanitizeAnnotations(vertex, highAnnotations);
+							break;
 						case MEDIUM:
 							sanitizeAnnotations(vertex, mediumAnnotations);
+							break;
 						case LOW:
 							sanitizeAnnotations(vertex, lowAnnotations);
+							break;
 					}
 					break;
 
@@ -215,13 +218,13 @@ public class Sanitization extends AbstractTransformer
 								switch(sanitizationLevel)
 								{
 									case HIGH:
-										subnets[1] = NULLSTR;
-
+										subnets[3] = NULLSTR;
+										break;
 									case MEDIUM:
 										subnets[2] = NULLSTR;
-
+										break;
 									case LOW:
-										subnets[3] = NULLSTR;
+										subnets[1] = NULLSTR;
 										sanitizedAnnotation = String.join(".", subnets);
 										vertex.addAnnotation(annotation, sanitizedAnnotation);
 								}
@@ -233,19 +236,21 @@ public class Sanitization extends AbstractTransformer
 								switch(sanitizationLevel)
 								{
 									case HIGH:
-										if(numpaths > 2)
+										if(numpaths > 4)
 										{
-											subpaths[2] = NULLSTR;
+											subpaths[4] = NULLSTR;
 										}
+										break;
 									case MEDIUM:
 										if(numpaths > 3)
 										{
 											subpaths[3] = NULLSTR;
 										}
+										break;
 									case LOW:
-										if(numpaths > 4)
+										if(numpaths > 2)
 										{
-											subpaths[4] = NULLSTR;
+											subpaths[2] = NULLSTR;
 										}
 										sanitizedAnnotation = String.join(FILE_SEPARATOR, subpaths);
 										vertex.addAnnotation(OPMConstants.ARTIFACT_PATH, sanitizedAnnotation);
@@ -273,8 +278,10 @@ public class Sanitization extends AbstractTransformer
 			{
 				case HIGH:
 					sanitizeAnnotations(edge, highAnnotations);
+					break;
 				case MEDIUM:
 					sanitizeAnnotations(edge, mediumAnnotations);
+					break;
 				case LOW:
 					sanitizeAnnotations(edge, lowAnnotations);
 			}
@@ -302,11 +309,11 @@ public class Sanitization extends AbstractTransformer
 						case HIGH:
 							// sanitize time
 							day = NULLSTR;
-
+							break;
 						case MEDIUM:
 							// sanitize time
 							hour = NULLSTR;
-
+							break;
 						case LOW:
 							// sanitize time
 							minute = NULLSTR;
