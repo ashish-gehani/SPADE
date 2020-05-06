@@ -128,7 +128,7 @@ public class FileUtility{
 		for(String line : lines){
 			line = line.trim();
 			if(!line.isEmpty() && !line.startsWith("#")){
-				String tokens[] = line.split(keyValueSeparator);
+				String tokens[] = line.split(keyValueSeparator, 2);
 				if(tokens.length == 2){
 					String from = tokens[0].trim();
 					String to = tokens[1].trim();
