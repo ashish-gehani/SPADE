@@ -39,6 +39,7 @@ import spade.utility.LogManager;
 public class Unikernel{
 	
 	private static volatile boolean shutdown = false;
+	private static volatile boolean executedExitFunction = false;
 	
 	private static void setupSPADELogging() throws RuntimeException{
 		System.setProperty("java.util.logging.manager", spade.utility.LogManager.class.getName());
@@ -268,12 +269,7 @@ public class Unikernel{
 				}
 				shutdown = true;
 				// Wait for storage thread to exit after the buffer is flushed
-				try{
-					storageThread.join();
-				}catch(Throwable t0){
-					logger.log(Level.SEVERE, "Failed to successfully wrap-up storage thread", t0);
-				}
-				LogManager.shutdownReset();
+				waitForThreadAndThenExit(logger, storageThread);
 			}
 		});
 		
@@ -293,21 +289,24 @@ public class Unikernel{
 			
 			// Do cleanup of storage before exiting
 			shutdown = true;
-			try{
-				storageThread.join();
-			}catch(Throwable t0){
-				logger.log(Level.SEVERE, "Failed to successfully wrap-up storage thread", t0);
-			}
-			
+			waitForThreadAndThenExit(logger, storageThread);
 			throw new RuntimeException(errorMessage, e);
 		}
 		
 		// Continue running until the storage thread is running
-		try{
-			storageThread.join();
-		}catch(Throwable t0){
-			logger.log(Level.SEVERE, "Failed to successfully wrap-up storage thread", t0);
+		waitForThreadAndThenExit(logger, storageThread);
+	}
+	
+	// Cleanup function
+	private synchronized static void waitForThreadAndThenExit(final Logger logger, final Thread thread){
+		if(!executedExitFunction){
+			try{
+				thread.join();
+			}catch(Throwable t0){
+				logger.log(Level.SEVERE, "Failed to successfully wrap-up storage thread", t0);
+			}
+			executedExitFunction = true;
+			LogManager.shutdownReset();
 		}
-		LogManager.shutdownReset();
 	}
 }
