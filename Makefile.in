@@ -95,6 +95,7 @@ download-neo4j:
  
 prepare-dirs:
 	mkdir -p build
+	mkdir -p db/scaffold
  
 build/%.class : src/%.java
 	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build $<
