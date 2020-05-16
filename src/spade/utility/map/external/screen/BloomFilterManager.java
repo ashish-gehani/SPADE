@@ -36,7 +36,7 @@ public class BloomFilterManager extends ScreenManager{
 
 	public static final BloomFilterManager instance = new BloomFilterManager();
 	private BloomFilterManager(){}
-
+	
 	/**
 	 * Create BloomFilterArgument.
 	 * Sample: "expectedElements=[1-n] falsePositiveProbability=[0-1] [savePath=<writable-filepath> loadPath=<existing-filepath>]"
@@ -104,8 +104,52 @@ public class BloomFilterManager extends ScreenManager{
 				}
 			}
 			
-			String loadFromPath = arguments.get(BloomFilterArgument.keyLoadPath);
-			if(HelperFunctions.isNullOrEmpty(loadFromPath)){
+			boolean loadFromFile = false;
+			boolean createFromArguments = false;
+			
+			final String expectedElementsString = arguments.get(BloomFilterArgument.keyExpectedElements);
+			final String falsePositiveString = arguments.get(BloomFilterArgument.keyFalsePositiveProbability);
+			final String loadPathString = arguments.get(BloomFilterArgument.keyLoadPath);
+			
+			// If anything is specified then it must be valid even if it is not going to be used
+			if((expectedElementsString == null && falsePositiveString != null)
+					|| (expectedElementsString != null && falsePositiveString == null)){
+				return Result.failed("Must specify '"+BloomFilterArgument.keyExpectedElements+"' and "
+						+ "'"+BloomFilterArgument.keyFalsePositiveProbability+"' together");
+			}else if(expectedElementsString == null && falsePositiveString == null){
+				createFromArguments = false;
+			}else{ // both non-null
+				createFromArguments = true;
+			}
+			
+			loadFromFile = loadPathString != null;
+			
+			// Try loading from file first. If no file then try loading from create-args. If file exists then use it and ignore create-args.
+			
+			// Preference given to loading from file
+			if(loadFromFile){
+				try{
+					File f = new File(loadPathString);
+					if(!f.exists()){
+						if(createFromArguments){
+							// Don't throw any error and see if can be created from arguments
+						}else{
+							return Result.failed("'"+BloomFilterArgument.keyLoadPath+"'='"+loadPathString+"' does not exist");
+						}
+					}else{
+						if(!f.isFile()){
+							return Result.failed("'"+BloomFilterArgument.keyLoadPath+"'='"+loadPathString+"' is not a regular file");
+						}else{
+							return Result.successful(new BloomFilterArgument.LoadFromFile(loadPathString, saveToPath));
+						}
+					}
+				}catch(Exception e){
+					return Result.failed("Failed to check '"+BloomFilterArgument.keyLoadPath+"'='"+loadPathString+"'", e, null);
+				}
+			}
+			
+			// Only here if not loaded from file already
+			if(createFromArguments){
 				Result<Long> expectedElementsResult = HelperFunctions.parseLong(
 						arguments.get(BloomFilterArgument.keyExpectedElements), 10, 1, Integer.MAX_VALUE);
 				if(expectedElementsResult.error){
@@ -122,21 +166,11 @@ public class BloomFilterManager extends ScreenManager{
 								saveToPath));
 					}
 				}
-			}else{
-				try{
-					File f = new File(loadFromPath);
-					if(!f.exists()){
-						return Result.failed("'"+BloomFilterArgument.keyLoadPath+"'='"+loadFromPath+"' does not exist");
-					}else{
-						if(!f.isFile()){
-							return Result.failed("'"+BloomFilterArgument.keyLoadPath+"'='"+loadFromPath+"' is not a regular file");
-						}
-					}
-				}catch(Exception e){
-					return Result.failed("Failed to check '"+BloomFilterArgument.keyLoadPath+"'='"+loadFromPath+"'", e, null);
-				}
-				return Result.successful(new BloomFilterArgument.LoadFromFile(loadFromPath, saveToPath));
 			}
+			
+			return Result.failed("Must specify ('"+BloomFilterArgument.keyExpectedElements+"' and "
+					+ "'"+BloomFilterArgument.keyFalsePositiveProbability+"') and/or "
+							+ "('"+BloomFilterArgument.keyLoadPath+"')");
 		}
 	}
 

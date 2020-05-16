@@ -568,7 +568,7 @@ public class QuickGrailExecutor{
 			return originalSPADEQuery;
 		}
 		
-		final Map<Direction, Map<AbstractVertex, Integer>> direction2Network2MinDepth = 
+		final Map<Direction, Map<AbstractVertex, Integer>> directionToNetworkToMinimumDepth = 
 				new HashMap<Direction, Map<AbstractVertex, Integer>>();
 		
 		final Graph resultGraph = createNewGraph();
@@ -619,11 +619,11 @@ public class QuickGrailExecutor{
 										&& RemoteResolver.isRemoteAddressRemoteInNetworkVertex(networkVertex)
 										&& !startGraphVertices.contains(networkVertex)
 										&& Kernel.getHostName().equals(networkVertex.getAnnotation("host"))){ // only need to resolve local artifacts
-									if(direction2Network2MinDepth.get(direction) == null){
-										direction2Network2MinDepth.put(direction, new HashMap<AbstractVertex, Integer>());
+									if(directionToNetworkToMinimumDepth.get(direction) == null){
+										directionToNetworkToMinimumDepth.put(direction, new HashMap<AbstractVertex, Integer>());
 									}
-									if(direction2Network2MinDepth.get(direction).get(networkVertex) == null){
-										direction2Network2MinDepth.get(direction).put(networkVertex, currentDepth);
+									if(directionToNetworkToMinimumDepth.get(direction).get(networkVertex) == null){
+										directionToNetworkToMinimumDepth.get(direction).put(networkVertex, currentDepth);
 									}
 								}
 							}
@@ -649,12 +649,12 @@ public class QuickGrailExecutor{
 			logger.log(Level.SEVERE, "Failed to initialize decryption module. All encrypted graphs will be discarded");
 		}
 
-		for(final Map.Entry<Direction, Map<AbstractVertex, Integer>> entry0 : direction2Network2MinDepth.entrySet()){
-			final Direction direction = entry0.getKey();
-			final Map<AbstractVertex, Integer> network2MinDepth = entry0.getValue();
-			for(final Map.Entry<AbstractVertex, Integer> entry1 : network2MinDepth.entrySet()){
-				final AbstractVertex localNetworkVertex = entry1.getKey();
-				final Integer localDepth = entry1.getValue();
+		for(final Map.Entry<Direction, Map<AbstractVertex, Integer>> directionToNetworkToMinimumDepthEntry : directionToNetworkToMinimumDepth.entrySet()){
+			final Direction direction = directionToNetworkToMinimumDepthEntry.getKey();
+			final Map<AbstractVertex, Integer> networkToMinimumDepth = directionToNetworkToMinimumDepthEntry.getValue();
+			for(final Map.Entry<AbstractVertex, Integer> networkToMinimumDepthEntry : networkToMinimumDepth.entrySet()){
+				final AbstractVertex localNetworkVertex = networkToMinimumDepthEntry.getKey();
+				final Integer localDepth = networkToMinimumDepthEntry.getValue();
 				final Integer remoteDepth = instruction.depth - localDepth;
 				final String remoteAddress = RemoteResolver.getRemoteAddress(localNetworkVertex);
 				if(remoteDepth > 0){
