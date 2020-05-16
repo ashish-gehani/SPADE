@@ -226,7 +226,7 @@ static int log_syscall(int pid, int ppid, int uid, int success){
 			return -1; //failed so don't log	
 		}
 	}
-	
+
 	if(ignore_uids == 1){
 		if(exists_in_array(uid, uids, uids_len) > 0){
 			return -1;
@@ -369,7 +369,7 @@ static void log_to_audit(int syscallNumber, int fd, struct sockaddr_storage* add
 		long exit, int success){
 	struct task_struct* current_task = current;
 	if(log_syscall((int)(current_task->pid), (int)(current_task->real_parent->pid),
-			(int)(current_task->real_cred->uid.val), success) > 0){
+			(int)(from_kuid(&init_user_ns, current_cred()->uid)), success) > 0){
 
 		int log_me = 0;
 		int fd_sock_type = -1;
@@ -382,6 +382,8 @@ static void log_to_audit(int syscallNumber, int fd, struct sockaddr_storage* add
 		const int task_command_len = TASK_COMM_LEN;
 		const int hex_task_command_len = TASK_COMM_LEN*2;
 		unsigned char hex_task_command[TASK_COMM_LEN*2];
+
+		const struct cred *cred;
 
 		hex_fd_addr[0] = '\0';
 		hex_addr[0] = '\0';
@@ -402,15 +404,15 @@ static void log_to_audit(int syscallNumber, int fd, struct sockaddr_storage* add
 		}
 
 		log_me = get_hex_saddr_from_fd_getname(&hex_fd_addr[0], max_hex_sockaddr_size, &fd_sock_type, fd, 0);
-		
+
 		if(log_me == 1){
-		// TODO other info needs to be logged?
+			cred = current_cred();
 			audit_log(NULL, GFP_KERNEL, AUDIT_USER,
 				"netio_intercepted=\"syscall=%d exit=%ld success=%d fd=%d pid=%d ppid=%d uid=%u euid=%u suid=%u fsuid=%u gid=%u egid=%u sgid=%u fsgid=%u comm=%s sock_type=%d local_saddr=%s remote_saddr=%s remote_saddr_size=%d\"",
 				syscallNumber, exit, success, fd, current_task->pid, current_task->real_parent->pid,
-				current_task->real_cred->uid.val, current_task->real_cred->euid.val, current_task->real_cred->suid.val,
-				current_task->real_cred->fsuid.val, current_task->real_cred->gid.val, current_task->real_cred->egid.val,
-				current_task->real_cred->sgid.val, current_task->real_cred->fsgid.val,
+				from_kuid(&init_user_ns, cred->uid), from_kuid(&init_user_ns, cred->euid), from_kuid(&init_user_ns, cred->suid),
+				from_kuid(&init_user_ns, cred->fsuid), from_kgid(&init_user_ns, cred->gid), from_kgid(&init_user_ns, cred->egid),
+				from_kgid(&init_user_ns, cred->sgid), from_kgid(&init_user_ns, cred->fsgid),
 				hex_task_command, fd_sock_type, hex_fd_addr, hex_addr, addr_size);
 		}
 	}
@@ -438,7 +440,7 @@ static void log_namespaces_info_newprocess(const int syscall, const long pid, co
 static void log_namespaces_info(const int syscall, const char* msg_type, const long pid, const int success){
 	if(stop == 0){
 		if(log_syscall((int) (current->pid), (int) (current->real_parent->pid),
-				(int) (current->real_cred->uid.val), success) > 0){
+				(int)(from_kuid(&init_user_ns, current_cred()->uid)), success) > 0){
 			log_namespaces_pid(syscall, msg_type, pid);
 		}
 	}
@@ -1174,21 +1176,24 @@ static void spade_kill(int syscallNumber, long result, pid_t pid, int sig){
 		}
 
 		if(log_syscall((int)(current_task->pid), (int)(current_task->real_parent->pid),
-			(int)(current_task->real_cred->uid.val), success) > 0){// && isUBSIEvent == 1){
+			(int)(from_kuid(&init_user_ns, current_cred()->uid)), success) > 0){// && isUBSIEvent == 1){
 			char* task_command = current_task->comm;
 			int task_command_len = TASK_COMM_LEN;//strlen(task_command);
 			int hex_task_command_len = TASK_COMM_LEN*2;//(task_command_len * 2) + 1; // +1 for NULL
 			unsigned char hex_task_command[TASK_COMM_LEN*2];
+			const struct cred *cred;
 
 			// get command
 			to_hex_str(&hex_task_command[0], hex_task_command_len, (unsigned char *)task_command, task_command_len);
 
+			cred = current_cred();
+
 			audit_log(NULL, GFP_KERNEL, AUDIT_USER,
-			"ubsi_intercepted=\"syscall=%d success=%s exit=%ld a0=%x a1=%x a2=0 a3=0 items=0 ppid=%d pid=%d uid=%d gid=%d euid=%d suid=%d fsuid=%d egid=%d sgid=%d fsgid=%d comm=%s\"",
+			"ubsi_intercepted=\"syscall=%d success=%s exit=%ld a0=%x a1=%x a2=0 a3=0 items=0 ppid=%d pid=%d uid=%u gid=%u euid=%u suid=%u fsuid=%u egid=%u sgid=%u fsgid=%u comm=%s\"",
 			syscallNumber, result == 0 ? "yes" : "no", result, pid, sig, current_task->real_parent->pid, current_task->pid,
-			current_task->real_cred->uid.val, current_task->real_cred->gid.val, current_task->real_cred->euid.val,
-			current_task->real_cred->suid.val, current_task->real_cred->fsuid.val, current_task->real_cred->egid.val,
-			current_task->real_cred->sgid.val, current_task->real_cred->fsgid.val, hex_task_command);
+			from_kuid(&init_user_ns, cred->uid), from_kgid(&init_user_ns, cred->gid), from_kuid(&init_user_ns, cred->euid),
+			from_kuid(&init_user_ns, cred->suid), from_kuid(&init_user_ns, cred->fsuid), from_kgid(&init_user_ns, cred->egid),
+			from_kgid(&init_user_ns, cred->sgid), from_kgid(&init_user_ns, cred->fsgid), hex_task_command);
 		}
 	}
 }
@@ -1261,7 +1266,7 @@ static int load_namespace_symbols(){
 	return 1;
 }
 
-// Source: https://elixir.bootlin.com/linux/v4.9.217/source/arch/x86/include/asm/special_insns.h#L23
+// Source: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/x86/include/asm/special_insns.h
 static unsigned long raw_read_cr0(void){
         unsigned long value;
         asm volatile("mov %%cr0,%0\n\t" : "=r" (value));
