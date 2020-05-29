@@ -226,13 +226,18 @@ public class NetfilterHooksManager{
 			
 			SimpleEntry<Map<String, String>, Map<String, String>> matchedEntry = null;
 			for(SimpleEntry<Map<String, String>, Map<String, String>> entry : networkAnnotationsFromNetfilter){
+				boolean allAnnotationsMatched = true;
 				Map<String, String> hostViewNetfilter = entry.getKey();
 				for(String annotationToMatch : annotationsToMatch){
-					if(HelperFunctions.objectsEqual(
-							hostViewNetfilter.get(annotationToMatch), syscallArtifact.getAnnotation(annotationToMatch))){
-						matchedEntry = entry;
+					allAnnotationsMatched = allAnnotationsMatched &&
+							HelperFunctions.objectsEqual(hostViewNetfilter.get(annotationToMatch), syscallArtifact.getAnnotation(annotationToMatch));
+					if(!allAnnotationsMatched){
 						break;
 					}
+				}
+				if(allAnnotationsMatched){
+					matchedEntry = entry;
+					break;
 				}
 			}
 			if(matchedEntry != null){
@@ -450,12 +455,18 @@ public class NetfilterHooksManager{
     	    	// check if the host view exists in the syscall net list
     	    	Map<String, String> matchedEntry = null;
     	    	for(Map<String, String> entry : networkAnnotationsFromSyscalls){
+			boolean allAnnotationsMatched = true;
     	    		for(String annotationToMatch : annotationsToMatch){
-    	    			if(HelperFunctions.objectsEqual(entry.get(annotationToMatch), annotationsHostViewFromNetfilter.get(annotationToMatch))){
-    	    				matchedEntry = entry;
+				allAnnotationsMatched = allAnnotationsMatched &&
+					HelperFunctions.objectsEqual(entry.get(annotationToMatch), annotationsHostViewFromNetfilter.get(annotationToMatch));
+				if(!allAnnotationsMatched){
     	    				break;
     	    			}
     	    		}
+			if(allAnnotationsMatched){
+				matchedEntry = entry;
+				break;
+			}
     	    	}
     	    	
     	    	if(matchedEntry != null){ // found
