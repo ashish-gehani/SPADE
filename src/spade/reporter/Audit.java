@@ -1479,6 +1479,7 @@ public class Audit extends AbstractReporter {
 										+ "nf_hooks=\"%s\" nf_hooks_log_all_ct=\"%s\"", 
 										kernelModuleControllerPath, uid, pids, ppids,
 										interceptSendRecv ? "1" : "0", ignoreUidsArg, 
+										HANDLE_NAMESPACES ? "1" : "0",
 										netfilterHooks ? "1" : "0",
 										netfilterHooksLogCt ? "1" : "0");
 								

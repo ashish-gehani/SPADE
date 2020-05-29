@@ -712,6 +712,7 @@ public class AuditEventReader {
 						auditRecordKeyValues.putAll(nsOrNfEventData);
 					}else if(NF_SUBTYPE_VALUE.equals(nsOrNfEventData.get(NF_SUBTYPE_KEY))){
 						auditRecordKeyValues.putAll(nsOrNfEventData);
+						auditRecordKeyValues.put(TIME, time);
 						auditRecordKeyValues.put(RECORD_TYPE_KEY, RECORD_TYPE_NETFILTER_HOOK); // replace with new type
 					}else{
 						int indexOfData = messageData.indexOf(KMODULE_DATA_KEY);
