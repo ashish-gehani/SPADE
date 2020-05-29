@@ -28,7 +28,7 @@ import spade.reporter.audit.OPMConstants;
 public class NetworkSocketIdentifier extends ArtifactIdentifier {
 
 	private static final long serialVersionUID = -431788671179917399L;
-	private String localHost, localPort,
+	private final String localHost, localPort,
 					remoteHost, remotePort,
 					protocol;
 	
@@ -44,23 +44,23 @@ public class NetworkSocketIdentifier extends ArtifactIdentifier {
 		this.netNamespaceId = netNamespaceId;
 	}
 
-	public String getLocalHost() {
+	public String getLocalHost(){
 		return localHost;
 	}
 
-	public String getLocalPort() {
+	public String getLocalPort(){
 		return localPort;
 	}
 
-	public String getRemoteHost() {
+	public String getRemoteHost(){
 		return remoteHost;
 	}
 
-	public String getRemotePort() {
+	public String getRemotePort(){
 		return remotePort;
 	}
 
-	public String getProtocol() {
+	public String getProtocol(){
 		return protocol;
 	}
 

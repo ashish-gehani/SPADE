@@ -38,8 +38,8 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang.exception.ExceptionUtils;
 
 import spade.core.Settings;
-import spade.utility.HelperFunctions;
 import spade.utility.FileUtility;
+import spade.utility.HelperFunctions;
 
 /**
  * This class reads and parses the audit logs one event at a time.
@@ -58,8 +58,6 @@ public class AuditEventReader {
 			ARG3 = "a3",
 			COMM = "comm",
 			CWD = "cwd",
-			DADDR = "daddr",
-			DPORT = "dport",
 			EGID = "egid",
 			EUID = "euid",
 			EVENT_ID = "eventid",
@@ -72,9 +70,6 @@ public class AuditEventReader {
 			FSGID = "fsgid",
 			FSUID = "fsuid",
 			GID = "gid",
-			HOOK = "hook",
-			HOOK_INPUT = "1",
-			HOOK_OUTPUT = "3",
 			ITEMS = "items",
 			MODE_PREFIX = "mode",
 			NAMETYPE_CREATE = "CREATE",
@@ -86,14 +81,12 @@ public class AuditEventReader {
 			PATH_PREFIX = "path",
 			PID = "pid",
 			PPID = "ppid",
-			PROTO = "proto",
 			RECORD_TYPE_CWD = "CWD",
 			RECORD_TYPE_DAEMON_START = "DAEMON_START",
 			RECORD_TYPE_EOE = "EOE",
 			RECORD_TYPE_EXECVE = "EXECVE",
 			RECORD_TYPE_FD_PAIR = "FD_PAIR",
 			RECORD_TYPE_MMAP = "MMAP",
-			RECORD_TYPE_NETFILTER_PKT = "NETFILTER_PKT",
 			RECORD_TYPE_PATH = "PATH",
 			RECORD_TYPE_PROCTITLE = "PROCTITLE",
 			RECORD_TYPE_SOCKADDR = "SOCKADDR",
@@ -104,10 +97,10 @@ public class AuditEventReader {
 			RECORD_TYPE_UBSI_DEP = "UBSI_DEP",
 			RECORD_TYPE_UNKNOWN_PREFIX = "UNKNOWN[",
 			RECORD_TYPE_USER = "USER",
+			RECORD_TYPE_NETFILTER_HOOK = "NETFILTER_HOOK",
 			RECORD_TYPE_KEY = "type",
 			SADDR = "saddr",
 			SGID = "sgid",
-			SPORT = "sport",
 			SUCCESS = "success",
 			SUCCESS_NO = "no",
 			SUCCESS_YES = "yes",
@@ -142,7 +135,29 @@ public class AuditEventReader {
 			NS_INUM_PID = "ns_inum_pid",
 			NS_INUM_PID_FOR_CHILDREN = "ns_inum_pid_children",
 			NS_INUM_USER = "ns_inum_usr",
-			NS_INUM_IPC = "ns_inum_ipc";
+			NS_INUM_IPC = "ns_inum_ipc",
+			NF_SUBTYPE_KEY = "nf_subtype",
+			NF_SUBTYPE_VALUE = "nf_netfilter",
+			NF_HOOK_KEY = "nf_hook",
+			NF_HOOK_VALUE_LOCAL_OUT = "NF_INET_LOCAL_OUT",
+			NF_HOOK_VALUE_LOCAL_IN = "NF_INET_LOCAL_IN",
+			NF_HOOK_VALUE_POST_ROUTING = "NF_INET_POST_ROUTING",
+			NF_HOOK_VALUE_PRE_ROUTING = "NF_INET_PRE_ROUTING",
+			NF_PRIORITY_KEY = "nf_priority",
+			NF_PRIORITY_VALUE_FIRST = "NF_IP_PRI_FIRST",
+			NF_PRIORITY_VALUE_LAST = "NF_IP_PRI_LAST",
+			NF_ID_KEY = "nf_id",
+			NF_SRC_IP_KEY = "nf_src_ip",
+			NF_SRC_PORT_KEY = "nf_src_port",
+			NF_DST_IP_KEY = "nf_dst_ip",
+			NF_DST_PORT_KEY = "nf_dst_port",
+			NF_PROTOCOL_KEY = "nf_protocol",
+			NF_PROTOCOL_VALUE_TCP = "TCP",
+			NF_PROTOCOL_VALUE_UDP = "UDP",
+			NF_IP_VERSION_KEY = "nf_ip_version",
+			NF_IP_VERSION_VALUE_IPV4 = "IPV4",
+			NF_IP_VERSION_VALUE_IPV6 = "IPV6",
+			NF_NET_NS_INUM_KEY = "nf_net_ns";
 	
 	//Reporting variables
 	private boolean reportingEnabled = false;
@@ -692,9 +707,12 @@ public class AuditEventReader {
 				auditRecordKeyValues.put(RECORD_TYPE_KEY, type);
 	
 				if(type.equals(RECORD_TYPE_USER)){
-					Map<String, String> nsEventData = HelperFunctions.parseKeyValPairs(messageData);
-					if(NS_SUBTYPE_VALUE.equals(nsEventData.get(NS_SUBTYPE_KEY))){
-						auditRecordKeyValues.putAll(nsEventData);
+					Map<String, String> nsOrNfEventData = HelperFunctions.parseKeyValPairs(messageData);
+					if(NS_SUBTYPE_VALUE.equals(nsOrNfEventData.get(NS_SUBTYPE_KEY))){
+						auditRecordKeyValues.putAll(nsOrNfEventData);
+					}else if(NF_SUBTYPE_VALUE.equals(nsOrNfEventData.get(NF_SUBTYPE_KEY))){
+						auditRecordKeyValues.putAll(nsOrNfEventData);
+						auditRecordKeyValues.put(RECORD_TYPE_KEY, RECORD_TYPE_NETFILTER_HOOK); // replace with new type
 					}else{
 						int indexOfData = messageData.indexOf(KMODULE_DATA_KEY);
 						if(indexOfData != -1){
@@ -776,15 +794,7 @@ public class AuditEventReader {
 					while (key_value_matcher.find()) {
 						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
 					}
-				} else if(type.equals(RECORD_TYPE_NETFILTER_PKT)){
-					auditRecordKeyValues.put(TIME, time); // add time
-					auditRecordKeyValues.put(RECORD_TYPE_KEY, RECORD_TYPE_NETFILTER_PKT); // type
-					// rest of the keys as is below
-					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-					while (key_value_matcher.find()) {
-						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
-					}
-				} else if (type.equals(RECORD_TYPE_MMAP)){
+				}else if (type.equals(RECORD_TYPE_MMAP)){
 					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
 					while (key_value_matcher.find()) {
 						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));

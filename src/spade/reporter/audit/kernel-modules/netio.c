@@ -33,10 +33,23 @@
 #include <linux/uaccess.h>  // copy_from_user
 #include <linux/unistd.h>  // __NR_<system-call-name>
 #include <linux/version.h>
-
+#include <linux/netfilter.h>
+#include <linux/netfilter_ipv4.h>
+#include <linux/ip.h>
+#include <linux/ipv6.h>
+#include <linux/tcp.h>
+#include <linux/udp.h>
+#include <linux/inetdevice.h>
 #include <linux/ptrace.h>
 
 #include "globals.h"
+
+#if IS_ENABLED(CONFIG_NF_CONNTRACK)
+#include <net/netfilter/nf_conntrack.h>
+#include <linux/netfilter/nf_conntrack_common.h>
+#endif
+
+#define BUFFER_SIZE_IP 50
 
 #define UENTRY		0xffffff9c // -100
 #define UENTRY_ID	0xffffff9a // -102
@@ -134,6 +147,11 @@ static long spade_tkill_pre(int syscallNumber, int tid, int sig);
 static long spade_tgkill_pre(int syscallNumber, int tgid, int tid, int sig);
 // END - SPADE logic functions on hooked syscalls
 
+static unsigned int nf_spade_hook_function_first(void *priv, struct sk_buff *skb, const struct nf_hook_state *state);
+static unsigned int nf_spade_hook_function_last(void *priv, struct sk_buff *skb, const struct nf_hook_state *state);
+static void nf_spade_log_to_audit(const int priority, const struct sk_buff *skb, const struct nf_hook_state *state);
+static void nf_ct_spade_get_ip_conntrack_info_enum(const struct sk_buff *skb, enum ip_conntrack_info *ctinfo, int *manual_ct);
+
 static int is_sockaddr_size_valid(uint32_t size);
 static void to_hex_str(unsigned char *dst, uint32_t dst_len, unsigned char *src, uint32_t src_len);
 static void to_hex(unsigned char *dst, uint32_t dst_len, unsigned char *src, uint32_t src_len);
@@ -148,7 +166,8 @@ static int netio_logging_start(char* caller_build_hash, int net_io_flag, int sys
 									int pids_ignore_length, int pids_ignore_list[],
 									int ppids_ignore_length, int ppids_ignore_list[],
 									int uids_len, int uids[], int ignore_uids, char* passed_key,
-									int harden_tgids_length, int harden_tgids_list[], int namespaces_flag); // 1 success, 0 failure
+									int harden_tgids_length, int harden_tgids_list[], int namespaces_flag,
+									int nf_hooks_flag, int nf_hooks_log_all_ct_flag); // 1 success, 0 failure
 static void netio_logging_stop(char* caller_build_hash);
 static int get_tgid(int);
 static int special_str_equal(const char* hay, const char* constantModuleName);
@@ -1381,12 +1400,316 @@ static void __exit onunload(void) {
 	}
 }
 
+
+static void nf_ct_spade_get_ip_conntrack_info_enum(const struct sk_buff *skb, enum ip_conntrack_info *ctinfo, int *manual_ct){
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
+	struct nf_conn *nfconn;
+
+	nfconn = (struct nf_conn *)skb_nfct(skb);
+	if(nfconn){
+		nfconn = nf_ct_get(skb, ctinfo);
+		*manual_ct = 0;
+	}else{
+		*ctinfo = IP_CT_NEW; // check everything new for correctness over performance
+		*manual_ct = 1;
+	}
+#else
+	*ctinfo = IP_CT_NEW;
+	*manual_ct = 1;
+#endif
+}
+
+static void nf_spade_log_to_audit(const int priority, const struct sk_buff *skb, const struct nf_hook_state *state){
+	if(skb && state){
+		int net_ns_found;
+		unsigned int net_ns_inum;
+		int hooknum;
+		char *hook_name;
+		char *priority_name;
+		char *protocol_name;
+		char *ip_version_name;
+		char *ct_info_name;
+
+		char buffer_src_ip[BUFFER_SIZE_IP];
+		char buffer_dst_ip[BUFFER_SIZE_IP];
+
+		int manual_ct;
+		enum ip_conntrack_info ctinfo;
+		int src_port;
+		int dst_port;
+		int print_result;
+		unsigned int protocol;
+
+		net_ns_found = -1;
+		net_ns_inum = 0;
+		src_port = -1;
+		dst_port = -1;
+		protocol = -1;
+		print_result = 0;
+
+		hooknum = state->hook;
+
+		nf_ct_spade_get_ip_conntrack_info_enum(skb, &ctinfo, &manual_ct);
+		if(nf_hooks_log_all_ct != 1){
+			if(ctinfo != IP_CT_NEW){
+				return;
+			}
+		}
+
+		if(state->pf == NFPROTO_IPV4){
+			struct iphdr *iph;
+			iph = ip_hdr(skb);
+			if(!iph){
+				return;
+			}else{
+				if(iph->protocol != IPPROTO_TCP && iph->protocol != IPPROTO_UDP){
+					return;
+				}else{
+					protocol = iph->protocol;
+					memset(&buffer_src_ip[0], '\0', BUFFER_SIZE_IP);
+
+					print_result = snprintf(&buffer_src_ip[0], BUFFER_SIZE_IP, "%pI4", &iph->saddr);
+					if(print_result < 0 || print_result >= BUFFER_SIZE_IP){
+						return;
+					}
+
+					memset(&buffer_dst_ip[0], '\0', BUFFER_SIZE_IP);
+
+					print_result = snprintf(&buffer_dst_ip[0], BUFFER_SIZE_IP, "%pI4", &iph->daddr);
+					if(print_result < 0 || print_result >= BUFFER_SIZE_IP){
+						return;
+					}
+				}
+			}
+			ip_version_name = "IPV4";
+			if(namespaces != 0){
+				struct net *net;
+				struct net_device *dev;
+				dev = NULL;
+				rcu_read_lock();
+				for_each_net_rcu(net){
+					if(dev == NULL){
+						dev = __ip_dev_find(net, iph->saddr, false);
+						if(dev){
+							net_ns_inum = net->ns.inum;
+							net_ns_found = 1;
+						}
+					}
+				}
+				rcu_read_unlock();
+			}
+		}else if(state->pf == NFPROTO_IPV6){
+			struct ipv6hdr *ipv6h;
+			ipv6h = ipv6_hdr(skb);
+			if(!ipv6h){
+				return;
+			}else{
+				if(ipv6h->nexthdr != IPPROTO_TCP && ipv6h->nexthdr != IPPROTO_UDP){
+					return;
+				}else{
+					protocol = ipv6h->nexthdr;
+					memset(&buffer_src_ip[0], '\0', BUFFER_SIZE_IP);
+
+					print_result = snprintf(&buffer_src_ip[0], BUFFER_SIZE_IP, "%pI6", &ipv6h->saddr);
+					if(print_result < 0 || print_result >= BUFFER_SIZE_IP){
+						return;
+					}
+
+					memset(&buffer_dst_ip[0], '\0', BUFFER_SIZE_IP);
+
+					print_result = snprintf(&buffer_dst_ip[0], BUFFER_SIZE_IP, "%pI6", &ipv6h->daddr);
+					if(print_result < 0 || print_result >= BUFFER_SIZE_IP){
+						return;
+					}
+				}
+			}
+			ip_version_name = "IPV6";
+			if(namespaces != 0){
+				struct net *net;
+				int found;
+				found = 0;
+				rcu_read_lock();
+				for_each_net_rcu(net){
+					if(found == 0){
+						found = ipv6_chk_addr(net, &ipv6h->saddr, NULL, 0);
+						if(found){
+							net_ns_inum = net->ns.inum;
+							net_ns_found = 1;
+						}
+					}
+				}
+				rcu_read_unlock();
+			}
+		}else{
+			return;
+		}
+
+		if(protocol != IPPROTO_TCP && protocol != IPPROTO_UDP){
+			return;
+		}
+
+		if(protocol == IPPROTO_TCP){
+			struct tcphdr *tcph;
+			tcph = tcp_hdr(skb);
+			if(!tcph){
+				return;
+			}else{
+				src_port = ntohs(tcph->source);
+				dst_port = ntohs(tcph->dest);
+			}
+			protocol_name = "TCP";
+		}else if(protocol == IPPROTO_UDP){
+			struct udphdr *udph;
+			udph = udp_hdr(skb);
+			if(!udph){
+				return;
+			}else{
+				src_port = ntohs(udph->source);
+				dst_port = ntohs(udph->dest);
+			}
+			protocol_name = "UDP";
+		}else{
+			return;
+		}
+
+		switch(hooknum){
+			case NF_INET_LOCAL_OUT: 	hook_name = "NF_INET_LOCAL_OUT"; break;
+			case NF_INET_LOCAL_IN: 		hook_name = "NF_INET_LOCAL_IN"; break;
+			case NF_INET_POST_ROUTING: 	hook_name = "NF_INET_POST_ROUTING"; break;
+			case NF_INET_PRE_ROUTING: 	hook_name = "NF_INET_PRE_ROUTING"; break;
+			default: 					hook_name = "UNKNOWN"; break;
+		}
+
+		switch(priority){
+			case NF_IP_PRI_FIRST: 	priority_name = "NF_IP_PRI_FIRST"; break;
+			case NF_IP_PRI_LAST: 	priority_name = "NF_IP_PRI_LAST"; break;
+			default: 				priority_name = "UNKNOWN"; break;
+		}
+
+		switch(ctinfo){
+			case IP_CT_ESTABLISHED:			ct_info_name = "IP_CT_ESTABLISHED"; break;
+			case IP_CT_RELATED:				ct_info_name = "IP_CT_RELATED"; break;
+			case IP_CT_NEW:					ct_info_name = "IP_CT_NEW"; break;
+			//case IP_CT_IS_REPLY:			ct_info_name = "IP_CT_IS_REPLY"; break;
+			case IP_CT_ESTABLISHED_REPLY:	ct_info_name = "IP_CT_ESTABLISHED_REPLY"; break;
+			case IP_CT_RELATED_REPLY:		ct_info_name = "IP_CT_RELATED_REPLY"; break;
+			default:						ct_info_name = "UNKNOWN"; break;
+		}
+
+		if(namespaces != 0){
+			if(net_ns_found){
+				audit_log(NULL, GFP_KERNEL, AUDIT_USER,
+						"version=%s nf_subtype=nf_netfilter nf_hook=%s nf_priority=%s nf_id=%p nf_src_ip=%s nf_src_port=%d nf_dst_ip=%s nf_dst_port=%d nf_protocol=%s nf_ip_version=%s nf_net_ns=%u",
+						"nf0",
+						hook_name, priority_name,
+						skb, buffer_src_ip, src_port, buffer_dst_ip, dst_port, protocol_name, ip_version_name, net_ns_inum
+						);
+			}else{
+				audit_log(NULL, GFP_KERNEL, AUDIT_USER,
+						"version=%s nf_subtype=nf_netfilter nf_hook=%s nf_priority=%s nf_id=%p nf_src_ip=%s nf_src_port=%d nf_dst_ip=%s nf_dst_port=%d nf_protocol=%s nf_ip_version=%s nf_net_ns=-1",
+						"nf0",
+						hook_name, priority_name,
+						skb, buffer_src_ip, src_port, buffer_dst_ip, dst_port, protocol_name, ip_version_name
+						);
+			}
+		}else{
+			// null log_net_ns
+			audit_log(NULL, GFP_KERNEL, AUDIT_USER,
+					"version=%s nf_subtype=nf_netfilter nf_hook=%s nf_priority=%s nf_id=%p nf_src_ip=%s nf_src_port=%d nf_dst_ip=%s nf_dst_port=%d nf_protocol=%s nf_ip_version=%s",
+					"nf0",
+					hook_name, priority_name,
+					skb, buffer_src_ip, src_port, buffer_dst_ip, dst_port, protocol_name, ip_version_name
+					);
+		}
+	}
+}
+
+static unsigned int nf_spade_hook_function_first(void *priv, struct sk_buff *skb, const struct nf_hook_state *state){
+	nf_spade_log_to_audit(NF_IP_PRI_FIRST, skb, state);
+	return NF_ACCEPT;
+}
+
+static unsigned int nf_spade_hook_function_last(void *priv, struct sk_buff *skb, const struct nf_hook_state *state){
+	nf_spade_log_to_audit(NF_IP_PRI_LAST, skb, state);
+	return NF_ACCEPT;
+}
+
+static const struct nf_hook_ops nf_hook_ops_spade[] = {
+	{
+		.hook = nf_spade_hook_function_first, .pf = NFPROTO_IPV4,
+		.hooknum = NF_INET_LOCAL_OUT, .priority = NF_IP_PRI_FIRST
+	},
+	{
+		.hook = nf_spade_hook_function_last, .pf = NFPROTO_IPV4,
+		.hooknum = NF_INET_LOCAL_OUT, .priority = NF_IP_PRI_LAST
+	},
+	{
+		.hook = nf_spade_hook_function_first, .pf = NFPROTO_IPV6,
+		.hooknum = NF_INET_LOCAL_OUT, .priority = NF_IP_PRI_FIRST
+	},
+	{
+		.hook = nf_spade_hook_function_last, .pf = NFPROTO_IPV6,
+		.hooknum = NF_INET_LOCAL_OUT, .priority = NF_IP_PRI_LAST
+	},
+///
+	{
+		.hook = nf_spade_hook_function_first, .pf = NFPROTO_IPV4,
+		.hooknum = NF_INET_LOCAL_IN, .priority = NF_IP_PRI_FIRST
+	},
+	{
+		.hook = nf_spade_hook_function_last, .pf = NFPROTO_IPV4,
+		.hooknum = NF_INET_LOCAL_IN, .priority = NF_IP_PRI_LAST
+	},
+	{
+		.hook = nf_spade_hook_function_first, .pf = NFPROTO_IPV6,
+		.hooknum = NF_INET_LOCAL_IN, .priority = NF_IP_PRI_FIRST
+	},
+	{
+		.hook = nf_spade_hook_function_last, .pf = NFPROTO_IPV6,
+		.hooknum = NF_INET_LOCAL_IN, .priority = NF_IP_PRI_LAST
+	},
+///
+	{
+		.hook = nf_spade_hook_function_first, .pf = NFPROTO_IPV4,
+		.hooknum = NF_INET_POST_ROUTING, .priority = NF_IP_PRI_FIRST
+	},
+	{
+		.hook = nf_spade_hook_function_last, .pf = NFPROTO_IPV4,
+		.hooknum = NF_INET_POST_ROUTING, .priority = NF_IP_PRI_LAST
+	},
+	{
+		.hook = nf_spade_hook_function_first, .pf = NFPROTO_IPV6,
+		.hooknum = NF_INET_POST_ROUTING, .priority = NF_IP_PRI_FIRST
+	},
+	{
+		.hook = nf_spade_hook_function_last, .pf = NFPROTO_IPV6,
+		.hooknum = NF_INET_POST_ROUTING, .priority = NF_IP_PRI_LAST
+	},
+///
+	{
+		.hook = nf_spade_hook_function_first, .pf = NFPROTO_IPV4,
+		.hooknum = NF_INET_PRE_ROUTING, .priority = NF_IP_PRI_FIRST
+	},
+	{
+		.hook = nf_spade_hook_function_last, .pf = NFPROTO_IPV4,
+		.hooknum = NF_INET_PRE_ROUTING, .priority = NF_IP_PRI_LAST
+	},
+	{
+		.hook = nf_spade_hook_function_first, .pf = NFPROTO_IPV6,
+		.hooknum = NF_INET_PRE_ROUTING, .priority = NF_IP_PRI_FIRST
+	},
+	{
+		.hook = nf_spade_hook_function_last, .pf = NFPROTO_IPV6,
+		.hooknum = NF_INET_PRE_ROUTING, .priority = NF_IP_PRI_LAST
+	}
+};
+
 static int netio_logging_start(char* caller_build_hash, int net_io_flag, int syscall_success_flag, 
 									int pids_ignore_length, int pids_ignore_list[],
 									int ppids_ignore_length, int ppids_ignore_list[],
 									int uids_length, int uids_list[], int ignore_uids_flag, char* passed_key,
 									int harden_tgids_length, int harden_tgids_list[],
-									int namespaces_flag){
+									int namespaces_flag, int nf_hooks_flag, int nf_hooks_log_all_ct_flag){
 	if(str_equal(caller_build_hash, BUILD_HASH) == 1){
 		net_io = net_io_flag;
 		syscall_success = syscall_success_flag;
@@ -1397,6 +1720,8 @@ static int netio_logging_start(char* caller_build_hash, int net_io_flag, int sys
 		key = passed_key;
 		harden_tgids_len = harden_tgids_length;
 		namespaces = namespaces_flag;
+		nf_hooks = nf_hooks_flag;
+		nf_hooks_log_all_ct = nf_hooks_log_all_ct_flag;
 
 		copy_array(&pids_ignore[0], &pids_ignore_list[0], pids_ignore_len);
 		copy_array(&ppids_ignore[0], &ppids_ignore_list[0], ppids_ignore_len);
@@ -1405,6 +1730,15 @@ static int netio_logging_start(char* caller_build_hash, int net_io_flag, int sys
 
 		if(str_equal(NO_KEY, key) != 1){
 			usingKey = 1;
+		}else{
+			usingKey = 0;
+		}
+
+		if(nf_hooks == 1){
+			if(nf_register_net_hooks(&init_net, nf_hook_ops_spade, ARRAY_SIZE(nf_hook_ops_spade))){
+				printk(KERN_EMERG "[%s] Failed to register netfilter hooks. Logging NOT started!\n", MAIN_MODULE_NAME);
+				return 0;
+			}
 		}
 
 		print_args(MAIN_MODULE_NAME);
@@ -1421,6 +1755,9 @@ static int netio_logging_start(char* caller_build_hash, int net_io_flag, int sys
 
 static void netio_logging_stop(char* caller_build_hash){
 	if(str_equal(caller_build_hash, BUILD_HASH) == 1){
+		if(nf_hooks == 1){
+			nf_unregister_net_hooks(&init_net, nf_hook_ops_spade, ARRAY_SIZE(nf_hook_ops_spade));
+		}
 		printk(KERN_EMERG "[%s] Logging stopped!\n", MAIN_MODULE_NAME);
 		stop = 1;
 		usingKey = 0;
