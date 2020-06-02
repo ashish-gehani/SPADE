@@ -70,6 +70,7 @@
  */
 static volatile int stop = 1;
 static volatile int usingKey = 0;
+static int nf_discarded = 0;
 
 static struct proc_ns_operations *struct_mntns_operations;
 static struct proc_ns_operations *struct_pidns_operations;
@@ -167,11 +168,11 @@ static int netio_logging_start(char* caller_build_hash, int net_io_flag, int sys
 									int ppids_ignore_length, int ppids_ignore_list[],
 									int uids_len, int uids[], int ignore_uids, char* passed_key,
 									int harden_tgids_length, int harden_tgids_list[], int namespaces_flag,
-									int nf_hooks_flag, int nf_hooks_log_all_ct_flag); // 1 success, 0 failure
+									int nf_hooks_flag, int nf_hooks_log_all_ct_flag, int nf_handle_user_flag); // 1 success, 0 failure
 static void netio_logging_stop(char* caller_build_hash);
 static int get_tgid(int);
 static int special_str_equal(const char* hay, const char* constantModuleName);
-static int get_hex_saddr_from_fd_getname(char* result, int max_result_size, int *fd_sock_type, int sock_fd, int peer);
+static int get_hex_saddr_from_fd_getname(char* result, int max_result_size, int *fd_sock_type, int sock_fd, int peer, long *net_inum);
 
 static int load_namespace_symbols(void);
 static long get_ns_inum(struct task_struct *struct_task_struct, const struct proc_ns_operations *proc_ns_operations);
@@ -340,7 +341,7 @@ static void sockaddr_to_hex(unsigned char* dst, int dst_len, unsigned char* addr
 // 0 returned means log nothing. 1 returned means log it.
 static int get_hex_saddr_from_fd_getname(char* result, int max_result_size,
 		int *fd_sock_type,
-		int sock_fd, int peer){
+		int sock_fd, int peer, long *net_ns_inum){
 	int log_me = 1;
 	struct socket *fd_sock;
 	int fd_sock_family = -1;
@@ -377,6 +378,14 @@ static int get_hex_saddr_from_fd_getname(char* result, int max_result_size,
 			}else{
 				//a*result = 0;
 			}
+			*net_ns_inum = 0;
+			if(namespaces == 1 && net_ns_inum != NULL && fd_sock->sk != NULL){
+				struct net *ns_net;
+				ns_net = sock_net(fd_sock->sk);
+				if(ns_net != NULL){
+					*net_ns_inum = ns_net->ns.inum;
+				}
+			}
 		}
 		// Must free the reference to the fd after use otherwise lock won't be released.
 		sockfd_put(fd_sock);
@@ -389,7 +398,7 @@ static void log_to_audit(int syscallNumber, int fd, struct sockaddr_storage* add
 	struct task_struct* current_task = current;
 	if(log_syscall((int)(current_task->pid), (int)(current_task->real_parent->pid),
 			(int)(from_kuid(&init_user_ns, current_cred()->uid)), success) > 0){
-
+		long netnsinum;
 		int log_me = 0;
 		int fd_sock_type = -1;
 
@@ -417,22 +426,22 @@ static void log_to_audit(int syscallNumber, int fd, struct sockaddr_storage* add
 		}else{
 			if(syscallNumber == __NR_accept || syscallNumber == __NR_accept4){
 				if(success == 1){
-					log_me = get_hex_saddr_from_fd_getname(&hex_addr[0], max_hex_sockaddr_size, &fd_sock_type, (int)exit, 1);
+					log_me = get_hex_saddr_from_fd_getname(&hex_addr[0], max_hex_sockaddr_size, &fd_sock_type, (int)exit, 1, &netnsinum);
 				}
 			}
 		}
 
-		log_me = get_hex_saddr_from_fd_getname(&hex_fd_addr[0], max_hex_sockaddr_size, &fd_sock_type, fd, 0);
+		log_me = get_hex_saddr_from_fd_getname(&hex_fd_addr[0], max_hex_sockaddr_size, &fd_sock_type, fd, 0, &netnsinum);
 
 		if(log_me == 1){
 			cred = current_cred();
 			audit_log(NULL, GFP_KERNEL, AUDIT_USER,
-				"netio_intercepted=\"syscall=%d exit=%ld success=%d fd=%d pid=%d ppid=%d uid=%u euid=%u suid=%u fsuid=%u gid=%u egid=%u sgid=%u fsgid=%u comm=%s sock_type=%d local_saddr=%s remote_saddr=%s remote_saddr_size=%d\"",
+				"netio_intercepted=\"syscall=%d exit=%ld success=%d fd=%d pid=%d ppid=%d uid=%u euid=%u suid=%u fsuid=%u gid=%u egid=%u sgid=%u fsgid=%u comm=%s sock_type=%d local_saddr=%s remote_saddr=%s remote_saddr_size=%d net_ns_inum=%ld\"",
 				syscallNumber, exit, success, fd, current_task->pid, current_task->real_parent->pid,
 				from_kuid(&init_user_ns, cred->uid), from_kuid(&init_user_ns, cred->euid), from_kuid(&init_user_ns, cred->suid),
 				from_kuid(&init_user_ns, cred->fsuid), from_kgid(&init_user_ns, cred->gid), from_kgid(&init_user_ns, cred->egid),
 				from_kgid(&init_user_ns, cred->sgid), from_kgid(&init_user_ns, cred->fsgid),
-				hex_task_command, fd_sock_type, hex_fd_addr, hex_addr, addr_size);
+				hex_task_command, fd_sock_type, hex_fd_addr, hex_addr, addr_size, netnsinum);
 		}
 	}
 }
@@ -1421,6 +1430,7 @@ static void nf_ct_spade_get_ip_conntrack_info_enum(const struct sk_buff *skb, en
 
 static void nf_spade_log_to_audit(const int priority, const struct sk_buff *skb, const struct nf_hook_state *state){
 	if(skb && state){
+		int ingress; // 1 otherwise egress (0)
 		int net_ns_found;
 		unsigned int net_ns_inum;
 		int hooknum;
@@ -1440,7 +1450,8 @@ static void nf_spade_log_to_audit(const int priority, const struct sk_buff *skb,
 		int print_result;
 		unsigned int protocol;
 
-		net_ns_found = -1;
+		ingress = -1;
+		net_ns_found = 0;
 		net_ns_inum = 0;
 		src_port = -1;
 		dst_port = -1;
@@ -1449,11 +1460,31 @@ static void nf_spade_log_to_audit(const int priority, const struct sk_buff *skb,
 
 		hooknum = state->hook;
 
+		if(nf_handle_user == 1){
+			struct sock *sk;
+			sk = skb_to_full_sk(skb);
+			if(sk != NULL && sk->sk_socket != NULL && sk->sk_socket->file != NULL && sk->sk_socket->file->f_cred != NULL){
+				if(log_syscall(-1, -1, (int)(from_kuid(&init_user_ns, sk->sk_socket->file->f_cred->uid)), -1) != 1){
+					nf_discarded++;
+					return;
+				}
+			}
+		}
+
+
 		nf_ct_spade_get_ip_conntrack_info_enum(skb, &ctinfo, &manual_ct);
 		if(nf_hooks_log_all_ct != 1){
 			if(ctinfo != IP_CT_NEW){
 				return;
 			}
+		}
+
+		switch(hooknum){
+			case NF_INET_LOCAL_OUT: 	hook_name = "NF_INET_LOCAL_OUT"; ingress = 0; break;
+			case NF_INET_LOCAL_IN: 		hook_name = "NF_INET_LOCAL_IN"; ingress = 1; break;
+			case NF_INET_POST_ROUTING: 	hook_name = "NF_INET_POST_ROUTING"; ingress = 0; break;
+			case NF_INET_PRE_ROUTING: 	hook_name = "NF_INET_PRE_ROUTING"; ingress = 1; break;
+			default: 			return;
 		}
 
 		if(state->pf == NFPROTO_IPV4){
@@ -1483,20 +1514,35 @@ static void nf_spade_log_to_audit(const int priority, const struct sk_buff *skb,
 			}
 			ip_version_name = "IPV4";
 			if(namespaces != 0){
+				int get_ns;
 				struct net *net;
 				struct net_device *dev;
-				dev = NULL;
-				rcu_read_lock();
-				for_each_net_rcu(net){
-					if(dev == NULL){
-						dev = __ip_dev_find(net, iph->saddr, false);
-						if(dev){
-							net_ns_inum = net->ns.inum;
-							net_ns_found = 1;
+				__be32 selected_addr;
+
+				get_ns = 0;
+
+				if(hooknum == NF_INET_LOCAL_OUT && priority == NF_IP_PRI_FIRST){
+					selected_addr = iph->saddr;
+					get_ns = 1;
+				}else if(hooknum == NF_INET_LOCAL_IN && priority == NF_IP_PRI_LAST){
+					selected_addr = iph->daddr;
+					get_ns = 1;
+				}
+
+				if(get_ns == 1){
+					dev = NULL;
+					rcu_read_lock();
+					for_each_net_rcu(net){
+						if(dev == NULL){
+							dev = __ip_dev_find(net, selected_addr, false);
+							if(dev){
+								net_ns_inum = net->ns.inum;
+								net_ns_found = 1;
+							}
 						}
 					}
+					rcu_read_unlock();
 				}
-				rcu_read_unlock();
 			}
 		}else if(state->pf == NFPROTO_IPV6){
 			struct ipv6hdr *ipv6h;
@@ -1525,20 +1571,35 @@ static void nf_spade_log_to_audit(const int priority, const struct sk_buff *skb,
 			}
 			ip_version_name = "IPV6";
 			if(namespaces != 0){
+				int get_ns;
 				struct net *net;
 				int found;
-				found = 0;
-				rcu_read_lock();
-				for_each_net_rcu(net){
-					if(found == 0){
-						found = ipv6_chk_addr(net, &ipv6h->saddr, NULL, 0);
-						if(found){
-							net_ns_inum = net->ns.inum;
-							net_ns_found = 1;
+				struct in6_addr selected_addr;
+
+				get_ns = 0;
+
+                                if(hooknum == NF_INET_LOCAL_OUT && priority == NF_IP_PRI_FIRST){
+                                        selected_addr = ipv6h->saddr;
+                                        get_ns = 1;
+                                }else if(hooknum == NF_INET_LOCAL_IN && priority == NF_IP_PRI_LAST){
+                                        selected_addr = ipv6h->daddr;
+                                        get_ns = 1;
+                                }
+
+				if(get_ns == 1){
+					found = 0;
+					rcu_read_lock();
+					for_each_net_rcu(net){
+						if(found == 0){
+							found = ipv6_chk_addr(net, &selected_addr, NULL, 0);
+							if(found){
+								net_ns_inum = net->ns.inum;
+								net_ns_found = 1;
+							}
 						}
 					}
+					rcu_read_unlock();
 				}
-				rcu_read_unlock();
 			}
 		}else{
 			return;
@@ -1570,14 +1631,6 @@ static void nf_spade_log_to_audit(const int priority, const struct sk_buff *skb,
 			protocol_name = "UDP";
 		}else{
 			return;
-		}
-
-		switch(hooknum){
-			case NF_INET_LOCAL_OUT: 	hook_name = "NF_INET_LOCAL_OUT"; break;
-			case NF_INET_LOCAL_IN: 		hook_name = "NF_INET_LOCAL_IN"; break;
-			case NF_INET_POST_ROUTING: 	hook_name = "NF_INET_POST_ROUTING"; break;
-			case NF_INET_PRE_ROUTING: 	hook_name = "NF_INET_PRE_ROUTING"; break;
-			default: 					hook_name = "UNKNOWN"; break;
 		}
 
 		switch(priority){
@@ -1709,7 +1762,7 @@ static int netio_logging_start(char* caller_build_hash, int net_io_flag, int sys
 									int ppids_ignore_length, int ppids_ignore_list[],
 									int uids_length, int uids_list[], int ignore_uids_flag, char* passed_key,
 									int harden_tgids_length, int harden_tgids_list[],
-									int namespaces_flag, int nf_hooks_flag, int nf_hooks_log_all_ct_flag){
+									int namespaces_flag, int nf_hooks_flag, int nf_hooks_log_all_ct_flag, int nf_handle_user_flag){
 	if(str_equal(caller_build_hash, BUILD_HASH) == 1){
 		net_io = net_io_flag;
 		syscall_success = syscall_success_flag;
@@ -1722,6 +1775,7 @@ static int netio_logging_start(char* caller_build_hash, int net_io_flag, int sys
 		namespaces = namespaces_flag;
 		nf_hooks = nf_hooks_flag;
 		nf_hooks_log_all_ct = nf_hooks_log_all_ct_flag;
+		nf_handle_user = nf_handle_user_flag;
 
 		copy_array(&pids_ignore[0], &pids_ignore_list[0], pids_ignore_len);
 		copy_array(&ppids_ignore[0], &ppids_ignore_list[0], ppids_ignore_len);
@@ -1740,7 +1794,7 @@ static int netio_logging_start(char* caller_build_hash, int net_io_flag, int sys
 				return 0;
 			}
 		}
-
+		nf_discarded = 0;
 		print_args(MAIN_MODULE_NAME);
 		printk(KERN_EMERG "[%s] Logging started!\n", MAIN_MODULE_NAME);
 
@@ -1758,7 +1812,8 @@ static void netio_logging_stop(char* caller_build_hash){
 		if(nf_hooks == 1){
 			nf_unregister_net_hooks(&init_net, nf_hook_ops_spade, ARRAY_SIZE(nf_hook_ops_spade));
 		}
-		printk(KERN_EMERG "[%s] Logging stopped!\n", MAIN_MODULE_NAME);
+//		printk(KERN_EMERG "[%s] Logging stopped!\n", MAIN_MODULE_NAME);
+		printk(KERN_EMERG "[%s] Logging stopped! (nf_discarded=%d)\n", MAIN_MODULE_NAME, nf_discarded);
 		stop = 1;
 		usingKey = 0;
 	}else{

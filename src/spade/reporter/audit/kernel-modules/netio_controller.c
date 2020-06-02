@@ -19,6 +19,8 @@
  */
 #include "globals.h"
 
+module_param(nf_handle_user, int, 0000);
+MODULE_PARM_DESC(nf_handle_user, "0 for no, 1 for add");
 module_param(nf_hooks, int, 0000);
 MODULE_PARM_DESC(nf_hooks, "0 for no, 1 for add");
 module_param(nf_hooks_log_all_ct, int, 0000);
@@ -42,7 +44,7 @@ MODULE_PARM_DESC(key, "Optional key for preventing SPADE from dying");
 module_param_array(harden_tgids, int, &harden_tgids_len, 0000);
 MODULE_PARM_DESC(harden_tgids, "Comma-separated tgids list to harden");
 
-extern int netio_logging_start(char* caller_build_hash, int, int, int, int[], int, int[], int, int[], int, char*, int, int[], int, int, int); // starts logging
+extern int netio_logging_start(char* caller_build_hash, int, int, int, int[], int, int[], int, int[], int, char*, int, int[], int, int, int, int); // starts logging
 extern void netio_logging_stop(char* caller_build_hash); // stops logging
 
 static int __init onload(void){
@@ -93,19 +95,23 @@ static int __init onload(void){
 		printk(KERN_EMERG "[%s] SEVERE Invalid nf_hooks_log_all_ct value: %d (Only 0 or 1 allowed)\n", module_name, nf_hooks_log_all_ct);
 		success = -1;
 	}
-	
+	if(nf_handle_user != 0 && nf_handle_user != 1){
+		printk(KERN_EMERG "[%s] SEVERE Invalid nf_handle_user value: %d (Only 0 or 1 allowed)\n", module_name, nf_handle_user);
+		success = -1;
+	}
+
 	if(strlen(key) == 0){
 		key = NO_KEY;
 	}
-	
+
 	print_args(module_name);
-	
+
 	if(success == -1){
 		return -1;
 	}else{
 		if(netio_logging_start(BUILD_HASH, net_io, syscall_success, pids_ignore_len, pids_ignore,
 						ppids_ignore_len, ppids_ignore, uids_len, uids, ignore_uids, key, harden_tgids_len, harden_tgids, namespaces,
-						nf_hooks, nf_hooks_log_all_ct) == 1){
+						nf_hooks, nf_hooks_log_all_ct, nf_handle_user) == 1){
 			return 0;
 		}else{
 			return -1;

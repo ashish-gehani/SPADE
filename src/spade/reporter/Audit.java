@@ -275,7 +275,9 @@ public class Audit extends AbstractReporter {
 	private boolean HANDLE_NETFILTER_HOOKS = false;
 	private final String NETFILTER_HOOKS_LOG_CT_KEY = "netfilterHooksLogCT";
 	private boolean NETFILTER_HOOKS_LOG_CT = false;
-	
+	private final String NETFILTER_HOOKS_USER_KEY = "netfilterHooksUser";
+	private boolean NETFILTER_HOOKS_USER = false;
+
 	private String deleteModuleBinaryPath = null;
 	/********************** BEHAVIOR FLAGS - END *************************/
 	
@@ -602,7 +604,7 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_NETFILTER_HOOKS_KEY+"': " + argValue);
 			return false;
 		}
-		
+
 		argValue = args.get(NETFILTER_HOOKS_KEY);
 		if(isValidBoolean(argValue)){
 			NETFILTER_HOOKS = parseBoolean(argValue, NETFILTER_HOOKS);
@@ -610,7 +612,7 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Invalid flag value for '"+NETFILTER_HOOKS_KEY+"': " + argValue);
 			return false;
 		}
-		
+
 		argValue = args.get(NETFILTER_HOOKS_LOG_CT_KEY);
 		if(isValidBoolean(argValue)){
 			NETFILTER_HOOKS_LOG_CT = parseBoolean(argValue, NETFILTER_HOOKS_LOG_CT);
@@ -618,12 +620,20 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Invalid flag value for '"+NETFILTER_HOOKS_LOG_CT_KEY+"': " + argValue);
 			return false;
 		}
-		
+
+		argValue = args.get(NETFILTER_HOOKS_USER_KEY);
+		if(isValidBoolean(argValue)){
+			NETFILTER_HOOKS_USER = parseBoolean(argValue, NETFILTER_HOOKS_USER);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for '"+NETFILTER_HOOKS_USER_KEY+"': " + argValue);
+			return false;
+		}
+
 		if(!ADD_KM && NETFILTER_HOOKS){
 			logger.log(Level.SEVERE, "Argument '"+ADD_KM_KEY+"' must be 'true' for argument '"+NETFILTER_HOOKS_KEY+"' to be 'true'");
 			return false;
 		}
-		
+
 		String mergeUnitKey = "mergeUnit";
 		String mergeUnitValue = args.get(mergeUnitKey);
 		if(mergeUnitValue != null){
@@ -678,7 +688,7 @@ public class Audit extends AbstractReporter {
 			// Logging only relevant flags now for debugging
 			logger.log(Level.INFO, "Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
                        + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}, {26}={27}, {28}={29}, "
-                       + "{30}={31}, {32}={33}, {34}={35}, {36}={37}",
+                       + "{30}={31}, {32}={33}, {34}={35}, {36}={37}, {38}={39}",
 					new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, 
 							"units", CREATE_BEEP_UNITS, "waitForLog", WAIT_FOR_LOG_END, "netfilter", false, 
 							"refineNet", false, ADD_KM_KEY, ADD_KM, 
@@ -689,7 +699,8 @@ public class Audit extends AbstractReporter {
 							HANDLE_NAMESPACES_KEY, HANDLE_NAMESPACES,
 							HANDLE_NETFILTER_HOOKS_KEY, HANDLE_NETFILTER_HOOKS,
 							NETFILTER_HOOKS_KEY, NETFILTER_HOOKS,
-							NETFILTER_HOOKS_LOG_CT_KEY, NETFILTER_HOOKS_LOG_CT});
+							NETFILTER_HOOKS_LOG_CT_KEY, NETFILTER_HOOKS_LOG_CT,
+							NETFILTER_HOOKS_USER_KEY, NETFILTER_HOOKS_USER});
 			logger.log(Level.INFO, globals.toString());
 			return true;
 		}
@@ -790,6 +801,9 @@ public class Audit extends AbstractReporter {
 		}
 		if(processManager != null){
 			processManager.doCleanUp();
+		}
+		if(netfilterHooksManager != null){
+			netfilterHooksManager.shutdown();
 		}
 	}
 	
@@ -1476,12 +1490,13 @@ public class Audit extends AbstractReporter {
 										String.format("insmod %s uids=\"%s\" syscall_success=\"1\" "
 										+ "pids_ignore=\"%s\" ppids_ignore=\"%s\" net_io=\"%s\" "
 										+ "ignore_uids=\"%s\" namespaces=\"%s\" "
-										+ "nf_hooks=\"%s\" nf_hooks_log_all_ct=\"%s\"", 
+										+ "nf_hooks=\"%s\" nf_hooks_log_all_ct=\"%s\" nf_handle_user=\"%s\"",
 										kernelModuleControllerPath, uid, pids, ppids,
 										interceptSendRecv ? "1" : "0", ignoreUidsArg, 
 										HANDLE_NAMESPACES ? "1" : "0",
 										netfilterHooks ? "1" : "0",
-										netfilterHooksLogCt ? "1" : "0");
+										netfilterHooksLogCt ? "1" : "0",
+										NETFILTER_HOOKS_USER ? "1" : "0" );
 								
 								if(harden){
 									kernelModuleControllerAddCommand += " key=\""+kernelModuleKey+"\"";
@@ -3753,7 +3768,11 @@ public class Audit extends AbstractReporter {
 			putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
 			if(HANDLE_NETFILTER_HOOKS){
-				netfilterHooksManager.putWasDerivedFromEdgeFromNetworkArtifacts(false, artifact);
+				try{
+					netfilterHooksManager.handleNetworkSyscallEvent(time, eventId, false, artifact);
+				}catch(Exception e){
+					log(Level.SEVERE, "Unexpected error", e, time, eventId, syscall);
+				}
 			}
 		}
 	}
@@ -3840,7 +3859,11 @@ public class Audit extends AbstractReporter {
 			putEdge(used, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
 			if(HANDLE_NETFILTER_HOOKS){
-				netfilterHooksManager.putWasDerivedFromEdgeFromNetworkArtifacts(true, socket);
+				try{
+					netfilterHooksManager.handleNetworkSyscallEvent(time, eventId, true, socket);
+				}catch(Exception e){
+					log(Level.SEVERE, "Unexpected error", e, time, eventId, syscall);
+				}
 			}
 		}
 	}
@@ -4034,7 +4057,11 @@ public class Audit extends AbstractReporter {
 		
 		// UDP
 		if(isNetworkUdp && HANDLE_NETFILTER_HOOKS){
-			netfilterHooksManager.putWasDerivedFromEdgeFromNetworkArtifacts(incoming, artifact);
+			try{
+				netfilterHooksManager.handleNetworkSyscallEvent(time, eventId, incoming, artifact);
+			}catch(Exception e){
+				log(Level.SEVERE, "Unexpected error", e, time, eventId, syscall);
+			}
 		}
 	}
 
