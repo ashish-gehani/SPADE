@@ -147,8 +147,9 @@ public class CamFlow extends AbstractReporter {
 	private final Thread eventProcessor = new Thread(new Runnable(){
 		public void run(){
 			while(!shutdown){
+				JSONObject object = null;
 				try{
-					JSONObject object = reader.readObject();
+					object = reader.readObject();
 					if(object != null){
 						try{
 							processJsonObject(object);
@@ -175,12 +176,12 @@ public class CamFlow extends AbstractReporter {
 						break;
 					}
 				}catch(IOException ioe){
-					logger.log(Level.SEVERE, "Stopping. Failed to read json object." , ioe);
+					logger.log(Level.SEVERE, "Stopping. Failed to read json object: " + object , ioe);
 					break;
 				}catch(Throwable t){
 					// Letting it continue if failFast 'false', and a new unexpected exception happens.
 					// Can be here because of malformed JSON
-					String msg = "Failed to read json object because of unexpected exception.";
+					String msg = "Failed to read json object because of unexpected exception. Object: " + object;
 					if(failFast){
 						logger.log(Level.SEVERE, "Stopping. " + msg, t);
 						break;
