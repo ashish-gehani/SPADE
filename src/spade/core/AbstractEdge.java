@@ -222,9 +222,10 @@ public abstract class AbstractEdge implements Serializable
 	public final String bigHashCode(){
 		if(bigHashCode == null){
 			return DigestUtils.md5Hex(
-					childVertex.bigHashCode() + "," +
+					(childVertex == null ? "(null)" : childVertex.bigHashCode()) + "," +
 					annotations.toString() + "," +
-					parentVertex.bigHashCode()); // calculated at runtime
+					(parentVertex == null ? "(null)" : parentVertex.bigHashCode())
+					); // calculated at runtime
 		}else{
 			return bigHashCode;
 		}
@@ -237,9 +238,10 @@ public abstract class AbstractEdge implements Serializable
 	public final byte[] bigHashCodeBytes(){
     	if(bigHashCode == null){
     		return DigestUtils.md5(
-					childVertex.bigHashCode() + "," +
+					(childVertex == null ? "(null)" : childVertex.bigHashCode()) + "," +
 					annotations.toString() + "," + 
-					parentVertex.bigHashCode()); // calculated at runtime
+					(parentVertex == null ? "(null)" : parentVertex.bigHashCode())
+					); // calculated at runtime
     	}else{
     		return bigHashCode.getBytes();
     	}
