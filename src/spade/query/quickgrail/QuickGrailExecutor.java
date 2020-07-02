@@ -375,11 +375,11 @@ public class QuickGrailExecutor{
 			if(instruction.format == Format.kNormal && verticesAndEdges > exportGraphDumpLimit){
 				throw new RuntimeException(
 						"Dump export limit set at '" + exportGraphDumpLimit + "'. Total vertices and edges requested '"
-								+ verticesAndEdges + "'." + "Please use 'force dump ...' to force the print.");
+								+ verticesAndEdges + "'. " + "Please use 'dump force ...' to force the print.");
 			}else if(instruction.format == Format.kDot && verticesAndEdges > exportGraphVisualizeLimit){
 				throw new RuntimeException("Dot export limit set at '" + exportGraphVisualizeLimit
-						+ "'. Total vertices and edges requested '" + verticesAndEdges + "'."
-						+ "Please use 'force visualize ...' to force the transfer.");
+						+ "'. Total vertices and edges requested '" + verticesAndEdges + "'. "
+						+ "Please use 'visualize force ...' to force the transfer.");
 			}
 		}
 		final Map<String, Map<String, String>> queriedVerticesMap = instructionExecutor.exportVertices(instruction);
