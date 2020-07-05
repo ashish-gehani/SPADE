@@ -84,7 +84,9 @@ public class Neo4j extends AbstractStorage
 	private Neo4jInstructionExecutor queryInstructionExecutor = null;
 	private Neo4jQueryEnvironment queryEnvironment = null;
 	private final String edgeSymbolsPropertyKey = "spade_edge_symbols";
-	
+
+	private final String configKeyNeo4jDataDirectory = "neo4jDataDirectory";
+
     // Identifying annotation to add to each edge/vertex
     private static final String ID_STRING = "id";
     private static final String VERTEX_INDEX = "vertexIndex";
@@ -169,18 +171,58 @@ public class Neo4j extends AbstractStorage
         }
     }
 
+	// Returns null if invalid
+	private final File validateAndGetNeo4jDatabasePath(final Properties configFileProperties, final Map<String, String> argsMap){
+		final String keyDatabase = "database";
+		final String defaultConfigFilePath = spade.core.Settings.getDefaultConfigFilePath(this.getClass());
+		String neo4jDataDirectoryPath = argsMap.get(configKeyNeo4jDataDirectory);
+		if(neo4jDataDirectoryPath == null){
+			neo4jDataDirectoryPath = configFileProperties.getProperty(configKeyNeo4jDataDirectory);
+		}
+		if(neo4jDataDirectoryPath == null){
+			logger.log(Level.SEVERE, "Missing '"+configKeyNeo4jDataDirectory+"' in arguments and config file '" + defaultConfigFilePath + "'");
+			return null;
+		}
+		String databaseValue = argsMap.get(keyDatabase);
+		if(databaseValue == null){
+			databaseValue = configFileProperties.getProperty(keyDatabase);
+		}
+		if(spade.utility.HelperFunctions.isNullOrEmpty(databaseValue)){
+			logger.log(Level.SEVERE, "Missing or EMPTY-STRING '"+keyDatabase+"' in arguments and config file '"+defaultConfigFilePath+"'");
+			return null;
+		}
+
+		databaseValue = databaseValue.trim();
+
+		if(databaseValue.startsWith(File.separator)){
+			// Change to a warning later and successfully return the value
+			logger.log(Level.SEVERE, "Value for '"+keyDatabase+"' cannot be an absolute path because it must be relative to '"+configKeyNeo4jDataDirectory+"': '"+databaseValue+"'");
+			return null;
+		}
+
+		// This path is constructed according to the Neo4j 3.4.4 logic.
+		// Source: https://neo4j.com/developer/kb/how-do-i-define-my-graphdb-at-a-path-other-than-under-neo4j-home-for-windows/
+		final File databaseFile = new File(neo4jDataDirectoryPath.trim() + File.separator + "databases" + File.separator + databaseValue);
+
+		logger.log(Level.INFO, "Neo4j configuration: "
+			+ "'" + configKeyNeo4jDataDirectory + "'='" + neo4jDataDirectoryPath + "', "
+			+ "'" + keyDatabase + "'='" + databaseValue + "'");
+
+		logger.log(Level.INFO, "Neo4j database path: '"+databaseFile.getAbsolutePath()+"'");
+
+		return databaseFile;
+	}
+
     @Override
     public boolean initialize(String arguments)
     {
         try
         {
             Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(arguments);
-            database = argsMap.get("database");
-            if(database == null)
-            {
-                database = databaseConfigs.getProperty("database");
-            }
-            File databaseFile = new File(database);
+            File databaseFile = validateAndGetNeo4jDatabasePath(databaseConfigs, argsMap);
+		if(databaseFile == null){
+			return false;
+		}
             GraphDatabaseBuilder graphDbBuilder = new GraphDatabaseFactory().newEmbeddedDatabaseBuilder(databaseFile);
             try
             {
