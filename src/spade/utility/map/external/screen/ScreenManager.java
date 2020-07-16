@@ -50,7 +50,7 @@ public abstract class ScreenManager{
 				return Result.failed("Invalid reporting argument", reportingResult);
 			}else{
 				ReportingArgument reportingArgument = reportingResult.result;
-				Result<ScreenName> screenNameResult = HelperFunctions.parseEnumValue(ScreenName.class, screenNameString);
+				Result<ScreenName> screenNameResult = HelperFunctions.parseEnumValue(ScreenName.class, screenNameString, true);
 				if(screenNameResult.error){
 					return Result.failed("Failed screen name parsing", screenNameResult);
 				}else{

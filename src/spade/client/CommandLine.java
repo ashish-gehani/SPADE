@@ -43,7 +43,6 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import jline.ConsoleReader;
 import spade.core.Kernel;
@@ -215,7 +214,7 @@ public class CommandLine{
 					if(line == null){ // End of input
 						line = "exit";
 					}
-					if(StringUtils.isBlank(line)){
+					if(line.trim().isEmpty()){
 						continue;
 					}
 					if(line.trim().toLowerCase().equals("exit") || line.trim().toLowerCase().equals("quit")){

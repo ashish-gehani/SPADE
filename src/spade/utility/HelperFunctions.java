@@ -436,22 +436,26 @@ public class HelperFunctions{
 	 * @param value string value
 	 * @return matching enum instance for the value
 	 */
-	public static <X extends Enum<X>> Result<X> parseEnumValue(Class<X> clazz, String value){
+	public static <X extends Enum<X>> Result<X> parseEnumValue(Class<X> clazz, String value, boolean ignoreCase){
 		if(clazz == null){
 			return Result.failed("NULL enum class");
 		}else if(HelperFunctions.isNullOrEmpty(value)){
 			return Result.failed("NULL/Empty enum value for class: '"+clazz.getName()+"'");
 		}else{
 			for(X x : clazz.getEnumConstants()){
-				if(x.name().equals(value)){
-					return Result.successful(x);
+				if(ignoreCase){
+					if(x.name().equalsIgnoreCase(value)){
+						return Result.successful(x);
+					}
+				}else{
+					if(x.name().equals(value)){
+						return Result.successful(x);
+					}
 				}
 			}
 			return Result.failed("Value '"+value+"' not defined for enum '"+clazz.getName()+"'");
 		}
 	}
-	
-	
 	
 	/**
 	 * Convenience function to avoid NULL check when checking if two objects are equal.

@@ -299,7 +299,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	public void getEdgeEndpoint(GetEdgeEndpoint instruction){
 		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		String query = "";
-		query += "match (a:" + instruction.subjectGraph.name + ")-[e]->(b:" + instruction.subjectGraph.name + ") ";
+		query += "match (a)-[e]->(b) ";
 		if(!neo4jQueryEnvironment.isBaseGraph(instruction.subjectGraph)){
 			query += "where " + edgeProperty + " contains ',"+instruction.subjectGraph.name+",' ";
 		}

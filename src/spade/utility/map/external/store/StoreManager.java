@@ -48,7 +48,7 @@ public class StoreManager{
 				return Result.failed("Failed to parse reporting argument", reportingResult);
 			}else{
 				ReportingArgument reportingArgument = reportingResult.result;
-				Result<StoreName> storeNameResult = HelperFunctions.parseEnumValue(StoreName.class, storeNameString);
+				Result<StoreName> storeNameResult = HelperFunctions.parseEnumValue(StoreName.class, storeNameString, true);
 				if(storeNameResult.error){
 					return Result.failed("Failed store name parsing", storeNameResult);
 				}else{

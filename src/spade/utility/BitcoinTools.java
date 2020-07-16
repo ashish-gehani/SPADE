@@ -248,7 +248,8 @@ public class BitcoinTools {
 
             if (args.get("mode").equals("createIndexes")) {
                 String path = args.get("path");
-                spade.storage.Neo4j.index(path, true);
+                throw new Exception("Index creation unsupported");
+                //spade.storage.Neo4j.index(path, true);
             }
 
         } catch (Exception e) {

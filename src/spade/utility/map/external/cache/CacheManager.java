@@ -50,7 +50,7 @@ public abstract class CacheManager{
 				return Result.failed("Invalid reporting argument", reportingResult);
 			}else{
 				ReportingArgument reportingArgument = reportingResult.result;
-				Result<CacheName> cacheNameResult = HelperFunctions.parseEnumValue(CacheName.class, cacheNameString);
+				Result<CacheName> cacheNameResult = HelperFunctions.parseEnumValue(CacheName.class, cacheNameString, true);
 				if(cacheNameResult.error){
 					return Result.failed("Failed cache name parsing", cacheNameResult);
 				}else{

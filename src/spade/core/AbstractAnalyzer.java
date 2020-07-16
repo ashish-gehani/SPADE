@@ -285,10 +285,20 @@ public abstract class AbstractAnalyzer{
 										}catch(Exception e){
 											// The exception is not serializable
 											if(spadeQuery.getError() instanceof Throwable){
-												spadeQuery.queryFailed(new Exception("Query error was not serializable. Class '"+spadeQuery.getError().getClass()
-													+"'. Message: " + ((Throwable)(spadeQuery.getError())).getMessage()));
+												try{
+													logger.log(Level.SEVERE, "Non-serializable error", ((Throwable)(spadeQuery.getError())));
+												}catch(Throwable t){
+													
+												}
+												spadeQuery.queryFailed(new Exception("Query error was not serializable. Class '"+spadeQuery.getError().getClass().getName()
+													+"'. Message logged in SPADE log on server."));
 											}else{
-												spadeQuery.queryFailed(new Exception("Query error was not serializable. Class '"+spadeQuery.getError().getClass()+"'"));
+												try{
+													logger.log(Level.SEVERE, "Non-serializable error: " + ((Throwable)(spadeQuery.getError())));
+												}catch(Throwable t){
+													
+												}
+												spadeQuery.queryFailed(new Exception("Query error was not serializable. Class '"+spadeQuery.getError().getClass().getName()+"'"));
 											}
 										}
 									}

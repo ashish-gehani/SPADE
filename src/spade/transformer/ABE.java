@@ -42,7 +42,6 @@ import org.apache.commons.codec.Charsets;
 import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
@@ -138,7 +137,7 @@ public class ABE extends AbstractTransformer
 			for(String line : lines)
 			{
 				line = line.trim();
-				if(!StringUtils.isBlank(line) && !line.startsWith("#"))
+				if(!HelperFunctions.isNullOrEmpty(line) && !line.startsWith("#"))
 				{
 					if(line.equalsIgnoreCase(LOW))
 					{

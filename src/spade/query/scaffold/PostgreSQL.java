@@ -16,10 +16,8 @@
  */
 package spade.query.scaffold;
 
-
-import au.com.bytecode.opencsv.CSVWriter;
-import spade.core.AbstractEdge;
-import spade.core.Graph;
+import static spade.core.Kernel.CONFIG_PATH;
+import static spade.core.Kernel.FILE_SEPARATOR;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -37,8 +35,9 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static spade.core.Kernel.CONFIG_PATH;
-import static spade.core.Kernel.FILE_SEPARATOR;
+import au.com.bytecode.opencsv.CSVWriter;
+import spade.core.AbstractEdge;
+import spade.core.Graph;
 
 public class PostgreSQL extends Scaffold
 {
