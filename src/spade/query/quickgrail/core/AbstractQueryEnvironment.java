@@ -21,6 +21,7 @@ package spade.query.quickgrail.core;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.logging.Logger;
@@ -48,12 +49,34 @@ public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
 	private final String baseGraphSymbol = prefixGraphSymbol+"base";
 	private final Graph baseGraph;
 	
+	// START - environment variables
+	
+	public final static String environmentVariableNameMaxDepth = "maxDepth";
+	
+	private final List<EnvironmentVariable> environmentVariables = new ArrayList<EnvironmentVariable>();
+	public final EnvironmentVariable getEnvironmentVariable(final String name){
+		for(EnvironmentVariable var : environmentVariables){
+			if(var.name.equalsIgnoreCase(name)){
+				return var;
+			}
+		}
+		return null;
+	}
+	public final List<EnvironmentVariable> getEnvironmentVariables(){
+		return new ArrayList<EnvironmentVariable>(environmentVariables);
+	}
+	
+	// END - environment variables
+	
 	// Step 1
 	public AbstractQueryEnvironment(final String baseGraphName){
 		if(HelperFunctions.isNullOrEmpty(baseGraphName)){
 			throw new RuntimeException("NULL/Empty base graph name: '"+baseGraphName+"'");
 		}
 		this.baseGraph = new Graph(baseGraphName);
+		
+		// Populate allowed environment variables
+		this.environmentVariables.add(new EnvironmentVariable(environmentVariableNameMaxDepth, Integer.class));
 	}
 	
 	public final void initialize(){

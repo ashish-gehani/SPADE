@@ -43,6 +43,7 @@ import spade.core.SPADEQuery.QuickGrailInstruction;
 import spade.core.Settings;
 import spade.core.Vertex;
 import spade.query.quickgrail.core.AbstractQueryEnvironment;
+import spade.query.quickgrail.core.EnvironmentVariable;
 import spade.query.quickgrail.core.GraphDescription;
 import spade.query.quickgrail.core.GraphStats;
 import spade.query.quickgrail.core.Program;
@@ -57,6 +58,7 @@ import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
 import spade.query.quickgrail.instruction.DescribeGraph;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
+import spade.query.quickgrail.instruction.EnvironmentVariableOperation;
 import spade.query.quickgrail.instruction.EraseSymbols;
 import spade.query.quickgrail.instruction.EvaluateQuery;
 import spade.query.quickgrail.instruction.ExportGraph;
@@ -364,12 +366,77 @@ public class QuickGrailExecutor{
 				result = String.valueOf(predicateNode);
 			}
 
+		}else if(instruction.getClass().equals(EnvironmentVariableOperation.class)){
+			final Serializable optionalResult = environmentVariableOperation((EnvironmentVariableOperation)instruction);
+			if(optionalResult != null){
+				result = optionalResult;
+			}
 		}else{
 			throw new RuntimeException("Unhandled instruction: " + instruction.getClass());
 		}
 
 		queryInstruction.instructionSucceeded(result);
 		return query;
+	}
+	
+	private final Serializable environmentVariableOperation(final EnvironmentVariableOperation instruction){
+		switch(instruction.type){
+			case SET:{
+				final String name = instruction.name;
+				final EnvironmentVariable envVar = queryEnvironment.getEnvironmentVariable(name);
+				if(envVar == null){
+					throw new RuntimeException("No environment variable defined by name: " + name);
+				}
+				envVar.setValue(instruction.value);
+				return null;
+			}
+			case UNSET:{
+				final String name = instruction.name;
+				final EnvironmentVariable envVar = queryEnvironment.getEnvironmentVariable(name);
+				if(envVar == null){
+					throw new RuntimeException("No environment variable defined by name: " + name);
+				}
+				envVar.unsetValue();
+				return null;
+			}
+			case LIST:{
+				return getTableOfEnvironmentVariables().toString();
+			}
+			case PRINT:{
+				final String name = instruction.name;
+				final EnvironmentVariable envVar = queryEnvironment.getEnvironmentVariable(name);
+				if(envVar == null){
+					throw new RuntimeException("No environment variable defined by name: " + name);
+				}
+				Object value = envVar.getValue();
+				if(value == null){
+					return "UNSET"; // empty
+				}else{
+					return String.valueOf(value);
+				}
+			}
+			default: throw new RuntimeException("Unhandled type for environment operation: " + instruction.type);
+		}
+	}
+	
+	private final ResultTable getTableOfEnvironmentVariables(){
+		final List<EnvironmentVariable> envVars = queryEnvironment.getEnvironmentVariables();
+		final ResultTable table = new ResultTable();
+		for(final EnvironmentVariable envVar : envVars){
+			ResultTable.Row row = new ResultTable.Row();
+			row.add(envVar.name);
+			if(envVar.getValue() == null){
+				row.add("UNSET");
+			}else{
+				row.add(String.valueOf(envVar.getValue()));
+			}
+			table.addRow(row);
+		}
+		Schema schema = new Schema();
+		schema.addColumn("Environment Variable Name", StringType.GetInstance());
+		schema.addColumn("Value", StringType.GetInstance());
+		table.setSchema(schema);
+		return table;
 	}
 
 	public spade.core.Graph exportGraph(ExportGraph instruction){// throws Exception{
@@ -424,6 +491,7 @@ public class QuickGrailExecutor{
 		}else{
 			ResultTable graphTable = null;
 			ResultTable predicateTable = null;
+			ResultTable envVarTable = null;
 			
 			if(instruction.type == ListType.ALL || instruction.type == ListType.GRAPH){
 				graphTable = new ResultTable();
@@ -479,10 +547,20 @@ public class QuickGrailExecutor{
 				predicateTable.setSchema(pschema);
 			}
 			
+			if(instruction.type == ListType.ALL || instruction.type == ListType.ENV){
+				envVarTable = getTableOfEnvironmentVariables();
+			}
+			
 			switch(instruction.type){
-				case ALL: return graphTable.toString() + System.lineSeparator() + predicateTable.toString();
+				case ALL: 
+					return graphTable.toString() 
+							+ System.lineSeparator() 
+							+ predicateTable.toString()
+							+ System.lineSeparator()
+							+ envVarTable.toString();
 				case GRAPH: return graphTable.toString();
 				case CONSTRAINT: return predicateTable.toString();
+				case ENV: return envVarTable.toString();
 				default: throw new RuntimeException("Unknown type for list instruction: " + instruction.type.toString().toLowerCase());
 			}
 		}

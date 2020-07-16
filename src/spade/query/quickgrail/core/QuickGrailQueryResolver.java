@@ -30,6 +30,7 @@ import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.DescribeGraph;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
+import spade.query.quickgrail.instruction.EnvironmentVariableOperation;
 import spade.query.quickgrail.instruction.EraseSymbols;
 import spade.query.quickgrail.instruction.EvaluateQuery;
 import spade.query.quickgrail.instruction.ExportGraph;
@@ -302,6 +303,9 @@ public class QuickGrailQueryResolver{
 		case "native":
 			resolveNativeCommand(arguments);
 			break;
+		case "env":
+			resolveEnvCommand(arguments);
+			break;
 		default:
 			throw new RuntimeException(
 					"Unsupported command \"" + cmdName.getValue() + "\" at " + cmdName.getLocationString());
@@ -424,6 +428,59 @@ public class QuickGrailQueryResolver{
 				}
 				instructions.add(new EvaluateQuery(String.valueOf(value.getValue())));
 			}
+		}
+	}
+	
+	private void resolveEnvCommand(ArrayList<ParseExpression> arguments){
+		if(arguments.size() < 1){
+			throw new RuntimeException("Invalid arguments for 'env' command: expected at least 1");
+		}
+		final String subCommand = resolveNameAsString(arguments.get(0)).toLowerCase();
+		switch(subCommand){
+			case "set":{
+				if(arguments.size() != 3){
+					throw new RuntimeException("Invalid arguments for 'env' set command: expected 3");
+				}
+				final String variableName = resolveNameAsString(arguments.get(1)).toLowerCase();
+				String variableValue = null;
+				if(arguments.get(2).getExpressionType() != ParseExpression.ExpressionType.kLiteral){
+					throw new RuntimeException("Invalid value at " + arguments.get(2).getLocationString() + ": expected literal");
+				}
+				TypedValue value = ((ParseLiteral)arguments.get(2)).getLiteralValue();
+				if(value.getType().getTypeID() == TypeID.kString){
+					variableValue = (String)value.getValue();
+				}else if(value.getType().getTypeID() == TypeID.kInteger){
+					variableValue = String.valueOf(value.getValue());
+				}else{
+					throw new RuntimeException("Invalid value type at " + arguments.get(2).getLocationString() + ": expected string or integer");
+				}
+				instructions.add(EnvironmentVariableOperation.instanceOfSet(variableName, variableValue));
+			}
+			break;
+			case "unset":{
+				if(arguments.size() != 2){
+					throw new RuntimeException("Invalid arguments for 'env' unset command: expected 2");
+				}
+				final String variableName = resolveNameAsString(arguments.get(1)).toLowerCase();
+				instructions.add(EnvironmentVariableOperation.instanceOfUnset(variableName));
+			}
+			break;
+			case "list":{
+				if(arguments.size() != 1){
+					throw new RuntimeException("Invalid arguments for 'env' list command: expected 1");
+				}
+				instructions.add(EnvironmentVariableOperation.instanceOfList());
+			}
+			break;
+			case "print":{
+				if(arguments.size() != 2){
+					throw new RuntimeException("Invalid arguments for 'env' print command: expected 2");
+				}
+				final String variableName = resolveNameAsString(arguments.get(1)).toLowerCase();
+				instructions.add(EnvironmentVariableOperation.instanceOfPrint(variableName));
+			}
+			break;
+			default: break;
 		}
 	}
 	
@@ -782,14 +839,34 @@ public class QuickGrailQueryResolver{
 	}
 	
 	private Graph resolveGetLineage(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph, boolean onlyLocal){
-		if(arguments.size() != 3){
-			throw new RuntimeException("Invalid number of arguments for getLineage: expected 3");
+		if(arguments.size() != 2 && arguments.size() != 3){
+			throw new RuntimeException("Invalid number of arguments for getLineage: expected either 2 or 3");
 		}
 
+		final EnvironmentVariable maxDepthVar = env.getEnvironmentVariable(AbstractQueryEnvironment.environmentVariableNameMaxDepth);
+		
 		Graph startGraph = resolveGraphExpression(arguments.get(0), null, true);
-		Integer depth = resolveInteger(arguments.get(1));
-
-		String dirStr = resolveString(arguments.get(2));
+		
+		Integer depth = null;
+		String dirStr = null;
+		
+		if(arguments.get(1).getExpressionType() != ParseExpression.ExpressionType.kLiteral){
+			throw new RuntimeException("Invalid value at " + arguments.get(1).getLocationString() + ": expected literal");
+		}
+		
+		TypedValue value = ((ParseLiteral)arguments.get(1)).getLiteralValue();
+		if(value.getType().getTypeID() == TypeID.kInteger){
+			depth = (Integer)value.getValue();
+			dirStr = resolveString(arguments.get(2));
+		}else if(value.getType().getTypeID() == TypeID.kString){
+			if(maxDepthVar == null || maxDepthVar.getValue() == null){
+				throw new RuntimeException("Must explicitly specify max depth or set it in environment");
+			}
+			depth = (Integer)maxDepthVar.getValue();
+			dirStr = resolveString(arguments.get(1));
+		}else{
+			throw new RuntimeException("Invalid value at " + arguments.get(1).getLocationString() + ": expected integer or string literal");
+		}
 
 		GetLineage.Direction direction;
 		if(dirStr.startsWith("a")){
@@ -826,22 +903,65 @@ public class QuickGrailQueryResolver{
 	}
 
 	private Graph resolveGetPath(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
-		if(arguments.size() < 3){
-			throw new RuntimeException("Invalid number of arguments for getPath: expected at least 3");
-		}
-
-		if((arguments.size() - 1) % 2 != 0){
-			throw new RuntimeException("Invalid number of arguments for getPath: max depth for intermediate step missing");
+		if(arguments.size() < 2){
+			throw new RuntimeException("Invalid number of arguments for getPath: expected at least 2");
 		}
 		
 		final Graph srcGraph = resolveGraphExpression(arguments.get(0), null, true);
+		final Graph dstGraph = resolveGraphExpression(arguments.get(1), null, true);
 		
 		final ArrayList<SimpleEntry<Graph, Integer>> intermediateSteps = new ArrayList<SimpleEntry<Graph, Integer>>();
 		
-		for(int i = 1; i <= arguments.size() - 2; i+=2){
-			final Graph dstGraph = resolveGraphExpression(arguments.get(i), null, true);
-			final Integer maxDepth = resolveInteger(arguments.get(i+1));
-			intermediateSteps.add(new SimpleEntry<Graph, Integer>(dstGraph, maxDepth));
+		SimpleEntry<Graph, Integer> currentEntry = new SimpleEntry<Graph, Integer>(dstGraph, null);
+		
+//		To identify a graph the kVariable type is being used. Start off with kVariable because dstGraph already taken out. 
+		ParseExpression.ExpressionType lastExpressionType = ParseExpression.ExpressionType.kVariable;
+		
+		final EnvironmentVariable maxDepthVar = env.getEnvironmentVariable(AbstractQueryEnvironment.environmentVariableNameMaxDepth);
+		
+		int i = 2;
+		int total = arguments.size();
+		while(i < total){
+			final ParseExpression currentExpression = arguments.get(i);
+			if(lastExpressionType == ParseExpression.ExpressionType.kVariable){
+				// Last was graph expression so can be another graph expression or a literal
+				if(currentExpression.getExpressionType() == ParseExpression.ExpressionType.kLiteral){
+					// Must be an integer
+					final Integer maxDepth = resolveInteger(currentExpression);
+					currentEntry.setValue(maxDepth);
+					intermediateSteps.add(currentEntry);
+					lastExpressionType = ParseExpression.ExpressionType.kLiteral;
+				}else{
+					// Must be a graph since only graph or literal allowed
+					// This is graph and the last one was graph too
+					Graph graph = resolveGraphExpression(currentExpression, null, true);
+					// Need to get max depth from the saved one
+					if(maxDepthVar == null || maxDepthVar.getValue() == null){
+						throw new RuntimeException("Must explicitly specify max depth or set it in environment");
+					}
+					currentEntry.setValue((Integer)maxDepthVar.getValue());
+					intermediateSteps.add(currentEntry);
+					
+					currentEntry = new SimpleEntry<Graph, Integer>(graph, null);
+					lastExpressionType = ParseExpression.ExpressionType.kVariable;
+				}
+			}else if(lastExpressionType == ParseExpression.ExpressionType.kLiteral){
+				// Last was a literal so this must be a graph
+				Graph graph = resolveGraphExpression(currentExpression, null, true);
+				currentEntry = new SimpleEntry<Graph, Integer>(graph, null);
+				lastExpressionType = ParseExpression.ExpressionType.kVariable;
+			}else{
+				throw new RuntimeException("Invalid argument. Expected graph expression or integer: " + currentExpression);
+			}
+			i++;
+		}
+
+		if(currentEntry.getValue() == null){
+			if(maxDepthVar == null || maxDepthVar.getValue() == null){
+				throw new RuntimeException("Must explicitly specify max depth or set it in environment");
+			}
+			currentEntry.setValue((Integer)maxDepthVar.getValue());
+			intermediateSteps.add(currentEntry);
 		}
 
 		if(outputGraph == null){
@@ -938,13 +1058,24 @@ public class QuickGrailQueryResolver{
 	}
 
 	private Graph resolveGetShortestPath(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
-		if(arguments.size() != 3){
-			throw new RuntimeException("Invalid number of arguments for getPath: expected 3");
+		if(arguments.size() != 2 && arguments.size() != 3){
+			throw new RuntimeException("Invalid number of arguments for getShortestPath: expected either 2 or 3");
 		}
 
 		Graph srcGraph = resolveGraphExpression(arguments.get(0), null, true);
 		Graph dstGraph = resolveGraphExpression(arguments.get(1), null, true);
-		Integer maxDepth = resolveInteger(arguments.get(2));
+		
+		Integer maxDepth = null;
+		
+		if(arguments.size() == 2){
+			final EnvironmentVariable maxDepthVar = env.getEnvironmentVariable(AbstractQueryEnvironment.environmentVariableNameMaxDepth);
+			if(maxDepthVar == null || maxDepthVar.getValue() == null){
+				throw new RuntimeException("Must explicitly specify max depth or set it in environment");
+			}
+			maxDepth = (Integer)maxDepthVar.getValue();
+		}else{ // size is 3
+			maxDepth = resolveInteger(arguments.get(2));
+		}
 
 		if(outputGraph == null){
 			outputGraph = allocateEmptyGraph();

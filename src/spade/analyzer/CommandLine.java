@@ -265,6 +265,8 @@ public class CommandLine extends AbstractAnalyzer{
 				case ALL:{
 					lines.addAll(getControlHelp(tab));
 					lines.add("");
+					lines.addAll(getEnvironmentVariablesHelp(tab));
+					lines.add("");
 					lines.addAll(getConstraintHelp(tab));
 					lines.add("");
 					lines.addAll(getGraphHelp(tab));
@@ -282,6 +284,10 @@ public class CommandLine extends AbstractAnalyzer{
 					lines.addAll(getGraphHelp(tab));
 				}
 				break;
+				case ENV:{
+					lines.addAll(getEnvironmentVariablesHelp(tab));
+				}
+				break;
 				default: throw new RuntimeException("Unknown type for help command: " + type);
 			}
 			
@@ -292,12 +298,21 @@ public class CommandLine extends AbstractAnalyzer{
 			return linesAsString;
 		}
 		
+		private final List<String> getEnvironmentVariablesHelp(final String tab){
+			return new ArrayList<String>(Arrays.asList(
+					"Environment Variable(s) help:",
+					tab + "env set maxDepth <number>",
+					tab + "env unset maxDepth",
+					tab + "env print maxDepth"
+					));
+		}
+		
 		private final List<String> getControlHelp(final String tab){
 			return new ArrayList<String>(Arrays.asList(
 					"Control help:",
 					tab + "set storage <Storage class name>",
 					tab + "print storage",
-					tab + "list [all | constraint | graph]",
+					tab + "list [all | constraint | graph | env]",
 					tab + "reset workspace",
 					tab + "native '<Query to execute on the storage in single quotes>'",
 					tab + "export > <Path of the file to write the output of next command to>",
@@ -335,10 +350,10 @@ public class CommandLine extends AbstractAnalyzer{
 					tab + tab + "$vertices = $graph_to_get_vertices_from.getEdgeEndpoints()",
 					tab + tab + "$source_vertices = $graph_to_get_source_vertices_from.getEdgeSource()",
 					tab + tab + "$destination_vertices = $graph_to_get_destination_vertices_from.getEdgeDestination()",
-					tab + tab + "$lineage = $graph_to_get_lineage_in.getLineage($source_vertices_graph, max_depth_as_integer, 'a' | 'd' | 'b')",
+					tab + tab + "$lineage = $graph_to_get_lineage_in.getLineage($source_vertices_graph [, max_depth_as_integer], 'a' | 'd' | 'b')",
 					tab + tab + "$neighbors = $graph_to_get_neighbors_in.getNeighbor($source_vertices_graph, 'a' | 'd' | 'b')",
-					tab + tab + "$paths = $graph_to_get_paths_in.getPath($source_vertices_graph, $destination_vertices_graph, max_depth_as_integer)",
-					tab + tab + "$shortest_paths = $graph_to_get_shortes_paths_in.getShortestPath($source_vertices_graph, $destination_vertices_graph, max_depth_as_integer)",
+					tab + tab + "$paths = $graph_to_get_paths_in.getPath($source_vertices_graph, ($destination_vertices_graph [, max_depth_as_integer])+)",
+					tab + tab + "$shortest_paths = $graph_to_get_shortes_paths_in.getShortestPath($source_vertices_graph, $destination_vertices_graph [, max_depth_as_integer])",
 					tab + tab + "$vertices_in_skeketon_and_subject_graph_and_all_edges_between_them = $subject_graph.getSubgraph($skeleton_graph_to_get_vertices_from)",
 					tab + tab + "$vertices_and_edges_limited_to_n = $subject_graph.limit(limit_as_integer)",
 					tab + "Functions:",

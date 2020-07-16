@@ -33,7 +33,7 @@ import spade.utility.Result;
  */
 public abstract class AbstractAnalyzer{
 
-	public static enum HelpType{ ALL, CONTROL, CONSTRAINT, GRAPH }
+	public static enum HelpType{ ALL, CONTROL, CONSTRAINT, GRAPH, ENV }
 	
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 	
