@@ -19,6 +19,7 @@
  */
 package spade.storage.neo4j;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,6 +42,7 @@ import spade.query.quickgrail.instruction.GetEdge;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLink;
+import spade.query.quickgrail.instruction.GetMatch;
 import spade.query.quickgrail.instruction.GetShortestPath;
 import spade.query.quickgrail.instruction.GetSimplePath;
 import spade.query.quickgrail.instruction.GetSubgraph;
@@ -136,6 +138,30 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	@Override
 	public void distinctifyGraph(DistinctifyGraph instruction){
 		unionGraph(new UnionGraph(instruction.targetGraph, instruction.sourceGraph));
+	}
+	
+	@Override
+	public void getMatch(final GetMatch instruction){
+		String query = "";
+		query += "match (a:" + instruction.graph1.name + "), (b:" + instruction.graph2.name + ") where ";
+		
+		ArrayList<String> annotationKeys = instruction.getAnnotationKeys();
+		
+		for(int i = 0; i < annotationKeys.size(); i++){
+			final String annotationKey = annotationKeys.get(i);
+			query += "(";
+			query += "(a.`" + annotationKey + "` = b.`" + annotationKey + "`)";
+			query += " or (not exists(a.`" + annotationKey + "`) and not exists(b.`" + annotationKey + "`))";
+			query += ")";
+			if(i == annotationKeys.size() - 1){ // is last
+				// don't append the 'and'
+			}else{
+				query += " and ";
+			}
+		}
+		query += " set a:" + instruction.targetGraph.name;
+		query += " set b:" + instruction.targetGraph.name + ";";
+ 		storage.executeQuery(query);
 	}
 
 	private String buildComparison(

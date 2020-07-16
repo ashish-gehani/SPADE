@@ -40,6 +40,7 @@ import spade.query.quickgrail.instruction.GetEdge;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLink;
+import spade.query.quickgrail.instruction.GetMatch;
 import spade.query.quickgrail.instruction.GetShortestPath;
 import spade.query.quickgrail.instruction.GetSimplePath;
 import spade.query.quickgrail.instruction.GetSubgraph;
@@ -84,6 +85,8 @@ public abstract class QueryInstructionExecutor{
 	public abstract void getEdgeEndpoint(GetEdgeEndpoint instruction);
 	public abstract void intersectGraph(IntersectGraph instruction);
 	public abstract void limitGraph(LimitGraph instruction);
+	
+	public abstract void getMatch(GetMatch instruction);
 	
 	public final void eraseSymbols(EraseSymbols instruction){
 		for(String symbol : instruction.getSymbols()){

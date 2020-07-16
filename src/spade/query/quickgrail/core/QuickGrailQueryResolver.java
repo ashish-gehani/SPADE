@@ -39,6 +39,7 @@ import spade.query.quickgrail.instruction.GetEdge;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLink;
+import spade.query.quickgrail.instruction.GetMatch;
 import spade.query.quickgrail.instruction.GetPath;
 import spade.query.quickgrail.instruction.GetShortestPath;
 import spade.query.quickgrail.instruction.GetSimplePath;
@@ -71,6 +72,7 @@ import spade.query.quickgrail.types.TypeID;
 import spade.query.quickgrail.types.TypedValue;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
+import spade.utility.HelperFunctions;
 
 /**
  * Resolver that transforms a parse tree into a QuickGrail low-level program.
@@ -638,6 +640,8 @@ public class QuickGrailQueryResolver{
 			return resolveSpan(subject, arguments, ToGraph(outputEntity));
 		case "limit":
 			return resolveLimit(subject, arguments, ToGraph(outputEntity));
+		case "getMatch":
+			return resolveGetMatch(subject, arguments, ToGraph(outputEntity));
 		default:
 			break;
 		}
@@ -1042,6 +1046,28 @@ public class QuickGrailQueryResolver{
 		return outputGraph;
 	}
 
+	private Graph resolveGetMatch(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
+		if(arguments.size() < 2){ // at least 2
+			throw new RuntimeException("Invalid number of arguments for limit: expected at least 2");
+		}
+		Graph graph2 = resolveGraphExpression(arguments.get(0), null, true);
+		ArrayList<String> annotationKeys = new ArrayList<String>();
+		for(int i = 1; i < arguments.size(); i++){
+			final String str = resolveString(arguments.get(i));
+			if(HelperFunctions.isNullOrEmpty(str)){
+				throw new RuntimeException("Invalid blank/null string in arguments at " + arguments.get(i).getLocationString());
+			}
+			annotationKeys.add(str);
+		}
+		
+		if(outputGraph == null){
+			outputGraph = allocateEmptyGraph();
+		}
+		
+		instructions.add(new GetMatch(outputGraph, subjectGraph, graph2, annotationKeys));
+		return outputGraph;
+	}
+	
 	private Graph resolveLimit(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
 		if(arguments.size() != 1){
 			throw new RuntimeException("Invalid number of arguments for limit: expected 1");

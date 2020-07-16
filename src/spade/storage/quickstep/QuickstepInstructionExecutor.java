@@ -45,6 +45,7 @@ import spade.query.quickgrail.instruction.GetEdgeEndpoint;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLineage.Direction;
 import spade.query.quickgrail.instruction.GetLink;
+import spade.query.quickgrail.instruction.GetMatch;
 import spade.query.quickgrail.instruction.GetShortestPath;
 import spade.query.quickgrail.instruction.GetSimplePath;
 import spade.query.quickgrail.instruction.GetSubgraph;
@@ -221,6 +222,11 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		qs.executeQuery("INSERT INTO " + targetEdgeTable + " SELECT id FROM " + sourceEdgeTable + " GROUP BY id;");
 	}
 
+	@Override
+	public void getMatch(final GetMatch instruction){
+		throw new RuntimeException("Not implemented");
+	}
+	
 	@Override
 	public void getVertex(GetVertex instruction){
 		if(!instruction.hasArguments()){

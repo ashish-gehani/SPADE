@@ -45,6 +45,7 @@ import spade.query.quickgrail.instruction.GetEdgeEndpoint;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLineage.Direction;
 import spade.query.quickgrail.instruction.GetLink;
+import spade.query.quickgrail.instruction.GetMatch;
 import spade.query.quickgrail.instruction.GetShortestPath;
 import spade.query.quickgrail.instruction.GetSimplePath;
 import spade.query.quickgrail.instruction.GetSubgraph;
@@ -307,6 +308,11 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		value = value.replace("'", "''");
 		query += " '" + value + "'";
 		return query;
+	}
+	
+	@Override
+	public void getMatch(final GetMatch instruction){
+		throw new RuntimeException("Not implemented");
 	}
 	
 	@Override

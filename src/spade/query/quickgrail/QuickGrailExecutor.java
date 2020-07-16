@@ -69,6 +69,7 @@ import spade.query.quickgrail.instruction.GetEdgeEndpoint;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLineage.Direction;
 import spade.query.quickgrail.instruction.GetLink;
+import spade.query.quickgrail.instruction.GetMatch;
 import spade.query.quickgrail.instruction.GetPath;
 import spade.query.quickgrail.instruction.GetShortestPath;
 import spade.query.quickgrail.instruction.GetSimplePath;
@@ -371,6 +372,9 @@ public class QuickGrailExecutor{
 			if(optionalResult != null){
 				result = optionalResult;
 			}
+		}else if(instruction.getClass().equals(GetMatch.class)){
+			instructionExecutor.getMatch((GetMatch)instruction);
+			
 		}else{
 			throw new RuntimeException("Unhandled instruction: " + instruction.getClass());
 		}
