@@ -22,6 +22,7 @@ package spade.query.quickgrail;
 import java.io.PrintWriter;
 import java.io.Serializable;
 import java.io.StringWriter;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -68,6 +69,7 @@ import spade.query.quickgrail.instruction.GetLineage.Direction;
 import spade.query.quickgrail.instruction.GetLink;
 import spade.query.quickgrail.instruction.GetPath;
 import spade.query.quickgrail.instruction.GetShortestPath;
+import spade.query.quickgrail.instruction.GetSimplePath;
 import spade.query.quickgrail.instruction.GetSubgraph;
 import spade.query.quickgrail.instruction.GetVertex;
 import spade.query.quickgrail.instruction.InsertLiteralEdge;
@@ -290,12 +292,11 @@ public class QuickGrailExecutor{
 		}else if(instruction.getClass().equals(GetLineage.class)){
 			GetLineage getLineage = (GetLineage)instruction;
 			query = getLineage(getLineage, query);
-//			instructionExecutor.getLineage(getLineage); TODO give an option to execute only locally?
 		}else if(instruction.getClass().equals(GetLink.class)){
 			instructionExecutor.getLink((GetLink)instruction);
 
 		}else if(instruction.getClass().equals(GetPath.class)){
-			instructionExecutor.getPath((GetPath)instruction);
+			getPath((GetPath)instruction);
 
 		}else if(instruction.getClass().equals(GetShortestPath.class)){
 			instructionExecutor.getShortestPath((GetShortestPath)instruction);
@@ -484,6 +485,38 @@ public class QuickGrailExecutor{
 		}
 	}
 
+	private void getPath(final GetPath instruction){
+		Graph unionResultGraph = createNewGraph();
+		
+		Graph subjectGraph = instruction.subjectGraph;
+		Graph sourceGraph = instruction.srcGraph;
+		int totalIntermediateSteps = instruction.getIntermediateStepsCount();
+		for(int i = 0; i < totalIntermediateSteps; i++){
+			SimpleEntry<Graph, Integer> intermediateStep = instruction.getIntermediateStep(i);
+			Graph intermediateStepGraph = intermediateStep.getKey();
+			int intermediateStepMaxDepth = intermediateStep.getValue();
+			
+			Graph intermediateResult = createNewGraph();
+			instructionExecutor.getPath(new GetSimplePath(
+					intermediateResult, subjectGraph, sourceGraph, intermediateStepGraph, intermediateStepMaxDepth));
+			
+			Graph intermediateIntersectionResult = createNewGraph();
+			instructionExecutor.intersectGraph(new IntersectGraph(intermediateIntersectionResult, 
+					intermediateResult, intermediateStepGraph));
+			
+			GraphStats stats = getGraphStats(intermediateIntersectionResult);
+			if(stats.vertices <= 0){
+				// No point in going further
+				break;
+			}else{
+				instructionExecutor.unionGraph(new UnionGraph(unionResultGraph, intermediateResult));
+				sourceGraph = intermediateIntersectionResult;
+			}
+		}
+		
+		instructionExecutor.distinctifyGraph(new DistinctifyGraph(instruction.targetGraph, unionResultGraph));
+	}
+	
 	/*
 	 * private void getPath(GetPath instruction){ Graph ancestorsOfFromGraph =
 	 * queryEnvironment.allocateGraph(); instructionExecutor.createEmptyGraph(new

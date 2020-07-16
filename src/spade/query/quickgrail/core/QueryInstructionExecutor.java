@@ -40,8 +40,8 @@ import spade.query.quickgrail.instruction.GetEdge;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLink;
-import spade.query.quickgrail.instruction.GetPath;
 import spade.query.quickgrail.instruction.GetShortestPath;
+import spade.query.quickgrail.instruction.GetSimplePath;
 import spade.query.quickgrail.instruction.GetSubgraph;
 import spade.query.quickgrail.instruction.GetVertex;
 import spade.query.quickgrail.instruction.InsertLiteralEdge;
@@ -137,7 +137,7 @@ public abstract class QueryInstructionExecutor{
 	public abstract void getShortestPath(GetShortestPath instruction);
 	public abstract void getSubgraph(GetSubgraph instruction);
 	public abstract void getLineage(GetLineage instruction);
-	public abstract void getPath(GetPath instruction);
+	public abstract void getPath(GetSimplePath instruction);
 	// composite operations
 	//////////////////////////////////////////////////////////////
 	

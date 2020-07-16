@@ -41,8 +41,8 @@ import spade.query.quickgrail.instruction.GetEdge;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLink;
-import spade.query.quickgrail.instruction.GetPath;
 import spade.query.quickgrail.instruction.GetShortestPath;
+import spade.query.quickgrail.instruction.GetSimplePath;
 import spade.query.quickgrail.instruction.GetSubgraph;
 import spade.query.quickgrail.instruction.GetVertex;
 import spade.query.quickgrail.instruction.InsertLiteralEdge;
@@ -508,7 +508,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void getPath(GetPath instruction){
+	public void getPath(GetSimplePath instruction){
 		final String edgeProperty = "e1.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		String query = "match ";
 		query += "p=(a:"+instruction.srcGraph.name+":"+instruction.subjectGraph.name+")"

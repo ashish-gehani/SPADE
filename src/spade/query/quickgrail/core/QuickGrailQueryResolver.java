@@ -19,6 +19,7 @@
  */
 package spade.query.quickgrail.core;
 
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 
 import spade.query.quickgrail.entities.Entity;
@@ -824,19 +825,34 @@ public class QuickGrailQueryResolver{
 	}
 
 	private Graph resolveGetPath(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
-		if(arguments.size() != 3){
-			throw new RuntimeException("Invalid number of arguments for getPath: expected 3");
+		if(arguments.size() < 3){
+			throw new RuntimeException("Invalid number of arguments for getPath: expected at least 3");
 		}
 
-		Graph srcGraph = resolveGraphExpression(arguments.get(0), null, true);
-		Graph dstGraph = resolveGraphExpression(arguments.get(1), null, true);
-		Integer maxDepth = resolveInteger(arguments.get(2));
+		if((arguments.size() - 1) % 2 != 0){
+			throw new RuntimeException("Invalid number of arguments for getPath: max depth for intermediate step missing");
+		}
+		
+		final Graph srcGraph = resolveGraphExpression(arguments.get(0), null, true);
+		
+		final ArrayList<SimpleEntry<Graph, Integer>> intermediateSteps = new ArrayList<SimpleEntry<Graph, Integer>>();
+		
+		for(int i = 1; i <= arguments.size() - 2; i+=2){
+			final Graph dstGraph = resolveGraphExpression(arguments.get(i), null, true);
+			final Integer maxDepth = resolveInteger(arguments.get(i+1));
+			intermediateSteps.add(new SimpleEntry<Graph, Integer>(dstGraph, maxDepth));
+		}
 
 		if(outputGraph == null){
 			outputGraph = allocateEmptyGraph();
 		}
+		
+		final GetPath getPath = new GetPath(outputGraph, subjectGraph, srcGraph);
+		for(final SimpleEntry<Graph, Integer> intermediateStep : intermediateSteps){
+			getPath.addIntermediateStep(intermediateStep.getKey(), intermediateStep.getValue());
+		}
 
-		instructions.add(new GetPath(outputGraph, subjectGraph, srcGraph, dstGraph, maxDepth));
+		instructions.add(getPath);
 		return outputGraph;
 	}
 
