@@ -40,6 +40,7 @@ import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLink;
 import spade.query.quickgrail.instruction.GetPath;
 import spade.query.quickgrail.instruction.GetShortestPath;
+import spade.query.quickgrail.instruction.GetSimplePath;
 import spade.query.quickgrail.instruction.GetSubgraph;
 import spade.query.quickgrail.instruction.GetVertex;
 import spade.query.quickgrail.instruction.InsertLiteralEdge;
@@ -847,12 +848,20 @@ public class QuickGrailQueryResolver{
 			outputGraph = allocateEmptyGraph();
 		}
 		
-		final GetPath getPath = new GetPath(outputGraph, subjectGraph, srcGraph);
-		for(final SimpleEntry<Graph, Integer> intermediateStep : intermediateSteps){
-			getPath.addIntermediateStep(intermediateStep.getKey(), intermediateStep.getValue());
+		Instruction instruction = null;
+		
+		if(intermediateSteps.size() == 1){
+			instruction = new GetSimplePath(outputGraph, subjectGraph, srcGraph, 
+					intermediateSteps.get(0).getKey(), intermediateSteps.get(0).getValue());
+		}else{
+			final GetPath getPath = new GetPath(outputGraph, subjectGraph, srcGraph);
+			for(final SimpleEntry<Graph, Integer> intermediateStep : intermediateSteps){
+				getPath.addIntermediateStep(intermediateStep.getKey(), intermediateStep.getValue());
+			}
+			instruction = getPath;
 		}
 
-		instructions.add(getPath);
+		instructions.add(instruction);
 		return outputGraph;
 	}
 

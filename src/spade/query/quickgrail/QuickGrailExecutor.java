@@ -298,6 +298,9 @@ public class QuickGrailExecutor{
 		}else if(instruction.getClass().equals(GetPath.class)){
 			getPath((GetPath)instruction);
 
+		}else if(instruction.getClass().equals(GetSimplePath.class)){
+			instructionExecutor.getPath((GetSimplePath)instruction);
+
 		}else if(instruction.getClass().equals(GetShortestPath.class)){
 			instructionExecutor.getShortestPath((GetShortestPath)instruction);
 
@@ -500,18 +503,22 @@ public class QuickGrailExecutor{
 			instructionExecutor.getPath(new GetSimplePath(
 					intermediateResult, subjectGraph, sourceGraph, intermediateStepGraph, intermediateStepMaxDepth));
 			
-			Graph intermediateIntersectionResult = createNewGraph();
-			instructionExecutor.intersectGraph(new IntersectGraph(intermediateIntersectionResult, 
-					intermediateResult, intermediateStepGraph));
-			
-			GraphStats stats = getGraphStats(intermediateIntersectionResult);
-			if(stats.vertices <= 0){
-				// No point in going further
-				break;
+			if(i == totalIntermediateSteps - 1){
+				// last step so no need to get the intersection
 			}else{
-				instructionExecutor.unionGraph(new UnionGraph(unionResultGraph, intermediateResult));
-				sourceGraph = intermediateIntersectionResult;
+				Graph intermediateIntersectionResult = createNewGraph();
+				instructionExecutor.intersectGraph(new IntersectGraph(intermediateIntersectionResult, 
+						intermediateResult, intermediateStepGraph));
+				
+				GraphStats stats = getGraphStats(intermediateIntersectionResult);
+				if(stats.vertices <= 0){
+					// No point in going further
+					break;
+				}else{
+					sourceGraph = intermediateIntersectionResult;
+				}
 			}
+			instructionExecutor.unionGraph(new UnionGraph(unionResultGraph, intermediateResult));
 		}
 		
 		instructionExecutor.distinctifyGraph(new DistinctifyGraph(instruction.targetGraph, unionResultGraph));
