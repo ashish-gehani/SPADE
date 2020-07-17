@@ -356,6 +356,7 @@ public class CommandLine extends AbstractAnalyzer{
 					tab + tab + "$shortest_paths = $graph_to_get_shortes_paths_in.getShortestPath($source_vertices_graph, $destination_vertices_graph [, max_depth_as_integer])",
 					tab + tab + "$vertices_in_skeketon_and_subject_graph_and_all_edges_between_them = $subject_graph.getSubgraph($skeleton_graph_to_get_vertices_from)",
 					tab + tab + "$vertices_and_edges_limited_to_n = $subject_graph.limit(limit_as_integer)",
+					tab + tab + "$vertices_in_graphs_a_and_b_matching_on_annotation_values = $a.getMatch($b, '1st vertex annotation key', ... 'optional nth vertex annotation key')",
 					tab + "Functions:",
 					tab + tab + "$vertices = vertices('1st hex-encoded md5 hash of vertex', ... 'nth hex-encoded md5 hash of vertex')",
 					tab + tab + "$edges = edges('1st hex-encoded md5 hash of edge', ... 'nth hex-encoded md5 hash of edge')",

@@ -312,7 +312,62 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	
 	@Override
 	public void getMatch(final GetMatch instruction){
-		throw new RuntimeException("Not implemented");
+		final Graph g1 = instruction.graph1;
+		final Graph g2 = instruction.graph2;
+		final ArrayList<String> annotationKeys = instruction.getAnnotationKeys();
+		
+		final Set<String> existingColumnNames = getColumnNamesOfVertexAnnotationTable();
+		final Set<String> requestedColumnNames = new HashSet<String>(annotationKeys);
+		requestedColumnNames.removeAll(existingColumnNames);
+		if(requestedColumnNames.size() > 0){
+			// User specified column names which do not exist for vertices
+			return;
+		}
+		
+		final String vertexAnnotationsTableName = getVertexAnnotationTableName();
+
+		executeQueryForResult("drop table if exists m_answer_x", false);
+		executeQueryForResult("create table m_answer_x (id1 uuid, id2 uuid)", false);
+
+		String query = "insert into m_answer_x "
+				+ "select ga1.\""+getIdColumnName()+"\", ga2.\""+getIdColumnName()+"\" from " 
+				+ getVertexTableName(g1) + " gv1, " + vertexAnnotationsTableName + " ga1, "
+				+ getVertexTableName(g2) + " gv2, " + vertexAnnotationsTableName + " ga2 "
+				+ "where gv1.\""+getIdColumnName()+"\" = ga1.\""+getIdColumnName()+"\" "
+				+ "and gv2.\""+getIdColumnName()+"\" = ga2.\""+getIdColumnName()+"\" and ";
+		
+		for(int i = 0; i < annotationKeys.size(); i++){
+			String annotationKey = annotationKeys.get(i);
+			if(annotationKey.equals(getIdColumnName()) 
+					|| annotationKey.equals(getIdColumnNameChildVertex())
+					|| annotationKey.equals(getIdColumnNameParentVertex())){
+				annotationKey = "\"" + annotationKey + "\"::text";
+			}else{
+				annotationKey = "\"" + annotationKey + "\"";
+			}
+			query += "( " 
+					+ "ga1." + annotationKey + " = ga2." + annotationKey
+					+ "and ga1."+annotationKey+" is not null and ga2." + annotationKey + " is not null "
+					+ ")";
+			if(i == annotationKeys.size() - 1){
+				// is last so don't append 'and'
+			}else{
+				query += " and ";
+			}
+		}
+		
+		executeQueryForResult(query, false);
+		
+		executeQueryForResult("drop table if exists m_answer_y", false);
+		executeQueryForResult("create table m_answer_y (id uuid)", false);
+		executeQueryForResult("insert into m_answer_y select id1 from m_answer_x group by id1", false);
+		executeQueryForResult("insert into m_answer_y select id2 from m_answer_x group by id2", false);
+		
+		executeQueryForResult("insert into " + getVertexTableName(instruction.targetGraph) 
+			+ " select id from m_answer_y group by id;\n", false);
+		
+		executeQueryForResult("drop table if exists m_answer_y", false);
+		executeQueryForResult("drop table if exists m_answer_x", false);
 	}
 	
 	@Override
