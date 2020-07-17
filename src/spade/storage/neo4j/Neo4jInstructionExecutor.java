@@ -151,7 +151,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 			final String annotationKey = annotationKeys.get(i);
 			query += "(";
 			query += "(a.`" + annotationKey + "` = b.`" + annotationKey + "`)";
-			query += " or (not exists(a.`" + annotationKey + "`) and not exists(b.`" + annotationKey + "`))";
+			//query += " or (not exists(a.`" + annotationKey + "`) and not exists(b.`" + annotationKey + "`))";
 			query += ")";
 			if(i == annotationKeys.size() - 1){ // is last
 				// don't append the 'and'

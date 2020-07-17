@@ -224,9 +224,99 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 
 	@Override
 	public void getMatch(final GetMatch instruction){
-		throw new RuntimeException("Not implemented");
-	}
+		final Graph g1 = instruction.graph1;
+		final Graph g2 = instruction.graph2;
+		final ArrayList<String> annotationKeys = instruction.getAnnotationKeys();
+
+		final Set<String> tablesToDrop = new HashSet<String>();
+		
+		qs.executeQuery("\\analyzerange " + getVertexTableName(g1) + "\n "
+				+ "\\analyzerange " + getVertexTableName(g2) + "\n ");
+		
+		final ArrayList<String> middleResultTableNames = new ArrayList<String>();
+		
+		for(int i = 0; i < annotationKeys.size(); i++){
+			final String annotationKey = annotationKeys.get(i);
+			
+			qs.executeQuery(
+					"drop table m_answer_x;\n " 
+					+ "create table m_answer_x (id1 int, id2 int);\n ");
+			
+			tablesToDrop.add("m_answer_x");
+			
+			String query = "insert into m_answer_x "
+					+ "select ga1.id, ga2.id from " 
+					+ getVertexTableName(g1) + " gv1, " + vertexAnnotationsTableName + " ga1, "
+					+ getVertexTableName(g2) + " gv2, " + vertexAnnotationsTableName + " ga2 "
+					+ "where gv1.id = ga1.id and gv2.id = ga2.id and "
+					+ "( " 
+					+ "ga1.field = '" + annotationKey + "' and ga2.field = '" + annotationKey + "' "
+					+ "and ga1.value = ga2.value "
+					+ ");\n ";
+			
+			qs.executeQuery(query);
+			
+			long count = qs.executeQueryForLongResult("copy select count(*) from m_answer_x to stdout;");
+			
+			if(count == 0){
+				break; // No need to continue
+			}
+			
+			final String middleResultTableName = "m_answer_middle_" + i;
+			
+			qs.executeQuery(
+					"drop table " + middleResultTableName + ";\n " 
+					+ "create table " + middleResultTableName + " (id int);\n "
+					+ "insert into " + middleResultTableName + " select id1 from m_answer_x group by id1;\n "
+					+ "insert into " + middleResultTableName + " select id2 from m_answer_x group by id2;\n ");
+			
+			middleResultTableNames.add(middleResultTableName);
+			tablesToDrop.add(middleResultTableName);
+		}
+		
+		if(middleResultTableNames.size() > 0){
+			long count = qs.executeQueryForLongResult("copy select count(*) from " + middleResultTableNames.get(0) + " to stdout;");
+			
+			if(count > 0){
+				String lastCommonResultTableName = "m_answer_common_" + 0;
+				qs.executeQuery("drop table " + lastCommonResultTableName + ";\n " 
+						+ "create table " + lastCommonResultTableName + " (id int);\n ");
+				tablesToDrop.add(lastCommonResultTableName);
+				
+				qs.executeQuery("insert into " + lastCommonResultTableName + " select id from " + middleResultTableNames.get(0) + " group by id;\n");
+				
+				for(int i = 1; i < middleResultTableNames.size(); i++){
+					String currentCommonResultTableName = "m_answer_common_" + i;
+					qs.executeQuery("drop table " + currentCommonResultTableName + ";\n " 
+							+ "create table " + currentCommonResultTableName + " (id int);\n ");
+					tablesToDrop.add(currentCommonResultTableName);
+					
+					qs.executeQuery("insert into " + currentCommonResultTableName + " select id from " + lastCommonResultTableName
+							+ " where id in (select id from " + middleResultTableNames.get(i) + ");");
 	
+					lastCommonResultTableName = currentCommonResultTableName;
+					count = qs.executeQueryForLongResult("copy select count(*) from " + currentCommonResultTableName + " to stdout;");
+					if(count == 0){
+						break; // No need to continue
+					}
+				}
+				
+				qs.executeQuery("insert into " + getVertexTableName(instruction.targetGraph) 
+					+ " select id from " + lastCommonResultTableName + " group by id;\n");
+
+			}
+		}
+		
+		String dropQueries = "";
+		for(String tableToDrop : tablesToDrop){
+			dropQueries += " drop table " + tableToDrop + ";\n";
+		}
+		
+		if(dropQueries.length() > 0){
+			qs.executeQuery(dropQueries);
+		}
+	}
+
 	@Override
 	public void getVertex(GetVertex instruction){
 		if(!instruction.hasArguments()){
