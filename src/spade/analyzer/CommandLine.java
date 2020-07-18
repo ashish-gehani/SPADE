@@ -301,9 +301,9 @@ public class CommandLine extends AbstractAnalyzer{
 		private final List<String> getEnvironmentVariablesHelp(final String tab){
 			return new ArrayList<String>(Arrays.asList(
 					"Environment Variable(s) help:",
-					tab + "env set maxDepth <number>",
-					tab + "env unset maxDepth",
-					tab + "env print maxDepth"
+					tab + "env set maxDepth|limit <number>",
+					tab + "env unset maxDepth|limit",
+					tab + "env print maxDepth|limit"
 					));
 		}
 		

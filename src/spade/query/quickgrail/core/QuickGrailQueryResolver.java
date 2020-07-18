@@ -1069,11 +1069,19 @@ public class QuickGrailQueryResolver{
 	}
 	
 	private Graph resolveLimit(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
-		if(arguments.size() != 1){
-			throw new RuntimeException("Invalid number of arguments for limit: expected 1");
+		Integer limit = null;
+		
+		if(arguments.size() == 1){
+			limit = resolveInteger(arguments.get(0));
+		}else if(arguments.size() == 0){
+			final EnvironmentVariable limitVar = env.getEnvironmentVariable(AbstractQueryEnvironment.environmentVariableNameLimit);
+			if(limitVar == null || limitVar.getValue() == null){
+				throw new RuntimeException("Must explicitly specify 'limit' or set it in environment");
+			}
+			limit = (Integer)limitVar.getValue();
+		}else{
+			throw new RuntimeException("Invalid number of arguments for limit: expected 0 or 1");
 		}
-
-		Integer limit = resolveInteger(arguments.get(0));
 
 		if(outputGraph == null){
 			outputGraph = allocateEmptyGraph();

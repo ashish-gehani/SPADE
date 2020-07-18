@@ -52,6 +52,7 @@ public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
 	// START - environment variables
 	
 	public final static String environmentVariableNameMaxDepth = "maxDepth";
+	public final static String environmentVariableNameLimit = "limit";
 	
 	private final List<EnvironmentVariable> environmentVariables = new ArrayList<EnvironmentVariable>();
 	public final EnvironmentVariable getEnvironmentVariable(final String name){
@@ -77,6 +78,7 @@ public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
 		
 		// Populate allowed environment variables
 		this.environmentVariables.add(new EnvironmentVariable(environmentVariableNameMaxDepth, Integer.class));
+		this.environmentVariables.add(new EnvironmentVariable(environmentVariableNameLimit, Integer.class));
 	}
 	
 	public final void initialize(){
