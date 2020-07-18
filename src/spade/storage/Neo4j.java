@@ -77,9 +77,9 @@ public class Neo4j extends AbstractStorage{
 	private static final Logger logger = Logger.getLogger(Neo4j.class.getName());
 
 	private final String
-		keyDbHomeDirectoryPath = "dbHomeDirectoryPath",
-		keyDbDataDirectoryName = "dbDataDirectoryName",
-		keyDbName = "dbName",
+		keyDbHomeDirectoryPath = "database",
+		keyDbDataDirectoryName = "dbms.directories.data",
+		keyDbName = "dbms.default_database",
 		keySleepWaitMillis = "sleepWaitMillis", 
 		keyWaitForIndexSeconds = "waitForIndexSeconds",
 		keyDebug = "debug", 
@@ -1558,7 +1558,7 @@ public class Neo4j extends AbstractStorage{
 		if(HelperFunctions.isNullOrEmpty(dbDataDirectoryNameString)){
 //			logger.log(Level.INFO, "NULL/Empty value for '" + keyDbDataDirectoryName + "': " + dbDataDirectoryNameString + ".");
 //			return false;
-			this.dbDataDirectoryName = "";
+			this.dbDataDirectoryName = GraphDatabaseSettings.DEFAULT_DATA_DIR_NAME;
 		}else{
 			this.dbDataDirectoryName = dbDataDirectoryNameString.trim();
 		}
