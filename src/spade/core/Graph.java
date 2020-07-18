@@ -55,9 +55,9 @@ public class Graph implements Serializable{
 
 	private static final Logger logger = Logger.getLogger(Graph.class.getName());
 	//////////////////////////////////////////////////////
-	private static final Pattern nodePattern = Pattern
+	public static final Pattern nodePattern = Pattern
 			.compile("\"(.*)\" \\[label=\"(.*)\" shape=\"(\\w*)\" fillcolor=\"(\\w*)\"", Pattern.DOTALL);
-	private static final Pattern edgePattern = Pattern
+	public static final Pattern edgePattern = Pattern
 			.compile("\"(.*)\" -> \"(.*)\" \\[label=\"(.*)\" color=\"(\\w*)\"", Pattern.DOTALL);
 
 	//////////////////////////////////////////////////////

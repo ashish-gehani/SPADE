@@ -73,6 +73,10 @@ public class Graphviz extends AbstractStorage
             output = (argsMap.get("output") != null) ? argsMap.get("output") :
                     databaseConfigs.getProperty("output");
 
+            if(HelperFunctions.isNullOrEmpty(output)){
+            	throw new Exception("NULL/Empty value for output file with key 'output': " + output);
+            }
+            
             outputFile = new FileWriter(output, false);
             transaction_count = 0;
             outputFile.write("digraph spade2dot {\n"
@@ -83,7 +87,7 @@ public class Graphviz extends AbstractStorage
         }
         catch(Exception exception)
         {
-            Logger.getLogger(Graphviz.class.getName()).log(Level.SEVERE, null, exception);
+            Logger.getLogger(Graphviz.class.getName()).log(Level.SEVERE, "Failed to start Graphviz storage", exception);
             return false;
         }
     }

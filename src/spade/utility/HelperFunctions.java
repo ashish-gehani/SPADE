@@ -520,4 +520,42 @@ public class HelperFunctions{
 	public static long sleepSafe(long millis){
 		return sleepSafe(millis, false);
 	}
+	
+	private static Map<String, String> safeReadKeyValuePairsFromFile(final String filePath) throws Exception{
+		final Map<String, String> map = new HashMap<String, String>();
+		if(filePath != null){
+			try{
+				final File file = new File(filePath);
+				if(file.exists()){
+					if(!file.isFile()){
+						throw new Exception("Not a file");
+					}
+					if(!file.canRead()){
+						throw new Exception("Not readable");
+					}
+					map.putAll(FileUtility.readConfigFileAsKeyValueMap(filePath, "="));
+				}
+			}catch(Exception e){
+				throw new Exception("Failed to read file: " + filePath, e);
+			}
+		}
+		return map;
+	} 
+	
+	/**
+	 * @param arguments highest priority (optional)
+	 * @param firstConfigFilePath over-written by arguments (optional)
+	 * @param secondConfigFilePath over-written by arguments and fileConfigFilePath (optional)
+	 * @return
+	 * @throws Exception only in case a there was an error in parsing or a path (if existed wasn't a readable file)
+	 */
+	public static Map<String, String> parseKeyValuePairsFrom(
+			final String arguments, final String firstConfigFilePath, final String secondConfigFilePath) throws Exception{
+		final Map<String, String> map = new HashMap<String, String>();
+		map.putAll(safeReadKeyValuePairsFromFile(secondConfigFilePath));
+		map.putAll(safeReadKeyValuePairsFromFile(firstConfigFilePath));
+		map.putAll(parseKeyValPairs(arguments));
+		return map;
+	}
+	
 }

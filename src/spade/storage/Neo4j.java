@@ -83,6 +83,7 @@ public class Neo4j extends AbstractStorage{
 		keySleepWaitMillis = "sleepWaitMillis", 
 		keyWaitForIndexSeconds = "waitForIndexSeconds",
 		keyDebug = "debug", 
+		keyForceShutdown = "forceShutdown",
 		keyReportingIntervalSeconds = "reportingIntervalSeconds",
 		keyHashPropertyName = "hashPropertyName", 
 		keyEdgeSymbolsPropertyName = "edgeSymbolsPropertyName",
@@ -124,6 +125,7 @@ public class Neo4j extends AbstractStorage{
 	private String dbName;
 	private File finalConstructedDbPath;
 	private boolean debug;
+	private boolean forceShutdown;
 	private long sleepWaitMillis;
 	private int waitForIndexSeconds;
 	private int reportingIntervalSeconds;
@@ -443,6 +445,9 @@ public class Neo4j extends AbstractStorage{
 			if(runTheMainLoop){
 				int pendingTasksSize = 0;
 				while(!isShutdown() || (pendingTasksSize = getPendingTasksSize()) > 0){
+					if(isShutdown() && forceShutdown){
+						break;
+					}
 					stats.print(false, pendingTasksSize);
 					try{
 						if(tx == null){
@@ -545,7 +550,7 @@ public class Neo4j extends AbstractStorage{
 				}
 				HelperFunctions.sleepSafe(sleepWaitMillis);
 			}
-			logger.log(Level.INFO, "No more pending tasks. Continuing with shutdown ...");
+			logger.log(Level.INFO, "Pending tasks going to be discarded: '" + getPendingTasksSize() + "'. Continuing with shutdown ...");
 
 			if(this.dbManagementService != null){
 				try{
@@ -1446,6 +1451,15 @@ public class Neo4j extends AbstractStorage{
 			return false;
 		}
 		this.debug = debugResult.result;
+		
+		final String forceShutdownString = map.remove(keyForceShutdown);
+		final Result<Boolean> forceShutdownResult = HelperFunctions.parseBoolean(forceShutdownString);
+		if(forceShutdownResult.error){
+			logger.log(Level.SEVERE, "Invalid value for '" + keyForceShutdown + "': " + forceShutdownResult.toErrorString());
+			return false;
+		}
+		this.forceShutdown = forceShutdownResult.result;
+		
 
 		final String reportingIntervalSecondsString = map.remove(keyReportingIntervalSeconds);
 		final Result<Long> reportingIntervalSecondsResult = HelperFunctions.parseLong(reportingIntervalSecondsString,

@@ -68,8 +68,10 @@ import javax.net.ssl.TrustManagerFactory;
 
 import spade.filter.FinalCommitFilter;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
+import spade.utility.HelperFunctions;
 import spade.utility.HostInfo;
 import spade.utility.LogManager;
+import spade.utility.Result;
 
 /**
  * The SPADE kernel containing the control client and
@@ -171,19 +173,16 @@ public class Kernel
     	return defaultQueryStorage;
     }
     
-    public static AbstractStorage getStorage(String storageName)
-    {
-        for(AbstractStorage storage : storages)
-        {
-            // Search for the given storage in the storages set.
-            if(storage.getClass().getSimpleName().equalsIgnoreCase(storageName))
-            {
-                return storage;
-            }
-        }
+	public static AbstractStorage getStorage(String storageName){
+		for(AbstractStorage storage : storages){
+			// Search for the given storage in the storages set.
+			if(storage.getClass().getSimpleName().equalsIgnoreCase(storageName)){
+				return storage;
+			}
+		}
 
-        return null;
-    }
+		return null;
+	}
     
     public static boolean isStoragePresent(AbstractStorage storage){
     	for(AbstractStorage existingStorage : storages){
@@ -194,6 +193,20 @@ public class Kernel
         }
         return false;
     }
+    
+	public static AbstractReporter findReporter(String reporterName){
+		if(reporters != null){
+			for(AbstractReporter reporter : reporters){
+				// Search for the given storage in the storages set.
+				if(reporter != null){
+					if(reporter.getClass().getSimpleName().equalsIgnoreCase(reporterName)){
+						return reporter;
+					}
+				}
+			}
+		}
+		return null;
+	}
     /**
      * Set of filters active on the local SPADE instance.
      */
@@ -828,12 +841,97 @@ public class Kernel
                 }
                 outputStream.println("done");
                 break;
-
+            
+            case "get":
+            case "set":
+            case "unset":{
+            	configGetSetCommand(outputStream, line);
+            }
+            break;
+                
             default:
-                outputStream.println("Usage:");
-                outputStream.println("\t" + CONFIG_STRING);
-                logger.log(Level.INFO, "Usage not appropriate");
+            	printConfigCommandUsage(outputStream);
+                break;
         }
+    }
+    
+    private static enum ConfigPropertyOperation{ GET, SET, UNSET };
+    private final static void configGetSetCommand(final PrintStream outputStream, final String line){
+    	final String tokens[] = line.split("\\s+");
+    	final int tokensLength = tokens.length;
+    	if(tokensLength > 0){
+    		if(tokens[0].equalsIgnoreCase("config")){
+    			if(tokensLength > 1){
+    				Result<ConfigPropertyOperation> propertyOperationResult = 
+    						HelperFunctions.parseEnumValue(ConfigPropertyOperation.class, tokens[1], true);
+    				if(!propertyOperationResult.error){
+    					if(tokensLength > 2){
+    						final String moduleType = tokens[2];
+    						if(moduleType.equalsIgnoreCase("reporter")){
+    							if(tokensLength > 3){
+    								final String reporterName = tokens[3];
+    								final AbstractReporter reporter = findReporter(reporterName);
+    								if(reporter != null){
+    									if(tokensLength > 4){
+    										final String propertyName = tokens[4];
+    										if(propertyOperationResult.result.equals(ConfigPropertyOperation.GET)){
+    											try{
+    												final Object value = reporter.getProperty(propertyName);
+    												final String msg = 
+    														(value == null)
+    														? ("'" + propertyName + "' is NULL")
+    														: ("'" + propertyName + "' = '" + value + "'");
+    												outputStream.println(msg);
+    							                    logger.log(Level.INFO, "[GET] '" + reporterName + "' " + moduleType + ". " + msg);
+    							                    return; // return here!!!
+    											}catch(final Exception e){
+    												logger.log(Level.WARNING, 
+    														"Failed to get '" + reporterName + "' "+ moduleType + " property '"+propertyName+"'", e);
+    											}
+											}else if(propertyOperationResult.result.equals(ConfigPropertyOperation.SET)){
+												if(tokensLength > 5){
+													final String[] limitedTokens = line.split("\\s+", 6);
+													final String propertyValue = limitedTokens[5];
+													try{
+														reporter.setProperty(propertyName, propertyValue);
+														final String msg = "'" + propertyName + "' = '" + propertyValue + "'";
+	    												outputStream.println("OK");
+	    							                    logger.log(Level.INFO, "[SET] '" + reporterName + "' " + moduleType + ". " + msg);
+	    							                    return; // return here!!!
+													}catch(Exception e){
+														logger.log(Level.WARNING, 
+	    														"Failed to set '" + reporterName + "' "+ moduleType + " property '"+propertyName+"' value '"+propertyValue+"'", e);
+													}
+												}
+											}else if(propertyOperationResult.result.equals(ConfigPropertyOperation.UNSET)){
+												try{
+													reporter.unsetProperty(propertyName);
+    												final String msg = "'" + propertyName + "' = '";
+    												outputStream.println("OK");
+    							                    logger.log(Level.INFO, "[UNSET] '" + reporterName + "' " + moduleType + ". " + msg);
+    							                    return; // return here!!!
+    											}catch(final Exception e){
+    												logger.log(Level.WARNING, 
+    														"Failed to unset '" + reporterName + "' "+ moduleType + " property '"+propertyName+"'", e);
+    											}
+											}
+    									}
+    								}
+    							}
+    						}
+    					}
+    				}
+    			}
+    		}
+    	}
+    	// here only case of unknown command
+    	printConfigCommandUsage(outputStream);
+    }
+
+    private final static void printConfigCommandUsage(final PrintStream outputStream){
+    	outputStream.println("Usage:");
+        outputStream.println("\t" + CONFIG_STRING);
+        logger.log(Level.INFO, "Usage not appropriate");
     }
 
     /**
@@ -899,7 +997,7 @@ public class Kernel
             return null;
         }
     }
-    
+
     /**
      * Method to add modules.
      *
