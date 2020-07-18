@@ -48,10 +48,15 @@ visualize force $paths
   * _constraint_ ::= _constraint-expression_ [ `and` | `or` _constraint-expression_ ]
 
 ## Commands
-* List all existing graphs and all existing constraints.
+* List all existing graphs, all existing constraints and all supported environment variables.
   * `list`
   * `list graph` will only list graphs
   * `list constraint` will only list constraints
+  * `list env` will only list environment variables
+* Set, unset, and print environment variables.
+  * `env set` _variable_name_ _integer_
+  * `env unset` _variable_name_
+  * `env print` _variable_name_
 * Output graph statistics.
   * `stat` _graph_
 * Output graph as a SPADE `Graph`.
@@ -81,6 +86,9 @@ _return-type_ **method-name** ( **_argument-type_** formal-argument, ... )
 * _graph_ **getVertex** ( **_constraint_** constraint )
   * Get all the vertices that match a constraint.
   * E.g. `$2 = $1.getVertex(* LIKE '%firefox%')`
+* _graph_ **getMatch** ( **_graph_** otherGraph, **_string_** annotation, ... )
+  * Get vertices in subject graph and the `otherGraph` that have the annotations specified and those annotations have the same values.
+  * E.g. `$3 = $1.getMatch($2, 'pid', 'ppid')` returns all vertices in `$1` and `$2` where the vertices had the same value for annotations `pid`, and `ppid`.
 * _graph_ **getEdge** ( )
   * Get all the edges.
   * E.g. `$2 = $1.getEdge()`
@@ -99,23 +107,24 @@ _return-type_ **method-name** ( **_argument-type_** formal-argument, ... )
 * _graph_ **getEdgeDestination** ( )
   * Get all the vertices that are destination endpoints of edges.
   * E.g. `$2 = $1.getEdgeDestination()`
-* _graph_ **getLineage** ( **_graph_** sourceVertices, **_int_** maxDepth, **_string_** direction )
+* _graph_ **getLineage** ( **_graph_** sourceVertices [ , **_int_** maxDepth ] , **_string_** direction )
   * Get the lineage from some source vertices.
   * _direction_ can be `'ancestor'`(or `'a'`) / `'descendant'` (or `'d'`) / `'both'` (or `'b'`).
-  * E.g. `$2 = $base.getLineage($1, 3, 'b')`
-* _graph_ **getPath** ( **_graph_** sourceVertices, **_graph_** destinationVertices, **_int_** maxDepth )
-  * Get the path from some source vertices to some destination vertices.
+  * E.g. `$2 = $base.getLineage($1, 3, 'b')` or `$2 = $base.getLineage($1, 'b')` where `maxDepth` environment variable is used for `maxDepth` parameter.
+* _graph_ **getPath** ( **_graph_** sourceVertices, ( **_graph_** destinationVertices [ , **_int_** maxDepth ] )+ )
+  * Get the path from some source vertices to some destination vertices with intermediate vertices.
   * E.g. `$3 = $base.getPath($1, $2, 5)`
-* _graph_ **getShortestPath** ( **_graph_** sourceVertices, **_graph_** destinationVertices, **_int_** maxDepth )
+  * E.g. `$4 = $base.getPath($1, $2, 9, $3)` where `maxDepth` environment variable is used for `maxDepth` parameter between `$2` and `$3`. Also, `maxDepth` of `9` is used for path between `$1` and `$2`.
+* _graph_ **getShortestPath** ( **_graph_** sourceVertices, **_graph_** destinationVertices[, **_int_** maxDepth] )
   * Get the shortest path from some source vertices to some destination vertices.
   * _NOTE: This method would not find the real shortest path at this moment -- but just find "a short path"._
-  * E.g. `$3 = $somePath.getShortestPath($1, $2, 5)`
+  * E.g. `$3 = $somePath.getShortestPath($1, $2, 5)` or `$3 = $somePath.getShortestPath($1, $2)` where `maxDepth` environment variable is used for `maxDepth` parameter.
 * _graph_ **getSubgraph** ( **_graph_** skeletonGraph )
   * Get all the vertices and edges that are spanned by the skeleton graph.
   * E.g. `$2 = $base.getSubgraph($1)`
-* _graph_ **limit** ( **_int_** limit)
+* _graph_ **limit** ( [**_int_** limit] )
   * Get the first (ordered by id) _limit_ vertices / edges.
-  * E.g. `$2 = $1.limit(10)`
+  * E.g. `$2 = $1.limit(10)` or `$2 = $1.limit()` where `limit` environment variable is used for `limit` parameter.
 ---
 #### Functions
 * _graph_ **vertices** ( **_string_** vertexHash, ... )
@@ -135,3 +144,4 @@ _return-type_ **method-name** ( **_argument-type_** formal-argument, ... )
 * Graph Subtract `-`, `-=`
   * E.g. `$3 = $1 - $2`
   * E.g. `$b -= $a`
+
