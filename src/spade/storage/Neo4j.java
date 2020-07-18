@@ -77,8 +77,8 @@ public class Neo4j extends AbstractStorage{
 	private static final Logger logger = Logger.getLogger(Neo4j.class.getName());
 
 	private final String
-		keyDbHomeDirectoryPath = "database",
-		keyDbDataDirectoryName = "dbms.directories.data",
+		keyDbHomeDirectoryPath = "dbms.directories.neo4j_home",
+		keyDbDataDirectoryName = "database",
 		keyDbName = "dbms.default_database",
 		keySleepWaitMillis = "sleepWaitMillis", 
 		keyWaitForIndexSeconds = "waitForIndexSeconds",
