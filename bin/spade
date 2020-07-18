@@ -43,12 +43,12 @@ if [[ `uname` == *"CYGWIN"* ]]
 then
 	SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
 	SPADE_ROOT=`cygpath -w $SPADE_ROOT`
-	CLASSPATH="$SPADE_ROOT\\lib\\neo4j-community-4.1.0\\lib\\*;$SPADE_ROOT\\build;$SPADE_ROOT\\lib\\*"
+	CLASSPATH="$SPADE_ROOT\\lib\\neo4j-community-4.1.1\\lib\\*;$SPADE_ROOT\\build;$SPADE_ROOT\\lib\\*"
 	JAVALIBPATH="$SPADE_ROOT\\lib\\"
 	CYGWIN_JVM_JLINE_ARGS="-Djline.terminal=jline.UnixTerminal"
 else
 	SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
-	CLASSPATH="$SPADE_ROOT/lib/neo4j-community-4.1.0/lib/*:$SPADE_ROOT/build:$SPADE_ROOT/lib/*"
+	CLASSPATH="$SPADE_ROOT/lib/neo4j-community-4.1.1/lib/*:$SPADE_ROOT/build:$SPADE_ROOT/lib/*"
 	JAVALIBPATH="$SPADE_ROOT/lib/"	
 fi
 

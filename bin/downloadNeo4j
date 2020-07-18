@@ -2,17 +2,17 @@
 OS_NAME=$(uname)
 if [ $OS_NAME == "Linux" ]
 then
-  wget -O lib/neo4j-community-4.1.0.tar.gz "https://neo4j.com/artifact.php?name=neo4j-community-4.1.0-unix.tar.gz"
-  tar -xf lib/neo4j-community-4.1.0.tar.gz -C lib/
-  rm lib/neo4j-community-4.1.0.tar.gz
+  wget -O lib/neo4j-community-4.1.1.tar.gz "https://neo4j.com/artifact.php?name=neo4j-community-4.1.1-unix.tar.gz"
+  tar -xf lib/neo4j-community-4.1.1.tar.gz -C lib/
+  rm lib/neo4j-community-4.1.1.tar.gz
 elif [ $OS_NAME == "Darwin" ]
 then
-  curl -o lib/neo4j-community-4.1.0.tar.gz "https://neo4j.com/artifact.php?name=neo4j-community-4.1.0-unix.tar.gz"
-  tar -xf lib/neo4j-community-4.1.0.tar.gz -C lib/
-  rm lib/neo4j-community-4.1.0.tar.gz
+  curl -o lib/neo4j-community-4.1.1.tar.gz "https://neo4j.com/artifact.php?name=neo4j-community-4.1.1-unix.tar.gz"
+  tar -xf lib/neo4j-community-4.1.1.tar.gz -C lib/
+  rm lib/neo4j-community-4.1.1.tar.gz
 elif [[ $OS_NAME == *"CYGWIN"* ]]
 then
-  wget -O lib/neo4j-community-4.1.0.tar.gz "https://neo4j.com/artifact.php?name=neo4j-community-4.1.0-unix.tar.gz"
-  tar -xf lib/neo4j-community-4.1.0.tar.gz -C lib/
-  rm lib/neo4j-community-4.1.0.tar.gz
+  wget -O lib/neo4j-community-4.1.1.tar.gz "https://neo4j.com/artifact.php?name=neo4j-community-4.1.1-unix.tar.gz"
+  tar -xf lib/neo4j-community-4.1.1.tar.gz -C lib/
+  rm lib/neo4j-community-4.1.1.tar.gz
 fi
