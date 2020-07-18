@@ -482,7 +482,7 @@ public class QuickGrailQueryResolver{
 				instructions.add(EnvironmentVariableOperation.instanceOfPrint(variableName));
 			}
 			break;
-			default: break;
+			default: throw new RuntimeException("No subcommand '"+subCommand+"' for 'env' command");
 		}
 	}
 	
