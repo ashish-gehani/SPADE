@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 
 import spade.core.AbstractStorage;
+import spade.query.quickgrail.core.GraphDescription;
 import spade.query.quickgrail.core.GraphStats;
 import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
@@ -36,6 +37,7 @@ import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
+import spade.query.quickgrail.instruction.DescribeGraph;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
 import spade.query.quickgrail.instruction.EvaluateQuery;
 import spade.query.quickgrail.instruction.ExportGraph;
@@ -347,6 +349,46 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 			sqlQuery.append(" GROUP BY id;");
 			evaluateQuery(new EvaluateQuery(sqlQuery.toString()));
 		}
+	}
+	
+	private final Set<String> executeAndGetSingleColumnResult(final String query){
+		final Set<String> set = new HashSet<String>();
+		final String result = qs.executeQuery(query);
+		final String[] resultLines = result.split("\n");
+		for(int i = 0; i < resultLines.length; i++){
+			final String resultLine = resultLines[i];
+			set.add(resultLine);
+		}
+		return set;
+	}
+	
+	@Override
+	public GraphDescription describeGraph(DescribeGraph instruction){
+		final Graph graph = instruction.graph;
+		
+		String vertexQuery = "copy select field from " + vertexAnnotationsTableName;
+		String edgeQuery = "copy select field from " + edgeAnnotationTableName;
+		
+		if(!queryEnvironment.isBaseGraph(graph)){
+			final String vertexAnalyzeQuery = "\\analyzerange " + getVertexTableName(graph) + "\n";
+			final String edgeAnalyzeQuery = "\\analyzerange " + getEdgeTableName(graph) + "\n";
+			qs.executeQuery(vertexAnalyzeQuery);
+			qs.executeQuery(edgeAnalyzeQuery);
+			
+			vertexQuery += " where id in (select id from " + getVertexTableName(graph) + ")";
+			edgeQuery += " where id in (select id from " + getEdgeTableName(graph) + ")";
+		}
+		
+		vertexQuery += " group by field to stdout;\n";
+		edgeQuery += " group by field to stdout;\n";
+		
+		final Set<String> vertexAnnotationsSet = executeAndGetSingleColumnResult(vertexQuery);
+		final Set<String> edgeAnnotationsSet = executeAndGetSingleColumnResult(edgeQuery);
+		
+		GraphDescription desc = new GraphDescription();
+		desc.addVertexAnnotations(vertexAnnotationsSet);
+		desc.addEdgeAnnotations(edgeAnnotationsSet);
+		return desc;
 	}
 
 	@Override

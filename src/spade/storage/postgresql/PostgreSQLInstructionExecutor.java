@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 import spade.core.AbstractStorage;
+import spade.query.quickgrail.core.GraphDescription;
 import spade.query.quickgrail.core.GraphStats;
 import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
@@ -36,6 +37,7 @@ import spade.query.quickgrail.entities.GraphMetadata;
 import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
+import spade.query.quickgrail.instruction.DescribeGraph;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
 import spade.query.quickgrail.instruction.EvaluateQuery;
 import spade.query.quickgrail.instruction.ExportGraph;
@@ -368,6 +370,73 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		
 		executeQueryForResult("drop table if exists m_answer_y", false);
 		executeQueryForResult("drop table if exists m_answer_x", false);
+	}
+	
+	@Override
+	public final GraphDescription describeGraph(final DescribeGraph instruction){
+		final Graph graph = instruction.graph;
+		
+		if(queryEnvironment.isBaseGraph(graph)){
+			final String vertexQuery = "select * from " + vertexAnnotationTableName + " where false";
+			final List<List<String>> vertexResult = executeQueryForResult(vertexQuery, true);
+			final List<String> vertexHeader = new ArrayList<String>();
+			if(vertexResult.isEmpty()){
+				throw new RuntimeException("Expected at least first row from query: " + vertexQuery);
+			}else{
+				vertexHeader.addAll(vertexResult.get(0));
+				vertexHeader.remove(idColumnName); // Remove the hash
+			}
+			
+			final String edgeQuery = "select * from " + edgeAnnotationTableName + " where false";
+			final List<List<String>> edgeResult = executeQueryForResult(edgeQuery, true);
+			final List<String> edgeHeader = new ArrayList<String>();
+			if(edgeResult.isEmpty()){
+				throw new RuntimeException("Expected at least first row from query: " + edgeQuery);
+			}else{
+				edgeHeader.addAll(edgeResult.get(0));
+				edgeHeader.remove(idColumnName); // Remove the hash
+				edgeHeader.remove(idChildVertexColumnName); // Remove the child hash
+				edgeHeader.remove(idParentVertexColumnName); // Remove the parent hash
+			}
+			
+			final GraphDescription desc = new GraphDescription();
+			desc.addVertexAnnotations(vertexHeader);
+			desc.addEdgeAnnotations(edgeHeader);
+			return desc;
+		}else{
+			final GraphDescription baseDesc = describeGraph(new DescribeGraph(queryEnvironment.getBaseGraph()));
+			
+			final Set<String> resultVertexAnnotations = new HashSet<String>();
+			
+			final Set<String> baseDescVertexAnnotations = baseDesc.getVertexAnnotations();
+			for(final String baseDescVertexAnnotation : baseDescVertexAnnotations){
+				final String query = "select count(*) from " + getVertexAnnotationTableName()
+					+ " where \"" + idColumnName + "\" in (select \""+idColumnName+"\" from "+getVertexTableName(graph)+")"
+					+ " and \"" + baseDescVertexAnnotation + "\" is not null;";
+				final long count = Long.parseLong(executeQueryForResult(query, false).get(0).get(0));
+				if(count > 0){
+					resultVertexAnnotations.add(baseDescVertexAnnotation);
+				}
+			}
+			
+			final Set<String> resultEdgeAnnotations = new HashSet<String>();
+			
+			final Set<String> baseDescEdgeAnnotations = baseDesc.getEdgeAnnotations();
+			for(final String baseDescEdgeAnnotation : baseDescEdgeAnnotations){
+				final String query = "select count(*) from " + getEdgeAnnotationTableName()
+					+ " where \"" + idColumnName + "\" in (select \""+idColumnName+"\" from "+getEdgeTableName(graph)+")"
+					+ " and \"" + baseDescEdgeAnnotation + "\" is not null;";
+				final long count = Long.parseLong(executeQueryForResult(query, false).get(0).get(0));
+				if(count > 0){
+					resultEdgeAnnotations.add(baseDescEdgeAnnotation);
+				}
+			}
+			 
+			final GraphDescription desc = new GraphDescription();
+			desc.addVertexAnnotations(resultVertexAnnotations);
+			desc.addEdgeAnnotations(resultEdgeAnnotations);
+			return desc;
+		}
 	}
 	
 	@Override

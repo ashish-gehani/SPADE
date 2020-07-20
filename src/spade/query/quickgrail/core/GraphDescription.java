@@ -20,19 +20,76 @@
 package spade.query.quickgrail.core;
 
 import java.io.Serializable;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.TreeSet;
+
+import spade.query.quickgrail.types.StringType;
+import spade.query.quickgrail.utility.ResultTable;
+import spade.query.quickgrail.utility.Schema;
 
 public class GraphDescription implements Serializable{
 
-	/**
-	 * 
-	 */
-	private static final long serialVersionUID = -6317483938918491695L; // TODO redo
+	private static final long serialVersionUID = -8661388010852548803L;
 	
-	private final Set<String> vertexAnnotations = new HashSet<String>();
-	private final Set<String> edgeAnnotations = new HashSet<String>();
+	private final TreeSet<String> vertexAnnotations = new TreeSet<String>();
+	private final TreeSet<String> edgeAnnotations = new TreeSet<String>();
 	
-	// TODO toString
+	private final void addAnnotation(final TreeSet<String> annotationsSet, final String annotation){
+		if(annotationsSet != null && annotation != null){
+			annotationsSet.add(annotation);
+		}
+	}
 	
+	public final void addVertexAnnotation(final String annotation){
+		addAnnotation(this.vertexAnnotations, annotation);
+	}
+	
+	public final void addVertexAnnotations(final Collection<String> vertexAnnotations){
+		if(vertexAnnotations != null){
+			for(final String vertexAnnotation : vertexAnnotations){
+				addVertexAnnotation(vertexAnnotation);
+			}
+		}
+	}
+	
+	public final void addEdgeAnnotation(final String annotation){
+		addAnnotation(this.edgeAnnotations, annotation);
+	}
+	
+	public final void addEdgeAnnotations(final Collection<String> edgeAnnotations){
+		if(edgeAnnotations != null){
+			for(final String edgeAnnotation : edgeAnnotations){
+				addEdgeAnnotation(edgeAnnotation);
+			}
+		}
+	}
+	
+	public final TreeSet<String> getVertexAnnotations(){
+		return new TreeSet<String>(this.vertexAnnotations);
+	}
+	
+	public final TreeSet<String> getEdgeAnnotations(){
+		return new TreeSet<String>(this.edgeAnnotations);
+	}
+	
+	public String toString(){
+		final ResultTable table = new ResultTable();
+		final Iterator<String> vertexIterator = vertexAnnotations.iterator();
+		final Iterator<String> edgeIterator = edgeAnnotations.iterator();
+		while(vertexIterator.hasNext() || edgeIterator.hasNext()){
+			String vertexAnnotation = vertexIterator.hasNext() ? vertexIterator.next() : "";
+			String edgeAnnotation = edgeIterator.hasNext() ? edgeIterator.next() : "";
+			ResultTable.Row row = new ResultTable.Row();
+			row.add(vertexAnnotation);
+			row.add(edgeAnnotation);
+			table.addRow(row);
+		}
+		
+		Schema schema = new Schema();
+		schema.addColumn("Vertex Annotations", StringType.GetInstance());
+		schema.addColumn("Edge Annotations", StringType.GetInstance());
+		table.setSchema(schema);
+		return table.toString();
+	}
 }

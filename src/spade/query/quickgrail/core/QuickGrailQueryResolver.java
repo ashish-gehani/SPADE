@@ -384,9 +384,7 @@ public class QuickGrailQueryResolver{
 		}
 
 		Graph targetGraph = resolveGraphExpression(arguments.get(0), null, true);
-		Graph distinctifiedGraph = allocateEmptyGraph();
-		instructions.add(new DistinctifyGraph(distinctifiedGraph, targetGraph));
-		instructions.add(new DescribeGraph(distinctifiedGraph));
+		instructions.add(new DescribeGraph(targetGraph));
 	}
 
 	private void resolveListCommand(ArrayList<ParseExpression> arguments){

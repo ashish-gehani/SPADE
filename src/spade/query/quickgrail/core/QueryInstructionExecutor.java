@@ -117,10 +117,7 @@ public abstract class QueryInstructionExecutor{
 		return instruction.predicateRoot;
 	} 
 	
-	public final GraphDescription describeGraph(DescribeGraph instruction){
-		return null;
-	}
-	
+	public abstract GraphDescription describeGraph(DescribeGraph instruction);
 	public abstract GraphStats statGraph(StatGraph instruction);
 	public abstract void subtractGraph(SubtractGraph instruction);
 	public abstract void unionGraph(UnionGraph instruction);

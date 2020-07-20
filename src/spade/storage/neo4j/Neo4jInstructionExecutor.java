@@ -26,6 +26,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import spade.core.AbstractStorage;
+import spade.query.quickgrail.core.GraphDescription;
 import spade.query.quickgrail.core.GraphStats;
 import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
@@ -34,6 +35,7 @@ import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
+import spade.query.quickgrail.instruction.DescribeGraph;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
 import spade.query.quickgrail.instruction.EvaluateQuery;
 import spade.query.quickgrail.instruction.ExportGraph;
@@ -483,6 +485,42 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 			query += " " + buildSubqueryForUpdatingEdgeSymbols("e", instruction.targetGraph.name) + ";";
 			storage.executeQuery(query);
 		}
+	}
+	
+	@Override
+	public GraphDescription describeGraph(DescribeGraph instruction){
+		final String relationshipProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
+		final Graph graph = instruction.graph;
+		final String nodesQuery = "match (v:" + graph.name + ") with keys(v) as keys unwind keys as rowsofkeys return distinct rowsofkeys;";
+		String relationshipQuery = "match ()-[e]->()";
+		if(!neo4jQueryEnvironment.isBaseGraph(graph)){
+			relationshipQuery += " where " + relationshipProperty + " contains '," + graph.name + ",'";
+		}
+		relationshipQuery += " with keys(e) as keys unwind keys as rowsofkeys return distinct rowsofkeys;";
+		final List<Map<String, Object>> vertexAnnotations = storage.executeQueryForSmallResult(nodesQuery);
+		final List<Map<String, Object>> edgeAnnotations = storage.executeQueryForSmallResult(relationshipQuery);
+		
+		GraphDescription desc = new GraphDescription();
+		for(Map<String, Object> map : vertexAnnotations){
+			final Object value = map.get("rowsofkeys");
+			if(value != null){
+				final String str = String.valueOf(value); 
+				if(!str.equals(hashKey)){
+					desc.addVertexAnnotation(str);
+				}
+			}
+		}
+		
+		for(Map<String, Object> map : edgeAnnotations){
+			final Object value = map.get("rowsofkeys");
+			if(value != null){
+				final String str = String.valueOf(value);
+				if(!str.equals(hashKey)){
+					desc.addEdgeAnnotation(str);
+				}
+			}
+		}
+		return desc;
 	}
 	
 	@Override
