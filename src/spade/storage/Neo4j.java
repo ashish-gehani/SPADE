@@ -93,6 +93,7 @@ public class Neo4j extends AbstractStorage{
 		keyEdgeRelationshipType = "edgeRelationshipType",
 		keyFlushBufferSize = "flushBufferSize", 
 		keyFlushAfterSeconds = "flushAfterSeconds",
+		keyBufferLimit = "bufferLimit",
 		keyNeo4jConfigFilePath = "neo4jConfigFilePath",
 		keyVertexBloomFilterFalsePositiveProbability = "vertex.bloomfilter.false_positive_probability",
 		keyVertexBloomFilterExpectedElements = "vertex.bloomfilter.expected_elements",
@@ -137,6 +138,7 @@ public class Neo4j extends AbstractStorage{
 	private String edgeRelationshipTypeName;
 	private int flushBufferSize;
 	private int flushAfterSeconds;
+	private int bufferLimit;
 	private File neo4jConfigFilePath;
 	private double vertexBloomFilterFalsePositiveProbability;
 	private int vertexBloomFilterExpectedElements;
@@ -339,9 +341,10 @@ public class Neo4j extends AbstractStorage{
 		return null;
 	}
 
-	private final void appendPendingTask(Neo4jDbTask<?> task){
+	private final void appendPendingTask(final Neo4jDbTask<?> task){
 		if(task != null){
 			if(mainThreadRunning){
+				enforceBufferLimit();
 				synchronized(neo4jDbTasksPending){
 					stats.pendingTasksIncoming.increment();
 					neo4jDbTasksPending.addLast(task);
@@ -350,13 +353,34 @@ public class Neo4j extends AbstractStorage{
 		}
 	}
 
-	private final void prependPendingTask(Neo4jDbTask<?> task){
+	private final void prependPendingTask(final Neo4jDbTask<?> task){
 		if(task != null){
 			if(mainThreadRunning){
+				// Don't enforce limit here because of high priority
 				synchronized(neo4jDbTasksPending){
 					stats.pendingTasksIncoming.increment();
 					neo4jDbTasksPending.addFirst(task);
 				}
+			}
+		}
+	}
+	
+	private final void enforceBufferLimit(){
+		if(bufferLimit > -1){
+			long waitStartMillis = 0;
+			boolean needToWait = getPendingTasksSize() > bufferLimit;
+			if(needToWait){
+				debug("Buffer limit reached: " + bufferLimit + ". Current buffer size: " + getPendingTasksSize());
+				waitStartMillis = System.currentTimeMillis();
+			}
+			while(getPendingTasksSize() > bufferLimit){
+				if(shutdown || !mainThreadRunning){
+					break;
+				}
+				HelperFunctions.sleepSafe(sleepWaitMillis);
+			}
+			if(needToWait){
+				debug("Buffer limit below in: " + (System.currentTimeMillis() - waitStartMillis) + " millis.");
 			}
 		}
 	}
@@ -552,6 +576,9 @@ public class Neo4j extends AbstractStorage{
 			}
 			logger.log(Level.INFO, "Pending tasks going to be discarded: '" + getPendingTasksSize() + "'. Continuing with shutdown ...");
 
+			synchronized(neo4jDbTasksPending){
+				neo4jDbTasksPending.clear();
+			}
 			if(this.dbManagementService != null){
 				try{
 					this.dbManagementService.shutdown();
@@ -1395,6 +1422,7 @@ public class Neo4j extends AbstractStorage{
 				+ ", " + keyEdgeRelationshipType + "=" + edgeRelationshipTypeName
 				+ ", " + keyFlushBufferSize + "=" + flushBufferSize
 				+ ", " + keyFlushAfterSeconds + "=" + flushAfterSeconds
+				+ ", " + keyBufferLimit + "=" + bufferLimit + "(buffering:" + ((bufferLimit < 0) ? ("disabled") : ("enabled") )+ ")"
 				+ ", " + keyNeo4jConfigFilePath + "=" + neo4jConfigFilePath.getAbsolutePath()
 				+ ", " + keyVertexBloomFilterFalsePositiveProbability + "=" + String.format("%f", vertexBloomFilterFalsePositiveProbability)
 				+ ", " + keyVertexBloomFilterExpectedElements + "=" + vertexBloomFilterExpectedElements
@@ -1546,6 +1574,16 @@ public class Neo4j extends AbstractStorage{
 			return false;
 		}
 		this.flushAfterSeconds = flushAfterSecondsResult.result.intValue();
+
+		final String bufferLimitString = map.remove(keyBufferLimit);
+		final Result<Long> bufferLimitResult = HelperFunctions.parseLong(bufferLimitString, 10, Integer.MIN_VALUE,
+				Integer.MAX_VALUE);
+		if(bufferLimitResult.error){
+			logger.log(Level.SEVERE,
+					"Invalid value for '" + keyBufferLimit + "': " + bufferLimitResult.toErrorString());
+			return false;
+		}
+		this.bufferLimit = bufferLimitResult.result.intValue();
 
 		final String dbNameString = map.remove(keyDbName);
 		if(HelperFunctions.isNullOrEmpty(dbNameString)){
