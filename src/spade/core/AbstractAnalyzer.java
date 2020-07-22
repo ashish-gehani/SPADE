@@ -17,6 +17,7 @@
 package spade.core;
 
 import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
 import java.io.File;
 import java.io.ObjectOutputStream;
 import java.util.Map;
@@ -186,6 +187,8 @@ public abstract class AbstractAnalyzer{
 				SPADEQuery spadeQuery = null;
 				try{
 					spadeQuery = readLineFromClient(); // overwrite existing
+				}catch(EOFException eofe){
+					break;
 				}catch(Exception e){
 					if(this.isShutdown()){
 						// here because of shutdown. No error.

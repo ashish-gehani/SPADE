@@ -473,11 +473,11 @@ public class QuickGrailExecutor{
 			AbstractVertex parent = verticesMap.get(queriedEdge.parentHash);
 			if(child == null){
 				child = new Vertex(queriedEdge.childHash);
-				verticesMap.put(queriedEdge.childHash, child);
+				//verticesMap.put(queriedEdge.childHash, child);
 			}
 			if(parent == null){
 				parent = new Vertex(queriedEdge.parentHash);
-				verticesMap.put(queriedEdge.parentHash, parent);
+				//verticesMap.put(queriedEdge.parentHash, parent);
 			}
 			AbstractEdge edge = new Edge(queriedEdge.edgeHash, child, parent);
 			edge.addAnnotations(queriedEdge.getCopyOfAnnotations());

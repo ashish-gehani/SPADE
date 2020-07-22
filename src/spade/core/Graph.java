@@ -406,17 +406,22 @@ public class Graph implements Serializable{
 				annotationString.append(key.replace("\\", "\\\\")).append(":").append(value.replace("\\", "\\\\"))
 						.append("\\n");
 			}
-			String vertexString = annotationString.substring(0, annotationString.length() - 2);
+			String vertexString = null;
+			if(annotationString.length() > 0){
+				vertexString = annotationString.substring(0, annotationString.length() - 2);
+			}else{
+				vertexString = annotationString.toString();
+			}
 			String shape = "box";
 			String color = "white";
 			String type = vertex.getAnnotation("type");
-			if(type.equalsIgnoreCase("Agent")){
+			if("Agent".equalsIgnoreCase(type)){
 				shape = "octagon";
 				color = "rosybrown1";
-			}else if(type.equalsIgnoreCase("Process") || type.equalsIgnoreCase("Activity")){
+			}else if("Process".equalsIgnoreCase(type) || "Activity".equalsIgnoreCase(type)){
 				shape = "box";
 				color = "lightsteelblue1";
-			}else if(type.equalsIgnoreCase("Artifact") || type.equalsIgnoreCase("Entity")){
+			}else if("Artifact".equalsIgnoreCase(type) || "Entity".equalsIgnoreCase(type)){
 				shape = "ellipse";
 				color = "khaki1";
 				String subtype = vertex.getAnnotation("subtype");
@@ -447,15 +452,15 @@ public class Graph implements Serializable{
 			}
 			String color = "black";
 			String type = edge.getAnnotation("type");
-			if(type.equalsIgnoreCase("Used")){
+			if("Used".equalsIgnoreCase(type)){
 				color = "green";
-			}else if(type.equalsIgnoreCase("WasGeneratedBy")){
+			}else if("WasGeneratedBy".equalsIgnoreCase(type)){
 				color = "red";
-			}else if(type.equalsIgnoreCase("WasTriggeredBy")){
+			}else if("WasTriggeredBy".equalsIgnoreCase(type)){
 				color = "blue";
-			}else if(type.equalsIgnoreCase("WasControlledBy")){
+			}else if("WasControlledBy".equalsIgnoreCase(type)){
 				color = "purple";
-			}else if(type.equalsIgnoreCase("WasDerivedFrom")){
+			}else if("WasDerivedFrom".equalsIgnoreCase(type)){
 				color = "orange";
 			}
 			String style = "solid";
@@ -784,3 +789,4 @@ public class Graph implements Serializable{
 	}
 
 }
+
