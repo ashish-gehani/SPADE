@@ -431,7 +431,7 @@ public class QuickGrailExecutor{
 			ResultTable.Row row = new ResultTable.Row();
 			row.add(envVar.name);
 			if(envVar.getValue() == null){
-				row.add("UNSET");
+				row.add(AbstractQueryEnvironment.environmentVariableValueUNSET);
 			}else{
 				row.add(String.valueOf(envVar.getValue()));
 			}
