@@ -4,37 +4,37 @@
 ```
 # Define a constraint to match all vertices with IPs that start with '128.55.12'
 %start_ip_constraint = * like '128.55.12.%'
-# Find the nodes that we are interested in by using the constraint defined above
+# Find vertices of interest using the constraint defined above
 $start_ip = $base.getVertex(%start_ip_constraint);
-# Find the nodes that we are interested in by using the constraint directly
+# Find vertices of interest using the constraint directly
 $elevate_me = $base.getVertex(* like '%elevateme%');
 
-# Find the paths from $elevate_me to $start_ip of length at max 4
+# Find paths from $elevate_me to $start_ip of length at most 4
 $paths = $base.getPath($elevate_me, $start_ip, 4);
 
-# Output the subgraph to the client terminal
+# Print subgraph in query client
 dump $paths;
-# Output the subgraph to a file
+# Output subgraph to file
 export > /tmp/paths.dot
 visualize force $paths
 ```
 
 ## Lexical Structure
 * Integer Literals
-  * E.g. `1234`
+  * e.g. `1234`
 * String Literals
-  * E.g. `'abc'`, `'%127.0.0.1%'`
+  * e.g. `'abc'`, `'%127.0.0.1%'`
 * Name
-  * E.g. `dump`, `type`, `*` (_yes "star" is a name_..), `"a name with space and double quotes"`
+  * e.g. `dump`, `type`, `*` (_yes "star" is a name_..), `"a name with space and double quotes"`
 * Operators
-  * E.g. `=`, `+`, `+=`, `-`, `-=`, `&`, `&=`
+  * e.g. `=`, `+`, `+=`, `-`, `-=`, `&`, `&=`
 * Graph Variables
   * Variable name format: `$[a-zA-Z0-9_]+`
-  * E.g. `$ip`, `$1`
-    * `$base` is a special immutable variable that represents the overall graph.
+    * e.g. `$ip`, `$1`
+    * `$base` is a special immutable variable that represents the whole graph
 * Constraint Variables
   * Variable name format: `%[a-zA-Z0-9_]+`
-  * E.g. `%ip`, `%1`
+    * e.g. `%ip`, `%1`
 
 ## Expressions
 * Graph Expressions
@@ -48,28 +48,28 @@ visualize force $paths
   * _constraint_ ::= _constraint-expression_ [ `and` | `or` _constraint-expression_ ]
 
 ## Commands
-* List all existing graphs, all existing constraints and all supported environment variables.
-  * `list`
-  * `list graph` will only list graphs
-  * `list constraint` will only list constraints
-  * `list env` will only list environment variables
-* Set, unset, and print environment variables.
+* List existing graphs, constraints, and environment variables
+  * `list` to see all
+  * `list graph` for variables bound to graphs
+  * `list constraint` for constraints that have been defined
+  * `list env` for current enviroment variables
+* Set, unset, and print environment variables
   * `env set` _variable_name_ _integer_
   * `env unset` _variable_name_
   * `env print` _variable_name_
-* Output graph statistics.
+* Print graph statistics.
   * `stat` _graph_
-* Output graph as a SPADE `Graph`.
+* Print graph as a SPADE `Graph`
   * `dump` _graph_
-* Output constraint.
+* Print constraint
   * `dump` _constraint_
-* Output graph in DOT format.
+* Print graph in DOT format
   * `visualize` [`force`] _graph_
-* Remove a list of variables (_graph_ or _constraint_).
+* Remove a list of variables (_graph_ or _constraint_)
   * `erase` (_graph_)+
-* Remove all variables.
+* Remove all variables
   * `reset workspace`
-* Execute query directly on the underlying storage.
+* Execute query directly in the underlying storage's language
   * `native` '_query_in_single_quotes_'
 
 ## Methods
@@ -81,58 +81,58 @@ _return-type_ **method-name** ( **_argument-type_** formal-argument, ... )
 
 #### Graph Methods
 * _graph_ **getVertex** ( )
-  * Get all the vertices.
-  * E.g. `$2 = $1.getVertex()`
+  * Get all the vertices
+    * e.g. `$2 = $1.getVertex()`
 * _graph_ **getVertex** ( **_constraint_** constraint )
-  * Get all the vertices that match a constraint.
-  * E.g. `$2 = $1.getVertex(* LIKE '%firefox%')`
+  * Get all vertices that match a constraint
+    * e.g. `$2 = $1.getVertex(* LIKE '%firefox%')`
 * _graph_ **getMatch** ( **_graph_** otherGraph, **_string_** annotation, ... )
-  * Get vertices in subject graph and the `otherGraph` that have the annotations specified and those annotations have the same values.
-  * E.g. `$3 = $1.getMatch($2, 'pid', 'ppid')` returns all vertices in `$1` and `$2` where the vertices had the same value for annotations `pid`, and `ppid`.
+  * Get vertices in operand and `otherGraph` that have all `annotation` keys specified and the values of those keys match
+    * e.g. `$3 = $1.getMatch($2, 'pid', 'ppid')` returns all vertices in `$1` or `$2` if a vertex in the other graph had the same values for annotation keys `pid` and `ppid`
 * _graph_ **getEdge** ( )
-  * Get all the edges.
-  * E.g. `$2 = $1.getEdge()`
+  * Get all the edges
+    * e.g. `$2 = $1.getEdge()`
 * _graph_ **getEdge** ( **_constraint_** constraint )
-  * Get all the edges that match a constraint.
-  * E.g. `$2 = $1.getEdge(operation = 'write')`
+  * Get all the edges that match a constraint
+    * e.g. `$2 = $1.getEdge(operation = 'write')`
 * _graph_ **collapseEdge** ( **_string_** annotation, ... )
-  * Collapse edges with regard to the annotations.
-  * E.g. `$2 = $1.collapseEdge('type', 'operation')`
+  * Collapse edges with regard to the annotations
+    * e.g. `$2 = $1.collapseEdge('type', 'operation')`
 * _graph_ **getEdgeEndpoints** ( )
-  * Get all the vertices that are endpoints of edges.
-  * E.g. `$2 = $1.getEdgeEndpoints()`
+  * Get all the vertices that are endpoints of edges
+    * e.g. `$2 = $1.getEdgeEndpoints()`
 * _graph_ **getEdgeSource** ( )
-  * Get all the vertices that are source endpoints of edges.
-  * E.g. `$2 = $1.getEdgeSource()`
+  * Get all the vertices that are source endpoints of edges
+    * e.g. `$2 = $1.getEdgeSource()`
 * _graph_ **getEdgeDestination** ( )
-  * Get all the vertices that are destination endpoints of edges.
-  * E.g. `$2 = $1.getEdgeDestination()`
+  * Get all the vertices that are destination endpoints of edges
+    * e.g. `$2 = $1.getEdgeDestination()`
 * _graph_ **getLineage** ( **_graph_** sourceVertices [ , **_int_** maxDepth ] , **_string_** direction )
-  * Get the lineage from some source vertices.
+  * Get lineage of a set of source vertices
   * _direction_ can be `'ancestor'`(or `'a'`) / `'descendant'` (or `'d'`) / `'both'` (or `'b'`).
-  * E.g. `$2 = $base.getLineage($1, 3, 'b')` or `$2 = $base.getLineage($1, 'b')` where `maxDepth` environment variable is used for `maxDepth` parameter.
+    * e.g. `$2 = $base.getLineage($1, 3, 'b')` or `$2 = $base.getLineage($1, 'b')` to implicitly use `maxDepth` environment variable
 * _graph_ **getPath** ( **_graph_** sourceVertices, ( **_graph_** destinationVertices [ , **_int_** maxDepth ] )+ )
-  * Get the path from some source vertices to some destination vertices with intermediate vertices.
-  * E.g. `$3 = $base.getPath($1, $2, 5)`
-  * E.g. `$4 = $base.getPath($1, $2, 9, $3)` where `maxDepth` environment variable is used for `maxDepth` parameter between `$2` and `$3`. Also, `maxDepth` of `9` is used for path between `$1` and `$2`.
+  * Get paths from a set of source vertices to a set of destination vertices, restricted to those that pass through specified intermediate vertices
+    * e.g. `$3 = $base.getPath($1, $2, 5)`
+    * e.g. `$4 = $base.getPath($1, $2, 9, $3)` with a maximum path length between `$1` and `$2` of 9, and maximum path length between `$2` and `$3` implicitly defined by `maxDepth` environment variable
 * _graph_ **getShortestPath** ( **_graph_** sourceVertices, **_graph_** destinationVertices[, **_int_** maxDepth] )
-  * Get the shortest path from some source vertices to some destination vertices.
-  * _NOTE: This method would not find the real shortest path at this moment -- but just find "a short path"._
-  * E.g. `$3 = $somePath.getShortestPath($1, $2, 5)` or `$3 = $somePath.getShortestPath($1, $2)` where `maxDepth` environment variable is used for `maxDepth` parameter.
+  * Get the shortest path from a set of source vertices to a set of destination vertices
+  * _NOTE_: Currently this finds a short path, but not the shortest path
+    * e.g. `$3 = $somePath.getShortestPath($1, $2, 5)` or `$3 = $somePath.getShortestPath($1, $2)` to implicitly use `maxDepth` environment variable
 * _graph_ **getSubgraph** ( **_graph_** skeletonGraph )
-  * Get all the vertices and edges that are spanned by the skeleton graph.
-  * E.g. `$2 = $base.getSubgraph($1)`
+  * Get all vertices and edges that are spanned by `skeletonGraph`
+    * e.g. `$2 = $base.getSubgraph($1)`
 * _graph_ **limit** ( [**_int_** limit] )
-  * Get the first (ordered by id) _limit_ vertices / edges.
-  * E.g. `$2 = $1.limit(10)` or `$2 = $1.limit()` where `limit` environment variable is used for `limit` parameter.
+  * Get first (ordered by id) _limit_ vertices / edges
+    * e.g. `$2 = $1.limit(10)` or `$2 = $1.limit()` to implicitly use `limit` environment variable
 ---
 #### Functions
 * _graph_ **vertices** ( **_string_** vertexHash, ... )
-  * Get all vertices specified by the vertex hashes.
-  * E.g. `$1 = vertices('815fd285f16cce9ab398b5b2ce5d2d03', '087b22992d4d871dc8c9ccd837132c6a')`
+  * Get all vertices specified by their hashes
+    * e.g. `$1 = vertices('815fd285f16cce9ab398b5b2ce5d2d03', '087b22992d4d871dc8c9ccd837132c6a')`
 * _graph_ **edges** ( **_string_** edgeHash, ... )
-  * Get all edges specified by the edge hashes.
-  * E.g. `$1 = edges('b161b03a4365faf44d8cdd3713f811e9', 'b161b03a4365faf44d8cdd3713f811e0')`
+  * Get all edges specified by their hashes
+    * e.g. `$1 = edges('b161b03a4365faf44d8cdd3713f811e9', 'b161b03a4365faf44d8cdd3713f811e0')`
 
 ## Operators
 * Graph Union `+`, `+=`
