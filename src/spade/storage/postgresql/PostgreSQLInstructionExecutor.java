@@ -52,6 +52,7 @@ import spade.query.quickgrail.instruction.GetShortestPath;
 import spade.query.quickgrail.instruction.GetSimplePath;
 import spade.query.quickgrail.instruction.GetSubgraph;
 import spade.query.quickgrail.instruction.GetVertex;
+import spade.query.quickgrail.instruction.GetWhereAnnotationsExist;
 import spade.query.quickgrail.instruction.InsertLiteralEdge;
 import spade.query.quickgrail.instruction.InsertLiteralVertex;
 import spade.query.quickgrail.instruction.IntersectGraph;
@@ -310,6 +311,39 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		value = value.replace("'", "''");
 		query += " '" + value + "'";
 		return query;
+	}
+	
+	@Override
+	public void getWhereAnnotationsExist(final GetWhereAnnotationsExist instruction){
+		final Graph targetGraph = instruction.targetGraph;
+		final Graph subjectGraph = instruction.subjectGraph;
+		final ArrayList<String> annotationKeys = instruction.getAnnotationKeys();
+		
+		final Set<String> existingColumnNames = getColumnNamesOfVertexAnnotationTable();
+		final Set<String> requestedColumnNames = new HashSet<String>(annotationKeys);
+		requestedColumnNames.removeAll(existingColumnNames);
+		if(requestedColumnNames.size() > 0){
+			// User specified column names which do not exist for vertices
+			return;
+		}
+		
+		String query = "";
+		query += "insert into " + getVertexTableName(targetGraph) + " "
+				+ "select v.\""+getIdColumnName()+"\" from " + getVertexAnnotationTableName() + " v "
+				+ "where v.\""+getIdColumnName()+"\" in (select \""+getIdColumnName()+"\" from "
+				+getVertexTableName(subjectGraph)+") and ";
+		
+		for(int i = 0; i < annotationKeys.size(); i++){
+			final String annotationKey = annotationKeys.get(i);
+			query += "v.\""+annotationKey+"\" is not null";
+			if(i == annotationKeys.size() - 1){ // is last
+				// don't append the 'and'
+			}else{
+				query += " and ";
+			}
+		}
+		query += ";";
+		executeQueryForResult(query, false);
 	}
 	
 	@Override

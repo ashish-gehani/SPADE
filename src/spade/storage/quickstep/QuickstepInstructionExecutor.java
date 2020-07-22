@@ -52,6 +52,7 @@ import spade.query.quickgrail.instruction.GetShortestPath;
 import spade.query.quickgrail.instruction.GetSimplePath;
 import spade.query.quickgrail.instruction.GetSubgraph;
 import spade.query.quickgrail.instruction.GetVertex;
+import spade.query.quickgrail.instruction.GetWhereAnnotationsExist;
 import spade.query.quickgrail.instruction.InsertLiteralEdge;
 import spade.query.quickgrail.instruction.InsertLiteralVertex;
 import spade.query.quickgrail.instruction.IntersectGraph;
@@ -224,6 +225,33 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		qs.executeQuery("INSERT INTO " + targetEdgeTable + " SELECT id FROM " + sourceEdgeTable + " GROUP BY id;");
 	}
 
+	@Override
+	public void getWhereAnnotationsExist(final GetWhereAnnotationsExist instruction){
+		final Graph targetGraph = instruction.targetGraph;
+		final Graph subjectGraph = instruction.subjectGraph;
+		
+		final ArrayList<String> annotationKeys = instruction.getAnnotationKeys();
+		
+		qs.executeQuery("\\analyzerange " + getVertexTableName(subjectGraph) + "\n ");
+		
+		String query = "";
+		query += "insert into " + getVertexTableName(targetGraph) + " "
+				+ "select v.id from " + vertexAnnotationsTableName + " v "
+				+ "where v.id in (select id from "+getVertexTableName(subjectGraph)+") and ";
+		
+		for(int i = 0; i < annotationKeys.size(); i++){
+			final String annotationKey = annotationKeys.get(i);
+			query += "v.field = '" + annotationKey + "'";
+			if(i == annotationKeys.size() - 1){ // is last
+				// don't append the 'and'
+			}else{
+				query += " and ";
+			}
+		}
+		query += ";";
+		qs.executeQuery(query);
+	}
+	
 	@Override
 	public void getMatch(final GetMatch instruction){
 		final Graph g1 = instruction.graph1;

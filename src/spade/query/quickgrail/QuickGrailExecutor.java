@@ -75,6 +75,7 @@ import spade.query.quickgrail.instruction.GetShortestPath;
 import spade.query.quickgrail.instruction.GetSimplePath;
 import spade.query.quickgrail.instruction.GetSubgraph;
 import spade.query.quickgrail.instruction.GetVertex;
+import spade.query.quickgrail.instruction.GetWhereAnnotationsExist;
 import spade.query.quickgrail.instruction.InsertLiteralEdge;
 import spade.query.quickgrail.instruction.InsertLiteralVertex;
 import spade.query.quickgrail.instruction.Instruction;
@@ -373,7 +374,7 @@ public class QuickGrailExecutor{
 				result = optionalResult;
 			}
 		}else if(instruction.getClass().equals(GetMatch.class)){
-			instructionExecutor.getMatch((GetMatch)instruction);
+			getMatch((GetMatch)instruction);
 			
 		}else{
 			throw new RuntimeException("Unhandled instruction: " + instruction.getClass());
@@ -381,6 +382,14 @@ public class QuickGrailExecutor{
 
 		queryInstruction.instructionSucceeded(result);
 		return query;
+	}
+
+	private final void getMatch(GetMatch instruction){
+		final Graph g1 = createNewGraph();
+		instructionExecutor.getWhereAnnotationsExist(new GetWhereAnnotationsExist(g1, instruction.graph1, instruction.getAnnotationKeys()));
+		final Graph g2 = createNewGraph();
+		instructionExecutor.getWhereAnnotationsExist(new GetWhereAnnotationsExist(g2, instruction.graph2 , instruction.getAnnotationKeys()));
+		instructionExecutor.getMatch(new GetMatch(instruction.targetGraph, g1, g2, instruction.getAnnotationKeys()));
 	}
 	
 	private final Serializable environmentVariableOperation(final EnvironmentVariableOperation instruction){

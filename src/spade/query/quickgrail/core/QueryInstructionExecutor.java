@@ -45,6 +45,7 @@ import spade.query.quickgrail.instruction.GetShortestPath;
 import spade.query.quickgrail.instruction.GetSimplePath;
 import spade.query.quickgrail.instruction.GetSubgraph;
 import spade.query.quickgrail.instruction.GetVertex;
+import spade.query.quickgrail.instruction.GetWhereAnnotationsExist;
 import spade.query.quickgrail.instruction.InsertLiteralEdge;
 import spade.query.quickgrail.instruction.InsertLiteralVertex;
 import spade.query.quickgrail.instruction.IntersectGraph;
@@ -117,6 +118,7 @@ public abstract class QueryInstructionExecutor{
 		return instruction.predicateRoot;
 	} 
 	
+	public abstract void getWhereAnnotationsExist(GetWhereAnnotationsExist instruction);
 	public abstract GraphDescription describeGraph(DescribeGraph instruction);
 	public abstract GraphStats statGraph(StatGraph instruction);
 	public abstract void subtractGraph(SubtractGraph instruction);

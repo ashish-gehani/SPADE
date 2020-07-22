@@ -49,6 +49,7 @@ import spade.query.quickgrail.instruction.GetShortestPath;
 import spade.query.quickgrail.instruction.GetSimplePath;
 import spade.query.quickgrail.instruction.GetSubgraph;
 import spade.query.quickgrail.instruction.GetVertex;
+import spade.query.quickgrail.instruction.GetWhereAnnotationsExist;
 import spade.query.quickgrail.instruction.InsertLiteralEdge;
 import spade.query.quickgrail.instruction.InsertLiteralVertex;
 import spade.query.quickgrail.instruction.IntersectGraph;
@@ -140,6 +141,25 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	@Override
 	public void distinctifyGraph(DistinctifyGraph instruction){
 		unionGraph(new UnionGraph(instruction.targetGraph, instruction.sourceGraph));
+	}
+	
+	@Override
+	public void getWhereAnnotationsExist(final GetWhereAnnotationsExist instruction){
+		String query = "";
+		query += "match (v:"+instruction.subjectGraph.name+") where ";
+		final ArrayList<String> annotationKeys = instruction.getAnnotationKeys();
+		
+		for(int i = 0; i < annotationKeys.size(); i++){
+			final String annotationKey = annotationKeys.get(i);
+			query += "exists(a.`" + annotationKey + "`)";
+			if(i == annotationKeys.size() - 1){ // is last
+				// don't append the 'and'
+			}else{
+				query += " and ";
+			}
+		}
+		query += " set v:" + instruction.targetGraph.name + ";";
+ 		storage.executeQuery(query);
 	}
 	
 	@Override
