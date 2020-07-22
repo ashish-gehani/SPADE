@@ -415,7 +415,7 @@ public class QuickGrailExecutor{
 				}
 				Object value = envVar.getValue();
 				if(value == null){
-					return "UNSET"; // empty
+					return AbstractQueryEnvironment.environmentVariableValueUNSET; // empty
 				}else{
 					return String.valueOf(value);
 				}

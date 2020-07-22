@@ -48,6 +48,7 @@ import jline.ConsoleReader;
 import spade.core.Kernel;
 import spade.core.SPADEQuery;
 import spade.core.Settings;
+import spade.query.quickgrail.core.AbstractQueryEnvironment;
 import spade.utility.FileUtility;
 import spade.utility.HostInfo;
 import spade.utility.Result;
@@ -291,10 +292,10 @@ public class CommandLine{
 					
 					if(storageName != null && !storageName.trim().equalsIgnoreCase("No current storage set")){
 						lines.add("set storage " + storageName);
-						if(!(maxDepthValue == null || maxDepthValue.equalsIgnoreCase("unset"))){
+						if(!(maxDepthValue == null || maxDepthValue.equalsIgnoreCase(AbstractQueryEnvironment.environmentVariableValueUNSET))){
 							lines.add("env set maxdepth " + maxDepthValue);
 						}
-						if(!(limitValue == null || limitValue.equalsIgnoreCase("unset"))){
+						if(!(limitValue == null || limitValue.equalsIgnoreCase(AbstractQueryEnvironment.environmentVariableValueUNSET))){
 							lines.add("env set limit " + limitValue);
 						}
 					}
