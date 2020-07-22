@@ -151,7 +151,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		
 		for(int i = 0; i < annotationKeys.size(); i++){
 			final String annotationKey = annotationKeys.get(i);
-			query += "exists(a.`" + annotationKey + "`)";
+			query += "exists(v.`" + annotationKey + "`)";
 			if(i == annotationKeys.size() - 1){ // is last
 				// don't append the 'and'
 			}else{
@@ -161,14 +161,19 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		query += " set v:" + instruction.targetGraph.name + ";";
  		storage.executeQuery(query);
 	}
-	
+
 	@Override
 	public void getMatch(final GetMatch instruction){
+		final Graph g1 = createNewGraph();
+                getWhereAnnotationsExist(new GetWhereAnnotationsExist(g1, instruction.graph1, instruction.getAnnotationKeys()));
+                final Graph g2 = createNewGraph();
+                getWhereAnnotationsExist(new GetWhereAnnotationsExist(g2, instruction.graph2 , instruction.getAnnotationKeys()));
+
 		String query = "";
-		query += "match (a:" + instruction.graph1.name + "), (b:" + instruction.graph2.name + ") where ";
-		
+		query += "match (a:" + g1.name + "), (b:" + g2.name + ") where ";
+
 		ArrayList<String> annotationKeys = instruction.getAnnotationKeys();
-		
+
 		for(int i = 0; i < annotationKeys.size(); i++){
 			final String annotationKey = annotationKeys.get(i);
 			query += "(";

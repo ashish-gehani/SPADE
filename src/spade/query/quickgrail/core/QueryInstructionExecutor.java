@@ -142,5 +142,11 @@ public abstract class QueryInstructionExecutor{
 	public abstract void getPath(GetSimplePath instruction);
 	// composite operations
 	//////////////////////////////////////////////////////////////
-	
+
+	public final Graph createNewGraph(){
+		Graph newGraph = getQueryEnvironment().allocateGraph();
+		createEmptyGraph(new CreateEmptyGraph(newGraph));
+		return newGraph;
+	}
+
 }

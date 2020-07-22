@@ -345,13 +345,16 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		query += ";";
 		executeQueryForResult(query, false);
 	}
-	
+
 	@Override
 	public void getMatch(final GetMatch instruction){
-		final Graph g1 = instruction.graph1;
-		final Graph g2 = instruction.graph2;
+		final Graph g1 = createNewGraph();
+                getWhereAnnotationsExist(new GetWhereAnnotationsExist(g1, instruction.graph1, instruction.getAnnotationKeys()));
+                final Graph g2 = createNewGraph();
+                getWhereAnnotationsExist(new GetWhereAnnotationsExist(g2, instruction.graph2 , instruction.getAnnotationKeys()));
+
 		final ArrayList<String> annotationKeys = instruction.getAnnotationKeys();
-		
+
 		final Set<String> existingColumnNames = getColumnNamesOfVertexAnnotationTable();
 		final Set<String> requestedColumnNames = new HashSet<String>(annotationKeys);
 		requestedColumnNames.removeAll(existingColumnNames);
@@ -359,7 +362,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 			// User specified column names which do not exist for vertices
 			return;
 		}
-		
+
 		final String vertexAnnotationsTableName = getVertexAnnotationTableName();
 
 		executeQueryForResult("drop table if exists m_answer_x", false);

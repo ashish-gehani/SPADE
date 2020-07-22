@@ -304,7 +304,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 			tablesToDrop.add(middleResultTableName);
 		}
 		
-		if(middleResultTableNames.size() > 0){
+		if(middleResultTableNames.size() > 0 && middleResultTableNames.size() == annotationKeys.size()){
 			long count = qs.executeQueryForLongResult("copy select count(*) from " + middleResultTableNames.get(0) + " to stdout;");
 			
 			if(count > 0){
