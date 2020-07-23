@@ -21,6 +21,7 @@ package spade.query.quickgrail.core;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import spade.query.quickgrail.entities.Entity;
 import spade.query.quickgrail.entities.EntityType;
@@ -29,6 +30,8 @@ import spade.query.quickgrail.entities.GraphPredicate;
 import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.DescribeGraph;
+import spade.query.quickgrail.instruction.DescribeGraph.DescriptionType;
+import spade.query.quickgrail.instruction.DescribeGraph.ElementType;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
 import spade.query.quickgrail.instruction.EnvironmentVariableOperation;
 import spade.query.quickgrail.instruction.EraseSymbols;
@@ -73,6 +76,7 @@ import spade.query.quickgrail.types.TypedValue;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
 import spade.utility.HelperFunctions;
+import spade.utility.Result;
 
 /**
  * Resolver that transforms a parse tree into a QuickGrail low-level program.
@@ -378,13 +382,68 @@ public class QuickGrailQueryResolver{
 		instructions.add(new StatGraph(distinctifiedGraph));
 	}
 	
-	private void resolveDescribeCommand(ArrayList<ParseExpression> arguments){
-		if(arguments.size() != 1){
-			throw new RuntimeException("Invalid number of arguments for describe: expected 1");
+	private final Integer getOptionalPositiveIntegerArgument(final ArrayList<ParseExpression> arguments, final int i){
+		if(i >= arguments.size()){
+			return null;
+		}else{
+			if(i < 0){
+				throw new RuntimeException("Negative index for argument");
+			}
+			final Integer value = resolveInteger(arguments.get(i));
+			if(value < 1){
+				throw new RuntimeException("Only positive value for limit allowed");
+			}
+			return value;
 		}
+	}
+	
+	private void resolveDescribeCommand(final ArrayList<ParseExpression> arguments){
+		if(arguments.size() < 2){
+			throw new RuntimeException("Invalid number of arguments for describe: expected at least 2");
+		}
+		
+		final Graph targetGraph = resolveGraphExpression(arguments.get(0), null, true);
+		
+		final ParseExpression elementTypeExpression = arguments.get(1);
+		if(elementTypeExpression.getExpressionType() != ParseExpression.ExpressionType.kName){
+			throw new RuntimeException("Invalid value at " + elementTypeExpression.getLocationString() + ": expected name");
+		}
+		final String elementTypeValue = ((ParseName)elementTypeExpression).getName().getValue();
+		
+		final Result<ElementType> elementTypeResult = HelperFunctions.parseEnumValue(ElementType.class, elementTypeValue, true);
+		if(elementTypeResult.error){
+			throw new RuntimeException("Invalid value at " + elementTypeExpression.getLocationString() + ". Expected one of: " 
+					+ Arrays.asList(ElementType.values()));
+		}
+		
+		if(arguments.size() > 3){
+			if(arguments.size() > 5){
+				throw new RuntimeException("Invalid number of arguments for describe: expected at max 4");
+			}
 
-		Graph targetGraph = resolveGraphExpression(arguments.get(0), null, true);
-		instructions.add(new DescribeGraph(targetGraph));
+			final ParseExpression annotationNameExpression = arguments.get(2);
+			if(annotationNameExpression.getExpressionType() != ParseExpression.ExpressionType.kName){
+				throw new RuntimeException("Invalid value at " + annotationNameExpression.getLocationString() + ": expected name");
+			}
+			final String annotationNameValue = ((ParseName)annotationNameExpression).getName().getValue();
+			
+			final ParseExpression descriptionTypeExpression = arguments.get(3);
+			if(descriptionTypeExpression.getExpressionType() != ParseExpression.ExpressionType.kName){
+				throw new RuntimeException("Invalid value at " + descriptionTypeExpression.getLocationString() + ": expected name");
+			}
+			final String descriptionTypeValue = ((ParseName)descriptionTypeExpression).getName().getValue();
+			
+			final Result<DescriptionType> descriptionTypeResult = HelperFunctions.parseEnumValue(DescriptionType.class, descriptionTypeValue, true);
+			if(descriptionTypeResult.error){
+				throw new RuntimeException("Invalid value at " + descriptionTypeExpression.getLocationString() + ". Expected one of: " 
+						+ Arrays.asList(DescriptionType.values()));
+			}
+			
+			instructions.add(new DescribeGraph(targetGraph, elementTypeResult.result, annotationNameValue, descriptionTypeResult.result,
+					getOptionalPositiveIntegerArgument(arguments, 4)));
+		}else{
+			instructions.add(new DescribeGraph(targetGraph, elementTypeResult.result, getOptionalPositiveIntegerArgument(arguments, 2)));
+		}
 	}
 
 	private void resolveListCommand(ArrayList<ParseExpression> arguments){

@@ -394,6 +394,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	public GraphDescription describeGraph(DescribeGraph instruction){
 		final Graph graph = instruction.graph;
 		
+		/*
 		String vertexQuery = "copy select field from " + vertexAnnotationsTableName;
 		String edgeQuery = "copy select field from " + edgeAnnotationTableName;
 		
@@ -417,6 +418,9 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		desc.addVertexAnnotations(vertexAnnotationsSet);
 		desc.addEdgeAnnotations(edgeAnnotationsSet);
 		return desc;
+		*/
+		
+		throw new RuntimeException("Unsupported for Quickstep");
 	}
 
 	@Override

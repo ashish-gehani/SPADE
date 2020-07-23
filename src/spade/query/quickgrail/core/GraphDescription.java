@@ -22,8 +22,12 @@ package spade.query.quickgrail.core;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
+import spade.query.quickgrail.instruction.DescribeGraph.DescriptionType;
+import spade.query.quickgrail.instruction.DescribeGraph.ElementType;
 import spade.query.quickgrail.types.StringType;
 import spade.query.quickgrail.utility.ResultTable;
 import spade.query.quickgrail.utility.Schema;
@@ -32,64 +36,134 @@ public class GraphDescription implements Serializable{
 
 	private static final long serialVersionUID = -8661388010852548803L;
 	
-	private final TreeSet<String> vertexAnnotations = new TreeSet<String>();
-	private final TreeSet<String> edgeAnnotations = new TreeSet<String>();
+	public final ElementType elementType;
+	public final String annotationName;
+	public final DescriptionType descriptionType;
 	
-	private final void addAnnotation(final TreeSet<String> annotationsSet, final String annotation){
-		if(annotationsSet != null && annotation != null){
-			annotationsSet.add(annotation);
+	public final boolean all;
+	
+	private final TreeSet<String> annotations = new TreeSet<String>();
+	
+	private final TreeMap<String, Long> valueToCount = new TreeMap<String, Long>();
+	
+	private String min = null, max = null;
+	
+	public GraphDescription(final ElementType elementType,
+			final String annotationName, final DescriptionType descriptionType){
+		this.elementType = elementType;
+		this.annotationName = annotationName;
+		this.descriptionType = descriptionType;
+		this.all = false;
+	}
+	
+	public GraphDescription(final ElementType elementType){
+		this.elementType = elementType;
+		this.annotationName = null;
+		this.descriptionType = null;
+		this.all = true;
+	}
+	
+	public final void addAnnotation(final String annotation){
+		if(annotation != null){
+			this.annotations.add(annotation);
 		}
 	}
 	
-	public final void addVertexAnnotation(final String annotation){
-		addAnnotation(this.vertexAnnotations, annotation);
-	}
-	
-	public final void addVertexAnnotations(final Collection<String> vertexAnnotations){
-		if(vertexAnnotations != null){
-			for(final String vertexAnnotation : vertexAnnotations){
-				addVertexAnnotation(vertexAnnotation);
+	public final void addAnnotations(final Collection<String> annotations){
+		if(annotations != null){
+			for(final String annotation : annotations){
+				addAnnotation(annotation);
 			}
 		}
 	}
 	
-	public final void addEdgeAnnotation(final String annotation){
-		addAnnotation(this.edgeAnnotations, annotation);
-	}
-	
-	public final void addEdgeAnnotations(final Collection<String> edgeAnnotations){
-		if(edgeAnnotations != null){
-			for(final String edgeAnnotation : edgeAnnotations){
-				addEdgeAnnotation(edgeAnnotation);
+	public final void incrementValueToCount(final String value){
+		if(value != null){
+			Long count = valueToCount.get(value);
+			if(count == null){
+				count = 0L;
 			}
+			count++;
+			valueToCount.put(value, count);
 		}
 	}
 	
-	public final TreeSet<String> getVertexAnnotations(){
-		return new TreeSet<String>(this.vertexAnnotations);
+	public final void putValueToCount(final String value, final Long count){
+		if(value != null){
+			valueToCount.put(value, count);
+		}
 	}
 	
-	public final TreeSet<String> getEdgeAnnotations(){
-		return new TreeSet<String>(this.edgeAnnotations);
+	public final void setMinMax(final String min, final String max){
+		this.min = min;
+		this.max = max;
 	}
 	
 	public String toString(){
-		final ResultTable table = new ResultTable();
-		final Iterator<String> vertexIterator = vertexAnnotations.iterator();
-		final Iterator<String> edgeIterator = edgeAnnotations.iterator();
-		while(vertexIterator.hasNext() || edgeIterator.hasNext()){
-			String vertexAnnotation = vertexIterator.hasNext() ? vertexIterator.next() : "";
-			String edgeAnnotation = edgeIterator.hasNext() ? edgeIterator.next() : "";
-			ResultTable.Row row = new ResultTable.Row();
-			row.add(vertexAnnotation);
-			row.add(edgeAnnotation);
-			table.addRow(row);
+		final String elementTypeName;
+		if(elementType == null){
+			throw new RuntimeException("NULL element type");
 		}
-		
-		Schema schema = new Schema();
-		schema.addColumn("Vertex Annotations", StringType.GetInstance());
-		schema.addColumn("Edge Annotations", StringType.GetInstance());
-		table.setSchema(schema);
-		return table.toString();
+		switch(elementType){
+			case VERTEX:
+			case EDGE:
+				elementTypeName = elementType.name(); break;
+			default: throw new RuntimeException("Unhandled element type: " + elementType);
+		}
+		if(all){
+			final ResultTable table = new ResultTable();
+			final Iterator<String> iterator = annotations.iterator();
+			while(iterator.hasNext()){
+				String annotation = iterator.next();
+				ResultTable.Row row = new ResultTable.Row();
+				row.add(annotation);
+				table.addRow(row);
+			}
+			Schema schema = new Schema();
+			schema.addColumn(elementTypeName + " annotations", StringType.GetInstance());
+			table.setSchema(schema);
+			return table.toString();
+		}else{
+			if(annotationName == null){
+				throw new RuntimeException("NULL annotation name");
+			}
+			switch(descriptionType){
+				case COUNT:{
+					final ResultTable table = new ResultTable();
+					for(final Map.Entry<String, Long> entry : valueToCount.entrySet()){
+						ResultTable.Row row = new ResultTable.Row();
+						row.add(entry.getKey());
+						row.add(entry.getValue());
+						table.addRow(row);
+					}
+					Schema schema = new Schema();
+					schema.addColumn(getFormattedHeading(elementTypeName, annotationName), StringType.GetInstance());
+					schema.addColumn("Count", StringType.GetInstance());
+					table.setSchema(schema);
+					return table.toString();
+				}
+				case MINMAX:{
+					final ResultTable table = new ResultTable();
+					
+					ResultTable.Row row = new ResultTable.Row();
+					row.add(annotationName);
+					row.add(min);
+					row.add(max);
+					table.addRow(row);
+					
+					Schema schema = new Schema();
+					schema.addColumn(elementTypeName + " annotation", StringType.GetInstance());
+					schema.addColumn("Min", StringType.GetInstance());
+					schema.addColumn("Max", StringType.GetInstance());
+					table.setSchema(schema);
+					return table.toString();
+				}
+				default: throw new RuntimeException("Unhandled description type: " + descriptionType);
+			}
+		}
+	}
+	
+	private final String getFormattedHeading(final String elementTypeName, final String annotationName){
+		return elementTypeName + "[" + annotationName + "]";
 	}
 }

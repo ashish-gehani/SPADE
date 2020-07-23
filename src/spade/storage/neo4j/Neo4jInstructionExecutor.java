@@ -20,12 +20,14 @@
 package spade.storage.neo4j;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
 import spade.core.AbstractStorage;
+import spade.query.quickgrail.core.AbstractQueryEnvironment;
 import spade.query.quickgrail.core.GraphDescription;
 import spade.query.quickgrail.core.GraphStats;
 import spade.query.quickgrail.core.QueriedEdge;
@@ -165,9 +167,9 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	@Override
 	public void getMatch(final GetMatch instruction){
 		final Graph g1 = createNewGraph();
-                getWhereAnnotationsExist(new GetWhereAnnotationsExist(g1, instruction.graph1, instruction.getAnnotationKeys()));
-                final Graph g2 = createNewGraph();
-                getWhereAnnotationsExist(new GetWhereAnnotationsExist(g2, instruction.graph2 , instruction.getAnnotationKeys()));
+		getWhereAnnotationsExist(new GetWhereAnnotationsExist(g1, instruction.graph1, instruction.getAnnotationKeys()));
+		final Graph g2 = createNewGraph();
+		getWhereAnnotationsExist(new GetWhereAnnotationsExist(g2, instruction.graph2 , instruction.getAnnotationKeys()));
 
 		String query = "";
 		query += "match (a:" + g1.name + "), (b:" + g2.name + ") where ";
@@ -514,38 +516,128 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	
 	@Override
 	public GraphDescription describeGraph(DescribeGraph instruction){
-		final String relationshipProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
-		final Graph graph = instruction.graph;
-		final String nodesQuery = "match (v:" + graph.name + ") with keys(v) as keys unwind keys as rowsofkeys return distinct rowsofkeys;";
-		String relationshipQuery = "match ()-[e]->()";
-		if(!neo4jQueryEnvironment.isBaseGraph(graph)){
-			relationshipQuery += " where " + relationshipProperty + " contains '," + graph.name + ",'";
+		if(instruction.graph == null){
+			throw new RuntimeException("NULL graph");
 		}
-		relationshipQuery += " with keys(e) as keys unwind keys as rowsofkeys return distinct rowsofkeys;";
-		final List<Map<String, Object>> vertexAnnotations = storage.executeQueryForSmallResult(nodesQuery);
-		final List<Map<String, Object>> edgeAnnotations = storage.executeQueryForSmallResult(relationshipQuery);
-		
-		GraphDescription desc = new GraphDescription();
-		for(Map<String, Object> map : vertexAnnotations){
-			final Object value = map.get("rowsofkeys");
-			if(value != null){
-				final String str = String.valueOf(value); 
-				if(!str.equals(hashKey)){
-					desc.addVertexAnnotation(str);
-				}
-			}
+		if(instruction.elementType == null){
+			throw new RuntimeException("NULL element type");
+		}
+		switch(instruction.elementType){
+			case VERTEX:
+			case EDGE:
+				break;
+			default: throw new RuntimeException("Unhandled element type: " + instruction.elementType);
 		}
 		
-		for(Map<String, Object> map : edgeAnnotations){
-			final Object value = map.get("rowsofkeys");
-			if(value != null){
-				final String str = String.valueOf(value);
-				if(!str.equals(hashKey)){
-					desc.addEdgeAnnotation(str);
+		if(instruction.all){
+			String query;
+			switch(instruction.elementType){
+				case VERTEX:
+					query = "match (v:" + instruction.graph.name + ") with keys(v) as keys unwind keys as rowsofkeys return distinct rowsofkeys";
+					break;
+				case EDGE:
+					final String relationshipProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
+					query = "match ()-[e]->()";
+					if(!neo4jQueryEnvironment.isBaseGraph(instruction.graph)){
+						query += " where " + relationshipProperty + " contains '," + instruction.graph.name + ",'";
+					}
+					query += " with keys(e) as keys unwind keys as rowsofkeys return distinct rowsofkeys";
+					break;
+				default: throw new RuntimeException("Unhandled element type: " + instruction.elementType);
+			}
+			
+			query += " order by rowsofkeys";
+			if(instruction.limit != null){
+				query += " limit " + instruction.limit;
+			}
+			
+			final Set<String> annotations = new HashSet<String>();
+			final List<Map<String, Object>> queryResult = storage.executeQueryForSmallResult(query);
+			for(Map<String, Object> map : queryResult){
+				final Object value = map.get("rowsofkeys");
+				if(value != null){
+					final String str = String.valueOf(value); 
+					if(!str.equals(neo4jQueryEnvironment.edgeLabelsPropertyName)){
+						annotations.add(str);
+					}
 				}
 			}
+			
+			final GraphDescription desc = new GraphDescription(instruction.elementType);
+			desc.addAnnotations(annotations);
+			return desc;
+		}else{
+			if(instruction.annotationName == null){
+				throw new RuntimeException("NULL annotation name");
+			}
+			
+			if(instruction.descriptionType == null){
+				throw new RuntimeException("NULL annotation description type");
+			}
+			
+			final String alias = "x";
+			String query;
+			switch(instruction.elementType){
+				case VERTEX:
+					query = "match ("+alias+":" + instruction.graph.name + ") where exists("+alias+".`" + instruction.annotationName + "`) ";
+					break;
+				case EDGE:
+					final String relationshipProperty = alias + ".`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
+					query = "match ()-["+alias+"]->() where exists("+alias+".`" + instruction.annotationName + "`) ";
+					if(!neo4jQueryEnvironment.isBaseGraph(instruction.graph)){
+						query += "and " + relationshipProperty + " contains '," + instruction.graph.name + ",' ";
+					}
+					break;
+				default: throw new RuntimeException("Unhandled element type: " + instruction.elementType);
+			}
+			
+			switch(instruction.descriptionType){
+				case COUNT:{
+					query += "with " + alias + ".`"+instruction.annotationName+"` as spadevalues unwind spadevalues as rows "
+							+ "return distinct rows as spadevalue, count(rows) as spadevaluecount";
+					query += " order by spadevalue";
+					if(instruction.limit != null){
+						query += " limit " + instruction.limit;
+					}
+					final List<Map<String, Object>> result = storage.executeQueryForSmallResult(query);
+					final GraphDescription desc = new GraphDescription(instruction.elementType, instruction.annotationName, 
+							instruction.descriptionType);
+					for(Map<String, Object> map : result){
+						final Object valueObject = map.get("spadevalue");
+						final Object valueCountObject = map.get("spadevaluecount");
+						if(valueObject != null && valueCountObject != null){
+							desc.putValueToCount(String.valueOf(valueObject), (long)valueCountObject);
+						}
+					}
+					return desc;
+				}
+				case MINMAX:{
+					query += "return min(" + alias + ".`" + instruction.annotationName + "`) as spademin, "
+							+ "max(" + alias + ".`" + instruction.annotationName + "`) as spademax;";
+					final List<Map<String, Object>> result = storage.executeQueryForSmallResult(query);
+					String minValue = null, maxValue = null;
+					if(result.size() > 0){
+						final Object minObject = result.get(0).get("spademin");
+						final Object maxObject = result.get(0).get("spademax");
+						if(minObject != null){
+							minValue = String.valueOf(minObject);
+						}else{
+							minValue = AbstractQueryEnvironment.environmentVariableValueUNSET;
+						}
+						if(maxObject != null){
+							maxValue = String.valueOf(maxObject);
+						}else{
+							maxValue = AbstractQueryEnvironment.environmentVariableValueUNSET;
+						}
+					}
+					final GraphDescription desc = new GraphDescription(instruction.elementType, instruction.annotationName, 
+							instruction.descriptionType);
+					desc.setMinMax(minValue, maxValue);
+					return desc;
+				}
+				default: throw new RuntimeException("Unhandled description type: " + instruction.descriptionType);
+			}
 		}
-		return desc;
 	}
 	
 	@Override

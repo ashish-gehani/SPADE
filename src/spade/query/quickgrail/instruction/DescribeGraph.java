@@ -26,10 +26,35 @@ import spade.query.quickgrail.utility.TreeStringSerializable;
 
 public class DescribeGraph extends Instruction{
 	
-	public final Graph graph;
+	public static enum ElementType{ VERTEX, EDGE }
+	public static enum DescriptionType{ COUNT, MINMAX }
 	
-	public DescribeGraph(final Graph graph){
+	public final Graph graph;
+	public final ElementType elementType;
+	public final String annotationName;
+	public final DescriptionType descriptionType;
+	
+	public final Integer limit;
+	
+	public final boolean all;
+	
+	public DescribeGraph(final Graph graph, final ElementType elementType,
+			final String annotationName, final DescriptionType descriptionType, final Integer limit){
 		this.graph = graph;
+		this.elementType = elementType;
+		this.annotationName = annotationName;
+		this.descriptionType = descriptionType;
+		this.limit = limit;
+		this.all = false;
+	}
+	
+	public DescribeGraph(final Graph graph, final ElementType elementType, final Integer limit){
+		this.graph = graph;
+		this.elementType = elementType;
+		this.annotationName = null;
+		this.descriptionType = null;
+		this.limit = limit;
+		this.all = true;
 	}
 	
 	@Override
@@ -44,6 +69,19 @@ public class DescribeGraph extends Instruction{
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
 		inline_field_names.add("graph");
 		inline_field_values.add(graph.name);
+		inline_field_names.add("elementType");
+		inline_field_values.add(elementType.toString());
+		if(annotationName != null){
+			inline_field_names.add("annotationName");
+			inline_field_values.add(annotationName);
+		}
+		if(descriptionType != null){
+			inline_field_names.add("descriptionType");
+			inline_field_values.add(descriptionType.toString());
+		}
+		if(limit != null){
+			inline_field_names.add("limit");
+			inline_field_values.add(String.valueOf(limit));
+		}
 	}
-
 }

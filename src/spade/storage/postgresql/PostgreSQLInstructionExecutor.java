@@ -349,9 +349,9 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	@Override
 	public void getMatch(final GetMatch instruction){
 		final Graph g1 = createNewGraph();
-                getWhereAnnotationsExist(new GetWhereAnnotationsExist(g1, instruction.graph1, instruction.getAnnotationKeys()));
-                final Graph g2 = createNewGraph();
-                getWhereAnnotationsExist(new GetWhereAnnotationsExist(g2, instruction.graph2 , instruction.getAnnotationKeys()));
+		getWhereAnnotationsExist(new GetWhereAnnotationsExist(g1, instruction.graph1, instruction.getAnnotationKeys()));
+		final Graph g2 = createNewGraph();
+		getWhereAnnotationsExist(new GetWhereAnnotationsExist(g2, instruction.graph2 , instruction.getAnnotationKeys()));
 
 		final ArrayList<String> annotationKeys = instruction.getAnnotationKeys();
 
@@ -412,7 +412,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	@Override
 	public final GraphDescription describeGraph(final DescribeGraph instruction){
 		final Graph graph = instruction.graph;
-		
+		/*
 		if(queryEnvironment.isBaseGraph(graph)){
 			final String vertexQuery = "select * from " + vertexAnnotationTableName + " where false";
 			final List<List<String>> vertexResult = executeQueryForResult(vertexQuery, true);
@@ -474,6 +474,8 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 			desc.addEdgeAnnotations(resultEdgeAnnotations);
 			return desc;
 		}
+		*/
+		throw new RuntimeException("Unsupported for PostgreSQL");
 	}
 	
 	@Override
