@@ -57,7 +57,7 @@ visualize force $paths
   * `env set` _variable_name_ _integer_
   * `env unset` _variable_name_
   * `env print` _variable_name_
-* Print graph statistics.
+* Print graph statistics
   * `stat` _graph_
 * Print graph as a SPADE `Graph`
   * `dump` _graph_
@@ -65,6 +65,7 @@ visualize force $paths
   * `dump` _constraint_
 * Print graph in DOT format
   * `visualize` [`force`] _graph_
+  * using `force` prints entire graph, even if it exceeds limit in `cfg/spade.query.quickgrail.QuickGrailExecutor.config`
 * Remove a list of variables (_graph_ or _constraint_)
   * `erase` (_graph_)+
 * Remove all variables
@@ -89,6 +90,7 @@ _return-type_ **method-name** ( **_argument-type_** formal-argument, ... )
 * _graph_ **getMatch** ( **_graph_** otherGraph, **_string_** annotation, ... )
   * Get vertices in operand and `otherGraph` that have all `annotation` keys specified and the values of those keys match
     * e.g. `$3 = $1.getMatch($2, 'pid', 'ppid')` returns all vertices in `$1` or `$2` if a vertex in the other graph had the same values for annotation keys `pid` and `ppid`
+  * _NOTE_: Experimental
 * _graph_ **getEdge** ( )
   * Get all the edges
     * e.g. `$2 = $1.getEdge()`
