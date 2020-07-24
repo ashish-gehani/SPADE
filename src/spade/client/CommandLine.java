@@ -211,7 +211,7 @@ public class CommandLine{
 			 * SPADEQuery object from server 5) Ignore nonce since local query 6) Go to (1)
 			 */
 
-			System.out.println("Host '" + localHostName + "': SPADE 3.0 Query Client");
+			System.out.println("Host '" + localHostName + "': SPADE Query Client");
 			System.out.println();
 
 			// Set up command history and tab completion.
