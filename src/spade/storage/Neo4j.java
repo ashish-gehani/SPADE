@@ -1423,7 +1423,7 @@ public class Neo4j extends AbstractStorage{
 				+ ", " + keyFlushBufferSize + "=" + flushBufferSize
 				+ ", " + keyFlushAfterSeconds + "=" + flushAfterSeconds
 				+ ", " + keyBufferLimit + "=" + bufferLimit + "(buffering:" + ((bufferLimit < 0) ? ("disabled") : ("enabled") )+ ")"
-				+ ", " + keyNeo4jConfigFilePath + "=" + neo4jConfigFilePath.getAbsolutePath()
+				+ ", " + keyNeo4jConfigFilePath + "=" + (neo4jConfigFilePath == null ? "null" : neo4jConfigFilePath.getAbsolutePath())
 				+ ", " + keyVertexBloomFilterFalsePositiveProbability + "=" + String.format("%f", vertexBloomFilterFalsePositiveProbability)
 				+ ", " + keyVertexBloomFilterExpectedElements + "=" + vertexBloomFilterExpectedElements
 				+ ", " + keyVertexCacheMaxSize + "=" + vertexCacheMaxSize
