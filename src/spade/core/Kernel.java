@@ -68,6 +68,7 @@ import javax.net.ssl.TrustManagerFactory;
 
 import spade.filter.FinalCommitFilter;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
+import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 import spade.utility.HostInfo;
 import spade.utility.LogManager;
@@ -998,6 +999,145 @@ public class Kernel
         }
     }
 
+	private static void addReporterCommand(final PrintStream outputStream, final String classNameString,
+			final String argumentsString){
+		if(outputStream == null){
+			logger.log(Level.SEVERE, "NULL output stream for client");
+			return;
+		}
+		if(HelperFunctions.isNullOrEmpty(classNameString)){
+			logger.log(Level.SEVERE, "NULL/Empty reporter class name: '" + classNameString + "'");
+			return;
+		}
+		final String arguments = argumentsString == null ? null : argumentsString;
+
+		////
+
+		logger.log(Level.INFO, "Adding reporter: {0}", classNameString);
+		outputStream.print("Adding reporter " + classNameString + "... ");
+
+		final Class<AbstractReporter> classObject;
+		try{
+			classObject = (Class<AbstractReporter>)Class.forName("spade.reporter." + classNameString);
+		}catch(Throwable t){
+			outputStream.println("error: Unable to find/load class");
+			logger.log(Level.SEVERE, "error: Unable to find/load class: " + classNameString, t);
+			return;
+		}
+
+		final Constructor<AbstractReporter> constructor;
+		try{
+			constructor = classObject.getDeclaredConstructor();
+		}catch(Throwable t){
+			outputStream.println("error: Unable to reflect on class. Illegal implementation");
+			logger.log(Level.SEVERE, "error: Unable to reflect on class. Illegal implementation for '" + classObject
+					+ "'. Must have an empty public constructor", t);
+			return;
+		}
+
+		////
+
+		String bufferConfigValueSource = null;
+		final String bufferConfigKey = BlockingBuffer.keyWorkableFreeMemoryPercentageForBuffer;
+		final Map<String, String> map = new HashMap<String, String>();
+		map.putAll(HelperFunctions.parseKeyValPairs(arguments));
+		String bufferConfigValue = map.get(bufferConfigKey);
+		bufferConfigValueSource = "user arguments";
+		if(HelperFunctions.isNullOrEmpty(bufferConfigValue)){
+			final String reporterConfigFilePath = Settings.getDefaultConfigFilePath(classObject);
+			try{
+				final File file = new File(reporterConfigFilePath);
+				if(file.exists()){
+					if(!file.canRead()){
+						throw new Exception("File is not readable");
+					}else{ // is readable
+						map.putAll(FileUtility.readConfigFileAsKeyValueMap(reporterConfigFilePath, "="));
+						bufferConfigValue = map.get(bufferConfigKey);
+						bufferConfigValueSource = reporterConfigFilePath;
+					}
+				}
+			}catch(Throwable t){
+				outputStream.println("error: Failed to read reporter config file '" + reporterConfigFilePath + "'. " + t.getMessage());
+				logger.log(Level.SEVERE, "error: Failed to read reporter config file '" + reporterConfigFilePath + "'", t);
+				return;
+			}
+
+			if(HelperFunctions.isNullOrEmpty(bufferConfigValue)){
+				final String abstractReporterConfigFilePath = Settings.getDefaultConfigFilePath(AbstractReporter.class);
+				try{
+					final File file = new File(abstractReporterConfigFilePath);
+					if(file.exists()){
+						if(!file.canRead()){
+							throw new Exception("File is not readable");
+						}else{ // is readable
+							map.putAll(FileUtility.readConfigFileAsKeyValueMap(abstractReporterConfigFilePath, "="));
+							bufferConfigValue = map.get(bufferConfigKey);
+							bufferConfigValueSource = abstractReporterConfigFilePath;
+						}
+					}
+				}catch(Throwable t){
+					outputStream.println("error: Failed to read abstract reporter config file '" + abstractReporterConfigFilePath + "'. " + t.getMessage());
+					logger.log(Level.SEVERE, "error: Failed to read abstract reporter config file '" + abstractReporterConfigFilePath + "'", t);
+					return;
+				}
+			}
+		}
+
+		final Buffer buffer;
+
+		if(HelperFunctions.isNullOrEmpty(bufferConfigValue)){
+			buffer = new Buffer();
+			logger.log(Level.INFO, "Default (unlimited) buffer used for reporter '"+classNameString+"'");
+		}else{
+			try{
+				buffer = new BlockingBuffer(bufferConfigValue, classObject);
+				logger.log(Level.INFO, "Memory usage limited buffer used for reporter '"+classNameString+"' with "
+						+ "'"+bufferConfigKey+"'='"+bufferConfigValue+"' from '"+bufferConfigValueSource+"'");
+			}catch(Throwable t){
+				outputStream.println("error: Unable to create buffer. Source of key '"+bufferConfigKey+"' = '"+bufferConfigValueSource+"'. " + t.getMessage());
+				logger.log(Level.SEVERE, "error: Unable to create buffer for reporter. Source of key '"+bufferConfigKey+"' = '"+bufferConfigValueSource+"'. " + classObject, t);
+				return;
+			}
+		}
+
+		final AbstractReporter reporter;
+		try{
+			reporter = constructor.newInstance();
+		}catch(Throwable t){
+			outputStream.println("error: Unable to instantiate class");
+			logger.log(Level.SEVERE, "error: Unable to instantiate class using the empty constructor: " + classObject, t);
+			return;
+		}
+
+		reporter.setBuffer(buffer);
+
+		final boolean launchResult;
+
+		try{
+			launchResult = reporter.launch(arguments);
+		}catch(Throwable t){
+			logger.log(Level.SEVERE, "Unable to launch reporter", t);
+			outputStream.println("failed. " + t.getMessage());
+			return;
+		}
+
+		if(launchResult){
+			// The launch() method must return true to indicate a successful launch.
+			// On true, the reporter is added to the reporters set and the buffer
+			// is put into a HashMap keyed by the reporter. This is used by the main
+			// SPADE thread to extract buffer elements.
+			reporter.arguments = arguments;
+			reporters.add(reporter);
+			logger.log(Level.INFO, "Reporter added: {0}", classNameString + " " + arguments);
+			outputStream.println("done");
+			return;
+		}else{
+			logger.log(Level.SEVERE, "Unable to launch reporter");
+			outputStream.println("failed");
+			return;
+		}
+	}
+
     /**
      * Method to add modules.
      *
@@ -1026,42 +1166,9 @@ public class Kernel
         switch (moduleName)
         {
             case "reporter":
-                arguments = (tokens.length == 3) ? null : tokens[3];
-                logger.log(Level.INFO, "Adding reporter: {0}", className);
-                outputStream.print("Adding reporter " + className + "... ");
-                AbstractReporter reporter;
-                try
-                {
-                    reporter = (AbstractReporter) Class.forName("spade.reporter." + className).newInstance();
-                }
-                catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex)
-                {
-                    outputStream.println("error: Unable to find/load class");
-                    logger.log(Level.SEVERE, null, ex);
-                    return;
-                }
-                // Create a new buffer and allocate it to this reporter.
-                Buffer buffer = new Buffer();
-                reporter.setBuffer(buffer);
-                if (reporter.launch(arguments))
-                {
-                    // The launch() method must return true to indicate a successful launch.
-                    // On true, the reporter is added to the reporters set and the buffer
-                    // is put into a HashMap keyed by the reporter. This is used by the main
-                    // SPADE thread to extract buffer elements.
-                    reporter.arguments = arguments;
-                    reporters.add(reporter);
-                    logger.log(Level.INFO, "Reporter added: {0}", className + " " + arguments);
-                    outputStream.println("done");
-                }
-                else
-                {
-                    logger.log(Level.SEVERE, "Unable to launch reporter");
-                    outputStream.println("failed");
-                }
-
-                break;
-
+            	arguments = (tokens.length == 3) ? null : tokens[3];
+            	addReporterCommand(outputStream, className, arguments);
+            	break;
             case "analyzer":
             	arguments = (tokens.length == 3) ? null : tokens[3];
             	logger.log(Level.INFO, "Adding analyzer: {0}", className);
@@ -1638,6 +1745,7 @@ public class Kernel
                             // Mark the reporter for removal by adding it to the removeReporters set.
                             // This will enable the main SPADE thread to cleanly flush the reporter
                             // buffer and remove it.
+                        	reporter.getBuffer().shutdown();
                             reporter.shutdown();
                             removeReporters.add(reporter);
                             found = true;

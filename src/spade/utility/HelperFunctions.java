@@ -557,5 +557,14 @@ public class HelperFunctions{
 		map.putAll(parseKeyValPairs(arguments));
 		return map;
 	}
-	
+
+	public static long getFreeMemoryBytes(){
+		final Runtime runtime = Runtime.getRuntime();
+		// Max - used (total - free)
+		return runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
+	}
+
+	public static double getFreeMemoryPercentage(){
+		return (((double)getFreeMemoryBytes()) / ((double)Runtime.getRuntime().maxMemory())) * 100.0;
+	}
 }

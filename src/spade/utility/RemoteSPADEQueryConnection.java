@@ -221,12 +221,18 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 		return _getLineage(subgraphSymbol, startSymbol, depth, direction);
 	}
 	
-	public synchronized spade.core.Graph exportGraph(String symbol){
+	public synchronized spade.core.Graph exportGraph(final String symbol){
+		return exportGraph(symbol, true);
+	}
+	
+	public synchronized spade.core.Graph exportGraph(final String symbol, final boolean verify){
 		final String nonce = String.valueOf(System.nanoTime());
 		SPADEQuery response = executeQuery("dump force " + symbol, nonce);
 		spade.core.Graph graph = (spade.core.Graph)response.getResult();
-		if(!graph.verifySignature(nonce)){
-			throw new RuntimeException("Failed to verify signature. Response graph discarded");
+		if(verify){
+			if(!graph.verifySignature(nonce)){
+				throw new RuntimeException("Failed to verify signature. Response graph discarded");
+			}
 		}
 		return graph;
 	}

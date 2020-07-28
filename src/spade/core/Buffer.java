@@ -30,6 +30,9 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  */
 public class Buffer {
 
+	private final Object shutdownLock = new Object();
+	private volatile boolean shutdown = false;
+
     private final Queue<Object> queue;
 
     /**
@@ -97,4 +100,26 @@ public class Buffer {
     public int size() {
         return queue.size();
     }
+
+	/**
+	 * This method is called when the reporter is shutdown by the kernel. This is
+	 * necessary in case of BlockingBuffer. To break out of the sleep if user wants
+	 * to remove the reporter.
+	 */
+	public final void shutdown(){
+		synchronized(shutdownLock){
+			this.shutdown = true;
+		}
+	}
+
+	/**
+	 * This method returns the current value of the shutdown.
+	 *
+	 * @return boolean
+	 */
+	public final boolean isShutdown(){
+		synchronized(shutdownLock){
+			return this.shutdown;
+		}
+	}
 }
