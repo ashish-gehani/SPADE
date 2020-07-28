@@ -157,6 +157,11 @@ public class BlockingBuffer extends Buffer{
 		
 		while(HelperFunctions.getFreeMemoryPercentage() <= freeWorkableMemoryPercentageSpecified){
 			slept = true;
+			
+			if(isShutdown()){ // If shutdown has been called then break out
+				break;
+			}
+			
 			HelperFunctions.sleepSafe(sleepWaitMillis);
 		}
 		
@@ -166,15 +171,27 @@ public class BlockingBuffer extends Buffer{
 		}
 	}
 	
-	private final double getPutRate(){
+	public final double getPutRate(){
 		synchronized(putLock){
 			return getRate(putCount);
 		}
 	}
 	
-	private final double getGetRate(){
+	public final double getGetRate(){
 		synchronized(getLock){
 			return getRate(getCount);
+		}
+	}
+	
+	public final long getPutCount(){
+		synchronized(putLock){
+			return putCount;
+		}
+	}
+	
+	public final long getGetCount(){
+		synchronized(getLock){
+			return getCount;
 		}
 	}
 	

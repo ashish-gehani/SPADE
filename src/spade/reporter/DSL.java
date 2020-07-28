@@ -19,6 +19,14 @@
  */
 package spade.reporter;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
@@ -30,6 +38,7 @@ import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
 import spade.edge.prov.WasAssociatedWith;
 import spade.edge.prov.WasInformedBy;
+import spade.utility.Execute;
 import spade.vertex.cdm.Event;
 import spade.vertex.cdm.Principal;
 import spade.vertex.opm.Agent;
@@ -37,14 +46,6 @@ import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 import spade.vertex.prov.Activity;
 import spade.vertex.prov.Entity;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Pipe reporter for Linux.
@@ -72,13 +73,17 @@ public class DSL extends AbstractReporter {
         pipePath = arguments;
         File checkpipe = new File(pipePath);
         if (checkpipe.exists()) {
+        	logger.log(Level.SEVERE, "A filesystem entry already exists at path already exists: '"+pipePath+"'. Please specify a"
+        			+ " path with no filesystem entry.");
             return false;
         } else {
             try {
-                int exitValue = Runtime.getRuntime().exec("mkfifo " + pipePath).waitFor();
-                if (exitValue != 0) {
-                    return false;
-                }
+            	final Execute.Output output = Execute.getOutput("mkfifo " + pipePath);
+            	if(output.hasError()){
+            		logger.log(Level.SEVERE, "Failed to create pipe at path: '"+pipePath+"'");
+            		output.log();
+            		return false;
+            	}
                 Runnable eventThread = new Runnable() {
 
                     public void run() {
@@ -102,7 +107,7 @@ public class DSL extends AbstractReporter {
                 new Thread(eventThread, "PipeReporter-Thread").start();
                 return true;
             } catch (Exception exception) {
-                Logger.getLogger(DSL.class.getName()).log(Level.SEVERE, null, exception);
+                logger.log(Level.SEVERE, "Failed to start reporter using pipe at path: '"+pipePath+"'", exception);
                 return false;
             }
         }

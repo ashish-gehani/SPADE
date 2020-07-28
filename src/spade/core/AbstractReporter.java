@@ -117,7 +117,11 @@ public abstract class AbstractReporter{
 			// limit.
 			propertyNameSleepWait = "sleepwait",
 			propertyNameWorkableFreeMemory = "blockingbuffermem",
-			propertyNameFreeMemory = "freemem";
+			propertyNameFreeMemory = "freemem",
+			propertyNameGetRate = "getrate",
+			propertyNamePutRate = "putrate",
+			propertyNameGetCount = "getcount",
+			propertyNamePutCount = "putcount";
 
 	private final Object ratePropertyLock = new Object();
 
@@ -144,6 +148,10 @@ public abstract class AbstractReporter{
 			case propertyNameSleepWait:
 			case propertyNameWorkableFreeMemory:
 			case propertyNameFreeMemory:
+			case propertyNameGetRate:
+			case propertyNamePutRate:
+			case propertyNameGetCount:
+			case propertyNamePutCount:
 				return lowerCasePropertyName;
 			default: throw new Exception("Unknown property: '" + propertyName + "'");
 		}
@@ -189,6 +197,54 @@ public abstract class AbstractReporter{
 			case propertyNameFreeMemory:{
 				return String.format("%.3f", HelperFunctions.getFreeMemoryPercentage()) + "%";
 			}
+			case propertyNameGetRate:{
+				final Buffer reference = this.internalBuffer;
+				if(reference != null){
+					if(reference instanceof BlockingBuffer){
+						return String.format("%.3f", (((BlockingBuffer)reference).getGetRate())) + "%";
+					}else{
+						return null;
+					}
+				}else{
+					return null;
+				}
+			}
+			case propertyNamePutRate:{
+				final Buffer reference = this.internalBuffer;
+				if(reference != null){
+					if(reference instanceof BlockingBuffer){
+						return String.format("%.3f", (((BlockingBuffer)reference).getPutRate())) + "%";
+					}else{
+						return null;
+					}
+				}else{
+					return null;
+				}
+			}
+			case propertyNameGetCount:{
+				final Buffer reference = this.internalBuffer;
+				if(reference != null){
+					if(reference instanceof BlockingBuffer){
+						return (((BlockingBuffer)reference).getGetCount());
+					}else{
+						return null;
+					}
+				}else{
+					return null;
+				}
+			}
+			case propertyNamePutCount:{
+				final Buffer reference = this.internalBuffer;
+				if(reference != null){
+					if(reference instanceof BlockingBuffer){
+						return (((BlockingBuffer)reference).getPutCount());
+					}else{
+						return null;
+					}
+				}else{
+					return null;
+				}
+			}
 			default: break;
 		}
 		throw new Exception("Unhandled property: '" + propertyName + "'");
@@ -200,7 +256,11 @@ public abstract class AbstractReporter{
 		switch(validPropertyName){
 			case propertyNameCurrentRate:
 			case propertyNameBufferSize:
-			case propertyNameFreeMemory:{
+			case propertyNameFreeMemory:
+			case propertyNameGetRate:
+			case propertyNamePutRate:
+			case propertyNameGetCount:
+			case propertyNamePutCount:{
 				throw new Exception("Unsettable property: '" + propertyName + "'");
 			}
 			case propertyNameRateLimit:{
@@ -253,7 +313,11 @@ public abstract class AbstractReporter{
 			case propertyNameCurrentRate:
 			case propertyNameBufferSize:
 			case propertyNameWorkableFreeMemory:
-			case propertyNameFreeMemory:{
+			case propertyNameFreeMemory:
+			case propertyNameGetRate:
+			case propertyNamePutRate:
+			case propertyNamePutCount:
+			case propertyNameGetCount:{
 				throw new Exception("Un-unsettable property: '" + propertyName + "'");
 			}
 			case propertyNameRateLimit:{
