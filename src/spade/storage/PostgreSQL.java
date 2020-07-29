@@ -194,7 +194,7 @@ public class PostgreSQL extends SQL
             {
                 String colName = metadata.getColumnLabel(i);
                 vertexColumnNames.add(colName);
-                vertexAnnotations.add(colName);
+                addVertexAnnotation(colName);
             }
 
             String createEdgeTable = "CREATE TABLE IF NOT EXISTS "
@@ -218,7 +218,7 @@ public class PostgreSQL extends SQL
             {
                 String colName = metadata.getColumnLabel(i);
                 edgeColumnNames.add(colName);
-                edgeAnnotations.add(colName);
+                addEdgeAnnotation(colName);
             }
 
             String createBaseGraphVertexTable = "CREATE TABLE IF NOT EXISTS "
@@ -318,14 +318,14 @@ public class PostgreSQL extends SQL
      *
      * @return  returns true if column creation in the database has been successful.
      */
-    protected boolean addColumn(String table_name, String column_name)
+    protected boolean addColumn(String table_name, final String column_name)
     {
         // If this column has already been added before for this table, then return
-        if ((table_name.equalsIgnoreCase(VERTEX_TABLE)) && vertexAnnotations.contains(column_name))
+        if ((table_name.equalsIgnoreCase(VERTEX_TABLE)) && vertexAnnotationIsPresent(column_name))
         {
             return true;
         }
-        else if ((table_name.equalsIgnoreCase(EDGE_TABLE)) && edgeAnnotations.contains(column_name))
+        else if ((table_name.equalsIgnoreCase(EDGE_TABLE)) && edgeAnnotationIsPresent(column_name))
         {
             return true;
         }
@@ -369,11 +369,11 @@ public class PostgreSQL extends SQL
         {
             if (table_name.equalsIgnoreCase(VERTEX_TABLE))
             {
-                vertexAnnotations.add(column_name);
+            	addVertexAnnotation(column_name);
             }
             else if (table_name.equalsIgnoreCase(EDGE_TABLE))
             {
-                edgeAnnotations.add(column_name);
+            	addEdgeAnnotation(column_name);
             }
         }
 
@@ -527,7 +527,7 @@ public class PostgreSQL extends SQL
         {
             if(!edgeColumnNames.contains(annotationKey))
             {
-                edgeColumnNames.add(sanitizeColumn(annotationKey));
+                edgeColumnNames.add(annotationKey);
                 addColumn(EDGE_TABLE, annotationKey);
             }
         }
@@ -631,7 +631,7 @@ public class PostgreSQL extends SQL
         {
             if(!vertexColumnNames.contains(annotationKey))
             {
-                vertexColumnNames.add(sanitizeColumn(annotationKey));
+                vertexColumnNames.add(annotationKey);
                 addColumn(VERTEX_TABLE, annotationKey);
             }
         }
@@ -846,11 +846,11 @@ public class PostgreSQL extends SQL
         return result;
     }
     
-    public boolean doesVertexColumnExist(String columnName){
+    private boolean doesVertexColumnExist(String columnName){
     	return vertexColumnNames.contains(columnName);
     }
     
-    public boolean doesEdgeColumnExist(String columnName){
+    private boolean doesEdgeColumnExist(String columnName){
     	return edgeColumnNames.contains(columnName);
     }
 

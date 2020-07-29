@@ -181,7 +181,7 @@ public abstract class SQL extends AbstractStorage
         return false;
     }
 
-    public boolean addVertexAnnotation(String annotation)
+    public final boolean addVertexAnnotation(String annotation)
     {
         if(!vertexAnnotationIsPresent(annotation))
         {
@@ -191,7 +191,7 @@ public abstract class SQL extends AbstractStorage
         return false;
     }
 
-    public boolean addEdgeAnnotation(String annotation)
+    public final boolean addEdgeAnnotation(String annotation)
     {
         if(!edgeAnnotationIsPresent(annotation))
         {
