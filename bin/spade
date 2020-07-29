@@ -64,7 +64,7 @@ else
 	if [ $1 = "java-start" ] || [ $1 = "java-stop" ] || [ $1 = "java-kill" ] ; then
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.utility.Daemonizer "$@"
 	elif [ $1 = "query" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $CYGWIN_JVM_JLINE_ARGS spade.client.CommandLine
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $CYGWIN_JVM_JLINE_ARGS spade.client.CommandLine "$@"
 	elif [ $1 = "control" ] ; then
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $CYGWIN_JVM_JLINE_ARGS spade.client.Control
 	elif [ $1 = "debug" ] ; then

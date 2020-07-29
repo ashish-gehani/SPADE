@@ -370,7 +370,7 @@ public class Neo4j extends AbstractStorage{
 			long waitStartMillis = 0;
 			boolean needToWait = getPendingTasksSize() > bufferLimit;
 			if(needToWait){
-				debug("Buffer limit reached: " + bufferLimit + ". Current buffer size: " + getPendingTasksSize());
+				//debug("Buffer limit reached: " + bufferLimit + ". Current buffer size: " + getPendingTasksSize());
 				waitStartMillis = System.currentTimeMillis();
 			}
 			while(getPendingTasksSize() > bufferLimit){
@@ -380,7 +380,10 @@ public class Neo4j extends AbstractStorage{
 				HelperFunctions.sleepSafe(sleepWaitMillis);
 			}
 			if(needToWait){
-				debug("Buffer limit below in: " + (System.currentTimeMillis() - waitStartMillis) + " millis.");
+				final long diffMillis = (System.currentTimeMillis() - waitStartMillis);
+				if(diffMillis >= 10 * 1000){
+					debug("Buffer limit below in: " + diffMillis + " millis.");
+				}
 			}
 		}
 	}

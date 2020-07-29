@@ -821,13 +821,24 @@ public class Graph implements Serializable{
 		}
 
 		try(final FileOutputStream fileOutputStream = new FileOutputStream(file)){
-			exportGraphAsJSON(graph, fileOutputStream);
+			exportGraphAsJSON(graph, fileOutputStream, false); // autoclosed
 		}catch(Exception e){
 			throw new RuntimeException("Failed to write to JSON filepath to export graph to: '" + filePath + "'", e);
 		}
 	}
 
-	public static final void exportGraphAsJSON(final Graph graph, final OutputStream outputStream) throws Exception{
+	/**
+	 * Writes the graph to the output stream.
+	 * 
+	 * Does not close the output stream.
+	 * 
+	 * @param graph
+	 * @param outputStream
+	 * @param closeStream true/false to whether close the stream of not
+	 * @throws Exception
+	 */
+	public static final void exportGraphAsJSON(final Graph graph, final OutputStream outputStream, 
+			final boolean closeStream) throws Exception{
 		if(graph == null){
 			throw new RuntimeException("NULL graph to export as JSON");
 		}
@@ -838,7 +849,10 @@ public class Graph implements Serializable{
 
 		final String newLine = System.lineSeparator();
 
-		try(final Writer writer = new BufferedWriter(new OutputStreamWriter(outputStream))){
+		Writer writer = null;
+		try{
+			writer = new BufferedWriter(new OutputStreamWriter(outputStream));
+
 			writer.write("[" + newLine); // start
 
 			final boolean thereAreEdges = graph.edgeSet().size() > 0;
@@ -886,6 +900,14 @@ public class Graph implements Serializable{
 			writer.flush(); // flush because might not be a file
 		}catch(Exception e){
 			throw new RuntimeException("Failed to write JSON to output stream", e);
+		}finally{
+			if(writer != null && closeStream){
+				try{
+					writer.close();
+				}catch(Exception e){
+					
+				}
+			}
 		}
 	}
 

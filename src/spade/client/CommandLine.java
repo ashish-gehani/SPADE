@@ -71,6 +71,8 @@ public class CommandLine{
 			SPADE_ROOT + File.separatorChar + Settings.getDefaultConfigFilePath(CommandLine.class));
 	private static final String COMMAND_PROMPT = "-> ";
 	private static String RESULT_EXPORT_PATH = null;
+	
+	private static boolean batchMode = false;
 
 	// Members for creating secure sockets
 	private static KeyStore clientKeyStorePrivate;
@@ -104,9 +106,9 @@ public class CommandLine{
 	}
 
 	private static String getHostName(String args[]){
-		if(args.length > 0){
+		if(args.length > 1){ // 0 is query
 			// Host name read from arguments
-			return args[0];
+			return args[1];
 		}
 		try{
 			File hostNameFile = new File(Kernel.HOST_FILE_PATH);
@@ -214,9 +216,20 @@ public class CommandLine{
 			return ("Error: Failed to read queries from file '" + filePath + "'. " + e.getMessage() + ".");
 		}
 	}
-
+	
 	public static void main(String args[]){
-		final String localHostName = getHostName(args);
+		final List<String> argsList = new ArrayList<String>();
+		for(final String arg : args){
+			argsList.add(arg);
+		}
+		
+		if(argsList.contains("-b") || argsList.contains("-B")){
+			batchMode = true;
+			argsList.remove("-b");
+			argsList.remove("-B");
+		}
+		
+		final String localHostName = getHostName(argsList.toArray(new String[]{}));
 		if(localHostName == null){
 			// Error printed by the function getHostName
 			return;
@@ -254,8 +267,8 @@ public class CommandLine{
 			 * SPADEQuery object from server 5) Ignore nonce since local query 6) Go to (1)
 			 */
 
-			System.out.println();
-			System.out.println("Host '" + localHostName + "': SPADE Query Client");
+			writeToUser("", true);
+			writeToUser("Host '" + localHostName + "': SPADE Query Client", true);
 
 			// Set up command history and tab completion.
 			ConsoleReader commandReader = new ConsoleReader();
@@ -272,10 +285,8 @@ public class CommandLine{
 			final LinkedList<SimpleEntry<String, LinkedList<String>>> listOfFilePathsAndFileLines = 
 					new LinkedList<SimpleEntry<String, LinkedList<String>>>();
 
-			System.out.println();
-			System.out.println(
-					addQueriesFromFileToList(listOfFilePathsAndFileLines, configFile.getCanonicalPath())
-					);
+			writeToUser("", true);
+			writeToUser(addQueriesFromFileToList(listOfFilePathsAndFileLines, configFile.getCanonicalPath()), true);
 
 			final MutableBoolean queryError = new MutableBoolean(false);
 			
@@ -284,29 +295,29 @@ public class CommandLine{
 				try{
 					String line = null;
 
-					System.out.flush();
+					flushToUser();
 
 					if(listOfFilePathsAndFileLines.size() > 0){
 						final SimpleEntry<String, LinkedList<String>> entry = listOfFilePathsAndFileLines.getFirst();
 						if(entry.getValue().isEmpty()){
 							// file finished
 							final String fileFinished = entry.getKey();
-							System.out.println();
-							System.out.println("Finished executing queries in file '" + fileFinished + "'. ");
+							writeToUser("", true);
+							writeToUser("Finished executing queries in file '" + fileFinished + "'. ", true);
 							listOfFilePathsAndFileLines.removeFirst(); // remove the entry which is exhausted
 							if(listOfFilePathsAndFileLines.size() > 0){
-								System.out.println("Continuing executing queries in file '"+listOfFilePathsAndFileLines.getFirst().getKey()+"'");
+								writeToUser("Continuing executing queries in file '"+listOfFilePathsAndFileLines.getFirst().getKey()+"'", true);
 							}
 							continue;
 						}else{
 							line = entry.getValue().removeFirst();
-							System.out.println();
-							System.out.print(COMMAND_PROMPT);
-							System.out.println(line);
+							writeToUser("", true);
+							writeToUser(COMMAND_PROMPT, false);
+							writeToUser(line, true);
 						}
 					}else{
-						System.out.println();
-						System.out.print(COMMAND_PROMPT);
+						writeToUser("", true);
+						writeToUser(COMMAND_PROMPT, false);
 						line = commandReader.readLine();
 					}
 
@@ -344,7 +355,7 @@ public class CommandLine{
 						result = ("No Result!");
 					}
 
-					System.out.println(result);
+					writeToUser(result, true);
 
 					if(queryError.isTrue()){
 						discardAndPrintQueriesInList(listOfFilePathsAndFileLines, true);
@@ -373,12 +384,12 @@ public class CommandLine{
 				if(size > 0){
 					if(!preamblePrinted){
 						final String errorMsg = ((sawAnError) ? " (because of the error above)" : "");
-						System.out.println();
-						System.out.println("Discarded queries" + errorMsg + " in file(s):");
+						writeToUser("", true);
+						writeToUser("Discarded queries" + errorMsg + " in file(s):", true);
 						preamblePrinted = true;
 					}
 					final String queryWord = ((size == 1) ? "query" : "queries");
-					System.out.println(entry.getKey() + " (" + entry.getValue().size() + " "+queryWord+")");
+					writeToUser(entry.getKey() + " (" + entry.getValue().size() + " "+queryWord+")", true);
 				}
 			}
 		}
@@ -429,8 +440,8 @@ public class CommandLine{
 
 				try{
 					FileUtility.writeLines(configFile.getCanonicalPath(), lines);
-					System.out.println();
-					System.out.println("Current query environment saved to file: " + configFile);
+					writeToUser("", true);
+					writeToUser("Current query environment saved to file: " + configFile, true);
 				}catch(Exception e){
 					System.err.println("Failed to save queries " + lines + " to file: " + configFile);
 					System.err.println();
@@ -520,10 +531,14 @@ public class CommandLine{
 							if(spadeResult instanceof spade.core.Graph){
 								spade.core.Graph graph = (spade.core.Graph)spadeResult;
 								if(RESULT_EXPORT_PATH != null){
-									Graph.exportGraphAsJSON(graph, RESULT_EXPORT_PATH);
+									if(RESULT_EXPORT_PATH.toLowerCase().endsWith(".json")){
+										Graph.exportGraphAsJSON(graph, RESULT_EXPORT_PATH);
+									}else{
+										graph.exportGraph(RESULT_EXPORT_PATH);
+									}
 									return "Output exported to file: " + RESULT_EXPORT_PATH;
 								}else{
-									Graph.exportGraphAsJSON(graph, System.out);
+									writeToUser(graph);
 									return "Output exported to STDOUT";
 								}
 							}else{
@@ -555,4 +570,31 @@ public class CommandLine{
 		}
 	}
 
+	private final static void writeToUser(final Graph graph){
+		if(graph != null){
+			try{
+				Graph.exportGraphAsJSON(graph, System.out, false);
+			}catch(Exception e){
+				System.err.println("Failed to export graph as JSON: " + e.getMessage());
+				e.printStackTrace(System.err);
+			}
+		}
+	}
+	
+	private final static void writeToUser(final String str, final boolean newLine){
+		if(!batchMode){
+			if(str != null){
+				if(newLine){
+					System.out.println(str);
+				}else{
+					System.out.print(str);
+				}
+			}
+		}
+	}
+	
+	private final static void flushToUser(){
+		System.out.flush();
+	}
+	
 }
