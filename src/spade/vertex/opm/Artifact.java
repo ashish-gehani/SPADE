@@ -26,17 +26,22 @@ import spade.core.AbstractVertex;
  *
  * @author Dawood Tariq
  */
-public class Artifact extends AbstractVertex {
+public class Artifact extends AbstractVertex{
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 7541278287182455854L;
+	private static final long serialVersionUID = 1686576570190631621L;
+
+	public static final String typeValue = "Artifact";
 
 	/**
-     * Empty constructor - initializes an empty map for annotations.
-     */
-    public Artifact() {
-        addAnnotation("type", "Artifact");
-    }
+	 * Empty constructor - initializes an empty map for annotations.
+	 */
+	public Artifact(){
+		super();
+		setType(typeValue);
+	}
+
+	public Artifact(final String bigHashCode){
+		super(bigHashCode);
+		setType(typeValue);
+	}
 }

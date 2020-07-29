@@ -26,17 +26,22 @@ import spade.core.AbstractVertex;
  *
  * @author Dawood Tariq
  */
-public class Process extends AbstractVertex {
+public class Process extends AbstractVertex{
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 1468995534724854772L;
+	private static final long serialVersionUID = 3975681077544176691L;
+
+	public static final String typeValue = "Process";
 
 	/**
-     * Empty constructor - initializes an empty map for annotations.
-     */
-    public Process() {
-        addAnnotation("type", "Process");
-    }
+	 * Empty constructor - initializes an empty map for annotations.
+	 */
+	public Process(){
+		super();
+		setType(typeValue);
+	}
+
+	public Process(final String bigHashCode){
+		super(bigHashCode);
+		setType(typeValue);
+	}
 }

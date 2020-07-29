@@ -28,22 +28,29 @@ import spade.vertex.prov.Entity;
  *
  * @author Hasanat Kazmi
  */
-public class WasAttributedTo extends AbstractEdge {
+public class WasAttributedTo extends AbstractEdge{
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = -3613198102410006962L;
+	private static final long serialVersionUID = 4092852697113201458L;
+
+	public static final String typeValue = "WasAttributedTo";
 
 	/**
-     * Constructor for Entity->Agent edge
-     *
-     * @param entity Entity
-     * @param agent Agent
-     */
-    public WasAttributedTo(Entity entity, Agent agent) {
-        setChildVertex(entity);
-        setParentVertex(agent);
-        addAnnotation("type", "WasAttributedTo");
-    }
+	 * Constructor for Entity->Agent edge
+	 *
+	 * @param entity Entity
+	 * @param agent  Agent
+	 */
+	public WasAttributedTo(Entity entity, Agent agent){
+		super();
+		setChildVertex(entity);
+		setParentVertex(agent);
+		setType(typeValue);
+	}
+
+	public WasAttributedTo(final String bigHashCode, Entity entity, Agent agent){
+		super(bigHashCode);
+		setChildVertex(entity);
+		setParentVertex(agent);
+		setType(typeValue);
+	}
 }

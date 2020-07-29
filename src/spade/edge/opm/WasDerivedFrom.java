@@ -27,22 +27,29 @@ import spade.vertex.opm.Artifact;
  *
  * @author Dawood Tariq
  */
-public class WasDerivedFrom extends AbstractEdge {
+public class WasDerivedFrom extends AbstractEdge{
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = -7868700149215471980L;
+	private static final long serialVersionUID = -6856260120198042435L;
+
+	public static final String typeValue = "WasDerivedFrom";
 
 	/**
-     * Constructor for Artifact->Artifact edge
-     *
-     * @param sourceArtifact Source artifact vertex
-     * @param destinationArtifact Destination artifact vertex
-     */
-    public WasDerivedFrom(Artifact sourceArtifact, Artifact destinationArtifact) {
-        setChildVertex(sourceArtifact);
-        setParentVertex(destinationArtifact);
-        addAnnotation("type", "WasDerivedFrom");
-    }
+	 * Constructor for Artifact->Artifact edge
+	 *
+	 * @param sourceArtifact      Source artifact vertex
+	 * @param destinationArtifact Destination artifact vertex
+	 */
+	public WasDerivedFrom(Artifact sourceArtifact, Artifact destinationArtifact){
+		super();
+		setChildVertex(sourceArtifact);
+		setParentVertex(destinationArtifact);
+		setType(typeValue);
+	}
+
+	public WasDerivedFrom(final String bigHashCode, Artifact sourceArtifact, Artifact destinationArtifact){
+		super(bigHashCode);
+		setChildVertex(sourceArtifact);
+		setParentVertex(destinationArtifact);
+		setType(typeValue);
+	}
 }

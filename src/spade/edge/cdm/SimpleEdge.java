@@ -28,15 +28,28 @@ import spade.core.AbstractVertex;
  */
 public class SimpleEdge extends AbstractEdge{
 
-	private static final long serialVersionUID = 1104716823846699588L;
+	private static final long serialVersionUID = -5238467703663074942L;
+
+	public static final String typeValue = "SimpleEdge";
 
 	/**
-     * Empty constructor - initializes an empty map for annotations.
-     */
+	 * Constructor taking only the source and destination vertices.
+	 *
+	 * @param childVertex  Source vertex
+	 * @param parentVertex Destination vertex
+	 */
 	public SimpleEdge(AbstractVertex childVertex, AbstractVertex parentVertex){
+		super();
 		setChildVertex(childVertex);
 		setParentVertex(parentVertex);
-		addAnnotation("type", "SimpleEdge");
+		setType(typeValue);
 	}
-	
+
+	public SimpleEdge(String bigHashCode, AbstractVertex childVertex, AbstractVertex parentVertex){
+		super(bigHashCode);
+		setChildVertex(childVertex);
+		setParentVertex(parentVertex);
+		setType(typeValue);
+	}
+
 }

@@ -28,22 +28,29 @@ import spade.vertex.opm.Process;
  *
  * @author Dawood Tariq
  */
-public class WasControlledBy extends AbstractEdge {
+public class WasControlledBy extends AbstractEdge{
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 4456103995937895908L;
+	private static final long serialVersionUID = 2718697821506451812L;
+
+	public static final String typeValue = "WasControlledBy";
 
 	/**
-     * Constructor for Process->Agent edge
-     *
-     * @param controlledProcess Process vertex
-     * @param controllingAgent Agent vertex
-     */
-    public WasControlledBy(Process controlledProcess, Agent controllingAgent) {
-        setChildVertex(controlledProcess);
-        setParentVertex(controllingAgent);
-        addAnnotation("type", "WasControlledBy");
-    }
+	 * Constructor for Process->Agent edge
+	 *
+	 * @param controlledProcess Process vertex
+	 * @param controllingAgent  Agent vertex
+	 */
+	public WasControlledBy(Process controlledProcess, Agent controllingAgent){
+		super();
+		setChildVertex(controlledProcess);
+		setParentVertex(controllingAgent);
+		setType(typeValue);
+	}
+
+	public WasControlledBy(final String bigHashCode, Process controlledProcess, Agent controllingAgent){
+		super(bigHashCode);
+		setChildVertex(controlledProcess);
+		setParentVertex(controllingAgent);
+		setType(typeValue);
+	}
 }

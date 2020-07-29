@@ -25,8 +25,9 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import org.json.JSONException;
+import org.json.JSONObject;
 
-import spade.reporter.audit.OPMConstants;
 import spade.utility.HelperFunctions;
 
 /**
@@ -38,6 +39,12 @@ import spade.utility.HelperFunctions;
 public abstract class AbstractEdge implements Serializable
 {
 
+	public static final String hashKey = AbstractVertex.hashKey;
+	public static final String annotationsKey = AbstractVertex.annotationsKey;
+	public static final String typeKey = AbstractVertex.typeKey;
+	public static final String childVertexHashKey = "childVertexHash";
+	public static final String parentVertexHashKey = "parentVertexHash"; 
+	
     /**
 	 * 
 	 */
@@ -169,7 +176,16 @@ public abstract class AbstractEdge implements Serializable
      * @return A string indicating the type of this edge.
      */
     public final String type() {
-        return annotations.get(OPMConstants.TYPE);
+        return annotations.get(typeKey);
+    }
+    
+    /**
+     * Sets the type of this edge
+     * 
+     * @param typeValue Must be a non-null string otherwise converted to empty string
+     */
+    protected final void setType(final String typeValue){
+    	addAnnotation(typeKey, typeValue);
     }
 
     // The following functions that get and set source and destination vertices
@@ -294,4 +310,13 @@ public abstract class AbstractEdge implements Serializable
 				"\t\t\tannotations:" + annotations + "\n" +
 				"\t\t}";
 	}
+    
+    public final String toJSON() throws JSONException{
+    	final JSONObject jsonObject = new JSONObject();
+    	jsonObject.put(hashKey, bigHashCode());
+    	jsonObject.put(childVertexHashKey, (childVertex == null ? "" : childVertex.bigHashCode()));
+    	jsonObject.put(parentVertexHashKey, (parentVertex == null ? "" : parentVertex.bigHashCode()));
+    	jsonObject.put(annotationsKey, annotations);
+    	return jsonObject.toString();
+    }
 }

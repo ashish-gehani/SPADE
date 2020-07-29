@@ -23,17 +23,21 @@ import spade.core.AbstractVertex;
 
 /**
  * Event vertex based on the CDM model
- *
  */
 public class Event extends AbstractVertex{
 
-	private static final long serialVersionUID = 1104716823846699588L;
+	private static final long serialVersionUID = -8666322445053720216L;
 
-	/**
-     * Empty constructor - initializes an empty map for annotations.
-     */
+	public static final String typeValue = "Event";
+
 	public Event(){
-		addAnnotation("type", "Event");
+		super();
+		setType(typeValue);
 	}
-	
+
+	public Event(final String bigHashCode){
+		super(bigHashCode);
+		setType(typeValue);
+	}
+
 }

@@ -27,22 +27,29 @@ import spade.vertex.prov.Activity;
  *
  * @author Dawood Tariq
  */
-public class WasInformedBy extends AbstractEdge {
+public class WasInformedBy extends AbstractEdge{
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 7384759992388951575L;
+	private static final long serialVersionUID = 6519157763238208072L;
+
+	public static final String typeValue = "WasInformedBy";
 
 	/**
-     * Constructor for Activity->Activity edge
-     *
-     * @param informedActivity Triggered activity vertex
-     * @param informingActivity Calling activity vertex
-     */
-    public WasInformedBy(Activity informedActivity, Activity informingActivity) {
-        setChildVertex(informedActivity);
-        setParentVertex(informingActivity);
-        addAnnotation("type", "WasInformedBy");
-    }
+	 * Constructor for Activity->Activity edge
+	 *
+	 * @param informedActivity  Triggered activity vertex
+	 * @param informingActivity Calling activity vertex
+	 */
+	public WasInformedBy(Activity informedActivity, Activity informingActivity){
+		super();
+		setChildVertex(informedActivity);
+		setParentVertex(informingActivity);
+		setType(typeValue);
+	}
+
+	public WasInformedBy(final String bigHashCode, Activity informedActivity, Activity informingActivity){
+		super(bigHashCode);
+		setChildVertex(informedActivity);
+		setParentVertex(informingActivity);
+		setType(typeValue);
+	}
 }

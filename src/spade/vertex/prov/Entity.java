@@ -10,14 +10,19 @@ import spade.core.AbstractVertex;
  *
  * @author dawood
  */
-public class Entity extends AbstractVertex {
+public class Entity extends AbstractVertex{
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 4737740472976211063L;
+	private static final long serialVersionUID = -6124174492443466225L;
 
-	public Entity() {
-        addAnnotation("type", "Entity");
-    }
+	public static final String typeValue = "Entity";
+
+	public Entity(){
+		super();
+		setType(typeValue);
+	}
+
+	public Entity(final String bigHashCode){
+		super(bigHashCode);
+		setType(typeValue);
+	}
 }

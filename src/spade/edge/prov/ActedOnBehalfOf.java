@@ -27,22 +27,29 @@ import spade.vertex.prov.Agent;
  *
  * @author Hasanat Kazmi
  */
-public class ActedOnBehalfOf extends AbstractEdge {
+public class ActedOnBehalfOf extends AbstractEdge{
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = -4646701652322799705L;
+	private static final long serialVersionUID = -639655640146903028L;
+
+	public static final String typeValue = "ActedOnBehalfOf";
 
 	/**
-     * Constructor for Agent->Agent edge
-     *
-     * @param agent Agent
-     * @param agent Agent
-     */
-    public ActedOnBehalfOf(Agent sourceAgent, Agent destinationAgent) {
-        setChildVertex(sourceAgent);
-        setParentVertex(destinationAgent);
-        addAnnotation("type", "ActedOnBehalfOf");
-    }
+	 * Constructor for Agent->Agent edge
+	 *
+	 * @param agent Agent
+	 * @param agent Agent
+	 */
+	public ActedOnBehalfOf(Agent sourceAgent, Agent destinationAgent){
+		super();
+		setChildVertex(sourceAgent);
+		setParentVertex(destinationAgent);
+		setType(typeValue);
+	}
+
+	public ActedOnBehalfOf(final String bigHashCode, Agent sourceAgent, Agent destinationAgent){
+		super(bigHashCode);
+		setChildVertex(sourceAgent);
+		setParentVertex(destinationAgent);
+		setType(typeValue);
+	}
 }

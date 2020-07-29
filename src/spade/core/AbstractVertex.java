@@ -24,8 +24,9 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import org.json.JSONException;
+import org.json.JSONObject;
 
-import spade.reporter.audit.OPMConstants;
 import spade.utility.HelperFunctions;
 
 /**
@@ -37,6 +38,10 @@ import spade.utility.HelperFunctions;
 public abstract class AbstractVertex implements Serializable
 {
 
+	public static final String hashKey = "hash";
+	public static final String annotationsKey = "annotations";
+	public static final String typeKey = "type";
+	
     /**
 	 * 
 	 */
@@ -175,7 +180,16 @@ public abstract class AbstractVertex implements Serializable
      * @return A string indicating the type of this vertex.
      */
     public final String type() {
-        return annotations.get(OPMConstants.TYPE);
+        return annotations.get(typeKey);
+    }
+    
+    /**
+     * Sets the type of this vertex
+     * 
+     * @param value Must be a non-null string otherwise converted to empty string
+     */
+    protected final void setType(final String value){
+    	addAnnotation(typeKey, value);
     }
 
     /**
@@ -247,10 +261,18 @@ public abstract class AbstractVertex implements Serializable
 				"\t\t\tannotations:" + annotations + "\n" +
 				"\t\t}";
 	}
+    
+    public final String toJSON() throws JSONException{
+    	final JSONObject jsonObject = new JSONObject();
+    	jsonObject.put(hashKey, bigHashCode());
+    	jsonObject.put(annotationsKey, annotations);
+    	return jsonObject.toString();
+    }
 
 	public final AbstractVertex copyAsVertex(){
 		AbstractVertex copy = new Vertex(this.bigHashCode);
 		copy.annotations.putAll(this.annotations);
 		return copy;
 	}
+	
 }

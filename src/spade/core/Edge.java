@@ -24,28 +24,29 @@ package spade.core;
  *
  * @author Dawood Tariq
  */
-public class Edge extends AbstractEdge {
+public class Edge extends AbstractEdge{
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 892613559211645319L;
+	private static final long serialVersionUID = -2356914905546316322L;
+
+	public static final String typeValue = "Edge";
 
 	/**
-     * Constructor taking only the source and destination vertices.
-     *
-     * @param childVertex Source vertex
-     * @param parentVertex Destination vertex
-     */
-    public Edge(AbstractVertex childVertex, AbstractVertex parentVertex) {
-    	super();
-        setChildVertex(childVertex);
-        setParentVertex(parentVertex);
-    }
-    
-    public Edge(String bigHashCode, AbstractVertex childVertex, AbstractVertex parentVertex){
-    	super(bigHashCode);
-    	setChildVertex(childVertex);
-        setParentVertex(parentVertex);
-    }
+	 * Constructor taking only the source and destination vertices.
+	 *
+	 * @param childVertex  Source vertex
+	 * @param parentVertex Destination vertex
+	 */
+	public Edge(AbstractVertex childVertex, AbstractVertex parentVertex){
+		super();
+		setChildVertex(childVertex);
+		setParentVertex(parentVertex);
+		setType(typeValue);
+	}
+
+	public Edge(String bigHashCode, AbstractVertex childVertex, AbstractVertex parentVertex){
+		super(bigHashCode);
+		setChildVertex(childVertex);
+		setParentVertex(parentVertex);
+		setType(typeValue);
+	}
 }

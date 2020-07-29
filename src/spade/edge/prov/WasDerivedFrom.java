@@ -27,22 +27,29 @@ import spade.vertex.prov.Entity;
  *
  * @author Dawood Tariq
  */
-public class WasDerivedFrom extends AbstractEdge {
+public class WasDerivedFrom extends AbstractEdge{
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = -7510649079940497925L;
+	private static final long serialVersionUID = 3257987050515162340L;
+
+	public static final String typeValue = "WasDerivedFrom";
 
 	/**
-     * Constructor for Entity->Entity edge
-     *
-     * @param sourceEntity Source entity vertex
-     * @param destinationEntity Destination entity vertex
-     */
-    public WasDerivedFrom(Entity sourceEntity, Entity destinationEntity) {
-        setChildVertex(sourceEntity);
-        setParentVertex(destinationEntity);
-        addAnnotation("type", "WasDerivedFrom");
-    }
+	 * Constructor for Entity->Entity edge
+	 *
+	 * @param sourceEntity      Source entity vertex
+	 * @param destinationEntity Destination entity vertex
+	 */
+	public WasDerivedFrom(Entity sourceEntity, Entity destinationEntity){
+		super();
+		setChildVertex(sourceEntity);
+		setParentVertex(destinationEntity);
+		setType(typeValue);
+	}
+
+	public WasDerivedFrom(final String bigHashCode, Entity sourceEntity, Entity destinationEntity){
+		super(bigHashCode);
+		setChildVertex(sourceEntity);
+		setParentVertex(destinationEntity);
+		setType(typeValue);
+	}
 }

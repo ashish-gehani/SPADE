@@ -28,22 +28,29 @@ import spade.vertex.prov.Agent;
  *
  * @author Dawood Tariq
  */
-public class WasAssociatedWith extends AbstractEdge {
+public class WasAssociatedWith extends AbstractEdge{
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 8153869461615081626L;
+	private static final long serialVersionUID = -5166094539627373837L;
+
+	public static final String typeValue = "WasAssociatedWith";
 
 	/**
-     * Constructor for Activity->Agent edge
-     *
-     * @param activity Activity
-     * @param agent Agent
-     */
-    public WasAssociatedWith(Activity activity, Agent agent) {
-        setChildVertex(activity);
-        setParentVertex(agent);
-        addAnnotation("type", "WasAssociatedWith");
-    }
+	 * Constructor for Activity->Agent edge
+	 *
+	 * @param activity Activity
+	 * @param agent    Agent
+	 */
+	public WasAssociatedWith(Activity activity, Agent agent){
+		super();
+		setChildVertex(activity);
+		setParentVertex(agent);
+		setType(typeValue);
+	}
+
+	public WasAssociatedWith(final String bigHashCode, Activity activity, Agent agent){
+		super(bigHashCode);
+		setChildVertex(activity);
+		setParentVertex(agent);
+		setType(typeValue);
+	}
 }

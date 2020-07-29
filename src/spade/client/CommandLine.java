@@ -49,6 +49,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.mutable.MutableBoolean;
 
 import jline.ConsoleReader;
+import spade.core.Graph;
 import spade.core.Kernel;
 import spade.core.SPADEQuery;
 import spade.core.Settings;
@@ -519,10 +520,11 @@ public class CommandLine{
 							if(spadeResult instanceof spade.core.Graph){
 								spade.core.Graph graph = (spade.core.Graph)spadeResult;
 								if(RESULT_EXPORT_PATH != null){
-									graph.exportGraph(RESULT_EXPORT_PATH);
+									Graph.exportGraphAsJSON(graph, RESULT_EXPORT_PATH);
 									return "Output exported to file: " + RESULT_EXPORT_PATH;
 								}else{
-									return graph.prettyPrint();
+									Graph.exportGraphAsJSON(graph, System.out);
+									return "Output exported to STDOUT";
 								}
 							}else{
 								return String.valueOf(spadeResult);

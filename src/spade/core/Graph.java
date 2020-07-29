@@ -20,10 +20,15 @@
 package spade.core;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.Serializable;
+import java.io.Writer;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.SecureRandom;
@@ -31,6 +36,7 @@ import java.security.Signature;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +48,7 @@ import java.util.regex.Pattern;
 
 import spade.query.quickgrail.instruction.GetLineage.Direction;
 import spade.reporter.audit.OPMConstants;
+import spade.utility.HelperFunctions;
 
 /**
  * This class is used to represent query responses using sets for edges and
@@ -788,5 +795,175 @@ public class Graph implements Serializable{
 		return newGraph;
 	}
 
+	public static final void exportGraphAsJSON(final Graph graph, final String filePath) throws Exception{
+		if(graph == null){
+			throw new RuntimeException("NULL graph to export as JSON");
+		}
+
+		if(HelperFunctions.isNullOrEmpty(filePath)){
+			throw new RuntimeException("NULL/Empty JSON filepath to export graph to: " + filePath);
+		}
+
+		final File file = new File(filePath);
+
+		try{
+			if(file.exists()){
+				if(file.isDirectory()){
+					throw new Exception("File path is a directory. Must be a file.");
+				}else{
+					if(!file.canWrite()){
+						throw new Exception("File path is not writable.");
+					}
+				}
+			}
+		}catch(Exception e){
+			throw new RuntimeException("Failed to validate JSON filepath to export graph to: '" + filePath + "'", e);
+		}
+
+		try(final FileOutputStream fileOutputStream = new FileOutputStream(file)){
+			exportGraphAsJSON(graph, fileOutputStream);
+		}catch(Exception e){
+			throw new RuntimeException("Failed to write to JSON filepath to export graph to: '" + filePath + "'", e);
+		}
+	}
+
+	public static final void exportGraphAsJSON(final Graph graph, final OutputStream outputStream) throws Exception{
+		if(graph == null){
+			throw new RuntimeException("NULL graph to export as JSON");
+		}
+
+		if(outputStream == null){
+			throw new RuntimeException("NULL output stream to export graph as JSON to");
+		}
+
+		final String newLine = System.lineSeparator();
+
+		try(final Writer writer = new BufferedWriter(new OutputStreamWriter(outputStream))){
+			writer.write("[" + newLine); // start
+
+			final boolean thereAreEdges = graph.edgeSet().size() > 0;
+
+			final Iterator<AbstractVertex> vertexIterator = graph.vertexSet().iterator();
+			while(vertexIterator.hasNext()){
+				final AbstractVertex vertex = vertexIterator.next();
+				if(vertex == null){
+					throw new RuntimeException("NULL vertex in graph");
+				}
+
+				String vertexString = vertex.toJSON();
+				if(vertexIterator.hasNext()){ // There is a next one i.e. not the last
+					vertexString += ",";
+				}else{
+					if(thereAreEdges){
+						vertexString += ",";
+					}
+				}
+				vertexString += newLine;
+
+				writer.write(vertexString);
+			}
+
+			//
+
+			final Iterator<AbstractEdge> edgeIterator = graph.edgeSet().iterator();
+			while(edgeIterator.hasNext()){
+				final AbstractEdge edge = edgeIterator.next();
+				if(edge == null){
+					throw new RuntimeException("NULL edge in graph");
+				}
+
+				String edgeString = edge.toJSON();
+				if(edgeIterator.hasNext()){ // There is a next one i.e. not the last
+					edgeString += ",";
+				}
+				edgeString += newLine;
+
+				writer.write(edgeString);
+			}
+
+			writer.write("]" + newLine); // end
+
+			writer.flush(); // flush because might not be a file
+		}catch(Exception e){
+			throw new RuntimeException("Failed to write JSON to output stream", e);
+		}
+	}
+
+	public static final boolean isVertexType(String type){
+		if(HelperFunctions.isNullOrEmpty(type)){
+			return false;
+		}
+		type = type.trim();
+		if(	// generic vertex
+			type.equalsIgnoreCase(spade.core.Vertex.typeValue)
+			// prov
+			|| type.equalsIgnoreCase(spade.vertex.prov.Activity.typeValue)
+			|| type.equalsIgnoreCase(spade.vertex.prov.Agent.typeValue)
+			|| type.equalsIgnoreCase(spade.vertex.prov.Entity.typeValue)
+			// opm
+			|| type.equalsIgnoreCase(spade.vertex.opm.Agent.typeValue)
+			|| type.equalsIgnoreCase(spade.vertex.opm.Artifact.typeValue)
+			|| type.equalsIgnoreCase(spade.vertex.opm.Process.typeValue)
+			// cdm
+			|| type.equalsIgnoreCase(spade.vertex.cdm.Event.typeValue)
+			|| type.equalsIgnoreCase(spade.vertex.cdm.Object.typeValue)
+			|| type.equalsIgnoreCase(spade.vertex.cdm.Principal.typeValue)
+			|| type.equalsIgnoreCase(spade.vertex.cdm.Subject.typeValue)
+			){
+			return true;
+		}else{
+			return false;
+		}
+	}
+	
+	public static final boolean isEdgeType(String type){
+		if(HelperFunctions.isNullOrEmpty(type)){
+			return false;
+		}
+		type = type.trim();
+		if(	// generic vertex
+			type.equalsIgnoreCase(spade.core.Edge.typeValue)
+			// prov
+			|| type.equalsIgnoreCase(spade.edge.prov.ActedOnBehalfOf.typeValue)
+			|| type.equalsIgnoreCase(spade.edge.prov.Used.typeValue)
+			|| type.equalsIgnoreCase(spade.edge.prov.WasAssociatedWith.typeValue)
+			|| type.equalsIgnoreCase(spade.edge.prov.WasAttributedTo.typeValue)
+			|| type.equalsIgnoreCase(spade.edge.prov.WasDerivedFrom.typeValue)
+			|| type.equalsIgnoreCase(spade.edge.prov.WasGeneratedBy.typeValue)
+			|| type.equalsIgnoreCase(spade.edge.prov.WasInformedBy.typeValue)
+			// opm
+			|| type.equalsIgnoreCase(spade.edge.opm.Used.typeValue)
+			|| type.equalsIgnoreCase(spade.edge.opm.WasControlledBy.typeValue)
+			|| type.equalsIgnoreCase(spade.edge.opm.WasDerivedFrom.typeValue)
+			|| type.equalsIgnoreCase(spade.edge.opm.WasGeneratedBy.typeValue)
+			|| type.equalsIgnoreCase(spade.edge.opm.WasTriggeredBy.typeValue)
+			// cdm
+			|| type.equalsIgnoreCase(spade.edge.cdm.SimpleEdge.typeValue)
+			){
+			return true;
+		}else{
+			return false;
+		}
+	}
+	
+	public static void main(String[] args) throws Exception{
+		
+		final int total = 100000;
+		
+		Graph g = new Graph();
+		for(int i = 0; i < total; i++){
+			final Vertex v = new Vertex("id_" + i);
+			v.addAnnotation("pid", String.valueOf(i));
+			g.putVertex(v);
+		}
+		
+		for(int i = 0; i < total - 1; i++){
+			final Edge e = new Edge(new Vertex("id_" + i), new Vertex("id_" + (i+1)));
+			e.addAnnotation("time", String.valueOf(i));
+			g.putEdge(e);
+		}
+
+		exportGraphAsJSON(g, "/tmp/test.json");
+	}
 }
 

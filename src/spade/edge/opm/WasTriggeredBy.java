@@ -27,22 +27,29 @@ import spade.vertex.opm.Process;
  *
  * @author Dawood Tariq
  */
-public class WasTriggeredBy extends AbstractEdge {
+public class WasTriggeredBy extends AbstractEdge{
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = -8833291481882361113L;
+	private static final long serialVersionUID = -2786135483751689640L;
+
+	public static final String typeValue = "WasTriggeredBy";
 
 	/**
-     * Constructor for Process->Process edge
-     *
-     * @param triggeredProcess Triggered process vertex
-     * @param callingProcess Calling process vertex
-     */
-    public WasTriggeredBy(Process triggeredProcess, Process callingProcess) {
-        setChildVertex(triggeredProcess);
-        setParentVertex(callingProcess);
-        addAnnotation("type", "WasTriggeredBy");
-    }
+	 * Constructor for Process->Process edge
+	 *
+	 * @param triggeredProcess Triggered process vertex
+	 * @param callingProcess   Calling process vertex
+	 */
+	public WasTriggeredBy(Process triggeredProcess, Process callingProcess){
+		super();
+		setChildVertex(triggeredProcess);
+		setParentVertex(callingProcess);
+		setType(typeValue);
+	}
+
+	public WasTriggeredBy(final String bigHashCode, Process triggeredProcess, Process callingProcess){
+		super(bigHashCode);
+		setChildVertex(triggeredProcess);
+		setParentVertex(callingProcess);
+		setType(typeValue);
+	}
 }

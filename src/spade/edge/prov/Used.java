@@ -28,22 +28,29 @@ import spade.vertex.prov.Entity;
  *
  * @author Dawood Tariq
  */
-public class Used extends AbstractEdge {
+public class Used extends AbstractEdge{
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = -3001968622367574605L;
+	private static final long serialVersionUID = -5263470275054666497L;
+
+	public static final String typeValue = "Used";
 
 	/**
-     * Constructor for Activity->Entity edge
-     *
-     * @param activity Activity
-     * @param entity Entity
-     */
-    public Used(Activity activity, Entity entity) {
-        setChildVertex(activity);
-        setParentVertex(entity);
-        addAnnotation("type", "Used");
-    }
+	 * Constructor for Activity->Entity edge
+	 *
+	 * @param activity Activity
+	 * @param entity   Entity
+	 */
+	public Used(Activity activity, Entity entity){
+		super();
+		setChildVertex(activity);
+		setParentVertex(entity);
+		setType(typeValue);
+	}
+
+	public Used(final String bigHashCode, Activity activity, Entity entity){
+		super(bigHashCode);
+		setChildVertex(activity);
+		setParentVertex(entity);
+		setType(typeValue);
+	}
 }

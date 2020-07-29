@@ -28,22 +28,29 @@ import spade.vertex.prov.Entity;
  *
  * @author Dawood Tariq
  */
-public class WasGeneratedBy extends AbstractEdge {
+public class WasGeneratedBy extends AbstractEdge{
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = -2683569272112428218L;
+	private static final long serialVersionUID = 9063692509254013278L;
+
+	public static final String typeValue = "WasGeneratedBy";
 
 	/**
-     * Constructor for Entity->Activity edge
-     *
-     * @param entity Entity
-     * @param activity Activity
-     */
-    public WasGeneratedBy(Entity entity, Activity activity) {
-        setChildVertex(entity);
-        setParentVertex(activity);
-        addAnnotation("type", "WasGeneratedBy");
-    }
+	 * Constructor for Entity->Activity edge
+	 *
+	 * @param entity   Entity
+	 * @param activity Activity
+	 */
+	public WasGeneratedBy(Entity entity, Activity activity){
+		super();
+		setChildVertex(entity);
+		setParentVertex(activity);
+		setType(typeValue);
+	}
+
+	public WasGeneratedBy(final String bigHashCode, Entity entity, Activity activity){
+		super(bigHashCode);
+		setChildVertex(entity);
+		setParentVertex(activity);
+		setType(typeValue);
+	}
 }

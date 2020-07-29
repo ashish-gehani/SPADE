@@ -28,22 +28,29 @@ import spade.vertex.opm.Process;
  *
  * @author Dawood Tariq
  */
-public class Used extends AbstractEdge {
+public class Used extends AbstractEdge{
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 3355932768485420635L;
+	private static final long serialVersionUID = -2640428751408445630L;
+
+	public static final String typeValue = "Used";
 
 	/**
-     * Constructor for Process->Artifact edge
-     *
-     * @param actingProcess Process vertex
-     * @param usedArtifact Artifact vertex
-     */
-    public Used(Process actingProcess, Artifact usedArtifact) {
-        setChildVertex(actingProcess);
-        setParentVertex(usedArtifact);
-        addAnnotation("type", "Used");
-    }
+	 * Constructor for Process->Artifact edge
+	 *
+	 * @param actingProcess Process vertex
+	 * @param usedArtifact  Artifact vertex
+	 */
+	public Used(Process actingProcess, Artifact usedArtifact){
+		super();
+		setChildVertex(actingProcess);
+		setParentVertex(usedArtifact);
+		setType(typeValue);
+	}
+
+	public Used(final String bigHashCode, Process actingProcess, Artifact usedArtifact){
+		super(bigHashCode);
+		setChildVertex(actingProcess);
+		setParentVertex(usedArtifact);
+		setType(typeValue);
+	}
 }

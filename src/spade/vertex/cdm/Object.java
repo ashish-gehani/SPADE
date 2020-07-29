@@ -27,13 +27,17 @@ import spade.core.AbstractVertex;
  */
 public class Object extends AbstractVertex{
 
-	private static final long serialVersionUID = 1104716823846699588L;
+	private static final long serialVersionUID = -5268967104941932651L;
 
-	/**
-     * Empty constructor - initializes an empty map for annotations.
-     */
+	public static final String typeValue = "Object";
+
 	public Object(){
-		addAnnotation("type", "Object");
+		super();
+		setType(typeValue);
 	}
-	
+
+	public Object(final String bigHashCode){
+		super(bigHashCode);
+		setType(typeValue);
+	}
 }

@@ -27,13 +27,18 @@ import spade.core.AbstractVertex;
  */
 public class Principal extends AbstractVertex{
 
-	private static final long serialVersionUID = 1104716823846699588L;
+	private static final long serialVersionUID = -8236468370672321933L;
 
-	/**
-     * Empty constructor - initializes an empty map for annotations.
-     */
+	public static final String typeValue = "Principal";
+
 	public Principal(){
-		addAnnotation("type", "Principal");
+		super();
+		setType(typeValue);
 	}
-	
+
+	public Principal(final String bigHashCode){
+		super(bigHashCode);
+		setType(typeValue);
+	}
+
 }

@@ -28,22 +28,29 @@ import spade.vertex.opm.Process;
  *
  * @author Dawood Tariq
  */
-public class WasGeneratedBy extends AbstractEdge {
+public class WasGeneratedBy extends AbstractEdge{
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = -95043184178026105L;
+	private static final long serialVersionUID = 7210406434489568930L;
+
+	public static final String typeValue = "WasGeneratedBy";
 
 	/**
-     * Constructor for Artifact->Process edge
-     *
-     * @param generatedArtifact Artifact vertex
-     * @param actingProcess Process vertex
-     */
-    public WasGeneratedBy(Artifact generatedArtifact, Process actingProcess) {
-        setChildVertex(generatedArtifact);
-        setParentVertex(actingProcess);
-        addAnnotation("type", "WasGeneratedBy");
-    }
+	 * Constructor for Artifact->Process edge
+	 *
+	 * @param generatedArtifact Artifact vertex
+	 * @param actingProcess     Process vertex
+	 */
+	public WasGeneratedBy(Artifact generatedArtifact, Process actingProcess){
+		super();
+		setChildVertex(generatedArtifact);
+		setParentVertex(actingProcess);
+		setType(typeValue);
+	}
+
+	public WasGeneratedBy(final String bigHashCode, Artifact generatedArtifact, Process actingProcess){
+		super(bigHashCode);
+		setChildVertex(generatedArtifact);
+		setParentVertex(actingProcess);
+		setType(typeValue);
+	}
 }

@@ -24,21 +24,22 @@ package spade.core;
  *
  * @author Dawood Tariq
  */
-public class Vertex extends AbstractVertex {
+public class Vertex extends AbstractVertex{
 
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 2672769680938759089L;
+	private static final long serialVersionUID = -4361039611805843903L;
+
+	public static final String typeValue = "Vertex";
 
 	/**
-     * An empty constructor - an empty map is initialized for the annotations.
-     */
-    public Vertex() {
-    	super();
-    }
-    
-    public Vertex(String bigHashCode){
-    	super(bigHashCode);
-    }
+	 * An empty constructor - an empty map is initialized for the annotations.
+	 */
+	public Vertex(){
+		super();
+		setType(typeValue);
+	}
+
+	public Vertex(String bigHashCode){
+		super(bigHashCode);
+		setType(typeValue);
+	}
 }
