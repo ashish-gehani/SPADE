@@ -24,6 +24,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -126,7 +127,9 @@ public class Neo4j extends AbstractStorage{
 		keyReset = "reset",
 		keyTimeMe = "timeMe",
 		keyMainThreadSleepWaitMillis = "mainThreadSleepWaitMillis",
-		keyVertexCacheMode = "vertexCacheMode";
+		keyVertexCacheMode = "vertexCacheMode",
+		keyTestVertexAnnotations = "test.vertex.annotations",
+		keyTestEdgeAnnotations = "test.edge.annotations";
 //		keyIndexVertexUser = "index.vertex.user",
 //		keyIndexEdgeUser = "index.edge.user";
 
@@ -183,6 +186,8 @@ public class Neo4j extends AbstractStorage{
 	private boolean timeMe;
 	private long mainThreadSleepWaitMillis;
 	private VertexCacheMode vertexCacheMode;
+	private List<SimpleEntry<String, String>> testVertexAnnotationsList = new ArrayList<SimpleEntry<String, String>>();
+	private List<SimpleEntry<String, String>> testEdgeAnnotationsList = new ArrayList<SimpleEntry<String, String>>();
 //	private String[] indexVertexKeysUser;
 //	private String[] indexEdgeKeysUser;
 
@@ -1563,11 +1568,36 @@ public class Neo4j extends AbstractStorage{
 				+ ", " + keyTest + "=" + test
 				+ ", " + keyTestVertexTotal + "=" + testVertexTotal
 				+ ", " + keyTestEdgeDegree + "=" + testEdgeDegree
+				+ ", " + keyTestVertexAnnotations + "=" + testVertexAnnotationsList
+				+ ", " + keyTestEdgeAnnotations + "=" + testEdgeAnnotationsList
 				+ ", " + keyReset + "=" + reset
 				+ ", " + keyTimeMe + "=" + timeMe
 				+ ", " + keyMainThreadSleepWaitMillis + "=" + mainThreadSleepWaitMillis
 				+ ", " + keyVertexCacheMode + "=" + vertexCacheMode;
 		logger.log(Level.INFO, configString);
+	}
+
+	// true on success and false on failure
+	// logs the message
+	private final boolean initializeTestAnnotations(final String key, String value, final List<SimpleEntry<String, String>> list){
+		if(HelperFunctions.isNullOrEmpty(value)){
+			return true;
+		}else{
+			value = value.trim();
+			final List<SimpleEntry<String, String>> tempList = new ArrayList<SimpleEntry<String, String>>();
+			final String[] valueTokens = value.split(",");
+			for(final String valueToken : valueTokens){
+				final String subKeySubValue[] = valueToken.split(":", 2);
+				if(subKeySubValue.length != 2){
+					logger.log(Level.SEVERE, "Invalid format for value of key '"+key+"'. Must be in format: a:b(,c:d)*");
+					return false;
+				}else{
+					tempList.add(new SimpleEntry<String, String>(subKeySubValue[0].trim(), subKeySubValue[1].trim()));
+				}
+			}
+			list.addAll(tempList);
+			return true;
+		}
 	}
 
 	private final boolean initializeConfig(final String arguments, final String configFilePath){
@@ -1618,6 +1648,8 @@ public class Neo4j extends AbstractStorage{
 
 		final String testVertexTotalString = map.remove(keyTestVertexTotal);
 		final String testEdgeDegreeString = map.remove(keyTestEdgeDegree);
+		final String testVertexAnnotationsString = map.remove(keyTestVertexAnnotations);
+		final String testEdgeAnnotationsString = map.remove(keyTestEdgeAnnotations);
 
 		if(this.test){
 			final Result<Long> testVertexTotalResult = HelperFunctions.parseLong(testVertexTotalString, 10, 0, Long.MAX_VALUE);
@@ -1637,6 +1669,14 @@ public class Neo4j extends AbstractStorage{
 			if(this.testVertexTotal == 0 && this.testEdgeDegree > 0){
 				logger.log(Level.SEVERE, "Invalid config. Cannot create edges with 0 vertices. Specify value of '"+keyTestVertexTotal+"'"
 						+ " that is greater than 0");
+				return false;
+			}
+
+			if(!initializeTestAnnotations(keyTestVertexAnnotations, testVertexAnnotationsString, testVertexAnnotationsList)){
+				return false;
+			}
+
+			if(!initializeTestAnnotations(keyTestEdgeAnnotations, testEdgeAnnotationsString, testEdgeAnnotationsList)){
 				return false;
 			}
 		}
@@ -2093,6 +2133,7 @@ public class Neo4j extends AbstractStorage{
 	private final AbstractVertex testCreateVertex(final long id){
 		final Vertex vertex = new Vertex(testCreateVertexHash(id));
 		vertex.addAnnotation("vertex_id", String.valueOf(id));
+		vertex.addAnnotations(testGetResolvedAnnotations(id, testVertexAnnotationsList));
 		return vertex;
 	}
 
@@ -2106,12 +2147,26 @@ public class Neo4j extends AbstractStorage{
 		final AbstractVertex parent = testCreateVertex(parentId);
 		final AbstractEdge edge = new Edge(testCreateEdgeHash(edgeId), child, parent);
 		edge.addAnnotation("edge_id", String.valueOf(edgeId));
+		edge.addAnnotations(testGetResolvedAnnotations(edgeId, testEdgeAnnotationsList));
 		return edge;
 	}
 
 	private final String testCreateEdgeHash(final long id){
 		final String str = "edge_hash_" + id;
 		return DigestUtils.md5Hex(str);
+	}
+
+	private final Map<String, String> testGetResolvedAnnotations(final long id, final List<SimpleEntry<String, String>> list){
+		final Map<String, String> map = new HashMap<String, String>();
+		for(final SimpleEntry<String, String> entry : list){
+			final String key = entry.getKey();
+			final String value = entry.getValue();
+
+			final String resolvedKey = key.replaceAll("\\$\\{id\\}", String.valueOf(id));
+			final String resolvedValue = value.replaceAll("\\$\\{id\\}", String.valueOf(id));
+			map.put(resolvedKey, resolvedValue);
+		}
+		return map;
 	}
 
 	public static void main(String[] args) throws Exception{
