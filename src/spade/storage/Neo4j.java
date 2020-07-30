@@ -43,7 +43,6 @@ import org.apache.commons.io.FileUtils;
 import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.dbms.api.DatabaseManagementServiceBuilder;
-import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
@@ -1241,33 +1240,16 @@ public class Neo4j extends AbstractStorage{
 				if(edgeMap.get(hashCode) == null){ // not in cache
 					stats.edgeCacheMiss.increment();
 					boolean put = false;
-					final Node childNode = new Neo4jDbPutVertex(edge.getChildVertex()).getNodeIfExists(tx);
-					if(childNode == null){
-						put = true;
+					final org.neo4j.graphdb.Result result =
+						tx.execute("match (a)-[e]->(b) where e.`"+hashPropertyName+"`='"+hashCode+"'"
+								+ " and a.`"+hashPropertyName+"`='"+edge.getChildVertex().bigHashCode()+"'"
+								+ " and b.`"+hashPropertyName+"`='"+edge.getParentVertex().bigHashCode()+"' return e");
+					if(result.hasNext()){
+						// found it
+						put = false;
 					}else{
-						final Node parentNode = new Neo4jDbPutVertex(edge.getParentVertex()).getNodeIfExists(tx);
-						if(parentNode == null){
-							put = true;
-						}else{
-							Relationship found = null;
-							final Iterable<Relationship> relationshipsIterable = childNode
-									.getRelationships(Direction.OUTGOING, neo4jEdgeRelationshipType);
-							final Iterator<Relationship> relationships = relationshipsIterable.iterator();
-							while(relationships.hasNext()){
-								final Relationship relationship = relationships.next();
-								if(relationship != null){
-									if(hashCode.equals(relationship.getProperty(hashPropertyName))){
-										found = relationship;
-										break;
-									}
-								}
-							}
-							if(found == null){
-								put = true;
-							}else{
-								put = false;
-							}
-						}
+						// not found
+						put = true;
 					}
 					if(put){
 						// store edge
@@ -1601,12 +1583,14 @@ public class Neo4j extends AbstractStorage{
 			return false;
 		}
 
-		final Result<HashMap<String, String>> argumentsParseResult = HelperFunctions.parseKeysValuesInString(arguments);
-		if(argumentsParseResult.error){
-			logger.log(Level.SEVERE, "Failed to parse arguments. " + argumentsParseResult.toErrorString());
-			return false;
+		if(!HelperFunctions.isNullOrEmpty(arguments)){
+			final Result<HashMap<String, String>> argumentsParseResult = HelperFunctions.parseKeysValuesInString(arguments);
+			if(argumentsParseResult.error){
+				logger.log(Level.SEVERE, "Failed to parse arguments. " + argumentsParseResult.toErrorString());
+				return false;
+			}
+			map.putAll(argumentsParseResult.result);
 		}
-		map.putAll(argumentsParseResult.result);
 
 		final String timeMeString = map.remove(keyTimeMe);
 		final Result<Boolean> timeMeResult = HelperFunctions.parseBoolean(timeMeString);
@@ -2297,9 +2281,10 @@ class Neo4jStat{
 	}
 
 	synchronized String format(final long elapsedTimeSinceStartMillis, final long elapsedTimeSinceIntervalMillis){
-		return String.format("Rate of %s per minute [Overall=%.3f; Interval=%.3f]", this.name,
+		return String.format("%s. Rate per minute [Overall=%.3f; Interval=%.3f]. Absolute [Overall=%s, Interval=%s]", this.name,
 				currentOverallRatePerMin(elapsedTimeSinceStartMillis),
-				currentIntervalRatePerMin(elapsedTimeSinceIntervalMillis));
+				currentIntervalRatePerMin(elapsedTimeSinceIntervalMillis),
+				valueSinceEpoch, valueSinceLastInterval);
 	}
 
 	synchronized final double getRatePerMin(long value, long elapsedTimeMillis){
