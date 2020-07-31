@@ -34,18 +34,7 @@ import spade.reporter.Audit;
 import spade.reporter.audit.AuditEventReader;
 import spade.reporter.audit.OPMConstants;
 import spade.reporter.audit.SYSCALL;
-import spade.reporter.audit.artifact.ArtifactIdentifier;
-import spade.reporter.audit.artifact.BlockDeviceIdentifier;
-import spade.reporter.audit.artifact.CharacterDeviceIdentifier;
-import spade.reporter.audit.artifact.DirectoryIdentifier;
-import spade.reporter.audit.artifact.FileIdentifier;
-import spade.reporter.audit.artifact.LinkIdentifier;
-import spade.reporter.audit.artifact.NamedPipeIdentifier;
-import spade.reporter.audit.artifact.NetworkSocketIdentifier;
-import spade.reporter.audit.artifact.UnixSocketIdentifier;
-import spade.reporter.audit.artifact.UnnamedPipeIdentifier;
 import spade.utility.HelperFunctions;
-import spade.utility.Execute;
 import spade.utility.Result;
 import spade.utility.map.external.ExternalMap;
 import spade.utility.map.external.ExternalMapArgument;
@@ -606,17 +595,15 @@ public abstract class ProcessManager extends ProcessStateManager{
 				syscall = SYSCALL.FORK;
 			}
 		}
-		
-		// ids inside can be null. ProcessStateManager decides what to do with it
-		NamespaceIdentifier namespaces = getNamespaceIdentifierFromEventData(eventData);
-		
+
 		boolean handle = true;
 		String flagsAnnotation = "";
 
 		ProcessIdentifier childProcessIdentifier = new ProcessIdentifier(childPid, parentPid, comm, cwd,
 				parentProcessIdentifier.commandLine, time, null, getUnitId(), source, nsChildPid);
-		NamespaceIdentifier childNamespaceIdentifer = buildNamespaceIdentifierForPid(childPid);
-		Process childVertex = putProcessVertex(time, eventId, childProcessIdentifier, agentIdentifier, childNamespaceIdentifer, source);
+		// ids inside can be null. ProcessStateManager decides what to do with it
+		NamespaceIdentifier namespaces = getNamespaceIdentifierFromEventData(eventData);
+		Process childVertex = putProcessVertex(time, eventId, childProcessIdentifier, agentIdentifier, namespaces, source);
 
 		if(syscall == SYSCALL.FORK){
 			processForked(parentPid, childPid, namespaces);
