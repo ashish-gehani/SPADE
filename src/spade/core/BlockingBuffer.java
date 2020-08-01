@@ -151,8 +151,10 @@ public class BlockingBuffer extends Buffer{
 		final double freeWorkableMemoryPercentageSpecified = getFreeWorkableMemoryPercentage();
 		
 		if(HelperFunctions.getFreeMemoryPercentage() <= freeWorkableMemoryPercentageSpecified){
-			log(Level.INFO, String.format("Blocking until free memory percentage rises above min. (current) %.3f < (specified) %.3f" 
+			if(reportingIntervalMillis > 0){
+				log(Level.INFO, String.format("Blocking until free memory percentage rises above min. (current) %.3f <= (specified) %.3f" 
 					, HelperFunctions.getFreeMemoryPercentage(), freeWorkableMemoryPercentageSpecified), null);
+			}
 		}
 		
 		while(HelperFunctions.getFreeMemoryPercentage() <= freeWorkableMemoryPercentageSpecified){
@@ -166,8 +168,11 @@ public class BlockingBuffer extends Buffer{
 		}
 		
 		if(slept){
-			log(Level.INFO, "Blocked for " + (System.currentTimeMillis() - waitStartMillis) 
-					+ " millis for free memory percentage to rise above min.", null);
+			if(reportingIntervalMillis > 0){
+				final long waitEndMillis = System.currentTimeMillis() - waitStartMillis;
+				log(Level.INFO, "Blocked for " + (waitEndMillis) 
+						+ " millis for free memory percentage to rise above min.", null);
+			}
 		}
 	}
 	
@@ -213,8 +218,8 @@ public class BlockingBuffer extends Buffer{
 				if((System.currentTimeMillis() - lastReportedAtMillis) > reportingIntervalMillis){
 					lastReportedAtMillis = System.currentTimeMillis();
 					log(Level.INFO, 
-							String.format("Size=%s, Get-rate=%.3f per min, Put-rate=%.3f per min, Free-mem=%.3f percent", 
-									size(), getGetRate(), getPutRate(), HelperFunctions.getFreeMemoryPercentage())
+							String.format("Size=%s, Get-count=%s, Put-count=%s, Free-mem=%.3f percent", 
+									size(), getGetCount(), getPutCount(), HelperFunctions.getFreeMemoryPercentage())
 							);
 //					log(Level.INFO, 
 //							String.format("Size=%s, Get-rate=%.3f per min, Put-rate=%.3f per min, Used-mem=%.3f percent, free-mem=%.3f, fakemem=%s", 
@@ -225,7 +230,8 @@ public class BlockingBuffer extends Buffer{
 		}
 	}
 	
-	/* Test block
+	// Test block
+	/*
 	private static final String getFakeMemSize(){
 		BigDecimal bd = new BigDecimal(fakeMem.size());
 		bd = bd.multiply(new BigDecimal(fixedBytesSize));
@@ -247,7 +253,7 @@ public class BlockingBuffer extends Buffer{
 		final long writerSleepMillis = 10000;
 		final long hoggerSleepMillis = 50;
 		
-		final BlockingBuffer bb = new BlockingBuffer(50, Graphviz.class);
+		final BlockingBuffer bb = new BlockingBuffer("50", Graphviz.class);
 		
 		final Thread readerThread = new Thread(new Runnable(){
 			public void run(){

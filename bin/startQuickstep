@@ -1,16 +1,64 @@
 #!/bin/bash
 
-if [ "$#" -eq 0 ]; then
-  echo "Please specify Quickstep storage path. For example:"
-  echo "--------------------------------------------------------------------------------"
-  echo $0" /tmp/data"
-  echo "--------------------------------------------------------------------------------"
-  exit
+quickstep_binary_path="./bin/quickstep"
+
+print_help(){
+	echo "Usage:"
+	echo "--------------------------------------------------------------------------------"
+	echo "./bin/startQuickstep <path for Quickstep storage directory> [<soft limit in total memory for the server in MBs>]"
+	echo "If Quickstep storage directory exists then it must be have be created by Quickstep otherwise the directory is created."
+	echo "The soft limit on total memory in MBs must be at least 512 (optional). For details execute the command: '${quickstep_binary_path} -help'"
+	echo "--------------------------------------------------------------------------------"
+}
+
+if [ ! -f "$quickstep_binary_path" ]
+then
+	echo "Error: No Quickstep database binary at path: ${quickstep_binary_path}."
+	echo "Please build Quickstep using the command './bin/installQuickstep' if not already done so."
+	exit 1
 fi
 
-if [ ! -e $1 ]; then
-  echo "Initializing empty Quickstep storage directory ..."
-  ./bin/quickstep -initialize_db -storage_path=$1 <<< "" 1>/dev/null 2>/dev/null
+if [[ "$#" -lt 1 ]]; then
+	print_help
+	exit 1
 fi
 
-./bin/quickstep -storage_path=$1 -mode=socket -display_timing=false 
+mem_MBs=$2
+buffer_arg=
+
+if [ ! -z "$mem_MBs" ]
+then
+	if [[ "$mem_MBs" =~ ^[0-9]+$ ]]
+	then
+		if [ "$mem_MBs" -ge 512 ]
+		then
+			temp=$(($mem_MBs / 2))
+			buffer_arg="-buffer_pool_slots=$temp"
+		else
+			print_help
+			exit 1
+		fi
+	else
+		print_help
+		exit 1
+	fi
+fi
+
+if [ ! -e "$1" ];
+then
+	echo "Initializing empty Quickstep storage directory ..."
+	"$quickstep_binary_path" -initialize_db -storage_path="$1" <<< "" 1>/dev/null
+	if [ ! -d "$1" ]
+	then
+		echo "Error: Failed to initialize Quickstep storage directory"
+		exit 1
+	fi
+fi
+
+db_mode=socket
+if [ "$3" = "local" ];
+then
+	db_mode=local
+fi 
+
+"$quickstep_binary_path" -storage_path="$1" "$buffer_arg" -mode="$db_mode" -display_timing=false

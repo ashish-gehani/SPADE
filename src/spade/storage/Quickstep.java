@@ -523,7 +523,7 @@ public class Quickstep extends AbstractStorage {
 	@Override
 	public synchronized boolean flushTransactions(boolean force){
 		synchronized(batch){
-			if(batch.getEdges().size() >= conf.getBatchSize() || force){
+			if(batch.getVertices().size() + batch.getEdges().size() >= conf.getBatchSize() || force){
 				if(batch.getVertices().size() > 0 || batch.getEdges().size() > 0){ // at least vertices or edges should be non-empty
 					copyManager.submitBatch(batch);
 				}
@@ -546,6 +546,7 @@ public class Quickstep extends AbstractStorage {
   public synchronized boolean putVertex(AbstractVertex incomingVertex) {
     synchronized (batch) {
       batch.addVertex(incomingVertex);
+      flushTransactions(false);
     }
     return true;
   }
