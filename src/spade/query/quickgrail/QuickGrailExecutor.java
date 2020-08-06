@@ -38,8 +38,8 @@ import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Kernel;
-import spade.core.SPADEQuery;
-import spade.core.SPADEQuery.QuickGrailInstruction;
+import spade.core.Query;
+import spade.core.Query.QuickGrailInstruction;
 import spade.core.Settings;
 import spade.core.Vertex;
 import spade.query.quickgrail.core.AbstractQueryEnvironment;
@@ -163,7 +163,7 @@ public class QuickGrailExecutor{
 		}
 	}
 
-	public SPADEQuery execute(SPADEQuery query){
+	public Query execute(Query query){
 		try{
 			
 			DSLParserWrapper parserWrapper = new DSLParserWrapper();
@@ -252,7 +252,7 @@ public class QuickGrailExecutor{
 	}
 
 	// Have to set queryinstruction success
-	private SPADEQuery executeInstruction(Instruction instruction, SPADEQuery query,
+	private Query executeInstruction(Instruction instruction, Query query,
 			QuickGrailInstruction queryInstruction) throws Exception{
 
 		Serializable result = "OK"; // default result
@@ -665,7 +665,7 @@ public class QuickGrailExecutor{
 	 * intersectionGraph)); // means we // found a path } }
 	 */
 	
-	private SPADEQuery getLineage(final GetLineage instruction, final SPADEQuery originalSPADEQuery){
+	private Query getLineage(final GetLineage instruction, final Query originalSPADEQuery){
 		final Set<AbstractVertex> startGraphVertices = new HashSet<AbstractVertex>();
 		if(getGraphStats(instruction.startGraph).vertices > 0){
 			startGraphVertices.addAll(exportGraph(instruction.startGraph).vertexSet());

@@ -175,8 +175,8 @@ public abstract class AbstractAnalyzer{
 
 		private AbstractStorage currentStorage;
 		
-		private SPADEQuery getErrorSPADEQuery(){
-			SPADEQuery spadeQuery = new SPADEQuery("<NULL>", "<NULL>", "<NULL>", "<NULL>");
+		private Query getErrorSPADEQuery(){
+			Query spadeQuery = new Query("<NULL>", "<NULL>", "<NULL>", "<NULL>");
 			spadeQuery.queryFailed("Exiting!");
 			return spadeQuery;
 		}
@@ -184,7 +184,7 @@ public abstract class AbstractAnalyzer{
 		@Override
 		public final void run(){
 			while(!this.isShutdown()){
-				SPADEQuery spadeQuery = null;
+				Query spadeQuery = null;
 				try{
 					spadeQuery = readLineFromClient(); // overwrite existing
 				}catch(EOFException eofe){
@@ -333,22 +333,22 @@ public abstract class AbstractAnalyzer{
 			}
 		}
 
-		public abstract SPADEQuery readLineFromClient() throws Exception;
+		public abstract Query readLineFromClient() throws Exception;
 
-		public abstract void writeToClient(SPADEQuery query) throws Exception;
+		public abstract void writeToClient(Query query) throws Exception;
 
 		public abstract void doQueryingSetupForCurrentStorage() throws Exception;
 
 		public abstract void doQueryingShutdownForCurrentStorage() throws Exception;
 
 		public abstract String getQueryHelpTextAsString(HelpType type) throws Exception;
-		public abstract SPADEQuery executeQuery(SPADEQuery query) throws Exception;
+		public abstract Query executeQuery(Query query) throws Exception;
 
 		public abstract void shutdown();
 
 		public abstract boolean isShutdown();
 
-		private final void safeWriteToClient(SPADEQuery data){
+		private final void safeWriteToClient(Query data){
 			try{
 				writeToClient(data);
 			}catch(Exception e){
@@ -356,7 +356,7 @@ public abstract class AbstractAnalyzer{
 			}
 		}
 
-		private final SPADEQuery setStorage(String storageName, SPADEQuery spadeQuery){
+		private final Query setStorage(String storageName, Query spadeQuery){
 			if(storageName == null){
 				spadeQuery.queryFailed("Missing storage_name in command: '" + commandSetStorage + "'.");
 				return spadeQuery;

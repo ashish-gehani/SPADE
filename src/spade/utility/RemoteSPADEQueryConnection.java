@@ -32,7 +32,7 @@ import java.util.logging.Logger;
 import javax.net.SocketFactory;
 
 import spade.core.AbstractStorage;
-import spade.core.SPADEQuery;
+import spade.core.Query;
 import spade.query.quickgrail.core.GraphStats;
 import spade.query.quickgrail.instruction.GetLineage;
 
@@ -128,7 +128,7 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 		connected = true;
 		
 		try{
-			SPADEQuery result = _executeQuery("print storage", false);
+			Query result = _executeQuery("print storage", false);
 			if(result.wasQuerySuccessful()){
 				try{
 					@SuppressWarnings("unchecked")
@@ -201,7 +201,7 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 	}
 	
 	public synchronized GraphStats statGraph(String symbol){
-		SPADEQuery response = executeQuery("stat " + symbol);
+		Query response = executeQuery("stat " + symbol);
 		return (GraphStats)response.getResult();
 	}
 	
@@ -227,7 +227,7 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 	
 	public synchronized spade.core.Graph exportGraph(final String symbol, final boolean verify){
 		final String nonce = String.valueOf(System.nanoTime());
-		SPADEQuery response = executeQuery("dump force " + symbol, nonce);
+		Query response = executeQuery("dump force " + symbol, nonce);
 		spade.core.Graph graph = (spade.core.Graph)response.getResult();
 		if(verify){
 			if(!graph.verifySignature(nonce)){
@@ -237,15 +237,15 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 		return graph;
 	}
 	
-	public synchronized SPADEQuery executeQuery(String queryString){
+	public synchronized Query executeQuery(String queryString){
 		return executeQuery(queryString, null);
 	}
 	
-	public synchronized SPADEQuery executeQuery(String queryString, String nonce){
+	public synchronized Query executeQuery(String queryString, String nonce){
 		return executeQuery(buildSPADEQueryObject(queryString, nonce));
 	}
 	
-	public synchronized SPADEQuery executeQuery(SPADEQuery query){
+	public synchronized Query executeQuery(Query query){
 		storageMustBeSet();
 		return _executeQuery(query, false);
 	}
@@ -300,11 +300,11 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 	}
 	
 	// isExit tells it to not read response
-	private synchronized SPADEQuery _executeQuery(String query, boolean isExit){
+	private synchronized Query _executeQuery(String query, boolean isExit){
 		return _executeQuery(buildSPADEQueryObject(query, null), isExit);
 	}
 	
-	private synchronized SPADEQuery _executeQuery(SPADEQuery query, boolean isExit){
+	private synchronized Query _executeQuery(Query query, boolean isExit){
 		mustBeConnected();
 
 		if(query == null){
@@ -328,7 +328,7 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 			
 			try{
 				Object resultObject = queryResponseReader.readObject();
-				query = (SPADEQuery)resultObject; // overwrite
+				query = (Query)resultObject; // overwrite
 			}catch(Throwable t){
 				throw new RuntimeException("Failed to read query response from server", t);
 			}
@@ -353,7 +353,7 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 		}
 	}
 	
-	private synchronized SPADEQuery buildSPADEQueryObject(String query, String nonce){
-		return new SPADEQuery(localHostName, serverAddress, query, nonce);
+	private synchronized Query buildSPADEQueryObject(String query, String nonce){
+		return new Query(localHostName, serverAddress, query, nonce);
 	}
 }

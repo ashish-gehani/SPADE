@@ -31,7 +31,7 @@ import java.util.logging.Logger;
 import spade.core.AbstractAnalyzer;
 import spade.core.AbstractStorage;
 import spade.core.Kernel;
-import spade.core.SPADEQuery;
+import spade.core.Query;
 import spade.core.Settings;
 import spade.query.quickgrail.QuickGrailExecutor;
 import spade.utility.HelperFunctions;
@@ -222,12 +222,12 @@ public class CommandLine extends AbstractAnalyzer{
 		}
 
 		@Override
-		public SPADEQuery readLineFromClient() throws Exception{
-			return (SPADEQuery)queryInputReader.readObject();
+		public Query readLineFromClient() throws Exception{
+			return (Query)queryInputReader.readObject();
 		}
 
 		@Override
-		public void writeToClient(SPADEQuery query) throws Exception{
+		public void writeToClient(Query query) throws Exception{
 			if(query != null){
 				query.setQuerySentBackToClientAtMillis();
 			}
@@ -236,7 +236,7 @@ public class CommandLine extends AbstractAnalyzer{
 		}
 
 		@Override
-		public SPADEQuery executeQuery(SPADEQuery query) throws Exception{
+		public Query executeQuery(Query query) throws Exception{
 			if(query != null){
 				query = quickGrailExecutor.execute(query);
 			}

@@ -30,7 +30,7 @@ import java.util.concurrent.Future;
 import spade.core.AbstractRemoteResolver;
 import spade.core.AbstractVertex;
 import spade.core.Kernel;
-import spade.core.SPADEQuery;
+import spade.core.Query;
 import spade.core.Settings;
 import spade.query.quickgrail.RemoteResolver;
 import spade.query.quickgrail.instruction.GetLineage;
@@ -93,46 +93,46 @@ public class RemoteLineageResolver extends AbstractRemoteResolver{
 	}
 
 	@Override
-	public List<SPADEQuery> resolve(){
+	public List<Query> resolve(){
 		int clientPort = Integer.parseInt(Settings.getProperty("commandline_query_port"));
 				
-		Map<String, List<SPADEQuery>> allQueries = new HashMap<String, List<SPADEQuery>>();
+		Map<String, List<Query>> allQueries = new HashMap<String, List<Query>>();
 		for(Map.Entry<String, Set<AbstractVertex>> entry : remoteIpToNetworkVertices.entrySet()){
 			String remoteAddress = entry.getKey();
 			Set<AbstractVertex> vertices = entry.getValue();
 			
-			List<SPADEQuery> queriesForSingleHost = new ArrayList<SPADEQuery>();
+			List<Query> queriesForSingleHost = new ArrayList<Query>();
 			allQueries.put(remoteAddress, queriesForSingleHost);
 			
 			for(AbstractVertex vertex : vertices){
 				String query = buildRemoteGetLineageQuery(vertex, localNetworkVertexToLocalDepth.get(vertex));
-				SPADEQuery q = new SPADEQuery(Kernel.getHostName(), remoteAddress, query, nonce);
+				Query q = new Query(Kernel.getHostName(), remoteAddress, query, nonce);
 				queriesForSingleHost.add(q);
 			}
 		}
 		
-		List<SPADEQuery> queryResponses = new ArrayList<SPADEQuery>();
+		List<Query> queryResponses = new ArrayList<Query>();
 		ExecutorService executorService = Executors.newFixedThreadPool(NTHREADS);
 		
 		try{
-			List<Future<List<SPADEQuery>>> futures = new ArrayList<>();
+			List<Future<List<Query>>> futures = new ArrayList<>();
 			
-			for(Map.Entry<String, List<SPADEQuery>> entry : allQueries.entrySet()){
+			for(Map.Entry<String, List<Query>> entry : allQueries.entrySet()){
 				String remoteAddress = entry.getKey();
-				List<SPADEQuery> queries = entry.getValue();
+				List<Query> queries = entry.getValue();
 				if(queries.size() > 0){
-					Callable<List<SPADEQuery>> queryExecutor = new ExecuteRemoteQuery(
+					Callable<List<Query>> queryExecutor = new ExecuteRemoteQuery(
 							remoteAddress, clientPort, storageClassName, queries);
-					Future<List<SPADEQuery>> future = executorService.submit(queryExecutor);
+					Future<List<Query>> future = executorService.submit(queryExecutor);
 					futures.add(future);
 				}
 			}
 			
 			// Going to wait
 			
-			for(Future<List<SPADEQuery>> future : futures){
+			for(Future<List<Query>> future : futures){
 				try{
-					List<SPADEQuery> queryResponseSublist = future.get();
+					List<Query> queryResponseSublist = future.get();
 					if(queryResponseSublist != null){
 						queryResponses.addAll(queryResponseSublist);
 					}

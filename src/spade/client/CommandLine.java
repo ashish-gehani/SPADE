@@ -53,7 +53,7 @@ import org.apache.commons.lang.mutable.MutableBoolean;
 import jline.ConsoleReader;
 import spade.core.Graph;
 import spade.core.Kernel;
-import spade.core.SPADEQuery;
+import spade.core.Query;
 import spade.core.Settings;
 import spade.query.quickgrail.core.AbstractQueryEnvironment;
 import spade.query.quickgrail.instruction.ExportGraph;
@@ -512,7 +512,7 @@ public class CommandLine{
 			}
 
 			final String queryNonce = null; // Keep the nonce null to indicate that the query is local
-			SPADEQuery spadeQuery = new SPADEQuery(localHostName, localHostName, line, queryNonce);
+			Query spadeQuery = new Query(localHostName, localHostName, line, queryNonce);
 			spadeQuery.setQuerySentByClientAtMillis();
 
 			clientOutputWriter.writeObject(spadeQuery);
@@ -522,7 +522,7 @@ public class CommandLine{
 			if(resultObject == null){ // EOF
 				throw new Exception("Connection closed by the server!");
 			}else{
-				spadeQuery = (SPADEQuery)resultObject; // overwrite
+				spadeQuery = (Query)resultObject; // overwrite
 				if(spadeQuery.wasQuerySuccessful()){
 					if(spadeQuery.getResult() == null){
 						return ""; // Empty result

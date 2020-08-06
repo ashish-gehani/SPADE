@@ -28,7 +28,7 @@ import java.util.Set;
 
 import spade.client.QueryMetaData;
 
-public class SPADEQuery implements Serializable{
+public class Query implements Serializable{
 
 	private static final long serialVersionUID = -4867369163497687639L;
 	
@@ -65,12 +65,12 @@ public class SPADEQuery implements Serializable{
 	private long querySentBackToClientAtMillis;
 	private long queryReceivedBackByClientAtMillis;
 	
-	private List<SPADEQuery> remoteSubqueries = new ArrayList<SPADEQuery>();
+	private List<Query> remoteSubqueries = new ArrayList<Query>();
 	
 	// Only required for local transformation of queries
 	private final QueryMetaData queryMetaData = new QueryMetaData();
 	
-	public SPADEQuery(String localName, String remoteName,
+	public Query(String localName, String remoteName,
 			String query, String queryNonce){
 		this.localName = localName;
 		this.remoteName = remoteName;
@@ -116,8 +116,8 @@ public class SPADEQuery implements Serializable{
 	public void addQuickGrailInstruction(QuickGrailInstruction instruction){ if(instruction != null){ instructions.add(instruction); } }
 	public List<QuickGrailInstruction> getQuickGrailInstructions(){ return new ArrayList<QuickGrailInstruction>(instructions); }
 	
-	public void addRemoteSubquery(SPADEQuery subquery){ if(subquery != null){ remoteSubqueries.add(subquery); } }
-	public List<SPADEQuery> getRemoteSubqueries(){ return new ArrayList<SPADEQuery>(remoteSubqueries); }
+	public void addRemoteSubquery(Query subquery){ if(subquery != null){ remoteSubqueries.add(subquery); } }
+	public List<Query> getRemoteSubqueries(){ return new ArrayList<Query>(remoteSubqueries); }
 
 	public QueryMetaData getQueryMetaData(){ return queryMetaData; }
 	
@@ -178,10 +178,10 @@ public class SPADEQuery implements Serializable{
 	public Set<Object> getAllResults(){
 		Set<Object> results = new HashSet<Object>();
 
-		LinkedList<SPADEQuery> currentSet = new LinkedList<SPADEQuery>();
+		LinkedList<Query> currentSet = new LinkedList<Query>();
 		currentSet.add(this);
 		while(!currentSet.isEmpty()){
-			SPADEQuery current = currentSet.poll();
+			Query current = currentSet.poll();
 			if(current.getResult() != null){
 				results.add(current.getResult());
 			}
@@ -194,12 +194,12 @@ public class SPADEQuery implements Serializable{
 	public <T> Set<T> getAllResultsOfExactType(Class<T> clazz){
 		Set<T> results = new HashSet<T>();
 
-		Set<SPADEQuery> marked = new HashSet<SPADEQuery>();
+		Set<Query> marked = new HashSet<Query>();
 		
-		LinkedList<SPADEQuery> currentSet = new LinkedList<SPADEQuery>();
+		LinkedList<Query> currentSet = new LinkedList<Query>();
 		currentSet.add(this);
 		while(!currentSet.isEmpty()){
-			SPADEQuery current = currentSet.poll();
+			Query current = currentSet.poll();
 			marked.add(current);
 			if(current.getResult() != null){
 				if(clazz.equals(current.getResult().getClass())){

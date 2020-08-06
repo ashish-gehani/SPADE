@@ -37,22 +37,22 @@ public abstract class AbstractRemoteResolver{
 	// decrypt the graph
 	private static final Logger logger = Logger.getLogger(AbstractRemoteResolver.class.getName());
 
-	public abstract List<SPADEQuery> resolve();
+	public abstract List<Query> resolve();
 
 	// Assumes that SPADE kernel is setup properly with things required by this
 	// function
 
-	public static class ExecuteRemoteQuery implements Callable<List<SPADEQuery>>{
+	public static class ExecuteRemoteQuery implements Callable<List<Query>>{
 		private final String remoteAddress;
 		private final int remotePort;
-		private final List<SPADEQuery> queries;
+		private final List<Query> queries;
 		
 		private final String storageName;
 
 		public ExecuteRemoteQuery(
 				String remoteAddress, int remotePort,
 				String storageName,
-				List<SPADEQuery> queries){
+				List<Query> queries){
 			this.remoteAddress = remoteAddress;
 			this.remotePort = remotePort;
 			this.queries = queries;
@@ -72,7 +72,7 @@ public abstract class AbstractRemoteResolver{
 			if(queries == null || queries.isEmpty()){
 				throw new RuntimeException("NULL/Empty query list");
 			}
-			for(SPADEQuery query : queries){
+			for(Query query : queries){
 				if(query == null){
 					throw new RuntimeException("NULL/Empty query in query list");
 				}
@@ -80,8 +80,8 @@ public abstract class AbstractRemoteResolver{
 		}
 
 		@Override
-		public List<SPADEQuery> call() throws Exception{
-			List<SPADEQuery> queryResponses = new ArrayList<SPADEQuery>();
+		public List<Query> call() throws Exception{
+			List<Query> queryResponses = new ArrayList<Query>();
 
 			try(RemoteSPADEQueryConnection connection = new RemoteSPADEQueryConnection(Kernel.getHostName(), remoteAddress, remotePort)){
 
@@ -89,7 +89,7 @@ public abstract class AbstractRemoteResolver{
 				
 				connection.setStorage(storageName);
 				
-				for(SPADEQuery query : queries){
+				for(Query query : queries){
 					final String newNonce = query.queryNonce == null ? String.valueOf(System.nanoTime()) : query.queryNonce;
 //					query.setQueryNonce(newNonce); API changed!
 					
