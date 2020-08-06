@@ -17,7 +17,6 @@
 package spade.storage;
 
 import java.io.FileWriter;
-import java.sql.ResultSet;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -30,7 +29,6 @@ import java.util.TimeZone;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.Statement;
 import org.apache.jena.rdf.model.StmtIterator;
@@ -78,6 +76,7 @@ public class Prov extends AbstractStorage{
 	private final String TAB = "\t", NEWLINE = System.getProperty("line.separator");
 
 	private final Map<String, String> provoStringFormatsForEdgeTypes = new HashMap<String, String>(){
+		private static final long serialVersionUID = 6243453806316998044L;
 		{
 			put("spade.edge.prov.Used", "%s:%s %s:qualifiedUsage ["+NEWLINE+""+TAB+"a %s:Usage;"+NEWLINE+""+TAB+"%s:entity %s:%s;"+NEWLINE+"%s]; ."+NEWLINE+NEWLINE);
 			put("spade.edge.prov.WasAssociatedWith", "%s:%s %s:qualifiedAssociation ["+NEWLINE+""+TAB+"a %s:Association;"+NEWLINE+""+TAB+"%s:agent %s:%s;"+NEWLINE+"%s]; ."+NEWLINE+NEWLINE);
@@ -88,6 +87,7 @@ public class Prov extends AbstractStorage{
 	};
 
 	private final Map<String, String> provnStringFormatsForEdgeTypes = new HashMap<String, String>(){
+		private static final long serialVersionUID = -9073788318002492222L;
 		{
 			put("spade.edge.prov.Used", TAB+"used(%s:%s,%s:%s, - ,%s)"+NEWLINE);
 			put("spade.edge.prov.WasAssociatedWith", TAB+"wasAssociatedWith(%s:%s,%s:%s, - ,%s)"+NEWLINE);
@@ -210,9 +210,8 @@ public class Prov extends AbstractStorage{
 	}
 
 	@Override
-	public ResultSet executeQuery(String query)
-	{
-		return null;
+	public final Object executeQuery(String query){
+		throw new RuntimeException("Prov storage does NOT support querying");
 	}
 
 	@Override
@@ -245,7 +244,7 @@ public class Prov extends AbstractStorage{
 
 				vertexString = String.format(provoStringFormatForVertex,
 						defaultNamespacePrefix,
-						DigestUtils.sha256Hex(vertex.toString()),
+						vertex.getIdentifierForExport(),
 						provNamespacePrefix,
 						vertex.getClass().getSimpleName(),
 						getProvOFormattedKeyValPair(vertex.getCopyOfAnnotations()));
@@ -256,7 +255,7 @@ public class Prov extends AbstractStorage{
 				vertexString = String.format(provnStringFormatForVertex,
 						vertex.getClass().getSimpleName().toLowerCase(),
 						defaultNamespacePrefix,
-						DigestUtils.sha256Hex(vertex.toString()),
+						vertex.getIdentifierForExport(),
 						getProvNFormattedKeyValPair(vertex.getCopyOfAnnotations()));
 
 				break;
@@ -267,8 +266,8 @@ public class Prov extends AbstractStorage{
 	}
 
 	public String getSerializedEdge(AbstractEdge edge){
-		String childVertexKey = DigestUtils.sha256Hex(edge.getChildVertex().toString());
-		String destVertexKey = DigestUtils.sha256Hex(edge.getParentVertex().toString());
+		String childVertexKey = edge.getChildVertex().getIdentifierForExport();
+		String destVertexKey = edge.getParentVertex().getIdentifierForExport();
 		String edgeString = null;
 		switch (provOutputFormat) {
 			case PROVO:
@@ -413,7 +412,7 @@ public class Prov extends AbstractStorage{
 	}
 
 	public static void main(String [] args) throws Exception{
-		Activity a = new Activity();
+		Activity a = new Activity("abc");
 		a.addAnnotation("name", "a1");
 		Activity b = new Activity();
 		b.addAnnotation("name", "a2");
@@ -433,11 +432,12 @@ public class Prov extends AbstractStorage{
 		e4.addAnnotation("test", "anno");
 		Used e5 = new Used(b, f2);
 		e5.addAnnotation("operation", "read");
+		e5.addAnnotation("time", String.format("%.3f", ((double)System.currentTimeMillis() / 1000.000)));
 
 		Prov ttl = new Prov();
-		ttl.initialize("output=/home/ubwork/prov.ttl audit=/home/ubwork/Desktop/audit.rdfs");
+		ttl.initialize("output=/tmp/prov.ttl audit=/tmp/audit.rdfs");
 		Prov provn = new Prov();
-		provn.initialize("output=/home/ubwork/prov.provn audit=/home/ubwork/Desktop/audit.rdfs");
+		provn.initialize("output=/tmp/prov.provn audit=/tmp/audit.rdfs");
 
 		Prov provs[] = new Prov[]{ttl, provn};
 

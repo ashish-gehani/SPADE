@@ -25,6 +25,7 @@ import java.io.StringWriter;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -33,6 +34,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.codec.binary.Hex;
+import org.json.JSONObject;
 
 import spade.core.Settings;
 
@@ -75,7 +77,7 @@ public class HelperFunctions{
 	 * 
 	 * If empty string then empty hashmap returned
 	 * 
-	 * @param str string to parsee
+	 * @param str string to parse
 	 * @return HashMap in result or error
 	 */
 	public static Result<HashMap<String, String>> parseKeysValuesInString(String str){
@@ -554,7 +556,11 @@ public class HelperFunctions{
 		final Map<String, String> map = new HashMap<String, String>();
 		map.putAll(safeReadKeyValuePairsFromFile(secondConfigFilePath));
 		map.putAll(safeReadKeyValuePairsFromFile(firstConfigFilePath));
-		map.putAll(parseKeyValPairs(arguments));
+		final Result<HashMap<String, String>> argumentsParseResult = parseKeysValuesInString(arguments);
+		if(argumentsParseResult.error){
+			throw new Exception("Failed to parse arguments: " + argumentsParseResult.toErrorString());
+		}
+		map.putAll(argumentsParseResult.result);
 		return map;
 	}
 
@@ -566,5 +572,28 @@ public class HelperFunctions{
 
 	public static double getFreeMemoryPercentage(){
 		return (((double)getFreeMemoryBytes()) / ((double)Runtime.getRuntime().maxMemory())) * 100.0;
+	}
+	
+	public static final <T> List<T> listify(final Iterable<T> iterable){
+		final List<T> list = new ArrayList<T>();
+		if(iterable != null){
+			final Iterator<T> iterator = iterable.iterator();
+			while(iterator.hasNext()){
+				final T item = iterator.next();
+				list.add(item);
+			}
+		}
+		return list;
+	}
+	
+	public static final Map<String, String> convertJSONObjectToMap(final JSONObject jsonObject) throws Exception{
+		final Map<String, String> map = new HashMap<String, String>();
+		final Iterator<?> keysIterator = jsonObject.keys();
+		while(keysIterator.hasNext()){
+			final String key = String.valueOf(keysIterator.next());
+			final String value = String.valueOf(jsonObject.get(key));
+			map.put(key, value);
+		}
+		return map;
 	}
 }

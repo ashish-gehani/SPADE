@@ -30,6 +30,7 @@ import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.filter.FinalCommitFilter;
+import spade.query.quickgrail.instruction.ExportGraph;
 
 @Deprecated
 public class GraphUtility {
@@ -71,7 +72,13 @@ public class GraphUtility {
     }
 
     private static void importGraph(String path, String target) {
-        Graph graph = Graph.importGraph(path);
+    	Graph graph = null;
+    	try{
+    		graph = Graph.importGraphFromDOTFile(path);
+    	}catch(Exception e){
+    		outputStream.println("Error importing graph! : " + e.getMessage());
+            return;
+    	}
         if (graph == null) {
             outputStream.println("Error importing graph!");
             return;
@@ -87,7 +94,7 @@ public class GraphUtility {
         }
         Graph graph = graphObjects.get(input);
         try {
-            graph.exportGraph(path);
+        	Graph.exportGraphToFile(ExportGraph.Format.kDot, path, graph);
         } catch (Exception exception) {
             outputStream.println("Error exporting graph!");
             return;

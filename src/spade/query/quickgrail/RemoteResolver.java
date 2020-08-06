@@ -202,7 +202,7 @@ public class RemoteResolver{
 	}
 	
 	private static spade.core.Graph exportGraph(QuickGrailExecutor executor, Graph graph){
-		return executor.exportGraph(new ExportGraph(graph, Format.kDot, true));
+		return executor.exportGraph(new ExportGraph(graph, Format.kDot, true, null));
 	}
 	
 	private static Graph allocateNewGraph(QueryInstructionExecutor instructionExecutor){

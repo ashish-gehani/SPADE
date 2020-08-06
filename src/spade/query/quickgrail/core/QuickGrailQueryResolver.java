@@ -75,6 +75,7 @@ import spade.query.quickgrail.types.TypeID;
 import spade.query.quickgrail.types.TypedValue;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
+import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 import spade.utility.Result;
 
@@ -318,7 +319,7 @@ public class QuickGrailQueryResolver{
 		}
 	}
 
-	private void resolveDumpCommand(ArrayList<ParseExpression> arguments){
+	private void resolveDumpCommand(final ArrayList<ParseExpression> arguments){
 		if(arguments.isEmpty()){
 			throw new RuntimeException("Invalid number of arguments for dump: expected at least 1");
 		}
@@ -344,14 +345,17 @@ public class QuickGrailQueryResolver{
 			PredicateNode predicateNode = QuickGrailPredicateTree.resolveGraphPredicate(expression, env);
 			instructions.add(new PrintPredicate(predicateNode));	
 		}else{ // Must be graph expression if not graph predicate
-			Graph targetGraph = resolveGraphExpression(expression, null, true);
-			instructions.add(new ExportGraph(targetGraph, ExportGraph.Format.kNormal, force));
+			resolveGraphExportCommand(arguments);
 		}
 	}
 
 	private void resolveVisualizeCommand(ArrayList<ParseExpression> arguments){
+		resolveGraphExportCommand(arguments);
+	}
+	
+	private void resolveGraphExportCommand(final ArrayList<ParseExpression> arguments){
 		if(arguments.isEmpty()){
-			throw new RuntimeException("Invalid number of arguments for visualize: expected at least 1");
+			throw new RuntimeException("Invalid number of arguments for dump/visualize: expected at least 1");
 		}
 
 		boolean force = false;
@@ -362,13 +366,37 @@ public class QuickGrailQueryResolver{
 			if(forceStr.equalsIgnoreCase("force")){
 				force = true;
 			}else{
-				throw new RuntimeException("Invalid argument for visualize: " + forceStr);
+				throw new RuntimeException("Invalid argument for dump/visualize: " + forceStr);
+
 			}
-			expression = arguments.get(++idx);
+			if(++idx >= arguments.size()){
+				throw new RuntimeException("Invalid arguments for dump/visualize: expected 1 graph argument");
+			}
+			expression = arguments.get(idx);
 		}
 
-		Graph targetGraph = resolveGraphExpression(expression, null, true);
-		instructions.add(new ExportGraph(targetGraph, ExportGraph.Format.kDot, force));
+		final Graph targetGraph = resolveGraphExpression(expression, null, true);
+		
+		ExportGraph.Format outputFormat = ExportGraph.Format.kNormal;
+		
+		String filePathOnServer = null;
+		idx++;
+		if(idx < arguments.size()){
+			filePathOnServer = resolveString(arguments.get(idx)).trim();
+			try{
+				FileUtility.pathMustBeAWritableFile(filePathOnServer);
+			}catch(Exception e){
+				throw new RuntimeException("Invalid server file path for dump/visualize command to export graph to: '"+filePathOnServer+"'", e);
+			}
+			
+			if(filePathOnServer.toLowerCase().endsWith(".json")){
+				outputFormat = ExportGraph.Format.kJson;
+			}else{
+				outputFormat = ExportGraph.Format.kDot;
+			}
+		}
+		
+		instructions.add(new ExportGraph(targetGraph, outputFormat, force, filePathOnServer));
 	}
 
 	private void resolveStatCommand(ArrayList<ParseExpression> arguments){

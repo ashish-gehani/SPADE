@@ -23,10 +23,6 @@ import java.io.Serializable;
 import java.util.Map;
 import java.util.TreeMap;
 
-import org.apache.commons.codec.digest.DigestUtils;
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import spade.utility.HelperFunctions;
 
 /**
@@ -35,17 +31,15 @@ import spade.utility.HelperFunctions;
  *
  * @author Dawood Tariq
  */
-public abstract class AbstractVertex implements Serializable
-{
+public abstract class AbstractVertex implements Serializable{
+
+	private static final long serialVersionUID = 2395150635994083355L;
 
 	public static final String hashKey = "hash";
 	public static final String annotationsKey = "annotations";
 	public static final String typeKey = "type";
-	
-    /**
-	 * 
-	 */
-	private static final long serialVersionUID = 4766085487390172973L;
+	public static final String idKey = "id";
+
 	/**
      * A map containing the annotations for this vertex.
      */
@@ -67,19 +61,27 @@ public abstract class AbstractVertex implements Serializable
     /**
      * Create a vertex with a fixed big hash.
      * 
-     * @param md5HexBigHashCode String
+     * @param hexHashString String
      */
-    public AbstractVertex(String md5HexBigHashCode){
-    	this.bigHashCode = md5HexBigHashCode;
-    	// TODO required for future changes?
-    	/*
-    	if(this.bigHashCode != null){
-    		if(this.bigHashCode.length() != 32){
-    			throw new RuntimeException("The big hash code length must be '32' to work with all storages");
-    		}
+    public AbstractVertex(final String hexHashString){
+    	if(!HashHelper.defaultInstance.isValidHashHexString(hexHashString)){
+    		setId(hexHashString);
+    		this.bigHashCode = HashHelper.defaultInstance.hashToHexString(hexHashString);
+    	}else{
+    		this.bigHashCode = hexHashString;
     	}
-    	*/
     }
+    
+    public final AbstractVertex copyAsVertex(){
+    	final AbstractVertex copy;
+    	if(isReferenceVertex()){
+    		copy = new Vertex(this.bigHashCode);
+    	}else{
+    		copy = new Vertex();
+    	}
+		copy.annotations.putAll(this.annotations);
+		return copy;
+	}
     
     /**
      * Returns true if the vertex has a fixed big hash otherwise false
@@ -89,25 +91,6 @@ public abstract class AbstractVertex implements Serializable
     public final boolean isReferenceVertex(){
     	return bigHashCode != null;
     }
-
-	/**
-     * Checks if vertex is empty
-     *
-     * @return Returns true if vertex contains no annotation
-     */
-    public final boolean isEmpty()
-    {
-        return annotations.size() == 0;
-    }
-
-    /**
-     * Returns the map containing the annotations for this vertex.
-     *
-     * @return The map containing the annotations.
-     */
-//    public final Map<String, String> getAnnotations() {
-//        return annotations;
-//    }
     
     /**
      * Returns the copy of the map containing the annotations for this vertex.
@@ -126,32 +109,27 @@ public abstract class AbstractVertex implements Serializable
      * @param key The annotation key.
      * @param value The annotation value.
      */
-    public final void addAnnotation(String key, String value)
-    {
-        if(!HelperFunctions.isNullOrEmpty(key))
-        {
-            if(value == null)
-            {
-                value = "";
-            }
-            annotations.put(key, value);
-        }
-    }
+	public final void addAnnotation(String key, String value){
+		if(!HelperFunctions.isNullOrEmpty(key)){
+			if(value == null){
+				value = "";
+			}
+			annotations.put(key, value);
+		}
+	}
 
     /**
      * Adds a map of annotation.
      *
      * @param newAnnotations New annotations to be added.
      */
-    public final void addAnnotations(Map<String, String> newAnnotations)
-    {
-        for (Map.Entry<String, String> currentEntry : newAnnotations.entrySet())
-        {
-            String key = currentEntry.getKey();
-            String value = currentEntry.getValue();
-            addAnnotation(key, value);
-        }
-    }
+	public final void addAnnotations(Map<String, String> newAnnotations){
+		for(Map.Entry<String, String> currentEntry : newAnnotations.entrySet()){
+			String key = currentEntry.getKey();
+			String value = currentEntry.getValue();
+			addAnnotation(key, value);
+		}
+	}
 
     /**
      * Removes an annotation.
@@ -175,15 +153,6 @@ public abstract class AbstractVertex implements Serializable
     }
 
     /**
-     * Gets the type of this vertex.
-     *
-     * @return A string indicating the type of this vertex.
-     */
-    public final String type() {
-        return annotations.get(typeKey);
-    }
-    
-    /**
      * Sets the type of this vertex
      * 
      * @param value Must be a non-null string otherwise converted to empty string
@@ -193,39 +162,59 @@ public abstract class AbstractVertex implements Serializable
     }
 
     /**
-     * Computes MD5 hash of annotations in the vertex.
+     * Gets the type of this vertex.
      *
-     @return A 128-bit hash digest.
+     * @return A string indicating the type of this vertex.
+     */
+    public final String type(){
+        return annotations.get(typeKey);
+    }
+
+    /**
+     * Gets the id of this vertex.
+     *
+     * @return A string indicating the id of this vertex (if any).
+     */
+    public final String id(){
+        return annotations.get(idKey);
+    }
+    
+    /**
+     * Sets the id of this vertex
+     * 
+     * @param value Must be a non-null string otherwise converted to empty string
+     */
+    public final void setId(final String value){
+    	addAnnotation(idKey, value);
+    }
+    
+    public final String getIdentifierForExport(){
+    	if(id() == null){
+    		return bigHashCode();
+    	}else{
+    		return id();
+    	}
+    }
+
+    /**
+     * Computes hash of annotations in the vertex according to the default set in spade.core.HashHelper.
+     * If the hash was fixed then that is used.
      */
 	public final String bigHashCode(){
 		if(bigHashCode == null){
-			return DigestUtils.md5Hex(annotations.toString()); // calculated at runtime
+			final String data = annotations.toString();
+			return HashHelper.defaultInstance.hashToHexString(data);
 		}else{
 			return bigHashCode;
 		}
 	}
 
-    /**
-     * Computes MD5 hash of annotations in the vertex
-     * @return 16 element byte array of the digest.
-     */
 	public final byte[] bigHashCodeBytes(){
-    	if(bigHashCode == null){
-    		return DigestUtils.md5(annotations.toString()); // calculated at runtime
-    	}else{
-    		return bigHashCode.getBytes();
-    	}
+		return HashHelper.defaultInstance.convertHashHexStringToHashByteArray(bigHashCode());
     }
 
-	/**
-     * Computes a function of the annotations in the vertex.
-     *
-     * This takes less time to compute than bigHashCode() but is less collision-resistant.
-     *
-     * @return An integer-valued hash code.
-     */
     @Override
-	public int hashCode(){
+	public final int hashCode(){
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + bigHashCode().hashCode();
@@ -233,7 +222,7 @@ public abstract class AbstractVertex implements Serializable
 	}
 
 	@Override
-	public boolean equals(Object obj){
+	public final boolean equals(Object obj){
 		if(this == obj)
 			return true;
 		if(obj == null)
@@ -241,38 +230,36 @@ public abstract class AbstractVertex implements Serializable
 		AbstractVertex other = (AbstractVertex) obj;
 		return bigHashCode().equals(other.bigHashCode());
 	}
-	
-    @Override
-    public final String toString()
-    {
-        return "AbstractVertex{" +
-        		"hash=" + bigHashCode() + "," +
-                "annotations=" + annotations +
-                '}';
-    }
-    
-    /*
-     * @Author Raza
-     */
-    public final String prettyPrint()
-	{
-		return "\t\tVertex:{\n" +
-				"\t\t\thash:" + bigHashCode() + ",\n" +
-				"\t\t\tannotations:" + annotations + "\n" +
-				"\t\t}";
-	}
-    
-    public final String toJSON() throws JSONException{
-    	final JSONObject jsonObject = new JSONObject();
-    	jsonObject.put(hashKey, bigHashCode());
-    	jsonObject.put(annotationsKey, annotations);
-    	return jsonObject.toString();
-    }
 
-	public final AbstractVertex copyAsVertex(){
-		AbstractVertex copy = new Vertex(this.bigHashCode);
-		copy.annotations.putAll(this.annotations);
-		return copy;
+	@Override
+	public final String toString(){
+		return "AbstractVertex{" + hashKey + "=" + bigHashCode() + "," + annotationsKey + "=" + annotations + '}';
 	}
 	
+	public static final boolean isVertexType(String type){
+		if(HelperFunctions.isNullOrEmpty(type)){
+			return false;
+		}
+		type = type.trim();
+		if(	// generic vertex
+			type.equalsIgnoreCase(spade.core.Vertex.typeValue)
+			// prov
+			|| type.equalsIgnoreCase(spade.vertex.prov.Activity.typeValue)
+			|| type.equalsIgnoreCase(spade.vertex.prov.Agent.typeValue)
+			|| type.equalsIgnoreCase(spade.vertex.prov.Entity.typeValue)
+			// opm
+			|| type.equalsIgnoreCase(spade.vertex.opm.Agent.typeValue)
+			|| type.equalsIgnoreCase(spade.vertex.opm.Artifact.typeValue)
+			|| type.equalsIgnoreCase(spade.vertex.opm.Process.typeValue)
+			// cdm
+			|| type.equalsIgnoreCase(spade.vertex.cdm.Event.typeValue)
+			|| type.equalsIgnoreCase(spade.vertex.cdm.Object.typeValue)
+			|| type.equalsIgnoreCase(spade.vertex.cdm.Principal.typeValue)
+			|| type.equalsIgnoreCase(spade.vertex.cdm.Subject.typeValue)
+			){
+			return true;
+		}else{
+			return false;
+		}
+	}
 }

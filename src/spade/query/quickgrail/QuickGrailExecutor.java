@@ -258,7 +258,10 @@ public class QuickGrailExecutor{
 		Serializable result = "OK"; // default result
 
 		if(instruction.getClass().equals(ExportGraph.class)){
-			result = exportGraph((ExportGraph)instruction);
+			spade.core.Graph graph = exportGraph((ExportGraph)instruction);
+			if(graph != null){
+				result = graph;
+			}
 
 		}else if(instruction.getClass().equals(CollapseEdge.class)){
 			instructionExecutor.collapseEdge((CollapseEdge)instruction);
@@ -443,7 +446,7 @@ public class QuickGrailExecutor{
 		return table;
 	}
 
-	public spade.core.Graph exportGraph(ExportGraph instruction){// throws Exception{
+	public spade.core.Graph exportGraph(final ExportGraph instruction){// throws Exception{
 		GraphStats stats = instructionExecutor.statGraph(new StatGraph(instruction.targetGraph));
 		long verticesAndEdges = stats.vertices + stats.edges;
 		if(!instruction.force){
@@ -486,7 +489,16 @@ public class QuickGrailExecutor{
 		spade.core.Graph resultGraph = new spade.core.Graph();
 		resultGraph.vertexSet().addAll(verticesMap.values());
 		resultGraph.edgeSet().addAll(edges);
-		return resultGraph;
+		if(instruction.filePathOnServer != null){
+			try{
+				spade.core.Graph.exportGraphToFile(instruction.format, instruction.filePathOnServer, resultGraph);
+				return null;
+			}catch(Exception e){
+				throw new RuntimeException("Failed to export graph to file '"+instruction.filePathOnServer+"' on server", e);
+			}
+		}else{
+			return resultGraph;
+		}
 	}
 	
 	private String list(final spade.query.quickgrail.instruction.List instruction){
@@ -934,7 +946,7 @@ public class QuickGrailExecutor{
 	}
 
 	private spade.core.Graph exportGraph(Graph graph){
-		return exportGraph(new ExportGraph(graph, Format.kDot, true));
+		return exportGraph(new ExportGraph(graph, Format.kDot, true, null));
 	}
 
 	private Graph createNewGraph(){

@@ -28,16 +28,18 @@ import spade.query.quickgrail.utility.TreeStringSerializable;
  * Export a QuickGrail graph to spade.core.Graph or to DOT representation.
  */
 public class ExportGraph extends Instruction{
-	public static enum Format{ kNormal, kDot }
+	public static enum Format{ kNormal, kDot, kJson }
 
 	public final Graph targetGraph;
 	public final Format format;
 	public final boolean force;
+	public final String filePathOnServer; // optional
 
-	public ExportGraph(Graph targetGraph, Format format, boolean force){
+	public ExportGraph(final Graph targetGraph, final Format format, final boolean force, final String filePathOnServer){
 		this.targetGraph = targetGraph;
 		this.format = format;
 		this.force = force;
+		this.filePathOnServer = filePathOnServer;
 	}
 
 	@Override
@@ -56,5 +58,7 @@ public class ExportGraph extends Instruction{
 		inline_field_values.add(format.name());
 		inline_field_names.add("force");
 		inline_field_values.add(String.valueOf(force));
+		inline_field_names.add("filePathOnServer");
+		inline_field_values.add(String.valueOf(filePathOnServer));
 	}
 }

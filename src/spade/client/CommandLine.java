@@ -24,6 +24,7 @@ import static spade.core.Kernel.PASSWORD_PRIVATE_KEYSTORE;
 import static spade.core.Kernel.PASSWORD_PUBLIC_KEYSTORE;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
@@ -32,6 +33,7 @@ import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.util.AbstractMap.SimpleEntry;
@@ -54,6 +56,7 @@ import spade.core.Kernel;
 import spade.core.SPADEQuery;
 import spade.core.Settings;
 import spade.query.quickgrail.core.AbstractQueryEnvironment;
+import spade.query.quickgrail.instruction.ExportGraph;
 import spade.utility.FileUtility;
 import spade.utility.HostInfo;
 
@@ -532,9 +535,9 @@ public class CommandLine{
 								spade.core.Graph graph = (spade.core.Graph)spadeResult;
 								if(RESULT_EXPORT_PATH != null){
 									if(RESULT_EXPORT_PATH.toLowerCase().endsWith(".json")){
-										Graph.exportGraphAsJSON(graph, RESULT_EXPORT_PATH);
+										Graph.exportGraphToFile(ExportGraph.Format.kJson, RESULT_EXPORT_PATH, graph);
 									}else{
-										graph.exportGraph(RESULT_EXPORT_PATH);
+										Graph.exportGraphToFile(ExportGraph.Format.kDot, RESULT_EXPORT_PATH, graph);
 									}
 									return "Output exported to file: " + RESULT_EXPORT_PATH;
 								}else{
@@ -573,7 +576,9 @@ public class CommandLine{
 	private final static void writeToUser(final Graph graph){
 		if(graph != null){
 			try{
-				Graph.exportGraphAsJSON(graph, System.out, false);
+				boolean closeSystemOut = false;
+				Graph.exportGraphUsingWriter(ExportGraph.Format.kJson, 
+						new BufferedWriter(new OutputStreamWriter(System.out)), graph, closeSystemOut);
 			}catch(Exception e){
 				System.err.println("Failed to export graph as JSON: " + e.getMessage());
 				e.printStackTrace(System.err);
