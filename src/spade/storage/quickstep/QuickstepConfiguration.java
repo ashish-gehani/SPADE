@@ -56,13 +56,6 @@ public class QuickstepConfiguration {
   private static final int MINIMUM_EDGE_ANNOTATION_MAX_KEY_LENGTH = 32;
   private static final int MINIMUM_EDGE_ANNOTATION_MAX_VALUE_LENGTH = 256;
 
-  // Default key-value cache parameters.
-  private static final String DEFAULT_CACHE_DATABASE_PATH = "tmp";
-  private static final String DEFAULT_CACHE_DATABASE_NAME = "qsCacheDB";
-  private static final int DEFAULT_CACHE_SIZE = 1000000;
-  private static final double DEFAULT_CACHE_BLOOM_FILTER_FALSE_POSITIVE_PROBABILITY = 0.0001;
-  private static final int DEFAULT_CACHE_BOOLM_FILTER_EXPECTED_NUMBER_OF_ELEMENTS = 1000000;
-
   // Properties loaded from configuration file.
   private Properties qsProperties = new Properties();
 
@@ -78,12 +71,6 @@ public class QuickstepConfiguration {
   private int maxVertexValueLength;
   private int maxEdgeKeyLength;
   private int maxEdgeValueLength;
-
-  private String cacheDatabasePath;
-  private String cacheDatabaseName;
-  private int cacheSize;
-  private double cacheBloomfilterFalsePositiveProbability;
-  private int cacheBloomFilterExpectedNumberOfElements;
 
   private String reset;
 
@@ -128,19 +115,6 @@ public class QuickstepConfiguration {
     maxEdgeValueLength = getPropertyOrDefault("maxEdgeValueLength",
                                               DEFAULT_EDGE_ANNOTATION_MAX_VALUE_LENGTH,
                                               MINIMUM_EDGE_ANNOTATION_MAX_VALUE_LENGTH);
-
-    // Key-value cache configuration.
-    cacheDatabasePath = getPropertyOrDefault("cacheDatabasePath", DEFAULT_CACHE_DATABASE_PATH);
-    cacheDatabaseName = getPropertyOrDefault("cacheDatabaseName", DEFAULT_CACHE_DATABASE_NAME);
-    cacheSize = getPropertyOrDefault("cacheSize", DEFAULT_CACHE_SIZE);
-
-    cacheBloomfilterFalsePositiveProbability =
-        getPropertyOrDefault("cacheBloomfilterFalsePositiveProbability",
-                             DEFAULT_CACHE_BLOOM_FILTER_FALSE_POSITIVE_PROBABILITY);
-
-    cacheBloomFilterExpectedNumberOfElements =
-        getPropertyOrDefault("cacheBloomFilterExpectedNumberOfElements",
-                             DEFAULT_CACHE_BOOLM_FILTER_EXPECTED_NUMBER_OF_ELEMENTS);
 
     // Whether to reset database.
     reset = getProperty("reset");
@@ -207,41 +181,6 @@ public class QuickstepConfiguration {
    */
   public int getMaxEdgeValueLength() {
     return maxEdgeValueLength;
-  }
-
-  /**
-   * @return The external database (directory) path for the key-value cache.
-   */
-  public String getCacheDatabasePath() {
-    return cacheDatabasePath;
-  }
-
-  /**
-   * @return The external database name for the key-value cache.
-   */
-  public String getCacheDatabaseName() {
-    return cacheDatabaseName;
-  }
-
-  /**
-   * @return The capacity of the key-value cache.
-   */
-  public int getCacheSize() {
-    return cacheSize;
-  }
-
-  /**
-   * @return The false positive rate of the bloom filter used by the key-value cache.
-   */
-  public double getCacheBloomfilterFalsePositiveProbability() {
-    return cacheBloomfilterFalsePositiveProbability;
-  }
-
-  /**
-   * @return The cardinality of the bloom filter used by the key-value cache.
-   */
-  public int getCacheBloomFilterExpectedNumberOfElements() {
-    return cacheBloomFilterExpectedNumberOfElements;
   }
 
   /**
@@ -332,12 +271,7 @@ public class QuickstepConfiguration {
                   "maxVertexKeyLength = " + maxVertexKeyLength + "\n" +
                   "maxVertexValueLength = " + maxVertexValueLength + "\n" +
                   "maxEdgeKeyLength = " + maxEdgeKeyLength + "\n" +
-                  "maxEdgeValueLength = " + maxEdgeValueLength + "\n" +
-                  "cacheDatabasePath = " + cacheDatabasePath + "\n" +
-                  "cacheDatabaseName = " + cacheDatabaseName + "\n" +
-                  "cacheSize = " + cacheSize + "\n" +
-                  "cacheBloomfilterFalsePositiveProbability = " + cacheBloomfilterFalsePositiveProbability + "\n" +
-                  "cacheBloomFilterExpectedNumberOfElements = " + cacheBloomFilterExpectedNumberOfElements + "\n";
+                  "maxEdgeValueLength = " + maxEdgeValueLength + "\n";
 
     if (debugLogFilePath != null) {
       info += "debugLogFilePath = " + debugLogFilePath + "\n";

@@ -23,8 +23,12 @@ import java.io.File;
 import java.lang.reflect.Constructor;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -36,7 +40,7 @@ public abstract class AbstractScreen{
 
 	private final static Logger logger = Logger.getLogger(AbstractScreen.class.getName());
 	public final static String keyScreenArgument = "screen";
-	
+
 	public static final Result<ArrayList<String>> parseScreensInOrder(
 			final String userArgumentsString, final Class<? extends AbstractStorage> storageClass){
 		final String userArguments = userArgumentsString == null ? "" : userArgumentsString.trim();
@@ -121,10 +125,50 @@ public abstract class AbstractScreen{
 		
 		final ArrayList<SimpleEntry<String, String>> filteredEntries = HelperFunctions.filterEntriesByKey(allEntries, keyScreenArgument);
 		
+		// consolidate same screen specified in different places while retaining the order
+		
+		final Map<String, String> screenNameToConsolidatedArguments = new HashMap<String, String>();
+
+		for(final SimpleEntry<String, String> screenEntry : filteredEntries){
+			if(screenEntry != null && screenEntry.getValue() != null){
+				final String[] tokens = screenEntry.getValue().split("\\s+", 2);
+				final String screenName = tokens[0];
+				final String screenArguments;
+				if(tokens.length == 2){
+					screenArguments = tokens[1];
+				}else{
+					screenArguments = "";
+				}
+				
+				String existingScreenArguments = screenNameToConsolidatedArguments.get(screenName);
+				if(existingScreenArguments == null){
+					existingScreenArguments = "";
+				}
+				existingScreenArguments = existingScreenArguments.trim() + " " + screenArguments.trim();
+				existingScreenArguments = existingScreenArguments.trim();
+				screenNameToConsolidatedArguments.put(screenName, existingScreenArguments);
+			}
+		}
+		
+		final Set<String> screenNamesAddedToList = new HashSet<String>();
+		
 		final ArrayList<String> screensInOrder = new ArrayList<String>();
 		for(final SimpleEntry<String, String> screenEntry : filteredEntries){
 			if(screenEntry != null && screenEntry.getValue() != null){
-				screensInOrder.add(screenEntry.getValue());
+				final String[] tokens = screenEntry.getValue().split("\\s+", 2);
+				final String screenName = tokens[0];
+				if(screenNamesAddedToList.contains(screenName)){
+					continue;
+				}else{
+					screenNamesAddedToList.add(screenName);
+				}
+				String existingScreenArguments = screenNameToConsolidatedArguments.get(screenName);
+				if(HelperFunctions.isNullOrEmpty(existingScreenArguments)){
+					screensInOrder.add(screenName);
+				}else{
+					existingScreenArguments = existingScreenArguments.trim();
+					screensInOrder.add(screenName + " " + existingScreenArguments);
+				}
 			}
 		}
 		

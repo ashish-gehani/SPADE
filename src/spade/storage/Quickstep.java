@@ -37,11 +37,13 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.core.AbstractEdge;
+import spade.core.AbstractScreen;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.utility.QuickstepUtil;
+import spade.screen.Deduplicate;
 import spade.storage.quickstep.GraphBatch;
 import spade.storage.quickstep.QuickstepClient;
 import spade.storage.quickstep.QuickstepConfiguration;
@@ -49,11 +51,6 @@ import spade.storage.quickstep.QuickstepExecutor;
 import spade.storage.quickstep.QuickstepFailure;
 import spade.storage.quickstep.QuickstepInstructionExecutor;
 import spade.storage.quickstep.QuickstepQueryEnvironment;
-import spade.utility.Converter;
-import spade.utility.Result;
-import spade.utility.map.external.ExternalMap;
-import spade.utility.map.external.ExternalMapArgument;
-import spade.utility.map.external.ExternalMapManager;
 
 public class Quickstep extends AbstractStorage {
 	private QuickstepInstructionExecutor queryInstructionExecutor = null;
@@ -73,12 +70,56 @@ public class Quickstep extends AbstractStorage {
   private long timeExecutionStart;
   private QuickstepConfiguration conf;
 
-  private final String md5MapId = "md5ToIdMap";
-  private ExternalMap<String, Integer> md5ToIdMap;
-
   private long totalNumVerticesProcessed = 0;
   private long totalNumEdgesProcessed = 0;
 
+  private final Object screenLock = new Object();
+  private Deduplicate deduplicateScreen = null;
+
+  private final Integer getVertexId(final String hashCode){
+	  if(hashCode != null){
+		  if(deduplicateScreen != null){
+			  final Object value;
+			  synchronized(screenLock){
+				  value = deduplicateScreen.getVertexCacheValueForStorage(hashCode);
+			  }
+			  if(value == null){
+				  final String resultStr = executeQuery("copy select id from "+vertexTableName+" where md5='"+hashCode+"' to stdout;").trim();
+				  if(resultStr.isEmpty()){
+					  return null;
+				  }else{
+					  try{
+						  final Integer i = Integer.parseInt(resultStr);
+						  putVertexId(hashCode, i);
+						  return i;
+					  }catch(Exception e){
+						  throw new RuntimeException(
+						          "Unexpected result \"" + resultStr + "\" from Quickstep: expecting an integer value for vertex id");
+					  }
+				  }
+			  }else{
+				  try{
+					  return (Integer)value;
+				  }catch(Throwable t){
+					  logger.log(Level.SEVERE, "Invalid value returned for Integer value: " + value.getClass(), t);
+					  return null;
+				  }
+			  }
+		  }
+	  }
+	  return null;
+  }
+  
+  private final void putVertexId(final String hashCode, final Integer value){
+	  if(hashCode != null){
+		  if(deduplicateScreen != null){
+			  synchronized(screenLock){
+				  deduplicateScreen.setVertexCacheValueForStorage(hashCode, value);
+			  }
+		  }
+	  }
+  }
+  
   /**
    * Helper class for bulk loading graph data into Quickstep in batches.
    */
@@ -262,9 +303,6 @@ public class Quickstep extends AbstractStorage {
       vertexAnnos.setLength(0);
       for (AbstractVertex vertex : batchBuffer.getVertices()) {
         final String md5 = vertex.bigHashCode();
-        if (md5ToIdMap.get(md5) != null) {
-          continue;
-        }
         appendVertex(vertex, md5, ++vertexIdCounter);
       }
 
@@ -277,12 +315,12 @@ public class Quickstep extends AbstractStorage {
         final String srcVertexMd5 = srcVertex.bigHashCode();
         final String dstVertexMd5 = dstVertex.bigHashCode();
 
-        Integer srcVertexId = md5ToIdMap.get(srcVertexMd5);
+        Integer srcVertexId = getVertexId(srcVertexMd5);
         if (srcVertexId == null) {
           srcVertexId = ++vertexIdCounter;
           appendVertex(srcVertex, srcVertexMd5, srcVertexId);
         }
-        Integer dstVertexId = md5ToIdMap.get(dstVertexMd5);
+        Integer dstVertexId = getVertexId(dstVertexMd5);
         if (dstVertexId == null) {
           dstVertexId = ++vertexIdCounter;
           appendVertex(dstVertex, dstVertexMd5, dstVertexId);
@@ -336,7 +374,7 @@ public class Quickstep extends AbstractStorage {
         vertexAnnos.append('\n');
       }
 
-      md5ToIdMap.put(md5, vertexId);
+      putVertexId(md5, vertexId);
     }
 
     private void appendEdge(AbstractEdge edge, final String md5, final long edgeId,
@@ -420,55 +458,22 @@ public class Quickstep extends AbstractStorage {
         debugLogWriter = null;
       }
     }
-
-    // Initialize key-value cache.
-    try {
-    	Result<ExternalMapArgument> mapArgumentResult = ExternalMapManager.parseArgumentFromFile(md5MapId, configFile);
-    	if(mapArgumentResult.error){
-    		logger.log(Level.SEVERE, "Failed to parse external memory map arguments");
-    		logger.log(Level.SEVERE, mapArgumentResult.toErrorString());
-            return false;
-    	}else{
-    		Result<ExternalMap<String, Integer>> mapResult = 
-    				ExternalMapManager.create(mapArgumentResult.result,
-    						new Converter<String, byte[]>(){
-								@Override public byte[] serialize(String i) throws Exception{ return i == null ? null : i.getBytes(); }
-								@Override public byte[] serializeObject(Object o) throws Exception{ return serialize((String)o); }
-								@Override public String deserialize(byte[] j) throws Exception{ return j == null ? null : new String(j); }
-								@Override public String deserializeObject(Object o) throws Exception{ return deserialize((byte[])o); }
-							},
-    						new Converter<Integer, byte[]>(){
-    							private byte[] _ser(int i){
-    								byte[] b = new byte[4];
-    								b[3] = (byte)(i >> 24); b[2] = (byte)(i >> 16); b[1] = (byte)(i >> 8); b[0] = (byte)(i);
-    								return b;
-    							}
-    							private int _deser(byte[] b){
-    								int i = (b[3] << 24); i |= (b[2] & 0xFF) << 16; i |= (b[1] & 0xFF) << 8; i |= (b[0] & 0xFF);
-    							    return i;
-    							}
-    							@Override public byte[] serialize(Integer i) throws Exception{ return i == null ? null : _ser(i); }
-								@Override public byte[] serializeObject(Object o) throws Exception{ return serialize((Integer)o); }
-								@Override public Integer deserialize(byte[] j) throws Exception{ return j == null ? null : _deser(j); }
-								@Override public Integer deserializeObject(Object o) throws Exception{ return deserialize((byte[])o); }
-    						});
-    		if(mapResult.error){
-    			logger.log(Level.SEVERE, "Failed to create external memory map");
-        		logger.log(Level.SEVERE, mapResult.toErrorString());
-                return false;
-    		}else{
-    			md5ToIdMap = mapResult.result;
-    		}
-    	}
-
-      if (md5ToIdMap == null){
-        logger.log(Level.SEVERE, "NULL external memory map");
-        return false;
-      }
-    } catch(Exception e) {
-      logger.log(Level.SEVERE, "Failed to create external memory map", e);
-      return false;
-    }
+    
+		synchronized(screenLock){
+			final AbstractScreen screen = findScreen(spade.screen.Deduplicate.class);
+			if(screen != null){
+				try{
+					deduplicateScreen = (Deduplicate)screen;
+					if(conf.getReset()){
+						deduplicateScreen.reset();
+					}
+				}catch(Throwable t){
+					logger.log(Level.SEVERE,
+							"Invalid screen returned instead of Deduplicate screen: " + screen.getClass(), t);
+					deduplicateScreen = null;
+				}
+			}
+		}
 
     // Initialize Quickstep async executor.
     QuickstepClient client = new QuickstepClient(conf.getServerIP(), conf.getServerPort());
@@ -508,10 +513,6 @@ public class Quickstep extends AbstractStorage {
       copyManager.finalizeBatch();
     }
     copyManager.shutdown();
-    if(md5ToIdMap != null){
-    	md5ToIdMap.close();
-    	md5ToIdMap = null;
-    }
     qs.shutdown();
     if (debugLogWriter != null) {
       debugLogWriter.close();

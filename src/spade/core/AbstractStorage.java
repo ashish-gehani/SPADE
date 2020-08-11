@@ -75,6 +75,21 @@ public abstract class AbstractStorage
 			screens.clear();
 		}
 	}
+	
+	protected final AbstractScreen findScreen(final Class<? extends AbstractScreen> screenClass){
+		if(screenClass != null){
+			synchronized(screensLock){
+				for(final AbstractScreen screen : screens){
+					if(screen != null){
+						if(screen.getClass().equals(screenClass)){
+							return screen;
+						}
+					}
+				}	
+			}
+		}
+		return null;
+	}
 
 	public final boolean putVertex(final AbstractVertex vertex){
 		boolean block = false;

@@ -50,13 +50,16 @@ public final class Deduplicate extends AbstractScreen{
 	private final String keyFalsePositiveProbabilityEdge = "edge.bloomFilter.falsePositiveProbability";
 	private final String keyCacheSizeEdge = "edge.cache.size";
 	private final String keyReportingIntervalSeconds = "reportingIntervalSeconds";
+
+	private final Object blankObject = new Object();
+	private final Object lockObject = new Object();
 	
 	private String loadSavePathVertex = null;
 	private spade.core.BloomFilter<String> bloomFilterVertex = null;
-	private LRUCache<String, Boolean> cacheVertex;
+	private LRUCache<String, Object> cacheVertex;
 	private String loadSavePathEdge = null;
 	private spade.core.BloomFilter<String> bloomFilterEdge = null;
-	private LRUCache<String, Boolean> cacheEdge;
+	private LRUCache<String, Object> cacheEdge;
 	
 	private boolean reportingEnabled;
 	private long reportingIntervalMillis;
@@ -73,36 +76,24 @@ public final class Deduplicate extends AbstractScreen{
 			final Map<String, String> map =  
 					HelperFunctions.parseKeyValuePairsFrom(arguments, Settings.getDefaultConfigFilePath(this.getClass()), null);
 
-			final String loadSavePathVertex = map.get(keyLoadSavePathVertex);
-			final String loadSavePathEdge = map.get(keyLoadSavePathEdge);
-			if(loadSavePathVertex != null && loadSavePathEdge != null){
-				if(loadSavePathVertex.equals(loadSavePathEdge)){
-					throw new Exception("The value for '"+keyLoadSavePathVertex+"' and '"+keyLoadSavePathEdge+"' cannot be the same");
-				}
-			}
-			
 			final String reportingIntervalSecondsString = map.get(keyReportingIntervalSeconds);
-			final Result<Long> reportingIntervalSecondsResult = HelperFunctions.parseLong(
-					reportingIntervalSecondsString, 10, Integer.MIN_VALUE, Integer.MAX_VALUE);
-			if(reportingIntervalSecondsResult.error){
-				throw new Exception("Invalid value for '"+keyReportingIntervalSeconds+"'='"+reportingIntervalSecondsString+"'. "
-						+ reportingIntervalSecondsResult.errorMessage);
-			}
-			if(reportingIntervalSecondsResult.result > 0){
-				this.reportingEnabled = true;
-				this.reportingIntervalMillis = reportingIntervalSecondsResult.result.intValue() * 1000;
-				this.lastReportedAtMillis = System.currentTimeMillis();
-			}else{
-				this.reportingEnabled = false;
-			}
-			
-			loadBloomFilterAndCache(map, keyLoadSavePathVertex, keyExpectedElementsVertex, keyFalsePositiveProbabilityVertex, 
-					keyCacheSizeVertex, true);
-			loadBloomFilterAndCache(map, keyLoadSavePathEdge, keyExpectedElementsEdge, keyFalsePositiveProbabilityEdge,
-					keyCacheSizeEdge, false);
-			
+			final String vertexLoadSavePathString = map.get(keyLoadSavePathVertex);
+			final String vertexBloomFilterExpectedElementsString = map.get(keyExpectedElementsVertex);
+			final String vertexBloomFilterFalsePositiveProbabilityString = map.get(keyFalsePositiveProbabilityVertex);
+			final String vertexCacheSizeString = map.get(keyCacheSizeVertex);
+			final String edgeLoadSavePathString = map.get(keyLoadSavePathEdge);
+			final String edgeBloomFilterExpectedElementsString = map.get(keyExpectedElementsEdge);
+			final String edgeBloomFilterFalsePositiveProbabilityString = map.get(keyFalsePositiveProbabilityEdge);
+			final String edgeCacheSizeString = map.get(keyCacheSizeEdge);
+
+			initialize(reportingIntervalSecondsString, 
+					vertexLoadSavePathString, 
+					vertexBloomFilterExpectedElementsString, vertexBloomFilterFalsePositiveProbabilityString, vertexCacheSizeString, 
+					edgeLoadSavePathString, 
+					edgeBloomFilterExpectedElementsString, edgeBloomFilterFalsePositiveProbabilityString, edgeCacheSizeString);
+
 			printStats(true);
-			
+
 			return true;
 		}catch(final Exception e){
 			logger.log(Level.SEVERE, "Failed to initialize screen", e);
@@ -110,15 +101,79 @@ public final class Deduplicate extends AbstractScreen{
 		}
 	}
 	
+	public final void initialize(final String reportingIntervalSecondsString, 
+			final String vertexLoadSavePathString, 
+			final String vertexBloomFilterExpectedElementsString, final String vertexBloomFilterFalsePositiveProbabilityString, final String vertexCacheSizeString,
+			final String edgeLoadSavePathString, 
+			final String edgeBloomFilterExpectedElementsString, final String edgeBloomFilterFalsePositiveProbabilityString, final String edgeCacheSizeString)
+		throws Exception{
+		
+		final Result<Long> reportingIntervalSecondsResult = HelperFunctions.parseLong(reportingIntervalSecondsString, 10, Integer.MIN_VALUE, Integer.MAX_VALUE);
+		if(reportingIntervalSecondsResult.error){
+			throw new Exception("Invalid value for '"+keyReportingIntervalSeconds+"'='"+reportingIntervalSecondsString+"'. "
+					+ reportingIntervalSecondsResult.errorMessage);
+		}
+		if(reportingIntervalSecondsResult.result > 0){
+			this.reportingEnabled = true;
+			this.reportingIntervalMillis = reportingIntervalSecondsResult.result.intValue() * 1000;
+			this.lastReportedAtMillis = System.currentTimeMillis();
+		}else{
+			this.reportingEnabled = false;
+		}
+		
+		if(vertexLoadSavePathString != null && edgeLoadSavePathString != null){
+			if(vertexLoadSavePathString.equals(edgeLoadSavePathString)){
+				throw new Exception("The value for '"+keyLoadSavePathVertex+"' and '"+keyLoadSavePathEdge+"' cannot be the same");
+			}
+		}
+		
+		loadBloomFilterAndCache(vertexLoadSavePathString, vertexBloomFilterExpectedElementsString, vertexBloomFilterFalsePositiveProbabilityString, 
+				vertexCacheSizeString, true);
+		loadBloomFilterAndCache(edgeLoadSavePathString, edgeBloomFilterExpectedElementsString, edgeBloomFilterFalsePositiveProbabilityString,
+				edgeCacheSizeString, false);
+		
+	}
+
+	private final String getLoadSavePathKeyFor(final boolean isForVertex){
+		if(isForVertex){
+			return keyLoadSavePathVertex;
+		}else{
+			return keyLoadSavePathEdge;
+		}
+	}
+
+	private final String getExpectedElementsKeyFor(final boolean isForVertex){
+		if(isForVertex){
+			return keyExpectedElementsVertex;
+		}else{
+			return keyExpectedElementsEdge;
+		}
+	}
+
+	private final String getFalsePositiveKeyFor(final boolean isForVertex){
+		if(isForVertex){
+			return keyFalsePositiveProbabilityVertex;
+		}else{
+			return keyFalsePositiveProbabilityEdge;
+		}
+	}
+
+	private final String getCacheSizeKeyFor(final boolean isForVertex){
+		if(isForVertex){
+			return keyCacheSizeVertex;
+		}else{
+			return keyCacheSizeEdge;
+		}
+	}
+
 	@SuppressWarnings("unchecked")
-	private final void loadBloomFilterAndCache(final Map<String, String> map,
-			final String keyLoadSavePath, final String keyExpectedElements, final String keyFalsePositiveProbability,
-			final String keyCacheSize, final boolean isForVertex) throws Exception{
+	private final void loadBloomFilterAndCache(String loadSavePathString,
+			final String expectedElementsString, final String falsePositiveString, final String cacheSizeString,
+			final boolean isForVertex) throws Exception{
 		final String logName = isForVertex ? "Vertex" : "Edge";
 
 		boolean loadFromFile = false;
-		
-		String loadSavePathString = map.get(keyLoadSavePath);
+
 		if(loadSavePathString != null && loadSavePathString.trim().isEmpty()){
 			loadSavePathString = null;
 		}
@@ -140,7 +195,7 @@ public final class Deduplicate extends AbstractScreen{
 
 				FileUtility.pathMustBeAWritableFile(loadSavePathString);
 			}catch(Exception e){
-				throw new Exception("Invalid path for '"+keyLoadSavePath+"': '"+loadSavePathString+"'", e);
+				throw new Exception("Invalid path for '"+getLoadSavePathKeyFor(isForVertex)+"': '"+loadSavePathString+"'", e);
 			}
 		}
 
@@ -157,14 +212,14 @@ public final class Deduplicate extends AbstractScreen{
 							logName + " BloomFilter initialized from file: " + loadSavePathString + " [falsePositiveProbability="
 									+ bloomFilter.getFalsePositiveProbability() + ", " + "expectedElements="
 									+ bloomFilter.getExpectedBitsPerElement() + "]");
-					logger.log(Level.INFO, "Keys ignored: ['"+keyExpectedElements+"', '"+keyFalsePositiveProbability+"']");
+					logger.log(Level.INFO, "Keys ignored: ['"+getExpectedElementsKeyFor(isForVertex)+"', '"+getFalsePositiveKeyFor(isForVertex)+"']");
 					cacheSize = (Integer)objectInputStream.readObject();
 					if(cacheSize != null){
 						cacheEntries = (String[])objectInputStream.readObject();
 						if(cacheEntries != null){
 							logger.log(Level.INFO,
-									logName + " Cache initialized from file: " + loadSavePathString + " ["+keyCacheSize+"=" + cacheSize + "]");
-							logger.log(Level.INFO, "Key ignored: ['"+keyCacheSize+"']");
+									logName + " Cache initialized from file: " + loadSavePathString + " [cacheSize=" + cacheSize + "]");
+							logger.log(Level.INFO, "Key ignored: ['"+getCacheSizeKeyFor(isForVertex)+"']");
 						}else{
 							// Fall back to creating from arguments
 						}
@@ -180,20 +235,18 @@ public final class Deduplicate extends AbstractScreen{
 		}
 
 		if(bloomFilter == null){
-			final String expectedElementsString = map.get(keyExpectedElements);
 			final Result<Long> expectedElementsResult = HelperFunctions.parseLong(expectedElementsString, 10, 1, Integer.MAX_VALUE);
 			if(expectedElementsResult.error){
-				throw new Exception("Invalid "+logName+" BloomFilter expected elements count value with key '"+keyExpectedElements+"'. "
+				throw new Exception("Invalid "+logName+" BloomFilter expected elements count value with key '"+getExpectedElementsKeyFor(isForVertex)+"'. "
 						+ "Must be a positive integer but is '"+expectedElementsString+"'");
 			}
-			
-			final String falsePositiveString = map.get(keyFalsePositiveProbability);
+
 			final Result<Double> falsePositiveResult = HelperFunctions.parseDouble(falsePositiveString, 0, 1);
 			if(falsePositiveResult.error){
-				throw new Exception("Invalid "+logName+" BloomFilter false positive probability value with key '"+keyFalsePositiveProbability+"'. "
+				throw new Exception("Invalid "+logName+" BloomFilter false positive probability value with key '"+getFalsePositiveKeyFor(isForVertex)+"'. "
 						+ "Must be between 0 and 1 (inclusive) but is '"+falsePositiveString+"'");
 			}
-			
+
 			bloomFilter = new spade.core.BloomFilter<String>(falsePositiveResult.result, expectedElementsResult.result.intValue());
 			logger.log(Level.INFO,
 					logName + " BloomFilter initialized from arguments: " + "[falsePositiveProbability="
@@ -201,20 +254,19 @@ public final class Deduplicate extends AbstractScreen{
 							+ "expectedElements=" + expectedElementsResult.result.intValue() + "]");
 		}
 
-		LRUCache<String, Boolean> cache = null;
+		LRUCache<String, Object> cache = null;
 
 		if(cacheEntries == null){
-			final String cacheSizeString = map.get(keyCacheSize);
 			final Result<Long> cacheSizeResult = HelperFunctions.parseLong(cacheSizeString, 10, 0, Integer.MAX_VALUE);
 			if(cacheSizeResult.error){
-				throw new Exception("Invalid "+logName+" '"+keyCacheSize+"' value. Must be non-negative: " + cacheSizeResult.errorMessage);
+				throw new Exception("Invalid "+logName+" '"+getCacheSizeKeyFor(isForVertex)+"' value. Must be non-negative: " + cacheSizeResult.errorMessage);
 			}
-			cache = new LRUCache<String, Boolean>(cacheSizeResult.result.intValue());
+			cache = new LRUCache<String, Object>(cacheSizeResult.result.intValue());
 		}else{
-			cache = new LRUCache<String, Boolean>(cacheSize);
+			cache = new LRUCache<String, Object>(cacheSize);
 			for(final String cacheEntryKey : cacheEntries){
 				if(cacheEntryKey != null){
-					cache.put(cacheEntryKey, true);
+					cache.put(cacheEntryKey, blankObject);
 					if(cache.hasExceededMaximumSize()){
 						cache.evict();
 						break;
@@ -247,7 +299,10 @@ public final class Deduplicate extends AbstractScreen{
 		if(vertex != null){
 			final String hashCode = vertex.bigHashCode();
 			if(hashCode != null){
-				final boolean block = block(hashCode, this.bloomFilterVertex, this.cacheVertex);
+				final boolean block;
+				synchronized(lockObject){
+					block = block(hashCode, this.bloomFilterVertex, this.cacheVertex);
+				}
 				if(block){
 					verticesBlocked++;
 				}else{
@@ -264,7 +319,10 @@ public final class Deduplicate extends AbstractScreen{
 		if(edge != null){
 			final String hashCode = edge.bigHashCode();
 			if(hashCode != null){
-				final boolean block = block(hashCode, this.bloomFilterEdge, this.cacheEdge);
+				final boolean block;
+				synchronized(lockObject){
+					block = block(hashCode, this.bloomFilterEdge, this.cacheEdge);
+				}
 				if(block){
 					edgeBlocked++;
 				}else{
@@ -277,12 +335,12 @@ public final class Deduplicate extends AbstractScreen{
 	}
 	
 	private final synchronized boolean block(final String hashCode, 
-			final spade.core.BloomFilter<String> bloomFilter, final LRUCache<String, Boolean> cache){
+			final spade.core.BloomFilter<String> bloomFilter, final LRUCache<String, Object> cache){
 		printStats(false);
 		
 		if(bloomFilter.contains(hashCode)){
 			if(cache.get(hashCode) == null){
-				cache.put(hashCode, true);
+				cache.put(hashCode, blankObject);
 				while(cache.hasExceededMaximumSize()){
 					cache.evict();
 				}
@@ -293,11 +351,76 @@ public final class Deduplicate extends AbstractScreen{
 		}else{
 			// Not in bloomfilter. Must put so do NOT block
 			bloomFilter.add(hashCode);
-			cache.put(hashCode, true);
+			cache.put(hashCode, blankObject);
 			while(cache.hasExceededMaximumSize()){
 				cache.evict();
 			}
 			return false;
+		}
+	}
+	
+	public final void reset(){
+		synchronized(lockObject){
+			this.bloomFilterVertex.clear();
+			this.bloomFilterEdge.clear();
+			this.cacheVertex.clear();
+			this.cacheEdge.clear();
+		}
+	}
+	
+	public final Object getVertexCacheValueForStorage(final String hashCode){
+		synchronized(lockObject){
+			return getCacheValueForStorage(cacheVertex, hashCode);
+		}
+	}
+	
+	public final Object getEdgeCacheValueForStorage(final String hashCode){
+		synchronized(lockObject){
+			return getCacheValueForStorage(cacheEdge, hashCode);
+		}
+	}
+	
+	public final void setVertexCacheValueForStorage(final String hashCode, final Object value){
+		synchronized(lockObject){
+			setCacheValueForStorage(bloomFilterVertex, cacheVertex, hashCode, value);
+		}
+	}
+	
+	public final void setEdgeCacheValueForStorage(final String hashCode, final Object value){
+		synchronized(lockObject){
+			setCacheValueForStorage(bloomFilterEdge, cacheEdge, hashCode, value);
+		}
+	}
+	
+	private final Object getCacheValueForStorage(final LRUCache<String, Object> cache, final String hashCode){
+		if(hashCode == null){
+			return null;
+		}
+		final Object value = cache.get(hashCode);
+		if(value == null){
+			return null;
+		}
+		if(value == blankObject){
+			return null;
+		}
+		return value;
+	}
+	
+	private final void setCacheValueForStorage(
+			final spade.core.BloomFilter<String> bloomFilter, final LRUCache<String, Object> cache, final String hashCode, final Object value){
+		if(hashCode == null){
+			return;
+		}
+		if(value == null){
+			cache.put(hashCode, blankObject);
+		}else{
+			cache.put(hashCode, value);
+		}
+		if(!bloomFilter.contains(hashCode)){
+			bloomFilter.add(hashCode);
+		}
+		while(cache.hasExceededMaximumSize()){
+			cache.evict();
 		}
 	}
 	
@@ -311,17 +434,21 @@ public final class Deduplicate extends AbstractScreen{
 
 	@Override
 	public boolean shutdown(){
-		if(this.loadSavePathVertex != null){
-			saveBloomFilterAndCache(this.bloomFilterVertex, this.cacheVertex, this.loadSavePathVertex, "Vertex");
-		}
-		if(this.loadSavePathEdge != null){
-			saveBloomFilterAndCache(this.bloomFilterEdge, this.cacheEdge, this.loadSavePathEdge, "Edge");
-		}
-		if(this.cacheEdge != null){
-			this.cacheEdge.clear();
-		}
-		if(this.cacheVertex != null){
-			this.cacheVertex.clear();
+		synchronized(lockObject){
+			if(this.loadSavePathVertex != null){
+				saveBloomFilterAndCache(this.bloomFilterVertex, this.cacheVertex, this.loadSavePathVertex, "Vertex");
+				this.bloomFilterVertex.clear();
+			}
+			if(this.loadSavePathEdge != null){
+				saveBloomFilterAndCache(this.bloomFilterEdge, this.cacheEdge, this.loadSavePathEdge, "Edge");
+				this.bloomFilterEdge.clear();
+			}
+			if(this.cacheEdge != null){
+				this.cacheEdge.clear();
+			}
+			if(this.cacheVertex != null){
+				this.cacheVertex.clear();
+			}
 		}
 		
 		printStats(true);
@@ -330,7 +457,7 @@ public final class Deduplicate extends AbstractScreen{
 	}
 	
 	private final void saveBloomFilterAndCache(final spade.core.BloomFilter<String> bloomFilter, 
-			final LRUCache<String, Boolean> cache,
+			final LRUCache<String, Object> cache,
 			final String path, final String logName){
 		ObjectOutputStream objectOutputStream = null;
 		try{
