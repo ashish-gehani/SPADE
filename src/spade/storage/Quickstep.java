@@ -534,7 +534,7 @@ public class Quickstep extends AbstractStorage {
 	}
 
   @Override
-  public synchronized boolean putEdge(AbstractEdge incomingEdge) {
+  public synchronized boolean storeEdge(AbstractEdge incomingEdge) {
     synchronized (batch) {
       batch.addEdge(incomingEdge);
       flushTransactions(false);
@@ -543,7 +543,7 @@ public class Quickstep extends AbstractStorage {
   }
 
   @Override
-  public synchronized boolean putVertex(AbstractVertex incomingVertex) {
+  public synchronized boolean storeVertex(AbstractVertex incomingVertex) {
     synchronized (batch) {
       batch.addVertex(incomingVertex);
       flushTransactions(false);

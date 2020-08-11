@@ -61,7 +61,7 @@ endif
 REPORTERS = Graphviz DSL Network LLVM Facebook Bitcoin StraceLinux JSON CDM CamFlow ProcMon
 # -------------------------------------------
  
-.PHONY: build prepare-dirs core reporters filters query analyzers clients utilities storages android-build
+.PHONY: build prepare-dirs core reporters filters query analyzers clients utilities storages screens android-build
 
 all:    build
 	./bin/keys/generatekeys.sh
@@ -79,7 +79,7 @@ build: | prepare-dirs
 build: build-java $$(OS_BUILD) lib/spade.jar
 # No sketches at the moment available
 #build-java: download-neo4j core clients utilities storages filters query analyzers sketches transformers reporters
-build-java: download-neo4j core clients utilities storages filters query analyzers transformers reporters
+build-java: download-neo4j core clients utilities storages screens filters query analyzers transformers reporters
 
 NEO4J_DIR=lib/neo4j-community-4.1.1
 download-neo4j:
@@ -121,6 +121,9 @@ analyzers:
 storages:
 	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/storage/*.java
 	@echo "--- Built Storages ---"
+screens:
+	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/screen/*.java
+	@echo "--- Built Screens ---"
 utilities:
 	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/utility/*.java
 	$(JAVAC) $(JAVAC_OPTIONS) -cp '$(JAVAC_CP)' -sourcepath src -d build src/spade/utility/profile/*.java

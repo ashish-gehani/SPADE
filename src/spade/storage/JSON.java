@@ -251,7 +251,7 @@ public final class JSON extends AbstractStorage{
 	}
 	
 	@Override
-	public final synchronized boolean putVertex(final AbstractVertex vertex){
+	public final synchronized boolean storeVertex(final AbstractVertex vertex){
 		if(vertex == null){
 			logger.log(Level.WARNING, "NULL vertex to put. Vertex ignored.");
 		}else if(vertex.type() == null){
@@ -280,7 +280,7 @@ public final class JSON extends AbstractStorage{
 	}
 
 	@Override
-	public final synchronized boolean putEdge(final AbstractEdge edge){
+	public final synchronized boolean storeEdge(final AbstractEdge edge){
 		if(edge == null){
 			logger.log(Level.WARNING, "NULL edge to put. Edge ignored.");
 		}else if(edge.getChildVertex() == null){

@@ -216,7 +216,7 @@ public class Kafka extends AbstractStorage{
 	}
 	
 	@Override
-	public boolean putVertex(AbstractVertex vertex){
+	public boolean storeVertex(AbstractVertex vertex){
 		try{
 			List<GenericContainer> recordsToPublish = new ArrayList<GenericContainer>();
 			Vertex.Builder vertexBuilder = Vertex.newBuilder();
@@ -238,7 +238,7 @@ public class Kafka extends AbstractStorage{
 	}
 
 	@Override
-	public boolean putEdge(AbstractEdge edge){
+	public boolean storeEdge(AbstractEdge edge){
 		try{
 			List<GenericContainer> recordsToPublish = new ArrayList<GenericContainer>();
 			Edge.Builder edgeBuilder = Edge.newBuilder();

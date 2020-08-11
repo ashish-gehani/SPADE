@@ -151,7 +151,7 @@ public abstract class SQL extends AbstractStorage
      * not successful if the edge is already present in the storage.
      */
     @Override
-    public abstract boolean putEdge(AbstractEdge incomingEdge);
+    public abstract boolean storeEdge(AbstractEdge incomingEdge);
 
     /**
      * This function inserts the given vertex into the underlying storage(s) and
@@ -162,7 +162,7 @@ public abstract class SQL extends AbstractStorage
      * not successful if the vertex is already present in the storage.
      */
     @Override
-    public abstract boolean putVertex(AbstractVertex incomingVertex);
+    public abstract boolean storeVertex(AbstractVertex incomingVertex);
 
     @Override
     public abstract ResultSet executeQuery(String query);

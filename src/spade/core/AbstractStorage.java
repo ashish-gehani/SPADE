@@ -24,6 +24,8 @@ import static spade.core.Kernel.FILE_SEPARATOR;
 import static spade.core.Kernel.SPADE_ROOT;
 
 import java.io.FileInputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -40,6 +42,84 @@ import spade.query.scaffold.ScaffoldFactory;
  */
 public abstract class AbstractStorage
 {
+	// Screens only accessible from package and self (not even children can view it)
+	final Object screensLock = new Object();
+	final List<AbstractScreen> screens = new ArrayList<AbstractScreen>();
+
+	final void addScreen(final AbstractScreen screen) throws IllegalArgumentException{
+		if(screen == null){
+			throw new IllegalArgumentException("NULL screen cannot be added");
+		}
+		synchronized(screensLock){
+			screens.add(screen);
+		}
+	}
+
+	final void addScreens(final List<AbstractScreen> screens) throws IllegalArgumentException{
+		if(screens == null){
+			throw new IllegalArgumentException("NULL screens cannot be added");
+		}
+		for(final AbstractScreen screen : screens){
+			addScreen(screen);
+		}
+	}
+
+	final List<AbstractScreen> getScreens(){
+		synchronized(screensLock){
+			return new ArrayList<AbstractScreen>(screens);
+		}
+	}
+
+	final void clearScreens(){
+		synchronized(screensLock){
+			screens.clear();
+		}
+	}
+
+	public final boolean putVertex(final AbstractVertex vertex){
+		boolean block = false;
+		if(vertex == null){
+			block = true;
+		}else{
+			synchronized(screensLock){
+				for(final AbstractScreen screen : screens){
+					if(screen.blockVertex(vertex)){
+						block = true;
+						break;
+					}
+				}
+			}
+		}
+		if(block){
+			return false;
+		}else{
+			return storeVertex(vertex);
+		}
+	}
+
+	public final boolean putEdge(final AbstractEdge edge){
+		boolean block = false;
+		if(edge == null){
+			block = true;
+		}else{
+			synchronized(screensLock){
+				for(final AbstractScreen screen : screens){
+					if(screen.blockEdge(edge)){
+						block = true;
+						break;
+					}
+				}
+			}
+		}
+		if(block){
+			return false;
+		}else{
+			return storeEdge(edge);
+		}
+	}
+
+	////////////////
+
     public static final String PRIMARY_KEY = "hash";
     public static final String CHILD_VERTEX_KEY = "childVertexHash";
     public static final String PARENT_VERTEX_KEY = "parentVertexHash";
@@ -219,7 +299,7 @@ public abstract class AbstractStorage
      * @return returns true if the insertion is successful. Insertion is considered
      * not successful if the edge is already present in the storage.
      */
-    public abstract boolean putEdge(AbstractEdge incomingEdge);
+    public abstract boolean storeEdge(AbstractEdge incomingEdge);
 
     /**
      * This function inserts the given vertex into the underlying storage(s) and
@@ -228,7 +308,7 @@ public abstract class AbstractStorage
      * @return returns true if the insertion is successful. Insertion is considered
      * not successful if the vertex is already present in the storage.
      */
-    public abstract boolean putVertex(AbstractVertex incomingVertex);
+    public abstract boolean storeVertex(AbstractVertex incomingVertex);
 
     public abstract Object executeQuery(String query);
     

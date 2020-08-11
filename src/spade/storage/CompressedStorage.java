@@ -1072,7 +1072,7 @@ public class CompressedStorage extends AbstractStorage {
 	}
 
 	@Override
-	public boolean putEdge(AbstractEdge incomingEdge) {
+	public boolean storeEdge(AbstractEdge incomingEdge) {
 		try {
 			String srcHash = incomingEdge.getChildVertex().bigHashCode();
 			String dstHash = incomingEdge.getParentVertex().bigHashCode();
@@ -1146,7 +1146,7 @@ public class CompressedStorage extends AbstractStorage {
 
 
 	@Override
-	public boolean putVertex(AbstractVertex incomingVertex) {
+	public boolean storeVertex(AbstractVertex incomingVertex) {
 		try {
 			String vertexHash = incomingVertex.bigHashCode();
 			Integer vertexID = nextVertexID;

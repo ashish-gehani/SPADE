@@ -22,7 +22,6 @@ package spade.reporter;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -30,22 +29,9 @@ import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
 import spade.core.AbstractVertex;
-import spade.edge.cdm.SimpleEdge;
-import spade.edge.opm.Used;
-import spade.edge.opm.WasControlledBy;
-import spade.edge.opm.WasDerivedFrom;
-import spade.edge.opm.WasGeneratedBy;
-import spade.edge.opm.WasTriggeredBy;
-import spade.edge.prov.WasAssociatedWith;
-import spade.edge.prov.WasInformedBy;
+import spade.core.Edge;
+import spade.core.Vertex;
 import spade.utility.Execute;
-import spade.vertex.cdm.Event;
-import spade.vertex.cdm.Principal;
-import spade.vertex.opm.Agent;
-import spade.vertex.opm.Artifact;
-import spade.vertex.opm.Process;
-import spade.vertex.prov.Activity;
-import spade.vertex.prov.Entity;
 
 /**
  * Pipe reporter for Linux.
@@ -57,7 +43,7 @@ public class DSL extends AbstractReporter {
     private String pipePath;
     private BufferedReader eventReader;
     private volatile boolean shutdown;
-    private HashMap<String, AbstractVertex> vertices;
+    //private HashMap<String, AbstractVertex> vertices;
     private final int THREAD_SLEEP_DELAY = 5;
     private Logger logger = Logger.getLogger(DSL.class.getName());
 
@@ -69,7 +55,7 @@ public class DSL extends AbstractReporter {
         // The Pipe reporter creates a simple named pipe to which provenance events
         // can be written. The argument to the launch method is the location of the
         // pipe.
-        vertices = new HashMap<String, AbstractVertex>();
+        //vertices = new HashMap<String, AbstractVertex>();
         pipePath = arguments;
         File checkpipe = new File(pipePath);
         if (checkpipe.exists()) {
@@ -144,83 +130,19 @@ public class DSL extends AbstractReporter {
                 }
             }
             // Instantiate object based on the type and associate annotations to it.
-            
-            if(type.equalsIgnoreCase("event")){
-            	vertex = new Event();
-            }else if (type.equalsIgnoreCase("principal")) {
-            	vertex = new Principal();
-            }else if (type.equalsIgnoreCase("activity")) {
-            	vertex = new Activity();
-            } else if(type.equalsIgnoreCase("entity")) {
-            	vertex = new Entity();
-            } else if (type.equalsIgnoreCase("process")) {
-                vertex = new Process();
-            } else if (type.equalsIgnoreCase("artifact")) {
-                vertex = new Artifact();
-            } else if (type.equalsIgnoreCase("agent")) {
-                vertex = new Agent();
-                // Create edges and also check if the 'from' and 'to' values are valid.
-            } else if ((type.equalsIgnoreCase("used")) && (from != null) && (to != null)) {
-                if ((vertices.get(from) instanceof Process) && (vertices.get(to) instanceof Artifact)) {
-                    edge = new Used((Process) vertices.get(from), (Artifact) vertices.get(to));
-                } else if(vertices.get(from) instanceof Activity && vertices.get(to) instanceof Entity){
-                	edge = new spade.edge.prov.Used((Activity) vertices.get(from), (Entity) vertices.get(to));
-                }else {
-                    logger.log(Level.WARNING, "Used edge must be from a Process/Activity to an Artifact/Entity");
-                }
-            } else if ((type.equalsIgnoreCase("wasgeneratedby")) && (from != null) && (to != null)) {
-                if ((vertices.get(from) instanceof Artifact) && (vertices.get(to) instanceof Process)) {
-                    edge = new WasGeneratedBy((Artifact) vertices.get(from), (Process) vertices.get(to));
-                }else if(vertices.get(from) instanceof Entity && vertices.get(to) instanceof Activity){
-                	edge = new spade.edge.prov.WasGeneratedBy((Entity) vertices.get(from), (Activity) vertices.get(to));
-                }else{
-                	logger.log(Level.WARNING, "WasGeneratedBy edge must be from a Artifact/Entity to an Process/Activity");
-                }
-            } else if ((type.equalsIgnoreCase("wastriggeredby")) && (from != null) && (to != null)) {
-                if ((vertices.get((from)) instanceof Process) && (vertices.get((to)) instanceof Process)) {
-                    edge = new WasTriggeredBy((Process) vertices.get(from), (Process) vertices.get(to));
-                } else {
-                    logger.log(Level.WARNING, "WasTriggeredBy edge must be from a Process to a Process");
-                }
-            } else if ((type.equalsIgnoreCase("wasinformedby")) && (from != null) && (to != null)) {
-                if ((vertices.get((from)) instanceof Activity) && (vertices.get((to)) instanceof Activity)) {
-                    edge = new WasInformedBy((Activity) vertices.get(from), (Activity) vertices.get(to));
-                } else {
-                    logger.log(Level.WARNING, "WasInformedBy edge must be from an Activity to a Activity");
-                }
-            } else if ((type.equalsIgnoreCase("wascontrolledby")) && (from != null) && (to != null)) {
-                if ((vertices.get((from)) instanceof Process) && (vertices.get((to)) instanceof Agent)) {
-                    edge = new WasControlledBy((Process) vertices.get(from), (Agent) vertices.get(to));
-                } else {
-                    logger.log(Level.WARNING, "WasControlledBy edge must be from a Process to an Agent");
-                }
-            } else if ((type.equalsIgnoreCase("wasassociatedwith")) && (from != null) && (to != null)) {
-                if ((vertices.get((from)) instanceof Activity) && (vertices.get((to)) instanceof Agent)) {
-                	spade.vertex.prov.Agent agent = new spade.vertex.prov.Agent();
-                	agent.addAnnotations(((Agent) vertices.get(to)).getCopyOfAnnotations());
-                    edge = new WasAssociatedWith((Activity) vertices.get(from), agent);
-                } else {
-                    logger.log(Level.WARNING, "WasAssociatedWith edge must be from an Acivity to an Agent");
-                }
-            } else if ((type.equalsIgnoreCase("wasderivedfrom")) && (from != null) && (to != null)) {
-                if ((vertices.get((from)) instanceof Artifact) && (vertices.get((to)) instanceof Artifact)) {
-                    edge = new WasDerivedFrom((Artifact) vertices.get(from), (Artifact) vertices.get(to));
-                } else if((vertices.get((from)) instanceof Entity) && (vertices.get((to)) instanceof Entity)){
-                	edge = new spade.edge.prov.WasDerivedFrom((Entity) vertices.get(from), (Entity) vertices.get(to));
-                }else {
-                    logger.log(Level.WARNING, "WasDerivedFrom edge must be from an Artifact/Entity to an Artifact/Entity");
-                }
-            } else if (type.equalsIgnoreCase("simpleedge") && (from != null) && (to != null)) {
-            	edge = new SimpleEdge(vertices.get(from), vertices.get(to));
-            }
-            // Finally, pass vertex or edge to buffer.
-            if ((id != null) && (vertex != null)) {
-                vertex.addAnnotations(annotations);
-                vertices.put(id, vertex);
-                putVertex(vertex);
-            } else if (edge != null) {
-                edge.addAnnotations(annotations);
-                putEdge(edge);
+
+            if(AbstractVertex.isVertexType(type)){
+            	vertex = new Vertex(id);
+            	annotations.put(AbstractVertex.typeKey, type);
+            	vertex.addAnnotations(annotations);
+            	putVertex(vertex);
+            }else if(AbstractEdge.isEdgeType(type)){
+            	edge = new Edge(new Vertex(from), new Vertex(to));
+            	annotations.put(AbstractEdge.typeKey, type);
+            	edge.addAnnotations(annotations);
+            	putEdge(edge);
+            }else{
+            	logger.log(Level.WARNING, "Unexpected 'type' in input: " + line);
             }
         } catch (Exception exception) {
             logger.log(Level.SEVERE, null, exception);

@@ -67,7 +67,7 @@ public class Datalog extends AbstractStorage {
     }
 
     @Override
-    public boolean putVertex(AbstractVertex incomingVertex) {
+    public boolean storeVertex(AbstractVertex incomingVertex) {
         vertexMap.put(getVertexCount(), incomingVertex);
         vertexMapReversed.put(incomingVertex, getVertexCount());
         return true;
@@ -80,7 +80,7 @@ public class Datalog extends AbstractStorage {
     }
 
     @Override
-    public boolean putEdge(AbstractEdge incomingEdge) {
+    public boolean storeEdge(AbstractEdge incomingEdge) {
         long childVertexId = vertexMapReversed.get(incomingEdge.getChildVertex());
         long parentVertexId = vertexMapReversed.get(incomingEdge.getParentVertex());
         datalogProgram.append("parent('").append(childVertexId).append("', '").append(parentVertexId).append("')\r\n");

@@ -21,6 +21,7 @@ package spade.utility.map.external.cache;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import spade.utility.DoublyLinkedList;
 
@@ -65,6 +66,10 @@ public class LRUCache<K, V> implements Cache<K, V>{
 			accessOrderedList.makeFirst(node);
 			return value;
 		}
+	}
+
+	public Set<K> keySet(){
+		return map.keySet();
 	}
 
 	// Doesn't modify access list

@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.math.BigInteger;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -80,11 +81,37 @@ public class HelperFunctions{
 	 * @param str string to parse
 	 * @return HashMap in result or error
 	 */
-	public static Result<HashMap<String, String>> parseKeysValuesInString(String str){
+	public static Result<HashMap<String, String>> parseKeysValuesInString(final String str){
+		final Result<ArrayList<SimpleEntry<String, String>>> simpleEntryListResult = parseKeyValueEntriesInString(str);
+		if(simpleEntryListResult.error){
+			return Result.failed(simpleEntryListResult.errorMessage, simpleEntryListResult.exception, simpleEntryListResult.cause);
+		}
+		try{
+			final HashMap<String, String> map = new HashMap<String, String>();
+			for(final SimpleEntry<String, String> entry : simpleEntryListResult.result){
+				map.put(entry.getKey(), entry.getValue());
+			}
+			return Result.successful(map);
+		}catch(Exception e){
+			return Result.failed("Failed to construct map from list of entries: " + simpleEntryListResult.result, e, null);
+		}
+		
+	}
+	
+	/**
+	 * Input: a=b c='d' e="f f"
+	 * Output: List[a=b, c=d, e=f f]
+	 * 
+	 * If empty string then empty list returned
+	 * 
+	 * @param str string to parse
+	 * @return List in result or error
+	 */
+	public static Result<ArrayList<SimpleEntry<String, String>>> parseKeyValueEntriesInString(String str){
 		if(str == null){
-			return Result.failed("NULL string to parse keys-values from");
+			return Result.failed("NULL string to parse keys-values entries from");
 		}else{
-			HashMap<String, String> map = new HashMap<String, String>();
+			ArrayList<SimpleEntry<String, String>> entriesList = new ArrayList<SimpleEntry<String, String>>();
 			String trimmed = str.trim();
 			int startFrom = 0;
 			while(startFrom < trimmed.length()){
@@ -97,7 +124,7 @@ public class HelperFunctions{
 					int b = a+1;
 					if(b >= trimmed.length()){
 						String value = "";
-						map.put(key, value);
+						entriesList.add(new SimpleEntry<String, String>(key, value));
 						break; // length exceeded
 					}else{
 						char z = trimmed.charAt(b);
@@ -122,7 +149,7 @@ public class HelperFunctions{
 									int e = d+1;
 									String value = trimmed.substring(b, e).trim();
 									value = value.substring(1, value.length() - 1);
-									map.put(key, value);
+									entriesList.add(new SimpleEntry<String, String>(key, value));
 									startFrom = e;
 								}
 							}
@@ -132,13 +159,13 @@ public class HelperFunctions{
 								e = trimmed.length();
 							}
 							String value = trimmed.substring(b, e).trim();
-							map.put(key, value);
+							entriesList.add(new SimpleEntry<String, String>(key, value));
 							startFrom = e;
 						}
 					}
 				}
 			}
-			return Result.successful(map);
+			return Result.successful(entriesList);
 		}
 	}
     
@@ -542,7 +569,56 @@ public class HelperFunctions{
 			}
 		}
 		return map;
-	} 
+	}
+
+	private static List<SimpleEntry<String, String>> safeReadKeyValueEntriesFromFile(final String filePath) throws Exception{
+		final List<SimpleEntry<String, String>> list = new ArrayList<SimpleEntry<String, String>>();
+		if(filePath != null){
+			try{
+				final File file = new File(filePath);
+				if(file.exists()){
+					if(!file.isFile()){
+						throw new Exception("Not a file");
+					}
+					if(!file.canRead()){
+						throw new Exception("Not readable");
+					}
+					final Result<ArrayList<SimpleEntry<String, String>>> entriesResult = FileUtility.parseKeyValueEntriesInConfigFile(filePath, "=", true);
+					if(entriesResult.error){
+						throw new Exception(entriesResult.toErrorString());
+					}
+					list.addAll(entriesResult.result);
+				}
+			}catch(Exception e){
+				throw new Exception("Failed to read file: " + filePath, e);
+			}
+		}
+		return list;
+	}
+
+	public static Map<String, SimpleEntry<String, String>> parseKeyValuePairsFromAndGetSources(
+			final String arguments, final String firstConfigFilePath, final String secondConfigFilePath) throws Exception{
+		final Map<String, SimpleEntry<String, String>> map = new HashMap<String, SimpleEntry<String, String>>();
+
+		for(final Map.Entry<String, String> entry : safeReadKeyValuePairsFromFile(secondConfigFilePath).entrySet()){
+			map.put(entry.getKey(), new SimpleEntry<String, String>(entry.getValue(), secondConfigFilePath));
+		}
+
+		for(final Map.Entry<String, String> entry : safeReadKeyValuePairsFromFile(firstConfigFilePath).entrySet()){
+			map.put(entry.getKey(), new SimpleEntry<String, String>(entry.getValue(), firstConfigFilePath));
+		}
+
+		final Result<HashMap<String, String>> argumentsParseResult = parseKeysValuesInString(arguments);
+		if(argumentsParseResult.error){
+			throw new Exception("Failed to parse user arguments: " + argumentsParseResult.toErrorString());
+		}
+
+		for(final Map.Entry<String, String> entry : argumentsParseResult.result.entrySet()){
+			map.put(entry.getKey(), new SimpleEntry<String, String>(entry.getValue(), "user arguments"));
+		}
+
+		return map;
+	}
 	
 	/**
 	 * @param arguments highest priority (optional)
@@ -595,5 +671,34 @@ public class HelperFunctions{
 			map.put(key, value);
 		}
 		return map;
+	}
+	
+	public static final <K, V> ArrayList<SimpleEntry<K, V>> filterEntriesByKey(final List<SimpleEntry<K, V>> list,
+			final K key){
+		final ArrayList<SimpleEntry<K, V>> result = new ArrayList<SimpleEntry<K, V>>();
+		if(list != null){
+			for(final SimpleEntry<K, V> entry : list){
+				if(entry != null){
+					if(objectsEqual(entry.getKey(), key)){
+						result.add(new SimpleEntry<K, V>(entry.getKey(), entry.getValue()));
+					}
+				}
+			}
+		}
+		return result;
+	}
+	
+	public static final List<String> getListOfClassNames(final List<?> objects){
+		final List<String> list = new ArrayList<String>();
+		if(objects != null){
+			for(Object o : objects){
+				if(o == null){
+					list.add(String.valueOf(o));
+				}else{
+					list.add(o.getClass().getSimpleName());
+				}
+			}
+		}
+		return list;
 	}
 }

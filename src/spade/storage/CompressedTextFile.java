@@ -105,7 +105,7 @@ public class CompressedTextFile extends AbstractStorage {
     }
 
     @Override
-    public boolean putVertex(AbstractVertex incomingVertex) {
+    public boolean storeVertex(AbstractVertex incomingVertex) {
         try {
             String vertexHash = DigestUtils.sha256Hex(incomingVertex.toString());
             Integer vertexId = nextVertexID;
@@ -171,7 +171,7 @@ public class CompressedTextFile extends AbstractStorage {
     }
 
     @Override
-    public boolean putEdge(AbstractEdge incomingEdge) {
+    public boolean storeEdge(AbstractEdge incomingEdge) {
         try {
             String srcHash = DigestUtils.sha256Hex(incomingEdge.getChildVertex().toString());
             String dstHash = DigestUtils.sha256Hex(incomingEdge.getParentVertex().toString());

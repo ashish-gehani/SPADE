@@ -83,9 +83,11 @@ public final class Graphviz extends AbstractStorage{
 			initialize(outputFilePathString, flushAfterBytesString);
 			logger.log(Level.INFO, "Arguments ["+keyOutput+"="+outputFilePath+", "+keyFlushAfterBytesCount+"="+flushAfterBytes+"]");
 
+			/*
 			if(!map.isEmpty()){
 				logger.log(Level.INFO, "Unused key-value pairs in the arguments and/or config file: " + map);
 			}
+			*/
 
 			return true;
 		}catch(Exception e){
@@ -273,7 +275,7 @@ public final class Graphviz extends AbstractStorage{
 	}
 	
 	@Override
-	public final synchronized boolean putVertex(final AbstractVertex vertex){
+	public final synchronized boolean storeVertex(final AbstractVertex vertex){
 		if(vertex == null){
 			logger.log(Level.WARNING, "NULL vertex to put. Vertex ignored.");
 		}else{
@@ -299,7 +301,7 @@ public final class Graphviz extends AbstractStorage{
 	}
 
 	@Override
-	public final synchronized boolean putEdge(final AbstractEdge edge){
+	public final synchronized boolean storeEdge(final AbstractEdge edge){
 		if(edge == null){
 			logger.log(Level.WARNING, "NULL edge to put. Edge ignored.");
 		}else if(edge.getChildVertex() == null){

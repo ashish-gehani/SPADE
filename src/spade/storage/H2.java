@@ -245,7 +245,7 @@ public class H2 extends SQL
      * not successful if the edge is already present in the storage.
      */
     @Override
-    public boolean putEdge(AbstractEdge incomingEdge)
+    public boolean storeEdge(AbstractEdge incomingEdge)
     {
         String edgeHash = incomingEdge.bigHashCode();
         if(Cache.isVertexPresent(edgeHash))
@@ -355,7 +355,7 @@ public class H2 extends SQL
      * not successful if the vertex is already present in the storage.
      */
     @Override
-    public boolean putVertex(AbstractVertex incomingVertex)
+    public boolean storeVertex(AbstractVertex incomingVertex)
     {
         String vertexHash = incomingVertex.bigHashCode();
         if(Cache.isVertexPresent(vertexHash))

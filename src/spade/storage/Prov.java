@@ -197,7 +197,7 @@ public class Prov extends AbstractStorage{
 	}
 
 	@Override
-	public boolean putVertex(AbstractVertex incomingVertex) {
+	public boolean storeVertex(AbstractVertex incomingVertex) {
 		try{
 			String serializedVertex = getSerializedVertex(incomingVertex);
 			outputFile.write(serializedVertex);
@@ -215,7 +215,7 @@ public class Prov extends AbstractStorage{
 	}
 
 	@Override
-	public boolean putEdge(AbstractEdge incomingEdge) {
+	public boolean storeEdge(AbstractEdge incomingEdge) {
 		try{
 			String serializedEdge = getSerializedEdge(incomingEdge);
 			outputFile.write(serializedEdge);

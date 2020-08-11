@@ -20,10 +20,6 @@
 package spade.storage;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -57,7 +53,6 @@ import org.neo4j.graphdb.schema.IndexType;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
-import spade.core.BloomFilter;
 import spade.core.Edge;
 import spade.core.Settings;
 import spade.core.Vertex;
@@ -113,11 +108,7 @@ public class Neo4j extends AbstractStorage{
 		keyFlushAfterSeconds = "flushAfterSeconds",
 		keyBufferLimit = "bufferLimit",
 		keyNeo4jConfigFilePath = "neo4jConfigFilePath",
-		keyVertexBloomFilterFalsePositiveProbability = "vertex.bloomfilter.false_positive_probability",
-		keyVertexBloomFilterExpectedElements = "vertex.bloomfilter.expected_elements",
 		keyVertexCacheMaxSize = "vertex.cache.max_size",
-		keyEdgeBloomFilterFalsePositiveProbability = "edge.bloomfilter.false_positive_probability",
-		keyEdgeBloomFilterExpectedElements = "edge.bloomfilter.expected_elements",
 		keyEdgeCacheMaxSize = "edge.cache.max_size", 
 		keyIndexVertex = "index.vertex", 
 		keyIndexEdge = "index.edge",
@@ -132,9 +123,6 @@ public class Neo4j extends AbstractStorage{
 		keyTestEdgeAnnotations = "test.edge.annotations";
 //		keyIndexVertexUser = "index.vertex.user",
 //		keyIndexEdgeUser = "index.edge.user";
-
-	private final String vertexBloomFilterLoadSaveFileName = "spade-bloomfilter-vertex",
-			edgeBloomFilterLoadSaveFileName = "spade-bloomfilter-edge";
 
 	private Neo4jInstructionExecutor queryInstructionExecutor = null;
 	private Neo4jQueryEnvironment queryEnvironment = null;
@@ -171,11 +159,7 @@ public class Neo4j extends AbstractStorage{
 	private int flushAfterSeconds;
 	private int bufferLimit;
 	private File neo4jConfigFilePath;
-	private double vertexBloomFilterFalsePositiveProbability;
-	private int vertexBloomFilterExpectedElements;
 	private int vertexCacheMaxSize;
-	private double edgeBloomFilterFalsePositiveProbability;
-	private int edgeBloomFilterExpectedElements;
 	private int edgeCacheMaxSize;
 	private IndexMode indexVertexMode;
 	private IndexMode indexEdgeMode;
@@ -199,10 +183,6 @@ public class Neo4j extends AbstractStorage{
 	private boolean reportingEnabled;
 	private DatabaseManagementService dbManagementService;
 	private GraphDatabaseService graphDb;
-	private String vertexBloomFilterLoadSavePath;
-	private BloomFilter<String> vertexBloomFilter;
-	private String edgeBloomFilterLoadSavePath;
-	private BloomFilter<String> edgeBloomFilter;
 	private LRUCache<String, Long> vertexHashToNodeIdMap;
 	private LRUCache<String, Node> vertexHashToNodeMap;
 	private LRUCache<String, Boolean> edgeMap;
@@ -523,6 +503,23 @@ public class Neo4j extends AbstractStorage{
 					if(isShutdown() && forceShutdown){
 						break;
 					}
+					
+					while(edgeMap.hasExceededMaximumSize()){
+						edgeMap.evict();
+					}
+					
+					if(VertexCacheMode.ID.equals(vertexCacheMode)){
+						while(vertexHashToNodeIdMap.hasExceededMaximumSize()){
+							vertexHashToNodeIdMap.evict();
+						}
+					}else if(VertexCacheMode.NODE.equals(vertexCacheMode)){
+						while(vertexHashToNodeMap.hasExceededMaximumSize()){
+							vertexHashToNodeMap.evict();
+						}
+					}else{
+						throw new RuntimeException("Unexpected vertex cache mode: " + vertexCacheMode);
+					}
+					
 					stats.print(false, pendingTasksSize);
 					try{
 						if(tx == null){
@@ -653,20 +650,6 @@ public class Neo4j extends AbstractStorage{
 			if(this.graphDb != null){
 				this.graphDb = null;
 			}
-			if(this.vertexBloomFilter != null){
-				if(this.vertexBloomFilterLoadSavePath != null){
-					saveBloomFilter(this.vertexBloomFilter, this.vertexBloomFilterLoadSavePath);
-					this.vertexBloomFilterLoadSavePath = null;
-				}
-				this.vertexBloomFilter = null;
-			}
-			if(this.edgeBloomFilter != null){
-				if(this.edgeBloomFilterLoadSavePath != null){
-					saveBloomFilter(this.edgeBloomFilter, this.edgeBloomFilterLoadSavePath);
-					this.edgeBloomFilterLoadSavePath = null;
-				}
-				this.edgeBloomFilter = null;
-			}
 			if(vertexHashToNodeIdMap != null){
 				vertexHashToNodeIdMap.clear();
 				vertexHashToNodeIdMap = null;
@@ -759,29 +742,6 @@ public class Neo4j extends AbstractStorage{
 
 				logger.log(Level.INFO, "Database absolute path: " + this.finalConstructedDbPath.getAbsolutePath());
 
-				this.vertexBloomFilterLoadSavePath = this.finalConstructedDbPath.getAbsolutePath() + File.separatorChar
-						+ vertexBloomFilterLoadSaveFileName;
-				this.edgeBloomFilterLoadSavePath = this.finalConstructedDbPath.getAbsolutePath() + File.separatorChar
-						+ edgeBloomFilterLoadSaveFileName;
-
-				try{
-					this.vertexBloomFilter = loadBloomFilter(this.vertexBloomFilterLoadSavePath,
-							this.vertexBloomFilterFalsePositiveProbability, this.vertexBloomFilterExpectedElements);
-				}catch(Exception e){
-					logger.log(Level.SEVERE, "Failed to load vertex bloomfilter", e);
-					shutdown();
-					return false;
-				}
-
-				try{
-					this.edgeBloomFilter = loadBloomFilter(this.edgeBloomFilterLoadSavePath,
-							this.edgeBloomFilterFalsePositiveProbability, this.edgeBloomFilterExpectedElements);
-				}catch(Exception e){
-					logger.log(Level.SEVERE, "Failed to load edge bloomfilter", e);
-					shutdown();
-					return false;
-				}
-
 				if(VertexCacheMode.ID.equals(vertexCacheMode)){
 					vertexHashToNodeIdMap = new LRUCache<String, Long>(vertexCacheMaxSize);
 				}else if(VertexCacheMode.NODE.equals(vertexCacheMode)){
@@ -825,7 +785,7 @@ public class Neo4j extends AbstractStorage{
 
 	// start - public
 	@Override
-	public synchronized final boolean putVertex(final AbstractVertex vertex){
+	public synchronized final boolean storeVertex(final AbstractVertex vertex){
 		if(!shutdown && mainThreadRunning){
 			appendPendingTask(new Neo4jDbPutVertex(vertex));
 		}else{
@@ -835,7 +795,7 @@ public class Neo4j extends AbstractStorage{
 	}
 
 	@Override
-	public synchronized final boolean putEdge(final AbstractEdge edge){
+	public synchronized final boolean storeEdge(final AbstractEdge edge){
 		if(!shutdown && mainThreadRunning){
 			appendPendingTask(new Neo4jDbPutEdge(edge));
 		}else{
@@ -1241,44 +1201,35 @@ public class Neo4j extends AbstractStorage{
 				throw new Exception("NULL hash code for edge to put: " + edge);
 			}
 
-			if(edgeBloomFilter.contains(hashCode)){ // maybe exists
-				if(edgeMap.get(hashCode) == null){ // not in cache
-					stats.edgeCacheMiss.increment();
-					boolean put = false;
-					final org.neo4j.graphdb.Result result =
-						tx.execute("match (a)-[e]->(b) where e.`"+hashPropertyName+"`='"+hashCode+"'"
-								+ " and a.`"+hashPropertyName+"`='"+edge.getChildVertex().bigHashCode()+"'"
-								+ " and b.`"+hashPropertyName+"`='"+edge.getParentVertex().bigHashCode()+"' return e");
-					if(result.hasNext()){
-						// found it
-						put = false;
-					}else{
-						// not found
-						put = true;
-					}
-					if(put){
-						// store edge
-						stats.edgeBloomFilterFalsePositive.increment();
-						storeEdge(tx);
-					}else{
-						// not storing because found in db
-						stats.edgeDbHit.increment();
-					}
-					edgeMap.put(hashCode, true);
-				}else{ // exists in cache
-						// No need to put
-					stats.edgeCacheHit.increment();
-					return null;
+			if(edgeMap.get(hashCode) == null){ // not in cache
+				stats.edgeCacheMiss.increment();
+				boolean put = false;
+				final org.neo4j.graphdb.Result result =
+					tx.execute("match (a)-[e]->(b) where e.`"+hashPropertyName+"`='"+hashCode+"'"
+							+ " and a.`"+hashPropertyName+"`='"+edge.getChildVertex().bigHashCode()+"'"
+							+ " and b.`"+hashPropertyName+"`='"+edge.getParentVertex().bigHashCode()+"' return e");
+				if(result.hasNext()){
+					// found it
+					put = false;
+				}else{
+					// not found
+					put = true;
 				}
-			}else{ // doesn't exist
+				result.close();
+				if(put){
 					// store edge
-				stats.edgeCount.increment();
-				storeEdge(tx);
-				edgeBloomFilter.add(hashCode);
+					stats.edgeCount.increment();
+					storeEdge(tx);
+				}else{
+					// not storing because found in db
+					stats.edgeDbHit.increment();
+				}
 				edgeMap.put(hashCode, true);
 				return null;
+			}else{ // exists in cache
+				stats.edgeCacheHit.increment();
+				return null;
 			}
-			return null;
 		}
 	}
 	
@@ -1367,53 +1318,47 @@ public class Neo4j extends AbstractStorage{
 			if(hashCode == null){
 				throw new Exception("NULL hash for vertex: " + vertex);
 			}
-			if(vertexBloomFilter.contains(hashCode)){ // maybe exists
-				Node node = null;
-				if(VertexCacheMode.ID.equals(vertexCacheMode)){
-					final Long nodeId = vertexHashToNodeIdMap.get(hashCode);
-					if(nodeId == null){ // not in cache
-						stats.vertexCacheMiss.increment();
-						node = tx.findNode(neo4jVertexLabel, hashPropertyName, hashCode);
-						if(node == null){ // doesn't exist in db
-							stats.vertexBloomFilterFalsePositive.increment();
-							return null;
-						}else{ // exists in db
-							stats.vertexDbHit.increment();
-							vertexHashToNodeIdMap.put(hashCode, node.getId());
-							return node;
-						}
-					}else{ // exists in cache
-						stats.vertexCacheHit.increment();
-						node = tx.getNodeById(nodeId);
-						if(node == null){ // Something is wrong. Exists in cache but not in the db!
-							debug("Vertex existed in cache with id '" + nodeId + "' but not in db. Vertex: " + vertex);
-							return null;
-						}else{
-							return node;
-						}
-					}
-				}else if(VertexCacheMode.NODE.equals(vertexCacheMode)){
-					node = vertexHashToNodeMap.get(hashCode);
-					if(node == null){ // not in cache
-						stats.vertexCacheMiss.increment();
-						node = tx.findNode(neo4jVertexLabel, hashPropertyName, hashCode);
-						if(node == null){ // doesn't exist in db
-							stats.vertexBloomFilterFalsePositive.increment();
-							return null;
-						}else{ // exists in db
-							stats.vertexDbHit.increment();
-							vertexHashToNodeMap.put(hashCode, node);
-							return node;
-						}
-					}else{ // exists in cache
-						stats.vertexCacheHit.increment();
+			Node node = null;
+			if(VertexCacheMode.ID.equals(vertexCacheMode)){
+				final Long nodeId = vertexHashToNodeIdMap.get(hashCode);
+				if(nodeId == null){ // not in cache
+					stats.vertexCacheMiss.increment();
+					node = tx.findNode(neo4jVertexLabel, hashPropertyName, hashCode);
+					if(node == null){ // doesn't exist in db
+						return null;
+					}else{ // exists in db
+						stats.vertexDbHit.increment();
+						vertexHashToNodeIdMap.put(hashCode, node.getId());
 						return node;
 					}
-				}else{
-					throw new RuntimeException("Failed to get node. Unhandled vertex cache mode: " + vertexCacheMode);
+				}else{ // exists in cache
+					stats.vertexCacheHit.increment();
+					node = tx.getNodeById(nodeId);
+					if(node == null){ // Something is wrong. Exists in cache but not in the db!
+						debug("Vertex existed in cache with id '" + nodeId + "' but not in db. Vertex: " + vertex);
+						return null;
+					}else{
+						return node;
+					}
+				}
+			}else if(VertexCacheMode.NODE.equals(vertexCacheMode)){
+				node = vertexHashToNodeMap.get(hashCode);
+				if(node == null){ // not in cache
+					stats.vertexCacheMiss.increment();
+					node = tx.findNode(neo4jVertexLabel, hashPropertyName, hashCode);
+					if(node == null){ // doesn't exist in db
+						return null;
+					}else{ // exists in db
+						stats.vertexDbHit.increment();
+						vertexHashToNodeMap.put(hashCode, node);
+						return node;
+					}
+				}else{ // exists in cache
+					stats.vertexCacheHit.increment();
+					return node;
 				}
 			}else{
-				return null;
+				throw new RuntimeException("Failed to get node. Unhandled vertex cache mode: " + vertexCacheMode);
 			}
 		}
 
@@ -1428,70 +1373,58 @@ public class Neo4j extends AbstractStorage{
 			}
 			final boolean isReferenceVertex = vertex.isReferenceVertex();
 			Node node = null;
-			if(vertexBloomFilter.contains(hashCode)){ // maybe exists
-				if(VertexCacheMode.ID.equals(vertexCacheMode)){
-					final Long nodeId = vertexHashToNodeIdMap.get(hashCode);
-					if(nodeId == null){ // not in cache
-						stats.vertexCacheMiss.increment();
-						node = tx.findNode(neo4jVertexLabel, hashPropertyName, hashCode);
-						if(node == null){ // doesn't exist in db
-							stats.vertexBloomFilterFalsePositive.increment();
-							node = storeVertex(tx, hashCode, vertex);
-						}else{ // exists in db
-							stats.vertexDbHit.increment();
-							if(!isReferenceVertex){
-								updateNodeConditionally(tx, node, vertex);
-							}
-						}
-						vertexHashToNodeIdMap.put(hashCode, node.getId());
-					}else{ // exists in cache
-						stats.vertexCacheHit.increment();
-						node = tx.getNodeById(nodeId);
-						if(node == null){ // Something is wrong. Exists in cache but not in the db!
-							debug("Vertex existed in cache with id '" + nodeId + "' but not in db. Vertex: " + vertex);
-							node = storeVertex(tx, hashCode, vertex);
-							vertexHashToNodeIdMap.put(hashCode, node.getId());
-						}else{
-							if(!isReferenceVertex){
-								updateNodeConditionally(tx, node, vertex);
-							}
-						}
-					}
-				}else if(VertexCacheMode.NODE.equals(vertexCacheMode)){
-					node = vertexHashToNodeMap.get(hashCode);
-					if(node == null){ // not in cache
-						stats.vertexCacheMiss.increment();
-						node = tx.findNode(neo4jVertexLabel, hashPropertyName, hashCode);
-						if(node == null){ // doesn't exist in db
-							stats.vertexBloomFilterFalsePositive.increment();
-							node = storeVertex(tx, hashCode, vertex);
-						}else{ // exists in db
-							stats.vertexDbHit.increment();
-							if(!isReferenceVertex){
-								updateNodeConditionally(tx, node, vertex);
-							}
-						}
-						vertexHashToNodeMap.put(hashCode, node);
-					}else{ // exists in cache
-						stats.vertexCacheHit.increment();
+			if(VertexCacheMode.ID.equals(vertexCacheMode)){
+				final Long nodeId = vertexHashToNodeIdMap.get(hashCode);
+				if(nodeId == null){ // not in cache
+					stats.vertexCacheMiss.increment();
+					node = tx.findNode(neo4jVertexLabel, hashPropertyName, hashCode);
+					if(node == null){ // doesn't exist in db
+						stats.vertexCount.increment();
+						node = storeVertex(tx, hashCode, vertex);
+					}else{ // exists in db
+						stats.vertexDbHit.increment();
 						if(!isReferenceVertex){
 							updateNodeConditionally(tx, node, vertex);
 						}
 					}
-				}else{
-					throw new RuntimeException("Failed to find node. Unhandled vertex cache mode: " + vertexCacheMode);
-				}
-			}else{ // definitely doesn't exist
-				stats.vertexCount.increment();
-				node = storeVertex(tx, hashCode, vertex);
-				vertexBloomFilter.add(hashCode);
-				if(VertexCacheMode.ID.equals(vertexCacheMode)){
 					vertexHashToNodeIdMap.put(hashCode, node.getId());
-				}else if(VertexCacheMode.NODE.equals(vertexCacheMode)){
-					vertexHashToNodeMap.put(hashCode, node);
-				}else{
-					throw new RuntimeException("Failed to put node. Unhandled vertex cache mode: " + vertexCacheMode);
+				}else{ // exists in cache
+					stats.vertexCacheHit.increment();
+					node = tx.getNodeById(nodeId);
+					if(node == null){ // Something is wrong. Exists in cache but not in the db!
+						debug("Vertex existed in cache with id '" + nodeId + "' but not in db. Vertex: " + vertex);
+						node = storeVertex(tx, hashCode, vertex);
+						stats.vertexCount.increment();
+						vertexHashToNodeIdMap.put(hashCode, node.getId());
+					}else{
+						if(!isReferenceVertex){
+							updateNodeConditionally(tx, node, vertex);
+						}
+					}
 				}
+			}else if(VertexCacheMode.NODE.equals(vertexCacheMode)){
+				node = vertexHashToNodeMap.get(hashCode);
+				if(node == null){ // not in cache
+					stats.vertexCacheMiss.increment();
+					node = tx.findNode(neo4jVertexLabel, hashPropertyName, hashCode);
+					if(node == null){ // doesn't exist in db
+						stats.vertexCount.increment();
+						node = storeVertex(tx, hashCode, vertex);
+					}else{ // exists in db
+						stats.vertexDbHit.increment();
+						if(!isReferenceVertex){
+							updateNodeConditionally(tx, node, vertex);
+						}
+					}
+					vertexHashToNodeMap.put(hashCode, node);
+				}else{ // exists in cache
+					stats.vertexCacheHit.increment();
+					if(!isReferenceVertex){
+						updateNodeConditionally(tx, node, vertex);
+					}
+				}
+			}else{
+				throw new RuntimeException("Failed to find node. Unhandled vertex cache mode: " + vertexCacheMode);
 			}
 			return node;
 		}
@@ -1554,11 +1487,7 @@ public class Neo4j extends AbstractStorage{
 				+ ", " + keyFlushAfterSeconds + "=" + flushAfterSeconds
 				+ ", " + keyBufferLimit + "=" + bufferLimit + "(buffering:" + ((bufferLimit < 0) ? ("disabled") : ("enabled") )+ ")"
 				+ ", " + keyNeo4jConfigFilePath + "=" + (neo4jConfigFilePath == null ? "null" : neo4jConfigFilePath.getAbsolutePath())
-				+ ", " + keyVertexBloomFilterFalsePositiveProbability + "=" + String.format("%f", vertexBloomFilterFalsePositiveProbability)
-				+ ", " + keyVertexBloomFilterExpectedElements + "=" + vertexBloomFilterExpectedElements
 				+ ", " + keyVertexCacheMaxSize + "=" + vertexCacheMaxSize
-				+ ", " + keyEdgeBloomFilterFalsePositiveProbability + "=" + String.format("%f", edgeBloomFilterFalsePositiveProbability)
-				+ ", " + keyEdgeBloomFilterExpectedElements + "=" + edgeBloomFilterExpectedElements
 				+ ", " + keyEdgeCacheMaxSize + "=" + edgeCacheMaxSize
 				+ ", " + keyIndexVertex + "=" + indexVertexMode
 				+ ", " + keyIndexEdge + "=" + indexEdgeMode
@@ -1899,27 +1828,6 @@ public class Neo4j extends AbstractStorage{
 		}
 		this.neo4jConfigFilePath = neo4jConfigFilePathResult.result;
 
-		final String vertexBloomFilterFalsePositiveProbabilityString = map
-				.remove(keyVertexBloomFilterFalsePositiveProbability);
-		final Result<Double> vertexBloomFilterFalsePositiveProbabilityResult = HelperFunctions
-				.parseDouble(vertexBloomFilterFalsePositiveProbabilityString, 0, 1);
-		if(vertexBloomFilterFalsePositiveProbabilityResult.error){
-			logger.log(Level.SEVERE, "Invalid value for '" + keyVertexBloomFilterFalsePositiveProbability + "': "
-					+ vertexBloomFilterFalsePositiveProbabilityResult.toErrorString());
-			return false;
-		}
-		this.vertexBloomFilterFalsePositiveProbability = vertexBloomFilterFalsePositiveProbabilityResult.result;
-
-		final String vertexBloomFilterExpectedElementsString = map.remove(keyVertexBloomFilterExpectedElements);
-		final Result<Long> vertexBloomFilterExpectedElementsResult = HelperFunctions
-				.parseLong(vertexBloomFilterExpectedElementsString, 10, 1, Integer.MAX_VALUE);
-		if(vertexBloomFilterExpectedElementsResult.error){
-			logger.log(Level.SEVERE, "Invalid value for '" + keyVertexBloomFilterExpectedElements + "': "
-					+ vertexBloomFilterExpectedElementsResult.toErrorString());
-			return false;
-		}
-		this.vertexBloomFilterExpectedElements = vertexBloomFilterExpectedElementsResult.result.intValue();
-
 		final String vertexCacheMaxSizeString = map.remove(keyVertexCacheMaxSize);
 		final Result<Long> vertexCacheMaxSizeResult = HelperFunctions.parseLong(vertexCacheMaxSizeString, 10, 0,
 				Integer.MAX_VALUE);
@@ -1929,27 +1837,6 @@ public class Neo4j extends AbstractStorage{
 			return false;
 		}
 		this.vertexCacheMaxSize = vertexCacheMaxSizeResult.result.intValue();
-
-		final String edgeBloomFilterFalsePositiveProbabilityString = map
-				.remove(keyEdgeBloomFilterFalsePositiveProbability);
-		final Result<Double> edgeBloomFilterFalsePositiveProbabilityResult = HelperFunctions
-				.parseDouble(edgeBloomFilterFalsePositiveProbabilityString, 0, 1);
-		if(edgeBloomFilterFalsePositiveProbabilityResult.error){
-			logger.log(Level.SEVERE, "Invalid value for '" + keyEdgeBloomFilterFalsePositiveProbability + "': "
-					+ edgeBloomFilterFalsePositiveProbabilityResult.toErrorString());
-			return false;
-		}
-		this.edgeBloomFilterFalsePositiveProbability = edgeBloomFilterFalsePositiveProbabilityResult.result;
-
-		final String edgeBloomFilterExpectedElementsString = map.remove(keyEdgeBloomFilterExpectedElements);
-		final Result<Long> edgeBloomFilterExpectedElementsResult = HelperFunctions
-				.parseLong(edgeBloomFilterExpectedElementsString, 10, 1, Integer.MAX_VALUE);
-		if(edgeBloomFilterExpectedElementsResult.error){
-			logger.log(Level.SEVERE, "Invalid value for '" + keyEdgeBloomFilterExpectedElements + "': "
-					+ edgeBloomFilterExpectedElementsResult.toErrorString());
-			return false;
-		}
-		this.edgeBloomFilterExpectedElements = edgeBloomFilterExpectedElementsResult.result.intValue();
 
 		final String edgeCacheMaxSizeString = map.remove(keyEdgeCacheMaxSize);
 		final Result<Long> edgeCacheMaxSizeResult = HelperFunctions.parseLong(edgeCacheMaxSizeString, 10, 0,
@@ -2013,80 +1900,13 @@ public class Neo4j extends AbstractStorage{
 		 * "'='"+this.indexEdgeMode+"'"); return false; }
 		 */
 
+		/*
 		if(map.size() > 0){
 			logger.log(Level.WARNING, "Ignored unexpected argument(s): " + map);
 		}
+		*/
 
 		return true;
-	}
-
-	private final void saveBloomFilter(final BloomFilter<String> bloomFilter, final String bloomFilterPath){
-		try(final ObjectOutputStream objectOutputStream = new ObjectOutputStream(
-				new FileOutputStream(bloomFilterPath))){
-			objectOutputStream.writeObject(bloomFilter);
-			logger.log(Level.INFO, "Bloomfilter saved to path: " + bloomFilterPath);
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to save bloomfilter at path: " + bloomFilterPath, e);
-		}
-	}
-
-	private final BloomFilter<String> loadBloomFilter(final String bloomFilterPath,
-			final double bloomFilterFalsePositiveProbability, final int bloomfilterExpectedElements) throws Exception{
-		if(bloomFilterPath == null){
-			throw new Exception("NULL path");
-		}else{
-			// 1) Try loading from the file
-			// 2) Error if the path exists but is not readable or writable
-			// 3) If path does not exist then create from arguments
-			// 4) Try loading bloomfilter from file
-			// 5) If successful in loading from file then all well and good
-			// 6) If null object read from the file then load from arguments
-			boolean loadFromFile = false;
-			final File file = new File(bloomFilterPath);
-			try{
-				if(!file.exists()){
-					loadFromFile = false;
-				}else{
-					if(!file.canRead()){
-						throw new Exception("Not readable");
-					}
-					if(!file.canWrite()){
-						throw new Exception("Not writable");
-					}
-					loadFromFile = true;
-				}
-			}catch(Exception e){
-				throw new Exception("Failed to validate path: " + bloomFilterPath, e);
-			}
-			if(loadFromFile){
-				try(final ObjectInputStream objectInputStream = new ObjectInputStream(
-						new FileInputStream(file.getAbsolutePath()))){
-					debug("Reading bloomfilter from file " + file.getAbsolutePath() + " ...");
-					neo4jTimeStatStart("BLOOMFILTER-FILE-LOAD");
-					@SuppressWarnings("unchecked")
-					final BloomFilter<String> bloomFilter = (BloomFilter<String>)objectInputStream.readObject();
-					if(bloomFilter != null){
-						logger.log(Level.INFO,
-								"Bloomfilter initialized from file: " + bloomFilterPath + "[falsePositiveProbability="
-										+ bloomFilter.getFalsePositiveProbability() + ", " + "expectedElements="
-										+ bloomFilter.getExpectedBitsPerElement() + "]");
-						neo4jTimeStatStop("BLOOMFILTER-FILE-LOAD");
-						return bloomFilter;
-					}else{
-						// Fall back to creating from arguments
-					}
-				}catch(Exception e){
-					throw new Exception("Invalid bloomfilter file format: " + bloomFilterPath, e);
-				}
-			}
-			final BloomFilter<String> bloomFilter = new BloomFilter<String>(bloomFilterFalsePositiveProbability,
-					bloomfilterExpectedElements);
-			logger.log(Level.INFO,
-					"Bloomfilter initialized from arguments: " + "[falsePositiveProbability="
-							+ String.format("%f", bloomFilter.getFalsePositiveProbability()) + ", "
-							+ "expectedElements=" + bloomFilter.getExpectedNumberOfElements() + "]");
-			return bloomFilter;
-		}
 	}
 
 	// *** END - configuration setup
@@ -2357,13 +2177,11 @@ class Neo4jStats{
 	final Logger logger = Logger.getLogger(Neo4jStats.class.getName());
 
 	final Neo4jStat vertexCount = new Neo4jStat("Vertices");
-	final Neo4jStat vertexBloomFilterFalsePositive = new Neo4jStat("Vertex BloomFilter False Positive");
 	final Neo4jStat vertexCacheMiss = new Neo4jStat("Vertex Cache Miss");
 	final Neo4jStat vertexCacheHit = new Neo4jStat("Vertex Cache Hit");
 	final Neo4jStat vertexDbHit = new Neo4jStat("Vertex DB Hit");
 
 	final Neo4jStat edgeCount = new Neo4jStat("Edges");
-	final Neo4jStat edgeBloomFilterFalsePositive = new Neo4jStat("Edge BloomFilter False Positive");
 	final Neo4jStat edgeCacheMiss = new Neo4jStat("Edge Cache Miss");
 	final Neo4jStat edgeCacheHit = new Neo4jStat("Edge Cache Hit");
 	final Neo4jStat edgeDbHit = new Neo4jStat("Edge DB Hit");
@@ -2394,8 +2212,6 @@ class Neo4jStats{
 				logger.log(Level.INFO, "Neo4j STATS Start [interval="+intervalNumber+"]");
 				
 				logger.log(Level.INFO, vertexCount.format(elapsedTimeSinceStartMillis, elapsedTimeSinceIntervalMillis));
-				logger.log(Level.INFO, vertexBloomFilterFalsePositive.format(elapsedTimeSinceStartMillis,
-						elapsedTimeSinceIntervalMillis));
 				logger.log(Level.INFO,
 						vertexCacheMiss.format(elapsedTimeSinceStartMillis, elapsedTimeSinceIntervalMillis));
 				logger.log(Level.INFO,
@@ -2403,8 +2219,6 @@ class Neo4jStats{
 				logger.log(Level.INFO, vertexDbHit.format(elapsedTimeSinceStartMillis, elapsedTimeSinceIntervalMillis));
 
 				logger.log(Level.INFO, edgeCount.format(elapsedTimeSinceStartMillis, elapsedTimeSinceIntervalMillis));
-				logger.log(Level.INFO, edgeBloomFilterFalsePositive.format(elapsedTimeSinceStartMillis,
-						elapsedTimeSinceIntervalMillis));
 				logger.log(Level.INFO,
 						edgeCacheMiss.format(elapsedTimeSinceStartMillis, elapsedTimeSinceIntervalMillis));
 				logger.log(Level.INFO,
@@ -2421,18 +2235,16 @@ class Neo4jStats{
 								((double)(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()))
 										/ (1024.0 * 1024.0 * 1024.0)));
 
-				logger.log(Level.INFO, "Pending Tasks: " + pendingTasks);
+				//logger.log(Level.INFO, "Pending Tasks: " + pendingTasks);
 				
 				logger.log(Level.INFO, "Neo4j STATS End [interval="+intervalNumber+"]");
 
 				vertexCount.newInterval();
-				vertexBloomFilterFalsePositive.newInterval();
 				vertexCacheMiss.newInterval();
 				vertexCacheHit.newInterval();
 				vertexDbHit.newInterval();
 
 				edgeCount.newInterval();
-				edgeBloomFilterFalsePositive.newInterval();
 				edgeCacheMiss.newInterval();
 				edgeCacheHit.newInterval();
 				edgeDbHit.newInterval();

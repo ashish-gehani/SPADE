@@ -1205,7 +1205,7 @@ public class CDM extends Kafka {
 	 * @return true if successfully published. false if failed to publish or didn't publish
 	 */
 	@Override
-	public boolean putVertex(AbstractVertex incomingVertex) {
+	public boolean storeVertex(AbstractVertex incomingVertex) {
 		printStats(false);
 		currentVerticesAndEdges.add(incomingVertex);
 		return true;
@@ -1247,7 +1247,7 @@ public class CDM extends Kafka {
 	 * @return false if edge is null or is missing the time and event id annotations
 	 */
 	@Override
-	public boolean putEdge(AbstractEdge edge){
+	public boolean storeEdge(AbstractEdge edge){
 		printStats(false);
 		// ASSUMPTION that all edges for the same event are contiguously sent (Audit follows this)
 

@@ -121,7 +121,7 @@ public class BerkeleyDB extends AbstractStorage
      * not successful if the edge is already present in the storage.
      */
     @Override
-    public boolean putEdge(AbstractEdge incomingEdge)
+    public boolean storeEdge(AbstractEdge incomingEdge)
     {
         String hash = incomingEdge.getChildVertex().bigHashCode() + incomingEdge.getParentVertex().bigHashCode();
         try
@@ -157,7 +157,7 @@ public class BerkeleyDB extends AbstractStorage
      * not successful if the vertex is already present in the storage.
      */
     @Override
-    public boolean putVertex(AbstractVertex incomingVertex)
+    public boolean storeVertex(AbstractVertex incomingVertex)
     {
         try
         {

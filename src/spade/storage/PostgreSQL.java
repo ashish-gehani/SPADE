@@ -400,7 +400,7 @@ public class PostgreSQL extends SQL
      * not successful if the edge is already present in the storage.
      */
     @Override
-    public synchronized boolean putEdge(AbstractEdge incomingEdge)
+    public synchronized boolean storeEdge(AbstractEdge incomingEdge)
     {
         if(bulkUpload)
         {
@@ -730,7 +730,7 @@ public class PostgreSQL extends SQL
      * not successful if the vertex is already present in the storage.
      */
     @Override
-    public synchronized boolean putVertex(AbstractVertex incomingVertex)
+    public synchronized boolean storeVertex(AbstractVertex incomingVertex)
     {
         if(bulkUpload)
         {

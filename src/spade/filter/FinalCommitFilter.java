@@ -19,45 +19,45 @@
  */
 package spade.filter;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractSketch;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 
-import java.util.HashSet;
-import java.util.Set;
+public class FinalCommitFilter extends AbstractFilter{
 
-public class FinalCommitFilter extends AbstractFilter {
+	// Reference to the set of storages maintained by the Kernel.
+	public Set<AbstractStorage> storages = new HashSet<>();
+	public Set<AbstractSketch> sketches = new HashSet<>();
 
-    // Reference to the set of storages maintained by the Kernel.
-    public Set<AbstractStorage> storages = new HashSet<>();
-    public Set<AbstractSketch> sketches = new HashSet<>();
+	// This filter is the last filter in the list so any vertices or edges
+	// received by it need to be passed to the storages. On receiving any
+	// provenance elements, it is passed to all storages.
+	@Override
+	public void putVertex(AbstractVertex incomingVertex){
+		for(final AbstractStorage storage : storages){
+			if(storage.putVertex(incomingVertex)){
+				incrementStorageVertexCount(storage);
+			}
+		}
+		for(AbstractSketch sketch : sketches){
+			sketch.putVertex(incomingVertex);
+		}
+	}
 
-    // This filter is the last filter in the list so any vertices or edges
-    // received by it need to be passed to the storages. On receiving any
-    // provenance elements, it is passed to all storages.
-    @Override
-    public void putVertex(AbstractVertex incomingVertex) {
-        for (AbstractStorage storage : storages) {
-            if (storage.putVertex(incomingVertex)) {
-                incrementStorageVertexCount(storage);
-            }
-        }
-        for (AbstractSketch sketch : sketches) {
-            sketch.putVertex(incomingVertex);
-        }
-    }
-
-    @Override
-    public void putEdge(AbstractEdge incomingEdge) {
-        for (AbstractStorage storage : storages) {
-            if (storage.putEdge(incomingEdge)) {
-                incrementStorageEdgeCount(storage);
-            }
-        }
-        for (AbstractSketch sketch : sketches) {
-            sketch.putEdge(incomingEdge);
-        }
-    }
+	@Override
+	public void putEdge(AbstractEdge incomingEdge){
+		for(AbstractStorage storage : storages){
+			if(storage.putEdge(incomingEdge)){
+				incrementStorageEdgeCount(storage);
+			}
+		}
+		for(AbstractSketch sketch : sketches){
+			sketch.putEdge(incomingEdge);
+		}
+	}
 }

@@ -25,6 +25,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -505,23 +506,39 @@ public class FileUtility{
 		}
 	}
 	
+	public static Result<ArrayList<SimpleEntry<String, String>>> parseKeyValueEntriesInConfigFile(
+			final String filepath, final String separator, final boolean ignoreCommentedLines){
+		final Result<ArrayList<String>> result = readLinesInFile(filepath, ignoreCommentedLines);
+		if(result.error){
+			return Result.failed("Failed to read keys values entries file", result);
+		}else{
+			final ArrayList<SimpleEntry<String, String>> entriesList = new ArrayList<SimpleEntry<String, String>>();
+			for(final String line : result.result){
+				final String tokens[] = line.split(separator, 2);
+				if(tokens.length == 2){
+					entriesList.add(new SimpleEntry<String, String>(tokens[0].trim(), tokens[1].trim()));
+				}
+			}
+			return Result.successful(entriesList);
+		}
+	}
+	
 	/**
 	 * @param filepath path of the config file
 	 * @param separator the string to split the line on
 	 * @param ignoreCommentedLines whether to ignore lines starting with '#' or not
 	 * @return HashMap in result or error
 	 */
-	public static Result<HashMap<String, String>> parseKeysValuesInConfigFile(String filepath, String separator, boolean ignoreCommentedLines){
-		Result<ArrayList<String>> result = readLinesInFile(filepath, ignoreCommentedLines);
+	public static Result<HashMap<String, String>> parseKeysValuesInConfigFile(
+			final String filepath, final String separator, final boolean ignoreCommentedLines){
+		final Result<ArrayList<SimpleEntry<String, String>>> result = 
+				parseKeyValueEntriesInConfigFile(filepath, separator, ignoreCommentedLines);
 		if(result.error){
-			return Result.failed("Failed to parse keys values", result);
+			return Result.failed("Failed to get keys values entries", result);
 		}else{
-			HashMap<String, String> map = new HashMap<String, String>();
-			for(String line : result.result){
-				String tokens[] = line.split(separator, 2);
-				if(tokens.length == 2){
-					map.put(tokens[0].trim(), tokens[1].trim());
-				}
+			final HashMap<String, String> map = new HashMap<String, String>();
+			for(final SimpleEntry<String, String> entry : result.result){
+				map.put(entry.getKey(), entry.getValue());
 			}
 			return Result.successful(map);
 		}
