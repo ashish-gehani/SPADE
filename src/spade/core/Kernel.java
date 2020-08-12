@@ -1195,7 +1195,9 @@ public class Kernel
 			logger.log(Level.SEVERE, "error: Failed to initialize screen(s) for the storage: " + screensResult.toErrorString());
 			return;
 		}
-		
+
+		storage.addScreens(screensResult.result);
+
 		try{
 			if(!storage.initialize(arguments)){
 				throw new Exception("Failed to initialize storage");
@@ -1203,12 +1205,11 @@ public class Kernel
 		}catch(Exception | Error ex){
 			logger.log(Level.SEVERE, "Unable to initialize storage!", ex);
 			outputStream.println("failed");
+			storage.clearScreens();
 			AbstractScreen.shutdownScreens(screensResult.result);
 			return;
 		}
-		
-		storage.addScreens(screensResult.result);
-		
+
 		boolean setAsDefaultQuery = false;
 		// If the storage classes match and the storage instance is not set for querying
 		// only then do the following.

@@ -24,6 +24,7 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Timer;
@@ -73,53 +74,84 @@ public class Quickstep extends AbstractStorage {
   private long totalNumVerticesProcessed = 0;
   private long totalNumEdgesProcessed = 0;
 
-  private final Object screenLock = new Object();
-  private Deduplicate deduplicateScreen = null;
+	private final Object screenLock = new Object();
+	private Deduplicate deduplicateScreen = null;
+	private final Map<String, Integer> shortLivedVertexHashToIdMap = new HashMap<String, Integer>();
 
-  private final Integer getVertexId(final String hashCode){
-	  if(hashCode != null){
-		  if(deduplicateScreen != null){
-			  final Object value;
-			  synchronized(screenLock){
-				  value = deduplicateScreen.getVertexCacheValueForStorage(hashCode);
-			  }
-			  if(value == null){
-				  final String resultStr = executeQuery("copy select id from "+vertexTableName+" where md5='"+hashCode+"' to stdout;").trim();
-				  if(resultStr.isEmpty()){
-					  return null;
-				  }else{
-					  try{
-						  final Integer i = Integer.parseInt(resultStr);
-						  putVertexId(hashCode, i);
-						  return i;
-					  }catch(Exception e){
-						  throw new RuntimeException(
-						          "Unexpected result \"" + resultStr + "\" from Quickstep: expecting an integer value for vertex id");
-					  }
-				  }
-			  }else{
-				  try{
-					  return (Integer)value;
-				  }catch(Throwable t){
-					  logger.log(Level.SEVERE, "Invalid value returned for Integer value: " + value.getClass(), t);
-					  return null;
-				  }
-			  }
-		  }
-	  }
-	  return null;
-  }
-  
-  private final void putVertexId(final String hashCode, final Integer value){
-	  if(hashCode != null){
-		  if(deduplicateScreen != null){
-			  synchronized(screenLock){
-				  deduplicateScreen.setVertexCacheValueForStorage(hashCode, value);
-			  }
-		  }
-	  }
-  }
-  
+	private final void garbageCollectVertexIds(){
+		synchronized(shortLivedVertexHashToIdMap){
+			shortLivedVertexHashToIdMap.clear();
+		}
+	}
+
+	private final Integer getVertexId(final String hashCode){
+		if(hashCode != null){
+			final Integer idInTempMap;
+			synchronized(shortLivedVertexHashToIdMap){
+				idInTempMap = shortLivedVertexHashToIdMap.get(hashCode);
+			}
+			if(idInTempMap != null){
+				putVertexId(hashCode, idInTempMap);
+				return idInTempMap;
+			}
+
+			final Object idObjectInScreen;
+			synchronized(screenLock){
+				if(deduplicateScreen == null){
+					idObjectInScreen = null;
+				}else{
+					idObjectInScreen = deduplicateScreen.getVertexCacheValueForStorage(hashCode);
+				}
+			}
+			
+			if(idObjectInScreen != null){
+				try{
+					return (Integer)idObjectInScreen;
+				}catch(Throwable t){
+					logger.log(Level.WARNING, "Expected int value but got '"+idObjectInScreen+"' with class: " + idObjectInScreen.getClass(), t);
+					return null;
+				}
+			}
+			
+			final String query = "copy select id from " + vertexTableName + " where md5='" + hashCode + "' to stdout;";
+			final String queryResultString;
+			try{
+				queryResultString = executeQuery(query).trim();
+			}catch(Throwable t){
+				logger.log(Level.WARNING, "Failed to execute query to get vertex id from hash. Query:" + query, t);
+				return null;
+			}
+			
+			if(queryResultString.isEmpty()){
+				return null;
+			}else{
+				try{
+					final Integer i = Integer.parseInt(queryResultString);
+					putVertexId(hashCode, i);
+					return i;
+				}catch(Throwable t){
+					logger.log(Level.WARNING, "Failed to parse query result '"+queryResultString+"' to integer (vertex id)", t);
+					return null;
+				}
+			}
+		}else{
+			return null;
+		}
+	}
+
+	private final void putVertexId(final String hashCode, final Integer value){
+		if(hashCode != null){
+			synchronized(shortLivedVertexHashToIdMap){
+				shortLivedVertexHashToIdMap.put(hashCode, value);
+			}
+			synchronized(screenLock){
+				if(deduplicateScreen != null){
+					deduplicateScreen.setVertexCacheValueForStorage(hashCode, value);
+				}
+			}
+		}
+	}
+
   /**
    * Helper class for bulk loading graph data into Quickstep in batches.
    */
@@ -260,12 +292,14 @@ public class Quickstep extends AbstractStorage {
     @Override
     public Void call() {
       try {
+    	  garbageCollectVertexIds();
         processBatch();
       } catch (Exception e) {
         StringWriter sw = new StringWriter();
         e.printStackTrace(new PrintWriter(sw));
         logger.log(Level.SEVERE, sw.toString());
       }
+      garbageCollectVertexIds();
       totalNumVerticesProcessed += batchBuffer.getVertices().size();
       totalNumEdgesProcessed += batchBuffer.getEdges().size();
       qs.logInfo("Total number of vertices processed: " + totalNumVerticesProcessed);
@@ -275,6 +309,7 @@ public class Quickstep extends AbstractStorage {
     }
 
     private void processBatch() {
+    	
       qs.logInfo("Start processing batch " + batchBuffer.getBatchID() + " at " +
                  formatTime(System.currentTimeMillis() - timeExecutionStart));
 
@@ -303,6 +338,9 @@ public class Quickstep extends AbstractStorage {
       vertexAnnos.setLength(0);
       for (AbstractVertex vertex : batchBuffer.getVertices()) {
         final String md5 = vertex.bigHashCode();
+        if(getVertexId(md5) != null){
+        	continue;
+        }
         appendVertex(vertex, md5, ++vertexIdCounter);
       }
 
