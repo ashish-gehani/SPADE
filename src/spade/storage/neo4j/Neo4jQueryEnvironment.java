@@ -13,7 +13,7 @@ import spade.utility.HelperFunctions;
 
 public class Neo4jQueryEnvironment extends AbstractQueryEnvironment{
 
-	private final String symbolNodeLabel = "spade_query_symbols";
+	private final String symbolNodeLabel;
 	private final String propertyNameIdCounter = "id_counter";
 	private final String propertyNameGraphSymbols = "graphs";
 	private final String propertyNameMetadataSymbols = "metadatas";
@@ -23,15 +23,20 @@ public class Neo4jQueryEnvironment extends AbstractQueryEnvironment{
 	
 	public final String edgeLabelsPropertyName;
 
-	public Neo4jQueryEnvironment(String baseGraphName, Neo4j storage, String edgeLabelsPropertyName){
+	public Neo4jQueryEnvironment(final String baseGraphName, final Neo4j storage, final String edgeLabelsPropertyName,
+			final String symbolNodeLabel){
 		super(baseGraphName);
 		this.storage = storage;
 		this.edgeLabelsPropertyName = edgeLabelsPropertyName;
+		this.symbolNodeLabel = symbolNodeLabel;
 		if(this.storage == null){
 			throw new RuntimeException("NULL storage");
 		}
 		if(HelperFunctions.isNullOrEmpty(this.edgeLabelsPropertyName)){
 			throw new RuntimeException("NULL/Empty property name for edge labels: '"+this.edgeLabelsPropertyName+"'.");
+		}
+		if(HelperFunctions.isNullOrEmpty(this.symbolNodeLabel)){
+			throw new RuntimeException("NULL/Empty query node label: '"+this.symbolNodeLabel+"'.");
 		}
 	}
 

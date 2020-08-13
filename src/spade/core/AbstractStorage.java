@@ -76,7 +76,7 @@ public abstract class AbstractStorage
 		}
 	}
 	
-	protected final AbstractScreen findScreen(final Class<? extends AbstractScreen> screenClass){
+	public final AbstractScreen findScreen(final Class<? extends AbstractScreen> screenClass){
 		if(screenClass != null){
 			synchronized(screensLock){
 				for(final AbstractScreen screen : screens){

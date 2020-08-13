@@ -24,6 +24,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -200,7 +201,7 @@ public final class Deduplicate extends AbstractScreen{
 		}
 
 		spade.core.BloomFilter<String> bloomFilter = null;
-		String[] cacheEntries = null;
+		List<String> cacheEntries = null;
 		Integer cacheSize = null;
 		
 		if(loadFromFile){
@@ -215,7 +216,7 @@ public final class Deduplicate extends AbstractScreen{
 					logger.log(Level.INFO, "Keys ignored: ['"+getExpectedElementsKeyFor(isForVertex)+"', '"+getFalsePositiveKeyFor(isForVertex)+"']");
 					cacheSize = (Integer)objectInputStream.readObject();
 					if(cacheSize != null){
-						cacheEntries = (String[])objectInputStream.readObject();
+						cacheEntries = (List<String>)objectInputStream.readObject();
 						if(cacheEntries != null){
 							logger.log(Level.INFO,
 									logName + " Cache initialized from file: " + loadSavePathString + " [cacheSize=" + cacheSize + "]");
@@ -264,7 +265,8 @@ public final class Deduplicate extends AbstractScreen{
 			cache = new LRUCache<String, Object>(cacheSizeResult.result.intValue());
 		}else{
 			cache = new LRUCache<String, Object>(cacheSize);
-			for(final String cacheEntryKey : cacheEntries){
+			for(int x = cacheEntries.size() - 1; x >= 0; x--){
+				final String cacheEntryKey = cacheEntries.get(x);
 				if(cacheEntryKey != null){
 					cache.put(cacheEntryKey, blankObject);
 					if(cache.hasExceededMaximumSize()){
@@ -392,6 +394,16 @@ public final class Deduplicate extends AbstractScreen{
 		}
 	}
 	
+	public final void unsetAllVertexCacheValuesForStorage(){
+		synchronized(lockObject){
+			final List<String> keyList = cacheVertex.getKeysInLRUAccessOrder();
+			for(int x = keyList.size() - 1; x >= 0; x--){
+				final String key = keyList.get(x);
+				cacheVertex.put(key, blankObject);
+			}
+		}
+	}
+	
 	private final Object getCacheValueForStorage(final LRUCache<String, Object> cache, final String hashCode){
 		if(hashCode == null){
 			return null;
@@ -464,7 +476,7 @@ public final class Deduplicate extends AbstractScreen{
 			objectOutputStream = new ObjectOutputStream(new FileOutputStream(path));
 			objectOutputStream.writeObject(bloomFilter);
 			objectOutputStream.writeObject(cache.getMaximumSize());
-			objectOutputStream.writeObject(cache.keySet().toArray(new String[]{}));
+			objectOutputStream.writeObject(cache.getKeysInLRUAccessOrder());
 			logger.log(Level.INFO, logName+" BloomFilter saved to path: " + path);
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to save "+logName+" BloomFilter at path: " + path, e);

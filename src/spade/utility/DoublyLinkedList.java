@@ -81,6 +81,46 @@ public class DoublyLinkedList<T>{
 		return node;
 	}
 	
+	public DoublyLinkedListNode<T> getFirst(){
+		if(size == 0){
+			return null;
+		}else{
+			return head.next;
+		}
+	}
+	
+	public DoublyLinkedListNode<T> getLast(){
+		if(size == 0){
+			return null;
+		}else{
+			return tail.previous;
+		}
+	}
+	
+	public DoublyLinkedListNode<T> getNext(final DoublyLinkedListNode<T> node){
+		if(node == null){
+			return null;
+		}else{
+			if(node.next == tail){
+				return null;
+			}else{
+				return node.next;
+			}
+		}
+	}
+	
+	public DoublyLinkedListNode<T> getPrevious(final DoublyLinkedListNode<T> node){
+		if(node == null){
+			return null;
+		}else{
+			if(node.previous == head){
+				return null;
+			}else{
+				return node.previous;
+			}
+		}
+	}
+	
 	private void _makeFirst(DoublyLinkedListNode<T> node){
 		node.previous = head;
 		node.next = head.next;
