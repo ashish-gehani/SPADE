@@ -205,12 +205,7 @@ public class Neo4jQueryEnvironment extends AbstractQueryEnvironment{
 	//////////////////////////////////
 	
 	private Set<String> getAllVertexLabels(){
-		final Set<String> allLabels = new HashSet<String>();
-		final List<Map<String, Object>> callDbLabelsResult = storage.executeQueryForSmallResult("call db.labels();");
-		for(final Map<String, Object> map : callDbLabelsResult){
-			allLabels.add(String.valueOf(map.get("label")));
-		}
-		return allLabels;
+		return storage.getDatabaseManager().getAllLabels();
 	}
 	
 	private Set<String> getAllEdgeLabels(){

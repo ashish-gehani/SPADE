@@ -739,7 +739,7 @@ public class Neo4j extends AbstractStorage{
 	}
 	
 	// All outside queries routed through here
-	public final void executeQueryAndBlockForResult(final StorageTask<?> queryObject){
+	public final <X> X executeQueryAndBlockForResult(final StorageTask<X> queryObject){
 		if(queryObject == null){
 			throw new RuntimeException("NULL query object");
 		}
@@ -757,6 +757,7 @@ public class Neo4j extends AbstractStorage{
 			if(queryObject.getError() != null){
 				throw new RuntimeException(queryObject.getError().getMessage(), queryObject.getError());
 			}
+			return queryObject.getResult();
 		}else{
 			throw new RuntimeException("Storage already shutdown. Query failed: " + queryObject);
 		}

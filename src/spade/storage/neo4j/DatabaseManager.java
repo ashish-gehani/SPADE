@@ -20,8 +20,10 @@
 package spade.storage.neo4j;
 
 import java.io.File;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.dbms.api.DatabaseManagementService;
@@ -369,13 +371,23 @@ public class DatabaseManager{
 		}
 	}
 	
-	public final Transaction beginANewTransaction() throws Exception{
+	public final Transaction beginANewTransaction(){
 		if(!isUsable()){
 			throw new RuntimeException("Database not initialized or already shutdown");
 		}
 		return getGraphDatabaseService().beginTx();
 	}
 	
+	public final Set<String> getAllLabels(){
+		try(final Transaction tx = beginANewTransaction()){
+			final Iterable<Label> labelIterable = tx.getAllLabelsInUse();
+			final List<Label> labelList = HelperFunctions.listify(labelIterable);
+			final Set<String> labelNameList = new HashSet<String>();
+			labelList.forEach(label -> {labelNameList.add(label.name());});
+			return labelNameList;
+		}
+	}
+
 	public final void shutdown() throws Exception{
 		setUsable(false);
 		setGraphDatabaseService(null);

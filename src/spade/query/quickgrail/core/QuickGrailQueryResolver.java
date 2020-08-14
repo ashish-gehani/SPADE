@@ -404,10 +404,25 @@ public class QuickGrailQueryResolver{
 			throw new RuntimeException("Invalid number of arguments for stat: expected 1");
 		}
 
-		Graph targetGraph = resolveGraphExpression(arguments.get(0), null, true);
-		Graph distinctifiedGraph = allocateEmptyGraph();
-		instructions.add(new DistinctifyGraph(distinctifiedGraph, targetGraph));
-		instructions.add(new StatGraph(distinctifiedGraph));
+		boolean isConstVariable = false;
+		
+		final ParseExpression parseExpression = arguments.get(0);
+		
+		if(parseExpression.getExpressionType().equals(ParseExpression.ExpressionType.kVariable)){
+			final ParseVariable parseVariable = (ParseVariable)parseExpression;
+			if(parseVariable.getType().getTypeID().equals(TypeID.kGraph)){
+				isConstVariable = true;
+			}
+		}
+		
+		if(isConstVariable){
+			instructions.add(new StatGraph(resolveGraphExpression(parseExpression, null, true)));
+		}else{
+			Graph targetGraph = resolveGraphExpression(parseExpression, null, true);
+			Graph distinctifiedGraph = allocateEmptyGraph();
+			instructions.add(new DistinctifyGraph(distinctifiedGraph, targetGraph));
+			instructions.add(new StatGraph(distinctifiedGraph));
+		}
 	}
 	
 	private final Integer getOptionalPositiveIntegerArgument(final ArrayList<ParseExpression> arguments, final int i){
