@@ -40,7 +40,8 @@ then
     sudo  createdb ${vars[database]}  --owner=${vars[databaseUsername]} --username=${vars[databaseUsername]}
     echo "Successfully created database '${vars[database]}' for user '${vars[databaseUsername]}'"
   else
-    sudo dnf install https://download.postgresql.org/pub/repos/yum/9.5/fedora/fedora-28-x86_64/pgdg-fedora95-9.5-5.noarch.rpm
+    eval "$(cat /etc/os-release  | grep VERSION_ID)"
+    sudo dnf install https://download.postgresql.org/pub/repos/yum/9.5/fedora/fedora-${VERSION_ID}-x86_64/pgdg-fedora-repo-latest.noarch.rpm
     sudo dnf install postgresql95 postgresql95-server
     echo "Installed PostgreSQL 9.5"
     sudo /usr/pgsql-9.5/bin/postgresql95-setup initdb
