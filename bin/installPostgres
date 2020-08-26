@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Fail on error. Otherwise the script continues and echos success messages,
+# even if not successful.
+set -e
+
 case $- in
 *i*)    # interactive shell
 ;;
