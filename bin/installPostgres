@@ -2,7 +2,7 @@
 
 # Stop script on error. Otherwise the script continues and echos success
 # messages, even if not successful.
-set -e
+set -ex
 
 case $- in
 *i*)    # interactive shell
@@ -58,7 +58,9 @@ then
     sudo dnf install "$CONFIRM_INSTALL" https://download.postgresql.org/pub/repos/yum/9.5/fedora/fedora-${VERSION_ID}-x86_64/pgdg-fedora-repo-latest.noarch.rpm
     sudo dnf install "$CONFIRM_INSTALL" postgresql95 postgresql95-server
     echo "Installed PostgreSQL 9.5"
-    sudo /usr/pgsql-9.5/bin/postgresql95-setup initdb
+    if sudo [ ! -d "/var/lib/pgsql/9.5/data" ]; then
+      sudo /usr/pgsql-9.5/bin/postgresql95-setup initdb
+    fi
     sudo systemctl enable postgresql-9.5
     sudo systemctl start postgresql-9.5
     sudo -u postgres psql -c "CREATE ROLE ${vars[databaseUsername]} SUPERUSER LOGIN PASSWORD '${vars[databasePassword]}';"
