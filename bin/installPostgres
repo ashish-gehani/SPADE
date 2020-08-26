@@ -1,5 +1,12 @@
 #!/bin/bash
 
+case $- in
+*i*)    # interactive shell
+;;
+*)      # non-interactive shell
+  CONFIRM_INSTALL="-y"
+;;
+
 declare -A vars=( )                  # refresh variables for each line
 while read  words; do                # iterate over lines of input
   set -- "${words[@]}"                 # update positional parameters
@@ -25,11 +32,11 @@ then
   if [ "$DIST_NAME" = "Ubuntu" ]
   then
     sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt/ $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-    sudo apt-get install wget ca-certificates
+    sudo apt-get "$CONFIRM_INSTALL" install wget ca-certificates
     wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
     sudo apt-get update
     sudo apt-get upgrade
-    sudo apt-get install postgresql-9.5
+    sudo apt-get "$CONFIRM_INSTALL" install postgresql-9.5
     echo "Installed PostgreSQL 9.5"
     sudo -u postgres psql -c "CREATE ROLE ${vars[databaseUsername]} SUPERUSER LOGIN PASSWORD '${vars[databasePassword]}';"
     echo "*:*:*:${vars[databaseUsername]}:${vars[databasePassword]}" > $HOME/.pgpass
@@ -41,8 +48,8 @@ then
     echo "Successfully created database '${vars[database]}' for user '${vars[databaseUsername]}'"
   else
     eval "$(cat /etc/os-release  | grep VERSION_ID)"
-    sudo dnf install https://download.postgresql.org/pub/repos/yum/9.5/fedora/fedora-${VERSION_ID}-x86_64/pgdg-fedora-repo-latest.noarch.rpm
-    sudo dnf install postgresql95 postgresql95-server
+    sudo dnf install "$CONFIRM_INSTALL" https://download.postgresql.org/pub/repos/yum/9.5/fedora/fedora-${VERSION_ID}-x86_64/pgdg-fedora-repo-latest.noarch.rpm
+    sudo dnf install "$CONFIRM_INSTALL" postgresql95 postgresql95-server
     echo "Installed PostgreSQL 9.5"
     sudo /usr/pgsql-9.5/bin/postgresql95-setup initdb
     sudo systemctl enable postgresql-9.5
@@ -59,7 +66,7 @@ then
   fi
 elif [ "$OS_NAME" = "Darwin" ]
 then
-  brew install postgresql@9.5
+  brew install "$CONFIRM_INSTALL" postgresql@9.5
   pg_ctl -D /usr/local/var/postgres start && brew services start postgresql
   createuser ${vars[databaseUser]} --createdb --no-password
   echo "*:*:*:${vars[databaseUser]}:${vars[databasePassword]}" > $HOME/.pgpass
