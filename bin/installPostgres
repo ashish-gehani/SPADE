@@ -2,7 +2,7 @@
 
 # Stop script on error. Otherwise the script continues and echos success
 # messages, even if not successful.
-set -ex
+set -e
 
 case $- in
 *i*)    # interactive shell
@@ -39,15 +39,18 @@ then
   makeUserDB(){
     local createCMD="CREATE ROLE ${vars[databaseUsername]} SUPERUSER LOGIN PASSWORD '${vars[databasePassword]}';"
     local skipIfExists="EXCEPTION WHEN duplicate_object THEN RAISE NOTICE '%, skipping', SQLERRM USING ERRCODE = SQLSTATE;"
+    # psql tries to change directory to current working dir, which user
+    # postgres doesn't always have permission to do.
+    pushd $TMPDIR/
     sudo -u postgres psql -c "DO \$\$
     BEGIN
     $createCMD
     $skipIfExists
     END
     \$\$;"
+    popd
     echo "*:*:*:${vars[databaseUsername]}:${vars[databasePassword]}" > $HOME/.pgpass
     echo "Successfully created superuser '${vars[databaseUsername]}'"
-    sudo sed -i -e '1ilocal   all  '"${vars[databaseUsername]}"'   trust\'  /etc/postgresql/9.5/main/pg_hba.conf
   }
   if [ "$DIST_NAME" = "Ubuntu" ]
   then
@@ -59,10 +62,12 @@ then
     sudo apt-get "$CONFIRM_INSTALL" install postgresql-9.5
     echo "Installed PostgreSQL 9.5"
     makeUserDB
+    sudo sed -i -e '1ilocal   all  '"${vars[databaseUsername]}"'   trust\'  /etc/postgresql/9.5/main/pg_hba.conf
     sudo service postgresql restart
     sudo  createdb ${vars[database]}  --owner=${vars[databaseUsername]} --username=${vars[databaseUsername]}
     echo "Successfully created database '${vars[database]}' for user '${vars[databaseUsername]}'"
   else
+    # Sets VERSION_ID to fedora version major num.
     eval "$(cat /etc/os-release  | grep VERSION_ID)"
     sudo dnf install "$CONFIRM_INSTALL" https://download.postgresql.org/pub/repos/yum/9.5/fedora/fedora-${VERSION_ID}-x86_64/pgdg-fedora-repo-latest.noarch.rpm
     sudo dnf install "$CONFIRM_INSTALL" postgresql95 postgresql95-server
@@ -73,6 +78,7 @@ then
     sudo systemctl enable postgresql-9.5
     sudo systemctl start postgresql-9.5
     makeUserDB
+    sudo sed -i -e '1ilocal   all  '"${vars[databaseUsername]}"'   trust\'  /var/lib/pgsql/9.5/data/pg_hba.conf
     sudo systemctl restart postgresql-9.5
     sudo createdb ${vars[database]} --owner=${vars[databaseUsername]} --username=${vars[databaseUsername]}
     echo "Successfully created database '${vars[database]}' for user '${vars[databaseUsername]}'"
