@@ -37,9 +37,14 @@ then
     DIST_NAME=$(lsb_release -is)
   fi
   makeUserDB(){
-    # local skipExists="EXCEPTION WHEN duplicate_object THEN RAISE NOTICE '%, skipping', SQLERRM USING ERRCODE = SQLSTATE;"
-    local createCMD="BEGIN CREATE ROLE ${vars[databaseUsername]} SUPERUSER LOGIN PASSWORD '${vars[databasePassword]}';"
-    sudo -u postgres psql -c "$createCMD $skipExists"
+    local createCMD="CREATE ROLE ${vars[databaseUsername]} SUPERUSER LOGIN PASSWORD '${vars[databasePassword]}';"
+    local skipIfExists="EXCEPTION WHEN duplicate_object THEN RAISE NOTICE '%, skipping', SQLERRM USING ERRCODE = SQLSTATE;"
+    sudo -u postgres psql -c "DO \$\$
+    BEGIN
+    $createCMD
+    $skipIfExists
+    END
+    \$\$;"
     echo "*:*:*:${vars[databaseUsername]}:${vars[databasePassword]}" > $HOME/.pgpass
     echo "Successfully created superuser '${vars[databaseUsername]}'"
     sudo sed -i -e '1ilocal   all  '"${vars[databaseUsername]}"'   trust\'  /etc/postgresql/9.5/main/pg_hba.conf
