@@ -72,8 +72,14 @@ then
     sudo dnf install "$CONFIRM_INSTALL" https://download.postgresql.org/pub/repos/yum/9.5/fedora/fedora-${VERSION_ID}-x86_64/pgdg-fedora-repo-latest.noarch.rpm
     sudo dnf install "$CONFIRM_INSTALL" postgresql95 postgresql95-server
     echo "Installed PostgreSQL 9.5"
-    if sudo [ ! -d "/var/lib/pgsql/9.5/data" ]; then
+    # If the data directory already exists, initdb returns an error code.
+    # This would halt the script, so we check if it has already been created.
+    pg_data_dir="/var/lib/pgsql/9.5/data"
+    if sudo [ ! -d "$pg_data_dir" ]; then
+      echo "PostgreSQL data directory '$pg_data_dir' does not exist. Initialising default db..."
       sudo /usr/pgsql-9.5/bin/postgresql95-setup initdb
+    else
+      echo "PostgreSQL data directory '$pg_data_dir' already exists. Skipped default db initialisation"
     fi
     sudo systemctl enable postgresql-9.5
     sudo systemctl start postgresql-9.5
