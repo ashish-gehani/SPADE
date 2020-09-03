@@ -65,8 +65,6 @@ then
     makeUserDB
     sudo sed -i -e '1ilocal   all  '"${vars[databaseUsername]}"'   trust\'  /etc/postgresql/9.5/main/pg_hba.conf
     sudo service postgresql restart
-    sudo  createdb ${vars[database]}  --owner=${vars[databaseUsername]} --username=${vars[databaseUsername]}
-    echo "Successfully created database '${vars[database]}' for user '${vars[databaseUsername]}'"
   else
     # Sets VERSION_ID to fedora version major num.
     eval "$(cat /etc/os-release  | grep VERSION_ID)"
@@ -87,9 +85,9 @@ then
     makeUserDB
     sudo sed -i -e '1ilocal   all  '"${vars[databaseUsername]}"'   trust\'  /var/lib/pgsql/9.5/data/pg_hba.conf
     sudo systemctl restart postgresql-9.5
-    sudo createdb ${vars[database]} --owner=${vars[databaseUsername]} --username=${vars[databaseUsername]}
-    echo "Successfully created database '${vars[database]}' for user '${vars[databaseUsername]}'"
   fi
+  sudo createdb ${vars[database]} --owner=${vars[databaseUsername]} --username=${vars[databaseUsername]}
+  echo "Successfully created database '${vars[database]}' for user '${vars[databaseUsername]}'"
 elif [ "$OS_NAME" = "Darwin" ]
 then
   brew install "$CONFIRM_INSTALL" postgresql@9.5
