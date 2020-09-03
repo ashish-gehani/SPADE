@@ -83,6 +83,8 @@ then
     sudo systemctl enable postgresql-9.5
     sudo systemctl start postgresql-9.5
     makeUserDB
+    # Added to the start of the file, so end up in reverse order.
+    sudo sed -i -e '1ihost   all  '"${vars[databaseUsername]}"'   localhost   trust\'  /var/lib/pgsql/9.5/data/pg_hba.conf
     sudo sed -i -e '1ilocal   all  '"${vars[databaseUsername]}"'   trust\'  /var/lib/pgsql/9.5/data/pg_hba.conf
     sudo systemctl restart postgresql-9.5
   fi
