@@ -50,6 +50,7 @@ then
     \$\$;"
     popd
     echo "*:*:*:${vars[databaseUsername]}:${vars[databasePassword]}" > $HOME/.pgpass
+    chmod 0600 $HOME/.pgpass
     echo "Successfully created superuser '${vars[databaseUsername]}'"
   }
   if [ "$DIST_NAME" = "Ubuntu" ]
