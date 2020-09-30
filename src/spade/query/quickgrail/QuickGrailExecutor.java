@@ -39,7 +39,6 @@ import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Kernel;
 import spade.core.Query;
-import spade.core.Query.QuickGrailInstruction;
 import spade.core.Settings;
 import spade.core.Vertex;
 import spade.query.quickgrail.core.AbstractQueryEnvironment;
@@ -89,7 +88,6 @@ import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
 import spade.query.quickgrail.parser.DSLParserWrapper;
 import spade.query.quickgrail.parser.ParseProgram;
-import spade.query.quickgrail.parser.ParseStatement;
 import spade.query.quickgrail.types.LongType;
 import spade.query.quickgrail.types.StringType;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
@@ -168,71 +166,36 @@ public class QuickGrailExecutor{
 			
 			DSLParserWrapper parserWrapper = new DSLParserWrapper();
 
-			query.setQueryParsingStartedAtMillis();
-
 			ParseProgram parseProgram = parserWrapper.fromText(query.query);
 
-			final List<String> parsedProgramStatements = new ArrayList<String>();
-			for(ParseStatement statement : parseProgram.getStatements()){
-				parsedProgramStatements.add(String.valueOf(statement));
-			}
-			query.setQueryParsingCompletedAtMillis(parsedProgramStatements);
-
 			logger.log(Level.INFO, "Parse tree:\n" + parseProgram.toString());
-
-			query.setQueryInstructionResolutionStartedAtMillis();
 
 			QuickGrailQueryResolver resolver = new QuickGrailQueryResolver();
 			Program program = resolver.resolveProgram(parseProgram, queryEnvironment);
 
-			query.setQueryInstructionResolutionCompletedAtMillis();
-
 			logger.log(Level.INFO, "Execution plan:\n" + program.toString());
 
-			for(int i = 0; i < program.getInstructionsSize(); i++){
-				query.addQuickGrailInstruction(new QuickGrailInstruction(String.valueOf(program.getInstruction(i))));
-			}
-
 			try{
-				query.setQueryExecutionStartedAtMillis();
-
-				List<QuickGrailInstruction> queryInstructions = query.getQuickGrailInstructions();
 				int instructionsSize = program.getInstructionsSize();
 				for(int i = 0; i < instructionsSize; i++){
 					Instruction executableInstruction = program.getInstruction(i);
-					QuickGrailInstruction queryInstruction = queryInstructions.get(i);
 					try{
-						queryInstruction.setStartedAtMillis();
-
-						query = executeInstruction(executableInstruction, query, queryInstruction);
-
-						queryInstruction.setCompletedAtMillis();
+						query = executeInstruction(executableInstruction, query);
 					}catch(Exception e){
-						queryInstruction.instructionFailed(new Exception("Instruction failed! " + e.getMessage(), e));
 						throw e;
 					}
 				}
 
 			}finally{
 				queryEnvironment.doGarbageCollection();
-				query.setQueryExecutionCompletedAtMillis();
 			}
 
 			// Only here if success
 			if(query.getResult() != null){
 				// The result of this query has already been pre-set by one of the
 				// instructions.
-				// This is done to always return the result of remote get lineage
-				// since we cannot store it locally.
 			}else{
-				if(query.getQuickGrailInstructions().isEmpty()){
-					query.querySucceeded("OK");
-				}else{
-					// Currently only return the last response.
-					Serializable lastResult = query.getQuickGrailInstructions()
-							.get(query.getQuickGrailInstructions().size() - 1).getResult();
-					query.querySucceeded(lastResult);
-				}
+				query.querySucceeded("OK");
 			}
 			return query;
 		}catch(Exception e){
@@ -252,8 +215,7 @@ public class QuickGrailExecutor{
 	}
 
 	// Have to set queryinstruction success
-	private Query executeInstruction(Instruction instruction, Query query,
-			QuickGrailInstruction queryInstruction) throws Exception{
+	private Query executeInstruction(Instruction instruction, Query query) throws Exception{
 
 		Serializable result = "OK"; // default result
 
@@ -381,8 +343,7 @@ public class QuickGrailExecutor{
 		}else{
 			throw new RuntimeException("Unhandled instruction: " + instruction.getClass());
 		}
-
-		queryInstruction.instructionSucceeded(result);
+		query.querySucceeded(result);
 		return query;
 	}
 

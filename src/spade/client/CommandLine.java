@@ -513,7 +513,6 @@ public class CommandLine{
 
 			final String queryNonce = null; // Keep the nonce null to indicate that the query is local
 			Query spadeQuery = new Query(localHostName, localHostName, line, queryNonce);
-			spadeQuery.setQuerySentByClientAtMillis();
 
 			clientOutputWriter.writeObject(spadeQuery);
 			clientOutputWriter.flush();

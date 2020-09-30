@@ -310,9 +310,7 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 		if(query == null){
 			throw new RuntimeException("NULL query to execute!");
 		}
-		
-		query.setQuerySentByClientAtMillis();
-		
+
 		try{
 			queryWriter.writeObject(query);
 			queryWriter.flush();
@@ -322,7 +320,6 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 		
 		if(isExit){
 			// Don't read response
-			query.setQueryReceivedBackByClientAtMillis();
 			return query;
 		}else{
 			
@@ -332,8 +329,6 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 			}catch(Throwable t){
 				throw new RuntimeException("Failed to read query response from server", t);
 			}
-			
-			query.setQueryReceivedBackByClientAtMillis();
 			
 			if(!query.wasQuerySuccessful()){
 				Object error = query.getError();

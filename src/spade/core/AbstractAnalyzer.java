@@ -202,10 +202,7 @@ public abstract class AbstractAnalyzer{
 					// safeWriteToClient(getErrorSPADEQuery()); // connection closed so cannot write
 					break; // exit while loop
 				}
-				
-				// SPADE query cannot be null now
-				spadeQuery.setQueryReceivedByServerAtMillis();
-				
+
 				if(spadeQuery.query.trim().toLowerCase().equals("exit") || spadeQuery.query.trim().toLowerCase().equals("quit")){
 					spadeQuery.querySucceeded("Exiting!");
 					// safeWriteToClient(spadeQuery); // connection closed so cannot write

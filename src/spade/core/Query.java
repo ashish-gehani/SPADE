@@ -31,150 +31,87 @@ import spade.client.QueryMetaData;
 public class Query implements Serializable{
 
 	private static final long serialVersionUID = -4867369163497687639L;
-	
+
 	public final String localName;
 	public final String remoteName;
-	
+
 	public final String query;
 	/*
-	 * If the query is being sent from a local client then the query nonce should be null
-	 * The server uses the null value to identify local query vs remote query
+	 * If the query is being sent from a local client then the query nonce should be
+	 * null The server uses the null value to identify local query vs remote query
 	 */
 	public final String queryNonce;
-	
-	private long querySentByClientAtMillis;
-	private long queryReceivedByServerAtMillis;
-	private long queryParsingStartedAtMillis;
-	private long queryParsingCompletedAtMillis;
-	
-	private List<String> parsedProgramStatements = new ArrayList<String>();
-	
-	private long queryInstructionResolutionStartedAtMillis;
-	private long queryInstructionResolutionCompletedAtMillis;
-	
-	private	List<QuickGrailInstruction> instructions = new ArrayList<QuickGrailInstruction>();
-	
-	private long queryExecutionStartedAtMillis;
-	private long queryExecutionCompletedAtMillis;
-	
+
 	private boolean success = false;
 	// only one of the following non-null at a time
 	private Serializable error;
 	private Serializable result;
-	
-	private long querySentBackToClientAtMillis;
-	private long queryReceivedBackByClientAtMillis;
-	
+
 	private List<Query> remoteSubqueries = new ArrayList<Query>();
-	
+
 	// Only required for local transformation of queries
 	private final QueryMetaData queryMetaData = new QueryMetaData();
-	
-	public Query(String localName, String remoteName,
-			String query, String queryNonce){
+
+	public Query(String localName, String remoteName, String query, String queryNonce){
 		this.localName = localName;
 		this.remoteName = remoteName;
 		this.query = query;
 		this.queryNonce = queryNonce;
 	}
 
-	public void setQuerySentByClientAtMillis(){ this.querySentByClientAtMillis = System.currentTimeMillis(); }
-	public long getQuerySentByClientAtMillis(){ return this.querySentByClientAtMillis; }
-	public void setQueryReceivedByServerAtMillis(){ this.queryReceivedByServerAtMillis = System.currentTimeMillis(); }
-	public long getQueryReceivedByServerAtMillis(){ return this.queryReceivedByServerAtMillis; }
-	public void setQueryParsingStartedAtMillis(){ this.queryParsingStartedAtMillis = System.currentTimeMillis(); }
-	public long getQueryParsingStartedAtMillis(){ return this.queryParsingStartedAtMillis; }
-	public void setQueryParsingCompletedAtMillis(List<String> parsedProgramStatements){
-		this.queryParsingCompletedAtMillis = System.currentTimeMillis();
-		this.parsedProgramStatements.clear();
-		if(parsedProgramStatements != null){ this.parsedProgramStatements.addAll(parsedProgramStatements); }
+	public void queryFailed(Serializable error){
+		this.error = error;
+		this.result = null;
+		this.success = false;
 	}
-	public long getQueryParsingCompletedAtMillis(){ return this.queryParsingCompletedAtMillis; }
-	public List<String> getParsedProgramStatements(){ return new ArrayList<String>(this.parsedProgramStatements); }
-	
-	public void setQueryInstructionResolutionStartedAtMillis(){ queryInstructionResolutionStartedAtMillis = System.currentTimeMillis(); }
-	public long getQueryInstructionResolutionStartedAtMillis(){ return queryInstructionResolutionStartedAtMillis; }
-	public void setQueryInstructionResolutionCompletedAtMillis(){ queryInstructionResolutionCompletedAtMillis = System.currentTimeMillis(); }
-	public long getQueryInstructionResolutionCompletedAtMillis(){ return queryInstructionResolutionCompletedAtMillis; }
-	public void setQueryExecutionStartedAtMillis(){ queryExecutionStartedAtMillis = System.currentTimeMillis(); }
-	public long getQueryExecutionStartedAtMillis(){ return queryExecutionStartedAtMillis; }
-	public void setQueryExecutionCompletedAtMillis(){ queryExecutionCompletedAtMillis = System.currentTimeMillis(); }
-	public long getQueryExecutionCompletedAtMillis(){ return queryExecutionCompletedAtMillis; }
-	
-	public void queryFailed(Serializable error){ this.error = error; this.result = null; this.success = false; }
-	public void querySucceeded(Serializable result){ this.result = result; this.error = null; this.success = true; }
-	
-	public boolean wasQuerySuccessful(){ return this.success; }
-	public Serializable getError(){ return this.error; }
-	public Serializable getResult(){ return this.result; }
-	
-	public void setQuerySentBackToClientAtMillis(){ querySentBackToClientAtMillis = System.currentTimeMillis(); }
-	public long getQuerySentBackToClientAtMillis(){ return querySentBackToClientAtMillis; }
-	public void setQueryReceivedBackByClientAtMillis(){ queryReceivedBackByClientAtMillis = System.currentTimeMillis(); }
-	public long getQueryReceivedBackByClientAtMillis(){ return queryReceivedBackByClientAtMillis; }
-	
-	public void addQuickGrailInstruction(QuickGrailInstruction instruction){ if(instruction != null){ instructions.add(instruction); } }
-	public List<QuickGrailInstruction> getQuickGrailInstructions(){ return new ArrayList<QuickGrailInstruction>(instructions); }
-	
-	public void addRemoteSubquery(Query subquery){ if(subquery != null){ remoteSubqueries.add(subquery); } }
-	public List<Query> getRemoteSubqueries(){ return new ArrayList<Query>(remoteSubqueries); }
 
-	public QueryMetaData getQueryMetaData(){ return queryMetaData; }
-	
+	public void querySucceeded(Serializable result){
+		this.result = result;
+		this.error = null;
+		this.success = true;
+	}
+
+	public boolean wasQuerySuccessful(){
+		return this.success;
+	}
+
+	public Serializable getError(){
+		return this.error;
+	}
+
+	public Serializable getResult(){
+		return this.result;
+	}
+
+	public void addRemoteSubquery(Query subquery){
+		if(subquery != null){
+			remoteSubqueries.add(subquery);
+		}
+	}
+
+	public List<Query> getRemoteSubqueries(){
+		return new ArrayList<Query>(remoteSubqueries);
+	}
+
+	public QueryMetaData getQueryMetaData(){
+		return queryMetaData;
+	}
+
 	@Override
 	public String toString(){
-		return "SPADEQuery [localName=" + localName + ", remoteName=" + remoteName + ", query=" + query
-				+ ", queryNonce=" + queryNonce + ", querySentByClientAtMillis=" + querySentByClientAtMillis
-				+ ", queryReceivedByServerAtMillis=" + queryReceivedByServerAtMillis + ", queryParsingStartedAtMillis="
-				+ queryParsingStartedAtMillis + ", queryParsingCompletedAtMillis=" + queryParsingCompletedAtMillis
-				+ ", parsedProgramStatements=" + parsedProgramStatements
-				+ ", queryInstructionResolutionStartedAtMillis=" + queryInstructionResolutionStartedAtMillis
-				+ ", queryInstructionResolutionCompletedAtMillis=" + queryInstructionResolutionCompletedAtMillis
-				+ ", instructions=" + instructions + ", queryExecutionStartedAtMillis=" + queryExecutionStartedAtMillis
-				+ ", queryExecutionCompletedAtMillis=" + queryExecutionCompletedAtMillis + ", success=" + success
-				+ ", error=" + error + ", result=" + result + ", querySentBackToClientAtMillis="
-				+ querySentBackToClientAtMillis + ", queryReceivedBackByClientAtMillis="
-				+ queryReceivedBackByClientAtMillis + ", remoteSubqueries=" + remoteSubqueries + ", queryMetaData=" + queryMetaData + "]";
+		return "SPADEQuery ["
+				+ "localName=" + localName 
+				+ ", remoteName=" + remoteName 
+				+ ", query=" + query
+				+ ", queryNonce=" + queryNonce
+				+ ", success=" + success
+				+ ", error=" + error 
+				+ ", result=" + result
+				+ ", remoteSubqueries=" + remoteSubqueries 
+				+ ", queryMetaData=" + queryMetaData + 
+				"]";
 	}
-	
-	public static class QuickGrailInstruction implements Serializable{
-		private static final long serialVersionUID = 6556421048165337320L;
-		
-		public final String instruction;
-		private long startedAtMillis;
-		private long completedAtMillis;
-		
-		private boolean success = false;
-		// only one of the following non-null at a time
-		private Serializable error;
-		private Serializable result;
-		
-		public QuickGrailInstruction(String instruction){
-			this.instruction = instruction;
-		}
-		
-		public void setStartedAtMillis(){ this.startedAtMillis = System.currentTimeMillis(); }
-		public long getStartedAtMillis(){ return this.startedAtMillis; }
-		
-		public void setCompletedAtMillis(){ this.completedAtMillis = System.currentTimeMillis(); }
-		public long getCompletedAtMillis(){ return this.completedAtMillis; }
-		
-		public boolean wasInstructionSuccessful(){ return success; }
-		public Serializable getError(){ return this.error; }
-		public Serializable getResult(){ return this.result; }
-		
-		public void instructionFailed(Serializable error){ this.error = error; this.result = null; this.success = false; }
-		public void instructionSucceeded(Serializable result){ this.result = result; this.error = null; this.success = true; }
 
-		@Override
-		public String toString(){
-			return "QuickGrailInstruction [instruction=" + instruction + ", startedAtMillis=" + startedAtMillis
-					+ ", completedAtMillis=" + completedAtMillis + ", success=" + success + ", error=" + error
-					+ ", result=" + result + "]";
-		}
-
-	}
-	
 	public Set<Object> getAllResults(){
 		Set<Object> results = new HashSet<Object>();
 
@@ -190,12 +127,12 @@ public class Query implements Serializable{
 
 		return results;
 	}
-	
+
 	public <T> Set<T> getAllResultsOfExactType(Class<T> clazz){
 		Set<T> results = new HashSet<T>();
 
 		Set<Query> marked = new HashSet<Query>();
-		
+
 		LinkedList<Query> currentSet = new LinkedList<Query>();
 		currentSet.add(this);
 		while(!currentSet.isEmpty()){

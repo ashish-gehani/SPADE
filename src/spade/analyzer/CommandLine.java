@@ -228,9 +228,6 @@ public class CommandLine extends AbstractAnalyzer{
 
 		@Override
 		public void writeToClient(Query query) throws Exception{
-			if(query != null){
-				query.setQuerySentBackToClientAtMillis();
-			}
 			queryOutputWriter.writeObject(query);
 			queryOutputWriter.flush();
 		}
