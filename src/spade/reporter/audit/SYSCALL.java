@@ -56,6 +56,9 @@ public enum SYSCALL{
 	CHROOT,
 	PIVOT_ROOT,
 	SETNS, UNSHARE,
+	MQ_OPEN, MQ_TIMEDSEND, MQ_TIMEDRECEIVE, MQ_UNLINK,
+	SHMGET, SHMAT, SHMDT, SHMCTL,
+	MSGGET, MSGSND, MSGRCV, MSGCTL,
 	UNSUPPORTED; // Used for system calls not in this enum (not an actual system call)
 	
 	public static SYSCALL get64BitSyscall(int syscallNum){
@@ -64,6 +67,18 @@ public enum SYSCALL{
 		
 		// source : https://github.com/bnoordhuis/strace/blob/master/linux/x86_64/syscallent.h
 		switch(syscallNum){
+			case 240:	return MQ_OPEN;
+			case 242:	return MQ_TIMEDSEND;
+			case 243:	return MQ_TIMEDRECEIVE;
+			case 241:	return MQ_UNLINK;
+			case 29:	return SHMGET;
+			case 30:	return SHMAT;
+			case 67:	return SHMDT;
+			case 31:	return SHMCTL;
+			case 68:	return MSGGET;
+			case 69:	return MSGSND;
+			case 70:	return MSGRCV;
+			case 71:	return MSGCTL;
 			case 308:	return SETNS;
 			case 272:	return UNSHARE;
 			case 155:	return PIVOT_ROOT;

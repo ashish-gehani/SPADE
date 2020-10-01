@@ -50,6 +50,7 @@ import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.audit.AuditEventReader;
 import spade.reporter.audit.Globals;
+import spade.reporter.audit.IPCManager;
 import spade.reporter.audit.LinuxPathResolver;
 import spade.reporter.audit.MalformedAuditDataException;
 import spade.reporter.audit.NetfilterHooksManager;
@@ -62,6 +63,7 @@ import spade.reporter.audit.artifact.DirectoryIdentifier;
 import spade.reporter.audit.artifact.MemoryIdentifier;
 import spade.reporter.audit.artifact.NetworkSocketIdentifier;
 import spade.reporter.audit.artifact.PathIdentifier;
+import spade.reporter.audit.artifact.PosixMessageQueue;
 import spade.reporter.audit.artifact.UnixSocketIdentifier;
 import spade.reporter.audit.artifact.UnknownIdentifier;
 import spade.reporter.audit.artifact.UnnamedNetworkSocketPairIdentifier;
@@ -206,6 +208,8 @@ public class Audit extends AbstractReporter {
 	
 	/********************** NETFILTER HOOKS STATE - END *************************/
 	
+	private IPCManager ipcManager = new IPCManager(this);
+	
 	/********************** NETFILTER - START *************************/
 	
 	private String[] iptablesRules = null;
@@ -277,6 +281,10 @@ public class Audit extends AbstractReporter {
 	private boolean NETFILTER_HOOKS_LOG_CT = false;
 	private final String NETFILTER_HOOKS_USER_KEY = "netfilterHooksUser";
 	private boolean NETFILTER_HOOKS_USER = false;
+	private final String CAPTURE_IPC_KEY = "logIpc";
+	private boolean CAPTURE_IPC = false;
+	private final String REPORT_IPC_KEY = "reportIpc";
+	private boolean REPORT_IPC = false;
 
 	private String deleteModuleBinaryPath = null;
 	/********************** BEHAVIOR FLAGS - END *************************/
@@ -416,6 +424,10 @@ public class Audit extends AbstractReporter {
 		}
 	}
 	
+	public final boolean getFlagControl(){
+		return CONTROL;
+	}
+	
 	/**
 	 * Initializes global boolean flags for this reporter
 	 * 
@@ -551,7 +563,7 @@ public class Audit extends AbstractReporter {
 		
 		// Setting default values here instead of where variables are defined because default values for KM vars depend
 		// on whether the data is live or playback.
-		boolean logPlayback = argsSpecifyLogPlayback(args);
+		final boolean logPlayback = argsSpecifyLogPlayback(args);
 		String addKmArgValue = args.get(ADD_KM_KEY);
 		String handleKmArgValue = args.get(HANDLE_KM_RECORDS_KEY);
 		if(logPlayback){ // Can't use isLiveAudit flag because not set yet.
@@ -666,6 +678,22 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 		
+		argValue = args.get(CAPTURE_IPC_KEY);
+		if(isValidBoolean(argValue)){
+			CAPTURE_IPC = parseBoolean(argValue, CAPTURE_IPC);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for '"+CAPTURE_IPC_KEY+"': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get(REPORT_IPC_KEY);
+		if(isValidBoolean(argValue)){
+			REPORT_IPC = parseBoolean(argValue, REPORT_IPC);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for '"+REPORT_IPC_KEY+"': " + argValue);
+			return false;
+		}
+
 		if(HANDLE_ROOTFS){
 			if(!HANDLE_CHDIR){
 				logger.log(Level.INFO, "'"+HANDLE_CHDIR_KEY+"' set to 'true' because '"+HANDLE_ROOTFS_KEY+"'='true'");
@@ -688,7 +716,7 @@ public class Audit extends AbstractReporter {
 			// Logging only relevant flags now for debugging
 			logger.log(Level.INFO, "Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
                        + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}, {26}={27}, {28}={29}, "
-                       + "{30}={31}, {32}={33}, {34}={35}, {36}={37}, {38}={39}",
+                       + "{30}={31}, {32}={33}, {34}={35}, {36}={37}, {38}={39}, {40}={41}, {42}={43}",
 					new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, 
 							"units", CREATE_BEEP_UNITS, "waitForLog", WAIT_FOR_LOG_END, "netfilter", false, 
 							"refineNet", false, ADD_KM_KEY, ADD_KM, 
@@ -700,7 +728,9 @@ public class Audit extends AbstractReporter {
 							HANDLE_NETFILTER_HOOKS_KEY, HANDLE_NETFILTER_HOOKS,
 							NETFILTER_HOOKS_KEY, NETFILTER_HOOKS,
 							NETFILTER_HOOKS_LOG_CT_KEY, NETFILTER_HOOKS_LOG_CT,
-							NETFILTER_HOOKS_USER_KEY, NETFILTER_HOOKS_USER});
+							NETFILTER_HOOKS_USER_KEY, NETFILTER_HOOKS_USER,
+							CAPTURE_IPC_KEY, CAPTURE_IPC,
+							REPORT_IPC_KEY, REPORT_IPC});
 			logger.log(Level.INFO, globals.toString());
 			return true;
 		}
@@ -1192,7 +1222,15 @@ public class Audit extends AbstractReporter {
 		}
 		return null;
 	}
+
+	public final ProcessManager getProcessManager(){
+		return processManager;
+	}
 	
+	public final ArtifactManager getArtifactManager(){
+		return artifactManager;
+	}
+
 	private AuditEventReader getAuditEventReader(String spadeAuditBridgeCommand, 
 			InputStream stdoutStream,
 			String outputLogFilePath,
@@ -1769,6 +1807,14 @@ public class Audit extends AbstractReporter {
 					if(HANDLE_NAMESPACES){
 						auditRuleWithSuccess += "-S setns -S unshare ";
 					}
+					if(CAPTURE_IPC){
+						final List<String> ipcSyscalls = IPCManager.getSyscallNamesForAuditctlForAll();
+						String subRuleSyscalls = "";
+						for(final String ipcSyscall : ipcSyscalls){
+							subRuleSyscalls += "-S " + ipcSyscall + " ";
+						}
+						auditRuleWithSuccess += subRuleSyscalls;
+					}
 					
 					auditRuleWithSuccess += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
 
@@ -2245,6 +2291,18 @@ public class Audit extends AbstractReporter {
 			}
 
 			switch (syscall) {
+			case MQ_OPEN: if(REPORT_IPC){ ipcManager.handleMq_open(eventData, syscall); } break;
+			case MQ_TIMEDSEND: if(REPORT_IPC){ ipcManager.handleMq_timedsend(eventData, syscall); } break;
+			case MQ_TIMEDRECEIVE: if(REPORT_IPC){ ipcManager.handleMq_timedreceive(eventData, syscall); } break;
+			case MQ_UNLINK: if(REPORT_IPC){ ipcManager.handleMq_unlink(eventData, syscall); } break;
+			case SHMGET: if(REPORT_IPC){ ipcManager.handleShmget(eventData, syscall); } break;
+			case SHMAT: if(REPORT_IPC){ ipcManager.handleShmat(eventData, syscall); } break;
+			case SHMDT: if(REPORT_IPC){ ipcManager.handleShmdt(eventData, syscall); } break;
+			case SHMCTL: if(REPORT_IPC){ ipcManager.handleShmctl(eventData, syscall); } break;
+			case MSGGET: if(REPORT_IPC){ ipcManager.handleMsgget(eventData, syscall); } break;
+			case MSGSND: if(REPORT_IPC){ ipcManager.handleMsgsnd(eventData, syscall); } break;
+			case MSGRCV: if(REPORT_IPC){ ipcManager.handleMsgrcv(eventData, syscall); } break;
+			case MSGCTL: if(REPORT_IPC){ ipcManager.handleMsgctl(eventData, syscall); } break;
 			case SETNS:
 				if(HANDLE_NAMESPACES){
 					processManager.handleSetns(eventData, syscall);
@@ -2314,25 +2372,25 @@ public class Audit extends AbstractReporter {
 			case WRITEV:
 			case PWRITE:
 			case PWRITEV:
-				handleIOEvent(syscall, eventData, false);
+				handleIOEvent(syscall, eventData, false, eventData.get(AuditEventReader.EXIT));
 				break;
 			case SENDMSG:
 			case SENDTO:
 				if(!HANDLE_KM_RECORDS){
-					handleIOEvent(syscall, eventData, false);
+					handleIOEvent(syscall, eventData, false, eventData.get(AuditEventReader.EXIT));
 				}
 				break;
 			case RECVFROM: 
 			case RECVMSG:
 				if(!HANDLE_KM_RECORDS){
-					handleIOEvent(syscall, eventData, true);
+					handleIOEvent(syscall, eventData, true, eventData.get(AuditEventReader.EXIT));
 				}
 				break;
 			case READ: 
 			case READV:
 			case PREAD:
 			case PREADV:
-				handleIOEvent(syscall, eventData, true);
+				handleIOEvent(syscall, eventData, true, eventData.get(AuditEventReader.EXIT));
 				break;
 			case MMAP:
 				handleMmap(eventData, syscall);
@@ -2431,11 +2489,10 @@ public class Audit extends AbstractReporter {
 		}
 	}
 
-	private void handleIOEvent(SYSCALL syscall, Map<String, String> eventData, boolean isRead){
+	public final void handleIOEvent(SYSCALL syscall, Map<String, String> eventData, boolean isRead, final String bytesTransferred){
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String time = eventData.get(AuditEventReader.TIME);
 		String pid = eventData.get(AuditEventReader.PID);
-		String bytesTransferred = eventData.get(AuditEventReader.EXIT);
 		String saddr = eventData.get(AuditEventReader.SADDR);
 		String fd = eventData.get(AuditEventReader.ARG0);
 		String offset = null;
@@ -2655,7 +2712,7 @@ public class Audit extends AbstractReporter {
 				this, processManager, artifactManager, HANDLE_CHDIR);
 	}
 	
-	private PathIdentifier resolvePath(PathRecord pathRecord,
+	public final PathIdentifier resolvePath(PathRecord pathRecord,
 			Map<String, String> eventData, SYSCALL syscall){
 		return LinuxPathResolver.resolvePath(
 				pathRecord, eventData.get(AuditEventReader.CWD), eventData.get(AuditEventReader.PID), 
@@ -2664,7 +2721,7 @@ public class Audit extends AbstractReporter {
 				this, processManager, artifactManager, HANDLE_CHDIR);
 	}
 
-	private void handleUnlink(Map<String, String> eventData, SYSCALL syscall){
+	public final void handleUnlink(Map<String, String> eventData, SYSCALL syscall){
 		// unlink() and unlinkat() receive the following messages(s):
 		// - SYSCALL
 		// - PATH with PARENT nametype
@@ -2680,8 +2737,11 @@ public class Audit extends AbstractReporter {
 			PathRecord pathRecord = PathRecord.getFirstPathWithNametype(eventData, pathAuditNametype);
 			
 			PathIdentifier pathIdentifier = null;
-			if(syscall == SYSCALL.UNLINK){
+			if(syscall == SYSCALL.UNLINK || syscall == SYSCALL.MQ_UNLINK){
 				pathIdentifier = resolvePath(pathRecord, eventData, syscall);
+				if(syscall == SYSCALL.MQ_UNLINK){
+					pathIdentifier = new PosixMessageQueue(pathIdentifier.path, pathIdentifier.rootFSPath);
+				}
 			}else if(syscall == SYSCALL.UNLINKAT){
 				pathIdentifier = resolvePath_At(pathRecord, AuditEventReader.ARG0, eventData, syscall);
 			}else{
@@ -2880,7 +2940,44 @@ public class Audit extends AbstractReporter {
 		}
 	}
 
-	private void handleOpen(Map<String, String> eventData, SYSCALL syscall){
+	public final boolean openFlagsHasCreateFlag(final int flagsInt){
+		return (flagsInt & O_CREAT) == O_CREAT;
+	}
+	
+	public final boolean openFlagsHasWriteRelatedFlags(final int flagsInt){
+		return ((flagsInt & O_WRONLY) == O_WRONLY || 
+				(flagsInt & O_RDWR) == O_RDWR ||
+				 (flagsInt & O_APPEND) == O_APPEND || 
+				 (flagsInt & O_TRUNC) == O_TRUNC);
+	}
+	
+	public final boolean openFlagsHasReadOnlyFlag(final int flagsInt){
+		return (flagsInt & O_RDONLY) == O_RDONLY;
+	}
+	
+	public final String createOpenFlagsAnnotationValue(final int flagsInt){
+		String flagsAnnotation = "";
+		
+		flagsAnnotation += ((flagsInt & O_WRONLY) == O_WRONLY) ? "O_WRONLY|" : "";
+		flagsAnnotation += ((flagsInt & O_RDWR) == O_RDWR) ? "O_RDWR|" : "";
+		// if neither write only nor read write then must be read only
+		if(((flagsInt & O_WRONLY) != O_WRONLY) && 
+				((flagsInt & O_RDWR) != O_RDWR)){ 
+			// O_RDONLY is 0, so always true
+			flagsAnnotation += ((flagsInt & O_RDONLY) == O_RDONLY) ? "O_RDONLY|" : "";
+		}
+		
+		flagsAnnotation += ((flagsInt & O_APPEND) == O_APPEND) ? "O_APPEND|" : "";
+		flagsAnnotation += ((flagsInt & O_TRUNC) == O_TRUNC) ? "O_TRUNC|" : "";
+		flagsAnnotation += ((flagsInt & O_CREAT) == O_CREAT) ? "O_CREAT|" : "";
+		
+		if(!flagsAnnotation.isEmpty()){
+			flagsAnnotation = flagsAnnotation.substring(0, flagsAnnotation.length() - 1);
+		}
+		return flagsAnnotation;
+	}
+	
+	public final void handleOpen(Map<String, String> eventData, SYSCALL syscall){
 		// open() receives the following message(s):
 		// - SYSCALL
 		// - CWD
@@ -2902,10 +2999,13 @@ public class Audit extends AbstractReporter {
 			return;
 		}
 		
-		ArtifactIdentifier artifactIdentifier = null;
+		PathIdentifier artifactIdentifier = null;
 
-		if(syscall == SYSCALL.OPEN){
+		if(syscall == SYSCALL.OPEN || syscall == SYSCALL.MQ_OPEN){
 			artifactIdentifier = resolvePath(pathRecord, eventData, syscall);
+			if(syscall == SYSCALL.MQ_OPEN){
+				artifactIdentifier = new PosixMessageQueue(artifactIdentifier.path, artifactIdentifier.rootFSPath);
+			}
 			flagsString = eventData.get(AuditEventReader.ARG1);
 			modeString = eventData.get(AuditEventReader.ARG2);
 		}else if(syscall == SYSCALL.OPENAT){
@@ -2926,26 +3026,9 @@ public class Audit extends AbstractReporter {
 		if(artifactIdentifier != null){
 			int flagsInt = HelperFunctions.parseInt(flagsString, 0);
 			
-			boolean isCreate = (flagsInt & O_CREAT) == O_CREAT;
+			final boolean isCreate = openFlagsHasCreateFlag(flagsInt);
 			
-			String flagsAnnotation = "";
-			
-			flagsAnnotation += ((flagsInt & O_WRONLY) == O_WRONLY) ? "O_WRONLY|" : "";
-			flagsAnnotation += ((flagsInt & O_RDWR) == O_RDWR) ? "O_RDWR|" : "";
-			// if neither write only nor read write then must be read only
-			if(((flagsInt & O_WRONLY) != O_WRONLY) && 
-					((flagsInt & O_RDWR) != O_RDWR)){ 
-				// O_RDONLY is 0, so always true
-				flagsAnnotation += ((flagsInt & O_RDONLY) == O_RDONLY) ? "O_RDONLY|" : "";
-			}
-			
-			flagsAnnotation += ((flagsInt & O_APPEND) == O_APPEND) ? "O_APPEND|" : "";
-			flagsAnnotation += ((flagsInt & O_TRUNC) == O_TRUNC) ? "O_TRUNC|" : "";
-			flagsAnnotation += ((flagsInt & O_CREAT) == O_CREAT) ? "O_CREAT|" : "";
-			
-			if(!flagsAnnotation.isEmpty()){
-				flagsAnnotation = flagsAnnotation.substring(0, flagsAnnotation.length() - 1);
-			}
+			String flagsAnnotation = createOpenFlagsAnnotationValue(flagsInt);
 			
 			String modeAnnotation = null;
 			
@@ -2959,10 +3042,7 @@ public class Audit extends AbstractReporter {
 			AbstractEdge edge = null;
 			Process process = processManager.handleProcessFromSyscall(eventData);
 			
-			if((flagsInt & O_WRONLY) == O_WRONLY || 
-					(flagsInt & O_RDWR) == O_RDWR ||
-					 (flagsInt & O_APPEND) == O_APPEND || 
-					 (flagsInt & O_TRUNC) == O_TRUNC){
+			if(openFlagsHasWriteRelatedFlags(flagsInt)){
 				if(!isCreate){
 					// If artifact not created
 					artifactManager.artifactVersioned(artifactIdentifier);
@@ -2971,7 +3051,7 @@ public class Audit extends AbstractReporter {
 				Artifact vertex = putArtifactFromSyscall(eventData, artifactIdentifier);
 				edge = new WasGeneratedBy(vertex, process);
 				openedForRead = false;
-			}else if((flagsInt & O_RDONLY) == O_RDONLY){
+			}else if(openFlagsHasReadOnlyFlag(flagsInt)){
 				artifactManager.artifactPermissioned(artifactIdentifier, pathRecord.getPermissions());
 				if(isCreate){
 					Artifact vertex = putArtifactFromSyscall(eventData, artifactIdentifier);
@@ -4091,7 +4171,7 @@ public class Audit extends AbstractReporter {
 		}
 	}
 	
-	private Artifact putArtifactFromSyscall(Map<String, String> eventData, ArtifactIdentifier identifier){
+	public final Artifact putArtifactFromSyscall(Map<String, String> eventData, ArtifactIdentifier identifier){
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String pid = eventData.get(AuditEventReader.PID);

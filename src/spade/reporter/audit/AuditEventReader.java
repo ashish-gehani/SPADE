@@ -70,6 +70,8 @@ public class AuditEventReader {
 			FSGID = "fsgid",
 			FSUID = "fsuid",
 			GID = "gid",
+			OUID = "ouid",
+			OGID = "ogid",
 			ITEMS = "items",
 			MODE_PREFIX = "mode",
 			NAMETYPE_CREATE = "CREATE",
@@ -86,6 +88,8 @@ public class AuditEventReader {
 			RECORD_TYPE_EOE = "EOE",
 			RECORD_TYPE_EXECVE = "EXECVE",
 			RECORD_TYPE_FD_PAIR = "FD_PAIR",
+			RECORD_TYPE_IPC = "IPC",
+			RECORD_TYPE_MQ_SENDRECV = "MQ_SENDRECV",
 			RECORD_TYPE_MMAP = "MMAP",
 			RECORD_TYPE_PATH = "PATH",
 			RECORD_TYPE_PROCTITLE = "PROCTITLE",
@@ -108,6 +112,7 @@ public class AuditEventReader {
 			SYSCALL = "syscall",
 			TIME = "time",
 			UID = "uid",
+			MSG_LEN = "msg_len",
 			UNIT_PID = "unit_pid",
 			UNIT_THREAD_START_TIME = "unit_thread_start_time",
 			UNIT_UNITID = "unit_unitid",
@@ -796,6 +801,11 @@ public class AuditEventReader {
 						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
 					}
 				}else if (type.equals(RECORD_TYPE_MMAP)){
+					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
+					while (key_value_matcher.find()) {
+						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
+					}
+				}else if(type.equals(RECORD_TYPE_IPC) || type.equals(RECORD_TYPE_MQ_SENDRECV)){
 					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
 					while (key_value_matcher.find()) {
 						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));

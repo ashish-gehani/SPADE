@@ -117,6 +117,9 @@ public class OPMConstants {
 			ARTIFACT_HOST_INTERFACE_NAME_PREFIX = "interface name",
 			ARTIFACT_HOST_INTERFACE_MAC_ADDRESS_PREFIX = "interface mac address",
 			ARTIFACT_HOST_INTERFACE_IP_ADDRESSES_PREFIX = "interface ip addresses",
+			ARTIFACT_SYSV_ID = "id",
+			ARTIFACT_SYSV_OUID = "ouid",
+			ARTIFACT_SYSV_OGID = "ogid",
 
 			// Allowed subtype annotation values
 			SUBTYPE_FILE = "file",
@@ -132,6 +135,9 @@ public class OPMConstants {
 			SUBTYPE_UNNAMED_PIPE = "unnamed pipe",
 			SUBTYPE_UNNAMED_UNIX_SOCKET_PAIR = "unix socket pair",
 			SUBTYPE_UNNAMED_NETWORK_SOCKET_PAIR = "network socket pair",
+			SUBTYPE_SYSV_MSG_Q = "message queue system v",
+			SUBTYPE_SYSV_SHARED_MEMORY = "shared memory system v",
+			SUBTYPE_POSIX_MSG_Q = "message queue posix",
 			
 			// General edge annotations
 			EDGE_EVENT_ID = "event id",
@@ -191,7 +197,18 @@ public class OPMConstants {
 			OPERATION_FINIT_MODULE = "finit_module",
 			OPERATION_KILL = "kill",
 			OPERATION_SETNS = "setns",
-			OPERATION_UNSHARE = "unshare";
+			OPERATION_UNSHARE = "unshare",
+			OPERATION_MSGGET = "msgget",
+			OPERATION_MSGCTL = "msgctl",
+			OPERATION_MSGSND = "msgsnd",
+			OPERATION_MSGRCV = "msgrcv",
+			OPERATION_SHMGET = "shmget",
+			OPERATION_SHMAT = "shmat",
+			OPERATION_SHMCTL = "shmctl",
+			OPERATION_MQ_OPEN = "mq_open",
+			OPERATION_MQ_TIMEDSEND = "mq_timedsend",
+			OPERATION_MQ_TIMEDRECEIVE = "mq_timedreceive",
+			OPERATION_MQ_UNLINK = "mq_unlink";
 		
 	private static final Logger logger = Logger.getLogger(OPMConstants.class.getName());
 	
@@ -242,6 +259,17 @@ public class OPMConstants {
 		addSyscallsToOperations(OPERATION_WRITE, SYSCALL.WRITE, SYSCALL.WRITEV, SYSCALL.PWRITE, SYSCALL.PWRITEV);
 		addSyscallsToOperations(OPERATION_UNSHARE, SYSCALL.UNSHARE);
 		addSyscallsToOperations(OPERATION_SETNS, SYSCALL.SETNS);
+		addSyscallsToOperations(OPERATION_MSGGET, SYSCALL.MSGGET);
+		addSyscallsToOperations(OPERATION_MSGCTL, SYSCALL.MSGCTL);
+		addSyscallsToOperations(OPERATION_MSGRCV, SYSCALL.MSGRCV);
+		addSyscallsToOperations(OPERATION_MSGSND, SYSCALL.MSGSND);
+		addSyscallsToOperations(OPERATION_SHMGET, SYSCALL.SHMGET);
+		addSyscallsToOperations(OPERATION_SHMCTL, SYSCALL.SHMCTL);
+		addSyscallsToOperations(OPERATION_SHMAT, SYSCALL.SHMAT);
+		addSyscallsToOperations(OPERATION_MQ_OPEN, SYSCALL.MQ_OPEN);
+		addSyscallsToOperations(OPERATION_MQ_TIMEDSEND, SYSCALL.MQ_TIMEDSEND);
+		addSyscallsToOperations(OPERATION_MQ_TIMEDRECEIVE, SYSCALL.MQ_TIMEDRECEIVE);
+		addSyscallsToOperations(OPERATION_MQ_UNLINK, SYSCALL.MQ_UNLINK);
 	}
 	
 	/**

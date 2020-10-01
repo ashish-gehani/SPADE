@@ -222,7 +222,7 @@ public class LinuxPathResolver{
 			int pathType, 
 			String time, String eventId, SYSCALL syscall,
 			Audit audit){
-		int type = pathType & S_IFMT;
+		final int type = pathType & S_IFMT;
 		switch(type){
 			case S_IFREG: return new FileIdentifier(path, rootFSPath);
 			case S_IFDIR: return new DirectoryIdentifier(path, rootFSPath);

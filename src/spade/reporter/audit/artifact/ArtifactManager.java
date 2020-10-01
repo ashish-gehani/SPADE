@@ -200,18 +200,21 @@ public class ArtifactManager{
 								case OPMConstants.SUBTYPE_LINK:
 								case OPMConstants.SUBTYPE_NAMED_PIPE:
 								case OPMConstants.SUBTYPE_UNIX_SOCKET:
+								case OPMConstants.SUBTYPE_POSIX_MSG_Q:
 									PathIdentifier pathIdentifier = (PathIdentifier)i;
 									append(str, pathIdentifier.rootFSPath);
 									append(str, LinuxPathResolver.PATH_SEPARATOR);
 									append(str, LinuxPathResolver.PATH_SEPARATOR);
 									append(str, LinuxPathResolver.PATH_SEPARATOR);
-									append(str, pathIdentifier.path);
+									append(str, pathIdentifier.path).append(",");
+									append(str, pathIdentifier.getSubtype());
 									break;
 								case OPMConstants.SUBTYPE_MEMORY_ADDRESS: 
 									MemoryIdentifier mem = (MemoryIdentifier)i;
 									append(str, mem.getMemoryAddress()).append(",");
 									append(str, mem.getSize()).append(",");
-									append(str, mem.getTgid());
+									append(str, mem.getTgid()).append(",");
+									append(str, mem.getSubtype());
 									break;
 								case OPMConstants.SUBTYPE_NETWORK_SOCKET:
 									NetworkSocketIdentifier net = (NetworkSocketIdentifier)i;
@@ -220,31 +223,45 @@ public class ArtifactManager{
 									append(str, net.getRemoteHost()).append(",");
 									append(str, net.getRemotePort()).append(",");
 									append(str, net.getProtocol()).append(",");
-									append(str, net.netNamespaceId);
+									append(str, net.netNamespaceId).append(",");
+									append(str, net.getSubtype());
 									break;
 								case OPMConstants.SUBTYPE_UNKNOWN:
 									UnknownIdentifier unknown = (UnknownIdentifier)i;
 									append(str, unknown.getFD()).append(",");
-									append(str, unknown.getTgid());
+									append(str, unknown.getTgid()).append(",");
+									append(str, unknown.getSubtype());
 									break;
 								case OPMConstants.SUBTYPE_UNNAMED_NETWORK_SOCKET_PAIR:
 									UnnamedNetworkSocketPairIdentifier unNet = (UnnamedNetworkSocketPairIdentifier)i;
 									append(str, unNet.fd0).append(",");
 									append(str, unNet.fd1).append(",");
 									append(str, unNet.protocol).append(",");
-									append(str, unNet.tgid);
+									append(str, unNet.tgid).append(",");
+									append(str, unNet.getSubtype());
 									break;
 								case OPMConstants.SUBTYPE_UNNAMED_PIPE:
 									UnnamedPipeIdentifier unPipe = (UnnamedPipeIdentifier)i;
 									append(str, unPipe.fd0).append(",");
 									append(str, unPipe.fd1).append(",");
-									append(str, unPipe.tgid);
+									append(str, unPipe.tgid).append(",");
+									append(str, unPipe.getSubtype());
 									break;
 								case OPMConstants.SUBTYPE_UNNAMED_UNIX_SOCKET_PAIR:
 									UnnamedUnixSocketPairIdentifier unUnix = (UnnamedUnixSocketPairIdentifier)i;
 									append(str, unUnix.fd0).append(",");
 									append(str, unUnix.fd1).append(",");
-									append(str, unUnix.tgid);
+									append(str, unUnix.tgid).append(",");
+									append(str, unUnix.getSubtype());
+									break;
+								case OPMConstants.SUBTYPE_SYSV_MSG_Q:
+								case OPMConstants.SUBTYPE_SYSV_SHARED_MEMORY:
+									SystemVArtifactIdentifier sysv = (SystemVArtifactIdentifier)i;
+									append(str, sysv.id).append(",");
+									append(str, sysv.ouid).append(",");
+									append(str, sysv.ogid).append(",");
+									append(str, sysv.ipcNamespace).append(",");
+									append(str, sysv.getSubtype());
 									break;
 								default: throw new RuntimeException("Unexpected subtype: " + subtype);
 							}
@@ -470,6 +487,8 @@ public class ArtifactManager{
 	private Map<Class<? extends ArtifactIdentifier>, ArtifactConfig> getArtifactConfig(Globals globals){
 		Map<Class<? extends ArtifactIdentifier>, ArtifactConfig> map = 
 				new HashMap<Class<? extends ArtifactIdentifier>, ArtifactConfig>();
+		map.put(PosixMessageQueue.class, 
+				new ArtifactConfig(true, globals.epochs, globals.versions, globals.permissions, true, true, true));
 		map.put(BlockDeviceIdentifier.class, 
 				new ArtifactConfig(true, globals.epochs, globals.versions, globals.permissions, true, true, true));
 		map.put(CharacterDeviceIdentifier.class, 
@@ -503,6 +522,12 @@ public class ArtifactManager{
 		map.put(UnnamedUnixSocketPairIdentifier.class, 
 				new ArtifactConfig(true, globals.epochs, globals.versions, false, 
 						true, globals.versionUnnamedUnixSocketPairs, false));
+		map.put(SystemVSharedMemoryIdentifier.class, 
+				new ArtifactConfig(true, globals.epochs, globals.versions, false, 
+						true, true, false));
+		map.put(SystemVMessageQueueIdentifier.class, 
+				new ArtifactConfig(true, globals.epochs, globals.versions, false, 
+						true, true, false));
 		return map;
 	}
 	
