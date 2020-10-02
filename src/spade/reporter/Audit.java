@@ -1230,6 +1230,10 @@ public class Audit extends AbstractReporter {
 	public final ArtifactManager getArtifactManager(){
 		return artifactManager;
 	}
+	
+	public final IPCManager getIPCManager(){
+		return ipcManager;
+	}
 
 	private AuditEventReader getAuditEventReader(String spadeAuditBridgeCommand, 
 			InputStream stdoutStream,
@@ -1239,7 +1243,7 @@ public class Audit extends AbstractReporter {
 		try{
 			// Create the audit event reader using the STDOUT of the spadeAuditBridge process
 			AuditEventReader auditEventReader = new AuditEventReader(spadeAuditBridgeCommand, 
-					stdoutStream, FAIL_FAST);
+					stdoutStream);
 			if(outputLogFilePath != null){
 				auditEventReader.setOutputLog(outputLogFilePath, recordsToRotateOutputLogAfter);
 			}
@@ -2239,7 +2243,6 @@ public class Audit extends AbstractReporter {
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		try {
-			
 			processManager.processSeenInUnsupportedSyscall(eventData); // Always set first because that is what is done in spadeAuditBridge and it is updated if syscall handled.
 			
 			int syscallNum = HelperFunctions.parseInt(eventData.get(AuditEventReader.SYSCALL), -1);

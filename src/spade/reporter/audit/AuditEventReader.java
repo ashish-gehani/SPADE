@@ -32,10 +32,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import org.apache.commons.lang.exception.ExceptionUtils;
+import org.apache.commons.lang.StringUtils;
 
 import spade.core.Settings;
 import spade.utility.FileUtility;
@@ -48,11 +46,12 @@ import spade.utility.HelperFunctions;
  * contiguously and are not spread out.
  * 
  */
-public class AuditEventReader {
+public class AuditEventReader{
 
 	private Logger logger = Logger.getLogger(this.getClass().getName());
 
-	public static final String ARG0 = "a0",
+	public static final String 
+			ARG0 = "a0",
 			ARG1 = "a1",
 			ARG2 = "a2",
 			ARG3 = "a3",
@@ -62,6 +61,7 @@ public class AuditEventReader {
 			EUID = "euid",
 			EVENT_ID = "eventid",
 			EXECVE_ARGC = "execve_argc",
+			ARGC = "argc",
 			EXECVE_PREFIX = "execve_",
 			EXIT = "exit",
 			FD = "fd",
@@ -81,6 +81,7 @@ public class AuditEventReader {
 			NAMETYPE_PREFIX = "nametype",
 			NAMETYPE_UNKNOWN = "UNKNOWN",
 			PATH_PREFIX = "path",
+			ITEM = "item",
 			PID = "pid",
 			PPID = "ppid",
 			RECORD_TYPE_CWD = "CWD",
@@ -104,6 +105,7 @@ public class AuditEventReader {
 			RECORD_TYPE_NETFILTER_HOOK = "NETFILTER_HOOK",
 			RECORD_TYPE_KEY = "type",
 			SADDR = "saddr",
+			NAME = "name",
 			SGID = "sgid",
 			SUCCESS = "success",
 			SUCCESS_NO = "no",
@@ -119,7 +121,6 @@ public class AuditEventReader {
 			UNIT_ITERATION = "unit_iteration",
 			UNIT_TIME = "unit_time",
 			UNIT_COUNT = "unit_count",
-			UNIT_DEPS_COUNT = "unit_deps_count",
 			USER_MSG_SPADE_AUDIT_HOST_KEY = "spade_host_msg",
 			KMODULE_RECORD_TYPE = "netio_module_record",
 			KMODULE_DATA_KEY = "netio_intercepted",
@@ -163,62 +164,33 @@ public class AuditEventReader {
 			NF_IP_VERSION_VALUE_IPV4 = "IPV4",
 			NF_IP_VERSION_VALUE_IPV6 = "IPV6",
 			NF_NET_NS_INUM_KEY = "nf_net_ns";
-	
+
 	//Reporting variables
 	private boolean reportingEnabled = false;
 	private long reportEveryMs;
 	private long startTime, lastReportedTime;
 	private long lastReportedRecordCount, recordCount;
 
-	// Group 1: pid
-	// Group 2: unitid
-	// Group 3: iteration
-	// Group 4: time
-	// Group 5: count
-	private final Pattern pattern_unit = 
-			Pattern.compile("\\(pid=(\\d+) thread_time=(\\d+\\.\\d+) unitid=(\\d+) iteration=(\\d+) time=(\\d+\\.\\d+) count=(\\d+)\\)");
-	
-	// Group 1: key
-	// Group 2: value
-	private final Pattern pattern_key_value = Pattern.compile("(\\w+)=\"*((?<=\")[^\"]+(?=\")|([^\\s]+))\"*");
-
-	// Group 1: node
-	// Group 2: type
-	// Group 3: time
-	// Group 4: recordid
-	private final Pattern pattern_message_start = Pattern.compile("(?:node=(\\S+) )?type=(.+) msg=audit\\(([0-9\\.]+)\\:([0-9]+)\\):\\s*");
-	
-	// Group 1: cwd
-	//cwd is either a quoted string or an unquoted string in which case it is in hex format
-	private final Pattern pattern_cwd = Pattern.compile("cwd=(\".+\"|[a-zA-Z0-9]+)");
-
-	// Group 1: item number
-	// Group 2: name
-	// Group 3: mode
-	// Group 4: nametype
-	//name is either a quoted string or an unquoted string in which case it is in hex format
-//	private static final Pattern pattern_path = Pattern.compile("item=([0-9]*) name=(\".+\"|[a-zA-Z0-9]+|\\(null\\)) .*(?:mode=([0-9]+) ).*nametype=([a-zA-Z]*)");
-
 	/**
 	 * Buffers all the records for the current event being read
 	 */
-	private final Set<String> currentEventRecords = new HashSet<String>();
-	
+	private final Set<AuditRecord> currentEventRecords = new HashSet<AuditRecord>();
+
 	/**
 	 * Keeps track of the current event id being buffered
 	 */
-	private Long currentEventId = -1L;
+	private String currentEventIdString = null;
 
 	/**
 	 * Id of the stream that is read by this class
 	 */
 	private String streamId;
-	
+
 	/**
 	 *	The stream to read from by this class
 	 */
 	private BufferedReader stream;
-	
+
 	private long rotateAfterRecordCount = 0;
 	private String outputLogFile = null;
 	private PrintWriter outputLogWriter = null;
@@ -226,22 +198,10 @@ public class AuditEventReader {
 	private long recordsWrittenToOutputLog = 0;
 
 	/**
-	 * Used to find out if there is pending UBSI event before reading more 
-	 */
-	private boolean pendingUBSIEvent = false;
-	
-	/**
 	 * Flag to keep track of end of file/stream
 	 */
 	private boolean EOF = false;
-	
-	/**
-	 * Flag to tell the reader how to behave in case of unexpected data format.
-	 * if true then throw an exception.
-	 * if false then do best effort to continue.
-	 */
-	private boolean failfast;
-	
+
 	/**
 	 * Create instance of the class that reads from the given stream
 	 * 
@@ -249,7 +209,7 @@ public class AuditEventReader {
 	 * @param streamToReadFrom The stream to read from
 	 * @throws Exception IllegalArgumentException or IOException
 	 */
-	public AuditEventReader(String streamId, InputStream streamToReadFrom, boolean failfast) throws Exception{
+	public AuditEventReader(String streamId, InputStream streamToReadFrom) throws Exception{
 		if(streamId == null){
 			throw new IllegalArgumentException("Stream ID cannot be NULL");
 		}
@@ -259,8 +219,6 @@ public class AuditEventReader {
 
 		stream = new BufferedReader(new InputStreamReader(streamToReadFrom));
 
-		this.failfast = failfast;
-		
 		setGlobalsFromConfig();
 	}
 
@@ -303,7 +261,7 @@ public class AuditEventReader {
 		this.rotateAfterRecordCount = rotateAfterRecordCount < 1 ? 0 : rotateAfterRecordCount;
 		outputLogWriter = new PrintWriter(outputLogFile);
 	}
-	
+
 	private void writeToOutputLog(String record){
 		if(outputLogWriter != null){
 			try{
@@ -319,219 +277,6 @@ public class AuditEventReader {
 			}catch(Exception e){
 				logger.log(Level.WARNING, "Failed to write out to output log", e);
 			}
-		}
-	}
-	
-
-	private void printStats(){
-		long currentTime = System.currentTimeMillis();
-		float overallTime = (float) (currentTime - startTime) / 1000; // # in secs
-		float intervalTime = (float) (currentTime - lastReportedTime) / 1000; // # in secs
-		if(overallTime > 0 && intervalTime > 0){
-			float overallRecordVolume = (float) recordCount / overallTime; // # records/sec
-			float intervalRecordVolume = (float) (recordCount - lastReportedRecordCount) / intervalTime; // # records/sec
-			logger.log(Level.INFO, "Overall rate: {0} records/sec in {1} seconds. Interval rate: {2} records/sec in {3} seconds.", 
-					new Object[]{overallRecordVolume, overallTime, intervalRecordVolume, intervalTime});
-		}
-	}
-	
-	/**
-	 * Returns the event id from the audit record.
-	 * 
-	 * Expected format of line -> "type='TYPE' msg=audit('time':'eventid'):"
-	 * 
-	 * @param line audit record
-	 * @return event id. NULL if not found
-	 */
-	private Long getEventId(String line){
-		try{
-			int firstIndexOfColon = line.indexOf(':');
-			int firstIndexOfClosingBracket = line.indexOf(')');
-			return Long.parseLong(line.substring(firstIndexOfColon+1, firstIndexOfClosingBracket));
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to get event id from line: " + line, e);
-			return null;
-		}
-	}
-	
-	/**
-	 * Returns the time from the audit record.
-	 * 
-	 * Expected format of line -> "type='TYPE' msg=audit('time':'eventid'):"
-	 * 
-	 * @param line audit record
-	 * @return time. NULL if not found
-	 */
-	private String getEventTime(String line){
-		try{
-			int firstIndexOfOpeningBracket = line.indexOf('(');
-			int firstIndexOfColon = line.indexOf(':');
-			String timeStr = line.substring(firstIndexOfOpeningBracket+1, firstIndexOfColon);
-			Double.parseDouble(timeStr); // if valid double then continues
-			return timeStr;
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to get time from line: " + line, e);
-			return null;
-		}
-	}
-	
-	/**
-	 * Returns a map of key values for the event that is read from the stream
-	 * 
-	 * Null return value means EOF
-	 * 
-	 * Reads on the assumption that all records for an event are contiguously placed
-	 * 
-	 * @return map of key values of the read audit event
-	 * @throws Exception IOException
-	 */
-	public Map<String, String> readEventData() throws Exception{
-
-		if(reportingEnabled){
-			long currentTime = System.currentTimeMillis();
-			if((currentTime - lastReportedTime) >= reportEveryMs){
-				printStats();
-				lastReportedTime = currentTime;
-				lastReportedRecordCount = recordCount;
-			}
-		}
-
-		/*
-		 * Logic:
-		 * 
-		 * Input -> all records have event ids exception UBSI_EXIT and UBSI_DEP
-		 * All UBSI events have only one record per event
-		 * 
-		 * Before reading further from the stream check if there is a pending UBSI
-		 * event. If there is then don't read from the stream yet and return the 
-		 * pending event. If no pending UBSI event then read from the stream. If non-
-		 * UBSI records being read then read until the event id changes and then return
-		 * the event that is read so far. If UBSI event encountered while there is a
-		 * non-UBSI event buffered then first return that event (after setting pending-
-		 * UBSIEvent to true and buffering that for the next readEventData call.
-		 * 
-		 * If EOF reached then keep returning NULL on all future calls.
-		 * 
-		 */
-		
-		if(EOF){
-			return null;
-		}else{
-			Map<String, String> eventData = null;
-			
-			if(pendingUBSIEvent){
-				Set<String> copy = new HashSet<String>();
-				copy.addAll(currentEventRecords);
-				currentEventRecords.clear();
-				currentEventId = -1L;
-				pendingUBSIEvent = false;
-				eventData = getEventMap(copy);
-			}else{
-				String line = null;
-				
-				while((line = stream.readLine()) != null){
-					Long eventId = getEventId(line);
-					String eventTime = getEventTime(line);
-					
-					if(eventId == null || eventTime == null){
-						if(failfast){
-							throw new Exception("Invalid time '"+eventTime+"' or event-id '"+eventId+"' in record: " + line);
-						}else{
-							continue;
-						}
-					}
-					
-					writeToOutputLog(line);
-					if(reportingEnabled){
-						recordCount++;
-					}
-					if(line.contains(RECORD_TYPE_KEY+"="+RECORD_TYPE_PROCTITLE) || 
-							line.contains(RECORD_TYPE_KEY+"="+RECORD_TYPE_UNKNOWN_PREFIX) || 
-							line.contains(RECORD_TYPE_KEY+"="+RECORD_TYPE_EOE)){
-						continue; // ignore these records
-					}else{
-						String UBSIRecord = null;
-						if(line.contains(RECORD_TYPE_KEY+"=" + RECORD_TYPE_UBSI_EXIT) ||
-								line.contains(RECORD_TYPE_KEY+"=" + RECORD_TYPE_UBSI_DEP) || 
-								line.contains(RECORD_TYPE_KEY+"=" + RECORD_TYPE_UBSI_ENTRY)){
-							UBSIRecord = line;
-						}
-						
-						if(UBSIRecord == null){
-							
-							if(currentEventId.equals(-1L)){
-								currentEventId = eventId;
-								currentEventRecords.add(line); //add the next event record
-								continue;
-							}else{
-								if(!currentEventId.equals(eventId)){// event id changed hence publish the things in buffer
-									currentEventId = eventId;
-									Set<String> records = new HashSet<String>(currentEventRecords);
-									currentEventRecords.clear();
-									currentEventRecords.add(line); //add the next event record
-									eventData = getEventMap(records);
-									break;
-								}else{ //if they are equal
-									currentEventRecords.add(line);
-									continue;
-								}
-							}
-							
-						}else if(UBSIRecord != null && currentEventRecords.isEmpty()){
-							// No pending event and only UBSI event then return that
-							Set<String> records = new HashSet<String>();
-							records.add(UBSIRecord);
-							currentEventId = -1L;
-							pendingUBSIEvent = false;
-							eventData = getEventMap(records);
-							break;
-						}else if(UBSIRecord != null && !currentEventRecords.isEmpty()){
-							// Has a pending event. add the UBSI record to pending and return the existing event
-							Set<String> records = new HashSet<String>(currentEventRecords);
-							currentEventRecords.clear();
-							currentEventRecords.add(UBSIRecord);
-							currentEventId = -1L;
-							pendingUBSIEvent = true;
-							eventData = getEventMap(records);
-							break;
-						}
-					}
-				}
-				// EOF
-				if(line == null){
-					EOF = true;
-					if(currentEventRecords.isEmpty()){
-						return null;
-					}else{
-						Set<String> records = new HashSet<String>(currentEventRecords);
-						currentEventRecords.clear();
-						currentEventId = -1L;
-						pendingUBSIEvent = false;
-						return getEventMap(records);
-					}
-				}
-			}
-			return eventData;
-		}
-	}
-	
-	/**
-	 * Passes all the records through the function {@link #parseEventLine(String) parseEventLine}
-	 * and returns a map which contains keys and values for all the records
-	 * 
-	 * @param records records of a single event
-	 * @return map of key values
-	 */
-	private Map<String, String> getEventMap(Set<String> records) throws Exception{
-		try{
-			Map<String, String> eventMap = new HashMap<String, String>();
-			for(String record : records){
-				eventMap.putAll(parseEventLine(record));
-			}
-			return eventMap;
-		}catch(Exception e){
-			throw new MalformedAuditDataException(e.getMessage()+ 
-					" ["+ExceptionUtils.getStackTrace(e)+"] ", String.valueOf(records));
 		}
 	}
 
@@ -555,270 +300,473 @@ public class AuditEventReader {
 		}
 	}
 
-	/**
-	 * Parses the line to get unit information out of it.
-	 * 
-	 * Expected format for unit information ...'(pid=1 unitid=2 iteration=3 time=4 count=5)'...
-	 * 
-	 * Returns a map which contains the keys in the above-given format but the keys are
-	 * defined as constants in this class.
-	 * 
-	 * @param line audit record with unit information
-	 * @return map of key values for a unit
-	 */
-	private List<Map<String, String>> parseUnitsKeyValues(String line){
-		List<Map<String, String>> unitsKeyValues = new ArrayList<Map<String, String>>();
-		Matcher matcher2 = pattern_unit.matcher(line);
-		while(matcher2.find()){
-			String pid = matcher2.group(1);
-			String thread_start_time = matcher2.group(2);
-			String unitid = matcher2.group(3);
-			String iteration = matcher2.group(4);
-			String time = matcher2.group(5);
-			String count = matcher2.group(6);
-			
-			Map<String, String> unitKeyValues = new HashMap<String, String>();
-			unitKeyValues.put(UNIT_PID, pid);
-			unitKeyValues.put(UNIT_THREAD_START_TIME, thread_start_time);
-			unitKeyValues.put(UNIT_UNITID, unitid);
-			unitKeyValues.put(UNIT_ITERATION, iteration);
-			unitKeyValues.put(UNIT_TIME, time);
-			unitKeyValues.put(UNIT_COUNT, count);
-			unitsKeyValues.add(unitKeyValues);
+	private void printStats(){
+		long currentTime = System.currentTimeMillis();
+		float overallTime = (float) (currentTime - startTime) / 1000; // # in secs
+		float intervalTime = (float) (currentTime - lastReportedTime) / 1000; // # in secs
+		if(overallTime > 0 && intervalTime > 0){
+			float overallRecordVolume = (float) recordCount / overallTime; // # records/sec
+			float intervalRecordVolume = (float) (recordCount - lastReportedRecordCount) / intervalTime; // # records/sec
+			logger.log(Level.INFO, "Overall rate: {0} records/sec in {1} seconds. Interval rate: {2} records/sec in {3} seconds.", 
+					new Object[]{overallRecordVolume, overallTime, intervalRecordVolume, intervalTime});
 		}
-		return unitsKeyValues;
+	}
+
+	public final Map<String, String> readEventData() throws Exception{
+		if(reportingEnabled){
+			long currentTime = System.currentTimeMillis();
+			if((currentTime - lastReportedTime) >= reportEveryMs){
+				printStats();
+				lastReportedTime = currentTime;
+				lastReportedRecordCount = recordCount;
+			}
+		}
+
+		while(!EOF){
+			final String line = stream.readLine();
+			if(line == null){
+				EOF = true;
+				break;
+			}
+			writeToOutputLog(line);
+
+			if(reportingEnabled){
+				recordCount++;
+			}
+
+			// Can throw the malformed audit data exception
+			final AuditRecord record = new AuditRecord(line);
+
+			if(record.type.equals(RECORD_TYPE_EOE)
+					|| record.type.equals(RECORD_TYPE_PROCTITLE)
+					|| record.type.startsWith(RECORD_TYPE_UNKNOWN_PREFIX)){
+				continue;
+			}
+
+			if(currentEventIdString == null){
+				// First event
+				currentEventIdString = record.id;
+				currentEventRecords.add(record);
+				continue;
+			}
+
+			if(currentEventIdString.equals(record.id)){
+				currentEventRecords.add(record);
+				continue;
+			}else{
+				final Set<AuditRecord> auditRecordsToFlush = new HashSet<AuditRecord>();
+				auditRecordsToFlush.addAll(currentEventRecords);
+
+				currentEventRecords.clear();
+				currentEventRecords.add(record);
+				currentEventIdString = record.id;
+
+				return convertAuditRecordsToEventMap(auditRecordsToFlush);
+			}
+		}
+
+		if(currentEventRecords.isEmpty()){
+			return null;
+		}
+
+		final Set<AuditRecord> auditRecordsToFlush = new HashSet<AuditRecord>();
+		auditRecordsToFlush.addAll(currentEventRecords);
+
+		currentEventRecords.clear();
+
+		return convertAuditRecordsToEventMap(auditRecordsToFlush);
+	}
+
+	private final Map<String, String> convertAuditRecordsToEventMap(final Set<AuditRecord> auditRecords)
+			throws Exception{
+		try{
+			final Map<String, String> eventMap = new HashMap<String, String>();
+			for(final AuditRecord auditRecord : auditRecords){
+				final Map<String, String> recordMap = parseAuditRecord(auditRecord);
+				if(recordMap != null){
+					eventMap.putAll(recordMap);
+				}
+			}
+			return eventMap;
+		}catch(Exception e){
+			throw new MalformedAuditDataException(
+					"Failed to create event map from audit records", String.valueOf(auditRecords), e);
+		}
+	}
+
+	private final Map<String, String> parseDaemonStartRecord(final AuditRecord auditRecord) throws Exception{
+		final Map<String, String> auditRecordKeyValues = new HashMap<String, String>();
+		auditRecordKeyValues.put(TIME, auditRecord.time);
+		auditRecordKeyValues.put(EVENT_ID, auditRecord.id);
+		auditRecordKeyValues.put(RECORD_TYPE_KEY, RECORD_TYPE_DAEMON_START);
+		return auditRecordKeyValues;
 	}
 	
-	private String _parseAuditString(String originalRecord, String key){
-		int keyStartIndex = originalRecord.indexOf(key);
+	private final Map<String, String> parseUBSIRecord(final AuditRecord auditRecord) throws Exception{
+		final Map<String, String> auditRecordKeyValues = new HashMap<String, String>();
+
+		final String dataAfterUnit;
+
+		if(auditRecord.type.equals(RECORD_TYPE_UBSI_ENTRY)){
+			/*
+			 * UBSI_ENTRY format:
+			 * -> type=UBSI_ENTRY msg=ubsi(1601572509.571:501): 
+			 * 		unit=(pid=701 thread_time=1601572509.571 unitid=901 iteration=0 time=1601572509.571 count=0) 
+			 * 		ppid=700 pid=701 auid=1000 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 
+			 * 		tty=pts0 ses=3 comm="synth" exe="" key=(null)
+			 */
+			auditRecordKeyValues.putAll(parseUnitKeyValuePairs(auditRecord, "unit", ""));
+			dataAfterUnit = StringUtils.substringAfter(auditRecord.data, ") ");
+		}else if(auditRecord.type.equals(RECORD_TYPE_UBSI_EXIT)){
+			/*
+			 * UBSI_EXIT format:
+			 * -> type=UBSI_EXIT msg=ubsi(1601572509.571:507): 
+			 * 		ppid=700 pid=701 auid=1000 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 
+			 * 		tty=pts0 ses=3 comm="synth" exe="" key=(null)
+			 */
+			dataAfterUnit = auditRecord.data;
+		}else if(auditRecord.type.equals(RECORD_TYPE_UBSI_DEP)){
+			/*
+			 * UBSI_DEP format:
+			 * -> type=UBSI_DEP msg=ubsi(1601572509.571:506): 
+			 * 		dep=(pid=701 thread_time=1601572509.571 unitid=901 iteration=0 time=1601572509.571 count=0), 
+			 * 		unit=(pid=702 thread_time=1601572509.571 unitid=898 iteration=0 time=1601572509.571 count=0) 
+			 * 		ppid=700 pid=702 auid=1000 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 
+			 * 		tty=pts0 ses=3 comm="synth" exe="" key=(null)
+			 */
+			auditRecordKeyValues.putAll(parseUnitKeyValuePairs(auditRecord, "dep", "0"));
+			auditRecordKeyValues.putAll(parseUnitKeyValuePairs(auditRecord, "unit", ""));
+			dataAfterUnit = StringUtils.substringAfter(auditRecord.data, ") ");
+		}else{
+			dataAfterUnit = null;
+			throw new MalformedAuditDataException("Unexpected UBSI record type '" + auditRecord.type + "'", auditRecord.toString());
+		}
+
+		if(dataAfterUnit == null){
+			throw new MalformedAuditDataException("Missing process data in '" + auditRecord.type + "' record", auditRecord.toString());
+		}
+
+		final Map<String, String> processMap = HelperFunctions.parseKeyValPairs(dataAfterUnit);
+		processMap.put(COMM, mustParseAuditString(dataAfterUnit, COMM));
+
+		auditRecordKeyValues.putAll(processMap);
+
+		auditRecordKeyValues.put(TIME, auditRecord.time);
+		auditRecordKeyValues.put(EVENT_ID, auditRecord.id);
+		auditRecordKeyValues.put(RECORD_TYPE_KEY, auditRecord.type);
+
+		return auditRecordKeyValues;
+	}
+	
+	private final Map<String, String> parseNetioInterceptedRecord(final AuditRecord auditRecord,
+			final String netioInterceptedSubRecord) throws Exception{
+		/*
+		 * netio_intercepted format
+		 * -> type=USER msg=audit(1601572509.571:501): 
+		 * 		netio_intercepted="syscall=%d exit=%ld success=%d fd=%d pid=%d ppid=%d 
+		 * 		uid=%u euid=%u suid=%u fsuid=%u gid=%u egid=%u sgid=%u fsgid=%u 
+		 * 		comm=%s sock_type=%d local_saddr=%s remote_saddr=%s remote_saddr_size=%d net_ns_inum=%ld"
+		 */
+		final Map<String, String> auditRecordKeyValues = HelperFunctions.parseKeyValPairs(netioInterceptedSubRecord);
+		auditRecordKeyValues.put(COMM, mustParseAuditString(netioInterceptedSubRecord, COMM));
+		auditRecordKeyValues.put(TIME, auditRecord.time);
+		auditRecordKeyValues.put(EVENT_ID, auditRecord.id);
+		auditRecordKeyValues.put(RECORD_TYPE_KEY, KMODULE_RECORD_TYPE);
+		return auditRecordKeyValues;
+	}
+	
+	private final Map<String, String> parseUbsiInterceptedRecord(final AuditRecord auditRecord,
+			final String ubsiInterceptedSubRecord) throws Exception{
+		/*
+		 * ubsi_intercepted format
+		 * -> type=USER msg=audit(1601572509.571:501): 
+		 * 		ubsi_intercepted="syscall=%d success=%s exit=%ld a0=%x a1=%x a2=0 a3=0 
+	 	 * 		items=0 ppid=%d pid=%d uid=%u gid=%u euid=%u suid=%u fsuid=%u egid=%u sgid=%u fsgid=%u comm=%s"
+	 	 * 
+	 	 */
+		final Map<String, String> auditRecordKeyValues = HelperFunctions.parseKeyValPairs(ubsiInterceptedSubRecord);
+		auditRecordKeyValues.put(COMM, mustParseAuditString(ubsiInterceptedSubRecord, COMM));
+		auditRecordKeyValues.put(TIME, auditRecord.time);
+		auditRecordKeyValues.put(EVENT_ID, auditRecord.id);
+		auditRecordKeyValues.put(RECORD_TYPE_KEY, RECORD_TYPE_SYSCALL);
+		return auditRecordKeyValues;
+	}
+	
+	private final Map<String, String> parseNamespaceRecord(final AuditRecord auditRecord, final Map<String, String> dataMap){
+		/*
+		 * namespaces format
+		 * -> type=USER msg=audit(1601572509.571:501): 
+		 * 		ns_syscall=%d ns_subtype=ns_namespaces ns_operation=ns_%s ns_ns_pid=%ld ns_host_pid=%ld 
+		 * 		ns_inum_mnt=%ld ns_inum_net=%ld ns_inum_pid=%ld ns_inum_pid_children=%ld ns_inum_usr=%ld ns_inum_ipc=%ld
+		 */
+		final Map<String, String> auditRecordKeyValues = new HashMap<String, String>();
+		auditRecordKeyValues.putAll(dataMap);
+		return auditRecordKeyValues;
+	}
+
+	private final Map<String, String> parseNetfilterRecord(final AuditRecord auditRecord, final Map<String, String> dataMap){
+		/* 
+		 * netfilter (1) format
+		 * -> type=USER msg=audit(1601572509.571:501): 
+		 * 		version=%s nf_subtype=nf_netfilter nf_hook=%s nf_priority=%s nf_id=%p nf_src_ip=%s nf_src_port=%d 
+		 * 		nf_dst_ip=%s nf_dst_port=%d nf_protocol=%s nf_ip_version=%s nf_net_ns=%u
+		 * 
+		 * netfilter (2) format
+		 * -> type=USER msg=audit(1601572509.571:501): 
+		 * 		version=%s nf_subtype=nf_netfilter nf_hook=%s nf_priority=%s nf_id=%p nf_src_ip=%s nf_src_port=%d 
+		 * 		nf_dst_ip=%s nf_dst_port=%d nf_protocol=%s nf_ip_version=%s nf_net_ns=-1
+		 * 
+		 * netfilter (3) format
+		 * -> type=USER msg=audit(1601572509.571:501): 
+		 * 		version=%s nf_subtype=nf_netfilter nf_hook=%s nf_priority=%s nf_id=%p nf_src_ip=%s nf_src_port=%d 
+		 * 		nf_dst_ip=%s nf_dst_port=%d nf_protocol=%s nf_ip_version=%s
+		 */
+		final Map<String, String> auditRecordKeyValues = new HashMap<String, String>();
+		auditRecordKeyValues.putAll(dataMap);
+		auditRecordKeyValues.put(TIME, auditRecord.time);
+		auditRecordKeyValues.put(EVENT_ID, auditRecord.id);
+		auditRecordKeyValues.put(RECORD_TYPE_KEY, RECORD_TYPE_NETFILTER_HOOK);
+		return auditRecordKeyValues;
+	}
+	
+	private final Map<String, String> parseSyscallRecord(final AuditRecord auditRecord) throws Exception{
+		/*
+		 * -> node=ubuntu-bionic type=SYSCALL msg=audit(1601587102.900:16403): 
+		 * 		arch=c000003e syscall=0 success=yes exit=30 a0=6 a1=7fff06b61700 a2=1000 a3=0 items=0 
+		 * 		ppid=26414 pid=26415 auid=1000 uid=1002 gid=1002 euid=1002 suid=1002 fsuid=1002 egid=1002 sgid=1002 fsgid=1002 
+		 * 		tty=(none) ses=3 comm="screen" exe="/usr/bin/screen" key=(null)
+		 */
+		final Map<String, String> auditRecordKeyValues = HelperFunctions.parseKeyValPairs(auditRecord.data);
+		auditRecordKeyValues.put(COMM, mustParseAuditString(auditRecord.data, COMM));
+		auditRecordKeyValues.put(TIME, auditRecord.time);
+		auditRecordKeyValues.put(EVENT_ID, auditRecord.id);
+		auditRecordKeyValues.put(RECORD_TYPE_KEY, RECORD_TYPE_SYSCALL);
+		return auditRecordKeyValues;
+	}
+	
+	private final Map<String, String> parseCwdRecord(final AuditRecord auditRecord) throws Exception{
+		/*
+		 * -> node=ubuntu-bionic type=CWD msg=audit(1601587106.252:16451): cwd="/"
+		 */
+		final Map<String, String> auditRecordKeyValues = HelperFunctions.parseKeyValPairs(auditRecord.data);
+		auditRecordKeyValues.put(CWD, mustParseAuditString(auditRecord.data, CWD));
+		return auditRecordKeyValues;
+	}
+	
+	private final Map<String, String> parsePathRecord(final AuditRecord auditRecord) throws Exception{
+		/*
+		 * -> node=ubuntu-bionic type=PATH msg=audit(1601587106.252:16451): 
+		 * 		item=0 name="/usr/share/dbus-1/system-services" inode=32602 dev=08:01 mode=040755 
+		 * 		ouid=0 ogid=0 rdev=00:00 nametype=NORMAL cap_fp=0000000000000000 cap_fi=0000000000000000 
+		 * 		cap_fe=0 cap_fver=0
+		 */
+		final Map<String, String> auditRecordKeyValues = new HashMap<String, String>();
+		final Map<String, String> tempMap = HelperFunctions.parseKeyValPairs(auditRecord.data);
+
+		final String itemNumber = tempMap.get(ITEM);
+		final String mode = tempMap.get(MODE_PREFIX) == null ? "0" : tempMap.get(MODE_PREFIX);
+		final String nametype = tempMap.get(NAMETYPE_PREFIX);
+		final String name = parseAuditString(auditRecord.data, NAME);
+
+		auditRecordKeyValues.put(MODE_PREFIX + itemNumber, mode);
+		auditRecordKeyValues.put(NAMETYPE_PREFIX + itemNumber, nametype);
+		auditRecordKeyValues.put(PATH_PREFIX + itemNumber, name);
+		return auditRecordKeyValues;
+	}
+	
+	private final Map<String, String> parseExecveRecord(final AuditRecord auditRecord) throws Exception{
+		/*
+		 * -> node=ubuntu-bionic type=EXECVE msg=audit(1601587110.584:16741): argc=1 a0="./server_mq"
+		 */
+		final Map<String, String> auditRecordKeyValues = new HashMap<String, String>();
+		final Map<String, String> tempMap = HelperFunctions.parseKeyValPairs(auditRecord.data);
+
+		final String argcString = tempMap.get(ARGC);
+		final Integer argc = HelperFunctions.parseInt(argcString, null);
+		if(argc != null){
+			for(int i = 0; i < argc; i++){
+				final String key = "a" + i;
+				final String prefixedKey = EXECVE_PREFIX + key;
+				final String value = parseAuditString(auditRecord.data, key);
+				if(value != null){
+					auditRecordKeyValues.put(prefixedKey, value);
+				}else{
+					auditRecordKeyValues.put(prefixedKey, "");
+				}
+			}
+		}
+		auditRecordKeyValues.put(EXECVE_ARGC, argcString);
+		return auditRecordKeyValues;
+	}
+	
+	private final Map<String, String> parseSimpleKeyValuePairRecord(final AuditRecord auditRecord) throws Exception{
+		/*
+		 * -> node=ubuntu-bionic type=FD_PAIR msg=audit(1601587107.820:16569): fd0=3 fd1=4
+		 * 
+		 * -> node=ubuntu-bionic type=SOCKADDR msg=audit(1601587107.820:16569): saddr=0100
+		 * 
+		 * -> node=ubuntu-bionic type=MMAP msg=audit(1601587110.584:16743): fd=3 flags=0x2
+		 * 
+		 * -> node=ubuntu-bionic type=IPC msg=audit(1601587136.164:19493): ouid=1000 ogid=1000 mode=0666
+		 * 
+		 * -> node=ubuntu-bionic type=MQ_SENDRECV msg=audit(1601587110.592:16933): 
+		 * 		mqdes=3 msg_len=266 msg_prio=0 abs_timeout_sec=0 abs_timeout_nsec=0
+		 */
+		return HelperFunctions.parseKeyValPairs(auditRecord.data);
+	}
+	
+	private final Map<String, String> parseAuditRecord(final AuditRecord auditRecord) throws Exception{
+		switch(auditRecord.type){
+			case RECORD_TYPE_DAEMON_START:
+				return parseDaemonStartRecord(auditRecord);
+			case RECORD_TYPE_UBSI_ENTRY:
+			case RECORD_TYPE_UBSI_EXIT:
+			case RECORD_TYPE_UBSI_DEP:
+				return parseUBSIRecord(auditRecord);
+			case RECORD_TYPE_USER:{
+				final String netioInterceptedSubRecord = 
+						StringUtils.substringBetween(auditRecord.data, KMODULE_DATA_KEY + "=\"", "\"");
+				if(netioInterceptedSubRecord != null){
+					return parseNetioInterceptedRecord(auditRecord, netioInterceptedSubRecord);
+				}
+				
+				final String ubsiInterceptedSubRecord = 
+						StringUtils.substringBetween(auditRecord.data, UBSI_INTERCEPTED_DATA_KEY + "=\"", "\"");
+				if(ubsiInterceptedSubRecord != null){
+					return parseUbsiInterceptedRecord(auditRecord, ubsiInterceptedSubRecord);
+				}
+				
+				final Map<String, String> dataMap = HelperFunctions.parseKeyValPairs(auditRecord.data);
+				if(NS_SUBTYPE_VALUE.equals(dataMap.get(NS_SUBTYPE_KEY))){
+					return parseNamespaceRecord(auditRecord, dataMap);
+				}
+
+				if(NF_SUBTYPE_VALUE.equals(dataMap.get(NF_SUBTYPE_KEY))){
+					return parseNetfilterRecord(auditRecord, dataMap);
+				}
+			}
+			break;
+			case RECORD_TYPE_SYSCALL:
+				return parseSyscallRecord(auditRecord);
+			case RECORD_TYPE_CWD:
+				return parseCwdRecord(auditRecord);
+			case RECORD_TYPE_PATH:
+				return parsePathRecord(auditRecord);
+			case RECORD_TYPE_EXECVE:
+				return parseExecveRecord(auditRecord);
+			case RECORD_TYPE_FD_PAIR:
+			case RECORD_TYPE_SOCKADDR:
+			case RECORD_TYPE_MMAP:
+			case RECORD_TYPE_IPC:
+			case RECORD_TYPE_MQ_SENDRECV:
+				return parseSimpleKeyValuePairRecord(auditRecord);
+		}
+		return null;
+	}
+
+	private Map<String, String> parseUnitKeyValuePairs(final AuditRecord auditRecord, final String unitKey,
+			final String keysSuffix)
+			throws Exception{
+		final String unitKeyValuesString = StringUtils.substringBetween(auditRecord.data, unitKey + "=(", ")"); 
+		if(unitKeyValuesString == null){
+			throw new MalformedAuditDataException(
+					"Record doesn't contain the unit in the format '"+unitKey+"=(<key-value-pairs>)'", auditRecord.toString());
+		}
+
+		final List<String> missingUnitFields = new ArrayList<String>();
+		final String pid = StringUtils.substringBetween(unitKeyValuesString, "pid=", " ");
+		if(pid == null){
+			missingUnitFields.add("pid");
+		}
+		final String threadTime = StringUtils.substringBetween(unitKeyValuesString, " thread_time=", " ");
+		if(threadTime == null){
+			missingUnitFields.add("thread_time");
+		}
+		final String unitId = StringUtils.substringBetween(unitKeyValuesString, " unitid=", " ");
+		if(unitId == null){
+			missingUnitFields.add("unitid");
+		}
+		final String iteration = StringUtils.substringBetween(unitKeyValuesString, " iteration=", " ");
+		if(iteration == null){
+			missingUnitFields.add("iteration");
+		}
+		final String time = StringUtils.substringBetween(unitKeyValuesString, " time=", " ");
+		if(time == null){
+			missingUnitFields.add("time");
+		}
+		final String count = StringUtils.substringAfter(unitKeyValuesString, " count=");
+		if(count == null){
+			missingUnitFields.add("count");
+		}
+
+		if(!missingUnitFields.isEmpty()){
+			throw new MalformedAuditDataException(
+					"Record doesn't contain the unit in the format "
+					+ "'"+unitKey+"=(pid=<int> thread_time=<float> unitid=<int> iteration=<int> time=<float> count=<int>)'."
+					+ " Missing fields: " + missingUnitFields, auditRecord.toString());
+		}
+
+		final Map<String, String> map = new HashMap<String, String>();
+		map.put(UNIT_PID + keysSuffix, pid);
+		map.put(UNIT_THREAD_START_TIME + keysSuffix, threadTime);
+		map.put(UNIT_UNITID + keysSuffix, unitId);
+		map.put(UNIT_ITERATION + keysSuffix, iteration);
+		map.put(UNIT_TIME + keysSuffix, time);
+		map.put(UNIT_COUNT + keysSuffix, count);
+		return map;
+	}
+
+	private final String mustParseAuditString(final String recordData, final String key) throws Exception{
+		final String value = parseAuditString(recordData, key);
+		if(value == null){
+			throw new MalformedAuditDataException("Missing field: " + key);
+		}else{
+			return value;
+		}
+	}
+
+	private final String parseAuditString(final String recordData, final String key){
+		final String formattedKey = key + "=";
+		final int keyStartIndex = recordData.indexOf(formattedKey);
 		if(keyStartIndex < 0){
 			return null;
 		}else{
-			int valueStartIndex = keyStartIndex + key.length();
-			if(valueStartIndex >= originalRecord.length()){
+			final int valueStartIndex = keyStartIndex + formattedKey.length();
+			if(valueStartIndex >= recordData.length()){
 				return null;
 			}else{
-				char valueFirstChar = originalRecord.charAt(valueStartIndex);
+				final char valueFirstChar = recordData.charAt(valueStartIndex);
 				if(valueFirstChar == '"'){
 					// is quoted string
-					int valueEndIndex = originalRecord.indexOf('"', valueStartIndex + 1);
+					final int valueEndIndex = recordData.indexOf('"', valueStartIndex + 1);
 					if(valueEndIndex < 0){
 						return null;
 					}else{
-						return originalRecord.substring(valueStartIndex+1, valueEndIndex);
+						return recordData.substring(valueStartIndex+1, valueEndIndex);
+					}
+				}else if(valueFirstChar == '('){
+					// is quoted string
+					final int valueEndIndex = recordData.indexOf(')', valueStartIndex + 1);
+					if(valueEndIndex < 0){
+						return null;
+					}else{
+						final String value = recordData.substring(valueStartIndex+1, valueEndIndex);
+						if(value.equals("null")){
+							return null;
+						}else{
+							return value;
+						}
 					}
 				}else{
 					// is hex string
-					int valueEndIndex = originalRecord.indexOf(' ', valueStartIndex + 1);
+					int valueEndIndex = recordData.indexOf(' ', valueStartIndex + 1);
 					if(valueEndIndex < 0){
-						valueEndIndex = originalRecord.length();
+						valueEndIndex = recordData.length();
 					}
-					String hexValue = originalRecord.substring(valueStartIndex, valueEndIndex);
+					final String hexValue = recordData.substring(valueStartIndex, valueEndIndex);
 					return HelperFunctions.decodeHex(hexValue);
 				}
 			}
 		}
-	}
-	
-	/**
-	 * Creates a map with key values as needed by the Audit reporter from audit records of an event
-	 * 
-	 * @param line event record to parse
-	 * @return map of key values for the argument record
-	 */
-	private Map<String, String> parseEventLine(String line) {
-
-		Map<String, String> auditRecordKeyValues = new HashMap<String, String>();
-		
-		if(line.contains(RECORD_TYPE_KEY+"="+RECORD_TYPE_DAEMON_START)){
-			auditRecordKeyValues.put(RECORD_TYPE_KEY, RECORD_TYPE_DAEMON_START);
-			return auditRecordKeyValues;
-		}
-
-		boolean isUBSIEvent = false;
-		
-		// There will be time and eventid in this one
-		if(line.contains(RECORD_TYPE_KEY+"="+RECORD_TYPE_UBSI_ENTRY)){
-			
-			List<Map<String, String>> unitsKeyValues = parseUnitsKeyValues(line);
-			if(unitsKeyValues.size() != 1){ // there should be only one unit's information
-				logger.log(Level.WARNING, "Malformed record '"+line+"'");
-			}else{
-				// Add all the units key values
-				auditRecordKeyValues.putAll(unitsKeyValues.get(0));
-			}
-						
-			auditRecordKeyValues.put(AuditEventReader.RECORD_TYPE_KEY, RECORD_TYPE_UBSI_ENTRY);
-						
-			isUBSIEvent = true;
-			
-		}else if(line.contains(RECORD_TYPE_KEY+"="+RECORD_TYPE_UBSI_EXIT)){
-			// no time and event id
-			auditRecordKeyValues.put(AuditEventReader.RECORD_TYPE_KEY, RECORD_TYPE_UBSI_EXIT);
-						
-			isUBSIEvent = true;
-			
-		}else if(line.contains(RECORD_TYPE_KEY+"="+RECORD_TYPE_UBSI_DEP)){
-			// no time and event id
-			List<Map<String, String>> unitsKeyValues = parseUnitsKeyValues(line);
-			if(unitsKeyValues.size() == 0){ // there should be only one or more unit's information
-				logger.log(Level.WARNING, "Malformed record '"+line+"'");
-			}else{
-				// Add all the units key values
-				
-				// Last one is the acting unit
-				Map<String, String> actingUnitKeyValues = unitsKeyValues.remove(unitsKeyValues.size() - 1);
-				auditRecordKeyValues.putAll(actingUnitKeyValues);
-				
-				for(int a = 0; a<unitsKeyValues.size(); a++){
-					Map<String, String> unitKeyValues = unitsKeyValues.get(a);
-					for(Map.Entry<String, String> entry : unitKeyValues.entrySet()){
-						auditRecordKeyValues.put(entry.getKey() + a, entry.getValue());
-					}
-				}
-				
-				auditRecordKeyValues.put(UNIT_DEPS_COUNT, String.valueOf(unitsKeyValues.size()));
-								
-			}
-			
-			auditRecordKeyValues.put(AuditEventReader.RECORD_TYPE_KEY, RECORD_TYPE_UBSI_DEP);
-			isUBSIEvent = true;
-			
-		}
-		
-		if(isUBSIEvent){
-			
-			Long UBSIEntryEventId = getEventId(line);
-			String UBSIEntryTime = getEventTime(line);
-			
-			auditRecordKeyValues.put(TIME, UBSIEntryTime);
-			auditRecordKeyValues.put(EVENT_ID, String.valueOf(UBSIEntryEventId));
-			
-			String msgData = line.substring(line.indexOf(" ppid="));
-			auditRecordKeyValues.putAll(HelperFunctions.parseKeyValPairs(msgData));
-			
-			String comm = _parseAuditString(line, " comm=");
-			auditRecordKeyValues.put(COMM, comm);
-		}else{
-		
-			Matcher event_start_matcher = pattern_message_start.matcher(line);
-			if (event_start_matcher.find()) {
-				String type = event_start_matcher.group(2);
-				String time = event_start_matcher.group(3);
-				String eventId = event_start_matcher.group(4);
-				String messageData = line.substring(event_start_matcher.end());
-	
-				auditRecordKeyValues.put(EVENT_ID, eventId);
-				auditRecordKeyValues.put(RECORD_TYPE_KEY, type);
-	
-				if(type.equals(RECORD_TYPE_USER)){
-					Map<String, String> nsOrNfEventData = HelperFunctions.parseKeyValPairs(messageData);
-					if(NS_SUBTYPE_VALUE.equals(nsOrNfEventData.get(NS_SUBTYPE_KEY))){
-						auditRecordKeyValues.putAll(nsOrNfEventData);
-					}else if(NF_SUBTYPE_VALUE.equals(nsOrNfEventData.get(NF_SUBTYPE_KEY))){
-						auditRecordKeyValues.putAll(nsOrNfEventData);
-						auditRecordKeyValues.put(TIME, time);
-						auditRecordKeyValues.put(RECORD_TYPE_KEY, RECORD_TYPE_NETFILTER_HOOK); // replace with new type
-					}else{
-						int indexOfData = messageData.indexOf(KMODULE_DATA_KEY);
-						if(indexOfData != -1){
-							String data = messageData.substring(indexOfData + KMODULE_DATA_KEY.length() + 1);
-							data = data.substring(1, data.length() - 1);// remove quotes
-							Map<String, String> eventData = HelperFunctions.parseKeyValPairs(data);
-							eventData.put(RECORD_TYPE_KEY, KMODULE_RECORD_TYPE);
-							eventData.put(COMM, HelperFunctions.decodeHex(eventData.get(COMM)));
-							eventData.put(TIME, time);
-							auditRecordKeyValues.putAll(eventData);
-						}else{
-							indexOfData = messageData.indexOf(UBSI_INTERCEPTED_DATA_KEY);
-							if(indexOfData != -1){
-								String data = messageData
-										.substring(indexOfData + UBSI_INTERCEPTED_DATA_KEY.length() + 1);
-								data = data.substring(1, data.length() - 1);// remove quotes
-								Map<String, String> eventData = HelperFunctions.parseKeyValPairs(data);
-								eventData.put(RECORD_TYPE_KEY, RECORD_TYPE_SYSCALL);
-								eventData.put(COMM, HelperFunctions.decodeHex(eventData.get(COMM)));
-								eventData.put(TIME, time);
-								auditRecordKeyValues.putAll(eventData);
-							}else{
-								indexOfData = messageData.indexOf(" syscall=62 ");
-								Map<String, String> eventData = HelperFunctions.parseKeyValPairs(messageData);
-								eventData.put(RECORD_TYPE_KEY, RECORD_TYPE_SYSCALL);
-								eventData.put(COMM, HelperFunctions.decodeHex(eventData.get(COMM)));
-								eventData.put(TIME, time);
-								auditRecordKeyValues.putAll(eventData);
-							}
-						}
-					}
-				}else if (type.equals(RECORD_TYPE_SYSCALL)) {
-					Map<String, String> eventData = HelperFunctions.parseKeyValPairs(messageData);
-					String commValue = _parseAuditString(line, " comm=");
-					eventData.put(COMM, commValue);
-					eventData.put(TIME, time);
-					auditRecordKeyValues.putAll(eventData);
-				} else if (type.equals(RECORD_TYPE_CWD)) {
-					String cwd = _parseAuditString(line, " cwd=");
-					auditRecordKeyValues.put(CWD, cwd);
-				} else if (type.equals(RECORD_TYPE_PATH)) {
-					Map<String, String> pathKeyValues = HelperFunctions.parseKeyValPairs(messageData);
-					String itemNumber = pathKeyValues.get("item");
-					String mode = pathKeyValues.get("mode");
-					mode = mode == null ? "0" : mode;
-					String nametype = pathKeyValues.get("nametype");
-					
-					String name = _parseAuditString(line, " name=");
-					
-					auditRecordKeyValues.put(PATH_PREFIX + itemNumber, name);
-					auditRecordKeyValues.put(NAMETYPE_PREFIX + itemNumber, nametype);
-					auditRecordKeyValues.put(MODE_PREFIX + itemNumber, mode);
-				} else if (type.equals(RECORD_TYPE_EXECVE)) {
-					Map<String, String> tempKeyValues = HelperFunctions.parseKeyValPairs(line);
-					String argcString = tempKeyValues.get("argc");
-					auditRecordKeyValues.put(EXECVE_ARGC, argcString);
-					Integer argc = HelperFunctions.parseInt(argcString, null);
-					if(argc != null){
-						for(int i = 0; i < argc; i++){
-							String key = "a"+i;
-							String keyForGettingValue = " " + key + "=";
-							String value = _parseAuditString(line, keyForGettingValue);
-							String prefixedKey = EXECVE_PREFIX + key;
-							auditRecordKeyValues.put(prefixedKey, value);
-						}
-					}
-				} else if (type.equals(RECORD_TYPE_FD_PAIR)) {
-					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-					while (key_value_matcher.find()) {
-						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
-					}
-				} else if (type.equals(RECORD_TYPE_SOCKETCALL)) {
-					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-					while (key_value_matcher.find()) {
-						auditRecordKeyValues.put("socketcall_" + key_value_matcher.group(1), key_value_matcher.group(2));
-					}
-				} else if (type.equals(RECORD_TYPE_SOCKADDR)) {
-					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-					while (key_value_matcher.find()) {
-						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
-					}
-				}else if (type.equals(RECORD_TYPE_MMAP)){
-					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-					while (key_value_matcher.find()) {
-						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
-					}
-				}else if(type.equals(RECORD_TYPE_IPC) || type.equals(RECORD_TYPE_MQ_SENDRECV)){
-					Matcher key_value_matcher = pattern_key_value.matcher(messageData);
-					while (key_value_matcher.find()) {
-						auditRecordKeyValues.put(key_value_matcher.group(1), key_value_matcher.group(2));
-					}
-				} else{
-					             
-				}
-	
-			} else {
-	
-			}
-		}
-
-		return auditRecordKeyValues;
 	}
 }

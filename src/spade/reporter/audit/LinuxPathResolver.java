@@ -302,8 +302,10 @@ public class LinuxPathResolver{
 					parentPath = processManager.getCwd(pid); // get from process
 					rootFSPath = processManager.getCwdRoot(pid); // never null
 					if(parentPath == null){
+						/*
 						audit.log(Level.INFO, "Missing CWD in process state. Falling back to CWD in audit record", 
 								null, eventTime, eventId, syscall);
+						*/
 					}
 				}
 				// If failed to get from process state then get from event data

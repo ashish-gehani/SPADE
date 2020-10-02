@@ -23,7 +23,15 @@ public class MalformedAuditDataException extends Exception{
 
 	private static final long serialVersionUID = -818081225019978956L;
 
+	public MalformedAuditDataException(String msg){
+		super(msg);
+	}
+
 	public MalformedAuditDataException(String msg, String data){
 		super(String.format("msg='%s' data='%s'", msg, data));
+	}
+
+	public MalformedAuditDataException(String msg, String data, final Throwable t){
+		super(String.format("msg='%s' data='%s'", msg, data), t);
 	}
 }
