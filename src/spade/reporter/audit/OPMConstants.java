@@ -118,8 +118,8 @@ public class OPMConstants {
 			ARTIFACT_HOST_INTERFACE_MAC_ADDRESS_PREFIX = "interface mac address",
 			ARTIFACT_HOST_INTERFACE_IP_ADDRESSES_PREFIX = "interface ip addresses",
 			ARTIFACT_SYSV_ID = "id",
-			ARTIFACT_SYSV_OUID = "ouid",
-			ARTIFACT_SYSV_OGID = "ogid",
+			ARTIFACT_SYSV_OUID = "owner uid",
+			ARTIFACT_SYSV_OGID = "owner gid",
 
 			// Allowed subtype annotation values
 			SUBTYPE_FILE = "file",
@@ -135,9 +135,9 @@ public class OPMConstants {
 			SUBTYPE_UNNAMED_PIPE = "unnamed pipe",
 			SUBTYPE_UNNAMED_UNIX_SOCKET_PAIR = "unix socket pair",
 			SUBTYPE_UNNAMED_NETWORK_SOCKET_PAIR = "network socket pair",
-			SUBTYPE_SYSV_MSG_Q = "message queue system v",
-			SUBTYPE_SYSV_SHARED_MEMORY = "shared memory system v",
-			SUBTYPE_POSIX_MSG_Q = "message queue posix",
+			SUBTYPE_SYSV_MSG_Q = "system v message queue",
+			SUBTYPE_SYSV_SHARED_MEMORY = "system v shared memory",
+			SUBTYPE_POSIX_MSG_Q = "posix message queue",
 			
 			// General edge annotations
 			EDGE_EVENT_ID = "event id",
