@@ -26,6 +26,7 @@ import java.util.logging.Level;
 import spade.edge.opm.WasControlledBy;
 import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.Audit;
+import spade.reporter.audit.LinuxConstants;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.HelperFunctions;
 import spade.vertex.opm.Agent;
@@ -41,8 +42,8 @@ public class ProcessWithoutAgentManager extends ProcessManager{
 	 */
 	private final Map<AgentIdentifier, String> agentToSource = new HashMap<AgentIdentifier, String>();
 	
-	public ProcessWithoutAgentManager(Audit reporter, boolean simplify, boolean units, boolean namespaces) throws Exception{
-		super(reporter, simplify, units, namespaces);
+	public ProcessWithoutAgentManager(Audit reporter, boolean simplify, boolean units, boolean namespaces, final LinuxConstants platformConstants) throws Exception{
+		super(reporter, simplify, units, namespaces, platformConstants);
 	}
 	
 	protected void clearAll(){

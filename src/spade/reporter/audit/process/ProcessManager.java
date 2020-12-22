@@ -32,6 +32,7 @@ import spade.core.Settings;
 import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.Audit;
 import spade.reporter.audit.AuditEventReader;
+import spade.reporter.audit.LinuxConstants;
 import spade.reporter.audit.OPMConstants;
 import spade.reporter.audit.SYSCALL;
 import spade.utility.HelperFunctions;
@@ -45,46 +46,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 	
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
-	//  Following constant values are taken from:
-	//  http://lxr.free-electrons.com/source/include/uapi/linux/sched.h 
-	//  AND  
-	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/signal.h
-	public static final Map<String, Integer> cloneFlags = new HashMap<String, Integer>();
-	public static final int SIGCHLD, CLONE_VFORK, CLONE_VM, CLONE_FILES, CLONE_THREAD, CLONE_FS,
-		CLONE_NEWNS;
-
-	static{
-		cloneFlags.put("CLONE_CHILD_CLEARTID", 0x00200000);
-		cloneFlags.put("CLONE_CHILD_SETTID", 0x01000000);
-		cloneFlags.put("CLONE_FILES", 0x00000400);
-		cloneFlags.put("CLONE_FS", 0x00000200);
-		cloneFlags.put("CLONE_IO", 0x80000000);
-		cloneFlags.put("CLONE_NEWUSER", 0x10000000);
-		cloneFlags.put("CLONE_NEWIPC", 0x08000000);
-		cloneFlags.put("CLONE_NEWNET", 0x40000000);
-		cloneFlags.put("CLONE_NEWNS", 0x00020000);
-		cloneFlags.put("CLONE_NEWPID", 0x20000000);
-		cloneFlags.put("CLONE_NEWUTS", 0x04000000);
-		cloneFlags.put("CLONE_PARENT", 0x00008000);
-		cloneFlags.put("CLONE_PARENT_SETTID", 0x00100000);
-		cloneFlags.put("CLONE_PTRACE", 0x00002000);
-		cloneFlags.put("CLONE_SETTLS", 0x00080000);
-		cloneFlags.put("CLONE_SIGHAND", 0x00000800);
-		cloneFlags.put("CLONE_SYSVSEM", 0x00040000);
-		cloneFlags.put("CLONE_THREAD", 0x00010000);
-		cloneFlags.put("CLONE_UNTRACED", 0x00800000);
-		cloneFlags.put("CLONE_VFORK", 0x00004000);
-		cloneFlags.put("CLONE_VM", 0x00000100);
-		cloneFlags.put("SIGCHLD", 17);
-
-		SIGCHLD = cloneFlags.get("SIGCHLD");
-		CLONE_VFORK = cloneFlags.get("CLONE_VFORK");
-		CLONE_VM = cloneFlags.get("CLONE_VM");
-		CLONE_FILES = cloneFlags.get("CLONE_FILES");
-		CLONE_THREAD = cloneFlags.get("CLONE_THREAD");
-		CLONE_FS = cloneFlags.get("CLONE_FS");
-		CLONE_NEWNS = cloneFlags.get("CLONE_NEWNS");
-	}
+	
 	
 	private Audit reporter;
 	
@@ -122,11 +84,15 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 */
 	public final boolean namespaces;
 	
-	protected ProcessManager(Audit reporter, boolean simplify, boolean units, boolean namespaces) throws Exception{
+	private final LinuxConstants platformConstants;
+	
+	protected ProcessManager(Audit reporter, boolean simplify, boolean units, boolean namespaces,
+			final LinuxConstants platformConstants) throws Exception{
 		this.reporter = reporter;
 		this.simplify = simplify;
 		this.units = units;
 		this.namespaces = namespaces;
+		this.platformConstants = platformConstants;
 		
 		String defaultConfigFilePath = Settings.getDefaultConfigFilePath(ProcessManager.class);
 
@@ -561,7 +527,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		
-		long flags = HelperFunctions.parseLong(flagsString, 0L);
+		final int flags = HelperFunctions.parseInt(flagsString, 0);
 		String parentPid = eventData.get(AuditEventReader.PID);
 		String childPid = null;
 		String nsChildPid = null;
@@ -588,16 +554,17 @@ public abstract class ProcessManager extends ProcessStateManager{
 
 		if(syscall == SYSCALL.CLONE){
 			// Source: http://www.makelinux.net/books/lkd2/ch03lev1sec3
-			if((flags & SIGCHLD) == SIGCHLD && (flags & CLONE_VM) == CLONE_VM && (flags & CLONE_VFORK) == CLONE_VFORK){ 
+			if(platformConstants.testForCloneFlagSigChild(flags)
+				&& platformConstants.testForCloneFlagVM(flags)
+				&& platformConstants.testForCloneFlagVfork(flags)){
 				//is vfork
 				syscall = SYSCALL.VFORK;
-			}else if((flags & SIGCHLD) == SIGCHLD){ //is fork
+			}else if(platformConstants.testForCloneFlagSigChild(flags)){ //is fork
 				syscall = SYSCALL.FORK;
 			}
 		}
 
 		boolean handle = true;
-		String flagsAnnotation = "";
 
 		ProcessIdentifier childProcessIdentifier = new ProcessIdentifier(childPid, parentPid, comm, cwd,
 				parentProcessIdentifier.commandLine, time, null, getUnitId(), source, nsChildPid);
@@ -610,12 +577,12 @@ public abstract class ProcessManager extends ProcessStateManager{
 		}else if(syscall == SYSCALL.VFORK){
 			processVforked(parentPid, childPid, namespaces);
 		}else if(syscall == SYSCALL.CLONE){
-			boolean shareMemory = (flags & CLONE_VM) == CLONE_VM;
-			boolean linkFds = (flags & CLONE_FILES) == CLONE_FILES;
-			boolean shareFS = (flags & CLONE_FS) == CLONE_FS;
+			final boolean shareMemory = platformConstants.isCloneWithSharedMemory(flags);
+			final boolean linkFds = platformConstants.isCloneWithSharedFileDescriptors(flags);
+			final boolean shareFS = platformConstants.isCloneWithSharedFileSystem(flags);
 			processCloned(parentPid, childPid, linkFds, shareMemory, shareFS, namespaces);
 			
-			boolean isThread = (flags & CLONE_THREAD) == CLONE_THREAD;
+			final boolean isThread = platformConstants.testForCloneFlagThread(flags);
 			if(isThread){
 				String threadGroupId = parentState.getThreadGroupId(); // Can't be null
 				ProcessUnitState childState = getProcessUnitState(childPid); // State already added above using putProcessVertex
@@ -633,16 +600,8 @@ public abstract class ProcessManager extends ProcessStateManager{
 
 		if(handle){
 			WasTriggeredBy edge = new WasTriggeredBy(childVertex, parentVertex);
-			for(Map.Entry<String, Integer> cloneFlag : cloneFlags.entrySet()){
-				String cloneFlagName = cloneFlag.getKey();
-				Integer cloneFlagValue = cloneFlag.getValue();
-				if((flags & cloneFlagValue) == cloneFlagValue){
-					flagsAnnotation += cloneFlagName + "|";
-				}
-			}
-			flagsAnnotation = flagsAnnotation.trim();
+			final String flagsAnnotation = platformConstants.stringifyCloneFlags(flags);
 			if(!flagsAnnotation.isEmpty()){
-				flagsAnnotation = flagsAnnotation.substring(0, flagsAnnotation.length() - 1);
 				edge.addAnnotation(OPMConstants.EDGE_FLAGS, flagsAnnotation);
 			}
 			reporter.putEdge(edge, reporter.getOperation(syscall), time, eventId, source);

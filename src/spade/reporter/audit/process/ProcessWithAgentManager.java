@@ -23,6 +23,7 @@ import java.util.logging.Level;
 
 import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.Audit;
+import spade.reporter.audit.LinuxConstants;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.HelperFunctions;
 import spade.vertex.opm.Process;
@@ -34,8 +35,8 @@ import spade.vertex.opm.Process;
  */
 public class ProcessWithAgentManager extends ProcessManager{
 
-	public ProcessWithAgentManager(Audit reporter, boolean simplify, boolean units, boolean namespaces) throws Exception{
-		super(reporter, simplify, units, namespaces);
+	public ProcessWithAgentManager(Audit reporter, boolean simplify, boolean units, boolean namespaces, final LinuxConstants platformConstants) throws Exception{
+		super(reporter, simplify, units, namespaces, platformConstants);
 	}
 	
 	protected void clearAll(){}

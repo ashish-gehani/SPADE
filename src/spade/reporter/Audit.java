@@ -24,6 +24,7 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.lang.reflect.Constructor;
 import java.math.BigInteger;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -51,6 +52,7 @@ import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.audit.AuditEventReader;
 import spade.reporter.audit.Globals;
 import spade.reporter.audit.IPCManager;
+import spade.reporter.audit.LinuxConstants;
 import spade.reporter.audit.LinuxPathResolver;
 import spade.reporter.audit.MalformedAuditDataException;
 import spade.reporter.audit.NetfilterHooksManager;
@@ -87,108 +89,7 @@ public class Audit extends AbstractReporter {
 
 	static final Logger logger = Logger.getLogger(Audit.class.getName());
 
-	/********************** LINUX CONSTANTS - START *************************/
-	
-	
-
-	//  Following constant values are taken from:
-	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/fcntl.h#L19
-	private final int O_RDONLY = 00000000, O_WRONLY = 00000001, O_RDWR = 00000002, 
-			O_CREAT = 00000100, O_TRUNC = 00001000, O_APPEND = 00002000;
-	
-	//  Following constant values are taken from:
-	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/mman-common.h#L21
-	private final int MAP_ANONYMOUS = 0x20;
-	
-	//  Following constant values are taken from:
-	//  http://lxr.free-electrons.com/source/include/uapi/asm-generic/fcntl.h#L99
-	private final int F_LINUX_SPECIFIC_BASE = 1024, F_DUPFD = 0, F_SETFL = 4;
-	//  Following constant values are taken from:
-	//  http://lxr.free-electrons.com/source/include/uapi/linux/fcntl.h#L16
-	private final int F_DUPFD_CLOEXEC = F_LINUX_SPECIFIC_BASE + 6;
-	// Source of following: http://elixir.free-electrons.com/linux/latest/source/include/uapi/asm-generic/errno.h#L97
-	private final int EINPROGRESS = -115;
-	// Source: http://elixir.free-electrons.com/linux/latest/source/include/linux/net.h#L65
-	private final int SOCK_STREAM = 1, SOCK_DGRAM = 2, SOCK_SEQPACKET = 5;
-	// Source: https://elixir.bootlin.com/linux/latest/source/include/linux/socket.h#L162
-	private final int AF_UNIX = 1, AF_LOCAL = 1, AF_INET = 2, AF_INET6 = 10;
-	private final int PF_UNIX = AF_UNIX, PF_LOCAL = AF_LOCAL, PF_INET = AF_INET, PF_INET6 = AF_INET6;
-	
-
-//	https://elixir.bootlin.com/linux/latest/source/include/uapi/linux/ptrace.h
-	private static final int PTRACE_POKETEXT = 4, PTRACE_POKEDATA = 5, PTRACE_POKEUSER = 6,
-//			https://elixir.bootlin.com/linux/latest/source/arch/ia64/include/uapi/asm/ptrace.h#L244
-			PTRACE_SETREGS = 13, 
-//			https://elixir.bootlin.com/linux/latest/source/arch/mips/include/uapi/asm/ptrace.h#L54
-			PTRACE_SETFPREGS = 15,
-			PTRACE_SETREGSET = 16901, PTRACE_SETSIGINFO = 16899, PTRACE_SETSIGMASK = 16907, 
-//			https://elixir.bootlin.com/linux/latest/source/arch/mips/include/uapi/asm/ptrace.h#L61
-			PTRACE_SET_THREAD_AREA = 26,
-			// Non-data flow constants below
-			PTRACE_SETOPTIONS = 16896, PTRACE_CONT = 7, PTRACE_SYSCALL = 24, PTRACE_SINGLESTEP = 9,
-//			https://elixir.bootlin.com/linux/latest/source/arch/x86/include/uapi/asm/ptrace-abi.h
-			PTRACE_SYSEMU = 31, PTRACE_SYSEMU_SINGLESTEP = 32,
-			PTRACE_LISTEN = 16904, PTRACE_KILL = 8, PTRACE_INTERRUPT = 16903, PTRACE_ATTACH = 16, PTRACE_DETACH = 17;
-	
-	private static final Map<Integer, String> ptraceActions = new HashMap<Integer, String>();
-	
-	static{
-		ptraceActions.put(PTRACE_POKETEXT, "PTRACE_POKETEXT");
-		ptraceActions.put(PTRACE_POKEDATA, "PTRACE_POKEDATA");
-		ptraceActions.put(PTRACE_POKEUSER, "PTRACE_POKEUSER");
-		ptraceActions.put(PTRACE_SETREGS, "PTRACE_SETREGS");
-		ptraceActions.put(PTRACE_SETFPREGS, "PTRACE_SETFPREGS");
-		ptraceActions.put(PTRACE_SETREGSET, "PTRACE_SETREGSET");
-		ptraceActions.put(PTRACE_SETSIGINFO, "PTRACE_SETSIGINFO");
-		ptraceActions.put(PTRACE_SETSIGMASK, "PTRACE_SETSIGMASK");
-		ptraceActions.put(PTRACE_SET_THREAD_AREA, "PTRACE_SET_THREAD_AREA");
-		ptraceActions.put(PTRACE_SETOPTIONS, "PTRACE_SETOPTIONS");
-		ptraceActions.put(PTRACE_CONT, "PTRACE_CONT");
-		ptraceActions.put(PTRACE_SYSCALL, "PTRACE_SYSCALL");
-		ptraceActions.put(PTRACE_SINGLESTEP, "PTRACE_SINGLESTEP");
-		ptraceActions.put(PTRACE_SYSEMU, "PTRACE_SYSEMU");
-		ptraceActions.put(PTRACE_SYSEMU_SINGLESTEP, "PTRACE_SYSEMU_SINGLESTEP");
-		ptraceActions.put(PTRACE_LISTEN, "PTRACE_LISTEN");
-		ptraceActions.put(PTRACE_KILL, "PTRACE_KILL");
-		ptraceActions.put(PTRACE_INTERRUPT, "PTRACE_INTERRUPT");
-		ptraceActions.put(PTRACE_ATTACH, "PTRACE_ATTACH");
-		ptraceActions.put(PTRACE_DETACH, "PTRACE_DETACH");
-	}
-	
-//	Source: https://elixir.bootlin.com/linux/v4.15.18/source/include/uapi/asm-generic/mman-common.h#L39
-	private static final Map<Integer, String> madviseAdviceValues = new HashMap<Integer, String>();
-	static{
-		madviseAdviceValues.put(0, 	"MADV_NORMAL");
-		madviseAdviceValues.put(1, 	"MADV_RANDOM");
-		madviseAdviceValues.put(2, 	"MADV_SEQUENTIAL");
-		madviseAdviceValues.put(3, 	"MADV_WILLNEED");
-		madviseAdviceValues.put(4, 	"MADV_DONTNEED");
-		madviseAdviceValues.put(8, 	"MADV_FREE");
-		madviseAdviceValues.put(9, 	"MADV_REMOVE");
-		madviseAdviceValues.put(10, "MADV_DONTFORK");
-		madviseAdviceValues.put(11, "MADV_DOFORK");
-		madviseAdviceValues.put(12, "MADV_MERGEABLE");
-		madviseAdviceValues.put(13, "MADV_UNMERGEABLE");
-		madviseAdviceValues.put(14, "MADV_HUGEPAGE");
-		madviseAdviceValues.put(15, "MADV_NOHUGEPAGE");
-		madviseAdviceValues.put(16, "MADV_DONTDUMP");
-		madviseAdviceValues.put(17, "MADV_DODUMP");
-		madviseAdviceValues.put(18, "MADV_WIPEONFORK");
-		madviseAdviceValues.put(19, "MADV_KEEPONFORK");
-		madviseAdviceValues.put(100,"MADV_HWPOISON");
-		madviseAdviceValues.put(101,"MADV_SOFT_OFFLINE");
-	}
-	
-//	Source: https://elixir.bootlin.com/linux/v4.15.18/source/include/uapi/linux/fs.h#L35
-	private static final Map<Integer, String> lseekWhenceValues = new HashMap<Integer, String>();
-	static{
-		lseekWhenceValues.put(0, "SEEK_SET");
-		lseekWhenceValues.put(1, "SEEK_CUR");
-		lseekWhenceValues.put(2, "SEEK_END");
-		lseekWhenceValues.put(3, "SEEK_DATA");
-		lseekWhenceValues.put(4, "SEEK_HOLE");
-	}
-	/********************** LINUX CONSTANTS - END *************************/
+	private LinuxConstants platformConstants = null;
 
 	/********************** PROCESS STATE - START *************************/
 	
@@ -840,7 +741,44 @@ public class Audit extends AbstractReporter {
 	private boolean argsSpecifyLogPlayback(Map<String, String> args){
 		return args.containsKey("inputDir") || args.containsKey("inputLog");
 	}
-	
+
+	private final LinuxConstants loadConstants(final Map<String, String> map){
+		final String key = "constantsSource";
+		final String value = map.get(key);
+		if(HelperFunctions.isNullOrEmpty(key)){
+			logger.log(Level.SEVERE, "NULL/empty value for '" + key+ "' in config file: " + value);
+			return null;
+		}
+		final String tokens[] = value.split("\\s+", 2);
+		final String qualifiedClassName = tokens[0];
+
+		if(tokens.length != 2){
+			logger.log(Level.SEVERE, "Value for '" + key + "' in config file must specify: <qualifiedClassName> <configFilePath>");
+			return null;
+		}
+
+		final LinuxConstants instance;
+		try{
+			@SuppressWarnings("unchecked")
+			final Class<LinuxConstants> clazz = (Class<LinuxConstants>)Class.forName(qualifiedClassName);
+			final Constructor<LinuxConstants> constructor = clazz.getDeclaredConstructor();
+			instance = constructor.newInstance();
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to create instance of class '" + qualifiedClassName + "', specified in config file for key "
+					+ "'" + key + "'", e);
+			return null;
+		}
+
+		try{
+			final String constantsFilePath = tokens[1].trim();
+			instance.initialize(constantsFilePath);
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to initialize constants source in config file for key '" + key + "'", e);
+			return null;
+		}
+		return instance;
+	}
+
 	@Override
 	public boolean launch(String arguments) {
 		String spadeAuditBridgeBinaryName = null;
@@ -853,6 +791,11 @@ public class Audit extends AbstractReporter {
 		
 		Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(arguments);
 		Map<String, String> configMap = readDefaultConfigMap();
+		
+		this.platformConstants = loadConstants(configMap);
+		if(this.platformConstants == null){
+			return false;
+		}
 		
 		// Init reporting globals
 		if(!initReporting(configMap.get("reportingIntervalSeconds"))){
@@ -1067,9 +1010,9 @@ public class Audit extends AbstractReporter {
 		if(success){
 			try{
 				if(AGENTS){ // Make sure that this is done before starting the event reader thread
-					processManager = new ProcessWithoutAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS, HANDLE_NAMESPACES);
+					processManager = new ProcessWithoutAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS, HANDLE_NAMESPACES, platformConstants);
 				}else{
-					processManager = new ProcessWithAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS, HANDLE_NAMESPACES);
+					processManager = new ProcessWithAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS, HANDLE_NAMESPACES, platformConstants);
 				}
 			}catch(Exception e){
 				logger.log(Level.SEVERE, "Failed to instantiate process manager", e);
@@ -2525,11 +2468,11 @@ public class Audit extends AbstractReporter {
 			log(Level.WARNING, "Expected 3rd argument (a2) to be integer but is '"+adviceString+"'", 
 					null, time, eventId, syscall);
 		}else{
-			String adviceAnnotation = madviseAdviceValues.get(adviceInt);
+			String adviceAnnotation = platformConstants.getMadviseAdviceName(adviceInt);
 			if(adviceAnnotation == null){
 				log(Level.WARNING, 
 						"Expected 3rd argument (a2), which is '"+adviceString+"', to be one of: "
-						+ getValueNameMapAsString(madviseAdviceValues), 
+						+ platformConstants.getMadviseAllowedAdviceNames(), 
 						null, time, eventId, syscall);
 			}else{
 				String tgid = processManager.getMemoryTgid(pid);
@@ -2559,11 +2502,11 @@ public class Audit extends AbstractReporter {
 			log(Level.WARNING, "Expected 3rd argument (a2) to be integer but is '"+whenceString+"'", 
 					null, time, eventId, syscall);
 		}else{
-			String whenceAnnotation = lseekWhenceValues.get(whence);
+			String whenceAnnotation = platformConstants.getLseekWhenceName(whence);
 			if(whenceAnnotation == null){
 				log(Level.WARNING, 
 						"Expected 3rd argument (a2), which is '"+whenceString+"', to be one of: "
-						+ getValueNameMapAsString(lseekWhenceValues), 
+						+ platformConstants.getLseekAllowedWhenceNames(), 
 						null, time, eventId, syscall);
 			}else{
 				FileDescriptor fileDescriptor = processManager.getFd(pid, fd);
@@ -2789,11 +2732,11 @@ public class Audit extends AbstractReporter {
 		int cmd = HelperFunctions.parseInt(cmdString, -1);
 		int flags = HelperFunctions.parseInt(flagsString, -1);
 		
-		if(cmd == F_DUPFD || cmd == F_DUPFD_CLOEXEC){
+		if(platformConstants.isDuplicateFDFlagInFcntl(cmd)){
 			// In eventData, there should be a pid, a0 should be fd, and exit should be the new fd 
 			handleDup(eventData, syscall);
-		}else if(cmd == F_SETFL){
-			if((flags & O_APPEND) == O_APPEND){
+		}else if(platformConstants.isSettingFDFlagsInFcntl(cmd)){
+			if(platformConstants.testForOpenFlagAppend(flags)){
 				FileDescriptor fileDescriptor = processManager.getFd(pid, fd);
 				if(fileDescriptor == null){
 					fileDescriptor = addUnknownFd(pid, fd);
@@ -2836,7 +2779,9 @@ public class Audit extends AbstractReporter {
 		// Put Process, Memory artifact and WasGeneratedBy edge always but return if flag
 		// is MAP_ANONYMOUS
 		
-		if(((flags & MAP_ANONYMOUS) == MAP_ANONYMOUS) && !ANONYMOUS_MMAP){
+		final boolean isAnonymousMmap = platformConstants.isAnonymousMmap(flags);
+		
+		if(isAnonymousMmap && !ANONYMOUS_MMAP){
 			return;
 		}
 		
@@ -2849,7 +2794,7 @@ public class Audit extends AbstractReporter {
 		wgbEdge.addAnnotation(OPMConstants.EDGE_PROTECTION, protection);
 		putEdge(wgbEdge, getOperation(syscall, SYSCALL.WRITE), time, eventId, AUDIT_SYSCALL_SOURCE);		
 		
-		if((flags & MAP_ANONYMOUS) == MAP_ANONYMOUS){
+		if(isAnonymousMmap){
 			return;
 		}else{
 		
@@ -2942,43 +2887,6 @@ public class Audit extends AbstractReporter {
 					null, time, eventId, syscall);
 		}
 	}
-
-	public final boolean openFlagsHasCreateFlag(final int flagsInt){
-		return (flagsInt & O_CREAT) == O_CREAT;
-	}
-	
-	public final boolean openFlagsHasWriteRelatedFlags(final int flagsInt){
-		return ((flagsInt & O_WRONLY) == O_WRONLY || 
-				(flagsInt & O_RDWR) == O_RDWR ||
-				 (flagsInt & O_APPEND) == O_APPEND || 
-				 (flagsInt & O_TRUNC) == O_TRUNC);
-	}
-	
-	public final boolean openFlagsHasReadOnlyFlag(final int flagsInt){
-		return (flagsInt & O_RDONLY) == O_RDONLY;
-	}
-	
-	public final String createOpenFlagsAnnotationValue(final int flagsInt){
-		String flagsAnnotation = "";
-		
-		flagsAnnotation += ((flagsInt & O_WRONLY) == O_WRONLY) ? "O_WRONLY|" : "";
-		flagsAnnotation += ((flagsInt & O_RDWR) == O_RDWR) ? "O_RDWR|" : "";
-		// if neither write only nor read write then must be read only
-		if(((flagsInt & O_WRONLY) != O_WRONLY) && 
-				((flagsInt & O_RDWR) != O_RDWR)){ 
-			// O_RDONLY is 0, so always true
-			flagsAnnotation += ((flagsInt & O_RDONLY) == O_RDONLY) ? "O_RDONLY|" : "";
-		}
-		
-		flagsAnnotation += ((flagsInt & O_APPEND) == O_APPEND) ? "O_APPEND|" : "";
-		flagsAnnotation += ((flagsInt & O_TRUNC) == O_TRUNC) ? "O_TRUNC|" : "";
-		flagsAnnotation += ((flagsInt & O_CREAT) == O_CREAT) ? "O_CREAT|" : "";
-		
-		if(!flagsAnnotation.isEmpty()){
-			flagsAnnotation = flagsAnnotation.substring(0, flagsAnnotation.length() - 1);
-		}
-		return flagsAnnotation;
-	}
 	
 	public final void handleOpen(Map<String, String> eventData, SYSCALL syscall){
 		// open() receives the following message(s):
@@ -3018,7 +2926,11 @@ public class Audit extends AbstractReporter {
 		}else if(syscall == SYSCALL.CREAT || syscall == SYSCALL.CREATE){
 			syscall = SYSCALL.CREATE;
 			artifactIdentifier = resolvePath(pathRecord, eventData, syscall);
-			int flagsInt = O_CREAT|O_WRONLY|O_TRUNC;
+			long flagsInt = platformConstants.getBitwiseOROfOpenFlags(
+					platformConstants.O_CREAT,
+					platformConstants.O_WRONLY,
+					platformConstants.O_TRUNC
+					);
 			flagsString = String.valueOf(flagsInt);
 			modeString = eventData.get(AuditEventReader.ARG1);
 		}else{
@@ -3029,9 +2941,9 @@ public class Audit extends AbstractReporter {
 		if(artifactIdentifier != null){
 			int flagsInt = HelperFunctions.parseInt(flagsString, 0);
 			
-			final boolean isCreate = openFlagsHasCreateFlag(flagsInt);
+			final boolean isCreate = platformConstants.testForOpenFlagCreate(flagsInt);
 			
-			String flagsAnnotation = createOpenFlagsAnnotationValue(flagsInt);
+			String flagsAnnotation = platformConstants.stringifyOpenFlags(flagsInt);
 			
 			String modeAnnotation = null;
 			
@@ -3045,7 +2957,7 @@ public class Audit extends AbstractReporter {
 			AbstractEdge edge = null;
 			Process process = processManager.handleProcessFromSyscall(eventData);
 			
-			if(openFlagsHasWriteRelatedFlags(flagsInt)){
+			if(platformConstants.testForOpenFlagsThatAllowModification(flagsInt)){
 				if(!isCreate){
 					// If artifact not created
 					artifactManager.artifactVersioned(artifactIdentifier);
@@ -3054,7 +2966,7 @@ public class Audit extends AbstractReporter {
 				Artifact vertex = putArtifactFromSyscall(eventData, artifactIdentifier);
 				edge = new WasGeneratedBy(vertex, process);
 				openedForRead = false;
-			}else if(openFlagsHasReadOnlyFlag(flagsInt)){
+			}else if(platformConstants.testForOpenFlagReadOnly(flagsInt)){
 				artifactManager.artifactPermissioned(artifactIdentifier, pathRecord.getPermissions());
 				if(isCreate){
 					Artifact vertex = putArtifactFromSyscall(eventData, artifactIdentifier);
@@ -3622,7 +3534,7 @@ public class Audit extends AbstractReporter {
 			
 			// If the action argument is valid only then can continue because only handling some
 			if(action != null){
-				String actionAnnotation = ptraceActions.get(action);
+				String actionAnnotation = platformConstants.getPtraceActionName(action);
 				// If this is one of the actions that needs to be handled then it won't be null
 				if(actionAnnotation != null){
 					Process actingProcess = processManager.handleProcessFromSyscall(eventData);
@@ -3659,9 +3571,9 @@ public class Audit extends AbstractReporter {
 		
 		ArtifactIdentifier fdIdentifier = null;
 		
-		if(domain == AF_INET || domain == AF_INET6 || domain == PF_INET || domain == PF_INET6){
+		if(platformConstants.isSocketDomainNetwork(domain)){
 			fdIdentifier = new UnnamedNetworkSocketPairIdentifier(fdTgid, fd0, fd1, protocol);
-		}else if(domain == AF_LOCAL || domain == AF_UNIX || domain == PF_LOCAL || domain == PF_UNIX){
+		}else if(platformConstants.isSocketDomainLocal(domain)){
 			fdIdentifier = new UnnamedUnixSocketPairIdentifier(fdTgid, fd0, fd1);
 		}else{
 			// Unsupported domain
@@ -3899,7 +3811,7 @@ public class Audit extends AbstractReporter {
 		}else{ // not null
 			// only handling if success is 0 or success is EINPROGRESS
 			if(exit != 0 // no success
-					&& exit != EINPROGRESS){ //in progress with possible failure in the future. see manpage.
+					&& !platformConstants.isConnectInProgress(exit)){ //in progress with possible failure in the future. see manpage.
 				return;
 			}
 		}
@@ -4300,17 +4212,7 @@ public class Audit extends AbstractReporter {
 		}
 	}
 
-	private static String getValueNameMapAsString(Map<Integer, String> map){
-		String str = "";
-		for(Map.Entry<Integer, String> entry : map.entrySet()){
-			Integer value = entry.getKey();
-			String name = entry.getValue();
-			str += name + "("+value+"), ";
-		}
-		// Remove the trailing ', '
-		str = str.length() > 0 ? str.substring(0, str.length() - 2) : str;
-		return str;
-	}
+	
 
 	private boolean isUdp(ArtifactIdentifier identifier){
 		if(identifier != null && identifier.getClass().equals(NetworkSocketIdentifier.class)){
@@ -4351,11 +4253,9 @@ public class Audit extends AbstractReporter {
 	
 	private String getProtocolNameBySockType(Integer sockType){
 		if(sockType != null){
-			if((sockType & SOCK_SEQPACKET) == SOCK_SEQPACKET){ // check first because seqpacket matches stream too
+			if(platformConstants.isSocketTypeTCP(sockType)){
 				return PROTOCOL_NAME_TCP;
-			}else if((sockType & SOCK_STREAM) == SOCK_STREAM){
-				return PROTOCOL_NAME_TCP;
-			}else if((sockType & SOCK_DGRAM) == SOCK_DGRAM){
+			}else if(platformConstants.isSocketTypeUDP(sockType)){
 				return PROTOCOL_NAME_UDP;
 			}
 		}
