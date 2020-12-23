@@ -16,6 +16,7 @@ from datetime import datetime
 import struct
 import argparse
 import socket
+import numpy
 
 debug = False
 
@@ -83,11 +84,10 @@ dataTypesMap = {
 	8	: ("long int", 8, True),
 	9	: ("long unsigned int", 8, False),
 	10	: ("long long int", 8, True),
-	11	: ("long long unsigned int", 8, False)
-	# The following not supported by BPF
-	#12	: ("float", 4, True),
-	#13	: ("double", 8, True),
-	#14	: ("long double", 16, True)
+	11	: ("long long unsigned int", 8, False),
+	12	: ("float", 4, True),
+	13	: ("double", 8, True),
+	14	: ("long double", 16, True)
 }
 def getTypeIdIntByNameStr(nameStr):
 	if nameStr is None or not isinstance(nameStr, (str,)):
@@ -239,49 +239,14 @@ static u8 *copyDataType(void *x, u8 sizeInBytes, u8 *data){
 	return data + sizeInBytes;
 }
 
-static void copyDataTypeToData(struct record_t *record, int dataOffset, u8 dataType, u8 sizeInBytes, u8 isPtr, unsigned long registerValue){
+static void copyDataTypeToData(struct record_t *record, int dataOffset, u8 dataType, u8 sizeInBytes, void *dataSource){
 	record->data[dataOffset] = dataType;
 	if(dataType == 0){ // void
 	}else if(dataType >= 1 && dataType <= 3){ // treat as str. char, signed char, unsigned char
 		__builtin_memset(&(record->data[dataOffset + 1]), 0, (maxData - dataOffset - 1));
-		if(isPtr == 0){
-			record->data[dataOffset + 1] = registerValue;
-		}else{
-			bpf_probe_read_kernel_str(&(record->data[dataOffset + 1]), sizeof(u8) * (maxData - dataOffset - 2), (const void *)registerValue);
-		}
-	}else if(dataType == 4){ // short
-		short x; if(isPtr == 0){ x = registerValue; }else{ bpf_probe_read_kernel(&x, sizeInBytes, (const void *)registerValue); }
-		copyDataType(&x, sizeInBytes, &(record->data[dataOffset + 1]));
-	}else if(dataType == 5){ // unsigned short
-		unsigned short x; if(isPtr == 0){ x = registerValue; }else{ bpf_probe_read_kernel(&x, sizeInBytes, (const void *)registerValue); }
-		copyDataType(&x, sizeInBytes, &(record->data[dataOffset + 1]));
-	}else if(dataType == 6){ // int
-		int x; if(isPtr == 0){ x = registerValue; }else{ bpf_probe_read_kernel(&x, sizeInBytes, (const void *)registerValue); }
-		copyDataType(&x, sizeInBytes, &(record->data[dataOffset + 1]));
-	}else if(dataType == 7){ // unsigned int
-		unsigned int x; if(isPtr == 0){ x = registerValue; }else{ bpf_probe_read_kernel(&x, sizeInBytes, (const void *)registerValue); }
-		copyDataType(&x, sizeInBytes, &(record->data[dataOffset + 1]));
-	}else if(dataType == 8){ // long
-		long x; if(isPtr == 0){ x = registerValue; }else{ bpf_probe_read_kernel(&x, sizeInBytes, (const void *)registerValue); }
-		copyDataType(&x, sizeInBytes, &(record->data[dataOffset + 1]));
-	}else if(dataType == 9){ // unsigned long
-		unsigned long x; if(isPtr == 0){ x = registerValue; }else{ bpf_probe_read_kernel(&x, sizeInBytes, (const void *)registerValue); }
-		copyDataType(&x, sizeInBytes, &(record->data[dataOffset + 1]));
-	}else if(dataType == 10){ // long long
-		long long x; if(isPtr == 0){ x = registerValue; }else{ bpf_probe_read_kernel(&x, sizeInBytes, (const void *)registerValue); }
-		copyDataType(&x, sizeInBytes, &(record->data[dataOffset + 1]));
-	}else if(dataType == 11){ // unsigned long long
-		unsigned long long x; if(isPtr == 0){ x = registerValue; }else{ bpf_probe_read_kernel(&x, sizeInBytes, (const void *)registerValue); }
-		copyDataType(&x, sizeInBytes, &(record->data[dataOffset + 1]));
-	}else if(dataType == 12){ // float
-		float x; if(isPtr == 0){ x = registerValue; }else{ bpf_probe_read_kernel(&x, sizeInBytes, (const void *)registerValue); }
-		copyDataType(&x, sizeInBytes, &(record->data[dataOffset + 1]));
-	}else if(dataType == 13){ // double
-		double x; if(isPtr == 0){ x = registerValue; }else{ bpf_probe_read_kernel(&x, sizeInBytes, (const void *)registerValue); }
-		copyDataType(&x, sizeInBytes, &(record->data[dataOffset + 1]));
-	}else if(dataType == 14){ // long double
-		long double x; if(isPtr == 0){ x = registerValue; }else{ bpf_probe_read_kernel(&x, sizeInBytes, (const void *)registerValue); }
-		copyDataType(&x, sizeInBytes, &(record->data[dataOffset + 1]));
+		bpf_probe_read_kernel_str(&(record->data[dataOffset + 1]), sizeof(u8) * (maxData - dataOffset - 2), dataSource);
+	}else{
+		bpf_probe_read_kernel(&(record->data[dataOffset + 1]), sizeof(u8) * sizeInBytes, dataSource);
 	}
 }
 
@@ -290,17 +255,21 @@ static void generateRecordFunctionReturn(struct pt_regs *ctx, u8 dataType, u8 si
 	struct record_t record = {};
 	dataOffset = 0;
 	initReturnRecord(&record, functionId);
-	copyDataTypeToData(&record, dataOffset, dataType, sizeInBytes, isPtr, ((unsigned long)PT_REGS_RC(ctx)));
+	if(isPtr == 0){
+		copyDataTypeToData(&record, dataOffset, dataType, sizeInBytes, &(PT_REGS_RC(ctx)));
+	}else{
+		copyDataTypeToData(&record, dataOffset, dataType, sizeInBytes, (void *)(PT_REGS_RC(ctx)));
+	}
 	sendRecord(ctx, &record);
 }
 
-static void generateRecordFunctionArg(struct pt_regs *ctx, u8 dataType, u8 sizeInBytes, u8 isPtr, u16 functionId, u8 argIndex, unsigned long argRegisterValue){
+static void generateRecordFunctionArg(struct pt_regs *ctx, u8 dataType, u8 sizeInBytes, u16 functionId, u8 argIndex, void *argRegister){
 	int dataOffset;
 	struct record_t record = {};
 	initArgRecord(&record, functionId);
 	record.data[0] = argIndex;
 	dataOffset = 1;
-	copyDataTypeToData(&record, dataOffset, dataType, sizeInBytes, isPtr, argRegisterValue);
+	copyDataTypeToData(&record, dataOffset, dataType, sizeInBytes, argRegister);
 	sendRecord(ctx, &record);
 }
 
@@ -329,8 +298,10 @@ def generateFunctionEntryHookCode(hookEntryFunctionNameStr, function):
 			continue # skip
 		paramTypeId = str(paramType.idInt)
 		paramTypeSize = str(getTypeSizeIntByIdInt(paramType.idInt))
-		paramTypeIsPtr = str(paramType.isPointerBool == True and 1 or 0)
-		hookCode = hookCode + "generateRecordFunctionArg(ctx, " + paramTypeId + ", " + paramTypeSize + ", " + paramTypeIsPtr + ", " + str(function.idInt) + ", " + str(paramIndex) + ", ((unsigned long)PT_REGS_PARM" + str(paramIndex + 1) + "(ctx))); "
+		if paramType.isPointerBool == False:
+			hookCode = hookCode + "generateRecordFunctionArg(ctx, " + paramTypeId + ", " + paramTypeSize + ", " + str(function.idInt) + ", " + str(paramIndex) + ", (&(PT_REGS_PARM" + str(paramIndex + 1) + "(ctx)))); "
+		else:
+			hookCode = hookCode + "generateRecordFunctionArg(ctx, " + paramTypeId + ", " + paramTypeSize + ", " + str(function.idInt) + ", " + str(paramIndex) + ", ((void *)(PT_REGS_PARM" + str(paramIndex + 1) + "(ctx)))); "
 		paramIndex = paramIndex + 1
 		if paramIndex > 5:
 			break
@@ -340,6 +311,12 @@ def generateFunctionEntryHookCode(hookEntryFunctionNameStr, function):
 	hookCode = hookCode + "}"
 	return hookCode
 ### BPF CODE GENERATOR - END
+
+def convertByteListToByteString(byteList):
+	tempBytesArray = []
+	for b in byteList:
+		tempBytesArray.append(bytes([b]))
+	return b''.join(tempBytesArray)
 
 ### DWARF DATA TYPE DECODER - START
 def parseDataFromBytes(bytesArray, offsetInt):
@@ -356,19 +333,25 @@ def parseDataFromBytes(bytesArray, offsetInt):
 				dataChars.append(chr(dataInt))
 		dataStr = "".join(dataChars)
 	elif dataType >= 4 and dataType <= 11:
-		tempBytesArray = []
-		for xxx in bytesArray:
-			tempBytesArray.append(bytes([xxx]))
-		bytesArray = b''.join(tempBytesArray)
+		bytesArray = convertByteListToByteString(bytesArray)
 		dataTypeSize = getTypeSizeIntByIdInt(dataType)
 		isSignedBool = getTypeSignedBoolByIdInt(dataType)
 		bytesSubArray = bytesArray[offsetInt+1:offsetInt+1+dataTypeSize]
 		dataInt = int.from_bytes(bytesSubArray, byteorder='little', signed=isSignedBool)
 		dataStr = str(dataInt)
 	elif dataType == 12 or dataType == 13 or dataType == 14:
-		#dataTypeSize = getTypeSizeIntByIdInt(dataType)
-		#dataStr = str(struct.unpack("f", bytesArray[offsetInt+1:offsetInt+1+dataTypeSize]))
-		pass
+		numpyType = None
+		if dataType == 12:
+			numpyType = numpy.float32
+		elif dataType == 13:
+			numpyType = numpy.float64
+		elif dataType == 14:
+			numpyType = numpy.float128
+		if not numpyType is None:
+			bytesArray = convertByteListToByteString(bytesArray)
+			dataTypeSize = getTypeSizeIntByIdInt(dataType)
+			numpyFloat = numpy.frombuffer(bytesArray[offsetInt+1:offsetInt+1+dataTypeSize], dtype=numpyType)
+			dataStr = str(numpyFloat[0])
 	return dataStr
 ### DWARF DATA TYPE DECODER - START
 
@@ -376,8 +359,14 @@ def outputJSONObject(jsonDict):
 	global outputWriterType
 	global outputWriterFile
 	global outputWriterSocket
+	pretty = False
+	#pretty = True
 	if not jsonDict is None:
-		jsonStr = json.dumps(jsonDict) + os.linesep
+		if pretty == True:
+			jsonStr = json.dumps(jsonDict, indent=4) + os.linesep
+		else:
+			jsonStr = json.dumps(jsonDict) + os.linesep
+
 		if outputWriterType == "file":
 			outputWriterFile.write(jsonStr)
 			outputWriterFile.flush()
@@ -398,7 +387,10 @@ def updateArgList(record, function): # arg record
 			pidToFunctionIdToArgsList[pidInt] = {}
 		if not record.functionId in pidToFunctionIdToArgsList[pidInt]:
 			pidToFunctionIdToArgsList[pidInt][record.functionId] = []
-		pidToFunctionIdToArgsList[pidInt][record.functionId].append({"name":param.nameStr, "value":dataStr, "index":str(argIndex), "type":getTypeNameStrByIdInt(param.type.idInt)})
+		typeNameStr = getTypeNameStrByIdInt(param.type.idInt)
+		if param.type.isPointerBool == True:
+			typeNameStr = typeNameStr + " *"
+		pidToFunctionIdToArgsList[pidInt][record.functionId].append({"name":param.nameStr, "value":dataStr, "index":str(argIndex), "type":typeNameStr})
 
 def removeArgList(record): # enter record
 	global pidToFunctionIdToArgsList
