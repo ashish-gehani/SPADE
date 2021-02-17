@@ -56,8 +56,6 @@ public class Kafka extends AbstractStorage{
 			PRODUCER_ID_KEY = "kafkaproducerid";
 	
 	private static final Logger logger = Logger.getLogger(Kafka.class.getName());
-
-	protected final String SPADE_ROOT = Settings.getProperty("spade_root");
     
     private List<DataWriter> dataWriters = new ArrayList<DataWriter>();
     

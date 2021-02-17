@@ -20,6 +20,11 @@
  
 package spade.filter;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
@@ -28,11 +33,6 @@ import spade.reporter.audit.OPMConstants;
 import spade.utility.FileUtility;
 import spade.vertex.opm.Artifact;
 import spade.vertex.prov.Entity;
-
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class Blacklist extends AbstractFilter{
 	
@@ -43,7 +43,7 @@ public class Blacklist extends AbstractFilter{
 	public boolean initialize(String arguments){
 		
 		try{
-			String filepath = Settings.getProperty("blacklist_filter_config_filepath");
+			String filepath = Settings.getDefaultConfigFilePath(this.getClass());
 			fileExclusionPattern = FileUtility.constructRegexFromFile(filepath);
 			if(fileExclusionPattern == null){
 				throw new Exception("Regex read from file '"+filepath+"' cannot be null");

@@ -16,7 +16,6 @@
  */
 package spade.transformer;
 
-import static spade.core.Kernel.FILE_SEPARATOR;
 
 import java.io.File;
 import java.util.Arrays;
@@ -43,6 +42,8 @@ import spade.utility.HelperFunctions;
 
 public class Sanitization extends AbstractTransformer
 {
+	private static final String pathSeparatorInData = "/";
+	
 	private String sanitizationLevel;
 
 	private static final String LOW = "low";
@@ -244,7 +245,7 @@ public class Sanitization extends AbstractTransformer
 							}
 							else if(annotation.equals(OPMConstants.ARTIFACT_PATH))
 							{
-								String[] subpaths = plainAnnotation.split(FILE_SEPARATOR, 5);
+								String[] subpaths = plainAnnotation.split(pathSeparatorInData, 5);
 								int numpaths = subpaths.length;
 								switch(sanitizationLevel)
 								{
@@ -263,7 +264,7 @@ public class Sanitization extends AbstractTransformer
 										{
 											subpaths[4] = NULLSTR;
 										}
-										sanitizedAnnotation = String.join(FILE_SEPARATOR, subpaths);
+										sanitizedAnnotation = String.join(pathSeparatorInData, subpaths);
 										vertex.addAnnotation(OPMConstants.ARTIFACT_PATH, sanitizedAnnotation);
 								}
 							}

@@ -633,4 +633,100 @@ public class FileUtility{
 			throw new Exception("Readable file test failed for path", e);
 		}
 	}
+	
+	/**
+	 * Tests whether the path is a readable directory or not.
+	 * 
+	 * Throws exception with the appropriate message in case the test failed
+	 * 
+	 * @param path the path to the directory
+	 * @throws Exception
+	 */
+	public static void pathMustBeAReadableDirectory(final String path) throws Exception{
+		if(HelperFunctions.isNullOrEmpty(path)){
+			throw new Exception("NULL/Empty path");
+		}
+		final File file = new File(path);
+		try{
+			if(file.exists()){
+				if(file.isDirectory()){
+					if(!file.canRead()){
+						throw new Exception("The path is not readable");
+					}
+				}else{
+					throw new Exception("The path is a file but expected a directory");
+				}
+			}else{
+				throw new Exception("Directory does not exist");
+			}
+		}catch(Exception e){
+			throw new Exception("Readable directory test failed for path", e);
+		}
+	}
+	
+	/**
+	 * Tests whether the path is a readable and writable directory or not.
+	 * 
+	 * Throws exception with the appropriate message in case the test failed
+	 * 
+	 * @param path the path to the directory
+	 * @throws Exception
+	 */
+	public static void pathMustBeAReadableWritableDirectory(final String path) throws Exception{
+		if(HelperFunctions.isNullOrEmpty(path)){
+			throw new Exception("NULL/Empty path");
+		}
+		final File file = new File(path);
+		try{
+			if(file.exists()){
+				if(file.isDirectory()){
+					if(!file.canRead()){
+						throw new Exception("The path is not readable");
+					}
+					if(!file.canWrite()){
+						throw new Exception("The path is not writable");
+					}
+				}else{
+					throw new Exception("The path is a file but expected a directory");
+				}
+			}else{
+				throw new Exception("Directory does not exist");
+			}
+		}catch(Exception e){
+			throw new Exception("Readable and writable directory test failed for path", e);
+		}
+	}
+	
+	/**
+	 * Tests whether the path is a readable and executable file or not.
+	 * 
+	 * Throws exception with the appropriate message in case the test failed
+	 * 
+	 * @param path the path to the file
+	 * @throws Exception
+	 */
+	public static void pathMustBeAReadableExecutableFile(final String path) throws Exception{
+		if(HelperFunctions.isNullOrEmpty(path)){
+			throw new Exception("NULL/Empty path");
+		}
+		final File file = new File(path);
+		try{
+			if(file.exists()){
+				if(file.isDirectory()){
+					throw new Exception("The path is a directory but expected a file");
+				}else{
+					if(!file.canRead()){
+						throw new Exception("The path is not readable");
+					}
+					if(!file.canExecute()){
+						throw new Exception("The path is not executable");
+					}
+				}
+			}else{
+				throw new Exception("File does not exist");
+			}
+		}catch(Exception e){
+			throw new Exception("Readable and executable file test failed for path", e);
+		}
+	}
 }

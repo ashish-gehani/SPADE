@@ -736,7 +736,7 @@ public class QuickGrailExecutor{
 		distinctifyGraph(instruction.targetGraph, resultGraph);
 
 		// LOCAL query done by now
-		final int clientPort = Integer.parseInt(Settings.getProperty("commandline_query_port"));
+		final int clientPort = Settings.getCommandLineQueryPort();
 		
 		final ABE decrypter = new ABE();
 		final boolean canDecrypt = decrypter.initialize(null);

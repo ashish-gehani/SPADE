@@ -94,7 +94,7 @@ public class RemoteLineageResolver extends AbstractRemoteResolver{
 
 	@Override
 	public List<Query> resolve(){
-		int clientPort = Integer.parseInt(Settings.getProperty("commandline_query_port"));
+		int clientPort = Settings.getCommandLineQueryPort();
 				
 		Map<String, List<Query>> allQueries = new HashMap<String, List<Query>>();
 		for(Map.Entry<String, Set<AbstractVertex>> entry : remoteIpToNetworkVertices.entrySet()){

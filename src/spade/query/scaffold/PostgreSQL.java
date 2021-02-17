@@ -16,9 +16,6 @@
  */
 package spade.query.scaffold;
 
-import static spade.core.Kernel.CONFIG_PATH;
-import static spade.core.Kernel.FILE_SEPARATOR;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
@@ -38,6 +35,7 @@ import java.util.logging.Logger;
 import au.com.bytecode.opencsv.CSVWriter;
 import spade.core.AbstractEdge;
 import spade.core.Graph;
+import spade.core.Settings;
 
 public class PostgreSQL extends Scaffold
 {
@@ -65,7 +63,7 @@ public class PostgreSQL extends Scaffold
     public boolean initialize(String arguments)
     {
         Properties databaseConfigs = new Properties();
-        String configFile = CONFIG_PATH + FILE_SEPARATOR + "spade.storage.PostgreSQL.config";
+        String configFile = Settings.getDefaultConfigFilePath(spade.storage.PostgreSQL.class);
         try
         {
             databaseConfigs.load(new FileInputStream(configFile));

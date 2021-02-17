@@ -17,11 +17,6 @@
 package spade.storage;
 
 
-import spade.core.AbstractEdge;
-import spade.core.AbstractVertex;
-import spade.core.Cache;
-import spade.utility.HelperFunctions;
-
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.sql.DriverManager;
@@ -33,8 +28,11 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static spade.core.Kernel.CONFIG_PATH;
-import static spade.core.Kernel.FILE_SEPARATOR;
+import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
+import spade.core.Cache;
+import spade.core.Settings;
+import spade.utility.HelperFunctions;
 
 public class MySQL extends SQL
 {
@@ -42,7 +40,7 @@ public class MySQL extends SQL
     {
         DUPLICATE_COLUMN_ERROR_CODE = "1060";
         logger = Logger.getLogger(MySQL.class.getName());
-        String configFile = CONFIG_PATH + FILE_SEPARATOR + "spade.storage.MySQL.config";
+        String configFile = Settings.getDefaultConfigFilePath(this.getClass());
         try
         {
             databaseConfigs.load(new FileInputStream(configFile));

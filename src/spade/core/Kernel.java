@@ -20,7 +20,6 @@
 package spade.core;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -45,7 +44,6 @@ import java.security.cert.Certificate;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -53,11 +51,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.FileHandler;
-import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 
 import javax.net.SocketFactory;
 import javax.net.ssl.KeyManagerFactory;
@@ -83,77 +78,10 @@ import spade.utility.Result;
 
 public class Kernel
 {
-
-    static
-    {
-        System.setProperty("java.util.logging.manager", spade.utility.LogManager.class.getName());
-        System.setProperty("java.util.logging.SimpleFormatter.format", "%1$tb %1$td, %1$tY %1$tl:%1$tM:%1$tS %1$Tp %2$s %4$s: %5$s%6$s%n");
-    }
-
-    public static final String SPADE_ROOT = Settings.getProperty("spade_root");
-
-    public static final String FILE_SEPARATOR = String.valueOf(File.separatorChar);
-
-    public static final String DB_ROOT = SPADE_ROOT + "db" + FILE_SEPARATOR;
-    /**
-     * Path to log files including the prefix.
-     */
-    private static final String PID_FILE = "spade.pid";
-
-    /**
-     * Path to configuration files.
-     */
-    public static final String CONFIG_PATH = SPADE_ROOT + FILE_SEPARATOR + "cfg";
-    /**
-     * Name of keys folder.
-     */
-    public static final String KEYS_FOLDER = "keys";
-    /**
-     * Name of keystore folders.
-     */
-    public static final String KEYSTORE_FOLDER = "keystore";
-    /**
-     * Name of private keys folder.
-     */
-    public static final String PRIVATE_KEYS_FOLDER = "private";
-    /**
-     * Name of public keys folder.
-     */
-    public static final String PUBLIC_KEYS_FOLDER = "public";
-    /**
-     * Password for private keystore.
-     */
-    public static final String PASSWORD_PRIVATE_KEYSTORE = "private_password";
-    /**
-     * Password for public keystore.
-     */
-    public static final String PASSWORD_PUBLIC_KEYSTORE = "public_password";
     /**
      * Public name for this host.
      */
     private static String HOST_NAME = null;
-    public final static String HOST_FILE_PATH = SPADE_ROOT + File.separator + "spade.host";
-    /**
-     * Path to configuration file for storing state of SPADE instance (includes
-     * currently added modules).
-     */
-    private static final String CONFIG_FILE = CONFIG_PATH + FILE_SEPARATOR + "spade.client.Control.config";
-    /**
-     * Paths to key stores.
-     */
-    private static final String KEYSTORE_PATH = CONFIG_PATH + FILE_SEPARATOR + "ssl";
-    /**
-     * Path to log files.
-     */
-    private static final String LOG_PATH = SPADE_ROOT + FILE_SEPARATOR + "log";
-    /**
-     * Path to log files including the prefix.
-     */
-    private static final String LOG_PREFIX = "SPADE_";
-    /**
-     * Date/time suffix pattern for log files.
-     */
-    private static final String LOG_START_TIME_PATTERN = "MM.dd.yyyy-H.mm.ss";
     /**
      * Set of reporters active on the local SPADE instance.
      */
@@ -318,10 +246,11 @@ public class Kernel
 				logger.log(Level.WARNING, "Failed to retrieve host name. Using empty string!", e);
 				HOST_NAME = "";
 			}
-			try(PrintWriter out = new PrintWriter(HOST_FILE_PATH)){
+			final String spadeHostFilePath = Settings.getSPADEHostFilePath();
+			try(PrintWriter out = new PrintWriter(spadeHostFilePath)){
 				out.println(HOST_NAME);
 			}catch(Exception e){
-				logger.log(Level.WARNING, "Failed to write host name to file: " + HOST_FILE_PATH, e);
+				logger.log(Level.WARNING, "Failed to write host name to file: " + spadeHostFilePath, e);
 			}
 			logger.log(Level.INFO, "SPADE host name: '" + HOST_NAME + "'");
 		}
@@ -353,28 +282,6 @@ public class Kernel
             }
         }
 
-        try
-        {
-            // Configure the global exception logger
-
-            String logFilename = System.getProperty("spade.log");
-            if(logFilename == null)
-            {
-                new File(LOG_PATH).mkdirs();
-                Date currentTime = new java.util.Date(System.currentTimeMillis());
-                String logStartTime = new java.text.SimpleDateFormat(LOG_START_TIME_PATTERN).format(currentTime);
-                logFilename = LOG_PATH + FILE_SEPARATOR + LOG_PREFIX + logStartTime + ".log";
-            }
-            final Handler logFileHandler = new FileHandler(logFilename);
-            logFileHandler.setFormatter(new SimpleFormatter());
-            logFileHandler.setLevel(Level.parse(Settings.getProperty("logger_level")));
-            Logger.getLogger("").addHandler(logFileHandler);
-        }
-        catch (IOException | SecurityException exception)
-        {
-            System.err.println("Error initializing exception logger");
-        }
-
         // Initialize host name
         getHostName();
 
@@ -387,26 +294,25 @@ public class Kernel
         registerControlThread();
 
         // Load the SPADE configuration from the default config file.
-        configCommand("config load " + CONFIG_FILE, NullStream.out);
+        final String controlClientConfigFilePath = Settings.getDefaultConfigFilePath(spade.client.Control.class);
+        configCommand("config load " + controlClientConfigFilePath, NullStream.out);
     }
 
     private static void setupKeyStores() throws Exception
     {
-        String KEYS_PATH = CONFIG_PATH + FILE_SEPARATOR + KEYS_FOLDER;
-        String KEYSTORE_PATH = KEYS_PATH + FILE_SEPARATOR + KEYSTORE_FOLDER;
-        String SERVER_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "serverpublic.keystore";
-        String SERVER_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "serverprivate.keystore";
-        String CLIENT_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "clientpublic.keystore";
-        String CLIENT_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "clientprivate.keystore";
+        String SERVER_PUBLIC_PATH = Settings.getServerPublicKeystorePath();
+        String SERVER_PRIVATE_PATH = Settings.getServerPrivateKeystorePath();
+        String CLIENT_PUBLIC_PATH = Settings.getClientPublicKeystorePath();
+        String CLIENT_PRIVATE_PATH = Settings.getClientPrivateKeystorePath();
 
         serverKeyStorePublic = KeyStore.getInstance("JKS");
-        serverKeyStorePublic.load(new FileInputStream(SERVER_PUBLIC_PATH), PASSWORD_PUBLIC_KEYSTORE.toCharArray());
+        serverKeyStorePublic.load(new FileInputStream(SERVER_PUBLIC_PATH), Settings.getPasswordPublicKeystoreAsCharArray());
         serverKeyStorePrivate = KeyStore.getInstance("JKS");
-        serverKeyStorePrivate.load(new FileInputStream(SERVER_PRIVATE_PATH), PASSWORD_PRIVATE_KEYSTORE.toCharArray());
+        serverKeyStorePrivate.load(new FileInputStream(SERVER_PRIVATE_PATH), Settings.getPasswordPrivateKeystoreAsCharArray());
         clientKeyStorePublic = KeyStore.getInstance("JKS");
-        clientKeyStorePublic.load(new FileInputStream(CLIENT_PUBLIC_PATH), PASSWORD_PUBLIC_KEYSTORE.toCharArray());
+        clientKeyStorePublic.load(new FileInputStream(CLIENT_PUBLIC_PATH), Settings.getPasswordPublicKeystoreAsCharArray());
         clientKeyStorePrivate = KeyStore.getInstance("JKS");
-        clientKeyStorePrivate.load(new FileInputStream(CLIENT_PRIVATE_PATH), PASSWORD_PRIVATE_KEYSTORE.toCharArray());
+        clientKeyStorePrivate.load(new FileInputStream(CLIENT_PRIVATE_PATH), Settings.getPasswordPrivateKeystoreAsCharArray());
     }
 
     private static void setupClientSSLContext() throws Exception
@@ -417,7 +323,7 @@ public class Kernel
         TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
         tmf.init(serverKeyStorePublic);
         KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-        kmf.init(clientKeyStorePrivate, PASSWORD_PRIVATE_KEYSTORE.toCharArray());
+        kmf.init(clientKeyStorePrivate, Settings.getPasswordPrivateKeystoreAsCharArray());
 
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
@@ -432,7 +338,7 @@ public class Kernel
         TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
         tmf.init(clientKeyStorePublic);
         KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-        kmf.init(serverKeyStorePrivate, PASSWORD_PRIVATE_KEYSTORE.toCharArray());
+        kmf.init(serverKeyStorePrivate, Settings.getPasswordPrivateKeystoreAsCharArray());
 
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
@@ -451,7 +357,7 @@ public class Kernel
         try
         {
             KeyStore.ProtectionParameter protectionParameter =
-                    new KeyStore.PasswordProtection(PASSWORD_PRIVATE_KEYSTORE.toCharArray());
+                    new KeyStore.PasswordProtection(Settings.getPasswordPrivateKeystoreAsCharArray());
             KeyStore.PrivateKeyEntry privateKeyEntry = (KeyStore.PrivateKeyEntry) serverKeyStorePrivate.getEntry(alias, protectionParameter);
             return privateKeyEntry.getPrivateKey();
         } catch(Exception ex)
@@ -654,7 +560,7 @@ public class Kernel
                 try
                 {
                     ServerSocket serverSocket = null;
-                    int port = Integer.parseInt(Settings.getProperty("local_control_port"));
+                    int port = Settings.getLocalControlPort();
                     if (ANDROID_PLATFORM)
                     {
                         serverSocket = new ServerSocket(port);
@@ -2037,7 +1943,8 @@ public class Kernel
         logger.log(Level.INFO, "Shutting down SPADE....");
 
         // Save current configuration.
-        configCommand("config save " + CONFIG_FILE, NullStream.out);
+        final String controlClientConfigFilePath = Settings.getDefaultConfigFilePath(spade.client.Control.class);
+        configCommand("config save " + controlClientConfigFilePath, NullStream.out);
         // Shut down all reporters.
         for (AbstractReporter reporter : reporters) {
         	reporter.getBuffer().shutdown();
@@ -2096,17 +2003,13 @@ public class Kernel
 
         try {
 
-            Files.deleteIfExists(Paths.get(PID_FILE));
+            Files.deleteIfExists(Paths.get(Settings.getSPADEProcessIdFilePath()));
         } catch (Exception exception) {
             logger.log(Level.WARNING, "Could not delete PID file.");
         }
 
         // Allow LogManager to complete its response to the shutdown
         LogManager.shutdownReset();
-    }
-
-    public static String getPidFileName(){
-        return PID_FILE;
     }
 
     private static class LocalControlConnection implements Runnable

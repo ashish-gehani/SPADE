@@ -27,6 +27,8 @@ package spade.utility;
 import com.sun.akuma.CLibrary;
 import com.sun.akuma.Daemon;
 
+import spade.core.Settings;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -39,7 +41,7 @@ public class Daemonizer {
     
     private static final int SHUTDOWN_POLLING_DELAY = 1000; // Milliseconds to wait before checking if process has terminated
     
-    private String pidFile = spade.core.Kernel.getPidFileName();
+    private String pidFile = Settings.getSPADEProcessIdFilePath();
 
     public Daemonizer() {
     }

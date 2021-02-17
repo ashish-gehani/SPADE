@@ -19,6 +19,18 @@
  */
  package spade.reporter;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import spade.core.AbstractReporter;
 import spade.core.Settings;
 import spade.edge.prov.Used;
@@ -34,18 +46,6 @@ import spade.vertex.prov.Activity;
 import spade.vertex.prov.Agent;
 import spade.vertex.prov.Entity;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.Writer;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 
 /**
  * Bitcoin reporter for SPADE
@@ -53,9 +53,8 @@ import java.util.logging.Logger;
  * @author Hasanat Kazmi
  */
 public class Bitcoin extends AbstractReporter {
-    private static final String SPADE_ROOT = Settings.getProperty("spade_root");
-    public static String BITCOIN_STAGING_DIR = Paths.get(SPADE_ROOT, "tmp/bitcoin/").toString();
-    public static String BITCOIN_TOOLS_PATH_FILE = Paths.get(SPADE_ROOT, "cfg/bitcoin.path").toString();
+    public static String BITCOIN_STAGING_DIR = Settings.getPathRelativeToTemporaryDirectory("tmp", "bitcoin");
+    public static String BITCOIN_TOOLS_PATH_FILE = Settings.getPathRelativeToConfigDirectory("bitcoin.path");
     private final int PAUSE_TIME = 10;
     private final int MAX_BUFFER_SIZE = 100000;
     // resumes reporter from last stop position

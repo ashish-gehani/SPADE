@@ -16,8 +16,6 @@
  */
 package spade.transformer;
 
-import static spade.core.Kernel.FILE_SEPARATOR;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
@@ -55,6 +53,8 @@ import spade.utility.HelperFunctions;
 
 public class ABE extends AbstractTransformer
 {
+	private static final String pathSeparatorInData = "/";
+	
 	private String encryptionLevel;
 	private String decryptionLevel;
 	private KeyGenerator keyGenerator;
@@ -234,7 +234,7 @@ public class ABE extends AbstractTransformer
 				else
 				{
 					File keyDirFile = new File(keyDirectoryPath);
-					File decryptFile = new File(keyDirectoryPath + FILE_SEPARATOR + decryptionKeyFileName);
+					File decryptFile = new File(Settings.concatenatePaths(keyDirectoryPath, decryptionKeyFileName));
 					try
 					{
 						if(keyDirFile.isDirectory())
@@ -449,7 +449,7 @@ public class ABE extends AbstractTransformer
 						encryptedAnnotation = vertex.getAnnotation(OPMConstants.ARTIFACT_PATH);
 						if(encryptedAnnotation != null)
 						{
-							String[] subpaths = encryptedAnnotation.split(FILE_SEPARATOR, 5);
+							String[] subpaths = encryptedAnnotation.split(pathSeparatorInData, 5);
 							int numpaths = subpaths.length;
 							switch(decryptionLevel)
 							{
@@ -468,7 +468,7 @@ public class ABE extends AbstractTransformer
 									{
 										subpaths[4] = decryptAnnotation(subpaths[4], ciphers.low);
 									}
-									decryptedAnnotation = String.join(FILE_SEPARATOR, subpaths);
+									decryptedAnnotation = String.join(pathSeparatorInData, subpaths);
 									vertex.addAnnotation(OPMConstants.ARTIFACT_PATH, decryptedAnnotation);
 							}
 						}
@@ -544,7 +544,7 @@ public class ABE extends AbstractTransformer
 		{
 			// write encrypted key to a file temporarily
 			String encryptedKeyFileName = "key.cpabe";
-			File encryptedKeyFile = new File(KEYS_DIR.getAbsolutePath() + FILE_SEPARATOR + encryptedKeyFileName);
+			File encryptedKeyFile = new File(Settings.concatenatePaths(KEYS_DIR.getAbsolutePath(), encryptedKeyFileName));
 			FileUtils.writeStringToFile(encryptedKeyFile, encryptedKey, StandardCharsets.UTF_8);
 
 			// perform ABE decryption
@@ -572,7 +572,7 @@ public class ABE extends AbstractTransformer
 			}
 
 			// read decrypted key from file
-			File keyFile = new File(KEYS_DIR.getAbsolutePath() + FILE_SEPARATOR + keyFileName);
+			File keyFile = new File(Settings.concatenatePaths(KEYS_DIR.getAbsolutePath(), keyFileName));
 			String decryptedKey = FileUtils.readFileToString(keyFile, StandardCharsets.UTF_8);
 			keyFile.delete();
 
@@ -638,7 +638,7 @@ public class ABE extends AbstractTransformer
 			String keyFileName = "key.txt";
 			String encryptedKeyFileName = "key.cpabe";
 			String encodedKey = Hex.encodeHexString(secretKey.getEncoded());
-			File keyFile = new File(KEYS_DIR.getAbsolutePath() + FILE_SEPARATOR + keyFileName);
+			File keyFile = new File(Settings.concatenatePaths(KEYS_DIR.getAbsolutePath(), keyFileName));
 			FileUtils.writeStringToFile(keyFile, encodedKey, StandardCharsets.UTF_8);
 
 			// perform ABE encryption
@@ -664,7 +664,7 @@ public class ABE extends AbstractTransformer
 			}
 
 			// read encrypted key from file
-			File encryptedKeyFile = new File(KEYS_DIR.getAbsolutePath() + FILE_SEPARATOR + encryptedKeyFileName);
+			File encryptedKeyFile = new File(Settings.concatenatePaths(KEYS_DIR.getAbsolutePath(), encryptedKeyFileName));
 			String encryptedKey = FileUtils.readFileToString(encryptedKeyFile, StandardCharsets.UTF_8);
 			encryptedKeyFile.delete();
 
@@ -906,7 +906,7 @@ public class ABE extends AbstractTransformer
 						}
 						else if(annotation.equals(OPMConstants.ARTIFACT_PATH))
 						{
-							String[] subpaths = plainAnnotation.split(FILE_SEPARATOR, 5);
+							String[] subpaths = plainAnnotation.split(pathSeparatorInData, 5);
 							int numpaths = subpaths.length;
 							switch(encryptionLevel)
 							{
@@ -925,7 +925,7 @@ public class ABE extends AbstractTransformer
 									{
 										subpaths[4] = encryptAnnotation(subpaths[4], this.cipher.low);
 									}
-									encryptedAnnotation = String.join(FILE_SEPARATOR, subpaths);
+									encryptedAnnotation = String.join(pathSeparatorInData, subpaths);
 									vertex.addAnnotation(OPMConstants.ARTIFACT_PATH, encryptedAnnotation);
 							}
 						}

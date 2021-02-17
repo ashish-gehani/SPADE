@@ -35,7 +35,6 @@ import spade.core.Query;
 import spade.core.Settings;
 import spade.query.quickgrail.QuickGrailExecutor;
 import spade.utility.HelperFunctions;
-import spade.utility.Result;
 
 /**
  * @author raza
@@ -43,7 +42,6 @@ import spade.utility.Result;
 public class CommandLine extends AbstractAnalyzer{
 
 	private static final Logger logger = Logger.getLogger(CommandLine.class.getName());
-	private static final String configKeyNameQueryServerPort = "commandline_query_port";
 	private static final long millisWaitSocketClose = 100;
 
 	// Current state of the CommandLine analyzer
@@ -101,34 +99,25 @@ public class CommandLine extends AbstractAnalyzer{
 
 	@Override
 	public final boolean initializeConcreteAnalyzer(String arguments){
-		final String queryServerPortString = Settings.getProperty(configKeyNameQueryServerPort);
-		final Result<Long> queryServerPortResult = HelperFunctions.parseLong(queryServerPortString, 10, 0,
-				Integer.MAX_VALUE);
-		if(queryServerPortResult.error){
-			logger.log(Level.SEVERE,
-					"Failed to parse query server port for analyzer using key '" + configKeyNameQueryServerPort + "'");
-			logger.log(Level.SEVERE, queryServerPortResult.toErrorString());
-		}else{
-			final int queryServerPort = queryServerPortResult.result.intValue();
+		final int queryServerPort = Settings.getCommandLineQueryPort();
+		try{
+			this.queryServerListenerSocket = Kernel.createServerSocket(queryServerPort);
 			try{
-				this.queryServerListenerSocket = Kernel.createServerSocket(queryServerPort);
-				try{
-					Thread mainThread = new Thread(queryServerListenerRunnable,
-							this.getClass().getSimpleName() + "AnalyzerServer-Thread");
-					mainThread.start(); // Start
-					logger.log(Level.INFO, "Query server listening on port: " + queryServerPort);
-					return true;
-				}catch(Exception e){
-					logger.log(Level.SEVERE, "Failed to start query server thread", e);
-					try{
-						this.queryServerListenerSocket.close();
-					}catch(Exception e1){
-						logger.log(Level.SEVERE, "Failed to close socket 'Query server socket'", e1);
-					}
-				}
+				Thread mainThread = new Thread(queryServerListenerRunnable,
+						this.getClass().getSimpleName() + "AnalyzerServer-Thread");
+				mainThread.start(); // Start
+				logger.log(Level.INFO, "Query server listening on port: " + queryServerPort);
+				return true;
 			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to create query server socket", e);
+				logger.log(Level.SEVERE, "Failed to start query server thread", e);
+				try{
+					this.queryServerListenerSocket.close();
+				}catch(Exception e1){
+					logger.log(Level.SEVERE, "Failed to close socket 'Query server socket'", e1);
+				}
 			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to create query server socket", e);
 		}
 		return false;
 	}

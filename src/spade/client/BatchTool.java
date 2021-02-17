@@ -19,13 +19,6 @@
  */
 package spade.client;
 
-import spade.core.Settings;
-
-import javax.net.ssl.KeyManagerFactory;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSocket;
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManagerFactory;
 import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -36,36 +29,45 @@ import java.io.PrintStream;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManagerFactory;
+
+import spade.core.Settings;
+
 public class BatchTool {
 
     private static PrintStream outputStream;
     private static PrintStream SPADEQueryIn;
     private static BufferedReader SPADEQueryOut;
     private static final String nullString = "null";
-    private static final String SPADE_ROOT = Settings.getProperty("spade_root");
     // Members for creating secure sockets
     private static KeyStore clientKeyStorePrivate;
     private static KeyStore serverKeyStorePublic;
     private static SSLSocketFactory sslSocketFactory;
-
-    private static void setupKeyStores() throws Exception {
-        String serverPublicPath = SPADE_ROOT + "cfg/ssl/server.public";
-        String clientPrivatePath = SPADE_ROOT + "cfg/ssl/client.private";
+    
+    private static void setupKeyStores() throws Exception
+    {
+        String SERVER_PUBLIC_PATH = Settings.getServerPublicKeystorePath();
+        String CLIENT_PRIVATE_PATH = Settings.getClientPrivateKeystorePath();
 
         serverKeyStorePublic = KeyStore.getInstance("JKS");
-        serverKeyStorePublic.load(new FileInputStream(serverPublicPath), "public".toCharArray());
+        serverKeyStorePublic.load(new FileInputStream(SERVER_PUBLIC_PATH), Settings.getPasswordPublicKeystoreAsCharArray());
         clientKeyStorePrivate = KeyStore.getInstance("JKS");
-        clientKeyStorePrivate.load(new FileInputStream(clientPrivatePath), "private".toCharArray());
+        clientKeyStorePrivate.load(new FileInputStream(CLIENT_PRIVATE_PATH), Settings.getPasswordPrivateKeystoreAsCharArray());
     }
 
-    private static void setupClientSSLContext() throws Exception {
+    private static void setupClientSSLContext() throws Exception
+    {
         SecureRandom secureRandom = new SecureRandom();
         secureRandom.nextInt();
 
         TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
         tmf.init(serverKeyStorePublic);
         KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-        kmf.init(clientKeyStorePrivate, "private".toCharArray());
+        kmf.init(clientKeyStorePrivate, Settings.getPasswordPrivateKeystoreAsCharArray());
 
         SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
@@ -85,7 +87,7 @@ public class BatchTool {
 
         try {
             String host = "localhost";
-            int port = Integer.parseInt(Settings.getProperty("local_query_port"));
+            int port = Settings.getCommandLineQueryPort();
             SSLSocket remoteSocket = (SSLSocket) sslSocketFactory.createSocket(host, port);
 
             OutputStream outStream = remoteSocket.getOutputStream();

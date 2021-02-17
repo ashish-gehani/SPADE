@@ -767,7 +767,7 @@ public class Configuration{
 	public static void main(final String [] args) throws Exception{
 		Result<Configuration> result = Configuration.initialize(
 				null, 
-				"/Users/hassaanirshad/spade_repos/20201308/spade/cfg/spade.storage.Neo4j.config");
+				"cfg/spade.storage.Neo4j.config");
 		if(result.error){
 			System.out.println(result.toErrorString());
 		}else{

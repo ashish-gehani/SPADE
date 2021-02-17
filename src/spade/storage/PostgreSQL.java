@@ -19,9 +19,6 @@
  */
 package spade.storage;
 
-import static spade.core.Kernel.CONFIG_PATH;
-import static spade.core.Kernel.FILE_SEPARATOR;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
@@ -43,6 +40,7 @@ import au.com.bytecode.opencsv.CSVWriter;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Cache;
+import spade.core.Settings;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.storage.postgresql.PostgreSQLInstructionExecutor;
 import spade.storage.postgresql.PostgreSQLQueryEnvironment;
@@ -87,7 +85,7 @@ public class PostgreSQL extends SQL
     {
         DUPLICATE_COLUMN_ERROR_CODE = "42701";
         logger = Logger.getLogger(PostgreSQL.class.getName());
-        String configFile = CONFIG_PATH + FILE_SEPARATOR + "spade.storage.PostgreSQL.config";
+        String configFile = Settings.getDefaultConfigFilePath(this.getClass());
         try
         {
             databaseConfigs.load(new FileInputStream(configFile));

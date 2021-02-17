@@ -19,10 +19,6 @@
  */
 package spade.core;
 
-import static spade.core.Kernel.CONFIG_PATH;
-import static spade.core.Kernel.FILE_SEPARATOR;
-import static spade.core.Kernel.SPADE_ROOT;
-
 import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -171,7 +167,7 @@ public abstract class AbstractStorage
     protected long startTime, lastReportedTime;
     protected long lastReportedVertexCount, lastReportedEdgeCount;
 
-    private static String configFile = CONFIG_PATH + FILE_SEPARATOR + "spade.core.AbstractStorage.config";
+    private static String configFile = Settings.getDefaultConfigFilePath(AbstractStorage.class);
     /**
      * Variables and functions for managing scaffold storage
      */
@@ -185,7 +181,7 @@ public abstract class AbstractStorage
         {
             databaseConfigs.load(new FileInputStream(configFile));
             BUILD_SCAFFOLD = Boolean.parseBoolean(databaseConfigs.getProperty("build_scaffold"));
-            SCAFFOLD_PATH = SPADE_ROOT + databaseConfigs.getProperty("scaffold_path");
+            SCAFFOLD_PATH = Settings.getPathRelativeToSPADERoot(databaseConfigs.getProperty("scaffold_path"));
             SCAFFOLD_DATABASE_NAME = databaseConfigs.getProperty("scaffold_database_name");
             if(BUILD_SCAFFOLD)
             {
@@ -200,7 +196,7 @@ public abstract class AbstractStorage
         {
             // default settings
             BUILD_SCAFFOLD = false;
-            SCAFFOLD_PATH = SPADE_ROOT + "db/scaffold";
+            SCAFFOLD_PATH = Settings.getPathRelativeToSPADERoot("db", "scaffold");
             SCAFFOLD_DATABASE_NAME = "BerkeleyDB";
             Logger.getLogger(AbstractStorage.class.getName()).log(Level.WARNING,
             "Loading scaffold configurations from file '" + configFile + "' " +

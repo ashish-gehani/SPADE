@@ -16,13 +16,6 @@
  */
 package spade.client;
 
-import static spade.core.Kernel.CONFIG_PATH;
-import static spade.core.Kernel.FILE_SEPARATOR;
-import static spade.core.Kernel.KEYSTORE_FOLDER;
-import static spade.core.Kernel.KEYS_FOLDER;
-import static spade.core.Kernel.PASSWORD_PRIVATE_KEYSTORE;
-import static spade.core.Kernel.PASSWORD_PUBLIC_KEYSTORE;
-
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -52,7 +45,6 @@ import org.apache.commons.lang.mutable.MutableBoolean;
 
 import jline.ConsoleReader;
 import spade.core.Graph;
-import spade.core.Kernel;
 import spade.core.Query;
 import spade.core.Settings;
 import spade.query.quickgrail.core.AbstractQueryEnvironment;
@@ -67,11 +59,8 @@ public class CommandLine{
 
 	private static final int maxQueriesFromFilesSize = 1000;
 
-	private static final String SPADE_ROOT = Settings.getProperty("spade_root");
-	private static final String historyFile = SPADE_ROOT + File.separatorChar + "cfg" + File.separatorChar
-			+ "query.history";
-	private static final File configFile = new File(
-			SPADE_ROOT + File.separatorChar + Settings.getDefaultConfigFilePath(CommandLine.class));
+	private static final String historyFile = Settings.getQueryHistoryFilePath();
+	private static final File configFile = new File(Settings.getDefaultConfigFilePath(CommandLine.class));
 	private static final String COMMAND_PROMPT = "-> ";
 	private static String RESULT_EXPORT_PATH = null;
 	
@@ -83,15 +72,13 @@ public class CommandLine{
 	private static SSLSocketFactory sslSocketFactory;
 
 	private static void setupKeyStores() throws Exception{
-		String KEYS_PATH = CONFIG_PATH + FILE_SEPARATOR + KEYS_FOLDER;
-		String KEYSTORE_PATH = KEYS_PATH + FILE_SEPARATOR + KEYSTORE_FOLDER;
-		String SERVER_PUBLIC_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "serverpublic.keystore";
-		String CLIENT_PRIVATE_PATH = KEYSTORE_PATH + FILE_SEPARATOR + "clientprivate.keystore";
+		String SERVER_PUBLIC_PATH = Settings.getServerPublicKeystorePath();
+		String CLIENT_PRIVATE_PATH = Settings.getClientPrivateKeystorePath();
 
 		serverKeyStorePublic = KeyStore.getInstance("JKS");
-		serverKeyStorePublic.load(new FileInputStream(SERVER_PUBLIC_PATH), PASSWORD_PUBLIC_KEYSTORE.toCharArray());
+		serverKeyStorePublic.load(new FileInputStream(SERVER_PUBLIC_PATH), Settings.getPasswordPublicKeystoreAsCharArray());
 		clientKeyStorePrivate = KeyStore.getInstance("JKS");
-		clientKeyStorePrivate.load(new FileInputStream(CLIENT_PRIVATE_PATH), PASSWORD_PRIVATE_KEYSTORE.toCharArray());
+		clientKeyStorePrivate.load(new FileInputStream(CLIENT_PRIVATE_PATH), Settings.getPasswordPrivateKeystoreAsCharArray());
 	}
 
 	private static void setupClientSSLContext() throws Exception{
@@ -101,7 +88,7 @@ public class CommandLine{
 		TrustManagerFactory tmf = TrustManagerFactory.getInstance("SunX509");
 		tmf.init(serverKeyStorePublic);
 		KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-		kmf.init(clientKeyStorePrivate, PASSWORD_PRIVATE_KEYSTORE.toCharArray());
+		kmf.init(clientKeyStorePrivate, Settings.getPasswordPrivateKeystoreAsCharArray());
 
 		SSLContext sslContext = SSLContext.getInstance("TLS");
 		sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
@@ -114,14 +101,15 @@ public class CommandLine{
 			return args[1];
 		}
 		try{
-			File hostNameFile = new File(Kernel.HOST_FILE_PATH);
+			final String spadeHostFilePath = Settings.getSPADEHostFilePath();
+			File hostNameFile = new File(spadeHostFilePath);
 			try{
 				if(hostNameFile.exists()){
 					try{
 						if(!hostNameFile.isFile() || !hostNameFile.canRead()){
 							System.err.println(
 									"Invalid configuration to read host name from file: Path is not readable or file '"
-											+ Kernel.HOST_FILE_PATH + "'");
+											+ spadeHostFilePath + "'");
 							return null;
 						}else{
 							try{
@@ -252,7 +240,7 @@ public class CommandLine{
 		try{
 			final String host = "localhost"; // Have you changed this to allow remote? If yes, then have you changed the
 												// nonce in the query?
-			int port = Integer.parseInt(Settings.getProperty("commandline_query_port"));
+			int port = Settings.getCommandLineQueryPort();
 			remoteSocket = (SSLSocket)sslSocketFactory.createSocket(host, port);
 			OutputStream outStream = remoteSocket.getOutputStream();
 			InputStream inStream = remoteSocket.getInputStream();

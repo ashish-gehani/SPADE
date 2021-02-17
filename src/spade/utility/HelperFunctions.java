@@ -620,6 +620,11 @@ public class HelperFunctions{
 		return map;
 	}
 	
+	public static Map<String, String> parseKeyValuePairsFrom(final String arguments, 
+			final String firstConfigFilePath, final String secondConfigFilePath) throws Exception{
+		return parseKeyValuePairsFrom(arguments, new String[]{firstConfigFilePath, secondConfigFilePath});
+	}
+	
 	/**
 	 * @param arguments highest priority (optional)
 	 * @param firstConfigFilePath over-written by arguments (optional)
@@ -628,10 +633,14 @@ public class HelperFunctions{
 	 * @throws Exception only in case a there was an error in parsing or a path (if existed wasn't a readable file)
 	 */
 	public static Map<String, String> parseKeyValuePairsFrom(
-			final String arguments, final String firstConfigFilePath, final String secondConfigFilePath) throws Exception{
+			final String arguments, final String configFilePaths[]) throws Exception{
 		final Map<String, String> map = new HashMap<String, String>();
-		map.putAll(safeReadKeyValuePairsFromFile(secondConfigFilePath));
-		map.putAll(safeReadKeyValuePairsFromFile(firstConfigFilePath));
+		if(configFilePaths != null){
+			for(int i = configFilePaths.length - 1; i >= 0; i--){
+				final String configFilePath = configFilePaths[i];
+				map.putAll(safeReadKeyValuePairsFromFile(configFilePath));
+			}
+		}
 		final Result<HashMap<String, String>> argumentsParseResult = parseKeysValuesInString(arguments);
 		if(argumentsParseResult.error){
 			throw new Exception("Failed to parse arguments: " + argumentsParseResult.toErrorString());

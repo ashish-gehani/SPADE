@@ -19,18 +19,12 @@
  */
 package spade.core;
 
-import java.io.File;
 import java.lang.reflect.Constructor;
-import java.text.SimpleDateFormat;
 import java.util.AbstractMap.SimpleEntry;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.logging.FileHandler;
-import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.logging.SimpleFormatter;
 
 import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
@@ -40,73 +34,6 @@ public class Unikernel{
 	
 	private static volatile boolean shutdown = false;
 	private static volatile boolean executedExitFunction = false;
-	
-	private static void setupSPADELogging() throws RuntimeException{
-		System.setProperty("java.util.logging.manager", spade.utility.LogManager.class.getName());
-        System.setProperty("java.util.logging.SimpleFormatter.format", "%1$tb %1$td, %1$tY %1$tl:%1$tM:%1$tS %1$Tp %2$s %4$s: %5$s%6$s%n");
-		
-        final String spadeRootKey = "spade_root";
-        final String spadeRootValue = Settings.getProperty(spadeRootKey);
-        
-        if(spadeRootValue == null){
-        	throw new RuntimeException("NULL value for SPADE root in main config file with key '"+spadeRootKey+"'");
-        }
-        
-        final String logDirectoryPath = spadeRootValue + File.separator + "log";
-        final File logDirectory = new File(logDirectoryPath);
-        
-        try{
-        	if(!logDirectory.exists()){
-        		logDirectory.mkdirs();
-        	}else{ // exists
-        		if(!logDirectory.isDirectory()){
-    				throw new RuntimeException("SPADE log directory at path '"+logDirectory.getAbsolutePath()+"' is not a directory");
-    			}
-        	}
-        }catch(Exception e){
-        	throw new RuntimeException("Invalid SPADE log directory path", e);
-        }
-        
-        String logFilename = System.getProperty("spade.log");
-        if(logFilename == null){
-        	final String logPrefix = "SPADE_";
-        	final String logStartTimePattern = "MM.dd.yyyy-H.mm.ss";
-        	try{
-        		final Date currentDate = new java.util.Date(System.currentTimeMillis());
-        		final String logStartTime = new SimpleDateFormat(logStartTimePattern).format(currentDate);
-        		logFilename = logPrefix + logStartTime + ".log";
-        	}catch(Exception e){
-        		throw new RuntimeException("Failed to format date and time", e);
-        	}
-        }
-        
-        final String logFilePath = logDirectory.getAbsolutePath() + File.separator + logFilename;
-        
-        final String spadeLoggingLevelKey = "logger_level";
-        String spadeLoggingLevelValue = Settings.getProperty(spadeLoggingLevelKey);
-        if(spadeLoggingLevelValue == null){
-        	spadeLoggingLevelValue = "ALL";
-        	//throw new RuntimeException("NULL value for SPADE log level in main config file with key '"+spadeLoggingLevelKey+"'");
-        }
-        
-        final Level level;
-        
-        try{
-        	level = Level.parse(spadeLoggingLevelValue);
-        }catch(Exception e){
-        	throw new RuntimeException("Invalid SPADE logging level value in main config with key '"+spadeLoggingLevelKey+"': "
-        		+ spadeLoggingLevelValue, e);
-        }
-        
-        try{
-        	final Handler logFileHandler = new FileHandler(logFilePath);
-        	logFileHandler.setFormatter(new SimpleFormatter());
-        	logFileHandler.setLevel(level);
-			Logger.getLogger("").addHandler(logFileHandler);
-        }catch(Exception e){
-        	throw new RuntimeException("Failed to initialize SPADE log handler", e);
-        }
-	}
 	
 	@SuppressWarnings("unchecked")
 	private static <T> SimpleEntry<T, String> mustGetSPADEModuleInstanceAndArgumentsFromConfig(
@@ -150,12 +77,6 @@ public class Unikernel{
 	}
 	
 	public static void main(final String[] args) throws RuntimeException{
-		// Initialize logging
-		try{
-			setupSPADELogging();
-		}catch(Throwable t){
-			throw new RuntimeException("Failed to initialize SPADE logger", t);
-		}
 		final Logger logger = Logger.getLogger(Unikernel.class.getName());
 		
         /// Read config

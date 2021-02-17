@@ -19,8 +19,6 @@
  */
 package spade.client;
 
-import spade.core.Settings;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,6 +28,8 @@ import java.io.PrintStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+
+import spade.core.Settings;
 
 /**
  *
@@ -77,9 +77,9 @@ public class Android {
         };
 
         try {
-            SocketAddress sockaddr = new InetSocketAddress("localhost", Integer.parseInt(Settings.getProperty("local_control_port")));
+            SocketAddress sockaddr = new InetSocketAddress("localhost", Settings.getLocalControlPort());
             Socket remoteSocket = new Socket();
-            remoteSocket.connect(sockaddr, Integer.parseInt(Settings.getProperty("connection_timeout")));
+            remoteSocket.connect(sockaddr, Settings.getConnectionTimeoutMillis());
             OutputStream outStream = remoteSocket.getOutputStream();
             InputStream inStream = remoteSocket.getInputStream();
             SPADEControlOut = new BufferedReader(new InputStreamReader(inStream));

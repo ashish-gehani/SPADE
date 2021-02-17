@@ -324,7 +324,7 @@ public class RemoteResolver{
 	}
 	
 	private static int getRemoteQueryPort(String remoteAddress){
-		return Integer.parseInt(Settings.getProperty("commandline_query_port"));
+		return Settings.getCommandLineQueryPort();
 	}
 
 	private static String generateNewSymbol(String remoteAddress){

@@ -39,9 +39,8 @@ public class Fusion extends AbstractFilter {
     private LinkedList<Object> rightList;
     private Map<AbstractVertex, AbstractVertex> fusedVertices;
     private Map<RuleIdentifier, RuleIdentifier> rules;
-    private static final String SPADE_ROOT = Settings.getProperty("spade_root");
-    private final String configFile = SPADE_ROOT + "cfg/fusion.config";
-    private final String SOURCE_REPORTER = Settings.getProperty("source_reporter");
+    private final String configFile = Settings.getDefaultConfigFilePath(this.getClass());
+    private final String SOURCE_REPORTER = Settings.getSourceReporter();
     private int MAX_LIST_LENGTH = 5;
     private String leftReporter;
     private String rightReporter;
