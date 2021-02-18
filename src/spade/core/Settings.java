@@ -20,6 +20,9 @@
 package spade.core;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -38,11 +41,6 @@ import spade.utility.Result;
  * @author Dawood Tariq and Raza Ahmad
  */
 public class Settings{
-
-	static{
-		System.setProperty("java.util.logging.manager", spade.utility.LogManager.class.getName());
-	    System.setProperty("java.util.logging.SimpleFormatter.format", "%1$tb %1$td, %1$tY %1$tl:%1$tM:%1$tS %1$Tp %2$s %4$s: %5$s%6$s%n");
-	}
 	
 	private static final Logger logger = Logger.getLogger(Settings.class.getName());
 
@@ -72,6 +70,8 @@ public class Settings{
 			keyPasswordPublicKeystore = "password_public_keystore",
 			keyPasswordPrivateKeystore = "password_private_keystore";
 
+	private boolean loaded = false;
+	private boolean loggingInitialized = false;
 	private String spadeRoot;
 	private int localControlPort;
 	private int commandLineQueryPort;
@@ -109,12 +109,17 @@ public class Settings{
 	
 	public static void load(final String settingsFile) throws Exception{
 		synchronized(instance){
+			if(instance.loaded){
+				return;
+			}
+
 			final Result<HashMap<String, String>> result = FileUtility.parseKeysValuesInConfigFile(settingsFile);
 			if(result.error){
 				throw new Exception(result.toErrorString());
 			}
 			
 			final HashMap<String, String> map = new HashMap<String, String>();
+			map.putAll(result.result);
 			
 			final String spadeRoot;
 			final String valueSpadeRoot = map.get(keySPADERoot);
@@ -318,24 +323,13 @@ public class Settings{
 			}
 			
 			final String logFileNamePattern = map.get(keyLogFileNamePattern);
-			final String logFilePath;
 			try{
-        		final Date currentDate = new Date(System.currentTimeMillis());
-        		final String logFilename = new SimpleDateFormat(logFileNamePattern).format(currentDate);
-        		logFilePath = concatenatePaths(logDirectoryPath, logFilename);
+        		new SimpleDateFormat(logFileNamePattern).format(new Date(System.currentTimeMillis()));
         	}catch(Exception e){
         		throw new Exception("Failed to format date/time in value of key '" + keyLogFileNamePattern + "'", e);
         	}
-			
-			try{
-	        	final Handler logFileHandler = new FileHandler(logFilePath);
-	        	logFileHandler.setFormatter(new SimpleFormatter());
-	        	logFileHandler.setLevel(loggerLevel);
-				Logger.getLogger("").addHandler(logFileHandler);
-	        }catch(Exception e){
-	        	throw new Exception("Failed to initialize SPADE log handler", e);
-	        }
 		
+			instance.loaded = true;
 			instance.spadeRoot = spadeRoot;
 			instance.localControlPort = resultLocalControlPort.result.intValue();
 			instance.commandLineQueryPort = resultCommandLineQueryPort.result.intValue();
@@ -359,6 +353,54 @@ public class Settings{
 			instance.clientPrivateKeystore = clientPrivateKeystore;
 			instance.passwordPublicKeystore = passwordPublicKeystore;
 			instance.passwordPrivateKeystore = passwordPrivateKeystore;
+		}
+	}
+
+	public static void initializeLogging() throws Exception{
+		synchronized(instance){
+			if(instance.loaded == false){
+				throw new Exception("Must load the Settings before initializing logging!");
+			}
+			if(instance.loggingInitialized){
+				return;
+			}
+
+			System.setProperty("java.util.logging.manager", spade.utility.LogManager.class.getName());
+			System.setProperty("java.util.logging.SimpleFormatter.format",
+					"%1$tb %1$td, %1$tY %1$tl:%1$tM:%1$tS %1$Tp %2$s %4$s: %5$s%6$s%n");
+
+			final String logFilePath;
+			final String logFilename;
+			try{
+				final Date currentDate = new Date(System.currentTimeMillis());
+				logFilename = new SimpleDateFormat(instance.logFileNamePattern).format(currentDate);
+				logFilePath = concatenatePaths(getLogDirectoryPath(), logFilename);
+			}catch(Exception e){
+				throw new Exception("Failed to format date/time in value of key '" + keyLogFileNamePattern + "'", e);
+			}
+
+			try{
+				final Handler logFileHandler = new FileHandler(logFilePath);
+				logFileHandler.setFormatter(new SimpleFormatter());
+				logFileHandler.setLevel(getLoggerLevel());
+				Logger.getLogger("").addHandler(logFileHandler);
+			}catch(Exception e){
+				throw new Exception("Failed to initialize SPADE log handler", e);
+			}
+
+			try{
+				Path target = Paths.get("", logFilePath);
+				String linkPath = getCurrentLogLinkPath();
+				Path link = Paths.get("", linkPath);
+				if(Files.exists(link)){
+					Files.delete(link);
+				}
+				Files.createSymbolicLink(link, target);
+			}catch(Exception e){
+				// Ignore if failed to do this
+			}
+
+			instance.loggingInitialized = true;
 		}
 	}
 
@@ -554,5 +596,9 @@ public class Settings{
 
 	public static String getDefaultOutputFilePath(Class<?> forClass){
 		return getPathRelativeToConfigDirectory(forClass.getName() + ".out");
+	}
+	
+	public static String getCurrentLogLinkPath(){
+		return concatenatePaths(getLogDirectoryPath(), "current.log");
 	}
 }

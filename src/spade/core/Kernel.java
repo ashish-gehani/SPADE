@@ -271,6 +271,12 @@ public class Kernel
             ANDROID_PLATFORM = true;
         }
 
+		try{
+			Settings.initializeLogging();
+		}catch(Exception e){
+			logger.log(Level.WARNING, "Failed to initialize SPADE logging. Falling back to JAVA default.", e);
+		}
+
         // Set up context for secure connections
         if (!ANDROID_PLATFORM) {
             try {
@@ -2010,6 +2016,12 @@ public class Kernel
 
         // Allow LogManager to complete its response to the shutdown
         LogManager.shutdownReset();
+
+		try{
+			Files.deleteIfExists(Paths.get("", Settings.getCurrentLogLinkPath()));
+		}catch(Exception e){
+			// ignore
+		}
     }
 
     private static class LocalControlConnection implements Runnable
