@@ -49,6 +49,10 @@
 #include <linux/netfilter/nf_conntrack_common.h>
 #endif
 
+#ifndef _ADDRCONF_H
+#include <net/addrconf.h>
+#endif
+
 #define BUFFER_SIZE_IP 50
 
 #define UENTRY		0xffffff9c // -100
