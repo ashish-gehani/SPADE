@@ -23,7 +23,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.lang.reflect.Constructor;
 import java.math.BigInteger;
 import java.text.SimpleDateFormat;
@@ -35,10 +34,11 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.FileUtils;
 
 import spade.core.AbstractEdge;
@@ -52,6 +52,9 @@ import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.audit.AuditEventReader;
 import spade.reporter.audit.Globals;
 import spade.reporter.audit.IPCManager;
+import spade.reporter.audit.KernelModuleConfiguration;
+import spade.reporter.audit.KernelModuleManager;
+import spade.reporter.audit.KernelModuleManager.UserMode;
 import spade.reporter.audit.LinuxConstants;
 import spade.reporter.audit.LinuxPathResolver;
 import spade.reporter.audit.MalformedAuditDataException;
@@ -110,34 +113,10 @@ public class Audit extends AbstractReporter {
 	/********************** NETFILTER HOOKS STATE - END *************************/
 	
 	private IPCManager ipcManager = new IPCManager(this);
-	
-	/********************** NETFILTER - START *************************/
-	
-	private String[] iptablesRules = null;
-	
-//	private int matchedNetfilterSyscall = 0,
-//			matchedSyscallNetfilter = 0;
-//	
-//	private List<Map<String, String>> networkAnnotationsFromSyscalls = 
-//			new ArrayList<Map<String, String>>();
-//	private List<Map<String, String>> networkAnnotationsFromNetfilter = 
-//			new ArrayList<Map<String, String>>();
-//	
-//	private Map<String, String> getNetworkAnnotationsSeenInList(
-//			List<Map<String, String>> list, String remoteAddress, String remotePort){
-//		for(int a = 0; a < list.size(); a++){
-//			Map<String, String> artifactAnnotation = list.get(a);
-//			if(String.valueOf(artifactAnnotation.get(OPMConstants.ARTIFACT_REMOTE_ADDRESS)).equals(remoteAddress) &&
-//					String.valueOf(artifactAnnotation.get(OPMConstants.ARTIFACT_REMOTE_PORT)).equals(remotePort)){
-//				return artifactAnnotation;
-//			}
-//		}
-//		return null;
-//	}
-	
-	/********************** NETFILTER - END *************************/
 
 	/********************** BEHAVIOR FLAGS - START *************************/
+	
+	private KernelModuleConfiguration kernelModuleConfiguration;
 	
 	private Globals globals = null;
 	//Reporting variables
@@ -158,14 +137,7 @@ public class Audit extends AbstractReporter {
 	private boolean USE_MEMORY_SYSCALLS = true;
 	private String AUDITCTL_SYSCALL_SUCCESS_FLAG = "1";
 	private boolean ANONYMOUS_MMAP = true;
-	private String ADD_KM_KEY = "localEndpoints";
-	private boolean ADD_KM; // Default value set where flags are being initialized from arguments (unlike the variables above).
-	private String HANDLE_KM_RECORDS_KEY = "handleLocalEndpoints";
-	// Handle the flag below with care!
-	private Boolean HANDLE_KM_RECORDS = null; // Default value set where flags are being initialized from arguments (unlike the variables above).
 	private Integer mergeUnit = null;
-	private String HARDEN_KEY = "harden";
-	private boolean HARDEN = false;
 	private String REPORT_KILL_KEY = "reportKill";
 	private boolean REPORT_KILL = true;
 	private final String HANDLE_CHDIR_KEY = "cwd";
@@ -187,14 +159,8 @@ public class Audit extends AbstractReporter {
 	private final String REPORT_IPC_KEY = "reportIpc";
 	private boolean REPORT_IPC = false;
 
-	private String deleteModuleBinaryPath = null;
 	/********************** BEHAVIOR FLAGS - END *************************/
-	
-	/*
-	 * Must be less than 40 for now! TODO
-	 */
-	private String kernelModuleKey = null;
-	
+
 	private Set<String> namesOfProcessesToIgnoreFromConfig = new HashSet<String>();
 	
 	private String spadeAuditBridgeProcessPid = null;
@@ -206,11 +172,7 @@ public class Audit extends AbstractReporter {
 	private final long PID_MSG_WAIT_TIMEOUT = 1 * 1000;
 	
 	private final String AUDIT_SYSCALL_SOURCE = OPMConstants.SOURCE_AUDIT_SYSCALL;
-	
-	private final String kernelModuleDirectoryPath = "lib/kernel-modules";
-	private final String kernelModulePath = kernelModuleDirectoryPath + "/netio.ko";
-	private final String kernelModuleControllerPath = kernelModuleDirectoryPath + "/netio_controller.ko";
-	
+
 	public static final String PROTOCOL_NAME_UDP = "udp",
 			PROTOCOL_NAME_TCP = "tcp";
 	private final String IPV4_NETWORK_SOCKET_SADDR_PREFIX = "02";
@@ -446,68 +408,12 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 		
-		argValue = args.get(HARDEN_KEY);
-		if(isValidBoolean(argValue)){
-			HARDEN = parseBoolean(argValue, HARDEN);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for '"+HARDEN_KEY+"': " + argValue);
-			return false;
-		}
-		
 		argValue = args.get(REPORT_KILL_KEY);
 		if(isValidBoolean(argValue)){
 			REPORT_KILL = parseBoolean(argValue, REPORT_KILL);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for '"+REPORT_KILL_KEY+"': " + argValue);
 			return false;
-		}
-		
-		// Setting default values here instead of where variables are defined because default values for KM vars depend
-		// on whether the data is live or playback.
-		final boolean logPlayback = argsSpecifyLogPlayback(args);
-		String addKmArgValue = args.get(ADD_KM_KEY);
-		String handleKmArgValue = args.get(HANDLE_KM_RECORDS_KEY);
-		if(logPlayback){ // Can't use isLiveAudit flag because not set yet.
-			// default values
-			ADD_KM = false; // Doesn't matter for log playback so always false.
-			if("true".equals(handleKmArgValue)){
-				HANDLE_KM_RECORDS = true;
-			}else if("false".equals(handleKmArgValue)){
-				HANDLE_KM_RECORDS = false;
-			}else if(handleKmArgValue == null){
-				HANDLE_KM_RECORDS = null; // To be decided by the first network related record
-			}else{
-				logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_KM_RECORDS_KEY+"': " + argValue);
-				return false;
-			}
-		}else{ // live audit
-			// Default values
-			try{
-				ADD_KM = FileUtility.doesPathExist(kernelModuleDirectoryPath) && FileUtility.isDirectory(kernelModuleDirectoryPath);
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to check if directory exists: '"+kernelModuleDirectoryPath+"'", e);
-				return false;
-			}
-
-			boolean addKmUserArgument;
-			// Parsing the values for the KM vars after the default values have be set appropriately (see above)
-			if(isValidBoolean(addKmArgValue)){
-				addKmUserArgument = parseBoolean(addKmArgValue, false);//ADD_KM);
-			}else{
-				logger.log(Level.SEVERE, "Invalid flag value for '"+ADD_KM_KEY+"': " + addKmArgValue);
-				return false;
-			}
-
-			if(!ADD_KM && addKmUserArgument){ // kernel module doesn't exist but user is asking to use kernel module
-				logger.log(Level.SEVERE, "Kernel module directory '"+kernelModuleDirectoryPath+"' doesn't exist");
-				logger.log(Level.SEVERE, "To use '"+ADD_KM_KEY+"=true' rebuild SPADE using the command: 'make KERNEL_MODULES=true'");
-				return false;
-			}
-
-			ADD_KM = addKmUserArgument;
-
-			// If added modules then also must handle. If not added then cannot handle.
-			HANDLE_KM_RECORDS = ADD_KM;
 		}
 		
 		argValue = args.get(HANDLE_NETFILTER_HOOKS_KEY);
@@ -542,8 +448,9 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 
-		if(!ADD_KM && NETFILTER_HOOKS){
-			logger.log(Level.SEVERE, "Argument '"+ADD_KM_KEY+"' must be 'true' for argument '"+NETFILTER_HOOKS_KEY+"' to be 'true'");
+		if(!kernelModuleConfiguration.isLocalEndpoints() && NETFILTER_HOOKS){
+			logger.log(Level.SEVERE, "Argument '" + KernelModuleConfiguration.keyLocalEndpoints
+					+ "' must be 'true' for argument '" + NETFILTER_HOOKS_KEY + "' to be 'true'");
 			return false;
 		}
 
@@ -609,32 +516,25 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_NAMESPACES_KEY+"': " + argValue);
 			return false;
 		}
-//		
-		if(ADD_KM && (HANDLE_KM_RECORDS != null && !HANDLE_KM_RECORDS)){
-			logger.log(Level.SEVERE, "Must handle kernel module data if kernel module added.");
-			return false;
-		}else{
-			// Logging only relevant flags now for debugging
-			logger.log(Level.INFO, "Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
-                       + "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}, {26}={27}, {28}={29}, "
-                       + "{30}={31}, {32}={33}, {34}={35}, {36}={37}, {38}={39}, {40}={41}, {42}={43}",
-					new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV, 
-							"units", CREATE_BEEP_UNITS, "waitForLog", WAIT_FOR_LOG_END, "netfilter", false, 
-							"refineNet", false, ADD_KM_KEY, ADD_KM, 
-							HANDLE_KM_RECORDS_KEY, HANDLE_KM_RECORDS, "failfast", FAIL_FAST,
-							mergeUnitKey, mergeUnit, HARDEN_KEY, HARDEN, REPORT_KILL_KEY, REPORT_KILL,
-							HANDLE_CHDIR_KEY, HANDLE_CHDIR,
-							HANDLE_ROOTFS_KEY, HANDLE_ROOTFS,
-							HANDLE_NAMESPACES_KEY, HANDLE_NAMESPACES,
-							HANDLE_NETFILTER_HOOKS_KEY, HANDLE_NETFILTER_HOOKS,
-							NETFILTER_HOOKS_KEY, NETFILTER_HOOKS,
-							NETFILTER_HOOKS_LOG_CT_KEY, NETFILTER_HOOKS_LOG_CT,
-							NETFILTER_HOOKS_USER_KEY, NETFILTER_HOOKS_USER,
-							CAPTURE_IPC_KEY, CAPTURE_IPC,
-							REPORT_IPC_KEY, REPORT_IPC});
-			logger.log(Level.INFO, globals.toString());
-			return true;
-		}
+
+		// Logging only relevant flags now for debugging
+		logger.log(Level.INFO,
+				"Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
+						+ "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}, {26}={27}, {28}={29}, "
+						+ "{30}={31}, {32}={33}, {34}={35}, {36}={37}, {38}={39}, {40}={41}, {42}={43}",
+				new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV,
+						"units", CREATE_BEEP_UNITS, "waitForLog", WAIT_FOR_LOG_END, "netfilter", false, "refineNet",
+						false, KernelModuleConfiguration.keyLocalEndpoints,
+						kernelModuleConfiguration.isLocalEndpoints(), KernelModuleConfiguration.keyHandleLocalEndpoints,
+						kernelModuleConfiguration.isHandleLocalEndpoints(), "failfast", FAIL_FAST, mergeUnitKey,
+						mergeUnit, KernelModuleConfiguration.keyHarden, kernelModuleConfiguration.isHarden(),
+						REPORT_KILL_KEY, REPORT_KILL, HANDLE_CHDIR_KEY, HANDLE_CHDIR, HANDLE_ROOTFS_KEY, HANDLE_ROOTFS,
+						HANDLE_NAMESPACES_KEY, HANDLE_NAMESPACES, HANDLE_NETFILTER_HOOKS_KEY, HANDLE_NETFILTER_HOOKS,
+						NETFILTER_HOOKS_KEY, NETFILTER_HOOKS, NETFILTER_HOOKS_LOG_CT_KEY, NETFILTER_HOOKS_LOG_CT,
+						NETFILTER_HOOKS_USER_KEY, NETFILTER_HOOKS_USER, CAPTURE_IPC_KEY, CAPTURE_IPC, REPORT_IPC_KEY,
+						REPORT_IPC});
+		logger.log(Level.INFO, globals.toString());
+		return true;
 	}
 	
 	/**
@@ -778,7 +678,7 @@ public class Audit extends AbstractReporter {
 		}
 		return instance;
 	}
-
+	
 	@Override
 	public boolean launch(String arguments) {
 		String spadeAuditBridgeBinaryName = null;
@@ -794,6 +694,17 @@ public class Audit extends AbstractReporter {
 		
 		this.platformConstants = loadConstants(configMap);
 		if(this.platformConstants == null){
+			return false;
+		}
+		
+		try{
+			final Map<String, String> combinedMap = new HashMap<String, String>();
+			combinedMap.putAll(configMap);
+			combinedMap.putAll(argsMap);
+			kernelModuleConfiguration = KernelModuleConfiguration.instance(combinedMap, !argsSpecifyLogPlayback(argsMap));
+			logger.log(Level.INFO, kernelModuleConfiguration.toString());
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to initialize kernel module configuration", e);
 			return false;
 		}
 		
@@ -823,22 +734,7 @@ public class Audit extends AbstractReporter {
 		if(!initFlagsFromArguments(argsMap)){
 			return false;
 		}
-		
-		if(HARDEN){
-			deleteModuleBinaryPath = configMap.get("deleteModule");
-			try{
-				if(!FileUtility.isFileReadable(deleteModuleBinaryPath)){
-					logger.log(Level.SEVERE, "File specified in config by 'deleteModule' key is not readable: " +
-							deleteModuleBinaryPath);
-					return false;
-				}
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to check if file specified in config by 'deleteModule' key is readable: " +
-						deleteModuleBinaryPath, e);
-				return false;
-			}
-		}
-		
+
 		// Check if the outputLog argument is valid or not
 		outputLogFilePath = argsMap.get("outputLog");
 		if(outputLogFilePath != null){
@@ -1021,16 +917,6 @@ public class Audit extends AbstractReporter {
 		}
 		
 		if(success){
-			if(isLiveAudit){
-				// if live audit and no km but handling records then error
-				if(!ADD_KM && HANDLE_KM_RECORDS){ // in case of live audit HANDLE_KM_RECORDS will never be null
-					logger.log(Level.SEVERE, "Can't handle kernel module data without kernel module added for Live Audit");
-					success = false;
-				}
-			}
-		}
-		
-		if(success){
 			if(HANDLE_NETFILTER_HOOKS){
 				try{
 					netfilterHooksManager = new NetfilterHooksManager(this, HANDLE_NAMESPACES);
@@ -1077,7 +963,7 @@ public class Audit extends AbstractReporter {
 			if(isLiveAudit){
 				
 				if(success){
-					if(ADD_KM || rulesType == null || rulesType.equals("all")){
+					if(kernelModuleConfiguration.isLocalEndpoints() || rulesType == null || rulesType.equals("all")){
 						String uid = null;
 						boolean ignoreUid; // if true then exclude the user else only include the given user
 						String argsUsername = argsMap.get("user");
@@ -1115,15 +1001,33 @@ public class Audit extends AbstractReporter {
 											new Object[]{ppidsToIgnoreFromConfig, configMap.get("ignoreParentProcesses")});
 								}
 								
-								if(ADD_KM){
-									success = addNetworkKernelModule(kernelModulePath, kernelModuleControllerPath, 
-											uid, ignoreUid, pidsToIgnore, ppidsToIgnore, USE_SOCK_SEND_RCV, HARDEN,
-											NETFILTER_HOOKS, NETFILTER_HOOKS_LOG_CT);
+								if(kernelModuleConfiguration.isLocalEndpoints()){
+									try{
+										final UserMode userMode = ignoreUid == true ? UserMode.IGNORE : UserMode.CAPTURE;
+										KernelModuleManager.insertModules(
+												kernelModuleConfiguration.getKernelModuleMainPath(), 
+												kernelModuleConfiguration.getKernelModuleControllerPath(),
+												uid, userMode,
+												new HashSet<String>(pidsToIgnore), new HashSet<String>(ppidsToIgnore),
+												USE_SOCK_SEND_RCV,
+												HANDLE_NAMESPACES,
+												NETFILTER_HOOKS, NETFILTER_HOOKS_LOG_CT, NETFILTER_HOOKS_USER,
+												kernelModuleConfiguration.isHarden(), getTgidsOfProcessesToHarden(),
+												new Consumer<String>(){
+													public void accept(final String str){
+														logger.log(Level.INFO, str);
+													}
+												});
+										success = true;
+									}catch(Exception e){
+										logger.log(Level.SEVERE, "Failed to setup kernel modules", e);
+										success = false;
+									}
 								}
 								if(success){
 									if(success){
 										success = setAuditControlRules(rulesType, uid, ignoreUid, pidsToIgnore, 
-												ppidsToIgnore, ADD_KM);
+												ppidsToIgnore, kernelModuleConfiguration.isLocalEndpoints());
 									}
 								}
 							}else{
@@ -1316,308 +1220,6 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Failed to execute command: '" + command + "'", e);
 			return null;
 		}
-	}
-	
-	private Boolean kernelModuleExists(String kernelModuleName){
-		try{
-			Execute.Output output = Execute.getOutput("lsmod");
-			if(output.hasError()){
-				output.log();
-				return null;
-			}else{
-				List<String> stdOutLines = output.getStdOut();
-				for(String line : stdOutLines){
-					String[] tokens = line.split("\\s+");
-					if(tokens[0].equals(kernelModuleName)){
-						return true;
-					}
-				}
-				return false;
-			}
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to check if module '"+kernelModuleName+"' exists", e);
-			return null;
-		}
-	}
-	
-	private String getKernelModuleName(String kernelModulePath){
-		if(kernelModulePath != null){
-			try{
-				String tokens[] = kernelModulePath.split("/");
-				String name = tokens[tokens.length - 1];
-				tokens = name.split("\\.");
-				name = tokens[0];
-				return name;
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to get module name for: "+ kernelModulePath, e);
-				return null;
-			}
-		}else{
-			return null;
-		}
-	}
-	
-	private boolean addKernelModule(String command){
-		try{
-			Execute.Output output = Execute.getOutput(command);
-			if(!output.getStdErr().isEmpty()){
-				logger.log(Level.SEVERE, "Command \"{0}\" failed with error: {1}.", new Object[]{
-						command, output.getStdErr()});
-				logger.log(Level.SEVERE, "Run 'grep netio <dmesg-logs> | tail -5' to check for exact error.");
-				return false;
-			}else{
-				if(HARDEN){ // hide the key
-					int endIndex = command.indexOf(" key=");
-					endIndex = endIndex != -1 ? endIndex : command.length();
-					command = command.substring(0, endIndex);
-					logger.log(Level.INFO, "Command \"{0}\" succeeded with output: {1}.", new Object[]{
-							command, output.getStdOut()});
-				}else{
-					logger.log(Level.INFO, "Command \"{0}\" succeeded with output: {1}.", new Object[]{
-							command, output.getStdOut()});
-				}
-				return true;
-			}
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to add kernel module with command: " + command, e);
-			return false;
-		}
-	}
-	
-	private boolean addNetworkKernelModule(String kernelModulePath, String kernelModuleControllerPath, 
-			String uid, boolean ignoreUid, List<String> ignorePids, List<String> ignorePpids, boolean interceptSendRecv,
-			boolean harden, boolean netfilterHooks, boolean netfilterHooksLogCt){
-		if(uid == null || uid.isEmpty() || ignorePids == null || ignorePids.isEmpty()
-				|| ignorePpids == null || ignorePpids.isEmpty()){
-			logger.log(Level.SEVERE, "Invalid args. uid={0}, pids={1}, ppids={2}", new Object[]{uid, ignorePids, ignorePpids});
-			return false;
-		}else{
-			String hardenTgidsArgumentList = null;
-			try{
-				if(!FileUtility.isFileReadable(kernelModulePath)){
-					logger.log(Level.SEVERE, "Kernel module path not readable: " + kernelModulePath);
-					return false;
-				}
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to check if kernel module path is readable: " + kernelModulePath, e);
-				return false;
-			}
-			try{
-				if(!FileUtility.isFileReadable(kernelModuleControllerPath)){
-					logger.log(Level.SEVERE, "Controller kernel module path not readable: " + kernelModuleControllerPath);
-					return false;
-				}
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to check if controller kernel module path is readable: " + kernelModuleControllerPath, e);
-				return false;
-			}
-			
-			if(harden){
-				Set<String> tgidsToHarden = null;
-				try{
-					tgidsToHarden = getTgidsOfProcessesToHarden();
-				}catch(Exception e){
-					logger.log(Level.SEVERE, "Failed to get tgids of processes to harden", e);
-					return false;
-				}
-				
-				if(tgidsToHarden != null && !tgidsToHarden.isEmpty()){
-					hardenTgidsArgumentList = "";
-					try{
-						for(String tgidToHarden : tgidsToHarden){
-							hardenTgidsArgumentList += tgidToHarden + ",";
-						}
-						if(!hardenTgidsArgumentList.isEmpty()){
-							hardenTgidsArgumentList = hardenTgidsArgumentList.substring(0, hardenTgidsArgumentList.length() - 1);
-						}
-					}catch(Exception e){
-						logger.log(Level.SEVERE, "Failed to get tgids of processes to harden", e);
-						return false;
-					}
-				}
-				
-				String data = String.valueOf(System.nanoTime()) + "&" + String.valueOf(Math.random());
-				kernelModuleKey = DigestUtils.md5Hex(data);
-			}
-			
-			String kernelModuleName = getKernelModuleName(kernelModulePath);
-			if(kernelModuleName != null){
-				String kernelModuleControllerName = getKernelModuleName(kernelModuleControllerPath);
-				if(kernelModuleControllerName != null){
-					Boolean kernelModuleControllerExists = kernelModuleExists(kernelModuleControllerName);
-					if(kernelModuleControllerExists != null){
-						if(kernelModuleControllerExists){
-							logger.log(Level.SEVERE, "Kernel module controller '"+kernelModuleControllerPath+"' "
-									+ "already exists.");
-							return false;
-						}else{
-							Boolean kernelModuleExists = kernelModuleExists(kernelModuleName);
-							if(kernelModuleExists != null){
-								if(kernelModuleExists == false){
-									// add the main kernel module
-									String kernelModuleAddCommand = "insmod " + kernelModulePath;
-									if(!addKernelModule(kernelModuleAddCommand)){
-										return false;
-									}
-								}
-								// add the controller kernel module
-								StringBuffer pids = new StringBuffer();
-								ignorePids.forEach(ignorePid -> {pids.append(ignorePid).append(",");});
-								pids.deleteCharAt(pids.length() - 1);// delete trailing comma
-								
-								StringBuffer ppids = new StringBuffer();
-								ignorePpids.forEach(ignorePpid -> {ppids.append(ignorePpid).append(",");});
-								ppids.deleteCharAt(ppids.length() - 1);// delete trailing comma
-								
-								String ignoreUidsArg = ignoreUid ? "1" : "0"; // 0 is capture
-								
-								String kernelModuleControllerAddCommand = 
-										String.format("insmod %s uids=\"%s\" syscall_success=\"1\" "
-										+ "pids_ignore=\"%s\" ppids_ignore=\"%s\" net_io=\"%s\" "
-										+ "ignore_uids=\"%s\" namespaces=\"%s\" "
-										+ "nf_hooks=\"%s\" nf_hooks_log_all_ct=\"%s\" nf_handle_user=\"%s\"",
-										kernelModuleControllerPath, uid, pids, ppids,
-										interceptSendRecv ? "1" : "0", ignoreUidsArg, 
-										HANDLE_NAMESPACES ? "1" : "0",
-										netfilterHooks ? "1" : "0",
-										netfilterHooksLogCt ? "1" : "0",
-										NETFILTER_HOOKS_USER ? "1" : "0" );
-								
-								if(harden){
-									kernelModuleControllerAddCommand += " key=\""+kernelModuleKey+"\"";
-									if(hardenTgidsArgumentList != null && !hardenTgidsArgumentList.isEmpty()){
-										kernelModuleControllerAddCommand += " harden_tgids=\""+hardenTgidsArgumentList+"\"";
-									}
-								}
-								
-								if(!addKernelModule(kernelModuleControllerAddCommand)){
-									return false;
-								}else{
-									return true;
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		return false;
-	}
-	
-	private boolean removeModuleByRmmodUtility(String moduleName){
-		String command = "rmmod " + moduleName;
-		try{
-			Execute.Output output = Execute.getOutput(command);
-			output.log();
-			return !output.hasError();
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to execute command: " + command, e);
-			return false;
-		}
-	}
-	
-	private boolean removeModuleByDeleteModuleUtility(String moduleName){
-		try{
-			final java.lang.Process process = Runtime.getRuntime().exec(deleteModuleBinaryPath);
-			
-			Thread stdoutReaderThread = new Thread(new Runnable(){
-				public void run(){
-					try{
-						InputStream stdout = process.getInputStream();
-						BufferedReader br = new BufferedReader(new InputStreamReader(stdout));
-						String line = null;
-						while((line = br.readLine()) != null){
-							logger.log(Level.INFO, deleteModuleBinaryPath + " output: " + line);
-						}
-					}catch(Exception e){
-						logger.log(Level.SEVERE, "Failed to read standard out for process: " + deleteModuleBinaryPath, e);
-					}
-				}
-			});
-			
-			Thread stderrReaderThread = new Thread(new Runnable(){
-				public void run(){
-					try{
-						InputStream stderr = process.getErrorStream();
-						BufferedReader br = new BufferedReader(new InputStreamReader(stderr));
-						String line = null;
-						while((line = br.readLine()) != null){
-							logger.log(Level.SEVERE, deleteModuleBinaryPath + " error: " + line);
-						}
-					}catch(Exception e){
-						logger.log(Level.SEVERE, "Failed to read standard error for process: " + deleteModuleBinaryPath, e);
-					}
-				}
-			});
-			
-			try{
-				stdoutReaderThread.start();
-				stderrReaderThread.start();
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to start readers for process '"+deleteModuleBinaryPath+"'", e);
-				return false;
-			}
-			
-			try{
-				PrintWriter stdInWriter = new PrintWriter(process.getOutputStream());
-				stdInWriter.println(moduleName);
-				stdInWriter.flush();
-				stdInWriter.close();
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to write key to process '"+deleteModuleBinaryPath+"'");
-				return false;
-			}
-			
-			try{
-				int resultValue = process.waitFor();
-				if(resultValue == 0){ // success
-					logger.log(Level.INFO, "Successfully removed netio_controller module using deleteModule");
-					return true;
-				}else{
-					logger.log(Level.SEVERE, "Process '"+deleteModuleBinaryPath+"' executed with error code: " + resultValue);
-					return false;
-				}
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Error in process execution '"+deleteModuleBinaryPath+"'", e);
-				return false;
-			}
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to remove module by syscall", e);
-			return false;
-		}
-	}
-	
-	private boolean removeControllerNetworkKernelModule(){
-		String controllerModulePath = kernelModuleControllerPath;
-		if(HelperFunctions.isNullOrEmpty(controllerModulePath)){
-			logger.log(Level.WARNING, "NULL/Empty controller kernel module path: " + controllerModulePath);
-		}else{
-			String controllerModuleName = getKernelModuleName(controllerModulePath);
-			if(HelperFunctions.isNullOrEmpty(controllerModuleName)){
-				logger.log(Level.SEVERE, "Failed to get module name from module path: " + controllerModulePath);
-			}else{
-				Boolean controllerModuleExists = kernelModuleExists(controllerModuleName);
-				if(controllerModuleExists == null){
-					logger.log(Level.SEVERE, "Failed to check if controller module '"+controllerModuleName+"' exists");
-				}else{
-					if(controllerModuleExists ==  false){
-						logger.log(Level.INFO, "Controller kernel module not added : " + controllerModuleName);
-					}else{
-						if(!HARDEN){
-							return removeModuleByRmmodUtility(controllerModuleName);
-						}else{
-							// Try removing using the key. If fails then do the normal value
-							if(!removeModuleByDeleteModuleUtility(kernelModuleKey)){
-								return removeModuleByRmmodUtility(controllerModuleName);
-							}else{
-								return true;
-							}
-						}
-					}
-				}
-			}
-		}
-		return false;
 	}
 	
 	private boolean setAuditControlRules(String rulesType, String uid, boolean ignoreUid, List<String> ignorePids, 
@@ -1972,12 +1574,26 @@ public class Audit extends AbstractReporter {
 
 	@Override
 	public boolean shutdown() {
-		
+
 		// Remove the kernel module first because we need to kill spadeAuditBridge
 		// because it might be hardened
-		if(ADD_KM){
-			if(removeControllerNetworkKernelModule()){
-				logger.log(Level.INFO, "Successfully removed the kernel controller module");
+		if(kernelModuleConfiguration.isLocalEndpoints()){
+			try{
+				KernelModuleManager.disableModule(
+						kernelModuleConfiguration.getKernelModuleControllerPath(),
+						kernelModuleConfiguration.isHarden(),
+						kernelModuleConfiguration.getKernelModuleDeleteBinaryPath(), new Consumer<String>(){
+							public void accept(String str){
+								logger.log(Level.INFO, str);
+							}
+						}, new BiConsumer<String, Throwable>(){
+							public void accept(String str, Throwable t){
+								logger.log(Level.WARNING, str, t);
+							}
+						});
+				logger.log(Level.INFO, "Successfully disabled kernel modules");
+			}catch(Exception e){
+				logger.log(Level.SEVERE, "Failed to disable kernel modules", e);
 			}
 		}
 		
@@ -2025,9 +1641,9 @@ public class Audit extends AbstractReporter {
 	
 	private void setHandleKMRecordsFlag(boolean isLiveAudit, boolean valueOfHandleKMRecords){
 		// Only set the value if it hasn't been set and is log playback
-		if(HANDLE_KM_RECORDS == null && !isLiveAudit){
-			HANDLE_KM_RECORDS = valueOfHandleKMRecords;
-			logger.log(Level.INFO, "'handleLocalEndpoints' value set to '"+valueOfHandleKMRecords+"'");
+		if(!kernelModuleConfiguration.isHandleLocalEndpointsSpecified() && !isLiveAudit){
+			kernelModuleConfiguration.setHandleLocalEndpoints(valueOfHandleKMRecords);
+			logger.log(Level.INFO, "'" + KernelModuleConfiguration.keyHandleLocalEndpoints + "' value set to '"+valueOfHandleKMRecords+"'");
 		}
 	}
 
@@ -2052,7 +1668,7 @@ public class Audit extends AbstractReporter {
 				//processManager.daemonStart(); TODO Not being used until figured out how to handle it.
 			}else if(AuditEventReader.KMODULE_RECORD_TYPE.equals(recordType)){
 				setHandleKMRecordsFlag(isLiveAudit, true); // Always do first because HANDLE_KM_RECORDS can be null when playback
-				if(HANDLE_KM_RECORDS){
+				if(kernelModuleConfiguration.isHandleLocalEndpoints()){
 					handleKernelModuleEvent(eventData);
 				}
 			}else if(AuditEventReader.RECORD_TYPE_NETFILTER_HOOK.equals(recordType)){
@@ -2322,13 +1938,13 @@ public class Audit extends AbstractReporter {
 				break;
 			case SENDMSG:
 			case SENDTO:
-				if(!HANDLE_KM_RECORDS){
+				if(!kernelModuleConfiguration.isHandleLocalEndpoints()){
 					handleIOEvent(syscall, eventData, false, eventData.get(AuditEventReader.EXIT));
 				}
 				break;
 			case RECVFROM: 
 			case RECVMSG:
-				if(!HANDLE_KM_RECORDS){
+				if(!kernelModuleConfiguration.isHandleLocalEndpoints()){
 					handleIOEvent(syscall, eventData, true, eventData.get(AuditEventReader.EXIT));
 				}
 				break;
@@ -2380,23 +1996,23 @@ public class Audit extends AbstractReporter {
 				handleDup(eventData, syscall);
 				break;
 			case SOCKET:
-				if(!HANDLE_KM_RECORDS){
+				if(!kernelModuleConfiguration.isHandleLocalEndpoints()){
 					handleSocket(eventData, syscall);
 				}
 				break;
 			case BIND:
-				if(!HANDLE_KM_RECORDS){
+				if(!kernelModuleConfiguration.isHandleLocalEndpoints()){
 					handleBind(eventData, syscall);
 				}
 				break;
 			case ACCEPT4:
 			case ACCEPT:
-				if(!HANDLE_KM_RECORDS){
+				if(!kernelModuleConfiguration.isHandleLocalEndpoints()){
 					handleAccept(eventData, syscall);
 				}
 				break;
 			case CONNECT:
-				if(!HANDLE_KM_RECORDS){
+				if(!kernelModuleConfiguration.isHandleLocalEndpoints()){
 					handleConnect(eventData, syscall);
 				}
 				break;
