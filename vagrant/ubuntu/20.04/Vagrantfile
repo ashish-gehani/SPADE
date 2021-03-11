@@ -1,0 +1,30 @@
+VAGRANTFILE_API_VERSION = "2"
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+  config.vm.box = "ubuntu/xenial64"
+  config.vm.hostname = "ubuntu-spade"
+  config.vm.network "private_network", ip: "192.168.2.2" , netmask: "255.255.255.0"
+  config.ssh.forward_x11 = true
+
+  config.vm.provider :virtualbox do |v|
+    v.customize ["modifyvm", :id, "--memory", "32768"]
+    v.customize ["modifyvm", :id, "--cpus", 16]
+  end
+
+  config.vm.provision "shell", privileged:false, inline: <<-SHELL
+
+    # Install Java
+    sudo add-apt-repository -y ppa:openjdk-r/ppa
+    sudo apt-get update
+    sudo apt-get install -y openjdk-11-jdk
+
+    # Install SPADE
+    sudo apt-get install -y git ifupdown libaudit-dev auditd libfuse-dev fuse pkg-config lsof unzip uthash-dev
+    git clone https://github.com/ashish-gehani/SPADE.git
+    cd SPADE
+    ./configure
+    make
+
+  SHELL
+end
