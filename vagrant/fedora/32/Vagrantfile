@@ -1,0 +1,33 @@
+VAGRANTFILE_API_VERSION = "2"
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+  config.vm.box = "fedora/32-cloud-base"
+  config.vm.hostname = "fedora-spade"
+  config.vm.network "private_network", ip: "192.168.2.2" , netmask: "255.255.255.0"
+  config.ssh.forward_x11 = true
+
+  config.vm.provider :virtualbox do |v|
+    v.customize ["modifyvm", :id, "--memory", "32768"]
+    v.customize ["modifyvm", :id, "--cpus", 16]
+  end
+
+  config.vm.provision "shell", privileged:false, inline: <<-SHELL
+
+    # Install Java
+    sudo dnf install -y java-11-openjdk-devel.x86_64
+
+    # Install other dependencies
+    sudo dnf install -y audit bison clang cmake curl flex fuse-devel fuse-libs git iptables kernel-devel-`uname -r` lsof unzip uthash-devel wget
+
+    # Install SPADE
+    wget https://github.com/ashish-gehani/SPADE/archive/master.zip
+    unzip master.zip
+    mv SPADE-master SPADE
+
+    cd SPADE
+    ./configure
+    make
+
+  SHELL
+end
