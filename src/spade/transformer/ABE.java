@@ -19,10 +19,10 @@ package spade.transformer;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -38,8 +38,8 @@ import javax.crypto.spec.SecretKeySpec;
 
 import org.apache.commons.codec.Charsets;
 import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
@@ -47,915 +47,798 @@ import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Settings;
-import spade.reporter.audit.OPMConstants;
 import spade.utility.ABEGraph;
-import spade.utility.HelperFunctions;
 
 public class ABE extends AbstractTransformer
 {
-	private static final String pathSeparatorInData = "/";
+	private static final String FILE_SEPARATOR = "/";
 	
-	private String encryptionLevel;
-	private String decryptionLevel;
-	private KeyGenerator keyGenerator;
-	private Ciphers cipher;
-	private static final String LOW = "low";
-	private static final String MEDIUM = "medium";
-	private static final String HIGH = "high";
-	private static final String BASE_ALGORITHM = "AES";
-	private static final String ENCRYPTION_LEVEL = "encryptionLevel";
-	private static final String DECRYPTION_LEVEL = "decryptionLevel";
-	private static final String DECRYPTION_KEY_FILE_NAME = "decryptionKeyFileName";
-	private static final String KEYS_DIRECTORY = "keysDirectory";
-	private File decryptionKeyFile;
-	private File KEYS_DIR;
-	private static final String EDGE = "Edge";
-	private static final String ALGORITHM = "AES/ECB/PKCS5Padding";
-	private static Logger logger = Logger.getLogger(ABE.class.getName());
-
-	private Map<String, List<String>> lowMap = new HashMap<>();
-	private Map<String, List<String>> mediumMap = new HashMap<>();
-	private Map<String, List<String>> highMap = new HashMap<>();
-
-	private static class SecretKeys
-	{
-		SecretKey low;
-		SecretKey medium;
-		SecretKey high;
-	}
-
-	private static class Ciphers
-	{
-		Cipher low;
-		Cipher medium;
-		Cipher high;
-	}
-
-	@Override
-	public boolean initialize(String arguments)
-	{
-		boolean configFileStatus = readConfigFile();
-		if(!configFileStatus)
-		{
-			return false;
-		}
-		Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(arguments);
-		String level_str = argsMap.get("encryptionLevel");
-		if(level_str != null)
-		{
-			this.encryptionLevel = level_str;
-		}
-
-		try
-		{
-			// create key generator
-			this.keyGenerator = KeyGenerator.getInstance(BASE_ALGORITHM);
-			this.keyGenerator.init(128);
-			this.cipher = new Ciphers();
-			this.cipher.low = Cipher.getInstance(ALGORITHM);
-			this.cipher.medium = Cipher.getInstance(ALGORITHM);
-			this.cipher.high = Cipher.getInstance(ALGORITHM);
-		}
-		catch(Exception ex)
-		{
-			logger.log(Level.SEVERE, "Error getting instance of key generator or cipher", ex);
-			return false;
-		}
-		return true;
-	}
-
-	private boolean readConfigFile()
-	{
-		String configFileName = Settings.getDefaultConfigFilePath(this.getClass());
-		// read config file here and set encryption level
-		try
-		{
-			String keyDirectoryPath = null;
-			String decryptionKeyFileName = null;
-			String level = null;
-			List<String> lines = FileUtils.readLines(new File(configFileName), Charsets.UTF_8);
-			for(String line : lines)
-			{
-				line = line.trim();
-				if(!HelperFunctions.isNullOrEmpty(line) && !line.startsWith("#"))
-				{
-					if(line.equalsIgnoreCase(LOW))
-					{
-						level = LOW;
-					}
-					else if(line.equalsIgnoreCase(MEDIUM))
-					{
-						level = MEDIUM;
-					}
-					else if(line.equalsIgnoreCase(HIGH))
-					{
-						level = HIGH;
-					}
-					else
-					{
-						String[] split = line.split("=");
-						if(split.length != 2)
-						{
-							String msg = "Incorrect config file formatting in line '" + line + "'";
-							logger.log(Level.WARNING, msg);
-							continue;
-						}
-						String type = split[0].trim();
-						String value = split[1].trim();
-						switch(type)
-						{
-							case ENCRYPTION_LEVEL:
-							{
-								encryptionLevel = value;
-							}
-							break;
-							case DECRYPTION_LEVEL:
-							{
-								decryptionLevel = value;
-							}
-							;
-							break;
-							case DECRYPTION_KEY_FILE_NAME:
-							{
-								decryptionKeyFileName = value;
-							}
-							;
-							break;
-							case KEYS_DIRECTORY:
-							{
-								keyDirectoryPath = value;
-							}
-							;
-							break;
-							default:
-							{
-								if(level == null)
-								{
-									logger.log(Level.WARNING, "Unexpected key '" + type + "'");
-									continue;
-								}
-								else
-								{
-									String[] annotations = value.split(",");
-									switch(level)
-									{
-										case LOW:
-											lowMap.put(type, Arrays.asList(annotations));
-											break;
-										case MEDIUM:
-											mediumMap.put(type, Arrays.asList(annotations));
-											break;
-										case HIGH:
-											highMap.put(type, Arrays.asList(annotations));
-											break;
-									}
-								}
-							}
-							;
-							break;
-						}
-
-					}
-				}
-			}
-
-			if(keyDirectoryPath == null)
-			{
-				logger.log(Level.SEVERE, "NULL '" + KEYS_DIRECTORY + "'");
-				return false;
-			}
-			else
-			{
-				if(decryptionKeyFileName == null)
-				{
-					logger.log(Level.SEVERE, "NULL '" + DECRYPTION_KEY_FILE_NAME + "'");
-					return false;
-				}
-				else
-				{
-					File keyDirFile = new File(keyDirectoryPath);
-					File decryptFile = new File(Settings.concatenatePaths(keyDirectoryPath, decryptionKeyFileName));
-					try
-					{
-						if(keyDirFile.isDirectory())
-						{
-							try
-							{
-								if(decryptFile.isFile())
-								{
-									this.KEYS_DIR = keyDirFile;
-									this.decryptionKeyFile = decryptFile;
-									if(HelperFunctions.isNullOrEmpty(encryptionLevel))
-									{
-										logger.log(Level.SEVERE, "NULL '" + ENCRYPTION_LEVEL + "'");
-										return false;
-									}
-									else if(HelperFunctions.isNullOrEmpty(decryptionLevel))
-									{
-										logger.log(Level.SEVERE, "NULL '" + DECRYPTION_LEVEL + "'");
-										return false;
-									}
-									else
-									{
-										logger.log(Level.INFO, String.format("Arguments: %s=%s, %s=%s, %s=%s, %s=%s",
-												KEYS_DIRECTORY, keyDirectoryPath,
-												DECRYPTION_KEY_FILE_NAME, decryptionKeyFileName,
-												ENCRYPTION_LEVEL, encryptionLevel,
-												DECRYPTION_LEVEL, decryptionLevel));
-										return true;
-									}
-								}
-								else
-								{
-									logger.log(Level.SEVERE, "'" + DECRYPTION_KEY_FILE_NAME + "' must be a file");
-									return false;
-								}
-							}
-							catch(Exception e)
-							{
-								logger.log(Level.SEVERE, "Failed to check if '" + DECRYPTION_KEY_FILE_NAME + "' is a file", e);
-								return false;
-							}
-						}
-						else
-						{
-							logger.log(Level.SEVERE, "'" + KEYS_DIRECTORY + "' must be a directory");
-							return false;
-						}
-					}
-					catch(Exception e)
-					{
-						logger.log(Level.SEVERE, "Failed to check if '" + KEYS_DIRECTORY + "' is a directory", e);
-						return false;
-					}
-				}
-			}
-		}
-		catch(Exception ex)
-		{
-			logger.log(Level.SEVERE, "Unable to read config file properly", ex);
-			return false;
-		}
-	}
-
-	private SecretKey generateKey()
-	{
-		return keyGenerator.generateKey();
-	}
-
-	private SecretKeys generateSymmetricKeys()
-	{
-		SecretKeys secretKeys = new SecretKeys();
-		secretKeys.low = generateKey();
-		secretKeys.medium = generateKey();
-		secretKeys.high = generateKey();
-		if(secretKeys.low == null || secretKeys.medium == null || secretKeys.high == null)
-		{
-			logger.log(Level.SEVERE, "Symmetric keys not generated properly");
-			return null;
-		}
-		return secretKeys;
-	}
-
-	private String decryptAnnotation(String encryptedAnnotation, Cipher cipher)
-	{
-		if(encryptedAnnotation == null)
-			return null;
-		try
-		{
-			byte[] decryptedAnnotation = cipher.doFinal(Hex.decodeHex(encryptedAnnotation.toCharArray()));
-			return new String(decryptedAnnotation, StandardCharsets.UTF_8);
-		}
-		catch(Exception ex)
-		{
-			String message = "Unable to decrypt annotation " + "'" + encryptedAnnotation + "'.";
-			logger.log(Level.SEVERE, message, ex);
-		}
-		return null;
-	}
-
-	private ABEGraph decryptGraph(ABEGraph graph, SecretKeys secretKeys, String decryptionLevel)
-	{
-		ABEGraph decryptedGraph = ABEGraph.copy(graph);
-		try
-		{
-			// initialize ciphers for decryption
-			Ciphers ciphers = new Ciphers();
-			switch(decryptionLevel)
-			{
-				case HIGH:
-					ciphers.high = Cipher.getInstance(ALGORITHM);
-					ciphers.high.init(Cipher.DECRYPT_MODE, secretKeys.high);
-				case MEDIUM:
-					ciphers.medium = Cipher.getInstance(ALGORITHM);
-					ciphers.medium.init(Cipher.DECRYPT_MODE, secretKeys.medium);
-				case LOW:
-					ciphers.low = Cipher.getInstance(ALGORITHM);
-					ciphers.low.init(Cipher.DECRYPT_MODE, secretKeys.low);
-			}
-
-			String encryptedAnnotation;
-			String decryptedAnnotation;
-			for(AbstractVertex vertex : decryptedGraph.vertexSet())
-			{
-				switch(vertex.type())
-				{
-					case OPMConstants.PROCESS:
-						switch(decryptionLevel)
-						{
-							case HIGH:
-								// decrypt name
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.PROCESS_NAME);
-								decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.high);
-								vertex.addAnnotation(OPMConstants.PROCESS_NAME, decryptedAnnotation);
-							case MEDIUM:
-								// decrypt command line
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.PROCESS_COMMAND_LINE);
-								if(encryptedAnnotation != null)
-								{
-									decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.medium);
-									vertex.addAnnotation(OPMConstants.PROCESS_COMMAND_LINE, decryptedAnnotation);
-								}
-							case LOW:
-								// decrypt cwd
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.PROCESS_CWD);
-								if(encryptedAnnotation != null)
-								{
-									decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.low);
-									vertex.addAnnotation(OPMConstants.PROCESS_CWD, decryptedAnnotation);
-								}
-						}
-						break;
-					case OPMConstants.AGENT:
-						switch(decryptionLevel)
-						{
-							case HIGH:
-								// decrypt euid
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_EUID);
-								decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.high);
-								vertex.addAnnotation(OPMConstants.AGENT_EUID, decryptedAnnotation);
-							case MEDIUM:
-								// decrypt uid
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_UID);
-								decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.medium);
-								vertex.addAnnotation(OPMConstants.AGENT_UID, decryptedAnnotation);
-
-								// decrypt gid
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_GID);
-								decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.medium);
-								vertex.addAnnotation(OPMConstants.AGENT_GID, decryptedAnnotation);
-							case LOW:
-								// decrypt fsgid
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_FSGID);
-								decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.low);
-								vertex.addAnnotation(OPMConstants.AGENT_FSGID, decryptedAnnotation);
-
-								// decrypt fsuid
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_FSUID);
-								decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.low);
-								vertex.addAnnotation(OPMConstants.AGENT_FSUID, decryptedAnnotation);
-
-								//decrypt sgid
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_SGID);
-								decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.low);
-								vertex.addAnnotation(OPMConstants.AGENT_SGID, decryptedAnnotation);
-
-								// decrypt suid
-								encryptedAnnotation = vertex.getAnnotation(OPMConstants.AGENT_SUID);
-								decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.low);
-								vertex.addAnnotation(OPMConstants.AGENT_SUID, decryptedAnnotation);
-						}
-						break;
-					case OPMConstants.ARTIFACT:
-						// decrypt remote address
-						encryptedAnnotation = vertex.getAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS);
-						if(encryptedAnnotation != null)
-						{
-							String[] subnets = encryptedAnnotation.split("\\.");
-							switch(decryptionLevel)
-							{
-								case HIGH:
-									subnets[1] = decryptAnnotation(subnets[1], ciphers.high);
-								case MEDIUM:
-									subnets[2] = decryptAnnotation(subnets[2], ciphers.medium);
-								case LOW:
-									subnets[3] = decryptAnnotation(subnets[3], ciphers.low);
-									decryptedAnnotation = String.join(".", subnets);
-									vertex.addAnnotation(OPMConstants.ARTIFACT_REMOTE_ADDRESS, decryptedAnnotation);
-							}
-						}
-
-						// decrypt path
-						encryptedAnnotation = vertex.getAnnotation(OPMConstants.ARTIFACT_PATH);
-						if(encryptedAnnotation != null)
-						{
-							String[] subpaths = encryptedAnnotation.split(pathSeparatorInData, 5);
-							int numpaths = subpaths.length;
-							switch(decryptionLevel)
-							{
-								case HIGH:
-									if(numpaths > 2)
-									{
-										subpaths[2] = decryptAnnotation(subpaths[2], ciphers.high);
-									}
-								case MEDIUM:
-									if(numpaths > 3)
-									{
-										subpaths[3] = decryptAnnotation(subpaths[3], ciphers.medium);
-									}
-								case LOW:
-									if(numpaths > 4)
-									{
-										subpaths[4] = decryptAnnotation(subpaths[4], ciphers.low);
-									}
-									decryptedAnnotation = String.join(pathSeparatorInData, subpaths);
-									vertex.addAnnotation(OPMConstants.ARTIFACT_PATH, decryptedAnnotation);
-							}
-						}
-						break;
-				}
-			}
-
-			for(AbstractEdge edge : decryptedGraph.edgeSet())
-			{
-				// parse individual units of time the timestamp
-				// time format is 'yyyy-MM-dd HH:mm:ss.SSS'
-				String time = edge.getAnnotation(OPMConstants.EDGE_TIME);
-				String regex = ":|-|\\.| ";
-				String[] split = time.split(regex);
-				String year = split[0];
-				String month = split[1];
-				String day = split[2];
-				String hour = split[3];
-				String minute = split[4];
-				String second = split[5];
-				String millisecond = split[6];
-
-				switch(decryptionLevel)
-				{
-					case HIGH:
-						// decrypt time
-						day = decryptAnnotation(day, ciphers.high);
-
-						// decrypt operation
-						encryptedAnnotation = edge.getAnnotation(OPMConstants.EDGE_OPERATION);
-						decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.high);
-						edge.addAnnotation(OPMConstants.EDGE_OPERATION, decryptedAnnotation);
-					case MEDIUM:
-						// decrypt time
-						hour = decryptAnnotation(hour, ciphers.medium);
-
-						// decrypt size
-						encryptedAnnotation = edge.getAnnotation(OPMConstants.EDGE_SIZE);
-						if(encryptedAnnotation != null)
-						{
-							decryptedAnnotation = decryptAnnotation(encryptedAnnotation, ciphers.medium);
-							edge.addAnnotation(OPMConstants.EDGE_SIZE, decryptedAnnotation);
-						}
-					case LOW:
-						// decrypt time
-						minute = decryptAnnotation(minute, ciphers.low);
-						second = decryptAnnotation(second, ciphers.low);
-						millisecond = decryptAnnotation(millisecond, ciphers.low);
-
-						// stitch time with format is 'yyyy-MM-dd HH:mm:ss.SSS'
-						String timestamp = year + "-" + month + "-" + day + " " + hour + ":" +
-								minute + ":" + second + "." + millisecond;
-						edge.addAnnotation(OPMConstants.EDGE_TIME, timestamp);
-				}
-			}
-			return decryptedGraph;
-		}
-		catch(Exception ex)
-		{
-			logger.log(Level.SEVERE, "Unable to initialize ciphers for decryption!", ex);
-			return null;
-		}
-	}
-
-	private String getAttributeKeyName()
-	{
-		return "medium.key";
-	}
-
-	private SecretKey decryptKey(String encryptedKey)
-	{
-		try
-		{
-			// write encrypted key to a file temporarily
-			String encryptedKeyFileName = "key.cpabe";
-			File encryptedKeyFile = new File(Settings.concatenatePaths(KEYS_DIR.getAbsolutePath(), encryptedKeyFileName));
-			FileUtils.writeStringToFile(encryptedKeyFile, encryptedKey, StandardCharsets.UTF_8);
-
-			// perform ABE decryption
-			String keyFileName = "key.txt";
-			//TODO: decryptionLevel is not user specific. Use the key stored for this user here
-			String command = "oabe_dec -s CP -p spade -k " + decryptionKeyFile.getAbsolutePath() + " -i " + encryptedKeyFileName +
-					" -o " + keyFileName;
-			Runtime runtime = Runtime.getRuntime();
-			Process process = runtime.exec(command, null, KEYS_DIR);
-			process.waitFor();
-			encryptedKeyFile.delete();
-
-			// check for errors
-			BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-			if(process.exitValue() != 0)
-			{
-				logger.log(Level.SEVERE, "Key decryption not successful! " +
-						"Here are the errors...");
-				String errors;
-				while((errors = stdError.readLine()) != null)
-				{
-					logger.log(Level.SEVERE, errors);
-				}
-				return null;
-			}
-
-			// read decrypted key from file
-			File keyFile = new File(Settings.concatenatePaths(KEYS_DIR.getAbsolutePath(), keyFileName));
-			String decryptedKey = FileUtils.readFileToString(keyFile, StandardCharsets.UTF_8);
-			keyFile.delete();
-
-			// decode and reconstruct
-			byte[] secretKeyBytes = Hex.decodeHex(decryptedKey.toCharArray());
-			return new SecretKeySpec(secretKeyBytes, 0, secretKeyBytes.length, BASE_ALGORITHM);
-		}
-		catch(Exception ex)
-		{
-			logger.log(Level.SEVERE,
-					"Error decrypting symmetric key ", ex);
-			return null;
-		}
-	}
-
-	private SecretKeys decryptSymmetricKeys(ABEGraph graph, String decryptionLevel)
-	{
-		SecretKeys secretKeys = new SecretKeys();
-		switch(decryptionLevel)
-		{
-			case HIGH:
-				secretKeys.high = decryptKey(graph.getHighKey());
-			case MEDIUM:
-				secretKeys.medium = decryptKey(graph.getMediumKey());
-			case LOW:
-				secretKeys.low = decryptKey(graph.getLowKey());
-		}
-		return secretKeys;
-	}
-
-	public ABEGraph decryptGraph(ABEGraph graph)
-	{
-		String level_str = graph.getLevel();
-		SecretKeys secretKeys = decryptSymmetricKeys(graph, level_str);
-		return decryptGraph(graph, secretKeys, level_str);
-	}
-
-	private String encryptAnnotation(String plainAnnotation, Cipher cipher)
-	{
-		if(plainAnnotation == null)
-			return null;
-		try
-		{
-			String encryptedAnnotationStr;
-			byte[] encryptedAnnotation = cipher.doFinal(plainAnnotation.getBytes(StandardCharsets.UTF_8));
-			encryptedAnnotationStr = Hex.encodeHexString(encryptedAnnotation);
-			return encryptedAnnotationStr;
-		}
-		catch(Exception ex)
-		{
-			String message = "Unable to encrypt annotation " + "'" + plainAnnotation + "'. " +
-					"This would disturb any further encryption of annotations.";
-			logger.log(Level.WARNING, message, ex);
-			return null;
-		}
-	}
-
-	private String encryptKey(SecretKey secretKey, String level)
-	{
-		try
-		{
-			// write secret key to a file temporarily
-			String keyFileName = "key.txt";
-			String encryptedKeyFileName = "key.cpabe";
-			String encodedKey = Hex.encodeHexString(secretKey.getEncoded());
-			File keyFile = new File(Settings.concatenatePaths(KEYS_DIR.getAbsolutePath(), keyFileName));
-			FileUtils.writeStringToFile(keyFile, encodedKey, StandardCharsets.UTF_8);
-
-			// perform ABE encryption
-			String command = "oabe_enc -s CP -p spade -e (" + level + ") -i " + keyFileName +
-					" -o " + encryptedKeyFileName;
-			Runtime runtime = Runtime.getRuntime();
-			Process process = runtime.exec(command, null, KEYS_DIR);
-			process.waitFor();
-			keyFile.delete();
-
-			// check for errors
-			BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-			if(process.exitValue() != 0)
-			{
-				logger.log(Level.SEVERE, "Encryption of " + level + " key not successful! " +
-						"Here are the errors...");
-				String errors;
-				while((errors = stdError.readLine()) != null)
-				{
-					logger.log(Level.SEVERE, errors);
-				}
-				return null;
-			}
-
-			// read encrypted key from file
-			File encryptedKeyFile = new File(Settings.concatenatePaths(KEYS_DIR.getAbsolutePath(), encryptedKeyFileName));
-			String encryptedKey = FileUtils.readFileToString(encryptedKeyFile, StandardCharsets.UTF_8);
-			encryptedKeyFile.delete();
-
-			return encryptedKey;
-		}
-		catch(Exception ex)
-		{
-			logger.log(Level.SEVERE, "Error encrypting " + level + " symmetric key", ex);
-			return null;
-		}
-	}
-
-	// encrypt the symmetric keys as per ABE
-	private void encryptSymmetricKeys(SecretKeys secretKeys, ABEGraph graph)
-	{
-		String low = encryptKey(secretKeys.low, this.encryptionLevel);
-		graph.setLowKey(low);
-
-		String medium = encryptKey(secretKeys.medium, this.encryptionLevel);
-		graph.setMediumKey(medium);
-
-		String high = encryptKey(secretKeys.high, this.encryptionLevel);
-		graph.setHighKey(high);
-	}
-
-	private void encryptAnnotations(AbstractVertex vertex, List<String> annotations, Cipher cipher)
-	{
-		for(String annotation : annotations)
-		{
-			String plainAnnotation = vertex.getAnnotation(annotation);
-			String encryptedAnnotation;
-			if(plainAnnotation != null)
-			{
-				encryptedAnnotation = encryptAnnotation(plainAnnotation, cipher);
-				vertex.addAnnotation(annotation, encryptedAnnotation);
-			}
-		}
-	}
-
-	private void encryptAnnotations(AbstractEdge edge, List<String> annotations, Cipher cipher)
-	{
-		for(String annotation : annotations)
-		{
-			String plainAnnotation = edge.getAnnotation(annotation);
-			String encryptedAnnotation;
-			if(plainAnnotation != null)
-			{
-				encryptedAnnotation = encryptAnnotation(plainAnnotation, cipher);
-				edge.addAnnotation(annotation, encryptedAnnotation);
-			}
-		}
-	}
-
-	@Override
-	public ABEGraph transform(Graph graph, QueryMetaData queryMetaData)
-	{
-		ABEGraph encryptedGraph = ABEGraph.copy(graph);
-		Set<AbstractVertex> endPoints = new HashSet<>();
-		for(AbstractEdge edge : encryptedGraph.edgeSet())
-		{
-			endPoints.add(edge.getChildVertex());
-			endPoints.add(edge.getParentVertex());
-		}
-		endPoints.addAll(encryptedGraph.vertexSet());
-
-		// generate 3 symmetric keys
-		SecretKeys secretKeys = generateSymmetricKeys();
-		if(secretKeys == null)
-		{
-			logger.log(Level.SEVERE, "Unable to encrypt data");
-			return null;
-		}
-		try
-		{
-			// encrypt data
-			this.cipher.low.init(Cipher.ENCRYPT_MODE, secretKeys.low);
-			this.cipher.medium.init(Cipher.ENCRYPT_MODE, secretKeys.medium);
-			this.cipher.high.init(Cipher.ENCRYPT_MODE, secretKeys.high);
-		}
-		catch(Exception ex)
-		{
-			logger.log(Level.SEVERE, "Unable to initialize ciphers for encryption!");
-		}
-
-		transformVertices(endPoints);
-		transformEdges(encryptedGraph.edgeSet());
-
-		// encrypt the symmetric keys as per ABE
-		encryptSymmetricKeys(secretKeys, encryptedGraph);
-		encryptedGraph.setLevel(encryptionLevel);
-		return encryptedGraph;
-	}
-
-	private void transformEdges(Set<AbstractEdge> edgeSet)
-	{
-		List<String> highAnnotations;
-		List<String> mediumAnnotations;
-		List<String> lowAnnotations;
-		List<String> commonAnnotations;
-		highAnnotations = highMap.get(EDGE);
-		mediumAnnotations = mediumMap.get(EDGE);
-		lowAnnotations = lowMap.get(EDGE);
-		commonAnnotations = (List<String>) CollectionUtils.intersection(highAnnotations, mediumAnnotations);
-		commonAnnotations = (List<String>) CollectionUtils.intersection(commonAnnotations, lowAnnotations);
-		highAnnotations = (List<String>) CollectionUtils.disjunction(commonAnnotations, highAnnotations);
-		mediumAnnotations = (List<String>) CollectionUtils.disjunction(commonAnnotations, mediumAnnotations);
-		lowAnnotations = (List<String>) CollectionUtils.disjunction(commonAnnotations, lowAnnotations);
-
-		for(AbstractEdge edge : edgeSet)
-		{
-			// encrypt non-common annotations here
-			switch(encryptionLevel)
-			{
-				case HIGH:
-					encryptAnnotations(edge, highAnnotations, this.cipher.high);
-				case MEDIUM:
-					encryptAnnotations(edge, mediumAnnotations, this.cipher.medium);
-				case LOW:
-					encryptAnnotations(edge, lowAnnotations, this.cipher.low);
-			}
-
-			// encrypt common annotations here
-			for(String annotation : commonAnnotations)
-			{
-				if(annotation.equals(OPMConstants.EDGE_TIME))
-				{
-					// extract time details from unix time
-					String time = edge.getAnnotation(OPMConstants.EDGE_TIME);
-					Date date = new Date(Double.valueOf(Double.parseDouble(time) * 1000).longValue());
-					Calendar calendar = Calendar.getInstance();
-					calendar.setTime(date);
-					String year = String.valueOf(calendar.get(Calendar.YEAR));
-					String month = String.valueOf(calendar.get(Calendar.MONTH) + 1); // zero-based indexing
-					String day = String.valueOf(calendar.get(Calendar.DAY_OF_MONTH));
-					String hour = String.valueOf(calendar.get(Calendar.HOUR_OF_DAY));
-					String minute = String.valueOf(calendar.get(Calendar.MINUTE));
-					String second = String.valueOf(calendar.get(Calendar.SECOND));
-					String millisecond = String.valueOf(calendar.get(Calendar.MILLISECOND));
-
-					switch(encryptionLevel)
-					{
-						case HIGH:
-							// encrypt time
-							day = encryptAnnotation(day, this.cipher.high);
-
-						case MEDIUM:
-							// encrypt time
-							hour = encryptAnnotation(hour, this.cipher.medium);
-
-						case LOW:
-							// encrypt time
-							minute = encryptAnnotation(minute, this.cipher.low);
-							second = encryptAnnotation(second, this.cipher.low);
-							millisecond = encryptAnnotation(millisecond, this.cipher.low);
-
-							// stitch time with format is 'yyyy-MM-dd HH:mm:ss.SSS'
-							String timestamp = year + "-" + month + "-" + day + " " + hour + ":" +
-									minute + ":" + second + "." + millisecond;
-							edge.addAnnotation(OPMConstants.EDGE_TIME, timestamp);
-					}
-				}
-			}
-		}
-	}
-
-	private void transformVertex(AbstractVertex vertex)
-	{
-		String plainAnnotation;
-		String encryptedAnnotation;
-		List<String> highAnnotations;
-		List<String> mediumAnnotations;
-		List<String> lowAnnotations;
-		List<String> commonAnnotations;
-		switch(vertex.type())
-		{
-			case OPMConstants.PROCESS:
-				highAnnotations = highMap.get(OPMConstants.PROCESS);
-				mediumAnnotations = mediumMap.get(OPMConstants.PROCESS);
-				lowAnnotations = lowMap.get(OPMConstants.PROCESS);
-
-				// encrypt common annotations here. None for now
-
-				switch(encryptionLevel)
-				{
-					case HIGH:
-						encryptAnnotations(vertex, highAnnotations, this.cipher.high);
-					case MEDIUM:
-						encryptAnnotations(vertex, mediumAnnotations, this.cipher.medium);
-					case LOW:
-						encryptAnnotations(vertex, lowAnnotations, this.cipher.low);
-				}
-				break;
-
-			case OPMConstants.AGENT:
-				highAnnotations = highMap.get(OPMConstants.AGENT);
-				mediumAnnotations = mediumMap.get(OPMConstants.AGENT);
-				lowAnnotations = lowMap.get(OPMConstants.AGENT);
-				switch(encryptionLevel)
-				{
-					case HIGH:
-						encryptAnnotations(vertex, highAnnotations, this.cipher.high);
-					case MEDIUM:
-						encryptAnnotations(vertex, mediumAnnotations, this.cipher.medium);
-					case LOW:
-						encryptAnnotations(vertex, lowAnnotations, this.cipher.low);
-				}
-				break;
-
-			case OPMConstants.ARTIFACT:
-				highAnnotations = highMap.get(OPMConstants.ARTIFACT);
-				mediumAnnotations = mediumMap.get(OPMConstants.ARTIFACT);
-				lowAnnotations = lowMap.get(OPMConstants.ARTIFACT);
-				commonAnnotations = (List<String>) CollectionUtils.intersection(highAnnotations, mediumAnnotations);
-				commonAnnotations = (List<String>) CollectionUtils.intersection(commonAnnotations, lowAnnotations);
-
-				// encrypt non-common annotations here. None for now
-
-				for(String annotation : commonAnnotations)
-				{
-					plainAnnotation = vertex.getAnnotation(annotation);
-					if(plainAnnotation != null)
-					{
-						if(annotation.equals(OPMConstants.ARTIFACT_REMOTE_ADDRESS))
-						{
-							String[] subnets = plainAnnotation.split("\\.");
-							switch(encryptionLevel)
-							{
-								case HIGH:
-									subnets[1] = encryptAnnotation(subnets[1], this.cipher.high);
-
-								case MEDIUM:
-									subnets[2] = encryptAnnotation(subnets[2], this.cipher.medium);
-
-								case LOW:
-									subnets[3] = encryptAnnotation(subnets[3], this.cipher.low);
-									encryptedAnnotation = String.join(".", subnets);
-									vertex.addAnnotation(annotation, encryptedAnnotation);
-							}
-						}
-						else if(annotation.equals(OPMConstants.ARTIFACT_PATH))
-						{
-							String[] subpaths = plainAnnotation.split(pathSeparatorInData, 5);
-							int numpaths = subpaths.length;
-							switch(encryptionLevel)
-							{
-								case HIGH:
-									if(numpaths > 2)
-									{
-										subpaths[2] = encryptAnnotation(subpaths[2], this.cipher.high);
-									}
-								case MEDIUM:
-									if(numpaths > 3)
-									{
-										subpaths[3] = encryptAnnotation(subpaths[3], this.cipher.medium);
-									}
-								case LOW:
-									if(numpaths > 4)
-									{
-										subpaths[4] = encryptAnnotation(subpaths[4], this.cipher.low);
-									}
-									encryptedAnnotation = String.join(pathSeparatorInData, subpaths);
-									vertex.addAnnotation(OPMConstants.ARTIFACT_PATH, encryptedAnnotation);
-							}
-						}
-					}
-				}
-				break;
-		}
-	}
-
-	private void transformVertices(Set<AbstractVertex> vertexSet)
-	{
-		for(AbstractVertex vertex : vertexSet)
-		{
-			transformVertex(vertex);
-		}
-	}
-
-//	public static void main(String[] args)
-//	{
-//		Graph graph = Graph.importGraph("sample.dot");
-//		System.out.println(graph);
-//		ABE abe = new ABE();
-//		abe.initialize("encryptionLevel=medium");
-//		ABEGraph encryptedGraph = abe.transform(graph, null);
-//		System.out.println(encryptedGraph);
-//		encryptedGraph.setLevel("medium");
-//
-//		ABEGraph decryptedGraph = abe.decryptGraph(encryptedGraph);
-//		System.out.println(decryptedGraph);
-//		System.out.println(decryptedGraph.equals(graph));
-//		System.out.println(decryptedGraph.toString().equals(graph.toString()));
-//	}
+    private KeyGenerator keyGenerator;
+    private Ciphers cipher;
+    private static final String LOW = "low";
+    private static final String MEDIUM = "medium";
+    private static final String HIGH = "high";
+    private static final String BASE_ALGORITHM = "AES";
+    private static final String KEYS_DIRECTORY = "keysDirectory";
+    private File KEYS_DIR;
+    private static final String EDGE = "Edge";
+    private static final String ALGORITHM = "AES/ECB/PKCS5Padding";
+    private static final Logger logger = Logger.getLogger(ABE.class.getName());
+
+    private List<String> lowAnnotations = new ArrayList<>();
+    private List<String> mediumAnnotations = new ArrayList<>();
+    private List<String> highAnnotations = new ArrayList<>();
+    private Map<String, List<String>> functionMap = new HashMap<>();
+
+    private class SecretKeys
+    {
+        SecretKey low;
+        SecretKey medium;
+        SecretKey high;
+    }
+
+    private class Ciphers
+    {
+        Cipher low;
+        Cipher medium;
+        Cipher high;
+    }
+
+    @Override
+    public boolean initialize(String arguments)
+    {
+        boolean configFileStatus = readConfigFile();
+        if (!configFileStatus)
+        {
+            return false;
+        }
+        try
+        {
+            // create key generator
+            this.keyGenerator = KeyGenerator.getInstance(BASE_ALGORITHM);
+            this.keyGenerator.init(128);
+            this.cipher = new Ciphers();
+            this.cipher.low = Cipher.getInstance(ALGORITHM);
+            this.cipher.medium = Cipher.getInstance(ALGORITHM);
+            this.cipher.high = Cipher.getInstance(ALGORITHM);
+        }
+        catch (Exception ex)
+        {
+            logger.log(Level.SEVERE, "Error getting instance of key generator or cipher", ex);
+            return false;
+        }
+        return true;
+    }
+
+    private boolean readConfigFile()
+    {
+        String configFileName = Settings.getDefaultConfigFilePath(this.getClass());
+        // read config file here and set encryption level
+        try
+        {
+            String keyDirectoryPath = null;
+            String level = null;
+            List<String> lines = FileUtils.readLines(new File(configFileName), Charsets.UTF_8);
+            for (String line : lines)
+            {
+                line = line.trim();
+                if (!StringUtils.isBlank(line) && !line.startsWith("#"))
+                {
+                    if (line.equalsIgnoreCase(LOW))
+                    {
+                        level = LOW;
+                    }
+                    else if (line.equalsIgnoreCase(MEDIUM))
+                    {
+                        level = MEDIUM;
+                    }
+                    else if (line.equalsIgnoreCase(HIGH))
+                    {
+                        level = HIGH;
+                    }
+                    else if (line.startsWith(KEYS_DIRECTORY))
+                    {
+                        String[] split = line.split("=");
+                        assert (split.length == 2);
+                        keyDirectoryPath = split[1].trim();
+                    }
+                    else
+                    {
+                        List<String> annotations = new ArrayList<>();
+                        String[] annotationsList = line.split(",");
+                        assert (level != null);
+                        for (String annotation : annotationsList)
+                        {
+                            String substr = StringUtils.substringBetween(annotation, "[", "]");
+                            if (substr != null)
+                            {
+                                String[] handles = substr.split(":");
+                                assert (handles.length == 2);
+                                String encryptFunction = handles[0];
+                                String decryptFunction = handles[1];
+                                annotation = annotation.substring(0, annotation.indexOf("["));
+                                functionMap.put(annotation, Arrays.asList(encryptFunction, decryptFunction));
+                                annotations.add(annotation);
+                            }
+                            else
+                            {
+                                annotations.add(annotation);
+                            }
+                        }
+                        switch (level)
+                        {
+                            case LOW:
+                                lowAnnotations.addAll(annotations);
+                                break;
+                            case MEDIUM:
+                                mediumAnnotations.addAll(annotations);
+                                break;
+                            case HIGH:
+                                highAnnotations.addAll(annotations);
+                                break;
+                        }
+                    }
+                }
+            }
+
+            if (keyDirectoryPath == null)
+            {
+                logger.log(Level.SEVERE, "NULL '" + KEYS_DIRECTORY + "'");
+                return false;
+            }
+            else
+            {
+                File keyDirFile = new File(keyDirectoryPath);
+                try
+                {
+                    if (keyDirFile.isDirectory())
+                    {
+                        this.KEYS_DIR = keyDirFile;
+                        return true;
+                    }
+                    else
+                    {
+                        logger.log(Level.SEVERE, "'" + KEYS_DIRECTORY + "' must be a directory");
+                        return false;
+                    }
+                }
+                catch (Exception e)
+                {
+                    logger.log(Level.SEVERE, "Failed to check if '" + KEYS_DIRECTORY + "' is a directory", e);
+                    return false;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.log(Level.SEVERE, "Unable to read config file properly", ex);
+            return false;
+        }
+    }
+
+    private SecretKey generateKey()
+    {
+        return keyGenerator.generateKey();
+    }
+
+    private SecretKeys generateSymmetricKeys()
+    {
+        SecretKeys secretKeys = new SecretKeys();
+        secretKeys.low = generateKey();
+        secretKeys.medium = generateKey();
+        secretKeys.high = generateKey();
+        if (secretKeys.low == null || secretKeys.medium == null || secretKeys.high == null)
+        {
+            logger.log(Level.SEVERE, "Symmetric keys not generated properly");
+            return null;
+        }
+        return secretKeys;
+    }
+
+    private String decryptIpAddress(String key, String encryptedValue, Cipher cipher, String level)
+    {
+        String[] subnets = encryptedValue.split("\\.");
+        String decryptedValue;
+        switch (level)
+        {
+            case LOW:
+                subnets[1] = decryptAnnotation(key, subnets[1], cipher);
+                break;
+            case MEDIUM:
+                subnets[2] = decryptAnnotation(key, subnets[2], cipher);
+                break;
+            case HIGH:
+                subnets[3] = decryptAnnotation(key, subnets[3], cipher);
+                break;
+        }
+        decryptedValue = String.join(".", subnets);
+        return decryptedValue;
+    }
+
+    private String decryptPath(String key, String encryptedValue, Cipher cipher, String level)
+    {
+        String[] subpaths = encryptedValue.split(FILE_SEPARATOR, 5);
+        int numpaths = subpaths.length;
+        String decryptedValue;
+        switch (level)
+        {
+            case LOW:
+                if (numpaths > 2)
+                {
+                    subpaths[2] = decryptAnnotation(key, subpaths[2], cipher);
+                }
+                break;
+            case MEDIUM:
+                if (numpaths > 3)
+                {
+                    subpaths[3] = decryptAnnotation(key, subpaths[3], cipher);
+                }
+                break;
+            case HIGH:
+                if (numpaths > 4)
+                {
+                    subpaths[4] = decryptAnnotation(key, subpaths[4], cipher);
+                }
+                break;
+        }
+        decryptedValue = String.join(FILE_SEPARATOR, subpaths);
+        return decryptedValue;
+    }
+
+
+    private String decryptAnnotation(String key, String encryptedValue, Cipher cipher)
+    {
+        if (encryptedValue == null)
+            return null;
+        if (cipher == null)
+            return encryptedValue;
+        try
+        {
+            byte[] decryptedValue = cipher.doFinal(Hex.decodeHex(encryptedValue.toCharArray()));
+            return new String(decryptedValue, StandardCharsets.UTF_8);
+        }
+        catch (Exception ex)
+        {
+            String message = "Unable to decrypt value " + "'" + encryptedValue + "' of " +
+                    "key '" + key + "'. ";
+            logger.log(Level.SEVERE, message, ex);
+        }
+        return encryptedValue;
+    }
+
+    private void decryptAnnotations(AbstractVertex vertex, List<String> keys, Cipher cipher, String level)
+    {
+        for (String key : keys)
+        {
+            String encryptedValue = vertex.getAnnotation(key);
+            String decryptedValue;
+            if (encryptedValue != null)
+            {
+                List<String> functions = functionMap.get(key);
+                if (functions != null)
+                {
+                    String decryptMethod = functions.get(1);
+                    Method method;
+                    try
+                    {
+                        method = ABE.class.getDeclaredMethod(decryptMethod, String.class, String.class,
+                                Cipher.class, String.class);
+                        decryptedValue = (String) method.invoke(this, key, encryptedValue, cipher, level);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.log(Level.SEVERE, null, ex);
+                        decryptedValue = encryptedValue;
+                    }
+                }
+                else
+                {
+                    decryptedValue = decryptAnnotation(key, encryptedValue, cipher);
+                }
+                vertex.addAnnotation(key, decryptedValue);
+            }
+        }
+    }
+
+    private void decryptVertex(AbstractVertex vertex, Ciphers ciphers)
+    {
+        decryptAnnotations(vertex, this.highAnnotations, ciphers.high, HIGH);
+        decryptAnnotations(vertex, this.mediumAnnotations, ciphers.medium, MEDIUM);
+        decryptAnnotations(vertex, this.lowAnnotations, ciphers.low, LOW);
+    }
+
+    private void decryptVertices(ABEGraph graph, Ciphers ciphers)
+    {
+        for (AbstractVertex vertex : graph.vertexSet())
+        {
+            decryptVertex(vertex, ciphers);
+        }
+    }
+
+    private String decryptTime(String key, String encryptedValue, Cipher cipher, String level)
+    {
+        // parse individual units of time the timestamp
+        // time format is 'yyyy-MM-dd HH:mm:ss.SSS'
+        String regex = "[:\\-. ]";
+        String[] split = encryptedValue.split(regex);
+        String year = split[0];
+        String month = split[1];
+        String day = split[2];
+        String hour = split[3];
+        String minute = split[4];
+        String second = split[5];
+        String millisecond = split[6];
+
+        switch (level)
+        {
+            case HIGH:
+                day = decryptAnnotation(key, day, cipher);
+                break;
+            case MEDIUM:
+                hour = decryptAnnotation(key, hour, cipher);
+                break;
+            case LOW:
+                minute = decryptAnnotation(key, minute, cipher);
+                second = decryptAnnotation(key, second, cipher);
+                millisecond = decryptAnnotation(key, millisecond, cipher);
+                break;
+        }
+
+        // stitch time with format is 'yyyy-MM-dd HH:mm:ss.SSS'
+        String timestamp = year + "-" + month + "-" + day + " " + hour + ":" +
+                minute + ":" + second + "." + millisecond;
+        return timestamp;
+    }
+
+    private void decryptAnnotations(AbstractEdge edge, List<String> keys, Cipher cipher, String level)
+    {
+        for (String key : keys)
+        {
+            String encryptedValue = edge.getAnnotation(key);
+            String decryptedValue;
+            if (encryptedValue != null)
+            {
+                List<String> functions = functionMap.get(key);
+                if (functions != null)
+                {
+                    String decryptMethod = functions.get(1);
+                    Method method;
+                    try
+                    {
+                        method = ABE.class.getDeclaredMethod(decryptMethod, String.class, String.class,
+                                Cipher.class, String.class);
+                        decryptedValue = (String) method.invoke(this, key, encryptedValue, cipher, level);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.log(Level.SEVERE, null, ex);
+                        decryptedValue = encryptedValue;
+                    }
+                }
+                else
+                {
+                    decryptedValue = decryptAnnotation(key, encryptedValue, cipher);
+                }
+                edge.addAnnotation(key, decryptedValue);
+            }
+
+        }
+    }
+
+    private void decryptEdge(AbstractEdge edge, Ciphers ciphers)
+    {
+        decryptAnnotations(edge, this.highAnnotations, ciphers.high, HIGH);
+        decryptAnnotations(edge, this.mediumAnnotations, ciphers.medium, MEDIUM);
+        decryptAnnotations(edge, this.lowAnnotations, ciphers.low, LOW);
+    }
+
+    private void decryptEdges(ABEGraph graph, Ciphers ciphers)
+    {
+        for (AbstractEdge edge : graph.edgeSet())
+        {
+            decryptEdge(edge, ciphers);
+        }
+    }
+
+    private ABEGraph decryptGraph(ABEGraph graph, SecretKeys symmetricKeys)
+    {
+        ABEGraph decryptedGraph = ABEGraph.copy(graph, false);
+        try
+        {
+            // initialize ciphers for decryption
+            Ciphers ciphers = new Ciphers();
+            if (symmetricKeys.high != null)
+            {
+                ciphers.high = Cipher.getInstance(ALGORITHM);
+                ciphers.high.init(Cipher.DECRYPT_MODE, symmetricKeys.high);
+            }
+            if (symmetricKeys.medium != null)
+            {
+                ciphers.medium = Cipher.getInstance(ALGORITHM);
+                ciphers.medium.init(Cipher.DECRYPT_MODE, symmetricKeys.medium);
+            }
+            if (symmetricKeys.low != null)
+            {
+                ciphers.low = Cipher.getInstance(ALGORITHM);
+                ciphers.low.init(Cipher.DECRYPT_MODE, symmetricKeys.low);
+            }
+
+            decryptVertices(decryptedGraph, ciphers);
+            decryptEdges(decryptedGraph, ciphers);
+            return decryptedGraph;
+        }
+        catch (Exception ex)
+        {
+            logger.log(Level.SEVERE, "Unable to initialize ciphers for decryption!", ex);
+            return null;
+        }
+    }
+
+    private SecretKey decryptKey(String encryptedKey, String level)
+    {
+        try
+        {
+            // write encrypted key to a file temporarily
+            String encryptedKeyFileName = "key.cpabe";
+            File encryptedKeyFile = new File(KEYS_DIR.getAbsolutePath() + FILE_SEPARATOR + encryptedKeyFileName);
+            FileUtils.writeStringToFile(encryptedKeyFile, encryptedKey, StandardCharsets.UTF_8);
+
+            // perform ABE decryption
+            String keyFileName = "key.txt";
+            String decryptionKeyFileName = level + ".key";
+            String decryptionKeyFilePath = KEYS_DIR.getAbsolutePath() + FILE_SEPARATOR + decryptionKeyFileName;
+            String command = "oabe_dec -s CP -p spade -k " + decryptionKeyFilePath + " -i " + encryptedKeyFileName +
+                    " -o " + keyFileName;
+            Runtime runtime = Runtime.getRuntime();
+            Process process = runtime.exec(command, null, KEYS_DIR);
+            process.waitFor();
+            encryptedKeyFile.delete();
+
+            // check for errors
+            BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+            if (process.exitValue() != 0)
+            {
+                logger.log(Level.SEVERE, "Key decryption not successful! " +
+                        "Here are the errors...");
+                String errors;
+                while ((errors = stdError.readLine()) != null)
+                {
+                    logger.log(Level.SEVERE, errors);
+                }
+                return null;
+            }
+
+            // read decrypted key from file
+            File keyFile = new File(KEYS_DIR.getAbsolutePath() + FILE_SEPARATOR + keyFileName);
+            String decryptedKey = FileUtils.readFileToString(keyFile, StandardCharsets.UTF_8);
+            keyFile.delete();
+
+            // decode and reconstruct
+            byte[] secretKeyBytes = Hex.decodeHex(decryptedKey.toCharArray());
+            return new SecretKeySpec(secretKeyBytes, 0, secretKeyBytes.length, BASE_ALGORITHM);
+        }
+        catch (Exception ex)
+        {
+            logger.log(Level.SEVERE,
+                    "Error decrypting symmetric key ", ex);
+            return null;
+        }
+    }
+
+    private SecretKeys decryptSymmetricKeys(ABEGraph graph)
+    {
+        SecretKeys secretKeys = new SecretKeys();
+        secretKeys.high = decryptKey(graph.getHighKey(), HIGH);
+        secretKeys.medium = decryptKey(graph.getMediumKey(), MEDIUM);
+        secretKeys.low = decryptKey(graph.getLowKey(), LOW);
+        return secretKeys;
+    }
+
+    public ABEGraph decryptGraph(ABEGraph graph)
+    {
+        SecretKeys symmetricKeys = decryptSymmetricKeys(graph);
+        return decryptGraph(graph, symmetricKeys);
+    }
+
+    private String encryptAnnotation(String key, String plainValue, Cipher cipher)
+    {
+        if (plainValue == null)
+            return null;
+        try
+        {
+            String encryptedValueStr;
+            byte[] encryptedAnnotation = cipher.doFinal(plainValue.getBytes(StandardCharsets.UTF_8));
+            encryptedValueStr = Hex.encodeHexString(encryptedAnnotation);
+            return encryptedValueStr;
+        }
+        catch (Exception ex)
+        {
+            String message = "Unable to encrypt value " + "'" + plainValue + "' of " +
+                    "key '" + key + "'. " +
+                    "This would disturb any further encryption of annotations.";
+            logger.log(Level.WARNING, message, ex);
+            return plainValue;
+        }
+    }
+
+    private String encryptKey(SecretKey symmetricKey, String level)
+    {
+        try
+        {
+            // write secret key to a file temporarily
+            String keyFileName = "key.txt";
+            String encryptedKeyFileName = "key.cpabe";
+            String encodedKey = Hex.encodeHexString(symmetricKey.getEncoded());
+            File keyFile = new File(KEYS_DIR.getAbsolutePath() + FILE_SEPARATOR + keyFileName);
+            FileUtils.writeStringToFile(keyFile, encodedKey, StandardCharsets.UTF_8);
+
+            // perform ABE encryption
+            String command = "oabe_enc -s CP -p spade -e (" + level + ") -i " + keyFileName +
+                    " -o " + encryptedKeyFileName;
+            Runtime runtime = Runtime.getRuntime();
+            Process process = runtime.exec(command, null, KEYS_DIR);
+            process.waitFor();
+            keyFile.delete();
+
+            // check for errors
+            BufferedReader stdError = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+            if (process.exitValue() != 0)
+            {
+                logger.log(Level.SEVERE, "Encryption of " + level + " key not successful! " +
+                        "Here are the errors...");
+                String errors;
+                while ((errors = stdError.readLine()) != null)
+                {
+                    logger.log(Level.SEVERE, errors);
+                }
+                return null;
+            }
+
+            // read encrypted key from file
+            File encryptedKeyFile = new File(KEYS_DIR.getAbsolutePath() + FILE_SEPARATOR + encryptedKeyFileName);
+            String encryptedKey = FileUtils.readFileToString(encryptedKeyFile, StandardCharsets.UTF_8);
+            encryptedKeyFile.delete();
+
+            return encryptedKey;
+        }
+        catch (Exception ex)
+        {
+            logger.log(Level.SEVERE, "Error encrypting " + level + " symmetric key", ex);
+            return null;
+        }
+    }
+
+    // encrypt the symmetric keys as per ABE
+    private void encryptSymmetricKeys(SecretKeys symmetricKeys, ABEGraph graph)
+    {
+        String low = encryptKey(symmetricKeys.low, LOW);
+        graph.setLowKey(low);
+
+        String medium = encryptKey(symmetricKeys.medium, MEDIUM);
+        graph.setMediumKey(medium);
+
+        String high = encryptKey(symmetricKeys.high, HIGH);
+        graph.setHighKey(high);
+    }
+
+    private String encryptIpAddress(String key, String plainValue, String level)
+    {
+        String[] subnets = plainValue.split("\\.");
+        String encryptedValue;
+        switch (level)
+        {
+            case LOW:
+                subnets[1] = encryptAnnotation(key, subnets[1], this.cipher.low);
+                break;
+            case MEDIUM:
+                subnets[2] = encryptAnnotation(key, subnets[2], this.cipher.medium);
+                break;
+            case HIGH:
+                subnets[3] = encryptAnnotation(key, subnets[3], this.cipher.high);
+                break;
+        }
+        encryptedValue = String.join(".", subnets);
+        return encryptedValue;
+    }
+
+    private String encryptPath(String key, String plainValue, String level)
+    {
+        String[] subpaths = plainValue.split(FILE_SEPARATOR, 5);
+        String encryptedValue;
+        int numpaths = subpaths.length;
+        switch (level)
+        {
+            case LOW:
+                if (numpaths > 2)
+                {
+                    subpaths[2] = encryptAnnotation(key, subpaths[2], this.cipher.low);
+                }
+                break;
+            case MEDIUM:
+                if (numpaths > 3)
+                {
+                    subpaths[3] = encryptAnnotation(key, subpaths[3], this.cipher.medium);
+                }
+                break;
+            case HIGH:
+                if (numpaths > 4)
+                {
+                    subpaths[4] = encryptAnnotation(key, subpaths[4], this.cipher.high);
+                }
+                break;
+        }
+        encryptedValue = String.join(FILE_SEPARATOR, subpaths);
+        return encryptedValue;
+    }
+
+    private String encryptTime(String key, String plainValue, String level)
+    {
+        // parse individual units of time the timestamp
+        // time format is 'yyyy-MM-dd HH:mm:ss.SSS'
+        String regex = "[:\\-. ]";
+        String[] split = plainValue.split(regex);
+        String year = split[0];
+        String month = split[1];
+        String day = split[2];
+        String hour = split[3];
+        String minute = split[4];
+        String second = split[5];
+        String millisecond = split[6];
+
+        switch (level)
+        {
+            case HIGH:
+                day = encryptAnnotation(key, day, this.cipher.high);
+                break;
+            case MEDIUM:
+                hour = encryptAnnotation(key, hour, this.cipher.medium);
+                break;
+            case LOW:
+                minute = encryptAnnotation(key, minute, this.cipher.low);
+                second = encryptAnnotation(key, second, this.cipher.low);
+                millisecond = encryptAnnotation(key, millisecond, this.cipher.low);
+                break;
+        }
+
+        // stitch time with format is 'yyyy-MM-dd HH:mm:ss.SSS'
+        String timestamp = year + "-" + month + "-" + day + " " + hour + ":" +
+                minute + ":" + second + "." + millisecond;
+
+        return timestamp;
+    }
+
+    private void encryptAnnotations(AbstractVertex vertex, List<String> keys, Cipher cipher, String level)
+    {
+        for (String key : keys)
+        {
+            String plainValue = vertex.getAnnotation(key);
+            String encryptedValue;
+            if (plainValue != null)
+            {
+                List<String> functions = functionMap.get(key);
+                if (functions != null)
+                {
+                    String encryptMethod = functions.get(0);
+                    Method method;
+                    try
+                    {
+                        method = ABE.class.getDeclaredMethod(encryptMethod, String.class, String.class, String.class);
+                        encryptedValue = (String) method.invoke(this, key, plainValue, level);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.log(Level.SEVERE, null, ex);
+                        encryptedValue = plainValue;
+                    }
+                }
+                else
+                {
+                    encryptedValue = encryptAnnotation(key, plainValue, cipher);
+                }
+                vertex.addAnnotation(key, encryptedValue);
+            }
+        }
+    }
+
+    private void encryptAnnotations(AbstractEdge edge, List<String> keys, Cipher cipher, String level)
+    {
+        for (String key : keys)
+        {
+            String plainValue = edge.getAnnotation(key);
+            String encryptedValue;
+            if (plainValue != null)
+            {
+                List<String> functions = functionMap.get(key);
+                if (functions != null)
+                {
+                    String encryptMethod = functions.get(0);
+                    Method method = null;
+                    try
+                    {
+                        method = ABE.class.getDeclaredMethod(encryptMethod, String.class, String.class, String.class);
+                        encryptedValue = (String) method.invoke(this, key, plainValue, level);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.log(Level.SEVERE, null, ex);
+                        encryptedValue = plainValue;
+                    }
+                }
+                else
+                {
+                    encryptedValue = encryptAnnotation(key, plainValue, cipher);
+                }
+                edge.addAnnotation(key, encryptedValue);
+            }
+        }
+    }
+
+    @Override
+    public ABEGraph transform(Graph graph, QueryMetaData queryMetaData)
+    {
+        ABEGraph encryptedGraph = ABEGraph.copy(graph, true);
+        Set<AbstractVertex> endPoints = new HashSet<>();
+        for (AbstractEdge edge : encryptedGraph.edgeSet())
+        {
+            endPoints.add(edge.getChildVertex());
+            endPoints.add(edge.getParentVertex());
+        }
+        endPoints.addAll(encryptedGraph.vertexSet());
+
+        // generate 3 symmetric keys
+        SecretKeys symmetricKeys = generateSymmetricKeys();
+        if (symmetricKeys == null)
+        {
+            logger.log(Level.SEVERE, "Unable to encrypt data");
+            return null;
+        }
+        try
+        {
+            // encrypt data
+            this.cipher.low.init(Cipher.ENCRYPT_MODE, symmetricKeys.low);
+            this.cipher.medium.init(Cipher.ENCRYPT_MODE, symmetricKeys.medium);
+            this.cipher.high.init(Cipher.ENCRYPT_MODE, symmetricKeys.high);
+        }
+        catch (Exception ex)
+        {
+            logger.log(Level.SEVERE, "Unable to initialize ciphers for encryption!");
+        }
+
+        encryptVertices(endPoints);
+        encryptEdges(encryptedGraph.edgeSet());
+
+        // encrypt the symmetric keys as per ABE
+        encryptSymmetricKeys(symmetricKeys, encryptedGraph);
+        return encryptedGraph;
+    }
+
+    private void encryptEdges(Set<AbstractEdge> edgeSet)
+    {
+        for (AbstractEdge edge : edgeSet)
+        {
+            encryptEdge(edge);
+        }
+    }
+
+    private void encryptEdge(AbstractEdge edge)
+    {
+        encryptAnnotations(edge, highAnnotations, this.cipher.high, HIGH);
+        encryptAnnotations(edge, mediumAnnotations, this.cipher.medium, MEDIUM);
+        encryptAnnotations(edge, lowAnnotations, this.cipher.low, LOW);
+    }
+
+    private void encryptVertex(AbstractVertex vertex)
+    {
+        encryptAnnotations(vertex, this.highAnnotations, this.cipher.high, HIGH);
+        encryptAnnotations(vertex, this.mediumAnnotations, this.cipher.medium, MEDIUM);
+        encryptAnnotations(vertex, this.lowAnnotations, this.cipher.low, LOW);
+    }
+
+    private void encryptVertices(Set<AbstractVertex> vertexSet)
+    {
+        for (AbstractVertex vertex : vertexSet)
+        {
+            encryptVertex(vertex);
+        }
+    }
 }

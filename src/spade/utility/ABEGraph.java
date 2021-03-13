@@ -16,17 +16,21 @@
  */
 package spade.utility;
 
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Graph;
 import spade.core.Vertex;
+import spade.reporter.audit.OPMConstants;
 
 public class ABEGraph extends Graph
 {
-	private static final long serialVersionUID = 616956634821720644L;
-	
-	private String level;
+	private static final long serialVersionUID = -6200790370474776849L;
 	private String lowKey;
 	private String mediumKey;
 	private String highKey;
@@ -61,26 +65,48 @@ public class ABEGraph extends Graph
 		this.highKey = highKey;
 	}
 
-	public void setLevel(String level)
+	/*
+	Converts unix timestamp into human readable time of format
+	'yyyy-MM-dd HH:mm:ss.SSS'
+	 */
+	private static void convertUnixTime(AbstractEdge edge)
 	{
-		this.level = level;
+		String unixTime = edge.getAnnotation(OPMConstants.EDGE_TIME);
+		Date date = new Date(Double.valueOf(Double.parseDouble(unixTime) * 1000).longValue());
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTime(date);
+		String year = String.valueOf(calendar.get(Calendar.YEAR));
+		String month = String.valueOf(calendar.get(Calendar.MONTH) + 1); // zero-based indexing
+		String day = String.valueOf(calendar.get(Calendar.DAY_OF_MONTH));
+		String hour = String.valueOf(calendar.get(Calendar.HOUR_OF_DAY));
+		String minute = String.valueOf(calendar.get(Calendar.MINUTE));
+		String second = String.valueOf(calendar.get(Calendar.SECOND));
+		String millisecond = String.valueOf(calendar.get(Calendar.MILLISECOND));
+
+		// stitch time with format is 'yyyy-MM-dd HH:mm:ss.SSS'
+		String timestamp = year + "-" + month + "-" + day + " " + hour + ":" +
+				minute + ":" + second + "." + millisecond;
+		edge.addAnnotation(OPMConstants.EDGE_TIME, timestamp);
 	}
 
-	public String getLevel()
+	public static ABEGraph copy(Graph graph, boolean convertUnixTime)
 	{
-		return level;
-	}
-
-	public static ABEGraph copy(Graph graph)
-	{
+		Map<String, AbstractVertex> vertexMap = new HashMap<>();
 		ABEGraph newGraph = new ABEGraph();
 		for(AbstractVertex vertex : graph.vertexSet())
 		{
-			newGraph.putVertex(copyVertex(vertex));
+			AbstractVertex newVertex = copyVertex(vertex);
+			newGraph.putVertex(newVertex);
+			vertexMap.put(newVertex.bigHashCode(), newVertex);
 		}
 		for(AbstractEdge edge : graph.edgeSet())
 		{
-			newGraph.putEdge(copyEdge(edge));
+			AbstractEdge newEdge = copyEdge(edge);
+			if(convertUnixTime)
+				convertUnixTime(newEdge);
+			newEdge.setChildVertex(vertexMap.get(edge.getChildVertex().bigHashCode()));
+			newEdge.setParentVertex(vertexMap.get(edge.getParentVertex().bigHashCode()));
+			newGraph.putEdge(newEdge);
 		}
 		return newGraph;
 	}
@@ -95,8 +121,6 @@ public class ABEGraph extends Graph
 	public static AbstractEdge copyEdge(AbstractEdge edge)
 	{
 		AbstractEdge newEdge = new Edge(null, null);
-		newEdge.setChildVertex(copyVertex(edge.getChildVertex()));
-		newEdge.setParentVertex(copyVertex(edge.getParentVertex()));
 		newEdge.addAnnotations(edge.getCopyOfAnnotations());
 		return newEdge;
 	}

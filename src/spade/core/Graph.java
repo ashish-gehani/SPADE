@@ -35,16 +35,12 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.edge.opm.WasTriggeredBy;
 import spade.query.quickgrail.instruction.ExportGraph;
-import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLineage.Direction;
 import spade.storage.Graphviz;
 import spade.storage.JSON;
 import spade.utility.DotConfiguration;
-import spade.utility.Execute;
 import spade.utility.HelperFunctions;
-import spade.vertex.opm.Process;
 
 /**
  * This class is used to represent query responses using sets for edges and
@@ -531,61 +527,6 @@ public class Graph implements Serializable{
 		}
 	}
 
-	// Get lineage test
-	
-	private static Set<AbstractVertex> getVerticesWithNameA0(Graph graph){
-		Set<AbstractVertex> r = new HashSet<AbstractVertex>();
-		for(AbstractVertex vertex : graph.vertexSet()){
-			if("a0".equals(vertex.getAnnotation("name"))){
-				r.add(vertex);
-			}
-		}
-		return r;
-	}
-
-	private static Graph getTestGraph(){
-		Graph g = new Graph();
-		Process a0_0 = new Process();
-		a0_0.addAnnotation("name", "a0");
-		a0_0.addAnnotation("id", "0");
-		Process a0_1 = new Process();
-		a0_1.addAnnotation("name", "a0");
-		a0_1.addAnnotation("id", "1");
-		Process a1 = new Process();
-		a1.addAnnotation("name", "a1");
-		WasTriggeredBy wtb0 = new WasTriggeredBy(a0_0, a1);
-		WasTriggeredBy wtb1 = new WasTriggeredBy(a0_1, a1);
-		WasTriggeredBy wtb1_reverse = new WasTriggeredBy(a1, a0_1);
-
-		g.putVertex(a0_0);
-		g.putVertex(a0_1);
-		g.putVertex(a1);
-		g.putEdge(wtb0);
-		g.putEdge(wtb1);
-		g.putEdge(wtb1_reverse);
-
-		return g;
-	}
-
-	public static void main(String[] args) throws Exception{
-		final String outputDot = "/tmp/delout.dot";
-		final String outputSvg = "/tmp/delout.svg";
-		final Graph inputGraph = getTestGraph();
-		
-		System.out.println(exportGraphToString(ExportGraph.Format.kDot, inputGraph));
-
-		/////
-		final Set<AbstractVertex> startVertices = getVerticesWithNameA0(inputGraph);
-		final Graph outputGraph = inputGraph.getLineage(startVertices, GetLineage.Direction.kAncestor, 10);
-		/////
-
-		exportGraphToFile(ExportGraph.Format.kDot, outputDot, outputGraph);
-
-		System.out.println(
-				Execute.getOutput(new String[]{"/bin/bash", "-c", "/usr/local/bin/dot -o " + outputSvg + " -Tsvg " + outputDot}).getStdErr()
-				);
-	}
-	
 }
 
 /*

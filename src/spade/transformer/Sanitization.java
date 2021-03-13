@@ -16,20 +16,21 @@
  */
 package spade.transformer;
 
-
 import java.io.File;
-import java.util.Arrays;
+import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.codec.Charsets;
-import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang.StringUtils;
 
 import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
@@ -52,11 +53,12 @@ public class Sanitization extends AbstractTransformer
 	private static final String SANITIZATION_LEVEL = "sanitizationLevel";
 	private static final String EDGE = "Edge";
 	private static final String NULLSTR = "";
-	private static Logger logger = Logger.getLogger(Sanitization.class.getName());
+	private static final Logger logger = Logger.getLogger(Sanitization.class.getName());
 
-	private Map<String, List<String>> lowMap = new HashMap<>();
-	private Map<String, List<String>> mediumMap = new HashMap<>();
-	private Map<String, List<String>> highMap = new HashMap<>();
+	private List<String> lowAnnotations = new ArrayList<>();
+	private List<String> mediumAnnotations = new ArrayList<>();
+	private List<String> highAnnotations = new ArrayList<>();
+	private Map<String, String> functionMap = new HashMap<>();
 
 	@Override
 	public boolean initialize(String arguments)
@@ -82,51 +84,57 @@ public class Sanitization extends AbstractTransformer
 		// read config file here and set sanitization level
 		try
 		{
-			String level = LOW;
-			List<String> lines = FileUtils.readLines(new File(configFileName), Charsets.UTF_8);
-			for(String line : lines)
+			String level = null;
+			List<String> lines = FileUtils.readLines(new File(configFileName), StandardCharsets.UTF_8);
+			for (String line : lines)
 			{
 				line = line.trim();
-				if(!HelperFunctions.isNullOrEmpty(line) && !line.startsWith("#"))
+				if (!StringUtils.isBlank(line) && !line.startsWith("#"))
 				{
-					if(line.startsWith(SANITIZATION_LEVEL))
-					{
-						Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(line);
-						this.sanitizationLevel = argsMap.get(SANITIZATION_LEVEL);
-					}
-					else if(line.equalsIgnoreCase(LOW))
+					if (line.equalsIgnoreCase(LOW))
 					{
 						level = LOW;
 					}
-					else if(line.equalsIgnoreCase(MEDIUM))
+					else if (line.equalsIgnoreCase(MEDIUM))
 					{
 						level = MEDIUM;
 					}
-					else if(line.equalsIgnoreCase(HIGH))
+					else if (line.equalsIgnoreCase(HIGH))
 					{
 						level = HIGH;
 					}
-					else
+					else if (line.startsWith(SANITIZATION_LEVEL))
 					{
 						String[] split = line.split("=");
-						if(split.length != 2)
+						assert (split.length == 2);
+						this.sanitizationLevel = split[1].trim();
+					}
+					else
+					{
+						assert (level != null);
+						List<String> annotations = new ArrayList<>();
+						String[] annotationsList = line.split(",");
+						assert (annotationsList.length > 0);
+						for (String annotation : annotationsList)
 						{
-							String msg = "Incorrect config file formatting in line '" + line + "'";
-							logger.log(Level.WARNING, msg);
-							continue;
+							String cleanAnnotation = annotation.trim();
+							String substr = StringUtils.substringBetween(cleanAnnotation, "[", "]");
+							if (substr != null)
+							{
+								cleanAnnotation = cleanAnnotation.substring(0, cleanAnnotation.indexOf("[")).trim();
+								functionMap.put(cleanAnnotation, substr.trim());
+							}
+							annotations.add(cleanAnnotation);
 						}
-						String type = split[0].trim();
-						String[] annotations = split[1].trim().split(",");
-						switch(level)
-						{
+						switch (level) {
 							case LOW:
-								lowMap.put(type, Arrays.asList(annotations));
+								lowAnnotations.addAll(annotations);
 								break;
 							case MEDIUM:
-								mediumMap.put(type, Arrays.asList(annotations));
+								mediumAnnotations.addAll(annotations);
 								break;
 							case HIGH:
-								highMap.put(type, Arrays.asList(annotations));
+								highAnnotations.addAll(annotations);
 								break;
 						}
 					}
@@ -141,214 +149,281 @@ public class Sanitization extends AbstractTransformer
 		}
 	}
 
-
-	private void sanitizeAnnotations(AbstractVertex vertex, List<String> annotations)
+	private String sanitizeTime(String key, String plainValue, String level)
 	{
-		for(String annotation : annotations)
+		// parse individual units of time the timestamp
+		// time format is 'yyyy-MM-dd HH:mm:ss.SSS'
+		String regex = "[:\\-. ]";
+		String[] split = plainValue.split(regex);
+		String year = split[0];
+		String month = split[1];
+		String day = split[2];
+		String hour = split[3];
+		String minute = split[4];
+		String second = split[5];
+		String millisecond = split[6];
+
+		switch (level)
 		{
-			String plainAnnotation = vertex.getAnnotation(annotation);
-			if(plainAnnotation != null)
+			case LOW:
+				day = NULLSTR;
+				break;
+			case MEDIUM:
+				hour = NULLSTR;
+				break;
+			case HIGH:
+				minute = NULLSTR;
+				second = NULLSTR;
+				millisecond = NULLSTR;
+				break;
+		}
+
+		// stitch time with format is 'yyyy-MM-dd HH:mm:ss.SSS'
+		String timestamp = year + "-" + month + "-" + day + " " + hour + ":" +
+				minute + ":" + second + "." + millisecond;
+
+		return timestamp;
+	}
+
+	private String sanitizePath(String key, String plainValue, String level)
+	{
+		String[] subpaths = plainValue.split(pathSeparatorInData, 5);
+		String sanitizedValue;
+		int numpaths = subpaths.length;
+		switch (level)
+		{
+			case LOW:
+				if (numpaths > 2)
+				{
+					subpaths[2] = NULLSTR;
+				}
+				break;
+			case MEDIUM:
+				if (numpaths > 3)
+				{
+					subpaths[3] = NULLSTR;
+				}
+				break;
+			case HIGH:
+				if (numpaths > 4)
+				{
+					subpaths[4] = NULLSTR;
+				}
+				break;
+		}
+		sanitizedValue = String.join(pathSeparatorInData, subpaths);
+		return sanitizedValue;
+	}
+
+	private String sanitizeIpAddress(String key, String plainValue, String level)
+	{
+		if(plainValue.contains(".")){
+			// Assumed to be IPv4
+			final String tokens[] = plainValue.split("\\.");
+			if(tokens.length != 4){
+				logger.log(Level.WARNING, "Value not sanitized. Unexpected format of IPv4 address: '" + plainValue + "'. Must be in format: a.b.c.d");
+				return plainValue;
+			}else{
+				switch(level){
+					case LOW:
+						tokens[1] = NULLSTR;
+						break;
+					case MEDIUM:
+						tokens[2] = NULLSTR;
+						break;
+					case HIGH:
+						tokens[3] = NULLSTR;
+						break;
+					default:
+						logger.log(Level.WARNING, "Unexpected sanitization level: '"+level+"'. Allowed '"+LOW+"' or '"+MEDIUM+"' or '"+HIGH+"'.");
+						return plainValue;
+				}
+				final String sanitizedValue = String.join(".", tokens);
+				return sanitizedValue;
+			}
+		}else if(plainValue.contains(":")){
+			// Assumed to be IPv6
+			final String tokens[] = plainValue.split(":");
+			if(tokens.length != 8){
+				logger.log(Level.WARNING, "Value not sanitized. Unexpected format of IPv6 address: '" + plainValue + "'. Must be in format: a:b:c:d:e:f:g:h");
+				return plainValue;
+			}else{
+				switch(level){
+					case LOW:
+						tokens[2] = NULLSTR;
+						tokens[3] = NULLSTR;
+						break;
+					case MEDIUM:
+						tokens[4] = NULLSTR;
+						tokens[5] = NULLSTR;
+						break;
+					case HIGH:
+						tokens[6] = NULLSTR;
+						tokens[7] = NULLSTR;
+						break;
+					default:
+						logger.log(Level.WARNING, "Unexpected sanitization level: '"+level+"'. Allowed '"+LOW+"' or '"+MEDIUM+"' or '"+HIGH+"'.");
+						return plainValue;
+				}
+				final String sanitizedValue = String.join(":", tokens);
+				return sanitizedValue;
+			}
+		}else{
+			logger.log(Level.WARNING, "Value not sanitized. Unexpected format of IP address: '" + plainValue + "'. Allowed either fully expanded IPv6 or IPv4.");
+			return plainValue;
+		}
+	}
+
+	private void sanitizeAnnotations(AbstractEdge edge, List<String> keys, String level)
+	{
+		for(String key : keys)
+		{
+			String plainValue = edge.getAnnotation(key);
+			String sanitizedValue;
+			if(plainValue != null)
 			{
-				vertex.addAnnotation(annotation, NULLSTR);
+				String sanitizeFunction = functionMap.get(key);
+				if (sanitizeFunction != null)
+				{
+					Method method;
+					try
+					{
+						method = Sanitization.class.getDeclaredMethod(sanitizeFunction, String.class, String.class, String.class);
+						sanitizedValue = (String) method.invoke(this, key, plainValue, level);
+					}
+					catch (Exception ex)
+					{
+						// In case the sanitization handler is missing
+						// Put the plain string and flag
+						logger.log(Level.SEVERE, "Sanitization handler not found for key '" + key + "'!", ex);
+						sanitizedValue = plainValue;
+					}
+				}
+				else
+				{
+					sanitizedValue = NULLSTR;
+				}
+				edge.addAnnotation(key, sanitizedValue);
 			}
 		}
 	}
 
-	private void sanitizeAnnotations(AbstractEdge edge, List<String> annotations)
+	private void sanitizeAnnotations(AbstractVertex vertex, List<String> keys, String level)
 	{
-		for(String annotation : annotations)
+		for(String key : keys)
 		{
-			String plainAnnotation = edge.getAnnotation(annotation);
-			if(plainAnnotation != null)
+			String plainValue = vertex.getAnnotation(key);
+			String sanitizedValue;
+			if(plainValue != null)
 			{
-				edge.addAnnotation(annotation, NULLSTR);
+				String sanitizeFunction = functionMap.get(key);
+				if (sanitizeFunction != null)
+				{
+					Method method;
+					try
+					{
+						method = Sanitization.class.getDeclaredMethod(sanitizeFunction, String.class, String.class, String.class);
+						sanitizedValue = (String) method.invoke(this, key, plainValue, level);
+					}
+					catch (Exception ex)
+					{
+						// In case the sanitization handler is missing
+						// Put the plain string and flag
+						logger.log(Level.SEVERE, "Sanitization handler not found for key '" + key + "'!", ex);
+						sanitizedValue = plainValue;
+					}
+				}
+				else
+				{
+					sanitizedValue = NULLSTR;
+				}
+				vertex.addAnnotation(key, sanitizedValue);
 			}
+		}
+	}
+
+	private void sanitizeEdge(AbstractEdge edge)
+	{
+		switch(this.sanitizationLevel)
+		{
+			case HIGH:
+				sanitizeAnnotations(edge, this.highAnnotations, HIGH);
+				break;
+			case MEDIUM:
+				sanitizeAnnotations(edge, this.mediumAnnotations, MEDIUM);
+				break;
+			case LOW:
+				sanitizeAnnotations(edge, this.lowAnnotations, LOW);
+				break;
+		}
+	}
+
+	private void sanitizeVertex(AbstractVertex vertex)
+	{
+		switch(this.sanitizationLevel)
+		{
+			case HIGH:
+				sanitizeAnnotations(vertex, this.highAnnotations, HIGH);
+				break;
+			case MEDIUM:
+				sanitizeAnnotations(vertex, this.mediumAnnotations, MEDIUM);
+				break;
+			case LOW:
+				sanitizeAnnotations(vertex, this.lowAnnotations, LOW);
+				break;
+		}
+	}
+
+	private void sanitizeVertices(Set<AbstractVertex> vertexSet)
+	{
+		for(AbstractVertex vertex : vertexSet)
+		{
+			sanitizeVertex(vertex);
+		}
+	}
+
+	private void sanitizeEdges(Set<AbstractEdge> edgeSet)
+	{
+		for(AbstractEdge edge : edgeSet)
+		{
+			sanitizeEdge(edge);
 		}
 	}
 
 	@Override
 	public Graph transform(Graph graph, QueryMetaData queryMetaData)
 	{
-		String plainAnnotation;
-		String sanitizedAnnotation;
-		List<String> highAnnotations;
-		List<String> mediumAnnotations;
-		List<String> lowAnnotations;
-		List<String> commonAnnotations;
-		for(AbstractVertex vertex : graph.vertexSet())
-		{
-			switch(vertex.type())
-			{
-				case OPMConstants.PROCESS:
-					highAnnotations = highMap.get(OPMConstants.PROCESS);
-					mediumAnnotations = mediumMap.get(OPMConstants.PROCESS);
-					lowAnnotations = lowMap.get(OPMConstants.PROCESS);
-
-					// sanitize common annotations here. None for now
-
-					switch(sanitizationLevel)
-					{
-						case HIGH:
-							sanitizeAnnotations(vertex, highAnnotations);
-						case MEDIUM:
-							sanitizeAnnotations(vertex, mediumAnnotations);
-						case LOW:
-							sanitizeAnnotations(vertex, lowAnnotations);
-					}
-					break;
-
-				case OPMConstants.AGENT:
-					highAnnotations = highMap.get(OPMConstants.AGENT);
-					mediumAnnotations = mediumMap.get(OPMConstants.AGENT);
-					lowAnnotations = lowMap.get(OPMConstants.AGENT);
-					switch(sanitizationLevel)
-					{
-						case HIGH:
-							sanitizeAnnotations(vertex, highAnnotations);
-						case MEDIUM:
-							sanitizeAnnotations(vertex, mediumAnnotations);
-						case LOW:
-							sanitizeAnnotations(vertex, lowAnnotations);
-					}
-					break;
-
-				case OPMConstants.ARTIFACT:
-					highAnnotations = highMap.get(OPMConstants.ARTIFACT);
-					mediumAnnotations = mediumMap.get(OPMConstants.ARTIFACT);
-					lowAnnotations = lowMap.get(OPMConstants.ARTIFACT);
-					commonAnnotations = (List<String>) CollectionUtils.intersection(highAnnotations, mediumAnnotations);
-					commonAnnotations = (List<String>) CollectionUtils.intersection(commonAnnotations, lowAnnotations);
-
-					// sanitize non-common annotations here. None for now
-
-					for(String annotation : commonAnnotations)
-					{
-						plainAnnotation = vertex.getAnnotation(annotation);
-						if(plainAnnotation != null)
-						{
-							if(annotation.equals(OPMConstants.ARTIFACT_REMOTE_ADDRESS))
-							{
-								String[] subnets = plainAnnotation.split("\\.");
-								switch(sanitizationLevel)
-								{
-									case HIGH:
-										subnets[1] = NULLSTR;
-
-									case MEDIUM:
-										subnets[2] = NULLSTR;
-
-									case LOW:
-										subnets[3] = NULLSTR;
-										sanitizedAnnotation = String.join(".", subnets);
-										vertex.addAnnotation(annotation, sanitizedAnnotation);
-								}
-							}
-							else if(annotation.equals(OPMConstants.ARTIFACT_PATH))
-							{
-								String[] subpaths = plainAnnotation.split(pathSeparatorInData, 5);
-								int numpaths = subpaths.length;
-								switch(sanitizationLevel)
-								{
-									case HIGH:
-										if(numpaths > 2)
-										{
-											subpaths[2] = NULLSTR;
-										}
-									case MEDIUM:
-										if(numpaths > 3)
-										{
-											subpaths[3] = NULLSTR;
-										}
-									case LOW:
-										if(numpaths > 4)
-										{
-											subpaths[4] = NULLSTR;
-										}
-										sanitizedAnnotation = String.join(pathSeparatorInData, subpaths);
-										vertex.addAnnotation(OPMConstants.ARTIFACT_PATH, sanitizedAnnotation);
-								}
-							}
-						}
-					}
-					break;
-			}
-		}
-
-		highAnnotations = highMap.get(EDGE);
-		mediumAnnotations = mediumMap.get(EDGE);
-		lowAnnotations = lowMap.get(EDGE);
-		commonAnnotations = (List<String>) CollectionUtils.intersection(highAnnotations, mediumAnnotations);
-		commonAnnotations = (List<String>) CollectionUtils.intersection(commonAnnotations, lowAnnotations);
-		highAnnotations = (List<String>) CollectionUtils.disjunction(commonAnnotations, highAnnotations);
-		mediumAnnotations = (List<String>) CollectionUtils.disjunction(commonAnnotations, mediumAnnotations);
-		lowAnnotations = (List<String>) CollectionUtils.disjunction(commonAnnotations, lowAnnotations);
-
-		for(AbstractEdge edge : graph.edgeSet())
-		{
-			// sanitize non-common annotations here
-			switch(sanitizationLevel)
-			{
-				case HIGH:
-					sanitizeAnnotations(edge, highAnnotations);
-				case MEDIUM:
-					sanitizeAnnotations(edge, mediumAnnotations);
-				case LOW:
-					sanitizeAnnotations(edge, lowAnnotations);
-			}
-
-			// sanitize common annotations here
-			for(String annotation : commonAnnotations)
-			{
-				if(annotation.equals(OPMConstants.EDGE_TIME))
-				{
-					// extract time details from unix time
-					String time = edge.getAnnotation(OPMConstants.EDGE_TIME);
-					Date date = new Date(Double.valueOf(Double.parseDouble(time) * 1000).longValue());
-					Calendar calendar = Calendar.getInstance();
-					calendar.setTime(date);
-					String year = String.valueOf(calendar.get(Calendar.YEAR));
-					String month = String.valueOf(calendar.get(Calendar.MONTH) + 1); // zero-based indexing
-					String day = String.valueOf(calendar.get(Calendar.DAY_OF_MONTH));
-					String hour = String.valueOf(calendar.get(Calendar.HOUR_OF_DAY));
-					String minute = String.valueOf(calendar.get(Calendar.MINUTE));
-					String second = String.valueOf(calendar.get(Calendar.SECOND));
-					String millisecond = String.valueOf(calendar.get(Calendar.MILLISECOND));
-
-					switch(sanitizationLevel)
-					{
-						case HIGH:
-							// sanitize time
-							day = NULLSTR;
-
-						case MEDIUM:
-							// sanitize time
-							hour = NULLSTR;
-
-						case LOW:
-							// sanitize time
-							minute = NULLSTR;
-							second = NULLSTR;
-							millisecond = NULLSTR;
-
-							// stitch time with format is 'yyyy-MM-dd HH:mm:ss.SSS'
-							String timestamp = year + "-" + month + "-" + day + " " + hour + ":" +
-									minute + ":" + second + "." + millisecond;
-							edge.addAnnotation(OPMConstants.EDGE_TIME, timestamp);
-					}
-				}
-			}
-		}
-
+		convertUnixTime(graph.edgeSet());
+		sanitizeVertices(graph.vertexSet());
+		sanitizeEdges(graph.edgeSet());
 		return graph;
 	}
 
-//	public static void main(String[] args)
-//	{
-//		Graph graph = Graph.importGraph("sample.dot");
-//		System.out.println(graph);
-//		Sanitization sanitization = new Sanitization();
-//		sanitization.initialize("sanitizationLevel=high");
-//		Graph sanitizedGraph = sanitization.transform(graph, null);
-//		System.out.println(sanitizedGraph);
-//	}
+	private static void convertUnixTime(Set<AbstractEdge> edgeSet)
+	{
+		for(AbstractEdge edge: edgeSet)
+		{
+			convertUnixTime(edge);
+		}
+	}
+
+	private static void convertUnixTime(AbstractEdge edge)
+	{
+		String unixTime = edge.getAnnotation(OPMConstants.EDGE_TIME);
+		Date date = new Date(Double.valueOf(Double.parseDouble(unixTime) * 1000).longValue());
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTime(date);
+		String year = String.valueOf(calendar.get(Calendar.YEAR));
+		String month = String.valueOf(calendar.get(Calendar.MONTH) + 1); // zero-based indexing
+		String day = String.valueOf(calendar.get(Calendar.DAY_OF_MONTH));
+		String hour = String.valueOf(calendar.get(Calendar.HOUR_OF_DAY));
+		String minute = String.valueOf(calendar.get(Calendar.MINUTE));
+		String second = String.valueOf(calendar.get(Calendar.SECOND));
+		String millisecond = String.valueOf(calendar.get(Calendar.MILLISECOND));
+
+		// stitch time with format is 'yyyy-MM-dd HH:mm:ss.SSS'
+		String timestamp = year + "-" + month + "-" + day + " " + hour + ":" +
+				minute + ":" + second + "." + millisecond;
+		edge.addAnnotation(OPMConstants.EDGE_TIME, timestamp);
+	}
 }
