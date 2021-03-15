@@ -4,6 +4,15 @@
 # messages, even if not successful.
 set -e
 
+config_file_path=cfg/spade.storage.PostgreSQL.config
+
+if [ ! -f "$config_file_path" ]
+then
+	echo "ERROR: Configuration file not found at path '${config_file_path}'"
+	echo "NOTE: './bin/installPostgres' must be executed from SPADE root directory"
+	exit 1
+fi
+
 case $- in
 *i*)    # interactive shell
 ;;
@@ -22,7 +31,8 @@ while read  words; do                # iterate over lines of input
   done
 #  echo "${vars[Var]} $5"              # Here, we use content read from that line.
 
-done <cfg/spade.storage.PostgreSQL.config
+done < "$config_file_path"
+
 #for k in "${!vars[@]}";
 #do
 #  echo "$k: ${vars[$k]}"
