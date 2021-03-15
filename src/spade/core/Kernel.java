@@ -208,7 +208,7 @@ public class Kernel
     private static final int MAIN_THREAD_SLEEP_DELAY = 10;
     private static final int REMOVE_WAIT_DELAY = 100;
     private static final int FIRST_FILTER = 0;
-    private static final Logger logger = Logger.getLogger(Kernel.class.getName());
+    private static Logger logger;
     private static boolean ANDROID_PLATFORM = false;
 
     /**
@@ -274,7 +274,9 @@ public class Kernel
 		try{
 			Settings.initializeLogging();
 		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to initialize SPADE logging. Falling back to JAVA default.", e);
+			Logger.getLogger(Kernel.class.getName()).log(Level.WARNING, "Failed to initialize SPADE logging. Falling back to JAVA default.", e);
+		}finally{
+			logger = Logger.getLogger(Kernel.class.getName());
 		}
 
         // Set up context for secure connections

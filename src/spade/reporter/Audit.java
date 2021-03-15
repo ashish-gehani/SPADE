@@ -19,18 +19,9 @@
  */
 package spade.reporter;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.lang.reflect.Constructor;
 import java.math.BigInteger;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,8 +29,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import org.apache.commons.io.FileUtils;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractReporter;
@@ -49,18 +38,23 @@ import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
+import spade.reporter.audit.AuditControlManager;
 import spade.reporter.audit.AuditEventReader;
 import spade.reporter.audit.Globals;
 import spade.reporter.audit.IPCManager;
+import spade.reporter.audit.Input;
 import spade.reporter.audit.KernelModuleConfiguration;
 import spade.reporter.audit.KernelModuleManager;
-import spade.reporter.audit.KernelModuleManager.UserMode;
 import spade.reporter.audit.LinuxConstants;
 import spade.reporter.audit.LinuxPathResolver;
 import spade.reporter.audit.MalformedAuditDataException;
 import spade.reporter.audit.NetfilterHooksManager;
 import spade.reporter.audit.OPMConstants;
+import spade.reporter.audit.OutputLog;
 import spade.reporter.audit.PathRecord;
+import spade.reporter.audit.ProcessUserSyscallFilter;
+import spade.reporter.audit.ProcessUserSyscallFilter.SystemCallRuleType;
+import spade.reporter.audit.SPADEAuditBridgeProcess;
 import spade.reporter.audit.SYSCALL;
 import spade.reporter.audit.artifact.ArtifactIdentifier;
 import spade.reporter.audit.artifact.ArtifactManager;
@@ -78,10 +72,8 @@ import spade.reporter.audit.process.FileDescriptor;
 import spade.reporter.audit.process.ProcessManager;
 import spade.reporter.audit.process.ProcessWithAgentManager;
 import spade.reporter.audit.process.ProcessWithoutAgentManager;
-import spade.utility.Execute;
-import spade.utility.Execute.Output;
-import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
+import spade.utility.profile.Intervaler;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
@@ -92,6 +84,8 @@ public class Audit extends AbstractReporter {
 
 	static final Logger logger = Logger.getLogger(Audit.class.getName());
 
+	private final Object cleanupLock = new Object();
+	
 	private LinuxConstants platformConstants = null;
 
 	/********************** PROCESS STATE - START *************************/
@@ -116,13 +110,7 @@ public class Audit extends AbstractReporter {
 
 	/********************** BEHAVIOR FLAGS - START *************************/
 	
-	private KernelModuleConfiguration kernelModuleConfiguration;
-	
 	private Globals globals = null;
-	//Reporting variables
-	private boolean reportingEnabled = false;
-	private long reportEveryMs;
-	private long lastReportedTime;
 	
 	// These are the default values
 	private boolean FAIL_FAST = true;
@@ -158,18 +146,71 @@ public class Audit extends AbstractReporter {
 	private boolean CAPTURE_IPC = false;
 	private final String REPORT_IPC_KEY = "reportIpc";
 	private boolean REPORT_IPC = false;
+	
+	private KernelModuleConfiguration kernelModuleConfiguration;
+	
+	private boolean excludeProctitle;
+	private boolean filesystemCredentialUpdates;
+	
+	private OutputLog outputLog;
+	private Intervaler reportingIntervaler;
+	
+	private Input input;
+	
+	private ProcessUserSyscallFilter processUserSyscallFilter;
+	
+	private SPADEAuditBridgeProcess spadeAuditBridgeProcess;
+	
+	private AuditEventReader auditEventReader;
+	// A flag to block on shutdown call if buffers are being emptied and events are still being read
+	private volatile boolean isMainEventLoopThreadRunning = false;
+	private final Thread mainEventLoopThread = new Thread(new Runnable(){
+		@Override
+		public void run(){
+			isMainEventLoopThreadRunning = true;
+			while(true){
+				Map<String, String> eventData = null;
+				try{
+					eventData = auditEventReader.readEventData();
+					if(eventData == null){
+						// EOF
+						break;
+					}else{
+						try{
+							finishEvent(eventData);
+						}catch(Exception e){
+							logger.log(Level.SEVERE, "Failed to handle event: " + eventData, e);
+							if(FAIL_FAST){
+								break;
+							}
+						}
+					}
+				}catch(MalformedAuditDataException made){
+					logger.log(Level.SEVERE, "Failed to parse event", made);
+					if(FAIL_FAST){
+						break;
+					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Stopped reading event stream. ", e);
+					break;
+				}
+			}
+			try{
+				if(auditEventReader != null){
+					auditEventReader.close();
+				}
+			}catch(Exception e){
+				logger.log(Level.WARNING, "Failed to close audit event reader", e);
+			}
 
+			final boolean forceStopSPADEAuditBridge = true;
+			doCleanup(forceStopSPADEAuditBridge);
+			logger.log(Level.INFO, "Exiting event reader thread for SPADE audit bridge");
+			isMainEventLoopThreadRunning = false;
+		}
+	}, "Audit-Event-Loop-Thread");
+	
 	/********************** BEHAVIOR FLAGS - END *************************/
-
-	private Set<String> namesOfProcessesToIgnoreFromConfig = new HashSet<String>();
-	
-	private String spadeAuditBridgeProcessPid = null;
-	// true if live audit, false if log file. null not set.
-	private Boolean isLiveAudit = null;
-	// a flag to block on shutdown call if buffers are being emptied and events are still being read
-	private volatile boolean eventReaderThreadRunning = false;
-	
-	private final long PID_MSG_WAIT_TIMEOUT = 1 * 1000;
 	
 	private final String AUDIT_SYSCALL_SOURCE = OPMConstants.SOURCE_AUDIT_SYSCALL;
 
@@ -195,58 +236,7 @@ public class Audit extends AbstractReporter {
 	private boolean isIPv6Saddr(String saddr){
 		return saddr != null && saddr.startsWith(IPV6_NETWORK_SOCKET_SADDR_PREFIX);
 	}
-	
-	/**
-	 * Returns a map which contains all the keys and values defined 
-	 * in the default config file. 
-	 * 
-	 * Returns empty map if failed to read the config file.
-	 * 
-	 * @return HashMap<String, String>
-	 */
-	private Map<String, String> readDefaultConfigMap(){
-		Map<String, String> configMap = new HashMap<String, String>();
-		try{
-			Map<String, String> temp = FileUtility.readConfigFileAsKeyValueMap(
-					Settings.getDefaultConfigFilePath(this.getClass()),
-					"=");
-			if(temp != null){
-				configMap.putAll(temp);
-			}
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to read config", e);
-		}
-		return configMap;
-	}
-	
-	/**
-	 * Initializes the reporting globals based on the argument
-	 * 
-	 * The argument is read from the config file
-	 * 
-	 * Returns true if the value in the config file was defined properly or not 
-	 * defined. If the value in the config value is ill-defined then returns false.
-	 * 
-	 * @param reportingIntervalSeconds Interval time in seconds to report stats after
-	 */
-	private boolean initReporting(String reportingIntervalSeconds){
-		Long reportingInterval = HelperFunctions.parseLong(reportingIntervalSeconds, null);
-		if(reportingInterval != null){
-			if(reportingInterval < 1){ //at least 1 ms
-				logger.log(Level.INFO, "Statistics reporting turned off");
-			}else{
-				reportingEnabled = true;
-				reportEveryMs = reportingInterval * 1000;
-				lastReportedTime = System.currentTimeMillis();
-			}
-		}else if(reportingInterval == null && 
-				(reportingIntervalSeconds != null && !reportingIntervalSeconds.isEmpty())){
-			logger.log(Level.SEVERE, "Invalid value for reporting interval in the config file");
-			return false;
-		}
-		return true;
-	}
-	
+
 	/**
 	 * Returns true if the argument is null, true, false, 1, 0, yes or no.
 	 * Else returns false.
@@ -313,6 +303,22 @@ public class Audit extends AbstractReporter {
 			FAIL_FAST = parseBoolean(argValue, FAIL_FAST);
 		}else{
 			logger.log(Level.SEVERE, "Invalid flag value for 'failfast': " + argValue);
+			return false;
+		}
+		
+		argValue = args.get("excludeProctitle");
+		if(isValidBoolean(argValue)){
+			excludeProctitle = parseBoolean(argValue, true);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'excludeProctitle': " + argValue);
+			return false;
+		}
+
+		argValue = args.get("fsids");
+		if(isValidBoolean(argValue)){
+			filesystemCredentialUpdates = parseBoolean(argValue, false);
+		}else{
+			logger.log(Level.SEVERE, "Invalid flag value for 'fsids': " + argValue);
 			return false;
 		}
 		
@@ -392,13 +398,6 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Invalid flag value for 'control': " + argValue);
 			return false;
 		}
-		
-		// Ignore for now. Changing it now would break code in places.
-		// Sucess always assumed to be '1' for now (default value)
-		// TODO
-//		if("0".equals(args.get("auditctlSuccessFlag"))){
-//			AUDITCTL_SYSCALL_SUCCESS_FLAG = "0";
-//		}
 		
 		argValue = args.get("anonymousMmap");
 		if(isValidBoolean(argValue)){
@@ -537,537 +536,304 @@ public class Audit extends AbstractReporter {
 		return true;
 	}
 	
-	/**
-	 * Creates a temp file in the given tempDir from the list of audit log files
-	 * 
-	 * Returns the path of the temp file is that is created successfully
-	 * Else returns null
-	 * 
-	 * @param spadeAuditBridgeBinaryName name of the spade audit bridge binary
-	 * @param inputLogFiles list of audit log files (in the defined order)
-	 * @param tempDirPath path of the temp dir
-	 * @return path of the temp file which contains the paths of audit logs OR null
-	 */
-	private String createLogListFileForSpadeAuditBridge(String spadeAuditBridgeBinaryName, 
-			List<String> inputLogFiles, String tempDirPath){
-		try{
-			String spadeAuditBridgeInputFilePath = tempDirPath + File.separatorChar + 
-					spadeAuditBridgeBinaryName + "." + System.nanoTime();
-			File spadeAuditBridgeInputFile = new File(spadeAuditBridgeInputFilePath);
-			if(!spadeAuditBridgeInputFile.createNewFile()){
-				logger.log(Level.SEVERE, "Failed to create input file list file for " + spadeAuditBridgeBinaryName);
-				return null;
-			}else{
-				FileUtils.writeLines(spadeAuditBridgeInputFile, inputLogFiles);
-				return spadeAuditBridgeInputFile.getAbsolutePath();
+	private void doCleanup(final boolean forceStopSPADEAuditBridge){
+		synchronized(cleanupLock){
+			if(input != null && processUserSyscallFilter != null){
+				if(input.isLiveMode()){
+					try{
+						AuditControlManager.unset(processUserSyscallFilter.getSystemCallRuleType());
+					}catch(Exception e){
+						logger.log(Level.WARNING, "Failed to do Linux audit rules cleanup", e);
+					}
+				}else if(input.getMode() == Input.Mode.FILE){
+					try{
+						input.deleteInputLogListFile();
+					}catch(Exception e){
+						logger.log(Level.WARNING, "Failed to delete the temporary input log list file: '" + input.getInputLogListFile() + "'", e);
+					}
+				}
 			}
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to create input file for " + spadeAuditBridgeBinaryName, e);
-		}
-		return null;
-	}
-	
-	/**
-	 * Returns a list of audit log files if the rotate flag is true.
-	 * Else returns a list with only the given audit log file as it's element.
-	 * 
-	 * The audit log files are added in the convention defined in the function code.
-	 * 
-	 * @param inputAuditLogFilePath path of the audit log file
-	 * @param rotate a flag to tell whether to read the rotated logs or not
-	 * @return list if input log files or null if error
-	 */
-	private List<String> getListOfInputAuditLogs(String inputAuditLogFilePath, boolean rotate){
-		// Build a list of audit log files to be read
-		LinkedList<String> inputAuditLogFiles = new LinkedList<String>();
-		inputAuditLogFiles.addFirst(inputAuditLogFilePath); //add the file in the argument
-		if(rotate){ //if rotate is true then add the rest too based on the decided convention
-			//convention: name format of files to be processed -> name.1, name.2 and so on where 
-			//name is the name of the file passed in as argument
-			//can only process 99 logs
-			for(int logCount = 1; logCount<=99; logCount++){
-				String logPath = inputAuditLogFilePath + "." + logCount;
+			
+			if(kernelModuleConfiguration != null && kernelModuleConfiguration.isLocalEndpoints()){
 				try{
-					if(FileUtility.doesPathExist(logPath)){
-						if(FileUtility.isFile(logPath)){
-							if(FileUtility.isFileReadable(logPath)){
-								inputAuditLogFiles.addFirst(logPath); 
-								//adding first so that they are added in the reverse order
-							}else{
-								logger.log(Level.WARNING, "Log skipped because file not readable: " + logPath);
-							}
-						}
-					}
+					KernelModuleManager.disableModule(kernelModuleConfiguration.getKernelModuleControllerPath(),
+							kernelModuleConfiguration.isHarden(),
+							kernelModuleConfiguration.getKernelModuleDeleteBinaryPath(), new Consumer<String>(){
+								public void accept(String str){
+									logger.log(Level.INFO, str);
+								}
+							}, new BiConsumer<String, Throwable>(){
+								public void accept(String str, Throwable t){
+									logger.log(Level.WARNING, str, t);
+								}
+							});
+					logger.log(Level.INFO, "Successfully disabled kernel modules");
 				}catch(Exception e){
-					logger.log(Level.SEVERE, "Failed to check if log path is readable: " + logPath, e);
-					return null;
+					logger.log(Level.SEVERE, "Failed to disable kernel modules", e);
 				}
 			}
-		}
-		return inputAuditLogFiles;
-	}
-	
-	private void doCleanup(String rulesType, String logListFile){
-		if(isLiveAudit){
-			if(!"none".equals(rulesType)){
-				removeAuditctlRules();
-			}
-		}else{
-			try{
-				if(FileUtility.doesPathExist(logListFile)){
-					if(FileUtility.isFile(logListFile)){
-						if(!FileUtility.deleteFile(logListFile)){
-							logger.log(Level.WARNING, "Failed to delete temp log list file: " + logListFile);
-						}
-					}else{
-						logger.log(Level.WARNING, "Failed to delete log list temp file. Not a file: " + logListFile);
-					}
+			
+			if(spadeAuditBridgeProcess != null){
+				try{
+					spadeAuditBridgeProcess.stop(forceStopSPADEAuditBridge);
+				}catch(Exception e){
+					logger.log(Level.WARNING, "Failed to SPADE audit bridge process cleanup", e);
 				}
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to check and delete log list file: " + logListFile, e);
 			}
-		}
-		if(artifactManager != null){
-			artifactManager.doCleanUp();
-		}
-		if(processManager != null){
-			processManager.doCleanUp();
-		}
-		if(netfilterHooksManager != null){
-			netfilterHooksManager.shutdown();
+			if(auditEventReader != null){
+				try{
+					auditEventReader.close();
+				}catch(Exception e){
+					logger.log(Level.WARNING, "Failed to gracefully close audit event reader", e);
+				}
+			}
+			if(artifactManager != null){
+				artifactManager.doCleanUp();
+			}
+			if(processManager != null){
+				processManager.doCleanUp();
+			}
+			if(netfilterHooksManager != null){
+				netfilterHooksManager.shutdown();
+			}	
 		}
 	}
-	
-	private boolean argsSpecifyLogPlayback(Map<String, String> args){
-		return args.containsKey("inputDir") || args.containsKey("inputLog");
-	}
 
-	private final LinuxConstants loadConstants(final Map<String, String> map){
-		final String key = "constantsSource";
-		final String value = map.get(key);
-		if(HelperFunctions.isNullOrEmpty(key)){
-			logger.log(Level.SEVERE, "NULL/empty value for '" + key+ "' in config file: " + value);
-			return null;
-		}
-		final String tokens[] = value.split("\\s+", 2);
-		final String qualifiedClassName = tokens[0];
-
-		if(tokens.length != 2){
-			logger.log(Level.SEVERE, "Value for '" + key + "' in config file must specify: <qualifiedClassName> <configFilePath>");
-			return null;
-		}
-
-		final LinuxConstants instance;
-		try{
-			@SuppressWarnings("unchecked")
-			final Class<LinuxConstants> clazz = (Class<LinuxConstants>)Class.forName(qualifiedClassName);
-			final Constructor<LinuxConstants> constructor = clazz.getDeclaredConstructor();
-			instance = constructor.newInstance();
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to create instance of class '" + qualifiedClassName + "', specified in config file for key "
-					+ "'" + key + "'", e);
-			return null;
-		}
-
-		try{
-			final String constantsFilePath = tokens[1].trim();
-			instance.initialize(constantsFilePath);
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to initialize constants source in config file for key '" + key + "'", e);
-			return null;
-		}
-		return instance;
-	}
-	
 	@Override
-	public boolean launch(String arguments) {
-		String spadeAuditBridgeBinaryName = null;
-		String spadeAuditBridgeBinaryPath = null;
-		String outputLogFilePath = null;
-		long recordsToRotateOutputLogAfter = 0;
-		String spadeAuditBridgeCommand = null;
-		String rulesType = null;
-		String logListFile = null;
-		
-		Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(arguments);
-		Map<String, String> configMap = readDefaultConfigMap();
-		
-		this.platformConstants = loadConstants(configMap);
-		if(this.platformConstants == null){
+	public boolean launch(final String arguments){
+		boolean success = false;
+		Exception exception = null;
+
+		try{
+			success = _launch(arguments);
+			exception = null;
+		}catch(Exception e){
+			success = false;
+			exception = e;
+		}
+
+		if(success){
+			logger.log(Level.INFO, "Successfully launched reporter");
+		}else{
+			logger.log(Level.SEVERE, "Failed to launch reporter", exception);
+			final boolean forceStopSPADEAuditBridge = true;
+			doCleanup(forceStopSPADEAuditBridge);
+		}
+
+		return success;
+	}
+
+	private boolean _launch(final String arguments){
+		final Map<String, String> map = new HashMap<String, String>();
+		try{
+			final String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass());
+			map.putAll(HelperFunctions.parseKeyValuePairsFrom(arguments, new String[]{defaultConfigFilePath}));
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to parse arguments and/or default config file", e);
 			return false;
 		}
 		
 		try{
-			final Map<String, String> combinedMap = new HashMap<String, String>();
-			combinedMap.putAll(configMap);
-			combinedMap.putAll(argsMap);
-			kernelModuleConfiguration = KernelModuleConfiguration.instance(combinedMap, !argsSpecifyLogPlayback(argsMap));
+			final String keyReportingIntervalSeconds = "reportingIntervalSeconds";
+			this.reportingIntervaler = Intervaler.instance(map, keyReportingIntervalSeconds);
+			logger.log(Level.INFO, this.reportingIntervaler.toString());
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to setup reporting", e);
+			return false;
+		}
+		
+		try{
+			this.outputLog = OutputLog.instance(map);
+			logger.log(Level.INFO, this.outputLog.toString());
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to setup output log", e);
+			return false;
+		}
+		
+		try{
+			final String keyConstantsSource = "constantsSource";
+			this.platformConstants = LinuxConstants.instance(map, keyConstantsSource);
+			logger.log(Level.INFO, this.platformConstants.toString());
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to setup platform constants", e);
+			return false;
+		}
+		
+		try{
+			input = Input.instance(map);
+			logger.log(Level.INFO, input.toString());
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to initialize input configuration", e);
+			return false;
+		}
+		
+		try{
+			processUserSyscallFilter = ProcessUserSyscallFilter.instance(map, input.getSPADEAuditBridgeName(), input.isLiveMode());
+			logger.log(Level.INFO, processUserSyscallFilter.toString());
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to initialize process, user, and system call filter configuration", e);
+			return false;
+		}
+		
+		try{
+			kernelModuleConfiguration = KernelModuleConfiguration.instance(map, input.isLiveMode());
 			logger.log(Level.INFO, kernelModuleConfiguration.toString());
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to initialize kernel module configuration", e);
 			return false;
 		}
-		
-		// Init reporting globals
-		if(!initReporting(configMap.get("reportingIntervalSeconds"))){
+
+		// Init boolean flags from the arguments
+		if(!initFlagsFromArguments(map)){
 			return false;
 		}
 
-		// Get path of spadeAuditBridge binary from the config file
-		spadeAuditBridgeBinaryPath = configMap.get("spadeAuditBridge");
 		try{
-			if(!FileUtility.isFileReadable(spadeAuditBridgeBinaryPath)){
-				logger.log(Level.SEVERE, "File specified in config by 'spadeAuditBridge' key is not readable: " +
-						spadeAuditBridgeBinaryPath);
-				return false;
+			artifactManager = new ArtifactManager(this, globals);
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to instantiate artifact manager", e);
+			return false;
+		}
+		
+		try{
+			if(AGENTS){ // Make sure that this is done before starting the event reader thread
+				processManager = new ProcessWithoutAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS, HANDLE_NAMESPACES, platformConstants);
+			}else{
+				processManager = new ProcessWithAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS, HANDLE_NAMESPACES, platformConstants);
 			}
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to check if file specified in config by 'spadeAuditBridge' key is readable: " +
-					spadeAuditBridgeBinaryPath, e);
+			logger.log(Level.SEVERE, "Failed to instantiate process manager", e);
 			return false;
 		}
 		
-		String spadeAuditBridgeBinaryPathArray[] = spadeAuditBridgeBinaryPath.split(File.separator);
-		spadeAuditBridgeBinaryName = spadeAuditBridgeBinaryPathArray[spadeAuditBridgeBinaryPathArray.length - 1];
-		
-		// Init boolean flags from the arguments
-		if(!initFlagsFromArguments(argsMap)){
-			return false;
-		}
-
-		// Check if the outputLog argument is valid or not
-		outputLogFilePath = argsMap.get("outputLog");
-		if(outputLogFilePath != null){
+		if(HANDLE_NETFILTER_HOOKS){
 			try{
-				if(!FileUtility.createFile(outputLogFilePath)){
-					logger.log(Level.SEVERE, "Failed to create file specified by 'outputLog' argument: " + outputLogFilePath);
-					return false;
-				}
+				netfilterHooksManager = new NetfilterHooksManager(this, HANDLE_NAMESPACES);
 			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to create file specified by 'outputLog' argument: " + outputLogFilePath, e);
+				logger.log(Level.SEVERE, "Failed to instantiate netfilter hooks manager", e);
 				return false;
 			}
-			String recordsToRotateOutputLogAfterArgument = argsMap.get("outputLogRotate");
-			if(recordsToRotateOutputLogAfterArgument != null){
-				Long parsedOutputLogRotate = HelperFunctions.parseLong(recordsToRotateOutputLogAfterArgument, null);
-				if(parsedOutputLogRotate == null){
-					logger.log(Level.SEVERE, "Invalid value for 'outputLogRotate': "+ recordsToRotateOutputLogAfterArgument);
-					return false;
-				}else{
-					recordsToRotateOutputLogAfter = parsedOutputLogRotate;
-				}
-			}
 		}
-
-		String inputLogDirectoryArgument = argsMap.get("inputDir");
-		String inputAuditLogFileArgument = argsMap.get("inputLog");
-		if(argsSpecifyLogPlayback(argsMap)){
-			// is log playback
-			isLiveAudit = false;
-			
-			if(inputAuditLogFileArgument != null){
-			
-				try{
-					if(!FileUtility.isFileReadable(inputAuditLogFileArgument)){
-						logger.log(Level.SEVERE, "File specified for 'inputLog' argument not readable: " + inputAuditLogFileArgument);
-						return false;
+		
+		try{
+			this.spadeAuditBridgeProcess = SPADEAuditBridgeProcess.launch(this.input, CREATE_BEEP_UNITS, mergeUnit);
+			logger.log(Level.INFO, "Launched SPADE audit bridge process with pid '" + spadeAuditBridgeProcess.getPid() + "' using command:"
+					+ " " + spadeAuditBridgeProcess.getCommand());
+			this.spadeAuditBridgeProcess.consumeStdErr(new BiConsumer<String, Exception>(){
+				@Override
+				public void accept(final String msg, final Exception exception){
+					if(msg != null && exception != null){
+						logger.log(Level.SEVERE, "[SPADE audit bridge] [ERROR] " + msg, exception);
+					}else if(msg != null && exception == null){
+						logger.log(Level.INFO, "[SPADE audit bridge] [OUTPUT] " + msg);
+					}else if(msg == null && exception != null){
+						logger.log(Level.SEVERE, "[SPADE audit bridge] [ERROR] " + "Unexpected error", exception);
+					}else{
+						logger.log(Level.INFO, "[SPADE audit bridge] [OUTPUT] " + "Exiting error thread");
 					}
-				}catch(Exception e){
-					logger.log(Level.SEVERE, "Failed to check if file specified for 'inputLog' argument is readable: "
-							+ inputAuditLogFileArgument, e);
-					return false;
 				}
-	
-				// Whether to read from rotated logs or not
-				boolean rotate = false;
-				String rotateArgument = argsMap.get("rotate");
-				if(isValidBoolean(rotateArgument)){
-					rotate = parseBoolean(rotateArgument, false);
-				}else{
-					logger.log(Level.SEVERE, "Invalid value for 'rotate' flag: "+ rotateArgument);
-					return false;
-				}
-	
-				List<String> inputAuditLogFiles = getListOfInputAuditLogs(inputAuditLogFileArgument, rotate);
-				
-				if(inputAuditLogFiles == null){
-					logger.log(Level.SEVERE, "Failed to get list of input log");
-					return false;
-				}else{
-					logger.log(Level.INFO, "Total logs to process: " + inputAuditLogFiles.size() + " and list = " + inputAuditLogFiles);
-				}
-	
-				// Only needed in case of audit log files and not in case of live audit
-				String tempDirPath = configMap.get("tempDir");
-				try{
-					if(!FileUtility.createDirectories(tempDirPath)){
-						logger.log(Level.SEVERE, "Failed to create temp directory defined in config with key 'tempDir': "
-								+ tempDirPath);
-						return false;
-					}
-				}catch(Exception e){
-					logger.log(Level.SEVERE, "Failed to create temp directory defined in config with key 'tempDir': "
-							+ tempDirPath, e);
-					return false;
-				}
-				
-				// Create the input file for spadeAuditBridge to read the audit logs from 
-				logListFile = createLogListFileForSpadeAuditBridge(spadeAuditBridgeBinaryName, inputAuditLogFiles, tempDirPath);
-				if(logListFile == null){
-					return false;
-				}
-				
-				// Build the command to use
-				spadeAuditBridgeCommand = spadeAuditBridgeBinaryPath + 
-								((CREATE_BEEP_UNITS) ? " -u" : "") + 
-								((WAIT_FOR_LOG_END) ? " -w" : "") + 
-								" -f " + logListFile;
-			}else{
-				// Input log directory section
+			});
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to start SPADE audit bridge process", e);
+			return false;
+		}
+		
+		try{
+			this.auditEventReader = new AuditEventReader(input.getSPADEAuditBridgeName(), spadeAuditBridgeProcess.getStdOutStream());
+			if(this.outputLog.isEnabled()){
+				this.auditEventReader.setOutputLog(this.outputLog.getOutputLogPath(), this.outputLog.getRotateLogAfterLines());
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to instantiate audit event reader", e);
+			return false;
+		}
+		
+		try{
+			this.mainEventLoopThread.start();
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to instantiate/start main event reader thread", e);
+			return false;
+		}
+		
+		if(input.isLiveMode()){
+			if(kernelModuleConfiguration.isLocalEndpoints()
+					|| processUserSyscallFilter.getSystemCallRuleType() == SystemCallRuleType.ALL
+					|| processUserSyscallFilter.getSystemCallRuleType() == SystemCallRuleType.DEFAULT){
+				final Set<String> pidsToIgnore = new HashSet<String>();
+				final Set<String> ppidsToIgnore = new HashSet<String>();
 				
 				try{
-					File dir = new File(inputLogDirectoryArgument);
-					
-					if(dir.exists() && dir.isDirectory()){
-						
-						// Check if logs exist
-						if(dir.list().length != 0){
-							
-							// Confirm timestamp
-							String inputLogTimeArgument = argsMap.get("inputTime");
-							if(inputLogTimeArgument != null){
-								try{
-									SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd:HH:mm:ss");
-									dateFormat.parse(inputLogTimeArgument);
-									// parsed successfully
-								}catch(Exception e){
-									logger.log(Level.SEVERE, "Invalid time format for argument 'inputTime'. "
-											+ "Expected: yyyy-MM-dd:HH:mm:ss" , e);
-									return false;
-								}
-							}
-							
-							// Build the command to use
-							spadeAuditBridgeCommand = spadeAuditBridgeBinaryPath + 
-											((CREATE_BEEP_UNITS) ? " -u" : "") + 
-											((WAIT_FOR_LOG_END) ? " -w" : "") + 
-											" -d " + inputLogDirectoryArgument +
-											((mergeUnit != null) ? " -m " + mergeUnit : "") +
-											((inputLogTimeArgument != null) ? " -t " + inputLogTimeArgument : "");
-							
-						}else{
-							logger.log(Level.SEVERE, "No log file in 'inputDir' to process");
+					pidsToIgnore.addAll(processUserSyscallFilter.getPidsOfProcessesToIgnore());
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to get pids of processes to ignore", e);
+					return false;
+				}
+				
+				try{
+					ppidsToIgnore.addAll(processUserSyscallFilter.getPpidsOfProcessesToIgnore());
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to get ppids of processes to ignore", e);
+					return false;
+				}
+				
+				if(kernelModuleConfiguration.isLocalEndpoints()){
+					final Set<String> tgidsToHarden = new HashSet<String>();
+					if(kernelModuleConfiguration.isHarden()){
+						try{
+							tgidsToHarden.addAll(processUserSyscallFilter.getTgidsOfProcessesToHarden(kernelModuleConfiguration.getHardenProcesses()));
+						}catch(Exception e){
+							logger.log(Level.SEVERE, "Failed to get tgids of processes to harden", e);
 							return false;
 						}
-						
-					}else{
-						logger.log(Level.SEVERE, "Path for 'inputDir' doesn't exist or isn't a directory");
-						return false;
 					}
 					
-				}catch(Exception e){
-					logger.log(Level.SEVERE, "Failed to process 'inputDir' argument", e);
-					return false;
-				}
-				
-			}
-
-		}else{ // live audit
-
-			isLiveAudit = true;
-			
-			//valid values: null (i.e. default), 'none' no rules, 'all' an audit rule with all system calls
-			rulesType = argsMap.get("syscall");
-			if(rulesType != null && !rulesType.equals("none") && !rulesType.equals("all")){
-				logger.log(Level.SEVERE, "Invalid value for 'rules' argument: " + rulesType);
-				return false;
-			}
-			
-			spadeAuditBridgeCommand = spadeAuditBridgeBinaryPath + 
-					((CREATE_BEEP_UNITS) ? " -u" : "") + 
-					((mergeUnit != null) ? " -m " + mergeUnit : "") +
-					// Don't use WAIT_FOR_LOG_END here because the interrupt would be ignored by spadeAuditBridge then
-					" -s " + "/var/run/audispd_events";
-			
-		}
-		
-		// used to identify failure and do cleanup.
-		boolean success = true;
-		
-		if(success){
-			try{
-				artifactManager = new ArtifactManager(this, globals);
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to instantiate artifact manager", e);
-				success = false;
-			}
-		}
-		
-		if(success){
-			try{
-				if(AGENTS){ // Make sure that this is done before starting the event reader thread
-					processManager = new ProcessWithoutAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS, HANDLE_NAMESPACES, platformConstants);
-				}else{
-					processManager = new ProcessWithAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS, HANDLE_NAMESPACES, platformConstants);
-				}
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to instantiate process manager", e);
-				success = false;
-			}
-		}
-		
-		if(success){
-			if(HANDLE_NETFILTER_HOOKS){
-				try{
-					netfilterHooksManager = new NetfilterHooksManager(this, HANDLE_NAMESPACES);
-				}catch(Exception e){
-					logger.log(Level.SEVERE, "Failed to instantiate netfilter hooks manager", e);
-					success = false;
-				}
-			}
-		}
-		
-		if(success){
-			try{
-				
-				java.lang.Process spadeAuditBridgeProcess = runSpadeAuditBridge(spadeAuditBridgeCommand);
-				
-				Thread errorReaderThread = getErrorStreamReaderForProcess(spadeAuditBridgeBinaryName, 
-						spadeAuditBridgeProcess.getErrorStream());
-				errorReaderThread.start();
-				
-				AuditEventReader auditEventReader = getAuditEventReader(spadeAuditBridgeCommand,
-						spadeAuditBridgeProcess.getInputStream(), outputLogFilePath,
-						recordsToRotateOutputLogAfter);
-				
-				Thread auditEventReaderThread = getAuditEventReaderThread(spadeAuditBridgeBinaryName, 
-						auditEventReader, 
-						isLiveAudit, rulesType, logListFile);
-				auditEventReaderThread.start();
-				
-				try{ Thread.sleep(PID_MSG_WAIT_TIMEOUT); }catch(Exception e){}
-				
-				if(spadeAuditBridgeProcessPid == null){
-					// still didn't get the pid that means the process didn't start successfully
-					logger.log(Level.SEVERE, "Process didn't start successfully");
-					success = false;
-				}
-				
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to start Audit", e);
-				success = false;
-			}
-		}
-		
-		if(success){
-			if(isLiveAudit){
-				
-				if(success){
-					if(kernelModuleConfiguration.isLocalEndpoints() || rulesType == null || rulesType.equals("all")){
-						String uid = null;
-						boolean ignoreUid; // if true then exclude the user else only include the given user
-						String argsUsername = argsMap.get("user");
-						if(argsUsername == null){
-							ignoreUid = true;
-							uid = getOwnUid();
-						}else{
-							ignoreUid = false;
-							uid = checkIfValidUsername(argsUsername);
-						}
-						if(uid != null){
-							String ignoreProcesses = "auditd kauditd audispd " + spadeAuditBridgeBinaryName;
-							List<String> pidsToIgnore = listOfPidsToIgnore(ignoreProcesses);
-							if(pidsToIgnore != null){
-								
-								String ignoreProcessesValueFromConfig = configMap.get("ignoreProcesses");
-								if(ignoreProcessesValueFromConfig != null){
-									String[] ignoreProcessesArray = ignoreProcessesValueFromConfig.split(",");
-									for(String ignoreProcess : ignoreProcessesArray){
-										namesOfProcessesToIgnoreFromConfig.add(ignoreProcess.trim());
+					try{
+						KernelModuleManager.insertModules(
+								kernelModuleConfiguration.getKernelModuleMainPath(), 
+								kernelModuleConfiguration.getKernelModuleControllerPath(),
+								processUserSyscallFilter.getUserId(), processUserSyscallFilter.getUserMode(),
+								processUserSyscallFilter.getPidsOfProcessesToIgnore(), processUserSyscallFilter.getPpidsOfProcessesToIgnore(),
+								USE_SOCK_SEND_RCV,
+								HANDLE_NAMESPACES,
+								NETFILTER_HOOKS, NETFILTER_HOOKS_LOG_CT, NETFILTER_HOOKS_USER,
+								kernelModuleConfiguration.isHarden(), tgidsToHarden,
+								new Consumer<String>(){
+									public void accept(final String str){
+										logger.log(Level.INFO, str);
 									}
-								}
-								
-								List<String> ppidsToIgnore = new ArrayList<String>(pidsToIgnore); // same as pids
-								List<String> pidsToIgnoreFromConfig = getPidsFromConfig(configMap, "ignoreProcesses");
-								List<String> ppidsToIgnoreFromConfig = getPidsFromConfig(configMap, "ignoreParentProcesses");
-								if(pidsToIgnoreFromConfig != null){ // optional
-									pidsToIgnore.addAll(pidsToIgnoreFromConfig);
-									logger.log(Level.INFO, "Ignoring pids {0} for processes with names from config: {1}",
-											new Object[]{pidsToIgnoreFromConfig, configMap.get("ignoreProcesses")});
-								}
-								if(ppidsToIgnoreFromConfig != null){ // optional
-									ppidsToIgnore.addAll(ppidsToIgnoreFromConfig);
-									logger.log(Level.INFO, "Ignoring ppids {0} for processes with names from config: {1}",
-											new Object[]{ppidsToIgnoreFromConfig, configMap.get("ignoreParentProcesses")});
-								}
-								
-								if(kernelModuleConfiguration.isLocalEndpoints()){
-									try{
-										final UserMode userMode = ignoreUid == true ? UserMode.IGNORE : UserMode.CAPTURE;
-										KernelModuleManager.insertModules(
-												kernelModuleConfiguration.getKernelModuleMainPath(), 
-												kernelModuleConfiguration.getKernelModuleControllerPath(),
-												uid, userMode,
-												new HashSet<String>(pidsToIgnore), new HashSet<String>(ppidsToIgnore),
-												USE_SOCK_SEND_RCV,
-												HANDLE_NAMESPACES,
-												NETFILTER_HOOKS, NETFILTER_HOOKS_LOG_CT, NETFILTER_HOOKS_USER,
-												kernelModuleConfiguration.isHarden(), getTgidsOfProcessesToHarden(),
-												new Consumer<String>(){
-													public void accept(final String str){
-														logger.log(Level.INFO, str);
-													}
-												});
-										success = true;
-									}catch(Exception e){
-										logger.log(Level.SEVERE, "Failed to setup kernel modules", e);
-										success = false;
-									}
-								}
-								if(success){
-									if(success){
-										success = setAuditControlRules(rulesType, uid, ignoreUid, pidsToIgnore, 
-												ppidsToIgnore, kernelModuleConfiguration.isLocalEndpoints());
-									}
-								}
-							}else{
-								success = false;
-							}
-						}else{
-							success = false;
-						}
+								});
+					}catch(Exception e){
+						logger.log(Level.SEVERE, "Failed to setup kernel modules", e);
+						return false;
 					}
 				}
-			}
-		}
-		
-		if(success){
-			return true;
-		}else{
-			// The spadeAuditBridge might have started
-			if(spadeAuditBridgeProcessPid != null){
-				sendSignalToPid(spadeAuditBridgeProcessPid, "9"); // force kill since Audit not added
-			}
-			doCleanup(rulesType, logListFile);
-			return false;
-		}
-	}
-	
-	private List<String> getPidsFromConfig(Map<String, String> configMap, String processNamesKey){
-		if(configMap != null && processNamesKey != null){
-			String processNames = configMap.get(processNamesKey);
-			if(processNames != null){
-				processNames = processNames.trim();
-				if(!processNames.isEmpty()){
-					// The value is comma-separated. Replacing ',' with ' ' because that is the format
-					// expected by the 'pidof' command.
-					processNames = processNames.replace(',', ' ');
-					List<String> pids = listOfPidsToIgnore(processNames); // Can return null;
-					return pids;
+				
+				try{
+					AuditControlManager.set(processUserSyscallFilter.getSystemCallRuleType(),
+							processUserSyscallFilter.getUserId(), processUserSyscallFilter.getUserMode(),
+							processUserSyscallFilter.getPidsOfProcessesToIgnore(), processUserSyscallFilter.getPpidsOfProcessesToIgnore(),
+							excludeProctitle, 
+							kernelModuleConfiguration.isLocalEndpoints(), 
+							USE_SOCK_SEND_RCV, USE_READ_WRITE, 
+							USE_MEMORY_SYSCALLS, filesystemCredentialUpdates, 
+							HANDLE_CHDIR, HANDLE_ROOTFS, 
+							HANDLE_NAMESPACES, CAPTURE_IPC, 
+							new Consumer<String>(){
+								public void accept(String str){
+									logger.log(Level.INFO, str);
+								}
+							}, new BiConsumer<String, Throwable>(){
+								public void accept(String str, Throwable t){
+									logger.log(Level.WARNING, str, t);
+								}
+							});
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to setup Linux audit rules", e);
+					return false;
 				}
 			}
 		}
-		return null;
+		return true;
 	}
 
 	public final ProcessManager getProcessManager(){
@@ -1082,505 +848,30 @@ public class Audit extends AbstractReporter {
 		return ipcManager;
 	}
 
-	private AuditEventReader getAuditEventReader(String spadeAuditBridgeCommand, 
-			InputStream stdoutStream,
-			String outputLogFilePath,
-			Long recordsToRotateOutputLogAfter){
-		
-		try{
-			// Create the audit event reader using the STDOUT of the spadeAuditBridge process
-			AuditEventReader auditEventReader = new AuditEventReader(spadeAuditBridgeCommand, 
-					stdoutStream);
-			if(outputLogFilePath != null){
-				auditEventReader.setOutputLog(outputLogFilePath, recordsToRotateOutputLogAfter);
-			}
-			return auditEventReader;
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to create audit event reader", e);
-			return null;
-		}
-	}
-	
-	private boolean sendSignalToPid(String pid, String signal){
-		try{
-			Runtime.getRuntime().exec("kill -" + signal + " " + pid);
-			return true;
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Failed to send signal '"+signal+"' to pid '"+pid+"'", e);
-			return false;
-		}
-	}
-	
-	private Thread getErrorStreamReaderForProcess(final String processName, final InputStream errorStream){
-		try{
-			
-			Thread errorStreamReaderThread = new Thread(new Runnable(){
-				public void run(){
-					BufferedReader errorStreamReader = null;
-					try{
-						errorStreamReader = new BufferedReader(new InputStreamReader(errorStream));
-						String line = null;
-						while((line = errorStreamReader.readLine()) != null){
-							if(line.startsWith("#CONTROL_MSG#")){
-								spadeAuditBridgeProcessPid = line.split("=")[1];
-							}else{
-								logger.log(Level.INFO, processName + " output: " + line);
-							}
-						}
-					}catch(Exception e){
-						logger.log(Level.WARNING, "Failed to read error stream for process: " + processName);
-					}finally{
-						if(errorStreamReader != null){
-							try{
-								errorStreamReader.close();
-							}catch(Exception e){
-								//ignore
-							}
-						}
-					}
-					logger.log(Level.INFO, "Exiting error reader thread for process: " + processName);
-				}
-			});
-			
-			return errorStreamReaderThread;
-			
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to create error reader thread for " + processName, e);
-			return null;
-		}
-	}
-	
-	private Thread getAuditEventReaderThread(final String processName, final AuditEventReader auditEventReader, 
-			final boolean isLiveAudit, final String rulesType, final String logListFile){
-		Runnable runnable = new Runnable() {
-			
-			@Override
-			public void run() {
-				
-				eventReaderThreadRunning = true;
-				
-				if(isLiveAudit){
-					if(PROCFS){
-						// Proc filesystem read not done
-//						processManager.putProcessesFromProcFs();
-					}
-				}
-				
-				while(true){
-					Map<String, String> eventData = null;
-					try{
-						eventData = auditEventReader.readEventData();
-						if(eventData == null){
-							// EOF
-							break;
-						}else{
-							try{
-								finishEvent(eventData);
-							}catch(Exception e){
-								logger.log(Level.SEVERE, "Failed to handle event: " + eventData, e);
-								if(FAIL_FAST){
-									break;
-								}
-							}
-						}
-					}catch(MalformedAuditDataException made){
-						logger.log(Level.SEVERE, "Failed to parse event", made);
-						if(FAIL_FAST){
-							break;
-						}
-					}catch(Exception e){
-						logger.log(Level.SEVERE, "Stopped reading event stream. ", e);
-						break;
-					}
-				}
-				try{
-					if(auditEventReader != null){
-						auditEventReader.close();
-					}
-				}catch(Exception e){
-					logger.log(Level.WARNING, "Failed to close audit event reader", e);
-				}
-				
-				// Sent a signal to the process in shutdown to stop reading.
-				// That's why here.
-				doCleanup(rulesType, logListFile);
-				logger.log(Level.INFO, "Exiting event reader thread for process: " + processName);
-				eventReaderThreadRunning = false;
-			}
-		};
-		return new Thread(runnable);
-	}
-
-	private java.lang.Process runSpadeAuditBridge(String command){
-		try{
-			java.lang.Process spadeAuditBridgeProcess = Runtime.getRuntime().exec(command);
-			logger.log(Level.INFO, "Succesfully executed the command: '" + command + "'");
-			return spadeAuditBridgeProcess;
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to execute command: '" + command + "'", e);
-			return null;
-		}
-	}
-	
-	private boolean setAuditControlRules(String rulesType, String uid, boolean ignoreUid, List<String> ignorePids, 
-			List<String> ignorePpids, boolean kmAdded){
-		try {
-
-			if(uid == null || uid.isEmpty() || ignorePids == null || ignorePids.isEmpty()
-					|| ignorePpids == null || ignorePpids.isEmpty()){
-				logger.log(Level.SEVERE, "Invalid args. uid={0}, pids={1}, ppids={2}", new Object[]{uid, ignorePids,
-						ignorePpids});
-				return false;
-			}
-			
-			if("none".equals(rulesType)){
-				// do nothing
-				return true;
-			}else{
-				
-				List<String> auditRules = new ArrayList<String>();
-			
-				String auditRuleWithoutProctitle = "auditctl -a always,exclude -F msgtype=PROCTITLE";
-				// Always the first rule
-				auditRules.add(auditRuleWithoutProctitle);
-				
-				// Remove any existing audit rules
-				if(!removeAuditctlRules()){
-					return false;
-				}
-				
-				// Set arch to use in the rules
-				String archField = "-F arch=b64 ";
-				
-				String uidField = null;
-				if(ignoreUid){ // ignore the given uid
-					uidField = "-F uid!=" + uid + " ";
-				}else{ // only capture the given uid
-					uidField = "-F uid=" + uid + " ";
-				}
-
-				StringBuffer pidFields = new StringBuffer();
-				ignorePids.forEach(ignorePid -> {pidFields.append("-F pid!=").append(ignorePid).append(" ");});
-				
-				StringBuffer ppidFields = new StringBuffer();
-				ignorePpids.forEach(ignorePpid -> {ppidFields.append("-F ppid!=").append(ignorePpid).append(" ");});
-				
-				String pidAndPpidFields = pidFields.toString() + ppidFields.toString();
-				
-				if("all".equals(rulesType)){
-
-					String netIONeverSyscallsRule = null;
-					if(kmAdded){
-						netIONeverSyscallsRule = "auditctl -a exit,never ";
-						netIONeverSyscallsRule += archField;
-						netIONeverSyscallsRule += "-S kill -S socket -S bind -S accept -S accept4 -S connect ";
-						netIONeverSyscallsRule += "-S sendmsg -S sendto -S recvmsg -S recvfrom -S sendmmsg -S recvmmsg ";
-					}
-					
-                    String specialSyscallsRule = "auditctl -a exit,always ";
-					String allSyscallsAuditRule = "auditctl -a exit,always ";
-					
-					allSyscallsAuditRule += archField;
-					specialSyscallsRule += archField;
-					
-					allSyscallsAuditRule += "-S all ";
-					// The connect syscall rule won't be matched even if module added because the 'never' rule is before this one
-					specialSyscallsRule += "-S exit -S exit_group -S kill -S connect ";
-
-					allSyscallsAuditRule += uidField;
-					specialSyscallsRule += uidField;
-
-					allSyscallsAuditRule += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
-					
-					// THE NEVER RULE SHOULD ALWAYS BE THE FIRST IF IT IS INITIALIZED
-					if(kmAdded && netIONeverSyscallsRule != null){
-						auditRules.add(netIONeverSyscallsRule);
-					}
-					auditRules.add(specialSyscallsRule + pidAndPpidFields);
-					auditRules.add(allSyscallsAuditRule + pidAndPpidFields);
-
-				}else if(rulesType == null){
-
-					String auditRuleWithoutSuccess = "auditctl -a exit,always ";
-					String auditRuleWithSuccess = "auditctl -a exit,always ";
-					
-					auditRuleWithSuccess += archField;
-					auditRuleWithoutSuccess += archField;
-
-					auditRuleWithSuccess += uidField;
-					auditRuleWithoutSuccess += uidField;
-
-					auditRuleWithoutSuccess += "-S exit -S exit_group ";
-					if(!kmAdded){
-						auditRuleWithoutSuccess += "-S connect -S kill ";
-					}
-
-					if (USE_READ_WRITE) {
-						auditRuleWithSuccess += "-S read -S readv -S pread -S preadv -S write -S writev -S pwrite -S pwritev -S lseek ";
-					}
-					if(!kmAdded){ // since km not added we don't need to log these syscalls
-						if (USE_SOCK_SEND_RCV) {
-							auditRuleWithSuccess += "-S sendto -S recvfrom -S sendmsg -S recvmsg ";
-						}
-						auditRuleWithSuccess += "-S bind -S accept -S accept4 -S socket ";
-					}
-					if (USE_MEMORY_SYSCALLS) {
-						auditRuleWithSuccess += "-S mmap -S mprotect -S madvise ";
-					}
-					auditRuleWithSuccess += "-S unlink -S unlinkat ";
-					auditRuleWithSuccess += "-S link -S linkat -S symlink -S symlinkat ";
-					auditRuleWithSuccess += "-S clone -S fork -S vfork -S execve ";
-					auditRuleWithSuccess += "-S open -S close -S creat -S openat -S mknodat -S mknod ";
-					auditRuleWithSuccess += "-S dup -S dup2 -S dup3 ";
-					auditRuleWithSuccess += "-S fcntl ";
-					auditRuleWithSuccess += "-S rename -S renameat ";
-					auditRuleWithSuccess += "-S setuid -S setreuid ";
-					auditRuleWithSuccess += "-S setgid -S setregid ";
-					if(!SIMPLIFY){
-						auditRuleWithSuccess += "-S setresuid -S setfsuid ";
-						auditRuleWithSuccess += "-S setresgid -S setfsgid ";
-					}
-					auditRuleWithSuccess += "-S chmod -S fchmod -S fchmodat ";
-					auditRuleWithSuccess += "-S pipe -S pipe2 ";
-					auditRuleWithSuccess += "-S truncate -S ftruncate ";
-					auditRuleWithSuccess += "-S init_module -S finit_module ";
-					auditRuleWithSuccess += "-S tee -S splice -S vmsplice ";
-					auditRuleWithSuccess += "-S socketpair ";
-					auditRuleWithSuccess += "-S ptrace ";
-					if(HANDLE_CHDIR){
-						auditRuleWithSuccess += "-S chdir -S fchdir ";
-					}
-					if(HANDLE_ROOTFS){
-						auditRuleWithSuccess += "-S chroot -S pivot_root ";
-					}
-					if(HANDLE_NAMESPACES){
-						auditRuleWithSuccess += "-S setns -S unshare ";
-					}
-					if(CAPTURE_IPC){
-						final List<String> ipcSyscalls = IPCManager.getSyscallNamesForAuditctlForAll();
-						String subRuleSyscalls = "";
-						for(final String ipcSyscall : ipcSyscalls){
-							subRuleSyscalls += "-S " + ipcSyscall + " ";
-						}
-						auditRuleWithSuccess += subRuleSyscalls;
-					}
-					
-					auditRuleWithSuccess += "-F success=" + AUDITCTL_SYSCALL_SUCCESS_FLAG + " ";
-
-					auditRules.add(auditRuleWithoutSuccess + pidAndPpidFields);
-					auditRules.add(auditRuleWithSuccess + pidAndPpidFields);
-				}else{
-					logger.log(Level.SEVERE, "Invalid rules arguments: " + rulesType);
-					return false;
-				}
-
-				// Execute in provided order!
-				for(String auditRule : auditRules){
-					if(!executeAuditctlRule(auditRule)){
-						removeAuditctlRules();
-						return false;
-					}
-				}
-			}
-
-			return true;
-		} catch (Exception e) {
-			logger.log(Level.SEVERE, "Error configuring audit rules", e);
-			return false;
-		}
-
-	}
-
-	private boolean executeAuditctlRule(String auditctlRule){
-		try{
-			Execute.Output output = Execute.getOutput(auditctlRule);
-			output.log();
-			return !output.hasError();
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to set audit rule: " + auditctlRule, e);
-			return false;
-		}
-	}
-
-	private boolean removeAuditctlRules(){
-		try{
-			Execute.Output output = Execute.getOutput("auditctl -D");
-			output.log();
-			return !output.hasError();
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to remove audit rules", e);
-			return false;
-		}
-	}
-	
-	private static Set<String> getTgidsOfProcessesToHarden() throws Exception{
-		Set<String> tgids = new HashSet<String>();
-		String processNames[] = {"auditd", "audispd", "kauditd", "spadeAuditBridge"};
-		for(String processName : processNames){
-			Set<String> pids = pidOf(processName);
-			for(String pid : pids){
-				String tgid = getTgid(pid);
-				tgids.add(tgid);
-			}
-		}
-		tgids.add(getSelfTgid());
-		return tgids;
-	}
-	
-	private static Set<String> pidOf(String processName) throws Exception{
-		String command = "pidof " + processName;
-		Output output = Execute.getOutput(command);
-		if(output.hasError()){
-			throw new Exception("Command failed: " + command);
-		}else{
-			Set<String> pids = new HashSet<String>();
-			List<String> lines = output.getStdOut();
-			if(lines.isEmpty()){
-				throw new Exception("No output for command: " + command);
-			}else{
-				String pidsLine = lines.get(0);
-				String pidsArray[] = pidsLine.split("\\s+");
-				if(pidsArray.length == 0){
-					throw new Exception("Empty output for command: " + command);
-				}else{
-					for(String pid : pidsArray){
-						pids.add(pid);
-					}
-					return pids;
-				}
-			}
-		}
-	}
-	
-	private static String getSelfTgid() throws Exception{
-		return getTgid("self");
-	}
-	
-	private static String getTgid(String pid) throws Exception{
-		String procPath = "/proc/"+pid+"/status";
-		List<String> lines = FileUtility.readLines(procPath);
-		for(String line : lines){
-			line = line.toLowerCase().trim();
-			String tokens[] = line.split(":");
-			if(tokens.length >= 2){
-				String name = tokens[0].trim();
-				String value = tokens[1].trim();
-				if(name.equals("tgid") && !value.isEmpty()){
-					return value;
-				}
-			}
-		}
-		throw new Exception("No 'tgid' key found in file: " + procPath);
-	}
-	
-	private List<String> listOfPidsToIgnore(String ignoreProcesses){
-//		ignoreProcesses argument is a string of process names separated by blank space
-		BufferedReader pidReader = null;
-		try{
-			List<String> pids = new ArrayList<String>();
-			if(ignoreProcesses != null && !ignoreProcesses.trim().isEmpty()){
-				// Using pidof command now to get all pids of the mentioned processes
-				java.lang.Process pidChecker = Runtime.getRuntime().exec("pidof " + ignoreProcesses);
-				// pidof returns pids of given processes as a string separated by a blank space
-				pidReader = new BufferedReader(new InputStreamReader(pidChecker.getInputStream()));
-				String pidline = pidReader.readLine();
-				if(pidline != null){
-					// 	added all returned from pidof command
-					pids.addAll(Arrays.asList(pidline.split("\\s+")));
-				}else{
-					logger.log(Level.INFO, "No running process(es) with name(s): " + ignoreProcesses);
-				}
-			}
-			return pids;
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Error building list of processes to ignore: " + ignoreProcesses, e);
-			return null;
-		}finally{
-			if(pidReader != null){
-				try{
-					pidReader.close();
-				}catch(Exception e){
-					// ignore
-				}
-			}
-		}
-	}
-
-	// Returns the uid if valid username
-	private String checkIfValidUsername(String name){
-		String command = "id -u " + name;
-		try{
-			Execute.Output output = Execute.getOutput(command);
-			if(output.hasError()){
-				logger.log(Level.SEVERE, "Invalid username provided. Command: {0}. Error: {1}", 
-						new Object[]{command, output.getStdErr()});
-			}else{
-				List<String> stdOutLines = output.getStdOut();
-				if(stdOutLines.size() == 0){
-					logger.log(Level.SEVERE, "No uid in output for command: {0}. Output: {1}.", new Object[]{
-							command, stdOutLines
-					});
-				}else{
-					String uidLine = stdOutLines.get(0);
-					if(uidLine == null || (uidLine = uidLine.trim()).isEmpty()){
-						logger.log(Level.SEVERE, "NULL/Empty uid for command: {0}. Output: {1}.", new Object[]{
-								command, stdOutLines
-						});
-					}else{
-						return uidLine;
-					}
-				}
-			}
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to execute command: " + command, e);
-		}
-		return null;
-	}
-	
-	private String getOwnUid(){
-		String command = "id -u";
-		try{
-			String uid = null;
-			Execute.Output output = Execute.getOutput(command);
-			if(output.hasError()){
-				logger.log(Level.SEVERE, "Failed to get user id of JVM. Command: {0}. Error: {1}.",
-						new Object[]{command, output.getStdErr()});
-				return null;
-			}else{
-				List<String> stdOutLines = output.getStdOut();
-				if(stdOutLines.size() == 0){
-					logger.log(Level.SEVERE, "No uid in output for command: {0}. Output: {1}.", new Object[]{
-							command, stdOutLines
-					});
-					return null;
-				}else{
-					String uidLine = stdOutLines.get(0);
-					if(uidLine == null || (uidLine = uidLine.trim()).isEmpty()){
-						logger.log(Level.SEVERE, "NULL/Empty uid for command: {0}. Output: {1}.", new Object[]{
-								command, stdOutLines
-						});
-						return null;
-					}else{
-						uid = uidLine;
-					}
-				}
-				return uid;
-			}
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to get user id of JVM using command: " + command, e);
-			return null;
-		}
-	}
-
 	@Override
-	public boolean shutdown() {
-
+	public boolean shutdown(){
+		try{
+			return _shutdown();
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to successfully shutdown the Audit reporter", e);
+			return false;
+		}
+	}
+	/*
+	 * a. Kernel modules. Will stop events stream. (external)
+	 * b. Audit rules. Will stop Linux Audit. (external)
+	 * c. Input log list file. In use by spade audit bridge.
+	 * d. spade audit bridge process. 
+	 * e. main event loop thread
+	 * f. audit event reader
+	 * g. artifact/process/netfilter manager
+	 */
+	private boolean _shutdown(){
 		// Remove the kernel module first because we need to kill spadeAuditBridge
 		// because it might be hardened
-		if(kernelModuleConfiguration.isLocalEndpoints()){
+		if(kernelModuleConfiguration != null && kernelModuleConfiguration.isLocalEndpoints()){
 			try{
-				KernelModuleManager.disableModule(
-						kernelModuleConfiguration.getKernelModuleControllerPath(),
+				KernelModuleManager.disableModule(kernelModuleConfiguration.getKernelModuleControllerPath(),
 						kernelModuleConfiguration.isHarden(),
 						kernelModuleConfiguration.getKernelModuleDeleteBinaryPath(), new Consumer<String>(){
 							public void accept(String str){
@@ -1596,49 +887,42 @@ public class Audit extends AbstractReporter {
 				logger.log(Level.SEVERE, "Failed to disable kernel modules", e);
 			}
 		}
-		
+
 		// Send an interrupt to the spadeAuditBridgeProcess
-		
-		sendSignalToPid(spadeAuditBridgeProcessPid, "2");
-		
-		// Return. The event reader thread and the error reader thread will exit on their own.
-		// The event reader thread will do the state cleanup
-		
-		logger.log(Level.INFO, "Going to wait for event reader thread to finish");
-		
-		while(eventReaderThreadRunning){
-			// Wait while the event reader thread is still running i.e. buffer being emptied
-			try{ Thread.sleep(PID_MSG_WAIT_TIMEOUT); }catch(Exception e){}
+		if(spadeAuditBridgeProcess != null){
+			try{
+				final boolean forceStop = false;
+				spadeAuditBridgeProcess.stop(forceStop);
+			}catch(Exception e){
+				logger.log(Level.WARNING, "Failed to stop SPADE audit bridge process", e);
+			}
 		}
-		
+
+		// Return. The event reader thread and the error reader thread will exit on
+		// their own.
+		// The event reader thread will do the state cleanup
+
+		logger.log(Level.INFO, "Going to wait for main event loop thread to finish");
+
+		while(isMainEventLoopThreadRunning){
+			// Wait while the event reader thread is still running i.e. buffer being emptied
+			HelperFunctions.sleepSafe(1000);
+		}
+
 		// force print stats before exiting
 		printStats(true);
-		
+
 		return true;
 	}
 
 	private void printStats(boolean forcePrint){
-		if(reportingEnabled || forcePrint){
-			long currentTime = System.currentTimeMillis();
-			if(((currentTime - lastReportedTime) >= reportEveryMs) || forcePrint){
-				Runtime runtime = Runtime.getRuntime();
-				long usedMemoryMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024*1024);   	
-				int internalBufferSize = getBuffer().size();
-				String statString = String.format("Internal buffer size: %d, JVM memory in use: %dMB", 
-						internalBufferSize, usedMemoryMB);
-				logger.log(Level.INFO, statString);
-				
-				if(HANDLE_NETFILTER_HOOKS){
-					if(netfilterHooksManager != null){
-						netfilterHooksManager.printStats();
-					}
-				}
-				
-				lastReportedTime = currentTime;
+		if(reportingIntervaler.check() || forcePrint){
+			if(HANDLE_NETFILTER_HOOKS && netfilterHooksManager != null){
+				netfilterHooksManager.printStats();
 			}
 		}
 	}
-	
+
 	private void setHandleKMRecordsFlag(boolean isLiveAudit, boolean valueOfHandleKMRecords){
 		// Only set the value if it hasn't been set and is log playback
 		if(!kernelModuleConfiguration.isHandleLocalEndpointsSpecified() && !isLiveAudit){
@@ -1667,7 +951,7 @@ public class Audit extends AbstractReporter {
 			}else if(AuditEventReader.RECORD_TYPE_DAEMON_START.equals(recordType)){
 				//processManager.daemonStart(); TODO Not being used until figured out how to handle it.
 			}else if(AuditEventReader.KMODULE_RECORD_TYPE.equals(recordType)){
-				setHandleKMRecordsFlag(isLiveAudit, true); // Always do first because HANDLE_KM_RECORDS can be null when playback
+				setHandleKMRecordsFlag(input.isLiveMode(), true); // Always do first because HANDLE_KM_RECORDS can be null when playback
 				if(kernelModuleConfiguration.isHandleLocalEndpoints()){
 					handleKernelModuleEvent(eventData);
 				}
@@ -1846,7 +1130,7 @@ public class Audit extends AbstractReporter {
 				case ACCEPT:
 				case ACCEPT4:
 				case CONNECT:
-					setHandleKMRecordsFlag(isLiveAudit, false);
+					setHandleKMRecordsFlag(input.isLiveMode(), false);
 					break;
 				default:
 					break;
@@ -2497,8 +1781,8 @@ public class Audit extends AbstractReporter {
 			}
 		}
 
-		String processName = process.getAnnotation(OPMConstants.PROCESS_NAME);
-		if(namesOfProcessesToIgnoreFromConfig.contains(processName)){
+		final String processName = process.getAnnotation(OPMConstants.PROCESS_NAME);
+		if(processUserSyscallFilter.isProcessNameInIgnoreProcessSet(processName)){
 			log(Level.INFO, "'"+processName+"' (pid="+pid+") process seen in execve and present in list of processes to ignore", 
 					null, time, eventId, syscall);
 		}
@@ -3897,36 +3181,39 @@ public class Audit extends AbstractReporter {
 
 class AddressPort{
 	public final String address, port;
+
 	public AddressPort(String address, String port){
 		this.address = address;
 		this.port = port;
 	}
+
 	@Override
-	public int hashCode() {
+	public int hashCode(){
 		final int prime = 31;
 		int result = 1;
 		result = prime * result + ((address == null) ? 0 : address.hashCode());
 		result = prime * result + ((port == null) ? 0 : port.hashCode());
 		return result;
 	}
+
 	@Override
-	public boolean equals(Object obj) {
-		if (this == obj)
+	public boolean equals(Object obj){
+		if(this == obj)
 			return true;
-		if (obj == null)
+		if(obj == null)
 			return false;
-		if (getClass() != obj.getClass())
+		if(getClass() != obj.getClass())
 			return false;
-		AddressPort other = (AddressPort) obj;
-		if (address == null) {
-			if (other.address != null)
+		AddressPort other = (AddressPort)obj;
+		if(address == null){
+			if(other.address != null)
 				return false;
-		} else if (!address.equals(other.address))
+		}else if(!address.equals(other.address))
 			return false;
-		if (port == null) {
-			if (other.port != null)
+		if(port == null){
+			if(other.port != null)
 				return false;
-		} else if (!port.equals(other.port))
+		}else if(!port.equals(other.port))
 			return false;
 		return true;
 	}

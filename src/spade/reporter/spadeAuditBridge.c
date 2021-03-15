@@ -325,8 +325,6 @@ void socket_read(char *programName)
 						break;
 				}
 
-				fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
-
 				while (TRUE) {
 						memset(&buffer, 0, BUFFER_LENGTH);
 						charactersRead = recv(audispdSocketDescriptor, & buffer[0], BUFFER_LENGTH - 1, 0);
@@ -348,7 +346,6 @@ void read_log(FILE *fp, char* filepath)
 {
 		char buffer[BUFFER_LENGTH];
 
-		fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
 		do{
 				while (TRUE) {
 						memset(&buffer, 0, BUFFER_LENGTH);
@@ -540,8 +537,6 @@ void dir_read()
 {
 		ino_t inode = 0;
 		
-		fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
-		
 		while((inode = find_next_file(dirTime, 0)) <= 0) sleep(1);
 		//printf("Next file: inode %ld\n", inode);
 
@@ -558,7 +553,8 @@ int main(int argc, char *argv[]) {
 		char buffer[BUFFER_LENGTH];
 		struct sockaddr_un serverAddress;
 
-		
+		fprintf(stderr, "#CONTROL_MSG#pid=%d\n", getpid());
+
 		putenv("TZ=EST5EDT"); // set timezone
 		tzset();
 

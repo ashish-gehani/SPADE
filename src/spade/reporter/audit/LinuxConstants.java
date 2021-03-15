@@ -19,10 +19,13 @@
  */
 package spade.reporter.audit;
 
+import java.lang.reflect.Constructor;
 import java.util.HashMap;
 import java.util.Map;
 
+import spade.core.Settings;
 import spade.utility.FileUtility;
+import spade.utility.HelperFunctions;
 
 public class LinuxConstants{
 
@@ -146,6 +149,12 @@ public class LinuxConstants{
 	private final Map<String, Long> lseekWhenceMap = new HashMap<>();
 	private final Map<String, Long> cloneFlagsMap = new HashMap<>();
 
+	private String configFilePath;
+	
+	public String getConfigFilePath(){
+		return configFilePath;
+	}
+	
 	private final long parseLong(final Map<String, String> map, final String key) throws Exception{
 		String valueString = map.get(key);
 		if(valueString == null){
@@ -174,7 +183,41 @@ public class LinuxConstants{
 		}
 	}
 
+	public static final LinuxConstants instance(final Map<String, String> map, final String key) throws Exception{
+		final String value = map.get(key);
+		if(HelperFunctions.isNullOrEmpty(key)){
+			throw new Exception("NULL/empty value for '" + key+ "': " + value);
+		}
+		final String tokens[] = value.split("\\s+", 2);
+		final String qualifiedClassName = tokens[0];
+
+		if(tokens.length != 2){
+			throw new Exception("Value for '" + key + "' must be specified in format: '<qualifiedClassName> <configFilePath>'");
+		}
+
+		final LinuxConstants instance;
+		try{
+			@SuppressWarnings("unchecked")
+			final Class<LinuxConstants> clazz = (Class<LinuxConstants>)Class.forName(qualifiedClassName);
+			final Constructor<LinuxConstants> constructor = clazz.getDeclaredConstructor();
+			instance = constructor.newInstance();
+		}catch(Exception e){
+			throw new Exception("Failed to create instance of class '" + qualifiedClassName + "' specified by key '" + key + "'", e);
+		}
+
+		try{
+			final String constantsFilePath = tokens[1].trim();
+			final String resolvedPath = Settings.getPathRelativeToSPADERootIfNotAbsolute(constantsFilePath);
+			instance.initialize(resolvedPath);
+		}catch(Exception e){
+			throw new Exception("Failed to initialize constants source specified by key '" + key + "'", e);
+		}
+		return instance;
+	}
+	
 	public final void initialize(final String filePath) throws Exception{
+		this.configFilePath = filePath;
+		
 		try{
 			final Map<String, String> map = FileUtility.readConfigFileAsKeyValueMap(filePath, "=");
 
@@ -494,5 +537,9 @@ public class LinuxConstants{
 			str = str.substring(0, str.length() - separator.length());
 		}
 		return str;
+	}
+	
+	public String toString(){
+		return "LinuxConstants [configFilePath=" + configFilePath + "]";
 	}
 }

@@ -30,14 +30,11 @@ import java.util.function.Consumer;
 
 import org.apache.commons.codec.digest.DigestUtils;
 
+import spade.reporter.audit.ProcessUserSyscallFilter.UserMode;
 import spade.utility.Execute;
 import spade.utility.HelperFunctions;
 
 public class KernelModuleManager{
-
-	public static enum UserMode{
-		IGNORE, CAPTURE
-	}
 
 	private static final StringBuffer kernelModuleSecretKey = new StringBuffer();
 	

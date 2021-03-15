@@ -25,10 +25,13 @@ import java.io.StringWriter;
 import java.math.BigInteger;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -38,9 +41,10 @@ import org.apache.commons.codec.binary.Hex;
 import org.json.JSONObject;
 
 import spade.core.Settings;
+import spade.utility.Execute.Output;
 
 public class HelperFunctions{
-
+	
 	private static final Logger logger = Logger.getLogger(HelperFunctions.class.getName());
 	// Group 1: key
     // Group 2: value
@@ -469,7 +473,7 @@ public class HelperFunctions{
 		if(clazz == null){
 			return Result.failed("NULL enum class");
 		}else if(HelperFunctions.isNullOrEmpty(value)){
-			return Result.failed("NULL/Empty enum value for class: '"+clazz.getName()+"'");
+			return Result.failed("NULL/Empty enum value. Allowed: " + Arrays.asList(clazz.getEnumConstants()));
 		}else{
 			for(X x : clazz.getEnumConstants()){
 				if(ignoreCase){
@@ -482,7 +486,7 @@ public class HelperFunctions{
 					}
 				}
 			}
-			return Result.failed("Value '"+value+"' not defined for enum '"+clazz.getName()+"'");
+			return Result.failed("Value '"+value+"' not defined for enum. Allowed: " + Arrays.asList(clazz.getEnumConstants()));
 		}
 	}
 	
@@ -709,5 +713,134 @@ public class HelperFunctions{
 			}
 		}
 		return list;
+	}
+	
+	public static Set<String> nixPidsOfProcessesWithName(String processName) throws Exception{
+		String command = "pidof " + processName;
+		Output output = Execute.getOutput(command);
+		if(output.hasError()){
+			throw new Exception("Command failed: " + command);
+		}else{
+			final Set<String> pids = new HashSet<String>();
+			final List<String> lines = output.getStdOut();
+			if(lines.isEmpty()){
+				return pids;
+			}else{
+				String pidsLine = lines.get(0);
+				String pidsArray[] = pidsLine.split("\\s+");
+				if(pidsArray.length == 0){
+					return pids;
+				}else{
+					for(String pid : pidsArray){
+						pids.add(pid);
+					}
+					return pids;
+				}
+			}
+		}
+	}
+	
+	public static Set<String> nixTgidsOfProcessesWithName(final String processName) throws Exception{
+		Set<String> pids = nixPidsOfProcessesWithName(processName);
+		Set<String> tgids = new HashSet<String>();
+		for(String pid : pids){
+			String tgid = nixTgidOfPid(pid);
+			tgids.add(tgid);
+		}
+		return tgids;
+	}
+	
+	public static String nixPidOfSelf() throws Exception{
+		return nixGetValueForKeyInProcStatusFile("self", "Pid");
+	}
+	
+	public static String nixTgidOfSelf() throws Exception{
+		return nixTgidOfPid("self");
+	}
+	
+	public static String nixTgidOfPid(final String pid) throws Exception{
+		return nixGetValueForKeyInProcStatusFile(pid, "Tgid");
+	}
+	
+	private static String nixGetValueForKeyInProcStatusFile(final String pid, final String key) throws Exception{
+		final String procPath = "/proc/"+pid+"/status";
+		final List<String> lines = FileUtility.readLines(procPath);
+		for(String line : lines){
+			line = line.toLowerCase().trim();
+			String tokens[] = line.split(":");
+			if(tokens.length >= 2){
+				String name = tokens[0].trim().toLowerCase();
+				String value = tokens[1].trim();
+				if(name.equals(key.toLowerCase()) && !value.isEmpty()){
+					return value;
+				}
+			}
+		}
+		throw new Exception("No '" + key + "' key found in file: " + procPath);
+	}
+
+	public static String nixUidOfSelf() throws Exception{
+		return nixUidOfUsername("");
+	}
+	
+	public static String nixUidOfUsername(final String userName) throws Exception{
+		final String command = "id -u " + userName;
+		try{
+			Execute.Output output = Execute.getOutput(command);
+			if(output.hasError()){
+				throw new Exception("Error: " + output.getStdErr());
+			}else{
+				List<String> stdOutLines = output.getStdOut();
+				if(stdOutLines.size() == 0){
+					throw new Exception("Error: No output");
+				}else{
+					String uidLine = stdOutLines.get(0);
+					if(uidLine == null || (uidLine = uidLine.trim()).isEmpty()){
+						throw new Exception("Error: Empty output");
+					}else{
+						return uidLine.trim();
+					}
+				}
+			}
+		}catch(Exception e){
+			throw new Exception("Failed to get user id using command: '" + command + "'", e);
+		}
+	}
+	
+	public static String nixUsernameOfUid(final String uid) throws Exception{
+		final String command = "id -nu " + uid;
+		try{
+			Execute.Output output = Execute.getOutput(command);
+			if(output.hasError()){
+				throw new Exception("Error: " + output.getStdErr());
+			}else{
+				List<String> stdOutLines = output.getStdOut();
+				if(stdOutLines.size() == 0){
+					throw new Exception("Error: No output");
+				}else{
+					String userNameLine = stdOutLines.get(0);
+					if(userNameLine == null || (userNameLine = userNameLine.trim()).isEmpty()){
+						throw new Exception("Error: Empty output");
+					}else{
+						return userNameLine.trim();
+					}
+				}
+			}
+		}catch(Exception e){
+			throw new Exception("Failed to get user name using command: '" + command + "'", e);
+		}
+	}
+	
+	public static List<String> nixSendSignalToPid(final String pid, final int signal) throws Exception{
+		final String command = "kill -" + signal + " " + pid;
+		try{
+			final Execute.Output output = Execute.getOutput(command);
+			if(output.hasError()){
+				throw new Exception("Error: " + output.getStdErr());
+			}
+			return output.getStdOut();
+		}catch(Exception e){
+			throw new Exception("Failed to send signal '"+signal+"' to pid '"+pid+"' using command: '" + command + "'", e);
+		}
 	}
 }

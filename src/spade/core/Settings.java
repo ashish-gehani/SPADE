@@ -426,6 +426,13 @@ public class Settings{
 		return concatenatePaths(spadeRoot, path);
 	}
 	
+	public static String getPathRelativeToSPADERootIfNotAbsolute(final String path){
+		if(isAbsolutePath(path)){
+			return path;
+		}
+		return concatenatePaths(join(getSPADERoot(), new String[]{path}));
+	}
+	
 	public static boolean isAbsolutePath(final String path){
 		return path != null ? path.startsWith(File.separator) : false;
 	}

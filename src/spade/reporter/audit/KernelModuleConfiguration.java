@@ -20,8 +20,11 @@
 package spade.reporter.audit;
 
 import java.io.File;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
+import spade.core.Settings;
 import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 import spade.utility.Result;
@@ -31,21 +34,24 @@ public class KernelModuleConfiguration{
 	public static final String keyKernelModuleMainPath = "kernelModuleMain",
 			keyKernelModuleControllerPath = "kernelModuleController",
 			keyKernelModuleDeleteBinaryPath = "kernelModuleDeleteBinary", keyHarden = "harden",
-			keyLocalEndpoints = "localEndpoints", keyHandleLocalEndpoints = "handleLocalEndpoints";
+			keyLocalEndpoints = "localEndpoints", keyHandleLocalEndpoints = "handleLocalEndpoints",
+			keyHardenProcesses = "hardenProcesses";
 
 	private String kernelModuleMainPath, kernelModuleControllerPath, kernelModuleDeleteBinaryPath;
 	private boolean harden, localEndpoints;
 	private Boolean handleLocalEndpoints;
+	private Set<String> hardenProcesses = new HashSet<String>();
 
 	private KernelModuleConfiguration(final String kernelModuleMainPath, final String kernelModuleControllerPath,
 			final String kernelModuleDeleteBinaryPath, final boolean harden, final boolean localEndpoints,
-			final Boolean handleLocalEndpoints){
+			final Boolean handleLocalEndpoints, final Set<String> hardenProcesses){
 		this.kernelModuleMainPath = kernelModuleMainPath;
 		this.kernelModuleControllerPath = kernelModuleControllerPath;
 		this.kernelModuleDeleteBinaryPath = kernelModuleDeleteBinaryPath;
 		this.harden = harden;
 		this.localEndpoints = localEndpoints;
 		this.handleLocalEndpoints = handleLocalEndpoints;
+		this.hardenProcesses.addAll(hardenProcesses);
 	}
 
 	public static KernelModuleConfiguration instance(final String configFilePath, final boolean isLive)
@@ -61,12 +67,13 @@ public class KernelModuleConfiguration{
 
 	public static KernelModuleConfiguration instance(final Map<String, String> map, final boolean isLive)
 			throws Exception{
-		final String valueKernelModuleMainPath = map.get(keyKernelModuleMainPath);
-		final String valueKernelModuleControllerPath = map.get(keyKernelModuleControllerPath);
-		final String valueKernelModuleDeleteBinaryPath = map.get(keyKernelModuleDeleteBinaryPath);
+		String valueKernelModuleMainPath = map.get(keyKernelModuleMainPath);
+		String valueKernelModuleControllerPath = map.get(keyKernelModuleControllerPath);
+		String valueKernelModuleDeleteBinaryPath = map.get(keyKernelModuleDeleteBinaryPath);
 		final String valueHarden = map.get(keyHarden);
 		final String valueLocalEndpoints = map.get(keyLocalEndpoints);
 		final String valueHandleLocalEndpoints = map.get(keyHandleLocalEndpoints);
+		final String valueHardenProcesses = map.get(keyHardenProcesses);
 
 		final String kernelModuleMainPath;
 		final String kernelModuleControllerPath;
@@ -74,6 +81,7 @@ public class KernelModuleConfiguration{
 		final boolean localEndpoints;
 		final boolean harden;
 		final Boolean handleLocalEndpoints;
+		final Set<String> hardenProcesses = new HashSet<String>();
 
 		if(isLive){
 			if(HelperFunctions.isNullOrEmpty(valueLocalEndpoints)){
@@ -82,9 +90,10 @@ public class KernelModuleConfiguration{
 				 * exist. If the kernel module files exist then set local endpoints to true
 				 * otherwise false.
 				 */
+				valueKernelModuleMainPath = Settings.getPathRelativeToSPADERootIfNotAbsolute(valueKernelModuleMainPath);
+				valueKernelModuleControllerPath = Settings.getPathRelativeToSPADERootIfNotAbsolute(valueKernelModuleControllerPath);
 				if(isKernelModuleFileReadableIfExists(keyKernelModuleMainPath, valueKernelModuleMainPath)
-						&& isKernelModuleFileReadableIfExists(keyKernelModuleControllerPath,
-								valueKernelModuleControllerPath)){
+						&& isKernelModuleFileReadableIfExists(keyKernelModuleControllerPath, valueKernelModuleControllerPath)){
 					localEndpoints = true;
 					kernelModuleMainPath = valueKernelModuleMainPath;
 					kernelModuleControllerPath = valueKernelModuleControllerPath;
@@ -104,13 +113,14 @@ public class KernelModuleConfiguration{
 				}
 				localEndpoints = resultLocalEndpoints.result;
 				if(localEndpoints){
+					valueKernelModuleMainPath = Settings.getPathRelativeToSPADERootIfNotAbsolute(valueKernelModuleMainPath);
 					if(!isKernelModuleFileReadableIfExists(keyKernelModuleMainPath, valueKernelModuleMainPath)){
 						throw new Exception("The kernel module's path specified by '" + keyKernelModuleMainPath
 								+ "' does not exist at path: '" + valueKernelModuleMainPath + "'");
 					}
 					kernelModuleMainPath = valueKernelModuleMainPath;
-					if(!isKernelModuleFileReadableIfExists(keyKernelModuleControllerPath,
-							valueKernelModuleControllerPath)){
+					valueKernelModuleControllerPath = Settings.getPathRelativeToSPADERootIfNotAbsolute(valueKernelModuleControllerPath);
+					if(!isKernelModuleFileReadableIfExists(keyKernelModuleControllerPath, valueKernelModuleControllerPath)){
 						throw new Exception("The kernel module's path specified by '" + keyKernelModuleControllerPath
 								+ "' does not exist at path: '" + valueKernelModuleControllerPath + "'");
 					}
@@ -139,6 +149,7 @@ public class KernelModuleConfiguration{
 			 * verify that the delete utility path is correct.
 			 */
 			if(harden){
+				valueKernelModuleDeleteBinaryPath = Settings.getPathRelativeToSPADERootIfNotAbsolute(valueKernelModuleDeleteBinaryPath);
 				try{
 					FileUtility.pathMustBeAReadableExecutableFile(valueKernelModuleDeleteBinaryPath);
 					kernelModuleDeleteBinaryPath = valueKernelModuleDeleteBinaryPath;
@@ -146,6 +157,17 @@ public class KernelModuleConfiguration{
 					throw new Exception("The kernel module deletion utility specified by '"
 							+ keyKernelModuleDeleteBinaryPath + "' must be a readable and executable file: '"
 							+ valueKernelModuleDeleteBinaryPath + "'", e);
+				}
+				if(!HelperFunctions.isNullOrEmpty(valueHardenProcesses)){
+					final String[] tokens = valueHardenProcesses.split(",");
+					for(final String token : tokens){
+						if(token.trim().isEmpty()){
+							throw new Exception("Process names to be hardened by the kernel module"
+									+ " using the key '" + keyHardenProcesses + "' must not be empty");
+						}else{
+							hardenProcesses.add(token.trim());
+						}
+					}
 				}
 			}else{
 				kernelModuleDeleteBinaryPath = null;
@@ -184,7 +206,7 @@ public class KernelModuleConfiguration{
 		}
 
 		return new KernelModuleConfiguration(kernelModuleMainPath, kernelModuleControllerPath,
-				kernelModuleDeleteBinaryPath, harden, localEndpoints, handleLocalEndpoints);
+				kernelModuleDeleteBinaryPath, harden, localEndpoints, handleLocalEndpoints, hardenProcesses);
 	}
 
 	private static boolean mustParseHandleLocalEndpoints(final String value) throws Exception{
@@ -248,6 +270,10 @@ public class KernelModuleConfiguration{
 	public boolean isHandleLocalEndpointsSpecified(){
 		return handleLocalEndpoints != null;
 	}
+	
+	public Set<String> getHardenProcesses(){
+		return hardenProcesses;
+	}
 
 	@Override
 	public String toString(){
@@ -255,6 +281,6 @@ public class KernelModuleConfiguration{
 				+ keyKernelModuleControllerPath + "=" + kernelModuleControllerPath + ", "
 				+ keyKernelModuleDeleteBinaryPath + "=" + kernelModuleDeleteBinaryPath + ", " + keyHarden + "=" + harden
 				+ ", " + keyLocalEndpoints + "=" + localEndpoints + ", " + keyHandleLocalEndpoints + "="
-				+ handleLocalEndpoints + "]";
+				+ handleLocalEndpoints + ", " +keyHardenProcesses+ "=" + hardenProcesses + "]";
 	}
 }
