@@ -13,11 +13,11 @@ mkdir -p cfg/keys/public
 
 # Generate client public/private key pair into private keystore
 echo Generating client public-private key pair
-keytool -genkey -alias clientprivate -keystore cfg/keys/keystore/clientprivate.keystore -storetype JKS -keyalg rsa -dname "CN=Your Name, OU=Your Organizational Unit, O=Your Organization, L=Your City, S=Your State, C=Your Country" -storepass private_password -keypass private_password
+keytool -genkey -alias clientprivate -keystore cfg/keys/keystore/clientprivate.keystore -storetype PKCS12 -keyalg rsa -dname "CN=Your Name, OU=Your Organizational Unit, O=Your Organization, L=Your City, S=Your State, C=Your Country" -storepass private_password -keypass private_password
 
 # Generate server public/private key pair
 echo Generating server public-private key pair
-keytool -genkey -alias serverprivate -keystore cfg/keys/keystore/serverprivate.keystore -storetype JKS -keyalg rsa -dname "CN=Your Name, OU=Your Organizational Unit, O=Your Organization, L=Your City, S=Your State, C=Your Country" -storepass private_password -keypass private_password
+keytool -genkey -alias serverprivate -keystore cfg/keys/keystore/serverprivate.keystore -storetype PKCS12 -keyalg rsa -dname "CN=Your Name, OU=Your Organizational Unit, O=Your Organization, L=Your City, S=Your State, C=Your Country" -storepass private_password -keypass private_password
 
 # Export client public key and import it into public keystore
 echo Generating client public key file
