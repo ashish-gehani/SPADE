@@ -406,10 +406,11 @@ public class Sanitization extends AbstractTransformer
 	@Override
 	public Graph transform(Graph graph, QueryMetaData queryMetaData)
 	{
-		convertUnixTime(graph.edgeSet());
-		sanitizeVertices(graph.vertexSet());
-		sanitizeEdges(graph.edgeSet());
-		return graph;
+		final Graph resultGraph = graph.copy();
+		convertUnixTime(resultGraph.edgeSet());
+		sanitizeVertices(resultGraph.vertexSet());
+		sanitizeEdges(resultGraph.edgeSet());
+		return resultGraph;
 	}
 
 	private static void convertUnixTime(Set<AbstractEdge> edgeSet)
