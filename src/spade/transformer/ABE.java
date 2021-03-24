@@ -23,7 +23,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -515,7 +514,7 @@ public class ABE extends AbstractTransformer
             // perform ABE encryption
             String command = "oabe_enc -s CP -p spade -e (" + level + ") -i " + keyFilePath +
                     " -o " + encryptedKeyFilePath;
-            logger.log(Level.INFO, "Command: " + Arrays.asList(command.split("\\s+")));
+            //logger.log(Level.INFO, "Command: " + Arrays.asList(command.split("\\s+")));
             ProcessBuilder pb = new ProcessBuilder(command.split("\\s+"));
             pb.environment().put("LD_LIBRARY_PATH", "/usr/local/lib/");
             pb.directory(this.KEYS_DIR);
@@ -539,11 +538,13 @@ public class ABE extends AbstractTransformer
                 return null;
             }
             
+            /*
 			BufferedReader stdOut = new BufferedReader(new InputStreamReader(process.getInputStream()));
 			String line;
 			while((line = stdOut.readLine()) != null){
 				logger.log(Level.INFO, "Enc out: " + line);
 			}
+			*/
 
             // read encrypted key from file
             File encryptedKeyFile = new File(encryptedKeyFilePath);

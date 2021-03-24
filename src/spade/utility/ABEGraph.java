@@ -16,6 +16,7 @@
  */
 package spade.utility;
 
+import java.io.Serializable;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -48,8 +49,9 @@ public class ABEGraph extends Graph
 
 	private static final Logger logger = Logger.getLogger(ABEGraph.class.getName());
 
-	public abstract static class AnnotationValue
+	public abstract static class AnnotationValue implements Serializable
 	{
+		private static final long serialVersionUID = 1867029360876612990L;
 		protected String annotationValue;
 		protected Map<String, AnnotationValue> annotationParts;
 		public abstract String getAnnotationValue();
@@ -62,6 +64,8 @@ public class ABEGraph extends Graph
 
 	public static class PlainString extends AnnotationValue
 	{
+		private static final long serialVersionUID = 7127005860948785062L;
+
 		public PlainString(String value)
 		{
 			annotationValue = value;
@@ -104,6 +108,8 @@ public class ABEGraph extends Graph
 
 	public static class EncryptedString extends AnnotationValue
 	{
+		private static final long serialVersionUID = -259420789912721547L;
+
 		public EncryptedString(String value)
 		{
 			annotationValue = value;
@@ -146,6 +152,8 @@ public class ABEGraph extends Graph
 
 	public static class EncryptedTime extends AnnotationValue
 	{
+		private static final long serialVersionUID = -7710837313207640652L;
+
 		public EncryptedTime(String value)
 		{
 			annotationValue = value;
@@ -308,6 +316,8 @@ public class ABEGraph extends Graph
 
 	public static class EncryptedIPAddress extends AnnotationValue
 	{
+		private static final long serialVersionUID = 361669640678093013L;
+
 		public EncryptedIPAddress(String value)
 		{
 			annotationValue = value;
@@ -492,6 +502,8 @@ public class ABEGraph extends Graph
 
 	public static class EncryptedPath extends AnnotationValue
 	{
+		private static final long serialVersionUID = -1094392285254033923L;
+
 		public EncryptedPath(String value)
 		{
 			annotationValue = value;
