@@ -82,6 +82,10 @@ public class Query implements Serializable{
 	public Serializable getResult(){
 		return this.result;
 	}
+	
+	public void updateGraphResult(final Graph graph){
+		this.result = graph;
+	}
 
 	public void addRemoteSubquery(Query subquery){
 		if(subquery != null){

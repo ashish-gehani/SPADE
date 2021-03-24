@@ -276,6 +276,8 @@ public abstract class AbstractAnalyzer{
 										}
 										finalGraph.setHostName(Kernel.getHostName()); // Set it here because the graph might be modified by the transformers
 										finalGraph.addSignature(spadeQuery.queryNonce);
+
+										spadeQuery.updateGraphResult(finalGraph); // Update the query result with the transformed result graph
 									}
 									
 									if(spadeQuery.getError() != null){
