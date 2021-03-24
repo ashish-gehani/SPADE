@@ -2581,11 +2581,13 @@ public class Audit extends AbstractReporter {
 		boolean isNetwork = isNetworkSaddr(localSaddr) || isNetworkSaddr(remoteSaddr);
 		if(!isNetwork){
 			// is unix
-			ArtifactIdentifier identifier = parseUnixSaddr(pid, localSaddr); // local or remote. any is fine.
-			if(identifier != null){
-				putBind(pid, sockFd, identifier);
-			}else{
-				logInvalidSaddr(remoteSaddr, time, eventId, syscall);
+			if(isUnixSaddr(localSaddr)){
+				ArtifactIdentifier identifier = parseUnixSaddr(pid, localSaddr); // local or remote. any is fine.
+				if(identifier != null){
+					putBind(pid, sockFd, identifier);
+				}else{
+					logInvalidSaddr(remoteSaddr, time, eventId, syscall);
+				}
 			}
 		}else{
 			// nothing needed in case of network because we get all info from other syscalls if kernel module
@@ -2682,9 +2684,11 @@ public class Audit extends AbstractReporter {
 		if(isNetwork){
 			identifier = constructNetworkIdentifier(syscall, time, eventId, localSaddr, remoteSaddr, sockType, pid);
 		}else{ // is unix socket
-			identifier = parseUnixSaddr(pid, remoteSaddr); // address in remote unlike accept
-			if(identifier == null){
-				logInvalidSaddr(localSaddr, time, eventId, syscall);
+			if(isUnixSaddr(remoteSaddr)){
+				identifier = parseUnixSaddr(pid, remoteSaddr); // address in remote unlike accept
+				if(identifier == null){
+					logInvalidSaddr(localSaddr, time, eventId, syscall);
+				}
 			}
 		}
 		if(identifier != null){
@@ -2772,9 +2776,11 @@ public class Audit extends AbstractReporter {
 		if(isNetwork){
 			identifier = constructNetworkIdentifier(syscall, time, eventId, localSaddr, remoteSaddr, sockType, pid);
 		}else{ // is unix socket
-			identifier = parseUnixSaddr(pid, localSaddr);
-			if(identifier == null){
-				logInvalidSaddr(localSaddr, time, eventId, syscall);
+			if(isUnixSaddr(localSaddr)){
+				identifier = parseUnixSaddr(pid, localSaddr);
+				if(identifier == null){
+					logInvalidSaddr(localSaddr, time, eventId, syscall);
+				}
 			}
 		}
 		if(identifier != null){
@@ -2894,9 +2900,11 @@ public class Audit extends AbstractReporter {
 				identifier = recordIdentifier;
 			}
 		}else{ // is unix socket
-			identifier = parseUnixSaddr(pid, localSaddr);
-			if(identifier == null){
-				logInvalidSaddr(localSaddr, time, eventId, syscall);
+			if(isUnixSaddr(localSaddr)){
+				identifier = parseUnixSaddr(pid, localSaddr);
+				if(identifier == null){
+					logInvalidSaddr(localSaddr, time, eventId, syscall);
+				}
 			}
 		}
 		putIO(eventData, time, eventId, syscall, pid, sockFd, identifier, bytes, null, isRecv);
