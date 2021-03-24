@@ -128,7 +128,7 @@ public class Graph implements Serializable{
 	 *
 	 * @return The set containing the vertices.
 	 */
-	public Set<AbstractVertex> vertexSet(){
+	public final Set<AbstractVertex> vertexSet(){
 		return vertexSet;
 	}
 
@@ -137,7 +137,7 @@ public class Graph implements Serializable{
 	 *
 	 * @return The set containing edges.
 	 */
-	public Set<AbstractEdge> edgeSet(){
+	public final Set<AbstractEdge> edgeSet(){
 		return edgeSet;
 	}
 

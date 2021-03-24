@@ -106,15 +106,27 @@ public class Sanitization extends AbstractTransformer
 					else if (line.startsWith(SANITIZATION_LEVEL))
 					{
 						String[] split = line.split("=");
-						assert (split.length == 2);
+						if(split.length != 2)
+						{
+							logger.log(Level.SEVERE, "incorrect format for sanitization level!");
+							return false;
+						}
 						this.sanitizationLevel = split[1].trim();
 					}
 					else
 					{
-						assert (level != null);
+						if(level == null)
+						{
+							logger.log(Level.SEVERE, "sanitization level not provided!");
+							return false;
+						}
 						List<String> annotations = new ArrayList<>();
 						String[] annotationsList = line.split(",");
-						assert (annotationsList.length > 0);
+						if(annotationsList.length <= 0)
+						{
+							logger.log(Level.SEVERE, "incorrect format for annotations!");
+							return false;
+						}
 						for (String annotation : annotationsList)
 						{
 							String cleanAnnotation = annotation.trim();
@@ -126,7 +138,8 @@ public class Sanitization extends AbstractTransformer
 							}
 							annotations.add(cleanAnnotation);
 						}
-						switch (level) {
+						switch (level)
+						{
 							case LOW:
 								lowAnnotations.addAll(annotations);
 								break;

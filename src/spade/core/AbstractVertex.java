@@ -109,7 +109,7 @@ public abstract class AbstractVertex implements Serializable{
      * @param key The annotation key.
      * @param value The annotation value.
      */
-	public final void addAnnotation(String key, String value){
+	public void addAnnotation(String key, String value){
 		if(!HelperFunctions.isNullOrEmpty(key)){
 			if(value == null){
 				value = "";
@@ -123,7 +123,7 @@ public abstract class AbstractVertex implements Serializable{
      *
      * @param newAnnotations New annotations to be added.
      */
-	public final void addAnnotations(Map<String, String> newAnnotations){
+	public void addAnnotations(Map<String, String> newAnnotations){
 		for(Map.Entry<String, String> currentEntry : newAnnotations.entrySet()){
 			String key = currentEntry.getKey();
 			String value = currentEntry.getValue();
@@ -148,7 +148,8 @@ public abstract class AbstractVertex implements Serializable{
      * @param key The annotation key.
      * @return The value of the annotation corresponding to the key.
      */
-    public final String getAnnotation(String key) {
+    public String getAnnotation(String key)
+    {
         return annotations.get(key);
     }
 

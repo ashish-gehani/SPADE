@@ -761,7 +761,7 @@ public class Kernel
                         for(int transformer = 0; transformer < transformers.size(); transformer++)
                         {
                             String arguments = transformers.get(transformer).arguments;
-                            configWriter.write("add transformer " + transformers.get(transformer).getClass().getName().split("\\.")[2] + " " + (transformer + 1));
+                            configWriter.write("add transformer " + transformers.get(transformer).getClass().getName().split("\\.")[2] + " position=" + (transformer + 1));
                             if(arguments != null)
                             {
                                 configWriter.write(" " + arguments.trim());
@@ -1978,6 +1978,11 @@ public class Kernel
         for (int i = 0; i < filters.size() - 1; i++)
         {
             filters.get(i).shutdown();
+        }
+        // Shut down transformers.
+        for (int i = 0; i < transformers.size(); i++)
+        {
+        	transformers.get(i).shutdown();
         }
         // Shut down storages.
         for (AbstractStorage storage : storages)

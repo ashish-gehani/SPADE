@@ -102,7 +102,7 @@ public abstract class AbstractEdge implements Serializable{
      * @param key The annotation key.
      * @param value The annotation value.
      */
-	public final void addAnnotation(String key, String value){
+	public void addAnnotation(String key, String value){
 		if(!HelperFunctions.isNullOrEmpty(key)){
 			if(value == null){
 				value = "";
@@ -116,7 +116,7 @@ public abstract class AbstractEdge implements Serializable{
      *
      * @param newAnnotations New annotations to be added.
      */
-	public final void addAnnotations(Map<String, String> newAnnotations){
+	public void addAnnotations(Map<String, String> newAnnotations){
 		for(Map.Entry<String, String> currentEntry : newAnnotations.entrySet()){
 			String key = currentEntry.getKey();
 			String value = currentEntry.getValue();
