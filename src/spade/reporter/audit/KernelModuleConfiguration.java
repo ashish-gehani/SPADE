@@ -25,26 +25,38 @@ import java.util.Map;
 import java.util.Set;
 
 import spade.core.Settings;
+import spade.utility.ArgumentFunctions;
 import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
-import spade.utility.Result;
 
 public class KernelModuleConfiguration{
 
-	public static final String keyKernelModuleMainPath = "kernelModuleMain",
+	public static final String 
+			keyKernelModuleMainPath = "kernelModuleMain",
 			keyKernelModuleControllerPath = "kernelModuleController",
-			keyKernelModuleDeleteBinaryPath = "kernelModuleDeleteBinary", keyHarden = "harden",
-			keyLocalEndpoints = "localEndpoints", keyHandleLocalEndpoints = "handleLocalEndpoints",
-			keyHardenProcesses = "hardenProcesses";
+			keyKernelModuleDeleteBinaryPath = "kernelModuleDeleteBinary", 
+			keyHarden = "harden",
+			keyLocalEndpoints = "localEndpoints", 
+			keyHandleLocalEndpoints = "handleLocalEndpoints",
+			keyHardenProcesses = "hardenProcesses",
+			keyNetfilterHooks = "netfilterHooks",
+			keyNetfilterHooksLogCT = "netfilterHooksLogCT",
+			keyNetfilterHooksUser = "netfilterHooksUser",
+			keyHandleNetfilterHooks = "handleNetfilterHooks";
 
 	private String kernelModuleMainPath, kernelModuleControllerPath, kernelModuleDeleteBinaryPath;
 	private boolean harden, localEndpoints;
 	private Boolean handleLocalEndpoints;
 	private Set<String> hardenProcesses = new HashSet<String>();
+	private boolean netfilterHooks;
+	private boolean netfilterHooksLogCT;
+	private boolean netfilterHooksUser;
+	private boolean handleNetfilterHooks;
 
 	private KernelModuleConfiguration(final String kernelModuleMainPath, final String kernelModuleControllerPath,
 			final String kernelModuleDeleteBinaryPath, final boolean harden, final boolean localEndpoints,
-			final Boolean handleLocalEndpoints, final Set<String> hardenProcesses){
+			final Boolean handleLocalEndpoints, final Set<String> hardenProcesses,
+			final boolean netfilterHooks, final boolean netfilterHooksLogCT, final boolean netfilterHooksUser, final boolean handleNetfilterHooks){
 		this.kernelModuleMainPath = kernelModuleMainPath;
 		this.kernelModuleControllerPath = kernelModuleControllerPath;
 		this.kernelModuleDeleteBinaryPath = kernelModuleDeleteBinaryPath;
@@ -52,6 +64,10 @@ public class KernelModuleConfiguration{
 		this.localEndpoints = localEndpoints;
 		this.handleLocalEndpoints = handleLocalEndpoints;
 		this.hardenProcesses.addAll(hardenProcesses);
+		this.netfilterHooks = netfilterHooks;
+		this.netfilterHooksLogCT = netfilterHooksLogCT;
+		this.netfilterHooksUser = netfilterHooksUser;
+		this.handleNetfilterHooks = handleNetfilterHooks;
 	}
 
 	public static KernelModuleConfiguration instance(final String configFilePath, final boolean isLive)
@@ -70,11 +86,7 @@ public class KernelModuleConfiguration{
 		String valueKernelModuleMainPath = map.get(keyKernelModuleMainPath);
 		String valueKernelModuleControllerPath = map.get(keyKernelModuleControllerPath);
 		String valueKernelModuleDeleteBinaryPath = map.get(keyKernelModuleDeleteBinaryPath);
-		final String valueHarden = map.get(keyHarden);
-		final String valueLocalEndpoints = map.get(keyLocalEndpoints);
-		final String valueHandleLocalEndpoints = map.get(keyHandleLocalEndpoints);
-		final String valueHardenProcesses = map.get(keyHardenProcesses);
-
+		
 		final String kernelModuleMainPath;
 		final String kernelModuleControllerPath;
 		final String kernelModuleDeleteBinaryPath;
@@ -82,8 +94,13 @@ public class KernelModuleConfiguration{
 		final boolean harden;
 		final Boolean handleLocalEndpoints;
 		final Set<String> hardenProcesses = new HashSet<String>();
+		final boolean netfilterHooks;
+		final boolean netfilterHooksLogCT;
+		final boolean netfilterHooksUser;
+		final boolean handleNetfilterHooks;
 
 		if(isLive){
+			final String valueLocalEndpoints = map.get(keyLocalEndpoints);
 			if(HelperFunctions.isNullOrEmpty(valueLocalEndpoints)){
 				/*
 				 * If local endpoints is not defined then check if the kernel module files
@@ -106,12 +123,7 @@ public class KernelModuleConfiguration{
 				 * If local endpoints is true then check if the kernel module files are valid
 				 * paths otherwise no need to check.
 				 */
-				final Result<Boolean> resultLocalEndpoints = HelperFunctions.parseBoolean(valueLocalEndpoints);
-				if(resultLocalEndpoints.error){
-					throw new Exception("Invalid value for key '" + keyLocalEndpoints + "'. "
-							+ resultLocalEndpoints.toErrorString());
-				}
-				localEndpoints = resultLocalEndpoints.result;
+				localEndpoints = ArgumentFunctions.mustParseBoolean(keyLocalEndpoints, map);
 				if(localEndpoints){
 					valueKernelModuleMainPath = Settings.getPathRelativeToSPADERootIfNotAbsolute(valueKernelModuleMainPath);
 					if(!isKernelModuleFileReadableIfExists(keyKernelModuleMainPath, valueKernelModuleMainPath)){
@@ -135,13 +147,28 @@ public class KernelModuleConfiguration{
 			 * otherwise no need to get it.
 			 */
 			if(localEndpoints){
-				final Result<Boolean> resultHarden = HelperFunctions.parseBoolean(valueHarden);
-				if(resultHarden.error){
-					throw new Exception("Invalid value for key '" + keyHarden + "'. " + resultHarden.toErrorString());
-				}
-				harden = resultHarden.result;
+				harden = ArgumentFunctions.mustParseBoolean(keyHarden, map);
+				netfilterHooks = ArgumentFunctions.mustParseBoolean(keyNetfilterHooks, map);
 			}else{
 				harden = false;
+				netfilterHooks = false;
+			}
+			
+			if(netfilterHooks){
+				netfilterHooksLogCT = ArgumentFunctions.mustParseBoolean(keyNetfilterHooksLogCT, map);
+				netfilterHooksUser = ArgumentFunctions.mustParseBoolean(keyNetfilterHooksUser, map);
+				final String valueHandleNetfilterHooks = map.get(keyHandleNetfilterHooks);
+				if(HelperFunctions.isNullOrEmpty(valueHandleNetfilterHooks)){
+					// If not specified then use the value of the netfilter hooks
+					handleNetfilterHooks = netfilterHooks;
+				}else{
+					// Use the one that is specified by the user
+					handleNetfilterHooks = ArgumentFunctions.mustParseBoolean(keyHandleNetfilterHooks, map);
+				}
+			}else{
+				netfilterHooksLogCT = false;
+				netfilterHooksUser = false;
+				handleNetfilterHooks = false;
 			}
 
 			/*
@@ -158,14 +185,13 @@ public class KernelModuleConfiguration{
 							+ keyKernelModuleDeleteBinaryPath + "' must be a readable and executable file: '"
 							+ valueKernelModuleDeleteBinaryPath + "'", e);
 				}
+				final String valueHardenProcesses = map.get(keyHardenProcesses);
 				if(!HelperFunctions.isNullOrEmpty(valueHardenProcesses)){
-					final String[] tokens = valueHardenProcesses.split(",");
-					for(final String token : tokens){
-						if(token.trim().isEmpty()){
+					hardenProcesses.addAll(ArgumentFunctions.mustParseCommaSeparatedValues(keyHardenProcesses, map));
+					for(final String hardenProcess : hardenProcesses){
+						if(hardenProcess.trim().isEmpty()){
 							throw new Exception("Process names to be hardened by the kernel module"
 									+ " using the key '" + keyHardenProcesses + "' must not be empty");
-						}else{
-							hardenProcesses.add(token.trim());
 						}
 					}
 				}
@@ -178,12 +204,13 @@ public class KernelModuleConfiguration{
 			 * endpoints is specified
 			 */
 			if(localEndpoints){
+				final String valueHandleLocalEndpoints = map.get(keyHandleLocalEndpoints);
 				if(HelperFunctions.isNullOrEmpty(valueHandleLocalEndpoints)){
 					// If not specified then use the value of the local endpoints
 					handleLocalEndpoints = localEndpoints;
 				}else{
 					// Use the one that is specified by the user
-					handleLocalEndpoints = mustParseHandleLocalEndpoints(valueHandleLocalEndpoints);
+					handleLocalEndpoints = ArgumentFunctions.mustParseBoolean(keyHandleLocalEndpoints, map);
 				}
 			}else{
 				// No need for it since local endpoints is false
@@ -197,24 +224,23 @@ public class KernelModuleConfiguration{
 			kernelModuleMainPath = kernelModuleControllerPath = kernelModuleDeleteBinaryPath = null;
 			localEndpoints = false;
 			harden = false;
+			final String valueHandleLocalEndpoints = map.get(keyHandleLocalEndpoints);
 			if(HelperFunctions.isNullOrEmpty(valueHandleLocalEndpoints)){
 				// If not specified then set it to null
 				handleLocalEndpoints = null;
 			}else{
-				handleLocalEndpoints = mustParseHandleLocalEndpoints(valueHandleLocalEndpoints);
+				handleLocalEndpoints = ArgumentFunctions.mustParseBoolean(keyHandleLocalEndpoints, map);
 			}
+			
+			netfilterHooks = false;
+			netfilterHooksLogCT = false;
+			netfilterHooksUser = false;
+			handleNetfilterHooks = ArgumentFunctions.mustParseBoolean(keyHandleNetfilterHooks, map);
 		}
 
 		return new KernelModuleConfiguration(kernelModuleMainPath, kernelModuleControllerPath,
-				kernelModuleDeleteBinaryPath, harden, localEndpoints, handleLocalEndpoints, hardenProcesses);
-	}
-
-	private static boolean mustParseHandleLocalEndpoints(final String value) throws Exception{
-		final Result<Boolean> result = HelperFunctions.parseBoolean(value);
-		if(result.error){
-			throw new Exception("Invalid value for key '" + keyHandleLocalEndpoints + "'. " + result.toErrorString());
-		}
-		return result.result;
+				kernelModuleDeleteBinaryPath, harden, localEndpoints, handleLocalEndpoints, hardenProcesses,
+				netfilterHooks, netfilterHooksLogCT, netfilterHooksUser, handleNetfilterHooks);
 	}
 
 	private static boolean isKernelModuleFileReadableIfExists(final String key, final String path) throws Exception{
@@ -274,13 +300,37 @@ public class KernelModuleConfiguration{
 	public Set<String> getHardenProcesses(){
 		return hardenProcesses;
 	}
+	
+	public boolean isNetfilterHooks(){
+		return netfilterHooks;
+	}
+	
+	public boolean isNetfilterHooksLogCT(){
+		return netfilterHooksLogCT;
+	}
+	
+	public boolean isNetfilterHooksUser(){
+		return netfilterHooksUser;
+	}
+	
+	public boolean isHandleNetfilterHooks(){
+		return handleNetfilterHooks;
+	}
 
 	@Override
 	public String toString(){
-		return "KernelModuleConfiguration [" + keyKernelModuleMainPath + "=" + kernelModuleMainPath + ", "
-				+ keyKernelModuleControllerPath + "=" + kernelModuleControllerPath + ", "
-				+ keyKernelModuleDeleteBinaryPath + "=" + kernelModuleDeleteBinaryPath + ", " + keyHarden + "=" + harden
-				+ ", " + keyLocalEndpoints + "=" + localEndpoints + ", " + keyHandleLocalEndpoints + "="
-				+ handleLocalEndpoints + ", " +keyHardenProcesses+ "=" + hardenProcesses + "]";
+		return "KernelModuleConfiguration ["
+				+ "kernelModuleMainPath=" + kernelModuleMainPath
+				+ ", kernelModuleControllerPath=" + kernelModuleControllerPath
+				+ ", kernelModuleDeleteBinaryPath=" + kernelModuleDeleteBinaryPath
+				+ ", harden=" + harden
+				+ ", localEndpoints=" + localEndpoints
+				+ ", handleLocalEndpoints=" + handleLocalEndpoints
+				+ ", hardenProcesses=" + hardenProcesses
+				+ ", netfilterHooks=" + netfilterHooks
+				+ ", netfilterHooksLogCT=" + netfilterHooksLogCT
+				+ ", netfilterHooksUser=" + netfilterHooksUser
+				+ ", handleNetfilterHooks=" + handleNetfilterHooks
+				+ "]";
 	}
 }

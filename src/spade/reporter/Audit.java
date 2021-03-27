@@ -38,6 +38,7 @@ import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
+import spade.reporter.audit.AuditConfiguration;
 import spade.reporter.audit.AuditControlManager;
 import spade.reporter.audit.AuditEventReader;
 import spade.reporter.audit.Globals;
@@ -112,40 +113,7 @@ public class Audit extends AbstractReporter {
 	
 	private Globals globals = null;
 	
-	// These are the default values
-	private boolean FAIL_FAST = true;
-	private boolean USE_READ_WRITE = false;
-	private boolean USE_SOCK_SEND_RCV = false;
-	private boolean CREATE_BEEP_UNITS = false;
-	private boolean SIMPLIFY = true;
-	private boolean PROCFS = false;
-	private boolean WAIT_FOR_LOG_END = true;
-	private boolean AGENTS = false;
-	private boolean CONTROL = true;
-	private boolean USE_MEMORY_SYSCALLS = true;
-	private String AUDITCTL_SYSCALL_SUCCESS_FLAG = "1";
-	private boolean ANONYMOUS_MMAP = true;
-	private Integer mergeUnit = null;
-	private String REPORT_KILL_KEY = "reportKill";
-	private boolean REPORT_KILL = true;
-	private final String HANDLE_CHDIR_KEY = "cwd";
-	private boolean HANDLE_CHDIR = true;
-	private final String HANDLE_ROOTFS_KEY = "rootFS";
-	private boolean HANDLE_ROOTFS = true;
-	private final String HANDLE_NAMESPACES_KEY = "namespaces";
-	private boolean HANDLE_NAMESPACES = false;
-	private final String NETFILTER_HOOKS_KEY = "netfilterHooks";
-	private boolean NETFILTER_HOOKS = false;
-	private final String HANDLE_NETFILTER_HOOKS_KEY = "handleNetfilterHooks";
-	private boolean HANDLE_NETFILTER_HOOKS = false;
-	private final String NETFILTER_HOOKS_LOG_CT_KEY = "netfilterHooksLogCT";
-	private boolean NETFILTER_HOOKS_LOG_CT = false;
-	private final String NETFILTER_HOOKS_USER_KEY = "netfilterHooksUser";
-	private boolean NETFILTER_HOOKS_USER = false;
-	private final String CAPTURE_IPC_KEY = "logIpc";
-	private boolean CAPTURE_IPC = false;
-	private final String REPORT_IPC_KEY = "reportIpc";
-	private boolean REPORT_IPC = false;
+	private AuditConfiguration auditConfiguration;
 	
 	private KernelModuleConfiguration kernelModuleConfiguration;
 	
@@ -180,14 +148,14 @@ public class Audit extends AbstractReporter {
 							finishEvent(eventData);
 						}catch(Exception e){
 							logger.log(Level.SEVERE, "Failed to handle event: " + eventData, e);
-							if(FAIL_FAST){
+							if(auditConfiguration.isFailfast()){
 								break;
 							}
 						}
 					}
 				}catch(MalformedAuditDataException made){
 					logger.log(Level.SEVERE, "Failed to parse event", made);
-					if(FAIL_FAST){
+					if(auditConfiguration.isFailfast()){
 						break;
 					}
 				}catch(Exception e){
@@ -235,305 +203,6 @@ public class Audit extends AbstractReporter {
 	}
 	private boolean isIPv6Saddr(String saddr){
 		return saddr != null && saddr.startsWith(IPV6_NETWORK_SOCKET_SADDR_PREFIX);
-	}
-
-	/**
-	 * Returns true if the argument is null, true, false, 1, 0, yes or no.
-	 * Else returns false.
-	 * 
-	 * @param str value to check
-	 * @return true/false
-	 */
-	private boolean isValidBoolean(String str){
-		return str == null 
-				|| "true".equalsIgnoreCase(str.trim()) || "false".equalsIgnoreCase(str.trim())
-				|| "1".equals(str.trim()) || "0".equals(str.trim())
-				|| "yes".equalsIgnoreCase(str.trim()) || "no".equals(str.trim())
-				|| "on".equalsIgnoreCase(str.trim()) || "off".equals(str.trim());
-
-	}
-	
-	/**
-	 * If the argument is null or doesn't match any of the value boolean options:
-	 * true, false, 1, 0, yes or no then default value is returned. Else the parsed
-	 * value is returned.
-	 * 
-	 * @param str string to convert to boolean
-	 * @param defaultValue default value
-	 * @return true/false
-	 */
-	private boolean parseBoolean(String str, boolean defaultValue){
-		if(str == null){
-			return defaultValue;
-		}else{
-			str = str.trim();
-			if(str.equals("1") || str.equalsIgnoreCase("yes") || str.equalsIgnoreCase("true") || str.equalsIgnoreCase("on")){
-				return true;
-			}else if(str.equals("0") || str.equalsIgnoreCase("no") || str.equalsIgnoreCase("false") || str.equalsIgnoreCase("off")){
-				return false;
-			}else{
-				return defaultValue;
-			}
-		}
-	}
-	
-	public final boolean getFlagControl(){
-		return CONTROL;
-	}
-	
-	/**
-	 * Initializes global boolean flags for this reporter
-	 * 
-	 * @param args a map made from arguments key-values
-	 * @return true if all flags had valid values / false if any of the flags had a non-boolean value
-	 */
-	private boolean initFlagsFromArguments(Map<String, String> args){
-		try{
-			globals = Globals.parseArguments(args);
-			if(globals == null){
-				throw new Exception("NULL globals object. Failed to initialize flags.");
-			}
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to parse arguments", e);
-			return false;
-		}
-		
-		String argValue = args.get("failfast");
-		if(isValidBoolean(argValue)){
-			FAIL_FAST = parseBoolean(argValue, FAIL_FAST);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'failfast': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("excludeProctitle");
-		if(isValidBoolean(argValue)){
-			excludeProctitle = parseBoolean(argValue, true);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'excludeProctitle': " + argValue);
-			return false;
-		}
-
-		argValue = args.get("fsids");
-		if(isValidBoolean(argValue)){
-			filesystemCredentialUpdates = parseBoolean(argValue, false);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'fsids': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("fileIO");
-		if(isValidBoolean(argValue)){
-			USE_READ_WRITE = parseBoolean(argValue, USE_READ_WRITE);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'fileIO': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("netIO");
-		if(isValidBoolean(argValue)){
-			USE_SOCK_SEND_RCV = parseBoolean(argValue, USE_SOCK_SEND_RCV);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'netIO': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("units");
-		if(isValidBoolean(argValue)){
-			CREATE_BEEP_UNITS = parseBoolean(argValue, CREATE_BEEP_UNITS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'units': " + argValue);
-			return false;
-		}
-
-		argValue = args.get("agents");
-		if(isValidBoolean(argValue)){
-			AGENTS = parseBoolean(argValue, AGENTS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'agents': " + argValue);
-			return false;
-		}
-
-		// Arguments below are only for experimental use
-		argValue = args.get("simplify");
-		if(isValidBoolean(argValue)){
-			SIMPLIFY = parseBoolean(argValue, SIMPLIFY);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'simplify': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("procFS");
-		if(isValidBoolean(argValue)){
-			PROCFS = parseBoolean(argValue, PROCFS);
-			if(PROCFS){
-				logger.log(Level.SEVERE, "'procFS' cannot be enabled!");
-				return false;
-			}
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'procFS': " + argValue);
-			return false;
-		}
-
-		argValue = args.get("waitForLog");
-		if(isValidBoolean(argValue)){
-			WAIT_FOR_LOG_END = parseBoolean(argValue, WAIT_FOR_LOG_END);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'waitForLog': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("memorySyscalls");
-		if(isValidBoolean(argValue)){
-			USE_MEMORY_SYSCALLS = parseBoolean(argValue, USE_MEMORY_SYSCALLS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'memorySyscalls': " + argValue);
-			return false;
-		}
-
-		argValue = args.get("control");
-		if(isValidBoolean(argValue)){
-			CONTROL = parseBoolean(argValue, CONTROL);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'control': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get("anonymousMmap");
-		if(isValidBoolean(argValue)){
-			ANONYMOUS_MMAP = parseBoolean(argValue, ANONYMOUS_MMAP);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for 'anonymousMmap': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get(REPORT_KILL_KEY);
-		if(isValidBoolean(argValue)){
-			REPORT_KILL = parseBoolean(argValue, REPORT_KILL);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for '"+REPORT_KILL_KEY+"': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get(HANDLE_NETFILTER_HOOKS_KEY);
-		if(isValidBoolean(argValue)){
-			HANDLE_NETFILTER_HOOKS = parseBoolean(argValue, HANDLE_NETFILTER_HOOKS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_NETFILTER_HOOKS_KEY+"': " + argValue);
-			return false;
-		}
-
-		argValue = args.get(NETFILTER_HOOKS_KEY);
-		if(isValidBoolean(argValue)){
-			NETFILTER_HOOKS = parseBoolean(argValue, NETFILTER_HOOKS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for '"+NETFILTER_HOOKS_KEY+"': " + argValue);
-			return false;
-		}
-
-		argValue = args.get(NETFILTER_HOOKS_LOG_CT_KEY);
-		if(isValidBoolean(argValue)){
-			NETFILTER_HOOKS_LOG_CT = parseBoolean(argValue, NETFILTER_HOOKS_LOG_CT);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for '"+NETFILTER_HOOKS_LOG_CT_KEY+"': " + argValue);
-			return false;
-		}
-
-		argValue = args.get(NETFILTER_HOOKS_USER_KEY);
-		if(isValidBoolean(argValue)){
-			NETFILTER_HOOKS_USER = parseBoolean(argValue, NETFILTER_HOOKS_USER);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for '"+NETFILTER_HOOKS_USER_KEY+"': " + argValue);
-			return false;
-		}
-
-		if(!kernelModuleConfiguration.isLocalEndpoints() && NETFILTER_HOOKS){
-			logger.log(Level.SEVERE, "Argument '" + KernelModuleConfiguration.keyLocalEndpoints
-					+ "' must be 'true' for argument '" + NETFILTER_HOOKS_KEY + "' to be 'true'");
-			return false;
-		}
-
-		String mergeUnitKey = "mergeUnit";
-		String mergeUnitValue = args.get(mergeUnitKey);
-		if(mergeUnitValue != null){
-			mergeUnit = HelperFunctions.parseInt(mergeUnitValue, null);
-			if(mergeUnit != null){
-				if(mergeUnit < 0){ // must be positive
-					mergeUnit = null;
-					logger.log(Level.SEVERE, "'"+mergeUnitKey+"' must be non-negative: '" + mergeUnitValue+"'");
-					return false;
-				}
-			}else{
-				logger.log(Level.SEVERE, "'"+mergeUnitKey+"' must be an integer: '" + mergeUnitValue+"'");
-				return false;
-			}
-		}
-		
-		argValue = args.get(HANDLE_CHDIR_KEY);
-		if(isValidBoolean(argValue)){
-			HANDLE_CHDIR = parseBoolean(argValue, HANDLE_CHDIR);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_CHDIR_KEY+"': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get(HANDLE_ROOTFS_KEY);
-		if(isValidBoolean(argValue)){
-			HANDLE_ROOTFS = parseBoolean(argValue, HANDLE_ROOTFS);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_ROOTFS_KEY+"': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get(CAPTURE_IPC_KEY);
-		if(isValidBoolean(argValue)){
-			CAPTURE_IPC = parseBoolean(argValue, CAPTURE_IPC);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for '"+CAPTURE_IPC_KEY+"': " + argValue);
-			return false;
-		}
-		
-		argValue = args.get(REPORT_IPC_KEY);
-		if(isValidBoolean(argValue)){
-			REPORT_IPC = parseBoolean(argValue, REPORT_IPC);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for '"+REPORT_IPC_KEY+"': " + argValue);
-			return false;
-		}
-
-		if(HANDLE_ROOTFS){
-			if(!HANDLE_CHDIR){
-				logger.log(Level.INFO, "'"+HANDLE_CHDIR_KEY+"' set to 'true' because '"+HANDLE_ROOTFS_KEY+"'='true'");
-				HANDLE_CHDIR = true;
-			}
-		}
-		
-		argValue = args.get(HANDLE_NAMESPACES_KEY);
-		if(isValidBoolean(argValue)){
-			HANDLE_NAMESPACES = parseBoolean(argValue, HANDLE_NAMESPACES);
-		}else{
-			logger.log(Level.SEVERE, "Invalid flag value for '"+HANDLE_NAMESPACES_KEY+"': " + argValue);
-			return false;
-		}
-
-		// Logging only relevant flags now for debugging
-		logger.log(Level.INFO,
-				"Audit flags: {0}={1}, {2}={3}, {4}={5}, {6}={7}, {8}={9}, {10}={11}, {12}={13}, "
-						+ "{14}={15}, {16}={17}, {18}={19}, {20}={21}, {22}={23}, {24}={25}, {26}={27}, {28}={29}, "
-						+ "{30}={31}, {32}={33}, {34}={35}, {36}={37}, {38}={39}, {40}={41}, {42}={43}",
-				new Object[]{"syscall", args.get("syscall"), "fileIO", USE_READ_WRITE, "netIO", USE_SOCK_SEND_RCV,
-						"units", CREATE_BEEP_UNITS, "waitForLog", WAIT_FOR_LOG_END, "netfilter", false, "refineNet",
-						false, KernelModuleConfiguration.keyLocalEndpoints,
-						kernelModuleConfiguration.isLocalEndpoints(), KernelModuleConfiguration.keyHandleLocalEndpoints,
-						kernelModuleConfiguration.isHandleLocalEndpoints(), "failfast", FAIL_FAST, mergeUnitKey,
-						mergeUnit, KernelModuleConfiguration.keyHarden, kernelModuleConfiguration.isHarden(),
-						REPORT_KILL_KEY, REPORT_KILL, HANDLE_CHDIR_KEY, HANDLE_CHDIR, HANDLE_ROOTFS_KEY, HANDLE_ROOTFS,
-						HANDLE_NAMESPACES_KEY, HANDLE_NAMESPACES, HANDLE_NETFILTER_HOOKS_KEY, HANDLE_NETFILTER_HOOKS,
-						NETFILTER_HOOKS_KEY, NETFILTER_HOOKS, NETFILTER_HOOKS_LOG_CT_KEY, NETFILTER_HOOKS_LOG_CT,
-						NETFILTER_HOOKS_USER_KEY, NETFILTER_HOOKS_USER, CAPTURE_IPC_KEY, CAPTURE_IPC, REPORT_IPC_KEY,
-						REPORT_IPC});
-		logger.log(Level.INFO, globals.toString());
-		return true;
 	}
 	
 	private void doCleanup(final boolean forceStopSPADEAuditBridge){
@@ -683,8 +352,22 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 
-		// Init boolean flags from the arguments
-		if(!initFlagsFromArguments(map)){
+		try{
+			globals = Globals.parseArguments(map);
+			if(globals == null){
+				throw new Exception("NULL globals object. Failed to initialize flags.");
+			}
+			logger.log(Level.INFO, globals.toString());
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to parse arguments", e);
+			return false;
+		}
+		
+		try{
+			auditConfiguration = AuditConfiguration.instance(map, input.isLiveMode());
+			logger.log(Level.INFO, auditConfiguration.toString());
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to initialize audit configuration", e);
 			return false;
 		}
 
@@ -696,19 +379,27 @@ public class Audit extends AbstractReporter {
 		}
 		
 		try{
-			if(AGENTS){ // Make sure that this is done before starting the event reader thread
-				processManager = new ProcessWithoutAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS, HANDLE_NAMESPACES, platformConstants);
+			if(auditConfiguration.isAgents()){ // Make sure that this is done before starting the event reader thread
+				processManager = new ProcessWithoutAgentManager(this, 
+						auditConfiguration.isSimplify(), 
+						auditConfiguration.isUnits(), 
+						auditConfiguration.isNamespaces(), 
+						platformConstants);
 			}else{
-				processManager = new ProcessWithAgentManager(this, SIMPLIFY, CREATE_BEEP_UNITS, HANDLE_NAMESPACES, platformConstants);
+				processManager = new ProcessWithAgentManager(this, 
+						auditConfiguration.isSimplify(), 
+						auditConfiguration.isUnits(), 
+						auditConfiguration.isNamespaces(),
+						platformConstants);
 			}
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to instantiate process manager", e);
 			return false;
 		}
 		
-		if(HANDLE_NETFILTER_HOOKS){
+		if(kernelModuleConfiguration.isHandleNetfilterHooks()){
 			try{
-				netfilterHooksManager = new NetfilterHooksManager(this, HANDLE_NAMESPACES);
+				netfilterHooksManager = new NetfilterHooksManager(this, auditConfiguration.isNamespaces());
 			}catch(Exception e){
 				logger.log(Level.SEVERE, "Failed to instantiate netfilter hooks manager", e);
 				return false;
@@ -716,7 +407,7 @@ public class Audit extends AbstractReporter {
 		}
 		
 		try{
-			this.spadeAuditBridgeProcess = SPADEAuditBridgeProcess.launch(this.input, CREATE_BEEP_UNITS, mergeUnit);
+			this.spadeAuditBridgeProcess = SPADEAuditBridgeProcess.launch(this.input, auditConfiguration.isUnits(), auditConfiguration.getMergeUnit());
 			logger.log(Level.INFO, "Launched SPADE audit bridge process with pid '" + spadeAuditBridgeProcess.getPid() + "' using command:"
 					+ " " + spadeAuditBridgeProcess.getCommand());
 			this.spadeAuditBridgeProcess.consumeStdErr(new BiConsumer<String, Exception>(){
@@ -793,9 +484,11 @@ public class Audit extends AbstractReporter {
 								kernelModuleConfiguration.getKernelModuleControllerPath(),
 								processUserSyscallFilter.getUserId(), processUserSyscallFilter.getUserMode(),
 								processUserSyscallFilter.getPidsOfProcessesToIgnore(), processUserSyscallFilter.getPpidsOfProcessesToIgnore(),
-								USE_SOCK_SEND_RCV,
-								HANDLE_NAMESPACES,
-								NETFILTER_HOOKS, NETFILTER_HOOKS_LOG_CT, NETFILTER_HOOKS_USER,
+								auditConfiguration.isNetIO(),
+								auditConfiguration.isNamespaces(),
+								kernelModuleConfiguration.isNetfilterHooks(),
+								kernelModuleConfiguration.isNetfilterHooksLogCT(),
+								kernelModuleConfiguration.isNetfilterHooksUser(),
 								kernelModuleConfiguration.isHarden(), tgidsToHarden,
 								new Consumer<String>(){
 									public void accept(final String str){
@@ -814,10 +507,10 @@ public class Audit extends AbstractReporter {
 							processUserSyscallFilter.getPidsOfProcessesToIgnore(), processUserSyscallFilter.getPpidsOfProcessesToIgnore(),
 							excludeProctitle, 
 							kernelModuleConfiguration.isLocalEndpoints(), 
-							USE_SOCK_SEND_RCV, USE_READ_WRITE, 
-							USE_MEMORY_SYSCALLS, filesystemCredentialUpdates, 
-							HANDLE_CHDIR, HANDLE_ROOTFS, 
-							HANDLE_NAMESPACES, CAPTURE_IPC, 
+							auditConfiguration.isNetIO(), auditConfiguration.isFileIO(), 
+							auditConfiguration.isMemorySyscalls(), filesystemCredentialUpdates, 
+							auditConfiguration.isCwd(), auditConfiguration.isRootFS(), 
+							auditConfiguration.isNamespaces(), auditConfiguration.isLogIPC(), 
 							new Consumer<String>(){
 								public void accept(String str){
 									logger.log(Level.INFO, str);
@@ -917,7 +610,7 @@ public class Audit extends AbstractReporter {
 
 	private void printStats(boolean forcePrint){
 		if(reportingIntervaler.check() || forcePrint){
-			if(HANDLE_NETFILTER_HOOKS && netfilterHooksManager != null){
+			if(kernelModuleConfiguration.isHandleNetfilterHooks() && netfilterHooksManager != null){
 				netfilterHooksManager.printStats();
 			}
 		}
@@ -956,7 +649,7 @@ public class Audit extends AbstractReporter {
 					handleKernelModuleEvent(eventData);
 				}
 			}else if(AuditEventReader.RECORD_TYPE_NETFILTER_HOOK.equals(recordType)){
-				if(HANDLE_NETFILTER_HOOKS){
+				if(kernelModuleConfiguration.isHandleNetfilterHooks()){
 					netfilterHooksManager.handleNetfilterHookEvent(eventData);
 				}
 			}else{
@@ -1103,12 +796,11 @@ public class Audit extends AbstractReporter {
 				return;
 			}
 
-			if("1".equals(AUDITCTL_SYSCALL_SUCCESS_FLAG) 
-					&& AuditEventReader.SUCCESS_NO.equals(eventData.get(AuditEventReader.SUCCESS))){
+			if(AuditEventReader.SUCCESS_NO.equals(eventData.get(AuditEventReader.SUCCESS))){
 				//if only log successful events but the current event had success no then only monitor the following calls.
 				if(syscall == SYSCALL.EXIT || syscall == SYSCALL.EXIT_GROUP
 						|| syscall == SYSCALL.CONNECT){
-					//continue and log these syscalls irrespective of success
+					// continue and log these syscalls irrespective of success
 					// Syscall connect can fail with EINPROGRESS flag which we want to 
 					// mark as successful even though we don't know yet
 				}else{ //for all others don't log
@@ -1136,57 +828,65 @@ public class Audit extends AbstractReporter {
 					break;
 			}
 
+			final boolean reportIPC = auditConfiguration.isReportIPC();
+			final boolean namespaces = auditConfiguration.isNamespaces();
+			final boolean rootFS = auditConfiguration.isRootFS();
+			final boolean cwd = auditConfiguration.isCwd();
+			final boolean fileIO = auditConfiguration.isFileIO();
+			final boolean memorySyscalls = auditConfiguration.isMemorySyscalls();
+			final boolean reportKill = auditConfiguration.isReportKill();
+			
 			switch (syscall) {
-			case MQ_OPEN: if(REPORT_IPC){ ipcManager.handleMq_open(eventData, syscall); } break;
-			case MQ_TIMEDSEND: if(REPORT_IPC){ ipcManager.handleMq_timedsend(eventData, syscall); } break;
-			case MQ_TIMEDRECEIVE: if(REPORT_IPC){ ipcManager.handleMq_timedreceive(eventData, syscall); } break;
-			case MQ_UNLINK: if(REPORT_IPC){ ipcManager.handleMq_unlink(eventData, syscall); } break;
-			case SHMGET: if(REPORT_IPC){ ipcManager.handleShmget(eventData, syscall); } break;
-			case SHMAT: if(REPORT_IPC){ ipcManager.handleShmat(eventData, syscall); } break;
-			case SHMDT: if(REPORT_IPC){ ipcManager.handleShmdt(eventData, syscall); } break;
-			case SHMCTL: if(REPORT_IPC){ ipcManager.handleShmctl(eventData, syscall); } break;
-			case MSGGET: if(REPORT_IPC){ ipcManager.handleMsgget(eventData, syscall); } break;
-			case MSGSND: if(REPORT_IPC){ ipcManager.handleMsgsnd(eventData, syscall); } break;
-			case MSGRCV: if(REPORT_IPC){ ipcManager.handleMsgrcv(eventData, syscall); } break;
-			case MSGCTL: if(REPORT_IPC){ ipcManager.handleMsgctl(eventData, syscall); } break;
+			case MQ_OPEN: if(reportIPC){ ipcManager.handleMq_open(eventData, syscall); } break;
+			case MQ_TIMEDSEND: if(reportIPC){ ipcManager.handleMq_timedsend(eventData, syscall); } break;
+			case MQ_TIMEDRECEIVE: if(reportIPC){ ipcManager.handleMq_timedreceive(eventData, syscall); } break;
+			case MQ_UNLINK: if(reportIPC){ ipcManager.handleMq_unlink(eventData, syscall); } break;
+			case SHMGET: if(reportIPC){ ipcManager.handleShmget(eventData, syscall); } break;
+			case SHMAT: if(reportIPC){ ipcManager.handleShmat(eventData, syscall); } break;
+			case SHMDT: if(reportIPC){ ipcManager.handleShmdt(eventData, syscall); } break;
+			case SHMCTL: if(reportIPC){ ipcManager.handleShmctl(eventData, syscall, auditConfiguration.isControl()); } break;
+			case MSGGET: if(reportIPC){ ipcManager.handleMsgget(eventData, syscall); } break;
+			case MSGSND: if(reportIPC){ ipcManager.handleMsgsnd(eventData, syscall); } break;
+			case MSGRCV: if(reportIPC){ ipcManager.handleMsgrcv(eventData, syscall); } break;
+			case MSGCTL: if(reportIPC){ ipcManager.handleMsgctl(eventData, syscall, auditConfiguration.isControl()); } break;
 			case SETNS:
-				if(HANDLE_NAMESPACES){
+				if(namespaces){
 					processManager.handleSetns(eventData, syscall);
 				}
 				break;
 			case UNSHARE:
-				if(HANDLE_NAMESPACES){
+				if(namespaces){
 					processManager.handleUnshare(eventData, syscall);
 				}
 				break;
 			case PIVOT_ROOT:
-				if(HANDLE_ROOTFS){
+				if(rootFS){
 					handlePivotRoot(eventData, syscall);
 				}
 				break;
 			case CHROOT:
-				if(HANDLE_ROOTFS){
+				if(rootFS){
 					handleChroot(eventData, syscall);
 				}
 				break;
 			case CHDIR:
 			case FCHDIR:
-				if(HANDLE_CHDIR){
+				if(cwd){
 					handleChdir(eventData, syscall);
 				}
 			break;
 			case LSEEK:
-				if(USE_READ_WRITE){
+				if(fileIO){
 					handleLseek(eventData, syscall);
 				}
 			break;
 			case MADVISE:
-				if(USE_MEMORY_SYSCALLS){
+				if(memorySyscalls){
 					handleMadvise(eventData, syscall);
 				}
 			break;
 			case KILL:
-				if(REPORT_KILL){
+				if(reportKill){
 					handleKill(eventData, syscall);
 				}
 				break;
@@ -1555,7 +1255,7 @@ public class Audit extends AbstractReporter {
 				pathRecord, eventData.get(AuditEventReader.CWD), eventData.get(AuditEventReader.PID), 
 				atSyscallFdKey, eventData.get(atSyscallFdKey), true,
 				eventData.get(AuditEventReader.TIME), eventData.get(AuditEventReader.EVENT_ID), syscall, 
-				this, processManager, artifactManager, HANDLE_CHDIR);
+				this, processManager, artifactManager, auditConfiguration.isCwd());
 	}
 	
 	public final PathIdentifier resolvePath(PathRecord pathRecord,
@@ -1564,7 +1264,7 @@ public class Audit extends AbstractReporter {
 				pathRecord, eventData.get(AuditEventReader.CWD), eventData.get(AuditEventReader.PID), 
 				null, null, false,
 				eventData.get(AuditEventReader.TIME), eventData.get(AuditEventReader.EVENT_ID), syscall, 
-				this, processManager, artifactManager, HANDLE_CHDIR);
+				this, processManager, artifactManager, auditConfiguration.isCwd());
 	}
 
 	public final void handleUnlink(Map<String, String> eventData, SYSCALL syscall){
@@ -1575,7 +1275,7 @@ public class Audit extends AbstractReporter {
 		// - CWD
 		// - EOE
 
-		if(CONTROL){
+		if(auditConfiguration.isControl()){
 			String time = eventData.get(AuditEventReader.TIME);
 			String eventId = eventData.get(AuditEventReader.EVENT_ID);
 			
@@ -1654,7 +1354,7 @@ public class Audit extends AbstractReporter {
 		// exit(), and exit_group() receives the following message(s):
 		// - SYSCALL
 		// - EOE
-		processManager.handleExit(eventData, syscall, CONTROL);
+		processManager.handleExit(eventData, syscall, auditConfiguration.isControl());
 	}
 
 	private void handleMmap(Map<String, String> eventData, SYSCALL syscall){
@@ -1663,7 +1363,7 @@ public class Audit extends AbstractReporter {
 		// - SYSCALL
 		// - EOE
 
-		if(!USE_MEMORY_SYSCALLS){
+		if(!auditConfiguration.isMemorySyscalls()){
 			return;
 		}
 
@@ -1681,7 +1381,7 @@ public class Audit extends AbstractReporter {
 		
 		final boolean isAnonymousMmap = platformConstants.isAnonymousMmap(flags);
 		
-		if(isAnonymousMmap && !ANONYMOUS_MMAP){
+		if(isAnonymousMmap && !auditConfiguration.isAnonymousMmap()){
 			return;
 		}
 		
@@ -1728,7 +1428,7 @@ public class Audit extends AbstractReporter {
 		// - SYSCALL
 		// - EOE
 
-		if(!USE_MEMORY_SYSCALLS){
+		if(!auditConfiguration.isMemorySyscalls()){
 			return;
 		}
 
@@ -1905,7 +1605,7 @@ public class Audit extends AbstractReporter {
 		String fd = String.valueOf(HelperFunctions.parseLong(eventData.get(AuditEventReader.ARG0), -1L));
 		FileDescriptor closedFileDescriptor = processManager.removeFd(pid, fd);
 		
-		if(CONTROL){
+		if(auditConfiguration.isControl()){
 			SYSCALL syscall = SYSCALL.CLOSE;
 			String time = eventData.get(AuditEventReader.TIME);
 			String eventId = eventData.get(AuditEventReader.EVENT_ID);
@@ -2541,7 +2241,7 @@ public class Audit extends AbstractReporter {
 	}
 	
 	private String getNetworkNamespaceForPid(String pid){
-		if(HANDLE_NAMESPACES){
+		if(auditConfiguration.isNamespaces()){
 			return processManager.getNetNamespace(pid);
 		}else{
 			return null;
@@ -2664,7 +2364,7 @@ public class Audit extends AbstractReporter {
 			WasGeneratedBy wgb = new WasGeneratedBy(artifact, process);
 			putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
-			if(HANDLE_NETFILTER_HOOKS){
+			if(kernelModuleConfiguration.isHandleNetfilterHooks()){
 				try{
 					netfilterHooksManager.handleNetworkSyscallEvent(time, eventId, false, artifact);
 				}catch(Exception e){
@@ -2757,7 +2457,7 @@ public class Audit extends AbstractReporter {
 			Used used = new Used(process, socket);
 			putEdge(used, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
-			if(HANDLE_NETFILTER_HOOKS){
+			if(kernelModuleConfiguration.isHandleNetfilterHooks()){
 				try{
 					netfilterHooksManager.handleNetworkSyscallEvent(time, eventId, true, socket);
 				}catch(Exception e){
@@ -2916,12 +2616,12 @@ public class Audit extends AbstractReporter {
 
 		boolean isNetworkUdp = false;
 		if(identifier instanceof NetworkSocketIdentifier){
-			if(!USE_SOCK_SEND_RCV){
+			if(!auditConfiguration.isNetIO()){
 				return;
 			}
 			isNetworkUdp = isUdp(identifier);
 		}else{ // all else are local i.e. file io include unix
-			if(!USE_READ_WRITE){
+			if(!auditConfiguration.isFileIO()){
 				return;
 			}
 			if(identifier instanceof UnixSocketIdentifier || identifier instanceof UnnamedUnixSocketPairIdentifier){
@@ -2959,7 +2659,7 @@ public class Audit extends AbstractReporter {
 		putEdge(edge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		
 		// UDP
-		if(isNetworkUdp && HANDLE_NETFILTER_HOOKS){
+		if(isNetworkUdp && kernelModuleConfiguration.isHandleNetfilterHooks()){
 			try{
 				netfilterHooksManager.handleNetworkSyscallEvent(time, eventId, incoming, artifact);
 			}catch(Exception e){
@@ -3182,7 +2882,7 @@ public class Audit extends AbstractReporter {
 	}
 	
 	private String getOperation(SYSCALL primary, SYSCALL secondary){
-		return OPMConstants.getOperation(primary, secondary, SIMPLIFY);
+		return OPMConstants.getOperation(primary, secondary, auditConfiguration.isSimplify());
 	}
 
 }

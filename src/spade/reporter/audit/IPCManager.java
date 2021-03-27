@@ -179,8 +179,8 @@ public class IPCManager{
 		reporter.putEdge(edge, reporter.getOperation(syscall), eventTime, eventId, OPMConstants.SOURCE_AUDIT_SYSCALL);
 	}
 
-	public final void handleShmctl(final Map<String, String> eventData, final SYSCALL syscall){
-		handleSystemVCtl(eventData, syscall, OPMConstants.SUBTYPE_SYSV_SHARED_MEMORY);
+	public final void handleShmctl(final Map<String, String> eventData, final SYSCALL syscall, final boolean control){
+		handleSystemVCtl(eventData, syscall, OPMConstants.SUBTYPE_SYSV_SHARED_MEMORY, control);
 	}
 
 	public final void handleMsgget(final Map<String, String> eventData, final SYSCALL syscall){
@@ -233,8 +233,8 @@ public class IPCManager{
 		reporter.putEdge(edge, reporter.getOperation(syscall), eventTime, eventId, OPMConstants.SOURCE_AUDIT_SYSCALL);
 	}
 
-	public final void handleMsgctl(final Map<String, String> eventData, final SYSCALL syscall){
-		handleSystemVCtl(eventData, syscall, OPMConstants.SUBTYPE_SYSV_MSG_Q);
+	public final void handleMsgctl(final Map<String, String> eventData, final SYSCALL syscall, final boolean control){
+		handleSystemVCtl(eventData, syscall, OPMConstants.SUBTYPE_SYSV_MSG_Q, control);
 	}
 
 	private final SystemVArtifactIdentifier createSystemVArtifactIdentifier(final Map<String, String> eventData,
@@ -326,12 +326,12 @@ public class IPCManager{
 	}
 
 	private final void handleSystemVCtl(final Map<String, String> eventData, final SYSCALL syscall,
-			final String subtype){
+			final String subtype, final boolean control){
 		// msgctl/shmctl() receives the following messages(s):
 		// - SYSCALL
 		// - IPC [ optional ]
 		// - EOE
-		if(reporter.getFlagControl()){
+		if(control){
 			final String cmdString = eventData.get(AuditEventReader.ARG1);
 			final int cmdInt = Integer.parseInt(cmdString);
 			if(cmdInt == IPC_RMID){

@@ -1,0 +1,66 @@
+#!/bin/bash
+
+function get_processes_with_name(){
+	process_name="$1"
+	result="Process(es) with name '$process_name'"
+	count=1
+	while IFS= read -r line
+	do
+		result="${result}\n\t${count}. ${line}"
+		count=$((count+1))
+	done < <(ps aux | grep $process_name | sed 's/ \{1,\}/,/g')
+	if [ $count -eq 1 ]
+	then
+		result="${result}\n\tNONE"
+	fi
+	echo "$result"
+}
+
+function get_lines_in_file(){
+	file="$1"
+	pattern="$2"
+	result="Line(s) with pattern '$pattern' in file '$file'"
+	count=1
+	if [ -f "$file" ]
+	then
+		while IFS= read -r line
+		do
+			result="${result}\n\t${count}. ${line}"
+			count=$((count+1))
+		done < <(grep "$pattern" "$file")
+	fi
+	if [ $count -eq 1 ]
+	then
+		result="${result}\n\tNONE"
+	fi
+	echo "$result"
+}
+
+echo ""
+
+for i in "[k]auditd" "[/]sbin/auditd" "[/]sbin/audispd" "[s]pade.core.Kernel " "[s]padeAuditBridge"
+do
+	out=`get_processes_with_name $i`
+	echo -e $out
+	echo ""
+done
+
+echo -e `get_lines_in_file /etc/audit/auditd.conf disp_qos`
+echo ""
+
+echo -e `get_lines_in_file /etc/audisp/plugins.d/af_unix.conf active`
+echo ""
+
+echo -e "Audit rules:\n\t`auditctl -l`"
+echo ""
+
+echo -e `get_lines_in_file cfg/spade.client.Control.config "^.*$"`
+echo ""
+
+lsmod_output=`lsmod | grep netio`
+if [ -z "$lsmod_output" ]
+then
+	lsmod_output="NONE"
+fi
+echo -e "Kernel modules:\n\t${lsmod_output}"
+echo ""
