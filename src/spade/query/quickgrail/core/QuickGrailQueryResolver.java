@@ -289,9 +289,6 @@ public class QuickGrailQueryResolver{
 		case "dump":
 			resolveDumpCommand(arguments);
 			break;
-		case "visualize":
-			resolveVisualizeCommand(arguments);
-			break;
 		case "stat":
 			resolveStatCommand(arguments);
 			break;
@@ -329,7 +326,7 @@ public class QuickGrailQueryResolver{
 		ParseExpression expression = arguments.get(idx);
 		if(expression.getExpressionType() == ParseExpression.ExpressionType.kName){
 			String forceStr = ((ParseName)expression).getName().getValue();
-			if(forceStr.equalsIgnoreCase("force")){
+			if(forceStr.equalsIgnoreCase("all")){
 				force = true;
 			}else{
 				throw new RuntimeException("Invalid argument for dump: " + forceStr);
@@ -348,14 +345,10 @@ public class QuickGrailQueryResolver{
 			resolveGraphExportCommand(arguments);
 		}
 	}
-
-	private void resolveVisualizeCommand(ArrayList<ParseExpression> arguments){
-		resolveGraphExportCommand(arguments);
-	}
 	
 	private void resolveGraphExportCommand(final ArrayList<ParseExpression> arguments){
 		if(arguments.isEmpty()){
-			throw new RuntimeException("Invalid number of arguments for dump/visualize: expected at least 1");
+			throw new RuntimeException("Invalid number of arguments for dump: expected at least 1");
 		}
 
 		boolean force = false;
@@ -363,14 +356,14 @@ public class QuickGrailQueryResolver{
 		ParseExpression expression = arguments.get(idx);
 		if(expression.getExpressionType() == ParseExpression.ExpressionType.kName){
 			String forceStr = ((ParseName)expression).getName().getValue();
-			if(forceStr.equalsIgnoreCase("force")){
+			if(forceStr.equalsIgnoreCase("all")){
 				force = true;
 			}else{
-				throw new RuntimeException("Invalid argument for dump/visualize: " + forceStr);
+				throw new RuntimeException("Invalid argument for dump: " + forceStr);
 
 			}
 			if(++idx >= arguments.size()){
-				throw new RuntimeException("Invalid arguments for dump/visualize: expected 1 graph argument");
+				throw new RuntimeException("Invalid arguments for dump: expected 1 graph argument");
 			}
 			expression = arguments.get(idx);
 		}
@@ -386,7 +379,7 @@ public class QuickGrailQueryResolver{
 			try{
 				FileUtility.pathMustBeAWritableFile(filePathOnServer);
 			}catch(Exception e){
-				throw new RuntimeException("Invalid server file path for dump/visualize command to export graph to: '"+filePathOnServer+"'", e);
+				throw new RuntimeException("Invalid server file path for dump command to export graph to: '"+filePathOnServer+"'", e);
 			}
 			
 			if(filePathOnServer.toLowerCase().endsWith(".json")){

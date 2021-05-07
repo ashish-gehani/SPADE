@@ -111,8 +111,8 @@ public class QuickGrailExecutor{
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
-	private static final String configKeyDumpLimit = "dumpLimit", configKeyVisualizeLimit = "visualizeLimit"; 
-	private long exportGraphDumpLimit, exportGraphVisualizeLimit;
+	private static final String configKeyDumpLimit = "dumpLimit"; 
+	private long exportGraphDumpLimit;
 
 	private final AbstractQueryEnvironment queryEnvironment;
 	private final QueryInstructionExecutor instructionExecutor;
@@ -139,22 +139,16 @@ public class QuickGrailExecutor{
 		String configFilePath = Settings.getDefaultConfigFilePath(this.getClass());
 		try{
 			Map<String, String> map = FileUtility.readConfigFileAsKeyValueMap(configFilePath, "=");
+
 			Result<Long> dumpLimitResult = HelperFunctions.parseLong(map.get(configKeyDumpLimit), 10, 0, Long.MAX_VALUE);
 			if(dumpLimitResult.error){
 				throw new RuntimeException("Invalid '"+configKeyDumpLimit+"' value. " + dumpLimitResult.toErrorString());
 			}
 			exportGraphDumpLimit = dumpLimitResult.result;
 			
-			Result<Long> visualizeLimitResult = HelperFunctions.parseLong(map.get(configKeyVisualizeLimit), 10, 0, Long.MAX_VALUE);
-			if(visualizeLimitResult.error){
-				throw new RuntimeException("Invalid '"+configKeyVisualizeLimit+"' value. " + visualizeLimitResult.toErrorString());
-			}
-			exportGraphVisualizeLimit = visualizeLimitResult.result;
-			
-			logger.log(Level.INFO, "Globals: {0}={1}, {2}={3}", 
+			logger.log(Level.INFO, "Globals: {0}={1}", 
 					new Object[]{
-							configKeyDumpLimit, String.valueOf(exportGraphDumpLimit),
-							configKeyVisualizeLimit, String.valueOf(exportGraphVisualizeLimit)
+							configKeyDumpLimit, String.valueOf(exportGraphDumpLimit)
 							});
 		}catch(Exception e){
 			throw new RuntimeException("Failed to initialize globals in file '"+configFilePath+"'. " + e.getMessage());
@@ -414,11 +408,7 @@ public class QuickGrailExecutor{
 			if(instruction.format == Format.kNormal && verticesAndEdges > exportGraphDumpLimit){
 				throw new RuntimeException(
 						"Dump export limit set at '" + exportGraphDumpLimit + "'. Total vertices and edges requested '"
-								+ verticesAndEdges + "'. " + "Please use 'dump force ...' to force the print.");
-			}else if(instruction.format == Format.kDot && verticesAndEdges > exportGraphVisualizeLimit){
-				throw new RuntimeException("Dot export limit set at '" + exportGraphVisualizeLimit
-						+ "'. Total vertices and edges requested '" + verticesAndEdges + "'. "
-						+ "Please use 'visualize force ...' to force the transfer.");
+								+ verticesAndEdges + "'. " + "Please use 'dump all ...' to force the print.");
 			}
 		}
 		final Map<String, Map<String, String>> queriedVerticesMap = instructionExecutor.exportVertices(instruction);

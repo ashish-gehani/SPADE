@@ -19,16 +19,12 @@
  */
 package spade.query.quickgrail;
 
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.net.Socket;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
 import spade.core.AbstractVertex;
-import spade.core.Kernel;
 import spade.core.Settings;
 import spade.query.quickgrail.core.GraphStats;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
@@ -282,57 +278,12 @@ public class RemoteResolver{
 	//////
 	// remote
 	
-	private static spade.core.Graph getRemoteLineage(String remoteAddress, 
-			Map<AbstractVertex, Integer> localMinDepths,
-			int maxDepth, GetLineage.Direction direction) throws Exception{
-		
-		Map<String, String> getLineageSymbolToQuery = new HashMap<String, String>();
-		Map<String, String> visualizeSymbolToQuery = new HashMap<String, String>();
-		Map<String, String> eraseSymbolToQuery = new HashMap<String, String>();
-		
-		for(Map.Entry<AbstractVertex, Integer> entry : localMinDepths.entrySet()){
-			AbstractVertex vertex = entry.getKey();
-			Integer localMinDepth = entry.getValue();
-			
-			int remoteDepth = maxDepth - localMinDepth;
-			
-			String remoteGetLineageGraphSymbol = generateNewSymbol(remoteAddress);
-			String remoteGetLineageQuery = 
-					buildRemoteGetLineageQuery(remoteGetLineageGraphSymbol, remoteDepth, direction, vertex);
-			String remoteVisualizeQuery = buildRemoteVisualizeQuery(remoteGetLineageGraphSymbol);
-			String remoteEraseQuery = buildRemoteEraseQuery(remoteGetLineageGraphSymbol);
-			
-			getLineageSymbolToQuery.put(remoteGetLineageGraphSymbol, remoteGetLineageQuery);
-			visualizeSymbolToQuery.put(remoteGetLineageGraphSymbol, remoteVisualizeQuery);
-			eraseSymbolToQuery.put(remoteGetLineageGraphSymbol, remoteEraseQuery);
-		}
-		
-		int remoteQueryPort = getRemoteQueryPort(remoteAddress);
-		Socket socket = Kernel.sslSocketFactory.createSocket(remoteAddress, remoteQueryPort);
-		// Timeout in case of hung connection?
-		ObjectOutputStream outputStream = new ObjectOutputStream(socket.getOutputStream());
-		ObjectInputStream inputStream = new ObjectInputStream(socket.getInputStream());
-		
-		for(String getLineageQuery : getLineageSymbolToQuery.values()){
-			
-		}
-		
-		inputStream.close();
-		outputStream.close();
-		
-		return null;
-	}
-	
 	private static int getRemoteQueryPort(String remoteAddress){
 		return Settings.getCommandLineQueryPort();
 	}
 
 	private static String generateNewSymbol(String remoteAddress){
 		return null;
-	}
-	
-	private static String buildRemoteVisualizeQuery(String resultSymbol){
-		return "visualize " + resultSymbol;
 	}
 	
 	private static String buildRemoteEraseQuery(String resultSymbol){

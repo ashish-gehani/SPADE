@@ -16,7 +16,7 @@ $paths = $base.getPath($elevate_me, $start_ip, 4);
 dump $paths;
 # Output subgraph to file
 export > /tmp/paths.dot
-visualize force $paths
+dump all $paths
 ```
 
 ## Lexical Structure
@@ -61,11 +61,9 @@ visualize force $paths
   * `stat` _graph_
 * Print graph as a SPADE `Graph`
   * `dump` _graph_
+  * using `all` prints entire graph, even if it exceeds limit in `cfg/spade.query.quickgrail.QuickGrailExecutor.config`
 * Print constraint
   * `dump` _constraint_
-* Print graph in DOT format
-  * `visualize` [`force`] _graph_
-  * using `force` prints entire graph, even if it exceeds limit in `cfg/spade.query.quickgrail.QuickGrailExecutor.config`
 * Remove a list of variables (_graph_ or _constraint_)
   * `erase` (_graph_)+
 * Remove all variables

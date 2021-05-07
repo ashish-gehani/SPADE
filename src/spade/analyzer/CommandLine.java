@@ -353,8 +353,7 @@ public class CommandLine extends AbstractAnalyzer{
 					tab + "Commands:",
 					tab + tab + "list graph",
 					tab + tab + "stat $graph_to_print_vertex_count_and_edge_count_of",
-					tab + tab + "dump [force] $graph_to_print_vertices_and_edges_of",
-					tab + tab + "visualize [force] $graph_to_print_vertices_and_edges_of_in_dot_format",
+					tab + tab + "dump [all] $graph_to_print_vertices_and_edges_of",
 					tab + tab + "erase $graph_to_erase_1st ... $graph_to_erase_nth"
 					));
 		}
