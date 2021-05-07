@@ -425,18 +425,63 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 
 	@Override
 	public ResultTable evaluateQuery(EvaluateQuery instruction){
-		String result = qs.executeQuery(instruction.nativeQuery);
+		List<String> queries = new ArrayList<String>();
+		boolean insideQuotes = false;
+		String currentQuery = "";
+		for(int i = 0; i < instruction.nativeQuery.length(); i++){
+			char c = instruction.nativeQuery.charAt(i);
+			if(c == ';'){
+				if(i == 0){
+					continue;
+				}else{
+					if(insideQuotes == false){
+						if(instruction.nativeQuery.charAt(i-1) != '\\'){
+							if(!currentQuery.isBlank()){
+								queries.add(currentQuery.trim());
+							}
+							currentQuery = "";
+							continue;
+						}
+					}
+				}
+			}else if(c == '\''){
+				if(c == 0){
+					insideQuotes = !insideQuotes;
+				}else{
+					if(instruction.nativeQuery.charAt(i-1) != '\\'){
+						insideQuotes = !insideQuotes;
+					}
+				}
+			}
+			currentQuery += c;
+		}
+		if(!currentQuery.isBlank()){
+			queries.add(currentQuery.trim());
+		}
 		
-		ResultTable table = new ResultTable();
-		ResultTable.Row row = new ResultTable.Row();
-		row.add(result);
-		table.addRow(row);
+		if(queries.size() > 1){
+			throw new RuntimeException("Only one native query allowed!");
+		}else if(queries.size() == 0){
+			throw new RuntimeException("Empty query");
+		}
+
+		if(queries.get(0).startsWith("select ")){
+			String finalQuery = "copy " + queries.get(0) + " to stdout with (delimiter ',');";
+			String result = qs.executeQuery(finalQuery);
+			return ResultTable.FromText(result, ',');
+		}else{
+			String finalQuery = queries.get(0);
+			String result = qs.executeQuery(finalQuery);
+			ResultTable table = new ResultTable();
+			ResultTable.Row row = new ResultTable.Row();
+			row.add(result);
+			table.addRow(row);
+			Schema schema = new Schema();
+			schema.addColumn("Output", StringType.GetInstance());
+			table.setSchema(schema);
 			
-		Schema schema = new Schema();
-		schema.addColumn("Output as string", StringType.GetInstance());
-		table.setSchema(schema);
-		
-		return table;
+			return table;
+		}
 	}
 
 	private String resolveOperator(PredicateOperator operator){

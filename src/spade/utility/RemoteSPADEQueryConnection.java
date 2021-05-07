@@ -35,6 +35,7 @@ import spade.core.AbstractStorage;
 import spade.core.Query;
 import spade.query.quickgrail.core.GraphStats;
 import spade.query.quickgrail.instruction.GetLineage;
+import spade.query.quickgrail.utility.ResultTable;
 
 public final class RemoteSPADEQueryConnection implements Closeable{
 
@@ -235,6 +236,18 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 			}
 		}
 		return graph;
+	}
+	
+	public synchronized ResultTable nativeCommand(final String queryString){
+		if(queryString == null){
+			throw new RuntimeException("NULL native query string");
+		}
+		String str = "native '" + queryString + "'";
+		Query query = executeQuery(str);
+		if(query.getResult() instanceof ResultTable){
+			return (ResultTable)query.getResult();
+		}
+		throw new RuntimeException("Unexpected 'native' query result. Expected '" + ResultTable.class + "' instance");
 	}
 	
 	public synchronized Query executeQuery(String queryString){

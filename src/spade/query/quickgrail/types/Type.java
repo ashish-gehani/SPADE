@@ -19,12 +19,16 @@
  */
 package spade.query.quickgrail.types;
 
+import java.io.Serializable;
+
 /**
  * Simple type system for dealing with QuickGrail expressions.
  */
-public abstract class Type {
-  public abstract TypeID getTypeID();
-  public abstract String getName();
-  public abstract Object parseValueFromString(String text);
-  public abstract String printValueToString(Object value);
+public abstract class Type implements Serializable{
+	private static final long serialVersionUID = -5083761405700157067L;
+
+	public abstract TypeID getTypeID();
+	public abstract String getName();
+	public abstract Object parseValueFromString(String text);
+	public abstract String printValueToString(Object value);
 }

@@ -243,9 +243,9 @@ public class QuickGrailExecutor{
 		}else if(instruction.getClass().equals(EvaluateQuery.class)){
 			ResultTable table = instructionExecutor.evaluateQuery((EvaluateQuery)instruction);
 			if(table == null){
-				result = "No Result!";
+				result = ResultTable.FromText("", ',');//"No Result!";
 			}else{
-				result = String.valueOf(table);
+				result = table;//String.valueOf(table);
 			}
 
 		}else if(instruction.getClass().equals(GetAdjacentVertex.class)){

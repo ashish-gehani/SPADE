@@ -22,6 +22,7 @@ package spade.query.quickgrail.types;
 import spade.query.quickgrail.entities.Graph;
 
 public class GraphType extends Type{
+	private static final long serialVersionUID = -448847253952665392L;
 	static private GraphType instance;
 
 	public static GraphType GetInstance(){

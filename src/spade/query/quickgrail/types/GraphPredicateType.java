@@ -22,6 +22,7 @@ package spade.query.quickgrail.types;
 import spade.query.quickgrail.entities.GraphPredicate;
 
 public class GraphPredicateType extends Type{
+	private static final long serialVersionUID = 7477152432550464960L;
 	static private GraphPredicateType instance;
 
 	public static GraphPredicateType GetInstance(){

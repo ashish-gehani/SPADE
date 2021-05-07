@@ -19,6 +19,7 @@
  */
 package spade.query.quickgrail.utility;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Scanner;
@@ -26,12 +27,14 @@ import java.util.Scanner;
 /**
  * Helper class for dealing with Quickstep result table.
  */
-public class ResultTable {
-  private final static int MIN_COLUMN_WIDTH = 16;
+public class ResultTable implements Serializable{
+	private static final long serialVersionUID = 1812590843184126815L;
+	private final static int MIN_COLUMN_WIDTH = 16;
 
 
-  public static class Row {
-    private ArrayList<String> values = new ArrayList<String>();
+  public static class Row implements Serializable{
+	private static final long serialVersionUID = -4830710422759897450L;
+	private ArrayList<String> values = new ArrayList<String>();
 
     public void add(String value) {
       this.values.add(value);

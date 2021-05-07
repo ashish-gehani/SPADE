@@ -19,34 +19,35 @@
  */
 package spade.query.quickgrail.types;
 
-public class LongType extends Type {
-  static private LongType instance;
+public class LongType extends Type{
+	private static final long serialVersionUID = 5046553606694678614L;
+	static private LongType instance;
 
-  public static LongType GetInstance() {
-    if (instance == null) {
-      instance = new LongType();
-    }
-    return instance;
-  }
+	public static LongType GetInstance(){
+		if(instance == null){
+			instance = new LongType();
+		}
+		return instance;
+	}
 
-  @Override
-  public TypeID getTypeID() {
-    return TypeID.kLong;
-  }
+	@Override
+	public TypeID getTypeID(){
+		return TypeID.kLong;
+	}
 
-  @Override
-  public String getName() {
-    return "Long";
-  }
+	@Override
+	public String getName(){
+		return "Long";
+	}
 
-  @Override
-  public Object parseValueFromString(String text) {
-    return Long.parseLong(text);
-  }
+	@Override
+	public Object parseValueFromString(String text){
+		return Long.parseLong(text);
+	}
 
-  @Override
-  public String printValueToString(Object value) {
-    assert (value instanceof Long);
-    return String.valueOf(value);
-  }
+	@Override
+	public String printValueToString(Object value){
+		assert (value instanceof Long);
+		return String.valueOf(value);
+	}
 }

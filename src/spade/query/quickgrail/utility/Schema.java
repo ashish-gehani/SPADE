@@ -19,6 +19,7 @@
  */
 package spade.query.quickgrail.utility;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 
 import spade.query.quickgrail.types.Type;
@@ -26,24 +27,25 @@ import spade.query.quickgrail.types.Type;
 /**
  * Helper class for representing Quickstep result table schema.
  */
-public class Schema {
-  private ArrayList<String> column_names = new ArrayList<String>();
-  private ArrayList<Type> column_types = new ArrayList<Type>();
+public class Schema implements Serializable{
+	private static final long serialVersionUID = -3418480040640102744L;
+	private ArrayList<String> column_names = new ArrayList<String>();
+	private ArrayList<Type> column_types = new ArrayList<Type>();
 
-  public void addColumn(String column_name, Type column_type) {
-    column_names.add(column_name);
-    column_types.add(column_type);
-  }
+	public void addColumn(String column_name, Type column_type){
+		column_names.add(column_name);
+		column_types.add(column_type);
+	}
 
-  public int getNumColumns() {
-    return column_names.size();
-  }
+	public int getNumColumns(){
+		return column_names.size();
+	}
 
-  public String getColumnName(int column_id) {
-    return column_names.get(column_id);
-  }
+	public String getColumnName(int column_id){
+		return column_names.get(column_id);
+	}
 
-  public Type getColumnType(int column_id) {
-    return column_types.get(column_id);
-  }
+	public Type getColumnType(int column_id){
+		return column_types.get(column_id);
+	}
 }

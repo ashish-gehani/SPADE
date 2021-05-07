@@ -19,34 +19,35 @@
  */
 package spade.query.quickgrail.types;
 
-public class StringType extends Type {
-  static private StringType instance;
+public class StringType extends Type{
+	private static final long serialVersionUID = 7110136938583613150L;
+	static private StringType instance;
 
-  public static StringType GetInstance() {
-    if (instance == null) {
-      instance = new StringType();
-    }
-    return instance;
-  }
+	public static StringType GetInstance(){
+		if(instance == null){
+			instance = new StringType();
+		}
+		return instance;
+	}
 
-  @Override
-  public TypeID getTypeID() {
-    return TypeID.kString;
-  }
+	@Override
+	public TypeID getTypeID(){
+		return TypeID.kString;
+	}
 
-  @Override
-  public String getName() {
-    return "String";
-  }
+	@Override
+	public String getName(){
+		return "String";
+	}
 
-  @Override
-  public Object parseValueFromString(String text) {
-    return text;
-  }
+	@Override
+	public Object parseValueFromString(String text){
+		return text;
+	}
 
-  @Override
-  public String printValueToString(Object value) {
-    assert (value instanceof String);
-    return (String)value;
-  }
+	@Override
+	public String printValueToString(Object value){
+		assert (value instanceof String);
+		return (String)value;
+	}
 }

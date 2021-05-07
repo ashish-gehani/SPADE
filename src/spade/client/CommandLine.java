@@ -49,6 +49,7 @@ import spade.core.Query;
 import spade.core.Settings;
 import spade.query.quickgrail.core.AbstractQueryEnvironment;
 import spade.query.quickgrail.instruction.ExportGraph;
+import spade.query.quickgrail.utility.ResultTable;
 import spade.utility.FileUtility;
 import spade.utility.HostInfo;
 
@@ -531,6 +532,8 @@ public class CommandLine{
 									writeToUser(graph);
 									return "Output exported to STDOUT";
 								}
+							}else if(spadeResult instanceof ResultTable){
+								return ((ResultTable)spadeResult).toString();
 							}else{
 								return String.valueOf(spadeResult);
 							}
