@@ -125,6 +125,10 @@ _return-type_ **method-name** ( **_argument-type_** formal-argument, ... )
 * _graph_ **limit** ( [**_int_** limit] )
   * Get first (ordered by id) _limit_ vertices / edges
     * e.g. `$2 = $1.limit(10)` or `$2 = $1.limit()` to implicitly use `limit` environment variable
+* _graph_ **transform** ( **_name_** transformerName[, ( **_graph_** graphArgument | **_int_** intArgument | **_string_** stringArgument )]*)
+  * Transform the subject graph using the transformer with the name `transformerName`
+  * Supported transformer argument types are restricted to: **_graph_** variable, **_int_** literal, and **_string_** literal
+    * e.g. `$2 = $1.transform(Sanitization)` uses the transformer `Sanitization` to transform the `$1` **_graph_** variable and store the result in `$2` **_graph_** variable
 ---
 #### Functions
 * _graph_ **vertices** ( **_string_** vertexHash, ... )
