@@ -49,6 +49,9 @@ static void closeOutput();
 static bool openOutput();
 static bool loadInputFile(std::string inputFilePath);
 
+void parseCallSiteMetadata(Instruction *instruction,
+	void (*metadata_callback)(Instruction *instruction, StringRef *functionName, APInt *callSiteNumber, APInt *parameterIndex, StringRef *description));
+
 static StringRef metadataKey("call-site-metadata");
 static StringRef metadataKeyIdentifier("call-site-identifier");
 static StringRef metadataKeyDescription("call-site-description");
@@ -188,7 +191,8 @@ static bool loadInputFile(std::string inputFilePath){
 	return true;
 }
 
-static void parseCallSiteMetadata(Instruction *instruction){
+void parseCallSiteMetadata(Instruction *instruction,
+	void (*metadata_callback)(Instruction *instruction, StringRef *functionName, APInt *callSiteNumber, APInt *parameterIndex, StringRef *description)){
 	if(!instruction){
 		return;
 	}
@@ -229,9 +233,7 @@ static void parseCallSiteMetadata(Instruction *instruction){
 					while(paramTupleIterator != paramTupleIteratorEnd){
 						if(MDString *descString = dyn_cast<MDString>(*paramTupleIterator)){
 							StringRef description = descString->getString();
-							errs() << "[DEBUG::" << DEBUG_TYPE << "] function=" << functionName << ", callSite=" << callSite << ", param=" << param << ", description=" << description << "\n";
-							// Get corresponding operand in the instruction using the value of 'param' (which is the index).
-							// 'param' might be the name of the parameter in the future in which case, the operand would need to be gotten using debug info.
+							metadata_callback(instruction, &functionName, &callSite, &param, &description);
 						}
 						paramTupleIterator++;
 					}
@@ -312,10 +314,6 @@ static bool conditionalUpdate(Instruction *current, Module &module){
 		}
 		MDNode *callSiteNode = MDNode::get(llvmContext, callSiteTuple);
 		current->setMetadata(metadataKey, callSiteNode);
-
-		if(debug == true){
-			parseCallSiteMetadata(current);
-		}
 	}
 	return updated;
 }
@@ -355,6 +353,21 @@ static void closeOutput(){
 	}
 }
 
+static void debug_metadata_callback(Instruction *instruction, StringRef *functionName, APInt *callSiteNumber, APInt *parameterIndex, StringRef *description){
+	errs() << "[DEBUG::" << DEBUG_TYPE << "] function=" << *functionName << ", callSite=" << *callSiteNumber << ", param=" << *parameterIndex << ", description=" << *description << "\n";
+}
+
+static void extractAllMetadata(Module &module,
+	void (*metadata_callback_func)(Instruction *instruction, StringRef *functionName, APInt *callSiteNumber, APInt *parameterIndex, StringRef *description)){
+	for(Function &function : module){
+		for(BasicBlock &basicBlock : function){
+			for(Instruction &current : basicBlock){
+				parseCallSiteMetadata(&current, metadata_callback_func);
+			}
+		}
+	}
+}
+
 bool AddMetadata::runOnModule(Module &module){
 	std::string inputFilePath = configFilePathOption == "" ? "" : configFilePathOption.getValue().c_str();
 	if(inputFilePath.empty()){
@@ -383,6 +396,12 @@ bool AddMetadata::runOnModule(Module &module){
 	}
 
 	closeOutput();
+
+	if(debug == true){
+		void (*metadata_callback_func)(Instruction *instruction, StringRef *functionName, APInt *callSiteNumber, APInt *parameterIndex, StringRef *description);
+		metadata_callback_func = &debug_metadata_callback;
+		extractAllMetadata(module, metadata_callback_func);
+	}
 
 	return updated;
 }
