@@ -19,7 +19,8 @@
  */
 package spade.transformer;
 
-import spade.client.QueryMetaData;
+import java.util.LinkedHashSet;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
@@ -28,8 +29,13 @@ import spade.reporter.audit.OPMConstants;
 //remove memory artifacts along with edges
 public class NoMemory extends AbstractTransformer
 {
+	@Override
+	public LinkedHashSet<ArgumentName> getArgumentNames(){
+		return new LinkedHashSet<ArgumentName>();
+	}
 
-	public Graph transform(Graph graph, QueryMetaData queryMetaData)
+	@Override
+	public Graph transform(Graph graph, ExecutionContext context)
 	{
 		Graph resultGraph = new Graph();
 		for(AbstractEdge edge : graph.edgeSet())

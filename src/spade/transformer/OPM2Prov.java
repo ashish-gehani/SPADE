@@ -20,16 +20,16 @@
 
 package spade.transformer;
 
-import spade.client.QueryMetaData;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
 import spade.reporter.audit.OPMConstants;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class OPM2Prov extends AbstractTransformer{
 
@@ -52,7 +52,13 @@ public class OPM2Prov extends AbstractTransformer{
 		opm2ProvEdgeMappings.put(OPMConstants.WAS_TRIGGERED_BY,"WasInformedBy");
 	}
 
-	public Graph transform(Graph graph, QueryMetaData queryMetaData)
+	@Override
+	public LinkedHashSet<ArgumentName> getArgumentNames(){
+		return new LinkedHashSet<ArgumentName>();
+	}
+
+	@Override
+	public Graph transform(Graph graph, ExecutionContext context)
 	{
 		Graph resultGraph = new Graph();
 

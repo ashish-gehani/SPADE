@@ -19,42 +19,41 @@
  */
 package spade.transformer;
 
-import java.util.Map;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.client.QueryMetaData;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
-import spade.utility.HelperFunctions;
 
 public class Prune extends AbstractTransformer{
 
 	private static final Logger logger = Logger.getLogger(Prune.class.getName());
 
-	private String startingHash;
-
-	public boolean initialize(String arguments){
-		// startingHash can possibly replace vertexExpression in the new world?
-		Map<String, String> argumentsMap = HelperFunctions.parseKeyValPairs(arguments);
-		if(argumentsMap.get("startingHash") == null || argumentsMap.get("startingHash").trim().isEmpty()){
-			logger.log(Level.SEVERE, "Must specify a starting Hash for vertex selection");
-			return false;
-		}
-		startingHash = argumentsMap.get("startingHash");
-		return true;
+	@Override
+	public LinkedHashSet<ArgumentName> getArgumentNames(){
+		return new LinkedHashSet<ArgumentName>(
+				Arrays.asList(
+						ArgumentName.SOURCE_GRAPH
+						, ArgumentName.MAX_DEPTH
+						, ArgumentName.DIRECTION
+						)
+				);
 	}
 
 	@Override
-	public Graph transform(Graph graph, QueryMetaData queryMetaData){
+	public Graph transform(Graph graph, ExecutionContext context){
 		try{
-			if(queryMetaData.getMaxLength() == null){
+			if(context.getMaxDepth() == null){
 				throw new IllegalArgumentException("Depth cannot be null");
 			}
-			if(queryMetaData.getDirection() == null){
+			if(context.getDirection() == null){
 				throw new IllegalArgumentException("Direction cannot be null");
 			}
-
+			if(context.getSourceGraph() == null){
+				throw new IllegalArgumentException("Source graph cannot be null");
+			}
 		}catch(Exception e){
 			logger.log(Level.WARNING, "Missing arguments for the current query", e);
 
@@ -63,9 +62,10 @@ public class Prune extends AbstractTransformer{
 
 		Graph resultGraph = new Graph();
 
-		Graph toRemoveGraph = graph.getLineage(queryMetaData.getRootVertices(), 
-				queryMetaData.getDirection(),
-				queryMetaData.getMaxLength());
+		Graph toRemoveGraph = graph.getLineage(
+				context.getSourceGraph().vertexSet(),
+				context.getDirection(),
+				context.getMaxDepth());
 
 		if(toRemoveGraph != null){
 			removeEdges(resultGraph, graph, toRemoveGraph);

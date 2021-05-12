@@ -28,9 +28,11 @@ import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.Signature;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -249,7 +251,53 @@ public class Graph implements Serializable{
 		}
 		return newGraph;
 	}
-	
+
+	public Graph copyContents(){
+		final Graph copy = new Graph();
+
+		final Map<String, String> srcToDstVertexHashes = new HashMap<>();
+		final Map<String, AbstractVertex> dstVertices = new HashMap<>();
+
+		for(final AbstractVertex srcVertex : this.vertexSet()){
+			final AbstractVertex dstVertex = new Vertex();
+			dstVertex.addAnnotations(srcVertex.getCopyOfAnnotations());
+
+			srcToDstVertexHashes.put(srcVertex.bigHashCode(), dstVertex.bigHashCode());
+			dstVertices.put(dstVertex.bigHashCode(), dstVertex);
+
+			copy.putVertex(dstVertex);
+		}
+
+		for(final AbstractEdge srcEdge : this.edgeSet()){
+			final String srcChildHash = srcEdge.getChildVertex().bigHashCode();
+			final String dstChildHash = srcToDstVertexHashes.get(srcChildHash);
+			final AbstractVertex dstChildVertex;
+			if(dstChildHash == null){
+				dstChildVertex = new Vertex(srcChildHash);
+				dstChildVertex.addAnnotations(srcEdge.getChildVertex().getCopyOfAnnotations());
+			}else{
+				dstChildVertex = dstVertices.get(dstChildHash);
+			}
+
+			final String srcParentHash = srcEdge.getParentVertex().bigHashCode();
+			final String dstParentHash = srcToDstVertexHashes.get(srcParentHash);
+			final AbstractVertex dstParentVertex;
+			if(dstParentHash == null){
+				dstParentVertex = new Vertex(srcParentHash);
+				dstParentVertex.addAnnotations(srcEdge.getParentVertex().getCopyOfAnnotations());
+			}else{
+				dstParentVertex = dstVertices.get(dstParentHash);
+			}
+
+			final AbstractEdge dstEdge = new Edge(dstChildVertex, dstParentVertex);
+			dstEdge.addAnnotations(srcEdge.getCopyOfAnnotations());
+
+			copy.putEdge(dstEdge);
+		}
+
+		return copy;
+	}
+
 	/**
 	 * This method is used to create a new graph as an intersection of the two given
 	 * input graphs. This is done simply by using set functions on the vertex and

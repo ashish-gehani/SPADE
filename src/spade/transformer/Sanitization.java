@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,7 +33,6 @@ import java.util.logging.Logger;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 
-import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
@@ -404,7 +404,12 @@ public class Sanitization extends AbstractTransformer
 	}
 
 	@Override
-	public Graph transform(Graph graph, QueryMetaData queryMetaData)
+	public LinkedHashSet<ArgumentName> getArgumentNames(){
+		return new LinkedHashSet<ArgumentName>();
+	}
+
+	@Override
+	public Graph transform(Graph graph, ExecutionContext context)
 	{
 		final Graph resultGraph = graph.copy();
 		convertUnixTime(resultGraph.edgeSet());

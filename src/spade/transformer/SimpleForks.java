@@ -19,7 +19,12 @@
  */
 package spade.transformer;
 
-import spade.client.QueryMetaData;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
@@ -27,15 +32,16 @@ import spade.core.Graph;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.HelperFunctions;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-
 public class SimpleForks extends AbstractTransformer
 {
 
-	public Graph transform(Graph graph, QueryMetaData queryMetaData)
+	@Override
+	public LinkedHashSet<ArgumentName> getArgumentNames(){
+		return new LinkedHashSet<ArgumentName>();
+	}
+
+	@Override
+	public Graph transform(Graph graph, ExecutionContext context)
 	{
 		Map<String, AbstractEdge> forkcloneEdges = new HashMap<>();
 		Map<String, AbstractEdge> execveEdges = new HashMap<>();

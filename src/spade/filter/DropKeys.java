@@ -96,7 +96,7 @@ public class DropKeys extends AbstractFilter{
 		return true;
 		
 	}
-	
+
 	@Override
 	public void putVertex(AbstractVertex incomingVertex) {
 		if(incomingVertex != null){

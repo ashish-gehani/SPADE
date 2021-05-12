@@ -21,17 +21,19 @@ package spade.transformer;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.commons.io.FileUtils;
 
-import spade.client.QueryMetaData;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.query.quickgrail.instruction.GetLineage;
+import spade.utility.Result;
 
 public class BEEP extends AbstractTransformer{
 
@@ -55,14 +57,20 @@ public class BEEP extends AbstractTransformer{
 				}
 				String transformerClassName = line.substring(0, blankCharIndex);
 				String transformerArguments = line.substring(blankCharIndex);
-				AbstractTransformer transformer = (AbstractTransformer)Class
-						.forName("spade.transformer." + transformerClassName).newInstance();
-				if(!transformer.initialize(transformerArguments)){
-					logger.log(Level.SEVERE, "Failed to initialize transformer " + transformer.getClass().getName());
 
+				final Result<AbstractTransformer> createResult = AbstractTransformer.create(transformerClassName);
+				if(createResult.error){
+					logger.log(Level.SEVERE, createResult.toErrorString());
 					return null;
 				}
-				transformers.add(transformer);
+
+				final Result<Boolean> initResult = AbstractTransformer.init(createResult.result, transformerArguments);
+				if(initResult.error){
+					logger.log(Level.SEVERE, initResult.toErrorString());
+					return null;
+				}
+
+				transformers.add(createResult.result);
 			}
 			return transformers;
 		}catch(Exception ex){
@@ -119,17 +127,28 @@ public class BEEP extends AbstractTransformer{
 	}
 
 	@Override
-	public Graph transform(Graph graph, QueryMetaData queryMetaData){
+	public LinkedHashSet<ArgumentName> getArgumentNames(){
+		return new LinkedHashSet<ArgumentName>(
+				Arrays.asList(
+						ArgumentName.SOURCE_GRAPH
+						, ArgumentName.MAX_DEPTH
+						, ArgumentName.DIRECTION
+						)
+				);
+	}
 
-		if(queryMetaData == null || queryMetaData.getDirection() == null){
+	@Override
+	public Graph transform(Graph graph, ExecutionContext context){
+
+		if(context.getDirection() == null){
 			return graph;
 		}
 
 		List<AbstractTransformer> transformers;
 
-		if(queryMetaData.getDirection().equals(GetLineage.Direction.kAncestor)){
+		if(context.getDirection().equals(GetLineage.Direction.kAncestor)){
 			transformers = backwardSearchTransformers;
-		}else if(queryMetaData.getDirection().equals(GetLineage.Direction.kDescendant)){
+		}else if(context.getDirection().equals(GetLineage.Direction.kDescendant)){
 			transformers = forwardSearchTransformers;
 		}else{
 			return graph;
@@ -137,12 +156,54 @@ public class BEEP extends AbstractTransformer{
 
 		for(AbstractTransformer transformer : transformers){
 			if(graph != null){
-				graph = transformer.transform(graph, queryMetaData);
+				final Result<Graph> executeResult = AbstractTransformer.execute(transformer, graph, context);
+				if(executeResult.error){
+					break;
+				}
+				graph = executeResult.result;
 			}else{
 				break;
 			}
 		}
 
 		return graph;
+	}
+
+	@Override
+	public boolean shutdown(){
+		boolean success = true;
+		if(forwardSearchTransformers != null){
+			for(AbstractTransformer transformer : forwardSearchTransformers){
+				if(transformer != null){
+					final Result<Boolean> shutdownResult = AbstractTransformer.destroy(transformer);
+					if(shutdownResult.error){
+						logger.log(Level.WARNING, shutdownResult.toErrorString());
+						success = false;
+						continue;
+					}
+					if(!shutdownResult.result){
+						logger.log(Level.WARNING, "Failed to shutdown transformer '" + transformer.getClass().getSimpleName() + "'");
+						success = false;
+					}
+				}
+			}
+		}
+		if(backwardSearchTransformers != null){
+			for(AbstractTransformer transformer : backwardSearchTransformers){
+				if(transformer != null){
+					final Result<Boolean> shutdownResult = AbstractTransformer.destroy(transformer);
+					if(shutdownResult.error){
+						logger.log(Level.WARNING, shutdownResult.toErrorString());
+						success = false;
+						continue;
+					}
+					if(!shutdownResult.result){
+						logger.log(Level.WARNING, "Failed to shutdown transformer '" + transformer.getClass().getSimpleName() + "'");
+						success = false;
+					}
+				}
+			}
+		}
+		return success;
 	}
 }

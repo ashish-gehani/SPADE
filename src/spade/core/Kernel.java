@@ -1290,69 +1290,64 @@ public class Kernel
 
                 break;
 
-            case "transformer":
-                if (tokens.length < 4)
-                {
-                    outputStream.println("Usage:");
-                    outputStream.println("\t" + ADD_FILTER_TRANSFORMER_STRING);
-                    return;
-                }
-                positionArgumentsEntry = getPositionAndArguments(tokens[3]);
-                if(positionArgumentsEntry != null)
-                {
-                    position = positionArgumentsEntry.getKey();
-                    arguments = positionArgumentsEntry.getValue();
-                }
-                logger.log(Level.INFO, "Adding transformer: {0}", className);
-                outputStream.print("Adding transformer " + className + "... ");
-                try
-                {
-                    index = Integer.parseInt(position) - 1;
-                }
-                catch (NumberFormatException numberFormatException)
-                {
-                    outputStream.println("error: Position must be specified and must be a number");
-                    return;
-                }
-                // Get the transformer by classname and create a new instance.
-                AbstractTransformer transformer;
-                try
-                {
-                    transformer = (AbstractTransformer) Class.forName("spade.transformer." + className).newInstance();
-                }
-                catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex)
-                {
-                    outputStream.println("error: Unable to find/load class");
-                    logger.log(Level.SEVERE, null, ex);
-                    return;
-                }
+            case "transformer":{
+				if(tokens.length < 4){
+					outputStream.println("Usage:");
+					outputStream.println("\t" + ADD_FILTER_TRANSFORMER_STRING);
+					return;
+				}
 
-                if(transformer.initialize(arguments))
-                {
-                    transformer.arguments = arguments;
-                    // The argument is the index at which the transformer is to be
-                    // inserted.
-                    if (index > transformers.size() || index < 0)
-                    {
-                        outputStream.println("error: Invalid position");
-                        return;
-                    }
+				positionArgumentsEntry = getPositionAndArguments(tokens[3]);
+				if(positionArgumentsEntry != null){
+					position = positionArgumentsEntry.getKey();
+					arguments = positionArgumentsEntry.getValue();
+				}
 
-                    synchronized (transformers)
-                    {
-                        transformers.add(index, transformer);
-                    }
+				logger.log(Level.INFO, "Adding transformer: {0}", className);
+				outputStream.print("Adding transformer " + className + "... ");
 
-                    logger.log(Level.INFO, "Transformer added: {0}", className + " " + arguments);
-                    outputStream.println("done");
-                }
-                else
-                {
-                    outputStream.println("failed");
-                }
+				try{
+					index = Integer.parseInt(position) - 1;
+				}catch(NumberFormatException numberFormatException){
+					outputStream.println("error: Position must be specified and must be a number");
+					return;
+				}
 
-                break;
+				if(index > transformers.size() || index < 0){
+					outputStream.println("error: Invalid position");
+					return;
+				}
 
+				final Result<AbstractTransformer> createResult = AbstractTransformer.create(className);
+				if(createResult.error){
+					outputStream.println("error: " + createResult.errorMessage);
+					logger.log(Level.SEVERE, createResult.toErrorString());
+					return;
+				}
+
+				final AbstractTransformer transformer = createResult.result;
+
+				final Result<Boolean> initResult = AbstractTransformer.init(transformer, arguments);
+				if(initResult.error){
+					outputStream.println("error: " + initResult.errorMessage);
+					logger.log(Level.SEVERE, initResult.toErrorString());
+					return;
+				}
+				if(!initResult.result){
+					outputStream.println("Failed to initialize");
+					logger.log(Level.SEVERE, initResult.toErrorString());
+					return;
+				}
+
+				synchronized(transformers){
+					transformers.add(index, transformer);
+				}
+
+				logger.log(Level.INFO, "Transformer added: {0}", className + " " + arguments);
+				outputStream.println("done");
+
+				break;
+			}
             case "sketch":
                 logger.log(Level.INFO, "Adding sketch: {0}", className);
                 outputStream.print("Adding sketch " + className + "... ");
@@ -1868,41 +1863,37 @@ public class Kernel
 
                     break;
 
-                case "transformer":
-                    try
-                    {
-                        index = Integer.parseInt(tokens[2]) - 1;
-                    }
-                    catch(Exception e)
-                    {
-                        logger.log(Level.WARNING, "Error: Invalid index (Not a number)");
-                        outputStream.println("Error: Invalid index (Not a number)");
-                        return;
-                    }
-                    if ((index < 0) || (index >= transformers.size()))
-                    {
-                        logger.log(Level.WARNING, "Error: Unable to remove transformer - bad index");
-                        outputStream.println("Error: Unable to remove transformer - bad index");
-                        return;
-                    }
+                case "transformer":{
+					try{
+						index = Integer.parseInt(tokens[2]) - 1;
+					}catch(Exception e){
+						logger.log(Level.WARNING, "Error: Invalid index (Not a number)");
+						outputStream.println("Error: Invalid index (Not a number)");
+						return;
+					}
+					if((index < 0) || (index >= transformers.size())){
+						logger.log(Level.WARNING, "Error: Unable to remove transformer - bad index");
+						outputStream.println("Error: Unable to remove transformer - bad index");
+						return;
+					}
 
-                    className = transformers.get(index).getClass().getName().split("\\.")[2];
-                    logger.log(Level.INFO, "Removing transformer {0}", className);
-                    outputStream.print("Removing transformer " + className + "... ");
-                    AbstractTransformer removed = null;
-                    synchronized (transformers)
-                    {
-                        removed = transformers.remove(index);
-                    }
-                    if(removed != null)
-                    {
-                        removed.shutdown();
-                    }
-                    logger.log(Level.INFO, "Transformer removed: {0}", className);
-                    outputStream.println("done");
+					final AbstractTransformer removed;
 
-                    break;
+					synchronized(transformers){
+						className = transformers.get(index).getClass().getName().split("\\.")[2];
+						removed = transformers.remove(index);
+					}
 
+					logger.log(Level.INFO, "Removing transformer {0}", className);
+					outputStream.print("Removing transformer " + className + "... ");
+
+					AbstractTransformer.destroy(removed);
+
+					logger.log(Level.INFO, "Transformer removed: {0}", className);
+					outputStream.println("done");
+
+					break;
+                }
                 case "sketch":
                     found = false;
                     for (Iterator<AbstractSketch> sketchIterator = sketches.iterator(); sketchIterator.hasNext();)

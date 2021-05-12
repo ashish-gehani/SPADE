@@ -20,13 +20,14 @@
 
 package spade.transformer;
 
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
@@ -42,6 +43,7 @@ public class TemporalTraversal extends AbstractTransformer{
 	private String annotationName;
 
 	// must specify the name of an annotation
+	@Override
 	public boolean initialize(String arguments){
 		Map<String, String> argumentsMap = HelperFunctions.parseKeyValPairs(arguments);
 		if("timestamp".equals(argumentsMap.get("order"))){
@@ -53,8 +55,19 @@ public class TemporalTraversal extends AbstractTransformer{
 		return true;
 	}
 
-	public Graph transform(Graph graph, QueryMetaData queryMetaData){
-		GetLineage.Direction direction = queryMetaData.getDirection();
+	@Override
+	public LinkedHashSet<ArgumentName> getArgumentNames(){
+		return new LinkedHashSet<ArgumentName>(
+				Arrays.asList(
+						ArgumentName.SOURCE_GRAPH
+						, ArgumentName.DIRECTION
+						)
+				);
+	}
+
+	@Override
+	public Graph transform(Graph graph, ExecutionContext context){
+		GetLineage.Direction direction = context.getDirection();
 		if(direction == null){
 			logger.log(Level.SEVERE, "Direction cannot be null");
 
@@ -68,8 +81,8 @@ public class TemporalTraversal extends AbstractTransformer{
 		Graph resultGraph = new Graph();
 
 		Set<AbstractVertex> queriedVerticesToUse = new HashSet<AbstractVertex>();
-		Set<AbstractVertex> queriedVerticesFromQuery = queryMetaData == null ? new HashSet<AbstractVertex>()
-				: queryMetaData.getRootVertices();
+		Set<AbstractVertex> queriedVerticesFromQuery = context.getSourceGraph() == null ? new HashSet<AbstractVertex>()
+				: context.getSourceGraph().vertexSet();
 		for(AbstractVertex queriedVertexFromQuery : queriedVerticesFromQuery){
 			queriedVerticesToUse.add(createNewWithoutAnnotations(queriedVertexFromQuery));
 		}

@@ -20,11 +20,11 @@
 
 package spade.transformer;
 
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
@@ -38,6 +38,7 @@ public class OPM2ProvTC extends OPM2Prov
 
 	private Map<String, String> opm2ProvTCMapping = null;
 
+	@Override
 	public boolean initialize(String arguments)
 	{
 		String filepath = Settings.getDefaultConfigFilePath(this.getClass());
@@ -53,9 +54,15 @@ public class OPM2ProvTC extends OPM2Prov
 		}
 	}
 
-	public Graph transform(Graph graph, QueryMetaData queryMetaData)
+	@Override
+	public LinkedHashSet<ArgumentName> getArgumentNames(){
+		return new LinkedHashSet<ArgumentName>();
+	}
+
+	@Override
+	public Graph transform(Graph graph, ExecutionContext context)
 	{
-		graph = super.transform(graph, queryMetaData);
+		graph = super.transform(graph, context);
 
 		Graph resultGraph = new Graph();
 

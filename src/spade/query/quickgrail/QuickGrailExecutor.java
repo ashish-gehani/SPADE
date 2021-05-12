@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +36,8 @@ import java.util.logging.Logger;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
+import spade.core.AbstractTransformer;
+import spade.core.AbstractTransformer.ArgumentName;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Kernel;
@@ -85,6 +88,7 @@ import spade.query.quickgrail.instruction.PrintPredicate;
 import spade.query.quickgrail.instruction.SetGraphMetadata;
 import spade.query.quickgrail.instruction.StatGraph;
 import spade.query.quickgrail.instruction.SubtractGraph;
+import spade.query.quickgrail.instruction.TransformGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
 import spade.query.quickgrail.parser.DSLParserWrapper;
 import spade.query.quickgrail.parser.ParseProgram;
@@ -111,8 +115,8 @@ public class QuickGrailExecutor{
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
-	private static final String configKeyDumpLimit = "dumpLimit"; 
-	private long exportGraphDumpLimit;
+	private static final String configKeyDumpLimit = "dumpLimit", configKeyPutGraphBatchSize = "putGraphBatchSize";
+	private long exportGraphDumpLimit, putGraphBatchSize;
 
 	private final AbstractQueryEnvironment queryEnvironment;
 	private final QueryInstructionExecutor instructionExecutor;
@@ -134,7 +138,15 @@ public class QuickGrailExecutor{
 			throw new RuntimeException("Failed to initialize discrepancy detection", t);
 		}
 	}
-	
+
+	private long getExportGraphDumpLimit(){
+		return exportGraphDumpLimit;
+	}
+
+	private long getPutGraphBatchSize(){
+		return putGraphBatchSize;
+	}
+
 	private void initializeGlobalsFromDefaultConfigFile() throws RuntimeException{
 		String configFilePath = Settings.getDefaultConfigFilePath(this.getClass());
 		try{
@@ -145,10 +157,17 @@ public class QuickGrailExecutor{
 				throw new RuntimeException("Invalid '"+configKeyDumpLimit+"' value. " + dumpLimitResult.toErrorString());
 			}
 			exportGraphDumpLimit = dumpLimitResult.result;
+
+			Result<Long> putGraphBatchSizeResult = HelperFunctions.parseLong(map.get(configKeyPutGraphBatchSize), 10, 1, Integer.MAX_VALUE);
+			if(putGraphBatchSizeResult.error){
+				throw new RuntimeException("Invalid '"+configKeyPutGraphBatchSize+"' value. " + putGraphBatchSizeResult.toErrorString());
+			}
+			putGraphBatchSize = putGraphBatchSizeResult.result;
 			
-			logger.log(Level.INFO, "Globals: {0}={1}", 
+			logger.log(Level.INFO, "Globals: {0}={1}, {2}={3}",
 					new Object[]{
 							configKeyDumpLimit, String.valueOf(exportGraphDumpLimit)
+							, configKeyPutGraphBatchSize, String.valueOf(putGraphBatchSize)
 							});
 		}catch(Exception e){
 			throw new RuntimeException("Failed to initialize globals in file '"+configFilePath+"'. " + e.getMessage());
@@ -334,6 +353,9 @@ public class QuickGrailExecutor{
 		}else if(instruction.getClass().equals(GetMatch.class)){
 			instructionExecutor.getMatch((GetMatch)instruction);
 
+		}else if(instruction.getClass().equals(TransformGraph.class)){
+			transformGraph((TransformGraph)instruction);
+
 		}else{
 			throw new RuntimeException("Unhandled instruction: " + instruction.getClass());
 		}
@@ -401,13 +423,13 @@ public class QuickGrailExecutor{
 		return table;
 	}
 
-	public spade.core.Graph exportGraph(final ExportGraph instruction){// throws Exception{
+	public spade.core.Graph exportGraph(final ExportGraph instruction){
 		GraphStats stats = instructionExecutor.statGraph(new StatGraph(instruction.targetGraph));
 		long verticesAndEdges = stats.vertices + stats.edges;
 		if(!instruction.force){
-			if(instruction.format == Format.kNormal && verticesAndEdges > exportGraphDumpLimit){
+			if(instruction.format == Format.kNormal && verticesAndEdges > getExportGraphDumpLimit()){
 				throw new RuntimeException(
-						"Dump export limit set at '" + exportGraphDumpLimit + "'. Total vertices and edges requested '"
+						"Dump export limit set at '" + getExportGraphDumpLimit() + "'. Total vertices and edges requested '"
 								+ verticesAndEdges + "'. " + "Please use 'dump all ...' to force the print.");
 			}
 		}
@@ -617,21 +639,21 @@ public class QuickGrailExecutor{
 	 */
 	
 	private Query getLineage(final GetLineage instruction, final Query originalSPADEQuery){
-		final Set<AbstractVertex> startGraphVertices = new HashSet<AbstractVertex>();
+		spade.core.Graph sourceGraph = null;
 		if(getGraphStats(instruction.startGraph).vertices > 0){
-			startGraphVertices.addAll(exportGraph(instruction.startGraph).vertexSet());
+			sourceGraph = exportGraph(instruction.startGraph);
 		}
 		
 		// need to do here because even if there is no lineage that might mean something to a transformer. 
 		try{
-			originalSPADEQuery.getQueryMetaData().setMaxLength(instruction.depth);
-			originalSPADEQuery.getQueryMetaData().setDirection(instruction.direction);
-			originalSPADEQuery.getQueryMetaData().addRootVertices(startGraphVertices);
+			originalSPADEQuery.getTransformerExecutionContext().setMaxDepth(instruction.depth);
+			originalSPADEQuery.getTransformerExecutionContext().setDirection(instruction.direction);
+			originalSPADEQuery.getTransformerExecutionContext().setSourceGraph(sourceGraph);
 		}catch(Exception e){
 			logger.log(Level.WARNING, "Failed to add root vertices for transformers from get lineage query");
 		}
 		
-		if(startGraphVertices.size() == 0
+		if(sourceGraph.vertexSet().size() == 0
 				|| getGraphStats(instruction.subjectGraph).edges == 0){
 			// Nothing to start from since no vertices OR no where to go in the subject since no edges
 			return originalSPADEQuery;
@@ -702,7 +724,7 @@ public class QuickGrailExecutor{
 							for(AbstractVertex networkVertex : networkVertices){
 								if(OPMConstants.isCompleteNetworkArtifact(networkVertex) // this is the 'abcdef' comment
 										&& RemoteResolver.isRemoteAddressRemoteInNetworkVertex(networkVertex)
-										&& !startGraphVertices.contains(networkVertex)
+										&& !sourceGraph.vertexSet().contains(networkVertex)
 										&& Kernel.getHostName().equals(networkVertex.getAnnotation("host"))){ // only need to resolve local artifacts
 									if(directionToNetworkToMinimumDepth.get(direction) == null){
 										directionToNetworkToMinimumDepth.put(direction, new HashMap<AbstractVertex, Integer>());
@@ -799,6 +821,102 @@ public class QuickGrailExecutor{
 		return originalSPADEQuery;
 		
 	}
+
+	private void transformGraph(final TransformGraph transformGraph){
+		final Result<AbstractTransformer> createResult = AbstractTransformer.create(transformGraph.transformerName);
+		if(createResult.error){
+			throw new RuntimeException(createResult.toErrorString());
+		}
+
+		boolean transformerInitialized = false;
+		final AbstractTransformer transformer = createResult.result;
+
+		try{
+			final LinkedHashSet<ArgumentName> argumentNames = transformer.getArgumentNames();
+			if(argumentNames == null){
+				throw new RuntimeException("Invalid transformer implementation. NULL argument names");
+			}
+
+			if(argumentNames.size() != transformGraph.getArgumentsSize()){
+				throw new RuntimeException("Invalid # of transformer arguments. Expected: " + argumentNames);
+			}
+
+			final AbstractTransformer.ExecutionContext executionContext = new AbstractTransformer.ExecutionContext();
+
+			int i = -1;
+			for(final ArgumentName argumentName : argumentNames){
+				i++;
+				if(argumentName == null){
+					throw new RuntimeException("NULL transformer argument name at index: " + i);
+				}
+				final Object instructionArgument = transformGraph.getArgument(i);
+				if(instructionArgument == null){
+					throw new RuntimeException("NULL transformer argument in instruction at index: " + i);
+				}
+				switch(argumentName){
+				case SOURCE_GRAPH:{
+					if(!instructionArgument.getClass().equals(spade.query.quickgrail.entities.Graph.class)){
+						throw new RuntimeException("Transformer argument must be a graph variable at index: " + i);
+					}else{
+						final spade.query.quickgrail.entities.Graph sourceGraphVariable = (spade.query.quickgrail.entities.Graph)instructionArgument;
+						final spade.core.Graph sourceGraph = exportGraph(sourceGraphVariable);
+						executionContext.setSourceGraph(sourceGraph); // Set
+					}
+					break;
+				}
+				case MAX_DEPTH:{
+					if(!instructionArgument.getClass().equals(Integer.class)){
+						throw new RuntimeException("Transformer argument must be an integer literal at index: " + i);
+					}else{
+						final Integer maxDepth = (Integer)instructionArgument;
+						executionContext.setMaxDepth(maxDepth); // Set
+					}
+					break;
+				}
+				case DIRECTION:{
+					if(!instructionArgument.getClass().equals(GetLineage.Direction.class)){
+						throw new RuntimeException("Transformer argument must be a string literal at index: " + i);
+					}else{
+						final GetLineage.Direction direction = (GetLineage.Direction)instructionArgument;
+						executionContext.setDirection(direction); // Set
+					}
+					break;
+				}
+				default:
+					throw new RuntimeException("Unhandled transformer argument name: " + argumentName);
+				}
+			}
+
+			final Result<Boolean> initResult = AbstractTransformer.init(transformer,
+					transformGraph.transformerInitializeArgument);
+			if(initResult.error){
+				throw new RuntimeException(initResult.errorMessage, initResult.exception);
+			}
+			if(!initResult.result.booleanValue()){
+				throw new RuntimeException("Failed to initialize transformer");
+			}
+			transformerInitialized = true;
+
+			final spade.core.Graph subjectGraph = exportGraph(transformGraph.subjectGraph);
+			final Result<spade.core.Graph> executeResult = AbstractTransformer.execute(transformer, subjectGraph,
+					executionContext);
+			if(executeResult.error){
+				throw new RuntimeException(executeResult.errorMessage, executeResult.exception);
+			}
+
+			final spade.core.Graph transformedGraph = executeResult.result.copyContents();
+
+			putGraph(instructionExecutor.getStorage(), transformGraph.outputGraph, transformedGraph);
+		}finally{
+			if(transformerInitialized){
+				final Result<Boolean> shutdownResult = AbstractTransformer.destroy(transformer);
+				if(shutdownResult.error){
+					logger.log(Level.WARNING, shutdownResult.toErrorString());
+				}
+			}
+		}
+	}
+
 	//////////////////////////////////////////////////
 	private spade.core.Graph patchRemoteLineageGraph(AbstractVertex localVertex,
 			spade.core.Graph remoteVerticesGraph, spade.core.Graph remoteLineageGraph){
@@ -824,46 +942,96 @@ public class QuickGrailExecutor{
 		patchedGraph.edgeSet().addAll(newEdges);
 		return patchedGraph;
 	}
-	
-	private void putGraph(AbstractStorage storage, Graph getLineageTargetGraph, spade.core.Graph graph){
+
+	private void insertVertexHashesInBatches(final Graph targetGraph, final spade.core.Graph srcGraph){
 		final Set<String> vertexHashSet = new HashSet<String>();
-		graph.vertexSet().forEach(v -> {vertexHashSet.add(v.bigHashCode());});
+		for(AbstractVertex v : srcGraph.vertexSet()){
+			vertexHashSet.add(v.bigHashCode());
+			if(vertexHashSet.size() >= getPutGraphBatchSize()){
+				try{
+					instructionExecutor.insertLiteralVertex(
+							new InsertLiteralVertex(targetGraph, new ArrayList<String>(vertexHashSet)));
+				}finally{
+					vertexHashSet.clear();
+				}
+			}
+		}
+
+		if(vertexHashSet.size() > 0){
+			try{
+				instructionExecutor.insertLiteralVertex(
+						new InsertLiteralVertex(targetGraph, new ArrayList<String>(vertexHashSet)));
+			}finally{
+				vertexHashSet.clear();
+			}
+		}
+	}
+
+	private void insertEdgeHashesInBatches(final Graph targetGraph, final spade.core.Graph srcGraph){
 		final Set<String> edgeHashSet = new HashSet<String>();
-		graph.edgeSet().forEach(e -> {edgeHashSet.add(e.bigHashCode());});
-		
+		for(AbstractEdge e : srcGraph.edgeSet()){
+			edgeHashSet.add(e.bigHashCode());
+			if(edgeHashSet.size() >= getPutGraphBatchSize()){
+				try{
+					instructionExecutor
+							.insertLiteralEdge(new InsertLiteralEdge(targetGraph, new ArrayList<String>(edgeHashSet)));
+				}finally{
+					edgeHashSet.clear();
+				}
+			}
+		}
+
+		if(edgeHashSet.size() > 0){
+			try{
+				instructionExecutor
+						.insertLiteralEdge(new InsertLiteralEdge(targetGraph, new ArrayList<String>(edgeHashSet)));
+			}finally{
+				edgeHashSet.clear();
+			}
+		}
+	}
+
+	private void putGraph(AbstractStorage storage, Graph targetGraph, spade.core.Graph graph){
 		final Graph verticesGraph = createNewGraph();
 		final Graph edgesGraph = createNewGraph();
-		
-		instructionExecutor.insertLiteralVertex(new InsertLiteralVertex(verticesGraph, new ArrayList<String>(vertexHashSet)));
-		instructionExecutor.insertLiteralEdge(new InsertLiteralEdge(edgesGraph, new ArrayList<String>(edgeHashSet)));
-		
+
+		// The following two calls insert vertices/edges in 'graph' that exist in $base, into the variable 'targetGraph'
+		insertVertexHashesInBatches(verticesGraph, graph);
+		insertEdgeHashesInBatches(edgesGraph, graph);
+
+		// Getting the vertices/edges that were assigned to variable 'targetGraph'
 		final spade.core.Graph vertexGraph = exportGraph(verticesGraph);
 		final spade.core.Graph edgeGraph = exportGraph(edgesGraph);
-		
+
+		// Subtracting vertices in 'targetGraph' from 'graph' to get the vertices which are not in $base
 		final spade.core.Graph subgraphNotPresent = new spade.core.Graph();
 		subgraphNotPresent.vertexSet().addAll(graph.vertexSet());
 		subgraphNotPresent.edgeSet().addAll(graph.edgeSet());
 		subgraphNotPresent.vertexSet().removeAll(vertexGraph.vertexSet());
 		subgraphNotPresent.edgeSet().removeAll(edgeGraph.edgeSet());
-		
+
+		// Putting the new vertices in $base
 		for(AbstractVertex vertex : subgraphNotPresent.vertexSet()){
 			storage.putVertex(vertex);
 		}
-		
+
+		// Putting the new edges in $base
 		for(AbstractEdge edge : subgraphNotPresent.edgeSet()){
 			storage.putEdge(edge);
 		}
-		
+
 		storage.flushTransactions(true);
 		
-		HelperFunctions.sleepSafe(50); // TODO
+		HelperFunctions.sleepSafe(50);
 		
-		// The following variables have all the vertices and edges now
-		instructionExecutor.insertLiteralVertex(new InsertLiteralVertex(verticesGraph, new ArrayList<String>(vertexHashSet)));
-		instructionExecutor.insertLiteralEdge(new InsertLiteralEdge(edgesGraph, new ArrayList<String>(edgeHashSet)));
-		
-		unionGraph(getLineageTargetGraph, verticesGraph);
-		unionGraph(getLineageTargetGraph, edgesGraph);
+		// The vertices/edges that were not in $base (but were in 'graph') are now in $base
+		// Insert the just-added vertices and edges to 'targetGraph'
+		insertVertexHashesInBatches(verticesGraph, graph);
+		insertEdgeHashesInBatches(edgesGraph, graph);
+
+		// Union into one variable 'targetGraph'
+		unionGraph(targetGraph, verticesGraph);
+		unionGraph(targetGraph, edgesGraph);
 	}
 	
 	//////////////////////////////////////////////////

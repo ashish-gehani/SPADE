@@ -70,13 +70,14 @@ public abstract class AbstractEdge implements Serializable{
      * 
      * @param hexHashString String
      */
-    public AbstractEdge(String hexHashString){
-    	if(!HashHelper.defaultInstance.isValidHashHexString(hexHashString)){
-    		throw new RuntimeException("Invalid Edge hash. "
-    				+ "Mismatch in hex hash string '"+hexHashString+"' and hash algorithm " + HashHelper.defaultInstance);
-    	}
-    	this.bigHashCode = hexHashString;
-    }
+	public AbstractEdge(String hexHashString){
+		if(!HashHelper.defaultInstance.isValidHashHexString(hexHashString)){
+			setId(hexHashString);
+			this.bigHashCode = HashHelper.defaultInstance.hashToHexString(hexHashString);
+		}else{
+			this.bigHashCode = hexHashString;
+		}
+	}
     
     /**
      * Returns true if the vertex has a fixed big hash otherwise false
@@ -172,6 +173,15 @@ public abstract class AbstractEdge implements Serializable{
         return annotations.get(idKey);
     }
 
+	/**
+	 * Sets the id of this vertex
+	 * 
+	 * @param value Must be a non-null string otherwise converted to empty string
+	 */
+	public final void setId(final String value){
+		addAnnotation(idKey, value);
+	}
+    
     // The following functions that get and set source and destination vertices
     // are left empty in this abstract class - they are overridden and implemented
     // in derived classes since the source and destination vertex types may be

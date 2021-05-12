@@ -74,11 +74,11 @@ public abstract class AbstractVertex implements Serializable{
     
     public final AbstractVertex copyAsVertex(){
     	final AbstractVertex copy;
-    	if(isReferenceVertex()){
-    		copy = new Vertex(this.bigHashCode);
-    	}else{
-    		copy = new Vertex();
-    	}
+		if(isReferenceVertex()){
+			copy = new Vertex(bigHashCode());
+		}else{
+			copy = new Vertex();
+		}
 		copy.annotations.putAll(this.annotations);
 		return copy;
 	}

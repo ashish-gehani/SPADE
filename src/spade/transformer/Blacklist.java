@@ -19,12 +19,13 @@
  */
 package spade.transformer;
 
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
@@ -54,14 +55,20 @@ public class Blacklist extends AbstractTransformer{
 
 	}
 
-	public Graph transform(Graph graph, QueryMetaData queryMetaData){
+	@Override
+	public LinkedHashSet<ArgumentName> getArgumentNames(){
+		return new LinkedHashSet<ArgumentName>(
+				Arrays.asList(
+						ArgumentName.SOURCE_GRAPH
+						)
+				);
+	}
+
+	@Override
+	public Graph transform(Graph graph, ExecutionContext context){
 		Graph resultGraph = new Graph();
 
-		Set<AbstractVertex> queriedVertices = null;
-
-		if(queryMetaData != null){
-			queriedVertices = queryMetaData.getRootVertices();
-		}
+		Set<AbstractVertex> queriedVertices = context.getSourceGraph().vertexSet();
 
 		for(AbstractEdge edge : graph.edgeSet()){
 			String srcFilepath = getAnnotationSafe(edge.getChildVertex(), OPMConstants.ARTIFACT_PATH);

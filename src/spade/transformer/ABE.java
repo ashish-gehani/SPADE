@@ -24,6 +24,7 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,7 +40,6 @@ import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 
-import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
@@ -654,7 +654,12 @@ public class ABE extends AbstractTransformer
     }
 
     @Override
-    public ABEGraph transform(Graph graph, QueryMetaData queryMetaData)
+	public LinkedHashSet<ArgumentName> getArgumentNames(){
+		return new LinkedHashSet<ArgumentName>();
+	}
+
+    @Override
+    public ABEGraph transform(Graph graph, ExecutionContext context)
     {
         ABEGraph encryptedGraph = ABEGraph.copy(graph, true);
 

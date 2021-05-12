@@ -19,8 +19,10 @@
  */
 package spade.transformer;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
@@ -28,7 +30,6 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import spade.client.QueryMetaData;
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
@@ -46,6 +47,7 @@ public class NoEphemeralReads extends AbstractTransformer{
 	// for ephemeral reads.
 	// limited = false means that all files in the graph should be checked for
 	// ephemeral reads.
+	@Override
 	public boolean initialize(String arguments){
 		Map<String, String> argumentsMap = HelperFunctions.parseKeyValPairs(arguments);
 		if("false".equals(argumentsMap.get("limited"))){
@@ -65,11 +67,18 @@ public class NoEphemeralReads extends AbstractTransformer{
 		}
 	}
 
-	public Graph transform(Graph graph, QueryMetaData queryMetaData){
-		Set<AbstractVertex> queriedVertices = null;
-		if(queryMetaData != null){
-			queriedVertices = queryMetaData.getRootVertices();
-		}
+	@Override
+	public LinkedHashSet<ArgumentName> getArgumentNames(){
+		return new LinkedHashSet<ArgumentName>(
+				Arrays.asList(
+						ArgumentName.SOURCE_GRAPH
+						)
+				);
+	}
+
+	@Override
+	public Graph transform(Graph graph, ExecutionContext context){
+		Set<AbstractVertex> queriedVertices = context.getSourceGraph().vertexSet();
 
 		Map<AbstractVertex, Set<String>> fileWrittenBy = new HashMap<>();
 

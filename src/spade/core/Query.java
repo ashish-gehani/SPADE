@@ -26,8 +26,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-import spade.client.QueryMetaData;
-
 public class Query implements Serializable{
 
 	private static final long serialVersionUID = -4867369163497687639L;
@@ -50,7 +48,7 @@ public class Query implements Serializable{
 	private List<Query> remoteSubqueries = new ArrayList<Query>();
 
 	// Only required for local transformation of queries
-	private final QueryMetaData queryMetaData = new QueryMetaData();
+	private final AbstractTransformer.ExecutionContext transformerExecutionContext = new AbstractTransformer.ExecutionContext();
 
 	public Query(String localName, String remoteName, String query, String queryNonce){
 		this.localName = localName;
@@ -97,8 +95,8 @@ public class Query implements Serializable{
 		return new ArrayList<Query>(remoteSubqueries);
 	}
 
-	public QueryMetaData getQueryMetaData(){
-		return queryMetaData;
+	public AbstractTransformer.ExecutionContext getTransformerExecutionContext(){
+		return transformerExecutionContext;
 	}
 
 	@Override
@@ -112,8 +110,8 @@ public class Query implements Serializable{
 				+ ", error=" + error 
 				+ ", result=" + result
 				+ ", remoteSubqueries=" + remoteSubqueries 
-				+ ", queryMetaData=" + queryMetaData + 
-				"]";
+//				+ ", transformerExecutionContext=" + transformerExecutionContext
+				+ "]";
 	}
 
 	public Set<Object> getAllResults(){

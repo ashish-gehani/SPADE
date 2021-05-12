@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.client.QueryMetaData;
 import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 import spade.utility.Result;
@@ -272,7 +271,7 @@ public abstract class AbstractAnalyzer{
 									if(isResultAGraph){
 										Graph finalGraph = (spade.core.Graph)spadeQuery.getResult();
 										if(useTransformer){
-											finalGraph = iterateTransformers(finalGraph, spadeQuery.getQueryMetaData());
+											finalGraph = iterateTransformers(finalGraph, spadeQuery.getTransformerExecutionContext());
 										}
 										finalGraph.setHostName(Kernel.getHostName()); // Set it here because the graph might be modified by the transformers
 										finalGraph.addSignature(spadeQuery.queryNonce);
@@ -403,15 +402,16 @@ public abstract class AbstractAnalyzer{
 			this.currentStorage = storage;
 		}
 
-		private Graph iterateTransformers(Graph graph, QueryMetaData queryMetaData){
+		private Graph iterateTransformers(Graph graph, final AbstractTransformer.ExecutionContext executionContext){
 			synchronized(Kernel.transformers){
 				for(int i = 0; i < Kernel.transformers.size(); i++){
 					try{
 						AbstractTransformer transformer = Kernel.transformers.get(i);
-						graph = transformer.transform(graph, queryMetaData);
-						if(graph == null){
-							throw new RuntimeException("Graph transformation resulted in NULL graph");
+						final Result<Graph> executeResult = AbstractTransformer.execute(transformer, graph, executionContext);
+						if(executeResult.error){
+							throw new RuntimeException(executeResult.errorMessage, executeResult.exception);
 						}
+						graph = executeResult.result;
 					}catch(Exception e){
 						throw new RuntimeException("Failed to apply transformer '"
 								+Kernel.transformers.get(i) == null ? "<NULL transformer>" : Kernel.transformers.get(i).getClass().getSimpleName()

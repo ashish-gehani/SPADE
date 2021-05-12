@@ -19,25 +19,26 @@
  */
 package spade.transformer;
 
-import org.apache.commons.io.FileUtils;
-import spade.client.QueryMetaData;
-import spade.core.AbstractEdge;
-import spade.core.AbstractTransformer;
-import spade.core.AbstractVertex;
-import spade.core.Graph;
-import spade.core.Settings;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import org.apache.commons.io.FileUtils;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractTransformer;
+import spade.core.AbstractVertex;
+import spade.core.Graph;
+import spade.core.Settings;
 
 public class Aggregation extends AbstractTransformer
 {
@@ -47,6 +48,7 @@ public class Aggregation extends AbstractTransformer
 	private Map<String, String> annotationNewAnnotation = new HashMap<>();
 		
 	//read file with every line containing <originalAnnotationName newAnnotationName aggregationFunction>
+	@Override
 	public boolean initialize(String arguments)
     {
 		String filepath = Settings.getDefaultConfigFilePath(this.getClass());
@@ -86,9 +88,14 @@ public class Aggregation extends AbstractTransformer
 			return false;
 		}
 	}
-	
+
 	@Override
-	public Graph transform(Graph graph, QueryMetaData queryMetaData)
+	public LinkedHashSet<ArgumentName> getArgumentNames(){
+		return new LinkedHashSet<ArgumentName>();
+	}
+
+	@Override
+	public Graph transform(Graph graph, ExecutionContext context)
 	{
 		String[] annotationsToRemove = annotationAggregationFunction.keySet().toArray(new String[]{});
 		Map<AbstractEdge, Map<String, List<String>>> edgeAnnotationSet = new HashMap<>();

@@ -20,23 +20,28 @@
 
 package spade.transformer;
 
-import spade.client.QueryMetaData;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Graph;
 
-import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 public class OnlyAddresses extends AbstractTransformer
 {
+	@Override
+	public LinkedHashSet<ArgumentName> getArgumentNames(){
+		return new LinkedHashSet<ArgumentName>();
+	}
 
-	public Graph transform(Graph graph, QueryMetaData queryMetaData)
+	@Override
+	public Graph transform(Graph graph, ExecutionContext context)
 	{
 		/*
 		 * Code description:
