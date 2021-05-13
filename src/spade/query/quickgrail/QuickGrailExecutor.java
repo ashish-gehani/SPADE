@@ -35,7 +35,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.core.AbstractEdge;
-import spade.core.AbstractStorage;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractTransformer.ArgumentName;
 import spade.core.AbstractVertex;
@@ -52,7 +51,6 @@ import spade.query.quickgrail.core.Program;
 import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver;
-import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.entities.GraphPredicate;
 import spade.query.quickgrail.instruction.CollapseEdge;
@@ -94,6 +92,7 @@ import spade.query.quickgrail.parser.DSLParserWrapper;
 import spade.query.quickgrail.parser.ParseProgram;
 import spade.query.quickgrail.types.LongType;
 import spade.query.quickgrail.types.StringType;
+import spade.query.quickgrail.utility.ExecutionUtility;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
 import spade.query.quickgrail.utility.ResultTable;
 import spade.query.quickgrail.utility.Schema;
@@ -556,7 +555,7 @@ public class QuickGrailExecutor{
 	}
 
 	private void getPath(final GetPath instruction){
-		Graph unionResultGraph = createNewGraph();
+		Graph unionResultGraph = ExecutionUtility.createNewGraph(instructionExecutor);
 		
 		Graph subjectGraph = instruction.subjectGraph;
 		Graph sourceGraph = instruction.srcGraph;
@@ -566,18 +565,18 @@ public class QuickGrailExecutor{
 			Graph intermediateStepGraph = intermediateStep.getKey();
 			int intermediateStepMaxDepth = intermediateStep.getValue();
 			
-			Graph intermediateResult = createNewGraph();
+			Graph intermediateResult = ExecutionUtility.createNewGraph(instructionExecutor);
 			instructionExecutor.getPath(new GetSimplePath(
 					intermediateResult, subjectGraph, sourceGraph, intermediateStepGraph, intermediateStepMaxDepth));
 			
 			if(i == totalIntermediateSteps - 1){
 				// last step so no need to get the intersection
 			}else{
-				Graph intermediateIntersectionResult = createNewGraph();
+				Graph intermediateIntersectionResult = ExecutionUtility.createNewGraph(instructionExecutor);
 				instructionExecutor.intersectGraph(new IntersectGraph(intermediateIntersectionResult, 
 						intermediateResult, intermediateStepGraph));
 				
-				GraphStats stats = getGraphStats(intermediateIntersectionResult);
+				GraphStats stats = ExecutionUtility.getGraphStats(instructionExecutor, intermediateIntersectionResult);
 				if(stats.vertices <= 0){
 					// No point in going further
 					break;
@@ -590,58 +589,11 @@ public class QuickGrailExecutor{
 		
 		instructionExecutor.distinctifyGraph(new DistinctifyGraph(instruction.targetGraph, unionResultGraph));
 	}
-	
-	/*
-	 * private void getPath(GetPath instruction){ Graph ancestorsOfFromGraph =
-	 * queryEnvironment.allocateGraph(); instructionExecutor.createEmptyGraph(new
-	 * CreateEmptyGraph(ancestorsOfFromGraph));
-	 * 
-	 * Graph descendantsOfToGraph = queryEnvironment.allocateGraph();
-	 * instructionExecutor.createEmptyGraph(new
-	 * CreateEmptyGraph(descendantsOfToGraph));
-	 * 
-	 * getLineage(new GetLineage(ancestorsOfFromGraph, instruction.subjectGraph,
-	 * instruction.srcGraph, instruction.maxDepth, GetLineage.Direction.kAncestor,
-	 * false));
-	 * 
-	 * getLineage(new GetLineage(descendantsOfToGraph, instruction.subjectGraph,
-	 * instruction.dstGraph, instruction.maxDepth, GetLineage.Direction.kDescendant,
-	 * false));
-	 * 
-	 * Graph intersectionGraph = queryEnvironment.allocateGraph();
-	 * instructionExecutor.createEmptyGraph(new
-	 * CreateEmptyGraph(intersectionGraph));
-	 * 
-	 * instructionExecutor .intersectGraph(new IntersectGraph(intersectionGraph,
-	 * ancestorsOfFromGraph, descendantsOfToGraph));
-	 * 
-	 * Graph fromGraphInIntersection = queryEnvironment.allocateGraph();
-	 * instructionExecutor.createEmptyGraph(new
-	 * CreateEmptyGraph(fromGraphInIntersection));
-	 * 
-	 * instructionExecutor .intersectGraph(new
-	 * IntersectGraph(fromGraphInIntersection, intersectionGraph,
-	 * instruction.srcGraph));
-	 * 
-	 * Graph toGraphInIntersection = queryEnvironment.allocateGraph();
-	 * instructionExecutor.createEmptyGraph(new
-	 * CreateEmptyGraph(toGraphInIntersection));
-	 * 
-	 * instructionExecutor .intersectGraph(new IntersectGraph(toGraphInIntersection,
-	 * intersectionGraph, instruction.dstGraph));
-	 * 
-	 * if(!instructionExecutor.statGraph(new
-	 * StatGraph(fromGraphInIntersection)).isEmpty() &&
-	 * !instructionExecutor.statGraph(new
-	 * StatGraph(toGraphInIntersection)).isEmpty()){
-	 * instructionExecutor.unionGraph(new UnionGraph(instruction.targetGraph,
-	 * intersectionGraph)); // means we // found a path } }
-	 */
-	
+
 	private Query getLineage(final GetLineage instruction, final Query originalSPADEQuery){
 		spade.core.Graph sourceGraph = null;
-		if(getGraphStats(instruction.startGraph).vertices > 0){
-			sourceGraph = exportGraph(instruction.startGraph);
+		if(ExecutionUtility.getGraphStats(instructionExecutor, instruction.startGraph).vertices > 0){
+			sourceGraph = ExecutionUtility.exportGraph(this, instruction.startGraph);
 		}
 		
 		// need to do here because even if there is no lineage that might mean something to a transformer. 
@@ -654,7 +606,7 @@ public class QuickGrailExecutor{
 		}
 		
 		if(sourceGraph.vertexSet().size() == 0
-				|| getGraphStats(instruction.subjectGraph).edges == 0){
+				|| ExecutionUtility.getGraphStats(instructionExecutor, instruction.subjectGraph).edges == 0){
 			// Nothing to start from since no vertices OR no where to go in the subject since no edges
 			return originalSPADEQuery;
 		}		
@@ -678,27 +630,27 @@ public class QuickGrailExecutor{
 		final Map<Direction, Map<AbstractVertex, Integer>> directionToNetworkToMinimumDepth = 
 				new HashMap<Direction, Map<AbstractVertex, Integer>>();
 		
-		final Graph resultGraph = createNewGraph();
+		final Graph resultGraph = ExecutionUtility.createNewGraph(instructionExecutor);
 		
 		for(final Direction direction : directions){
-			final Graph directionGraph = createNewGraph();
+			final Graph directionGraph = ExecutionUtility.createNewGraph(instructionExecutor);
 
-			final Graph currentLevelVertices = createNewGraph();
-			distinctifyGraph(currentLevelVertices, instruction.startGraph);
+			final Graph currentLevelVertices = ExecutionUtility.createNewGraph(instructionExecutor);
+			ExecutionUtility.distinctifyGraph(instructionExecutor, currentLevelVertices, instruction.startGraph);
 
 			int currentDepth = 1;
 			
-			final Graph nextLevelVertices = createNewGraph();
-			final Graph adjacentGraph = createNewGraph();
+			final Graph nextLevelVertices = ExecutionUtility.createNewGraph(instructionExecutor);
+			final Graph adjacentGraph = ExecutionUtility.createNewGraph(instructionExecutor);
 			
-			while(getGraphStats(currentLevelVertices).vertices > 0){
+			while(ExecutionUtility.getGraphStats(instructionExecutor, currentLevelVertices).vertices > 0){
 				if(currentDepth > instruction.depth){
 					break;
 				}else{
-					clearGraph(adjacentGraph);
+					ExecutionUtility.clearGraph(instructionExecutor, adjacentGraph);
 					instructionExecutor.getAdjacentVertex(
 							new GetAdjacentVertex(adjacentGraph, instruction.subjectGraph, currentLevelVertices, direction));
-					if(getGraphStats(adjacentGraph).vertices < 1){
+					if(ExecutionUtility.getGraphStats(instructionExecutor, adjacentGraph).vertices < 1){
 						break;
 					}else{
 						// Get only new vertices
@@ -707,19 +659,20 @@ public class QuickGrailExecutor{
 						// new vertices (i.e. next level)
 						// Remove all the vertices which are already in the the result graph to avoid
 						// doing duplicate work
-						clearGraph(nextLevelVertices);
-						unionGraph(nextLevelVertices, adjacentGraph);
-						subtractGraph(nextLevelVertices, currentLevelVertices);
-						subtractGraph(nextLevelVertices, directionGraph);
+						ExecutionUtility.clearGraph(instructionExecutor, nextLevelVertices);
+						ExecutionUtility.unionGraph(instructionExecutor, nextLevelVertices, adjacentGraph);
+						ExecutionUtility.subtractGraph(instructionExecutor, nextLevelVertices, currentLevelVertices);
+						ExecutionUtility.subtractGraph(instructionExecutor, nextLevelVertices, directionGraph);
 						
-						clearGraph(currentLevelVertices);
-						unionGraph(currentLevelVertices, nextLevelVertices);
+						ExecutionUtility.clearGraph(instructionExecutor, currentLevelVertices);
+						ExecutionUtility.unionGraph(instructionExecutor, currentLevelVertices, nextLevelVertices);
 
 						// Update the result graph after so that we don't remove all the relevant
 						// vertices
-						unionGraph(directionGraph, adjacentGraph);
+						ExecutionUtility.unionGraph(instructionExecutor, directionGraph, adjacentGraph);
 
-						Set<AbstractVertex> networkVertices = getNetworkVertices(nextLevelVertices);
+						Set<AbstractVertex> networkVertices = ExecutionUtility.getNetworkVertices(this, instructionExecutor,
+								nextLevelVertices);
 						if(!networkVertices.isEmpty()){
 							for(AbstractVertex networkVertex : networkVertices){
 								if(OPMConstants.isCompleteNetworkArtifact(networkVertex) // this is the 'abcdef' comment
@@ -740,12 +693,12 @@ public class QuickGrailExecutor{
 					}
 				}
 			}
-			unionGraph(resultGraph, directionGraph);
+			ExecutionUtility.unionGraph(instructionExecutor, resultGraph, directionGraph);
 		}
 		
 		////////////////////////////////////////////////////
 
-		distinctifyGraph(instruction.targetGraph, resultGraph);
+		ExecutionUtility.distinctifyGraph(instructionExecutor, instruction.targetGraph, resultGraph);
 
 		// LOCAL query done by now
 		final int clientPort = Settings.getCommandLineQueryPort();
@@ -767,7 +720,7 @@ public class QuickGrailExecutor{
 				if(remoteDepth > 0){
 					try(RemoteSPADEQueryConnection connection = new RemoteSPADEQueryConnection(Kernel.getHostName(), remoteAddress, clientPort)){
 						connection.connect(Kernel.getClientSocketFactory(), 5*1000);
-						final String remoteVertexPredicate = buildRemoteGetVertexPredicate(localNetworkVertex);
+						final String remoteVertexPredicate = ExecutionUtility.buildRemoteGetVertexPredicate(localNetworkVertex);
 						final String remoteVerticesSymbol = connection.getBaseVertices(remoteVertexPredicate);
 						final GraphStats remoteVerticesStats = connection.statGraph(remoteVerticesSymbol);
 						if(remoteVerticesStats.vertices > 0){
@@ -803,9 +756,10 @@ public class QuickGrailExecutor{
 								if(discrepancyDetector.doDiscrepancyDetection(
 										remoteLineageGraph, new HashSet<AbstractVertex>(
 												remoteVerticesGraph.vertexSet()), remoteDepth, direction, remoteHostNameInGraph)){
-									spade.core.Graph patchedGraph = patchRemoteLineageGraph(localNetworkVertex, 
+									spade.core.Graph patchedGraph = ExecutionUtility.patchRemoteLineageGraph(localNetworkVertex, 
 											remoteVerticesGraph, remoteLineageGraph);
-									putGraph(instructionExecutor.getStorage(), instruction.targetGraph, patchedGraph);
+									ExecutionUtility.putGraph(this, instructionExecutor, getPutGraphBatchSize(), 
+											instruction.targetGraph, patchedGraph);
 								}else{
 									throw new RuntimeException("Discrepancies found in result graph. Result discarded.");
 								}
@@ -859,7 +813,7 @@ public class QuickGrailExecutor{
 						throw new RuntimeException("Transformer argument must be a graph variable at index: " + i);
 					}else{
 						final spade.query.quickgrail.entities.Graph sourceGraphVariable = (spade.query.quickgrail.entities.Graph)instructionArgument;
-						final spade.core.Graph sourceGraph = exportGraph(sourceGraphVariable);
+						final spade.core.Graph sourceGraph = ExecutionUtility.exportGraph(this, sourceGraphVariable);
 						executionContext.setSourceGraph(sourceGraph); // Set
 					}
 					break;
@@ -897,7 +851,7 @@ public class QuickGrailExecutor{
 			}
 			transformerInitialized = true;
 
-			final spade.core.Graph subjectGraph = exportGraph(transformGraph.subjectGraph);
+			final spade.core.Graph subjectGraph = ExecutionUtility.exportGraph(this, transformGraph.subjectGraph);
 			final Result<spade.core.Graph> executeResult = AbstractTransformer.execute(transformer, subjectGraph,
 					executionContext);
 			if(executeResult.error){
@@ -906,7 +860,8 @@ public class QuickGrailExecutor{
 
 			final spade.core.Graph transformedGraph = executeResult.result.copyContents();
 
-			putGraph(instructionExecutor.getStorage(), transformGraph.outputGraph, transformedGraph);
+			ExecutionUtility.putGraph(this, instructionExecutor, getPutGraphBatchSize(), 
+					transformGraph.outputGraph, transformedGraph);
 		}finally{
 			if(transformerInitialized){
 				final Result<Boolean> shutdownResult = AbstractTransformer.destroy(transformer);
@@ -916,192 +871,4 @@ public class QuickGrailExecutor{
 			}
 		}
 	}
-
-	//////////////////////////////////////////////////
-	private spade.core.Graph patchRemoteLineageGraph(AbstractVertex localVertex,
-			spade.core.Graph remoteVerticesGraph, spade.core.Graph remoteLineageGraph){
-		Set<AbstractVertex> commonRemoteVertices = new HashSet<AbstractVertex>();
-		
-		commonRemoteVertices.addAll(remoteVerticesGraph.vertexSet());
-		commonRemoteVertices.retainAll(remoteLineageGraph.vertexSet());
-		
-		Set<AbstractEdge> newEdges = new HashSet<AbstractEdge>();
-		for(AbstractVertex remoteVertex : commonRemoteVertices){
-			AbstractEdge e0 = new Edge(localVertex, remoteVertex);
-			AbstractEdge e1 = new Edge(remoteVertex, localVertex);
-			e0.addAnnotation(OPMConstants.TYPE, OPMConstants.WAS_DERIVED_FROM);
-			e1.addAnnotation(OPMConstants.TYPE, OPMConstants.WAS_DERIVED_FROM);
-			newEdges.add(e0);
-			newEdges.add(e1);
-		}
-		
-		spade.core.Graph patchedGraph = new spade.core.Graph();
-		patchedGraph.vertexSet().addAll(remoteVerticesGraph.vertexSet());
-		patchedGraph.vertexSet().addAll(remoteLineageGraph.vertexSet());
-		patchedGraph.edgeSet().addAll(remoteLineageGraph.edgeSet());
-		patchedGraph.edgeSet().addAll(newEdges);
-		return patchedGraph;
-	}
-
-	private void insertVertexHashesInBatches(final Graph targetGraph, final spade.core.Graph srcGraph){
-		final Set<String> vertexHashSet = new HashSet<String>();
-		for(AbstractVertex v : srcGraph.vertexSet()){
-			vertexHashSet.add(v.bigHashCode());
-			if(vertexHashSet.size() >= getPutGraphBatchSize()){
-				try{
-					instructionExecutor.insertLiteralVertex(
-							new InsertLiteralVertex(targetGraph, new ArrayList<String>(vertexHashSet)));
-				}finally{
-					vertexHashSet.clear();
-				}
-			}
-		}
-
-		if(vertexHashSet.size() > 0){
-			try{
-				instructionExecutor.insertLiteralVertex(
-						new InsertLiteralVertex(targetGraph, new ArrayList<String>(vertexHashSet)));
-			}finally{
-				vertexHashSet.clear();
-			}
-		}
-	}
-
-	private void insertEdgeHashesInBatches(final Graph targetGraph, final spade.core.Graph srcGraph){
-		final Set<String> edgeHashSet = new HashSet<String>();
-		for(AbstractEdge e : srcGraph.edgeSet()){
-			edgeHashSet.add(e.bigHashCode());
-			if(edgeHashSet.size() >= getPutGraphBatchSize()){
-				try{
-					instructionExecutor
-							.insertLiteralEdge(new InsertLiteralEdge(targetGraph, new ArrayList<String>(edgeHashSet)));
-				}finally{
-					edgeHashSet.clear();
-				}
-			}
-		}
-
-		if(edgeHashSet.size() > 0){
-			try{
-				instructionExecutor
-						.insertLiteralEdge(new InsertLiteralEdge(targetGraph, new ArrayList<String>(edgeHashSet)));
-			}finally{
-				edgeHashSet.clear();
-			}
-		}
-	}
-
-	private void putGraph(AbstractStorage storage, Graph targetGraph, spade.core.Graph graph){
-		final Graph verticesGraph = createNewGraph();
-		final Graph edgesGraph = createNewGraph();
-
-		// The following two calls insert vertices/edges in 'graph' that exist in $base, into the variable 'targetGraph'
-		insertVertexHashesInBatches(verticesGraph, graph);
-		insertEdgeHashesInBatches(edgesGraph, graph);
-
-		// Getting the vertices/edges that were assigned to variable 'targetGraph'
-		final spade.core.Graph vertexGraph = exportGraph(verticesGraph);
-		final spade.core.Graph edgeGraph = exportGraph(edgesGraph);
-
-		// Subtracting vertices in 'targetGraph' from 'graph' to get the vertices which are not in $base
-		final spade.core.Graph subgraphNotPresent = new spade.core.Graph();
-		subgraphNotPresent.vertexSet().addAll(graph.vertexSet());
-		subgraphNotPresent.edgeSet().addAll(graph.edgeSet());
-		subgraphNotPresent.vertexSet().removeAll(vertexGraph.vertexSet());
-		subgraphNotPresent.edgeSet().removeAll(edgeGraph.edgeSet());
-
-		// Putting the new vertices in $base
-		for(AbstractVertex vertex : subgraphNotPresent.vertexSet()){
-			storage.putVertex(vertex);
-		}
-
-		// Putting the new edges in $base
-		for(AbstractEdge edge : subgraphNotPresent.edgeSet()){
-			storage.putEdge(edge);
-		}
-
-		storage.flushTransactions(true);
-		
-		HelperFunctions.sleepSafe(50);
-		
-		// The vertices/edges that were not in $base (but were in 'graph') are now in $base
-		// Insert the just-added vertices and edges to 'targetGraph'
-		insertVertexHashesInBatches(verticesGraph, graph);
-		insertEdgeHashesInBatches(edgesGraph, graph);
-
-		// Union into one variable 'targetGraph'
-		unionGraph(targetGraph, verticesGraph);
-		unionGraph(targetGraph, edgesGraph);
-	}
-	
-	//////////////////////////////////////////////////
-	private String buildRemoteGetVertexPredicate(AbstractVertex localNetworkVertex){
-		String predicate = "";
-		predicate += formatQueryName(RemoteResolver.getAnnotationLocalAddress()) + "="
-				+ formatQueryValue(RemoteResolver.getRemoteAddress(localNetworkVertex));
-		predicate += " and ";
-		predicate += formatQueryName(RemoteResolver.getAnnotationLocalPort()) + "="
-				+ formatQueryValue(RemoteResolver.getRemotePort(localNetworkVertex));
-		predicate += " and ";
-		predicate += formatQueryName(RemoteResolver.getAnnotationRemoteAddress()) + "="
-				+ formatQueryValue(RemoteResolver.getLocalAddress(localNetworkVertex));
-		predicate += " and ";
-		predicate += formatQueryName(RemoteResolver.getAnnotationRemotePort()) + "="
-				+ formatQueryValue(RemoteResolver.getLocalPort(localNetworkVertex));
-		return predicate;
-	}
-
-	private String formatQueryName(String name){
-		return '"' + name + '"';
-	}
-
-	private String formatQueryValue(String name){
-		return "'" + name + "'";
-	}
-	//////////////////////////////////////////////////
-	
-	private GraphStats getGraphStats(Graph graph){
-		return instructionExecutor.statGraph(new StatGraph(graph));
-	}
-
-	private spade.core.Graph exportGraph(Graph graph){
-		return exportGraph(new ExportGraph(graph, Format.kDot, true, null));
-	}
-
-	private Graph createNewGraph(){
-		Graph newGraph = instructionExecutor.getQueryEnvironment().allocateGraph();
-		instructionExecutor.createEmptyGraph(new CreateEmptyGraph(newGraph));
-		return newGraph;
-	}
-	
-	private void clearGraph(Graph graph){
-		instructionExecutor.createEmptyGraph(new CreateEmptyGraph(graph));
-	}
-
-	private void unionGraph(Graph target, Graph source){
-		instructionExecutor.unionGraph(new UnionGraph(target, source));
-	}
-	
-	private void subtractGraph(Graph target, Graph source){
-		instructionExecutor.subtractGraph(new SubtractGraph(target, target, source, null));
-	}
-	
-	private void distinctifyGraph(Graph target, Graph source){
-		instructionExecutor.distinctifyGraph(new DistinctifyGraph(target, source));
-	}
-
-	private Set<AbstractVertex> getNetworkVertices(Graph graph){
-		Graph tempGraph = createNewGraph();
-		instructionExecutor.getVertex(new GetVertex(tempGraph, graph, OPMConstants.ARTIFACT_SUBTYPE,
-				PredicateOperator.EQUAL, OPMConstants.SUBTYPE_NETWORK_SOCKET));
-		spade.core.Graph networkVerticesGraph = exportGraph(tempGraph);
-		Set<AbstractVertex> networkVertices = new HashSet<AbstractVertex>();
-		for(AbstractVertex networkVertex : networkVerticesGraph.vertexSet()){
-			networkVertices.add(networkVertex);
-		}
-		return networkVertices;
-	}
-
-	//////////////////////////////////////////////////
-
 }
