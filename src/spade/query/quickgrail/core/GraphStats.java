@@ -68,7 +68,7 @@ public class GraphStats implements Serializable{
 	@Override
 	public String toString(){
 		return "GraphStats [vertices=" + vertices + ", edges=" + edges
-				+ ((aggregateStats == null) ? ("") : (", aggregateStats=\n" + aggregateStats))
+				+ ((aggregateStats == null) ? ("") : (", aggregateStats=\n" + aggregateStats + "\n"))
 				+ "]";
 	}
 	
