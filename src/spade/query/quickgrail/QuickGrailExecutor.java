@@ -591,9 +591,11 @@ public class QuickGrailExecutor{
 	}
 
 	private Query getLineage(final GetLineage instruction, final Query originalSPADEQuery){
-		spade.core.Graph sourceGraph = null;
+		final spade.core.Graph sourceGraph;
 		if(ExecutionUtility.getGraphStats(instructionExecutor, instruction.startGraph).vertices > 0){
 			sourceGraph = ExecutionUtility.exportGraph(this, instruction.startGraph);
+		}else{
+			sourceGraph = new spade.core.Graph();
 		}
 		
 		// need to do here because even if there is no lineage that might mean something to a transformer. 
