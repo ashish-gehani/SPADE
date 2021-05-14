@@ -38,6 +38,7 @@ import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
 import spade.query.quickgrail.instruction.DescribeGraph;
+import spade.query.quickgrail.instruction.DescribeGraph.ElementType;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
 import spade.query.quickgrail.instruction.EvaluateQuery;
 import spade.query.quickgrail.instruction.ExportGraph;
@@ -59,12 +60,14 @@ import spade.query.quickgrail.instruction.LimitGraph;
 import spade.query.quickgrail.instruction.OverwriteGraphMetadata;
 import spade.query.quickgrail.instruction.SetGraphMetadata;
 import spade.query.quickgrail.instruction.StatGraph;
+import spade.query.quickgrail.instruction.StatGraph.AggregateType;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
 import spade.query.quickgrail.types.StringType;
 import spade.query.quickgrail.utility.ResultTable;
 import spade.query.quickgrail.utility.Schema;
 import spade.storage.Neo4j;
+import spade.utility.AggregationState;
 import spade.utility.HelperFunctions;
 
 public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
@@ -434,6 +437,35 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 			edges = Long.parseLong(String.valueOf(result.get(0).get("ecount")));
 		}
 		return new GraphStats(vertices, edges);
+	}
+	
+	@Override
+	public GraphStats aggregateGraph(final Graph graph, final ElementType elementType, 
+			final String annotationName, final AggregateType aggregateType, final java.util.List<String> extras){
+		/*
+		 * Please refer to the queries in 'statGraph' function (above) and 'describeGraph' on how to refer to 
+		 * the vertex and edge table of a graph. Please refer to the function 'evaluateQuery' on how to get table out
+		 * of the database.
+		 */
+
+		/*
+		 * If any state related to past stats on graph have to be stored then it can be stored in the 'AggregationState' object.
+		 * 
+		 * The lifetime of the object is tried to the lifetime of the storage which is being queried. That means when storage
+		 * is added then the AggregationState object is initialized and when the storage is removed then the AggregationState object
+		 * is discarded, too.
+		 * 
+		 * Also, this object is storage specific i.e. one for each storage.
+		 * 
+		 * Example on how to get the object is shown below.
+		 */
+		final AggregationState aggregationState = getQueryEnvironment().getAggregationState();
+		
+		final long vertices = 0;
+		final long edges = 0;
+		// Add your fields to 'AggregateStats'
+		final GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats("neo4j");
+		return new GraphStats(vertices, edges, aggregateStats);
 	}
 
 	@Override

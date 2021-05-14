@@ -32,6 +32,7 @@ import spade.query.quickgrail.entities.GraphPredicate;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
 import spade.query.quickgrail.utility.TreeStringSerializable;
+import spade.utility.AggregationState;
 import spade.utility.HelperFunctions;
 
 public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
@@ -70,7 +71,14 @@ public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
 	}
 	
 	// END - environment variables
-	
+
+	// START - Differential privacy related state
+	private final AggregationState aggregationState = new AggregationState();
+	public final AggregationState getAggregationState(){
+		return aggregationState;
+	}
+	// END - Differential privacy related state
+
 	// Step 1
 	public AbstractQueryEnvironment(final String baseGraphName){
 		if(HelperFunctions.isNullOrEmpty(baseGraphName)){

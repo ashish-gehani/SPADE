@@ -31,6 +31,7 @@ import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
 import spade.query.quickgrail.instruction.DescribeGraph;
+import spade.query.quickgrail.instruction.DescribeGraph.ElementType;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
 import spade.query.quickgrail.instruction.EraseSymbols;
 import spade.query.quickgrail.instruction.EvaluateQuery;
@@ -54,6 +55,7 @@ import spade.query.quickgrail.instruction.OverwriteGraphMetadata;
 import spade.query.quickgrail.instruction.PrintPredicate;
 import spade.query.quickgrail.instruction.SetGraphMetadata;
 import spade.query.quickgrail.instruction.StatGraph;
+import spade.query.quickgrail.instruction.StatGraph.AggregateType;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
@@ -149,4 +151,14 @@ public abstract class QueryInstructionExecutor{
 		return newGraph;
 	}
 
+	/**
+	 * @param graph The graph to operate on
+	 * @param elementType Either vertex or edge
+	 * @param annotationName The name of the annotation
+	 * @param aggregateType The aggregate type specified
+	 * @param extras The list of extra arguments (if any). Empty for now.
+	 * @return GraphStats instance
+	 */
+	public abstract GraphStats aggregateGraph(final Graph graph, final ElementType elementType, 
+			final String annotationName, final AggregateType aggregateType, final java.util.List<String> extras);
 }

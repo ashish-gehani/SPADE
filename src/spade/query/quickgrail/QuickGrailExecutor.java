@@ -317,7 +317,17 @@ public class QuickGrailExecutor{
 			instructionExecutor.setGraphMetadata((SetGraphMetadata)instruction);
 
 		}else if(instruction.getClass().equals(StatGraph.class)){
-			GraphStats stats = instructionExecutor.statGraph((StatGraph)instruction);
+			final StatGraph statGraphInstruction = (StatGraph)instruction;
+			final GraphStats stats;
+			if(statGraphInstruction.aggregate == null){
+				stats = instructionExecutor.statGraph(statGraphInstruction);
+			}else{
+				stats = instructionExecutor.aggregateGraph(statGraphInstruction.targetGraph,
+						statGraphInstruction.aggregate.elementType,
+						statGraphInstruction.aggregate.annotationName,
+						statGraphInstruction.aggregate.aggregateType,
+						statGraphInstruction.aggregate.getExtras());
+			}
 			if(stats == null){
 				result = "No Result!";
 			}else{

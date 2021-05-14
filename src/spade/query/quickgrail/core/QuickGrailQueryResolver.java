@@ -60,6 +60,7 @@ import spade.query.quickgrail.instruction.List;
 import spade.query.quickgrail.instruction.List.ListType;
 import spade.query.quickgrail.instruction.PrintPredicate;
 import spade.query.quickgrail.instruction.StatGraph;
+import spade.query.quickgrail.instruction.StatGraph.AggregateType;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.TransformGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
@@ -396,30 +397,98 @@ public class QuickGrailQueryResolver{
 		instructions.add(new ExportGraph(targetGraph, outputFormat, force, filePathOnServer));
 	}
 
-	private void resolveStatCommand(ArrayList<ParseExpression> arguments){
-		if(arguments.size() != 1){
-			throw new RuntimeException("Invalid number of arguments for stat: expected 1");
-		}
-
+	private Graph resolveStatGraphExpression(final ParseExpression parseExpression){
 		boolean isConstVariable = false;
-		
-		final ParseExpression parseExpression = arguments.get(0);
-		
+
 		if(parseExpression.getExpressionType().equals(ParseExpression.ExpressionType.kVariable)){
 			final ParseVariable parseVariable = (ParseVariable)parseExpression;
 			if(parseVariable.getType().getTypeID().equals(TypeID.kGraph)){
 				isConstVariable = true;
 			}
 		}
-		
+
+		final Graph targetGraph;
+
 		if(isConstVariable){
-			instructions.add(new StatGraph(resolveGraphExpression(parseExpression, null, true)));
+			targetGraph = resolveGraphExpression(parseExpression, null, true);
 		}else{
-			Graph targetGraph = resolveGraphExpression(parseExpression, null, true);
-			Graph distinctifiedGraph = allocateEmptyGraph();
-			instructions.add(new DistinctifyGraph(distinctifiedGraph, targetGraph));
-			instructions.add(new StatGraph(distinctifiedGraph));
+			final Graph resolvedGraph = resolveGraphExpression(parseExpression, null, true);
+			targetGraph = allocateEmptyGraph();
+			instructions.add(new DistinctifyGraph(targetGraph, resolvedGraph));
 		}
+
+		return targetGraph;
+	}
+	
+	private void resolveStatCommand(ArrayList<ParseExpression> arguments){
+		if(arguments.size() == 0){
+			throw new RuntimeException("Invalid number of arguments for stat: expected at least 1");
+		}
+
+		if(arguments.size() == 1){
+			final Graph targetGraph = resolveStatGraphExpression(arguments.get(0));
+			instructions.add(new StatGraph(targetGraph));
+			return;
+		}
+
+		if(arguments.size() < 4){
+			throw new RuntimeException("Invalid number of arguments for stat: expected at least 4");
+		}
+
+		final ParseExpression elementTypeExpression = arguments.get(0);
+		if(elementTypeExpression.getExpressionType() != ParseExpression.ExpressionType.kName){
+			throw new RuntimeException("Invalid value at " + elementTypeExpression.getLocationString() + ": expected name");
+		}
+		final String elementTypeValue = ((ParseName)elementTypeExpression).getName().getValue();
+		final Result<ElementType> elementTypeResult = HelperFunctions.parseEnumValue(ElementType.class, elementTypeValue, true);
+		if(elementTypeResult.error){
+			throw new RuntimeException("Invalid value at " + elementTypeExpression.getLocationString() + ". Expected one of: " 
+					+ Arrays.asList(ElementType.values()));
+		}
+		final ElementType elementType = elementTypeResult.result;
+
+		final ParseExpression annotationExpression = arguments.get(1);
+		if(annotationExpression.getExpressionType() != ParseExpression.ExpressionType.kName){
+			throw new RuntimeException("Invalid value at " + annotationExpression.getLocationString() + ": expected name");
+		}
+		final String annotationName = ((ParseName)annotationExpression).getName().getValue();
+
+		final ParseExpression aggregateTypeExpression = arguments.get(2);
+		if(aggregateTypeExpression.getExpressionType() != ParseExpression.ExpressionType.kName){
+			throw new RuntimeException("Invalid value at " + aggregateTypeExpression.getLocationString() + ": expected name");
+		}
+		final String aggregateTypeValue = ((ParseName)aggregateTypeExpression).getName().getValue();
+		final Result<AggregateType> aggregateTypeResult = HelperFunctions.parseEnumValue(AggregateType.class, aggregateTypeValue, true);
+		if(aggregateTypeResult.error){
+			throw new RuntimeException("Invalid value at " + aggregateTypeExpression.getLocationString() + ". Expected one of: " 
+					+ Arrays.asList(AggregateType.values()));
+		}
+		final AggregateType aggregateType = aggregateTypeResult.result;
+		
+		final Graph targetGraph = resolveStatGraphExpression(arguments.get(3));
+
+		final java.util.List<String> extras = new ArrayList<String>();
+		for(int i = 4; i < arguments.size(); i++){
+			final ParseExpression expr = arguments.get(i);
+			if(expr.getExpressionType() == ParseExpression.ExpressionType.kName){
+				extras.add(resolveNameAsString(expr));
+			}else if(expr.getExpressionType() == ParseExpression.ExpressionType.kLiteral){
+				final TypedValue typedValue = ((ParseLiteral)expr).getLiteralValue();
+				final String value;
+				if(typedValue.getType().getTypeID() == TypeID.kString){
+					value = (String)typedValue.getValue();
+				}else if(typedValue.getType().getTypeID() == TypeID.kInteger){
+					value = ((Integer)typedValue.getValue()).toString();
+				}else{
+					throw new RuntimeException("Invalid value type at " + expr.getLocationString() + ": expected name or string or integer");
+				}
+				extras.add(value);
+			}else{
+				throw new RuntimeException("Invalid value type at " + expr.getLocationString() + ": name or expected string or integer");
+			}
+		}
+
+		instructions.add(new StatGraph(targetGraph, elementType, annotationName, aggregateType, extras));
 	}
 	
 	private final Integer getOptionalPositiveIntegerArgument(final ArrayList<ParseExpression> arguments, final int i){

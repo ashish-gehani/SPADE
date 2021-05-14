@@ -22,6 +22,7 @@ package spade.query.quickgrail.instruction;
 import java.util.ArrayList;
 
 import spade.query.quickgrail.entities.Graph;
+import spade.query.quickgrail.instruction.DescribeGraph.ElementType;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
@@ -29,9 +30,17 @@ import spade.query.quickgrail.utility.TreeStringSerializable;
  */
 public class StatGraph extends Instruction{
 	public final Graph targetGraph;
+	public final Aggregate aggregate;
 
-	public StatGraph(Graph targetGraph){
+	public StatGraph(final Graph targetGraph){
 		this.targetGraph = targetGraph;
+		this.aggregate = null;
+	}
+
+	public StatGraph(final Graph targetGraph, final ElementType elementType, 
+			final String annotationName, final AggregateType aggregateType, final java.util.List<String> extras){
+		this.targetGraph = targetGraph;
+		this.aggregate = new Aggregate(elementType, annotationName, aggregateType, extras);
 	}
 
 	@Override
@@ -46,5 +55,46 @@ public class StatGraph extends Instruction{
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
 		inline_field_names.add("targetGraph");
 		inline_field_values.add(targetGraph.name);
+		if(aggregate != null){
+			inline_field_names.add("elementType");
+			inline_field_values.add(aggregate.elementType.toString());
+			inline_field_names.add("annotationName");
+			inline_field_values.add(aggregate.annotationName);
+			inline_field_names.add("aggregateType");
+			inline_field_values.add(aggregate.aggregateType.toString());
+			inline_field_names.add("extras");
+			inline_field_values.add(aggregate.extras.toString());
+		}
+	}
+
+	public static enum AggregateType{
+		HISTOGRAM, MEAN, STD
+	}
+
+	public static class Aggregate{
+		public final ElementType elementType;
+		public final String annotationName;
+		public final AggregateType aggregateType;
+		private final java.util.List<String> extras = new ArrayList<String>();
+
+		private Aggregate(final ElementType elementType, 
+				final String annotationName, final AggregateType aggregateType, final java.util.List<String> extras){
+			this.elementType = elementType;
+			this.annotationName = annotationName;
+			this.aggregateType = aggregateType;
+			this.extras.addAll(extras);
+		}
+
+		public int getExtraSize(){
+			return extras.size();
+		}
+
+		public String getExtra(int i){
+			return extras.get(i);
+		}
+		
+		public java.util.List<String> getExtras(){
+			return new ArrayList<String>(extras);
+		}
 	}
 }

@@ -22,10 +22,18 @@ public class GraphStats implements Serializable{
 	
 	private static final long serialVersionUID = -5687449560082206524L;
 	public final long vertices, edges;
+	public final AggregateStats aggregateStats;
 
-	public GraphStats(long vertices, long edges){
+	public GraphStats(final long vertices, final long edges){
 		this.vertices = vertices;
 		this.edges = edges;
+		this.aggregateStats = null;
+	}
+
+	public GraphStats(final long vertices, final long edges, final AggregateStats aggregateStats){
+		this.vertices = vertices;
+		this.edges = edges;
+		this.aggregateStats = aggregateStats;
 	}
 
 	public boolean isEmpty(){
@@ -59,6 +67,28 @@ public class GraphStats implements Serializable{
 
 	@Override
 	public String toString(){
-		return "GraphStats [vertices=" + vertices + ", edges=" + edges + "]";
+		return "GraphStats [vertices=" + vertices + ", edges=" + edges
+				+ ((aggregateStats == null) ? ("") : (", aggregateStats=\n" + aggregateStats))
+				+ "]";
+	}
+	
+	public static class AggregateStats implements Serializable{
+
+		private static final long serialVersionUID = 1L;
+
+		/*
+		 * Everything inside me should be serializable!!!
+		 */
+		public final String example;
+		public AggregateStats(final String example){
+			this.example = example;
+		}
+		
+		@Override
+		public String toString(){
+			// Implement me and include all the variable in 'AggregateStats' to print them on the query client side
+			// TODO If you want to return in Table format then look at ResultTable.fromText function to create the table and then call toString on it.
+			return "example = " + example;
+		}
 	}
 }
