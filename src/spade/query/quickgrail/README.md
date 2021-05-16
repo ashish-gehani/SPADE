@@ -125,10 +125,12 @@ _return-type_ **method-name** ( **_argument-type_** formal-argument, ... )
 * _graph_ **limit** ( [**_int_** limit] )
   * Get first (ordered by id) _limit_ vertices / edges
     * e.g. `$2 = $1.limit(10)` or `$2 = $1.limit()` to implicitly use `limit` environment variable
-* _graph_ **transform** ( **_name_** transformerName[, ( **_graph_** graphArgument | **_int_** intArgument | **_string_** stringArgument )]*)
-  * Transform the subject graph using the transformer with the name `transformerName`
-  * Supported transformer argument types are restricted to: **_graph_** variable, **_int_** literal, and **_string_** literal
-    * e.g. `$2 = $1.transform(Sanitization)` uses the transformer `Sanitization` to transform the `$1` **_graph_** variable and store the result in `$2` **_graph_** variable
+
+* _graph_ **transform** ( **_name_** transformer[, argument]*)
+  * Use a pre-defined [_transformer_](https://github.com/ashish-gehani/SPADE/wiki/Available-transformers) to return a rewritten version of the graph.
+  * Arguments can be graph variables, integers, or strings.
+    * e.g. `$2 = $1.transform(DropKeys, keys=uid,gid)` copies the vertices and edges in `$1` to `$2`, droppping annotations with `uid` or `gid` as the key.
+
 ---
 #### Functions
 * _graph_ **vertices** ( **_string_** vertexHash, ... )
