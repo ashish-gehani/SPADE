@@ -68,7 +68,7 @@ public class StatGraph extends Instruction{
 	}
 
 	public static enum AggregateType{
-		HISTOGRAM, MEAN, STD
+		HISTOGRAM, MEAN, STD, DISTRIBUTION
 	}
 
 	public static class Aggregate{

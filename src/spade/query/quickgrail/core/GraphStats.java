@@ -17,12 +17,14 @@
 package spade.query.quickgrail.core;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 
 public class GraphStats implements Serializable{
 	
 	private static final long serialVersionUID = -5687449560082206524L;
 	public final long vertices, edges;
-	public final AggregateStats aggregateStats;
+	public AggregateStats aggregateStats;
 
 	public GraphStats(final long vertices, final long edges){
 		this.vertices = vertices;
@@ -33,6 +35,11 @@ public class GraphStats implements Serializable{
 	public GraphStats(final long vertices, final long edges, final AggregateStats aggregateStats){
 		this.vertices = vertices;
 		this.edges = edges;
+		this.aggregateStats = aggregateStats;
+	}
+
+	public void setAggregateStats(final AggregateStats aggregateStats)
+	{
 		this.aggregateStats = aggregateStats;
 	}
 
@@ -79,16 +86,64 @@ public class GraphStats implements Serializable{
 		/*
 		 * Everything inside me should be serializable!!!
 		 */
-		public final String example;
-		public AggregateStats(final String example){
-			this.example = example;
+		private Map<String, Integer> histogram = null;
+		private Double mean = null;
+		private Double std = null;
+		private Map<String, Integer> distribution = null;
+
+		public void setHistogram(Map<String, Integer> histogram)
+		{
+			this.histogram = histogram;
+		}
+
+		public Map<String, Integer> getHistogram()
+		{
+			return this.histogram;
+		}
+
+		public void setMean(Double mean)
+		{
+			this.mean = mean;
+		}
+
+		public Double getMean()
+		{
+			return this.mean;
+		}
+
+		public void setStd(Double std)
+		{
+			this.std = std;
+		}
+
+		public Double getStd()
+		{
+			return this.std;
+		}
+
+		public void setDistribution(Map<String, Integer> distribution)
+		{
+			this.distribution = distribution;
+		}
+
+		public Map<String, Integer> getDistribution()
+		{
+			return this.distribution;
 		}
 		
 		@Override
-		public String toString(){
-			// Implement me and include all the variable in 'AggregateStats' to print them on the query client side
-			// TODO If you want to return in Table format then look at ResultTable.fromText function to create the table and then call toString on it.
-			return "example = " + example;
+		public String toString()
+		{
+			String string = "";
+			if(histogram != null)
+				string += "histogram=" + histogram;
+			if(mean != null)
+				string += "mean=" + mean;
+			if(std != null)
+				string += "std=" + std;
+			if(distribution != null)
+				string += "distribution=" + distribution;
+			return string;
 		}
 	}
 }

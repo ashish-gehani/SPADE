@@ -16,8 +16,21 @@
  */
 package spade.utility;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class AggregationState{
 	/*
 	 * Previously computed stats can be kept here
 	 */
+	public static class VertexState
+	{
+		// map of (annotation name ->  histogram)
+		private final Map<String, Map<String, Integer>> histograms = new HashMap<>();
+		// map of (annotation name -> mean)
+		private final Map<String, Double> means = new HashMap<>();
+		// map of (annotation name -> std)
+		private final Map<String, Double> stds = new HashMap<>();
+	}
+
 }

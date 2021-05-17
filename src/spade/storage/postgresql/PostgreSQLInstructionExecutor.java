@@ -714,44 +714,137 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		return new GraphStats(numVertices, numEdges);
 	}
 
-	@Override
-	public GraphStats aggregateGraph(final Graph graph, final ElementType elementType, 
-			final String annotationName, final AggregateType aggregateType, final java.util.List<String> extras){
-		/*
-		 * Please refer to the queries in 'statGraph' function (above) on how to refer to the vertex and edge table of a graph
-		 */
+	private GraphStats.AggregateStats computeDistribution(final Graph graph,
+														  final ElementType elementType,
+														  final String annotationName,
+														  final List<String> extras)
+	{
+		// TODO: update the function
+		return computeHistogram(graph, elementType, annotationName);
+	}
 
-		// Possibly helpful util functions:
-		// 1) executeQueryForResult(String query, false) - this function returns a list of list of string i.e. a 2D table representation.
-		// Example below:
-		final String targetVertexTable = getVertexTableName(graph);
-		final boolean includeHeadingRow = false;
-		final List<List<String>> table2d = executeQueryForResult("select count(*) from " + targetVertexTable, includeHeadingRow);
-		for(final List<String> row : table2d){ // iterate all rows
-			for(final String column : row){ // iterate all columns
-				
-			}
+	private GraphStats.AggregateStats computeStd(final Graph graph, final ElementType elementType,
+												  final String annotationName)
+	{
+
+		String targetVertexTable = getVertexTableName(graph);
+		String targetEdgeTable = getEdgeTableName(graph);
+		String query = "select stddev(cast(" + annotationName + " as decimal)) from %s"
+				+ " where " + getIdColumnName()
+				+ " in (select "+getIdColumnName()+" from %s)";
+		if(elementType.equals(ElementType.VERTEX))
+		{
+			query = String.format(query, getVertexAnnotationTableName(), targetVertexTable);
+
+		}
+		else if(elementType.equals(ElementType.EDGE))
+		{
+			query = String.format(query, getEdgeAnnotationTableName(), targetEdgeTable);
+		}
+		String result = executeQueryForResult(query, false).get(0).get(0);
+		Double std = Double.parseDouble(result);
+		GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats();
+		aggregateStats.setStd(std);
+		return aggregateStats;
+	}
+
+	private GraphStats.AggregateStats computeMean(final Graph graph, final ElementType elementType,
+												  final String annotationName)
+	{
+		String targetVertexTable = getVertexTableName(graph);
+		String targetEdgeTable = getEdgeTableName(graph);
+		String query = "select avg(cast(" + annotationName + " as decimal)) from %s"
+				+ " where " + getIdColumnName()
+				+ " in (select "+getIdColumnName()+" from %s)";
+		if(elementType.equals(ElementType.VERTEX))
+		{
+			query = String.format(query, getVertexAnnotationTableName(), targetVertexTable);
+
+		}
+		else if(elementType.equals(ElementType.EDGE))
+		{
+			query = String.format(query, getEdgeAnnotationTableName(), targetEdgeTable);
+		}
+		String result = executeQueryForResult(query, false).get(0).get(0);
+		Double mean = Double.parseDouble(result);
+		GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats();
+		aggregateStats.setMean(mean);
+		return aggregateStats;
+	}
+
+	private GraphStats.AggregateStats computeHistogram(final Graph graph, final ElementType elementType,
+								  					final String annotationName)
+	{
+		String targetVertexTable = getVertexTableName(graph);
+		String targetEdgeTable = getEdgeTableName(graph);
+		String query = "select " + annotationName + ", count(*) from %s"
+				+ " where " + getIdColumnName()
+				+ " in (select " + getIdColumnName() + " from %s)"
+				+ " group by " + annotationName
+				+ "  order by count(*)";
+		List<List<String>> result;
+		if(elementType.equals(ElementType.VERTEX))
+		{
+			query = String.format(query, getVertexAnnotationTableName(), targetVertexTable);
+		}
+		else if(elementType.equals(ElementType.EDGE))
+		{
+			query = String.format(query, getEdgeAnnotationTableName(), targetEdgeTable);
 		}
 
+		result = executeQueryForResult(query, false);
+		Map<String, Integer>histogram = new HashMap<>();
+		for(final List<String> row : result)
+		{
+			String value = row.get(0);
+			Integer count = Integer.parseInt(row.get(1));
+			histogram.put(value, count);
+		}
+		GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats();
+		aggregateStats.setHistogram(histogram);
+		return aggregateStats;
+	}
+
+
+	@Override
+	public GraphStats aggregateGraph(final Graph graph, final ElementType elementType,
+			final String annotationName, final AggregateType aggregateType, final List<String> extras)
+	{
+		GraphStats.AggregateStats aggregateStats = null;
+		if(aggregateType.equals(AggregateType.HISTOGRAM))
+		{
+			aggregateStats = computeHistogram(graph, elementType, annotationName);
+		}
+		else if(aggregateType.equals(AggregateType.MEAN))
+		{
+			aggregateStats = computeMean(graph, elementType, annotationName);
+		}
+		else if(aggregateType.equals(AggregateType.STD))
+		{
+			aggregateStats = computeStd(graph, elementType, annotationName);
+		}
+		else if(aggregateType.equals(AggregateType.DISTRIBUTION))
+		{
+			aggregateStats = computeDistribution(graph, elementType, annotationName, extras);
+		}
 		/*
 		 * If any state related to past stats on graph have to be stored then it can be stored in the 'AggregationState' object.
-		 * 
-		 * The lifetime of the object is tried to the lifetime of the storage which is being queried. That means when storage
+		 *
+		 * The lifetime of the object is tied to the lifetime of the storage which is being queried. That means when storage
 		 * is added then the AggregationState object is initialized and when the storage is removed then the AggregationState object
 		 * is discarded, too.
-		 * 
+		 *
 		 * Also, this object is storage specific i.e. one for each storage.
-		 * 
+		 *
 		 * Example on how to get the object is shown below.
-		 */
-		final AggregationState aggregationState = getQueryEnvironment().getAggregationState();
+		 * final AggregationState aggregationState = getQueryEnvironment().getAggregationState();
+		*/
 
-		final long vertices = 0;
-		final long edges = 0;
-		// Add your fields to 'AggregateStats'
-		final GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats("postgres");
-		return new GraphStats(vertices, edges, aggregateStats);
+		GraphStats graphStats = statGraph(new StatGraph(graph));
+		graphStats.setAggregateStats(aggregateStats);
+		return graphStats;
 	}
+
 
 	@Override
 	public void subtractGraph(SubtractGraph instruction){
