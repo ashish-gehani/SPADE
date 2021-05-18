@@ -129,7 +129,7 @@ _return-type_ **method-name** ( **_argument-type_** formal-argument, ... )
 * _graph_ **transform** ( **_name_** transformer[, argument]*)
   * Use a pre-defined [_transformer_](https://github.com/ashish-gehani/SPADE/wiki/Available-transformers) to return a rewritten version of the graph.
   * Arguments can be graph variables, integers, or strings.
-    * e.g. `$2 = $1.transform(DropKeys, keys=uid,gid)` copies the vertices and edges in `$1` to `$2`, droppping annotations with `uid` or `gid` as the key.
+    * e.g. `$2 = $1.transform(DropKeys, "keys=uid,gid")` copies the vertices and edges in `$1` to `$2`, droppping annotations with `uid` or `gid` as the key.
 
 ---
 #### Functions
