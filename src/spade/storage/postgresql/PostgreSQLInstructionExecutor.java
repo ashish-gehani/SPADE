@@ -19,12 +19,7 @@
  */
 package spade.storage.postgresql;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import spade.core.AbstractStorage;
 import spade.query.quickgrail.core.GraphDescription;
@@ -793,7 +788,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		}
 
 		result = executeQueryForResult(query, false);
-		Map<String, Integer>histogram = new HashMap<>();
+		SortedMap<String, Integer> histogram = new TreeMap<>();
 		for(final List<String> row : result)
 		{
 			String value = row.get(0);

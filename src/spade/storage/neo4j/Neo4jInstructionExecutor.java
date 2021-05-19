@@ -464,7 +464,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		final long vertices = 0;
 		final long edges = 0;
 		// Add your fields to 'AggregateStats'
-		final GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats("neo4j");
+		final GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats();
 		return new GraphStats(vertices, edges, aggregateStats);
 	}
 

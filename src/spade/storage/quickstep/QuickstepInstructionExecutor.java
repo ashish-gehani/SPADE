@@ -19,13 +19,8 @@
  */
 package spade.storage.quickstep;
 
+import java.util.*;
 import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import spade.core.AbstractStorage;
 import spade.query.quickgrail.core.GraphDescription;
@@ -609,14 +604,127 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		long numEdges = qs.executeQueryForLongResult("COPY SELECT COUNT(*) FROM " + targetEdgeTable + " TO stdout;");
 		return new GraphStats(numVertices, numEdges);
 	}
-	
-	@Override
-	public GraphStats aggregateGraph(final Graph graph, final ElementType elementType, 
-			final String annotationName, final AggregateType aggregateType, final java.util.List<String> extras){
+
+	private GraphStats.AggregateStats computeDistribution(final Graph graph,
+														  final ElementType elementType,
+														  final String annotationName,
+														  final List<String> extras)
+	{
+		// TODO: update the function
+		return computeHistogram(graph, elementType, annotationName);
+	}
+
+	private GraphStats.AggregateStats computeStd(final Graph graph, final ElementType elementType,
+												 final String annotationName)
+	{
+
+		String targetVertexTable = getVertexTableName(graph);
+		String targetEdgeTable = getEdgeTableName(graph);
+		String query = "copy select stddev(cast(value as decimal)) from %s"
+				+ " where id in (select id from %s)"
+				+ " and field=" + annotationName
+				+ " to stdout;";
+		if(elementType.equals(ElementType.VERTEX))
+		{
+			query = String.format(query, vertexAnnotationsTableName, targetVertexTable);
+
+		}
+		else if(elementType.equals(ElementType.EDGE))
+		{
+			query = String.format(query, edgeAnnotationTableName, targetEdgeTable);
+		}
+		String result = qs.executeQuery(query).trim();
+		Double std = Double.parseDouble(result);
+		GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats();
+		aggregateStats.setStd(std);
+		return aggregateStats;
+	}
+
+
+	private GraphStats.AggregateStats computeMean(final Graph graph, final ElementType elementType,
+												  final String annotationName)
+	{
+		String targetVertexTable = getVertexTableName(graph);
+		String targetEdgeTable = getEdgeTableName(graph);
+		String query = "copy select avg(cast(value as decimal)) from %s"
+				+ " where id in (select id from %s)"
+				+ " and field =" + annotationName
+				+ " to stdout";
+		if(elementType.equals(ElementType.VERTEX))
+		{
+			query = String.format(query, vertexAnnotationsTableName, targetVertexTable);
+
+		}
+		else if(elementType.equals(ElementType.EDGE))
+		{
+			query = String.format(query, edgeAnnotationTableName, targetEdgeTable);
+		}
+		String result = qs.executeQuery(query).trim();
+		Double mean = Double.parseDouble(result);
+		GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats();
+		aggregateStats.setMean(mean);
+		return aggregateStats;
+	}
+
+	private GraphStats.AggregateStats computeHistogram(final Graph graph, final ElementType elementType,
+													   final String annotationName)
+	{
+		String targetVertexTable = getVertexTableName(graph);
+		String targetEdgeTable = getEdgeTableName(graph);
 		/*
-		 * Please refer to the queries in '_getIdToHashOfVertices' function on how to refer 
+		 * Please refer to the queries in '_getIdToHashOfVertices' function on how to refer
 		 * to the vertex and edge table of a graph and refer to 'evaluateQuery' (lines 470, 471, 472) on how to get that table data.
 		 */
+		String query = "copy select value, count(*) from %s"
+				+ " where id"
+				+ " in (select id from %s)"
+				+ " and field=" + annotationName
+				+ " group by value"
+				+ " order by count(*)"
+				+ " to stdout with (delimiter ',');";
+		if(elementType.equals(ElementType.VERTEX))
+		{
+			query = String.format(query, vertexAnnotationsTableName, targetVertexTable);
+		}
+		else if(elementType.equals(ElementType.EDGE))
+		{
+			query = String.format(query, edgeAnnotationTableName, targetEdgeTable);
+		}
+		String result = qs.executeQuery(query);
+		ResultTable table = ResultTable.FromText(result, ',');
+		SortedMap<String, Integer> histogram = new TreeMap<>();
+		for(ResultTable.Row row: table.getRows())
+		{
+			String value = row.getValue(0);
+			Integer count = Integer.parseInt(row.getValue(1));
+			histogram.put(value, count);
+		}
+		GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats();
+		aggregateStats.setHistogram(histogram);
+		return aggregateStats;
+	}
+
+	@Override
+	public GraphStats aggregateGraph(final Graph graph, final ElementType elementType, 
+			final String annotationName, final AggregateType aggregateType, final java.util.List<String> extras)
+	{
+		GraphStats.AggregateStats aggregateStats = null;
+		if(aggregateType.equals(AggregateType.HISTOGRAM))
+		{
+			aggregateStats = computeHistogram(graph, elementType, annotationName);
+		}
+		else if(aggregateType.equals(AggregateType.MEAN))
+		{
+			aggregateStats = computeMean(graph, elementType, annotationName);
+		}
+		else if(aggregateType.equals(AggregateType.STD))
+		{
+			aggregateStats = computeStd(graph, elementType, annotationName);
+		}
+		else if(aggregateType.equals(AggregateType.DISTRIBUTION))
+		{
+			aggregateStats = computeDistribution(graph, elementType, annotationName, extras);
+		}
 
 		/*
 		 * If any state related to past stats on graph have to be stored then it can be stored in the 'AggregationState' object.
@@ -629,13 +737,11 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		 * 
 		 * Example on how to get the object is shown below.
 		 */
-		final AggregationState aggregationState = getQueryEnvironment().getAggregationState();
+//		final AggregationState aggregationState = getQueryEnvironment().getAggregationState();
 
-		final long vertices = 0;
-		final long edges = 0;
-		// Add your fields to 'AggregateStats'
-		final GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats("quickstep");
-		return new GraphStats(vertices, edges, aggregateStats);
+		GraphStats graphStats = statGraph(new StatGraph(graph));
+		graphStats.setAggregateStats(aggregateStats);
+		return graphStats;
 	}
 
 	@Override

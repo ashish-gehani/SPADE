@@ -17,8 +17,8 @@
 package spade.query.quickgrail.core;
 
 import java.io.Serializable;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.SortedMap;
 
 public class GraphStats implements Serializable{
 	
@@ -36,6 +36,11 @@ public class GraphStats implements Serializable{
 		this.vertices = vertices;
 		this.edges = edges;
 		this.aggregateStats = aggregateStats;
+	}
+
+	public AggregateStats getAggregateStats()
+	{
+		return this.aggregateStats;
 	}
 
 	public void setAggregateStats(final AggregateStats aggregateStats)
@@ -86,17 +91,17 @@ public class GraphStats implements Serializable{
 		/*
 		 * Everything inside me should be serializable!!!
 		 */
-		private Map<String, Integer> histogram = null;
+		private SortedMap<String, Integer> histogram = null;
 		private Double mean = null;
 		private Double std = null;
-		private Map<String, Integer> distribution = null;
+		private SortedMap<String, Integer> distribution = null;
 
-		public void setHistogram(Map<String, Integer> histogram)
+		public void setHistogram(SortedMap<String, Integer> histogram)
 		{
 			this.histogram = histogram;
 		}
 
-		public Map<String, Integer> getHistogram()
+		public SortedMap<String, Integer> getHistogram()
 		{
 			return this.histogram;
 		}
@@ -121,12 +126,12 @@ public class GraphStats implements Serializable{
 			return this.std;
 		}
 
-		public void setDistribution(Map<String, Integer> distribution)
+		public void setDistribution(SortedMap<String, Integer> distribution)
 		{
 			this.distribution = distribution;
 		}
 
-		public Map<String, Integer> getDistribution()
+		public SortedMap<String, Integer> getDistribution()
 		{
 			return this.distribution;
 		}
