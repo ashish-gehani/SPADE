@@ -183,24 +183,24 @@ public class AuditConfiguration{
 	@Override
 	public String toString(){
 		return "AuditConfiguration ["
-				+ "agents=" + agents
-				+ ", anonymousMmap=" + anonymousMmap
-				+ ", control=" + control
-				+ ", cwd=" + cwd
-				+ ", excludeProctitle=" + excludeProctitle
-				+ ", failfast=" + failfast
-				+ ", fileIO=" + fileIO
-				+ ", fsids=" + fsids
-				+ ", logIPC=" + logIPC
-				+ ", memorySyscalls=" + memorySyscalls
-				+ ", mergeUnit=" + mergeUnit
-				+ ", namespaces=" + namespaces
-				+ ", netIO=" + netIO
-				+ ", reportIPC=" + reportIPC
-				+ ", reportKill=" + reportKill
-				+ ", rootFS=" + rootFS
-				+ ", simplify=" + simplify
-				+ ", units=" + units
+				+ keyAgents + "=" + agents
+				+ ", " + keyAnonymousMmap + "=" + anonymousMmap
+				+ ", " + keyControl + "=" + control
+				+ ", " + keyCwd + "=" + cwd
+				+ ", " + keyExcludeProctitle + "=" + excludeProctitle
+				+ ", " + keyFailfast + "=" + failfast
+				+ ", " + keyFileIO + "=" + fileIO
+				+ ", " + keyFsids + "=" + fsids
+				+ ", " + keyLogIPC + "=" + logIPC
+				+ ", " + keyMemorySyscalls + "=" + memorySyscalls
+				+ ", " + keyMergeUnit + "=" + mergeUnit
+				+ ", " + keyNamespaces + "=" + namespaces
+				+ ", " + keyNetIO + "=" + netIO
+				+ ", " + keyReportIPC + "=" + reportIPC
+				+ ", " + keyReportKill +"=" + reportKill
+				+ ", " + keyRootFS + "=" + rootFS
+				+ ", " + keySimplify + "=" + simplify
+				+ ", " + keyUnits + "=" + units
 				+ "]";
 	}
 }

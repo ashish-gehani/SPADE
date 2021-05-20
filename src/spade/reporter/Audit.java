@@ -41,7 +41,7 @@ import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.audit.AuditConfiguration;
 import spade.reporter.audit.AuditControlManager;
 import spade.reporter.audit.AuditEventReader;
-import spade.reporter.audit.Globals;
+import spade.reporter.audit.ArtifactConfiguration;
 import spade.reporter.audit.IPCManager;
 import spade.reporter.audit.Input;
 import spade.reporter.audit.KernelModuleConfiguration;
@@ -111,7 +111,7 @@ public class Audit extends AbstractReporter {
 
 	/********************** BEHAVIOR FLAGS - START *************************/
 	
-	private Globals globals = null;
+	private ArtifactConfiguration artifactConfiguration = null;
 	
 	private AuditConfiguration auditConfiguration;
 	
@@ -353,13 +353,10 @@ public class Audit extends AbstractReporter {
 		}
 
 		try{
-			globals = Globals.parseArguments(map);
-			if(globals == null){
-				throw new Exception("NULL globals object. Failed to initialize flags.");
-			}
-			logger.log(Level.INFO, globals.toString());
+			artifactConfiguration = ArtifactConfiguration.instance(map);
+			logger.log(Level.INFO, artifactConfiguration.toString());
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to parse arguments", e);
+			logger.log(Level.SEVERE, "Failed to parse artifact-related arguments", e);
 			return false;
 		}
 		
@@ -372,7 +369,7 @@ public class Audit extends AbstractReporter {
 		}
 
 		try{
-			artifactManager = new ArtifactManager(this, globals);
+			artifactManager = new ArtifactManager(this, artifactConfiguration);
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to instantiate artifact manager", e);
 			return false;
@@ -381,13 +378,15 @@ public class Audit extends AbstractReporter {
 		try{
 			if(auditConfiguration.isAgents()){ // Make sure that this is done before starting the event reader thread
 				processManager = new ProcessWithoutAgentManager(this, 
-						auditConfiguration.isSimplify(), 
+						auditConfiguration.isSimplify(),
+						auditConfiguration.isFsids(), 
 						auditConfiguration.isUnits(), 
 						auditConfiguration.isNamespaces(), 
 						platformConstants);
 			}else{
-				processManager = new ProcessWithAgentManager(this, 
-						auditConfiguration.isSimplify(), 
+				processManager = new ProcessWithAgentManager(this,
+						auditConfiguration.isSimplify(),
+						auditConfiguration.isFsids(), 
 						auditConfiguration.isUnits(), 
 						auditConfiguration.isNamespaces(),
 						platformConstants);
@@ -2625,7 +2624,7 @@ public class Audit extends AbstractReporter {
 				return;
 			}
 			if(identifier instanceof UnixSocketIdentifier || identifier instanceof UnnamedUnixSocketPairIdentifier){
-				if(!globals.unixSockets){
+				if(!artifactConfiguration.isUnixSockets()){
 					return;
 				}
 			}
@@ -2716,7 +2715,7 @@ public class Audit extends AbstractReporter {
 	 */
 	public void putEdge(AbstractEdge edge, String operation, String time, String eventId, String source){
 		if(edge != null && edge.getChildVertex() != null && edge.getParentVertex() != null){
-			if(!globals.unixSockets && 
+			if(!artifactConfiguration.isUnixSockets() && 
 					(isUnixSocketArtifact(edge.getChildVertex()) ||
 							isUnixSocketArtifact(edge.getParentVertex()))){
 				return;

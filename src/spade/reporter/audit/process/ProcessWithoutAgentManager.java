@@ -42,8 +42,8 @@ public class ProcessWithoutAgentManager extends ProcessManager{
 	 */
 	private final Map<AgentIdentifier, String> agentToSource = new HashMap<AgentIdentifier, String>();
 	
-	public ProcessWithoutAgentManager(Audit reporter, boolean simplify, boolean units, boolean namespaces, final LinuxConstants platformConstants) throws Exception{
-		super(reporter, simplify, units, namespaces, platformConstants);
+	public ProcessWithoutAgentManager(Audit reporter, boolean simplify, boolean fsids, boolean units, boolean namespaces, final LinuxConstants platformConstants) throws Exception{
+		super(reporter, simplify, fsids, units, namespaces, platformConstants);
 	}
 	
 	protected void clearAll(){

@@ -74,6 +74,8 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 */
 	private final boolean simplify;
 	
+	private final boolean fsids;
+	
 	/**
 	 * Used to tell whether to use unitid=0 for containing processes or not
 	 */
@@ -86,10 +88,11 @@ public abstract class ProcessManager extends ProcessStateManager{
 	
 	private final LinuxConstants platformConstants;
 	
-	protected ProcessManager(Audit reporter, boolean simplify, boolean units, boolean namespaces,
+	protected ProcessManager(Audit reporter, boolean simplify, boolean fsids, boolean units, boolean namespaces,
 			final LinuxConstants platformConstants) throws Exception{
 		this.reporter = reporter;
 		this.simplify = simplify;
+		this.fsids = fsids;
 		this.units = units;
 		this.namespaces = namespaces;
 		this.platformConstants = platformConstants;
@@ -644,10 +647,8 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 * @return true
 	 */
 	public boolean handleSetuidSetgid(Map<String, String> eventData, SYSCALL syscall){
-		if(simplify){
-			if(syscall == SYSCALL.SETRESUID 
-					|| syscall == SYSCALL.SETRESGID
-					|| syscall == SYSCALL.SETFSUID
+		if(!fsids){
+			if(syscall == SYSCALL.SETFSUID
 					|| syscall == SYSCALL.SETFSGID){
 				return true;
 			}

@@ -38,7 +38,7 @@ import spade.core.Settings;
 import spade.edge.opm.WasDerivedFrom;
 import spade.reporter.Audit;
 //import spade.reporter.Audit;
-import spade.reporter.audit.Globals;
+import spade.reporter.audit.ArtifactConfiguration;
 import spade.reporter.audit.LinuxPathResolver;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.Converter;
@@ -449,15 +449,15 @@ public class ArtifactManager{
 	
 	private static final Logger logger = Logger.getLogger(ArtifactManager.class.getName());
 	
-	public ArtifactManager(Audit reporter, Globals globals) throws Exception{
+	public ArtifactManager(Audit reporter, ArtifactConfiguration artifactConfiguration) throws Exception{
 		if(reporter == null){
 			throw new IllegalArgumentException("NULL Audit reporter");
 		}
-		if(globals == null){
-			throw new IllegalArgumentException("NULL Globals object");
+		if(artifactConfiguration == null){
+			throw new IllegalArgumentException("NULL ArtifactConfiguration object");
 		}
 		this.reporter = reporter;
-		if(globals.keepingArtifactPropertiesMap){
+		if(artifactConfiguration.isKeepingArtifactPropertiesMap()){
 			String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass());
 
 			Result<ExternalMapArgument> externalMapArgumentResult = ExternalMapManager.parseArgumentFromFile(artifactsMapId, defaultConfigFilePath);
@@ -481,53 +481,68 @@ public class ArtifactManager{
 		}else{
 			artifactsMap = null;
 		}
-		artifactConfigs = getArtifactConfig(globals);
+		artifactConfigs = getArtifactConfig(artifactConfiguration);
 	}
 	
-	private Map<Class<? extends ArtifactIdentifier>, ArtifactConfig> getArtifactConfig(Globals globals){
-		Map<Class<? extends ArtifactIdentifier>, ArtifactConfig> map = 
+	private Map<Class<? extends ArtifactIdentifier>, ArtifactConfig> getArtifactConfig(ArtifactConfiguration artifactConfiguration){
+		final Map<Class<? extends ArtifactIdentifier>, ArtifactConfig> map = 
 				new HashMap<Class<? extends ArtifactIdentifier>, ArtifactConfig>();
-		map.put(PosixMessageQueue.class, 
-				new ArtifactConfig(true, globals.epochs, globals.versions, globals.permissions, true, true, true));
-		map.put(BlockDeviceIdentifier.class, 
-				new ArtifactConfig(true, globals.epochs, globals.versions, globals.permissions, true, true, true));
-		map.put(CharacterDeviceIdentifier.class, 
-				new ArtifactConfig(true, globals.epochs, globals.versions, globals.permissions, true, true, true));
-		map.put(DirectoryIdentifier.class, 
-				new ArtifactConfig(true, globals.epochs, globals.versions, globals.permissions, true, true, true));
-		map.put(FileIdentifier.class, 
-				new ArtifactConfig(true, globals.epochs, globals.versions, globals.permissions, 
-						true, globals.versionFiles, true));
-		map.put(LinkIdentifier.class, 
-				new ArtifactConfig(true, globals.epochs, globals.versions, globals.permissions, true, true, true));
-		map.put(MemoryIdentifier.class, 
-				new ArtifactConfig(true, false, globals.versions, false, false, globals.versionMemorys, false));
-		map.put(NamedPipeIdentifier.class, 
-				new ArtifactConfig(true, globals.epochs, globals.versions, globals.permissions, 
-						true, globals.versionNamedPipes, true));
-		map.put(NetworkSocketIdentifier.class, 
-				new ArtifactConfig(true, globals.epochs, globals.versions, false, 
-						true, globals.versionNetworkSockets, false));
-		map.put(UnixSocketIdentifier.class, 
-				new ArtifactConfig(globals.unixSockets, globals.epochs, globals.versions, globals.permissions, 
-						true, globals.versionUnixSockets, true));
-		map.put(UnknownIdentifier.class, 
-				new ArtifactConfig(true, globals.epochs, globals.versions, false, 
-						true, globals.versionUnknowns, false));
-		map.put(UnnamedNetworkSocketPairIdentifier.class, 
-				new ArtifactConfig(true, globals.epochs, globals.versions, false, true, true, false));
-		map.put(UnnamedPipeIdentifier.class, 
-				new ArtifactConfig(true, globals.epochs, globals.versions, false, 
-						true, globals.versionUnnamedPipes, false));
-		map.put(UnnamedUnixSocketPairIdentifier.class, 
-				new ArtifactConfig(true, globals.epochs, globals.versions, false, 
-						true, globals.versionUnnamedUnixSocketPairs, false));
-		map.put(SystemVSharedMemoryIdentifier.class, 
-				new ArtifactConfig(true, globals.epochs, globals.versions, false, 
-						true, true, false));
-		map.put(SystemVMessageQueueIdentifier.class, 
-				new ArtifactConfig(true, globals.epochs, globals.versions, false, 
-						true, true, false));
+
+		map.put(UnixSocketIdentifier.class,
+				new ArtifactConfig(artifactConfiguration.isUnixSockets(), artifactConfiguration.isEpochs(),
+						artifactConfiguration.isVersions(), artifactConfiguration.isPermissions(), true,
+						artifactConfiguration.isVersionUnixSockets(), true));
+
+		map.put(NetworkSocketIdentifier.class,
+				new ArtifactConfig(true, artifactConfiguration.isEpochs(), artifactConfiguration.isVersions(), false,
+						true, artifactConfiguration.isVersionNetworkSockets(), false));
+
+		map.put(FileIdentifier.class,
+				new ArtifactConfig(true, artifactConfiguration.isEpochs(), artifactConfiguration.isVersions(),
+						artifactConfiguration.isPermissions(), true, artifactConfiguration.isVersionFiles(), true));
+
+		map.put(MemoryIdentifier.class, new ArtifactConfig(true, false, artifactConfiguration.isVersions(), false,
+				false, artifactConfiguration.isVersionMemorys(), false));
+
+		map.put(NamedPipeIdentifier.class,
+				new ArtifactConfig(true, artifactConfiguration.isEpochs(), artifactConfiguration.isVersions(),
+						artifactConfiguration.isPermissions(), true, artifactConfiguration.isVersionNamedPipes(),
+						true));
+
+		map.put(UnnamedPipeIdentifier.class, new ArtifactConfig(true, artifactConfiguration.isEpochs(),
+				artifactConfiguration.isVersions(), false, true, artifactConfiguration.isVersionUnnamedPipes(), false));
+
+		map.put(UnknownIdentifier.class, new ArtifactConfig(true, artifactConfiguration.isEpochs(),
+				artifactConfiguration.isVersions(), false, true, artifactConfiguration.isVersionUnknowns(), false));
+
+		map.put(UnnamedUnixSocketPairIdentifier.class,
+				new ArtifactConfig(true, artifactConfiguration.isEpochs(), artifactConfiguration.isVersions(), false,
+						true, artifactConfiguration.isVersionUnnamedUnixSocketPairs(), false));
+
+		map.put(UnnamedNetworkSocketPairIdentifier.class, new ArtifactConfig(true, artifactConfiguration.isEpochs(),
+				artifactConfiguration.isVersions(), false, true, true, false));
+
+		map.put(SystemVMessageQueueIdentifier.class, new ArtifactConfig(true, artifactConfiguration.isEpochs(),
+				artifactConfiguration.isVersions(), false, true, true, false));
+
+		map.put(SystemVSharedMemoryIdentifier.class, new ArtifactConfig(true, artifactConfiguration.isEpochs(),
+				artifactConfiguration.isVersions(), false, true, true, false));
+
+		map.put(PosixMessageQueue.class, new ArtifactConfig(true, artifactConfiguration.isEpochs(),
+				artifactConfiguration.isVersions(), artifactConfiguration.isPermissions(), true, true, true));
+
+		map.put(BlockDeviceIdentifier.class, new ArtifactConfig(true, artifactConfiguration.isEpochs(),
+				artifactConfiguration.isVersions(), artifactConfiguration.isPermissions(), true, true, true));
+
+		map.put(CharacterDeviceIdentifier.class, new ArtifactConfig(true, artifactConfiguration.isEpochs(),
+				artifactConfiguration.isVersions(), artifactConfiguration.isPermissions(), true, true, true));
+
+		map.put(DirectoryIdentifier.class, new ArtifactConfig(true, artifactConfiguration.isEpochs(),
+				artifactConfiguration.isVersions(), artifactConfiguration.isPermissions(), true, true, true));
+
+		map.put(LinkIdentifier.class, new ArtifactConfig(true, artifactConfiguration.isEpochs(),
+				artifactConfiguration.isVersions(), artifactConfiguration.isPermissions(), true, true, true));
+
 		return map;
 	}
 	
