@@ -42,7 +42,7 @@ public class KernelModuleManager{
 			final String userId, final UserMode userMode, 
 			final Set<String> pidsToIgnore, final Set<String> ppidsToIgnore,
 			final boolean hookSendRecv, final boolean namespaces,
-			final boolean netfilterHooks, final boolean netfilterHooksLogCt, final boolean netfilterHooksUser,
+			final boolean networkAddressTranslation, final boolean netfilterHooksLogCt, final boolean netfilterHooksUser,
 			final boolean harden, final Set<String> tgidsToHarden,
 			final Consumer<String> outputConsumer) throws Exception{
 
@@ -86,7 +86,7 @@ public class KernelModuleManager{
 						+ " ppids_ignore=\"" + valuePpidsToIgnore + "\""
 						+ " net_io=\"" + (hookSendRecv ? 1 : 0) + "\""
 						+ " namespaces=\"" + (namespaces ? 1 : 0) + "\""
-						+ " nf_hooks=\"" + (netfilterHooks ? 1 : 0) + "\""
+						+ " nf_hooks=\"" + (networkAddressTranslation ? 1 : 0) + "\""
 						+ " nf_hooks_log_all_ct=\"" + (netfilterHooksLogCt ? 1 : 0) + "\""
 						+ " nf_handle_user=\"" + (netfilterHooksUser ? 1 : 0) + "\"";
 

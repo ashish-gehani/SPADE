@@ -38,10 +38,10 @@ import spade.edge.opm.Used;
 import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
+import spade.reporter.audit.ArtifactConfiguration;
 import spade.reporter.audit.AuditConfiguration;
 import spade.reporter.audit.AuditControlManager;
 import spade.reporter.audit.AuditEventReader;
-import spade.reporter.audit.ArtifactConfiguration;
 import spade.reporter.audit.IPCManager;
 import spade.reporter.audit.Input;
 import spade.reporter.audit.KernelModuleConfiguration;
@@ -396,7 +396,7 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 		
-		if(kernelModuleConfiguration.isHandleNetfilterHooks()){
+		if(kernelModuleConfiguration.isHandleNetworkAddressTranslation()){
 			try{
 				netfilterHooksManager = new NetfilterHooksManager(this, auditConfiguration.isNamespaces());
 			}catch(Exception e){
@@ -485,7 +485,7 @@ public class Audit extends AbstractReporter {
 								processUserSyscallFilter.getPidsOfProcessesToIgnore(), processUserSyscallFilter.getPpidsOfProcessesToIgnore(),
 								auditConfiguration.isNetIO(),
 								auditConfiguration.isNamespaces(),
-								kernelModuleConfiguration.isNetfilterHooks(),
+								kernelModuleConfiguration.isNetworkAddressTranslation(),
 								kernelModuleConfiguration.isNetfilterHooksLogCT(),
 								kernelModuleConfiguration.isNetfilterHooksUser(),
 								kernelModuleConfiguration.isHarden(), tgidsToHarden,
@@ -609,7 +609,7 @@ public class Audit extends AbstractReporter {
 
 	private void printStats(boolean forcePrint){
 		if(reportingIntervaler.check() || forcePrint){
-			if(kernelModuleConfiguration.isHandleNetfilterHooks() && netfilterHooksManager != null){
+			if(kernelModuleConfiguration.isHandleNetworkAddressTranslation() && netfilterHooksManager != null){
 				netfilterHooksManager.printStats();
 			}
 		}
@@ -648,7 +648,7 @@ public class Audit extends AbstractReporter {
 					handleKernelModuleEvent(eventData);
 				}
 			}else if(AuditEventReader.RECORD_TYPE_NETFILTER_HOOK.equals(recordType)){
-				if(kernelModuleConfiguration.isHandleNetfilterHooks()){
+				if(kernelModuleConfiguration.isHandleNetworkAddressTranslation()){
 					netfilterHooksManager.handleNetfilterHookEvent(eventData);
 				}
 			}else{
@@ -2363,7 +2363,7 @@ public class Audit extends AbstractReporter {
 			WasGeneratedBy wgb = new WasGeneratedBy(artifact, process);
 			putEdge(wgb, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
-			if(kernelModuleConfiguration.isHandleNetfilterHooks()){
+			if(kernelModuleConfiguration.isHandleNetworkAddressTranslation()){
 				try{
 					netfilterHooksManager.handleNetworkSyscallEvent(time, eventId, false, artifact);
 				}catch(Exception e){
@@ -2456,7 +2456,7 @@ public class Audit extends AbstractReporter {
 			Used used = new Used(process, socket);
 			putEdge(used, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 			
-			if(kernelModuleConfiguration.isHandleNetfilterHooks()){
+			if(kernelModuleConfiguration.isHandleNetworkAddressTranslation()){
 				try{
 					netfilterHooksManager.handleNetworkSyscallEvent(time, eventId, true, socket);
 				}catch(Exception e){
@@ -2658,7 +2658,7 @@ public class Audit extends AbstractReporter {
 		putEdge(edge, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
 		
 		// UDP
-		if(isNetworkUdp && kernelModuleConfiguration.isHandleNetfilterHooks()){
+		if(isNetworkUdp && kernelModuleConfiguration.isHandleNetworkAddressTranslation()){
 			try{
 				netfilterHooksManager.handleNetworkSyscallEvent(time, eventId, incoming, artifact);
 			}catch(Exception e){

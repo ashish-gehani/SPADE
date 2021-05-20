@@ -39,24 +39,25 @@ public class KernelModuleConfiguration{
 			keyLocalEndpoints = "localEndpoints", 
 			keyHandleLocalEndpoints = "handleLocalEndpoints",
 			keyHardenProcesses = "hardenProcesses",
-			keyNetfilterHooks = "netfilterHooks",
+			keyNetworkAddressTranslation = "networkAddressTranslation",
 			keyNetfilterHooksLogCT = "netfilterHooksLogCT",
 			keyNetfilterHooksUser = "netfilterHooksUser",
-			keyHandleNetfilterHooks = "handleNetfilterHooks";
+			keyHandleNetworkAddressTranslation = "handleNetworkAddressTranslation";
 
 	private String kernelModuleMainPath, kernelModuleControllerPath, kernelModuleDeleteBinaryPath;
 	private boolean harden, localEndpoints;
 	private Boolean handleLocalEndpoints;
 	private Set<String> hardenProcesses = new HashSet<String>();
-	private boolean netfilterHooks;
+	private boolean networkAddressTranslation;
 	private boolean netfilterHooksLogCT;
 	private boolean netfilterHooksUser;
-	private boolean handleNetfilterHooks;
+	private boolean handleNetworkAddressTranslation;
 
 	private KernelModuleConfiguration(final String kernelModuleMainPath, final String kernelModuleControllerPath,
 			final String kernelModuleDeleteBinaryPath, final boolean harden, final boolean localEndpoints,
 			final Boolean handleLocalEndpoints, final Set<String> hardenProcesses,
-			final boolean netfilterHooks, final boolean netfilterHooksLogCT, final boolean netfilterHooksUser, final boolean handleNetfilterHooks){
+			final boolean networkAddressTranslation, final boolean netfilterHooksLogCT, 
+			final boolean netfilterHooksUser, final boolean handleNetworkAddressTranslation){
 		this.kernelModuleMainPath = kernelModuleMainPath;
 		this.kernelModuleControllerPath = kernelModuleControllerPath;
 		this.kernelModuleDeleteBinaryPath = kernelModuleDeleteBinaryPath;
@@ -64,10 +65,10 @@ public class KernelModuleConfiguration{
 		this.localEndpoints = localEndpoints;
 		this.handleLocalEndpoints = handleLocalEndpoints;
 		this.hardenProcesses.addAll(hardenProcesses);
-		this.netfilterHooks = netfilterHooks;
+		this.networkAddressTranslation = networkAddressTranslation;
 		this.netfilterHooksLogCT = netfilterHooksLogCT;
 		this.netfilterHooksUser = netfilterHooksUser;
-		this.handleNetfilterHooks = handleNetfilterHooks;
+		this.handleNetworkAddressTranslation = handleNetworkAddressTranslation;
 	}
 
 	public static KernelModuleConfiguration instance(final String configFilePath, final boolean isLive)
@@ -94,10 +95,10 @@ public class KernelModuleConfiguration{
 		final boolean harden;
 		final Boolean handleLocalEndpoints;
 		final Set<String> hardenProcesses = new HashSet<String>();
-		final boolean netfilterHooks;
+		final boolean networkAddressTranslation;
 		final boolean netfilterHooksLogCT;
 		final boolean netfilterHooksUser;
-		final boolean handleNetfilterHooks;
+		final boolean handleNetworkAddressTranslation;
 
 		if(isLive){
 			final String valueLocalEndpoints = map.get(keyLocalEndpoints);
@@ -148,27 +149,27 @@ public class KernelModuleConfiguration{
 			 */
 			if(localEndpoints){
 				harden = ArgumentFunctions.mustParseBoolean(keyHarden, map);
-				netfilterHooks = ArgumentFunctions.mustParseBoolean(keyNetfilterHooks, map);
+				networkAddressTranslation = ArgumentFunctions.mustParseBoolean(keyNetworkAddressTranslation, map);
 			}else{
 				harden = false;
-				netfilterHooks = false;
+				networkAddressTranslation = false;
 			}
 			
-			if(netfilterHooks){
+			if(networkAddressTranslation){
 				netfilterHooksLogCT = ArgumentFunctions.mustParseBoolean(keyNetfilterHooksLogCT, map);
 				netfilterHooksUser = ArgumentFunctions.mustParseBoolean(keyNetfilterHooksUser, map);
-				final String valueHandleNetfilterHooks = map.get(keyHandleNetfilterHooks);
-				if(HelperFunctions.isNullOrEmpty(valueHandleNetfilterHooks)){
+				final String valueHandleNetworkAddressTranslation = map.get(keyHandleNetworkAddressTranslation);
+				if(HelperFunctions.isNullOrEmpty(valueHandleNetworkAddressTranslation)){
 					// If not specified then use the value of the netfilter hooks
-					handleNetfilterHooks = netfilterHooks;
+					handleNetworkAddressTranslation = networkAddressTranslation;
 				}else{
 					// Use the one that is specified by the user
-					handleNetfilterHooks = ArgumentFunctions.mustParseBoolean(keyHandleNetfilterHooks, map);
+					handleNetworkAddressTranslation = ArgumentFunctions.mustParseBoolean(keyHandleNetworkAddressTranslation, map);
 				}
 			}else{
 				netfilterHooksLogCT = false;
 				netfilterHooksUser = false;
-				handleNetfilterHooks = false;
+				handleNetworkAddressTranslation = false;
 			}
 
 			/*
@@ -232,15 +233,15 @@ public class KernelModuleConfiguration{
 				handleLocalEndpoints = ArgumentFunctions.mustParseBoolean(keyHandleLocalEndpoints, map);
 			}
 			
-			netfilterHooks = false;
+			networkAddressTranslation = false;
 			netfilterHooksLogCT = false;
 			netfilterHooksUser = false;
-			handleNetfilterHooks = ArgumentFunctions.mustParseBoolean(keyHandleNetfilterHooks, map);
+			handleNetworkAddressTranslation = ArgumentFunctions.mustParseBoolean(keyHandleNetworkAddressTranslation, map);
 		}
 
 		return new KernelModuleConfiguration(kernelModuleMainPath, kernelModuleControllerPath,
 				kernelModuleDeleteBinaryPath, harden, localEndpoints, handleLocalEndpoints, hardenProcesses,
-				netfilterHooks, netfilterHooksLogCT, netfilterHooksUser, handleNetfilterHooks);
+				networkAddressTranslation, netfilterHooksLogCT, netfilterHooksUser, handleNetworkAddressTranslation);
 	}
 
 	private static boolean isKernelModuleFileReadableIfExists(final String key, final String path) throws Exception{
@@ -301,8 +302,8 @@ public class KernelModuleConfiguration{
 		return hardenProcesses;
 	}
 	
-	public boolean isNetfilterHooks(){
-		return netfilterHooks;
+	public boolean isNetworkAddressTranslation(){
+		return networkAddressTranslation;
 	}
 	
 	public boolean isNetfilterHooksLogCT(){
@@ -313,24 +314,24 @@ public class KernelModuleConfiguration{
 		return netfilterHooksUser;
 	}
 	
-	public boolean isHandleNetfilterHooks(){
-		return handleNetfilterHooks;
+	public boolean isHandleNetworkAddressTranslation(){
+		return handleNetworkAddressTranslation;
 	}
 
 	@Override
 	public String toString(){
 		return "KernelModuleConfiguration ["
-				+ "kernelModuleMainPath=" + kernelModuleMainPath
-				+ ", kernelModuleControllerPath=" + kernelModuleControllerPath
-				+ ", kernelModuleDeleteBinaryPath=" + kernelModuleDeleteBinaryPath
-				+ ", harden=" + harden
-				+ ", localEndpoints=" + localEndpoints
-				+ ", handleLocalEndpoints=" + handleLocalEndpoints
-				+ ", hardenProcesses=" + hardenProcesses
-				+ ", netfilterHooks=" + netfilterHooks
-				+ ", netfilterHooksLogCT=" + netfilterHooksLogCT
-				+ ", netfilterHooksUser=" + netfilterHooksUser
-				+ ", handleNetfilterHooks=" + handleNetfilterHooks
+				+ keyKernelModuleMainPath + "=" + kernelModuleMainPath
+				+ ", " + keyKernelModuleControllerPath + "=" + kernelModuleControllerPath
+				+ ", " + keyKernelModuleDeleteBinaryPath + "=" + kernelModuleDeleteBinaryPath
+				+ ", " + keyHarden + "=" + harden
+				+ ", " + keyLocalEndpoints + "=" + localEndpoints
+				+ ", " + keyHandleLocalEndpoints + "=" + handleLocalEndpoints
+				+ ", " + keyHardenProcesses + "=" + hardenProcesses
+				+ ", " + keyNetworkAddressTranslation + "=" + networkAddressTranslation
+				+ ", " + keyHandleNetworkAddressTranslation + "=" + handleNetworkAddressTranslation
+				+ ", " + keyNetfilterHooksLogCT + "=" + netfilterHooksLogCT
+				+ ", " + keyNetfilterHooksUser + "=" + netfilterHooksUser
 				+ "]";
 	}
 }
