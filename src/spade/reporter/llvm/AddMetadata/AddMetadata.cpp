@@ -159,10 +159,11 @@ static bool loadInputFile(std::string inputFilePath){
 					errs() << "Skipped line '" << line << "' with non-numeric function parameter index\n";
 					continue;
 				}
-				if(paramInfo.index.sle(-1)){
-					errs() << "Skipped line '" << line << "' with negative function parameter index\n";
+				if(paramInfo.index.sle(0)){
+					errs() << "Skipped line '" << line << "' with non-positive function parameter index\n";
 					continue;
 				}
+				paramInfo.index -= 1;
 				paramInfo.useIndex = true;
 			}else{
 				if(copy_str_arg(&(paramInfo.name[0]), &functionParamName, StringRef("Function parameter name's")) == 0){
@@ -285,7 +286,7 @@ static bool conditionalUpdate(Instruction *current, Module &module){
 			std::string paramKey;
 
 			if(paramInfo.useIndex == true){
-				paramKey = std::to_string(paramInfo.index.getZExtValue());
+				paramKey = std::to_string(paramInfo.index.getZExtValue() + 1);
 				// get param name from debug info later. Using index for now.
 			}else{
 				paramKey = std::string(&paramInfo.name[0]);
