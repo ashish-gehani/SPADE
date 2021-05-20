@@ -509,7 +509,7 @@ public class Audit extends AbstractReporter {
 							auditConfiguration.isNetIO(), auditConfiguration.isFileIO(), 
 							auditConfiguration.isMemorySyscalls(), filesystemCredentialUpdates, 
 							auditConfiguration.isCwd(), auditConfiguration.isRootFS(), 
-							auditConfiguration.isNamespaces(), auditConfiguration.isLogIPC(), 
+							auditConfiguration.isNamespaces(), auditConfiguration.isIPC(), 
 							new Consumer<String>(){
 								public void accept(String str){
 									logger.log(Level.INFO, str);
@@ -827,7 +827,7 @@ public class Audit extends AbstractReporter {
 					break;
 			}
 
-			final boolean reportIPC = auditConfiguration.isReportIPC();
+			final boolean IPC = auditConfiguration.isIPC();
 			final boolean namespaces = auditConfiguration.isNamespaces();
 			final boolean rootFS = auditConfiguration.isRootFS();
 			final boolean cwd = auditConfiguration.isCwd();
@@ -836,18 +836,18 @@ public class Audit extends AbstractReporter {
 			final boolean reportKill = auditConfiguration.isReportKill();
 			
 			switch (syscall) {
-			case MQ_OPEN: if(reportIPC){ ipcManager.handleMq_open(eventData, syscall); } break;
-			case MQ_TIMEDSEND: if(reportIPC){ ipcManager.handleMq_timedsend(eventData, syscall); } break;
-			case MQ_TIMEDRECEIVE: if(reportIPC){ ipcManager.handleMq_timedreceive(eventData, syscall); } break;
-			case MQ_UNLINK: if(reportIPC){ ipcManager.handleMq_unlink(eventData, syscall); } break;
-			case SHMGET: if(reportIPC){ ipcManager.handleShmget(eventData, syscall); } break;
-			case SHMAT: if(reportIPC){ ipcManager.handleShmat(eventData, syscall); } break;
-			case SHMDT: if(reportIPC){ ipcManager.handleShmdt(eventData, syscall); } break;
-			case SHMCTL: if(reportIPC){ ipcManager.handleShmctl(eventData, syscall, auditConfiguration.isControl()); } break;
-			case MSGGET: if(reportIPC){ ipcManager.handleMsgget(eventData, syscall); } break;
-			case MSGSND: if(reportIPC){ ipcManager.handleMsgsnd(eventData, syscall); } break;
-			case MSGRCV: if(reportIPC){ ipcManager.handleMsgrcv(eventData, syscall); } break;
-			case MSGCTL: if(reportIPC){ ipcManager.handleMsgctl(eventData, syscall, auditConfiguration.isControl()); } break;
+			case MQ_OPEN: if(IPC){ ipcManager.handleMq_open(eventData, syscall); } break;
+			case MQ_TIMEDSEND: if(IPC){ ipcManager.handleMq_timedsend(eventData, syscall); } break;
+			case MQ_TIMEDRECEIVE: if(IPC){ ipcManager.handleMq_timedreceive(eventData, syscall); } break;
+			case MQ_UNLINK: if(IPC){ ipcManager.handleMq_unlink(eventData, syscall); } break;
+			case SHMGET: if(IPC){ ipcManager.handleShmget(eventData, syscall); } break;
+			case SHMAT: if(IPC){ ipcManager.handleShmat(eventData, syscall); } break;
+			case SHMDT: if(IPC){ ipcManager.handleShmdt(eventData, syscall); } break;
+			case SHMCTL: if(IPC){ ipcManager.handleShmctl(eventData, syscall, auditConfiguration.isControl()); } break;
+			case MSGGET: if(IPC){ ipcManager.handleMsgget(eventData, syscall); } break;
+			case MSGSND: if(IPC){ ipcManager.handleMsgsnd(eventData, syscall); } break;
+			case MSGRCV: if(IPC){ ipcManager.handleMsgrcv(eventData, syscall); } break;
+			case MSGCTL: if(IPC){ ipcManager.handleMsgctl(eventData, syscall, auditConfiguration.isControl()); } break;
 			case SETNS:
 				if(namespaces){
 					processManager.handleSetns(eventData, syscall);

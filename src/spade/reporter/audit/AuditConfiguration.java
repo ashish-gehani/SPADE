@@ -34,12 +34,11 @@ public class AuditConfiguration{
 			keyFailfast = "failfast",
 			keyFileIO = "fileIO",			
 			keyFsids = "fsids",
-			keyLogIPC = "logIPC",
+			keyIPC = "IPC",
 			keyMemorySyscalls = "memorySyscalls",
 			keyMergeUnit = "mergeUnit",
 			keyNamespaces = "namespaces",
 			keyNetIO = "netIO",
-			keyReportIPC = "reportIPC",
 			keyReportKill = "reportKill",
 			keyRootFS = "rootFS",
 			keySimplify = "simplify",
@@ -53,12 +52,11 @@ public class AuditConfiguration{
 	private boolean failfast;
 	private boolean fileIO;
 	private boolean fsids;
-	private boolean logIPC;
+	private boolean IPC;
 	private boolean memorySyscalls;
 	private int mergeUnit;
 	private boolean namespaces;
 	private boolean netIO;
-	private boolean reportIPC;
 	private boolean reportKill;
 	private boolean rootFS;
 	private boolean simplify;
@@ -72,7 +70,7 @@ public class AuditConfiguration{
 		instance.failfast = ArgumentFunctions.mustParseBoolean(keyFailfast, map);
 		instance.fileIO = ArgumentFunctions.mustParseBoolean(keyFileIO, map);
 		instance.fsids = ArgumentFunctions.mustParseBoolean(keyFsids, map);
-		instance.logIPC = ArgumentFunctions.mustParseBoolean(keyLogIPC, map);
+		instance.IPC = ArgumentFunctions.mustParseBoolean(keyIPC, map);
 		instance.memorySyscalls = ArgumentFunctions.mustParseBoolean(keyMemorySyscalls, map);
 		instance.units = ArgumentFunctions.mustParseBoolean(keyUnits, map);
 		instance.namespaces = ArgumentFunctions.mustParseBoolean(keyNamespaces, map);
@@ -91,12 +89,6 @@ public class AuditConfiguration{
 			instance.mergeUnit = ArgumentFunctions.mustParseInteger(keyMergeUnit, map);
 		}else{
 			instance.mergeUnit = 0;
-		}
-		
-		if(instance.logIPC){
-			instance.reportIPC = ArgumentFunctions.mustParseBoolean(keyReportIPC, map);
-		}else{
-			instance.reportIPC = false;
 		}
 
 		if(instance.memorySyscalls){
@@ -140,8 +132,8 @@ public class AuditConfiguration{
 		return fsids;
 	}
 
-	public boolean isLogIPC(){
-		return logIPC;
+	public boolean isIPC(){
+		return IPC;
 	}
 
 	public boolean isMemorySyscalls(){
@@ -158,10 +150,6 @@ public class AuditConfiguration{
 
 	public boolean isNetIO(){
 		return netIO;
-	}
-
-	public boolean isReportIPC(){
-		return reportIPC;
 	}
 
 	public boolean isReportKill(){
@@ -191,12 +179,11 @@ public class AuditConfiguration{
 				+ ", " + keyFailfast + "=" + failfast
 				+ ", " + keyFileIO + "=" + fileIO
 				+ ", " + keyFsids + "=" + fsids
-				+ ", " + keyLogIPC + "=" + logIPC
+				+ ", " + keyIPC + "=" + IPC
 				+ ", " + keyMemorySyscalls + "=" + memorySyscalls
 				+ ", " + keyMergeUnit + "=" + mergeUnit
 				+ ", " + keyNamespaces + "=" + namespaces
 				+ ", " + keyNetIO + "=" + netIO
-				+ ", " + keyReportIPC + "=" + reportIPC
 				+ ", " + keyReportKill +"=" + reportKill
 				+ ", " + keyRootFS + "=" + rootFS
 				+ ", " + keySimplify + "=" + simplify
