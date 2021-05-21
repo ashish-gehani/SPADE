@@ -113,15 +113,27 @@ public class AuditControlManager{
 			}else if(systemCallRuleType == SystemCallRuleType.DEFAULT){
 				final List<String> systemCallsWithSuccess = new ArrayList<String>();
 				if(fileIO){
-					systemCallsWithSuccess.addAll(Arrays.asList("read", "readv", "pread", "preadv", 
+					systemCallsWithSuccess.addAll(Arrays.asList("read", "readv", "pread", "preadv",
 							"write", "writev", "pwrite", "pwritev", "lseek"));
 				}
 				if(!kernelModulesAdded){
 					if(netIO){
 						systemCallsWithSuccess.addAll(Arrays.asList("sendmsg", "sendto", "recvmsg", "recvfrom"));
+						if(!fileIO){ // net IO can happen through these system calls, too
+							systemCallsWithSuccess.addAll(Arrays.asList("read", "readv", "pread", "preadv",
+									"write", "writev", "pwrite", "pwritev"));
+						}
 					}
 					systemCallsWithSuccess.addAll(Arrays.asList("bind", "accept", "accept4", "socket"));
+				}else{ // Kernel modules added which means net IO would be reported
+					if(netIO){
+						if(!fileIO){ // net IO can happen through these system calls, too
+							systemCallsWithSuccess.addAll(Arrays.asList("read", "readv", "pread", "preadv",
+									"write", "writev", "pwrite", "pwritev"));
+						}
+					}
 				}
+
 				if(memorySystemCalls){
 					systemCallsWithSuccess.addAll(Arrays.asList("mmap", "mprotect", "madvise"));
 				}

@@ -236,7 +236,13 @@ public class KernelModuleConfiguration{
 			networkAddressTranslation = false;
 			netfilterHooksLogCT = false;
 			netfilterHooksUser = false;
-			handleNetworkAddressTranslation = ArgumentFunctions.mustParseBoolean(keyHandleNetworkAddressTranslation, map);
+			
+			final String valueHandleNetworkAddressTranslation = map.get(keyHandleNetworkAddressTranslation);
+			if(HelperFunctions.isNullOrEmpty(valueHandleNetworkAddressTranslation)){
+				handleNetworkAddressTranslation = true;
+			}else{
+				handleNetworkAddressTranslation = ArgumentFunctions.mustParseBoolean(keyHandleNetworkAddressTranslation, map);
+			}
 		}
 
 		return new KernelModuleConfiguration(kernelModuleMainPath, kernelModuleControllerPath,

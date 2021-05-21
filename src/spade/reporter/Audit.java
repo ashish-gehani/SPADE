@@ -303,7 +303,7 @@ public class Audit extends AbstractReporter {
 		}
 		
 		try{
-			final String keyReportingIntervalSeconds = "reportingIntervalSeconds";
+			final String keyReportingIntervalSeconds = "reportingInterval";
 			this.reportingIntervaler = Intervaler.instance(map, keyReportingIntervalSeconds);
 			logger.log(Level.INFO, this.reportingIntervaler.toString());
 		}catch(Exception e){
@@ -831,7 +831,6 @@ public class Audit extends AbstractReporter {
 			final boolean namespaces = auditConfiguration.isNamespaces();
 			final boolean rootFS = auditConfiguration.isRootFS();
 			final boolean cwd = auditConfiguration.isCwd();
-			final boolean fileIO = auditConfiguration.isFileIO();
 			final boolean memorySyscalls = auditConfiguration.isMemorySyscalls();
 			final boolean reportKill = auditConfiguration.isReportKill();
 			
@@ -875,7 +874,7 @@ public class Audit extends AbstractReporter {
 				}
 			break;
 			case LSEEK:
-				if(fileIO){
+				if(auditConfiguration.isFileIO()){
 					handleLseek(eventData, syscall);
 				}
 			break;
