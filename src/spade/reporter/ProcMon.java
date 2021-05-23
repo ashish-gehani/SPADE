@@ -19,6 +19,17 @@
  */
 package spade.reporter;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import spade.core.AbstractReporter;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasControlledBy;
@@ -27,15 +38,6 @@ import spade.edge.opm.WasTriggeredBy;
 import spade.vertex.opm.Agent;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
-
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -69,6 +71,26 @@ public class ProcMon extends AbstractReporter {
     private final String COLUMN_PARENT_PID = "Parent PID";
     private final String COLUMN_ARCHITECTURE = "Architecture";
     private final String COLUMN_CATEGORY = "Category";
+	private final List<String> columnNames = Arrays.asList(
+			COLUMN_TIME
+			, COLUMN_PROCESS_NAME
+			, COLUMN_PID
+			, COLUMN_OPERATION
+			, COLUMN_PATH
+			, COLUMN_RESULT
+			, COLUMN_DETAIL
+			, COLUMN_DURATION
+			, COLUMN_EVENT_CLASS
+			, COLUMN_IMAGE_PATH
+			, COLUMN_COMPANY
+			, COLUMN_DESCRIPTION
+			, COLUMN_VERSION
+			, COLUMN_USER
+			, COLUMN_COMMAND_LINE
+			, COLUMN_PARENT_PID
+			, COLUMN_ARCHITECTURE
+			, COLUMN_CATEGORY
+			);
     ////////////////////////////////////////////////////////////////////////////
     private int N_TIME;
     private int N_PROCESS_NAME;
@@ -110,13 +132,29 @@ public class ProcMon extends AbstractReporter {
             return false;
         }
         try {
-            Map<String, Integer> columnMap = new HashMap<String, Integer>();
-            eventReader = new BufferedReader(new FileReader(arguments));
-            String initLine = eventReader.readLine();
-            String[] columns = initLine.substring(1, initLine.length() - 1).split("\",\"");
-            for (int i = 0; i < columns.length; i++) {
-                columnMap.put(columns[i], i);
-            }
+			Map<String, Integer> columnMap = new HashMap<String, Integer>();
+			eventReader = new BufferedReader(new FileReader(arguments));
+			String initLine = eventReader.readLine();
+			if(initLine == null){
+				throw new Exception("Empty input file");
+			}
+			initLine = initLine.trim();
+			if(initLine.isBlank() || initLine.length() < 2){
+				throw new Exception(
+						"Invalid input file. First line must contain name of columns selected in Process Monitor");
+			}
+			final String[] columns = initLine.substring(1, initLine.length() - 1).split("\",\"");
+			if(columns.length < columnNames.size()){
+				throw new Exception("Missing column names in input file. Must contain: " + columnNames);
+			}
+			for(int i = 0; i < columns.length; i++){
+				columnMap.put(columns[i], i);
+			}
+			for(final String columnName : columnNames){
+				if(columnMap.get(columnName) == null){
+					throw new Exception("Missing column '" + columnName + "' in input file");
+				}
+			}
             N_TIME = columnMap.get(COLUMN_TIME);
             N_PROCESS_NAME = columnMap.get(COLUMN_PROCESS_NAME);
             N_PID = columnMap.get(COLUMN_PID);
@@ -136,7 +174,7 @@ public class ProcMon extends AbstractReporter {
             N_ARCHITECTURE = columnMap.get(COLUMN_ARCHITECTURE);
             N_CATEGORY = columnMap.get(COLUMN_CATEGORY);
         } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
+            logger.log(Level.SEVERE, exception.getMessage(), exception);
             return false;
         }
         Runnable lineProcessor = new Runnable() {
