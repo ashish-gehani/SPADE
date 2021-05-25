@@ -19,8 +19,15 @@
  */
 package spade.storage.quickstep;
 
-import java.util.*;
 import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 import spade.core.AbstractStorage;
 import spade.query.quickgrail.core.GraphDescription;
@@ -646,7 +653,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	{
 		String targetVertexTable = getVertexTableName(graph);
 		String targetEdgeTable = getEdgeTableName(graph);
-		String query = "copy select avg(cast(value as decimal)) from %s"
+		String query = "copy select avg(value) from %s"
 				+ " where id in (select id from %s)"
 				+ " and field =" + annotationName
 				+ " to stdout";

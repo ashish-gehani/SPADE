@@ -19,7 +19,17 @@
  */
 package spade.storage.postgresql;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import org.apache.commons.math3.util.Precision;
 
 import spade.core.AbstractStorage;
 import spade.query.quickgrail.core.GraphDescription;
@@ -64,7 +74,6 @@ import spade.query.quickgrail.types.StringType;
 import spade.query.quickgrail.utility.ResultTable;
 import spade.query.quickgrail.utility.Schema;
 import spade.storage.PostgreSQL;
-import spade.utility.AggregationState;
 import spade.utility.HelperFunctions;
 
 /**
@@ -72,6 +81,7 @@ import spade.utility.HelperFunctions;
  */
 public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 
+	private static final Logger logger = Logger.getLogger(PostgreSQLInstructionExecutor.class.getName());
 	private final PostgreSQL storage;
 	private final PostgreSQLQueryEnvironment queryEnvironment;
 	
@@ -714,8 +724,74 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 														  final String annotationName,
 														  final List<String> extras)
 	{
-		// TODO: update the function
-		return computeHistogram(graph, elementType, annotationName);
+		String targetVertexTable = getVertexTableName(graph);
+		String targetEdgeTable = getEdgeTableName(graph);
+		int binCount;
+		if(extras.size() == 1)
+		{
+			binCount = Integer.parseInt(extras.get(0));
+		}
+		else
+		{
+			logger.log(Level.SEVERE, "Incorrect number of arguments! Bin count is required.");
+			return null;
+		}
+		String finalAnnotationName = "CAST( " + annotationName + " AS NUMERIC)";
+		String minMaxQuery = "SELECT MIN(" + finalAnnotationName + "), MAX("
+							+ finalAnnotationName + ") FROM %s  WHERE " + getIdColumnName()
+							+ " IN (SELECT " + getIdColumnName() + " FROM %s)";
+		if(elementType.equals(ElementType.VERTEX))
+		{
+			minMaxQuery = String.format(minMaxQuery, getVertexAnnotationTableName(), targetVertexTable);
+		}
+		else if(elementType.equals(ElementType.EDGE))
+		{
+			minMaxQuery = String.format(minMaxQuery, getEdgeAnnotationTableName(), targetEdgeTable);
+		}
+		List<String> minMaxResult = executeQueryForResult(minMaxQuery, false).get(0);
+		double min = Double.parseDouble(minMaxResult.get(0));
+		double max = Double.parseDouble(minMaxResult.get(1));
+		double range = max - min;
+		double step = range / binCount;
+
+		String query = "SELECT ";
+		String countQuery = "COUNT(CASE WHEN " + finalAnnotationName + "  >= %s AND "
+				+ finalAnnotationName + " < %s THEN 1 END) AS \"%s-%s\",";
+		double begin = min;
+		while(begin+step < max)
+		{
+			query += String.format(countQuery, begin, begin+step,
+					Precision.round(begin, 2), Precision.round(begin+step, 2));
+			begin += step;
+		}
+		String finalCountQuery = "COUNT(CASE WHEN " + finalAnnotationName + "  >= %s AND "
+				+ finalAnnotationName + " <= %s THEN 1 END) AS \"%s-%s\"";
+		query += String.format(finalCountQuery, begin, max,
+				Precision.round(begin, 2), Precision.round(max, 2));
+		query += " FROM %s WHERE " + getIdColumnName()
+				+ " IN (SELECT " + getIdColumnName() + " FROM %s)";
+		if(elementType.equals(ElementType.VERTEX))
+		{
+			query = String.format(query, getVertexAnnotationTableName(), targetVertexTable);
+		}
+		else if(elementType.equals(ElementType.EDGE))
+		{
+			query = String.format(query, getEdgeAnnotationTableName(), targetEdgeTable);
+		}
+
+		List<List<String>> result = executeQueryForResult(query, true);
+		SortedMap<String, Integer> distribution = new TreeMap<>();
+		List<String> ranges = result.get(0);
+		List<String> counts = result.get(1);
+		int i = 0;
+		while(i < ranges.size())
+		{
+			distribution.put(ranges.get(i), Integer.parseInt(counts.get(i)));
+			i++;
+		}
+		GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats();
+		aggregateStats.setDistribution(distribution);
+		return aggregateStats;
 	}
 
 	private GraphStats.AggregateStats computeStd(final Graph graph, final ElementType elementType,
@@ -737,9 +813,9 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 			query = String.format(query, getEdgeAnnotationTableName(), targetEdgeTable);
 		}
 		String result = executeQueryForResult(query, false).get(0).get(0);
-		Double std = Double.parseDouble(result);
+		double std = Double.parseDouble(result);
 		GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats();
-		aggregateStats.setStd(std);
+		aggregateStats.setStd(Precision.round(std, 2));
 		return aggregateStats;
 	}
 
@@ -761,9 +837,9 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 			query = String.format(query, getEdgeAnnotationTableName(), targetEdgeTable);
 		}
 		String result = executeQueryForResult(query, false).get(0).get(0);
-		Double mean = Double.parseDouble(result);
+		double mean = Double.parseDouble(result);
 		GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats();
-		aggregateStats.setMean(mean);
+		aggregateStats.setMean(Precision.round(mean, 2));
 		return aggregateStats;
 	}
 
@@ -1025,6 +1101,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 
 		for(String annotationKey : instruction.getFields()){
 			groupByClause += "\"" + annotationKey + "\", ";
+
 		}
 
 		groupByClause = groupByClause.substring(0, groupByClause.length() - 2); // remove the trailing ', '

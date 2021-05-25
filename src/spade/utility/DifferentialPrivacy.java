@@ -24,7 +24,6 @@ public class DifferentialPrivacy
         dpCount.incrementBy(Math.round(std));
         Double privateStd = (double) dpCount.computeResult();
         return privateStd;
-
     }
 
     private Double privateMean(final Double mean)
@@ -63,6 +62,30 @@ public class DifferentialPrivacy
         return privateHistogram;
     }
 
+    private SortedMap<String, Integer> privateDistribution(final Map<String, Integer> distribution)
+    {
+        SortedMap<String, Count> dpCounts = new TreeMap<>();
+        for (Map.Entry<String, Integer> entry: distribution.entrySet())
+        {
+            String key = entry.getKey();
+            Integer value = entry.getValue();
+            Count dpCount = Count
+                    .builder()
+                    .epsilon(EPSILON)
+                    .maxPartitionsContributed(1)
+                    .build();
+            dpCount.incrementBy(value);
+            dpCounts.put(key, dpCount);
+        }
+        SortedMap<String, Integer> privateDistribution = new TreeMap<>();
+        for(Map.Entry<String, Count> dpCount: dpCounts.entrySet())
+        {
+            String key = dpCount.getKey();
+            privateDistribution.put(key, (int) dpCount.getValue().computeResult());
+        }
+        return privateDistribution;
+    }
+
     public void run(GraphStats graphStats, final AggregateType aggregateType)
     {
         if(aggregateType.equals(AggregateType.HISTOGRAM))
@@ -82,6 +105,12 @@ public class DifferentialPrivacy
             Double std = graphStats.getAggregateStats().getMean();
             Double privateStd = privateStd(std);
             graphStats.getAggregateStats().setStd(privateStd);
+        }
+        else if(aggregateType.equals(AggregateType.DISTRIBUTION))
+        {
+            Map<String, Integer> distribution = graphStats.getAggregateStats().getDistribution();
+            SortedMap<String, Integer> privateDistribution = privateDistribution(distribution);
+            graphStats.getAggregateStats().setDistribution(privateDistribution);
         }
     }
 
