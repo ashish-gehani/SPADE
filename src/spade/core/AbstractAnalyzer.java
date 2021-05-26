@@ -39,10 +39,12 @@ public abstract class AbstractAnalyzer{
 	
 	private static final String configKeyNameUseScaffold = "use_scaffold";
 	private static final String configKeyNameUseTransformer = "use_transformer";
-	
+	private static final String configKeyNameEpsilon = "epsilon";
+
 	private Boolean useScaffold = null;
 	private Boolean useTransformer = null;
-	
+	private Double epsilon = null;
+
 	// true return means can continue. false return means that cannot continue.
 	private final boolean readGlobalConfigFromConfigFile(Class<? extends AbstractAnalyzer> clazz){
 		if(useScaffold == null || useTransformer == null){
@@ -67,6 +69,13 @@ public abstract class AbstractAnalyzer{
 								if(useTransformer == null){
 									if(!setGlobalConfigUseTransformer("config file '"+configFilePath+"'", 
 											configMap.get(configKeyNameUseTransformer))){
+										return false;
+									}
+								}
+								
+								if(epsilon == null){
+									if(!setGlobalConfigEpsilon("config file '"+configFilePath+"'", 
+										configMap.get(configKeyNameEpsilon))){
 										return false;
 									}
 								}
@@ -121,6 +130,23 @@ public abstract class AbstractAnalyzer{
 			}
 		}
 	}
+	
+	// true return means can continue. false return means that cannot continue.
+	private final boolean setGlobalConfigEpsilon(String valueSource, String value){
+		if(value == null){
+			return true;
+		}else{
+			Result<Double> result = HelperFunctions.parseDouble(value, -1, Double.POSITIVE_INFINITY);
+			if(result.error){
+				logger.log(Level.SEVERE, "Invalid boolean value for '"+configKeyNameEpsilon + "' in " + valueSource);
+				logger.log(Level.SEVERE, result.toErrorString());
+				return false;
+			}else{
+				this.epsilon = result.result;
+				return true;
+			}
+		}
+	}
 
 	public final boolean initialize(String arguments){
 		Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(arguments);
@@ -130,6 +156,10 @@ public abstract class AbstractAnalyzer{
 		}
 		
 		if(!setGlobalConfigUseTransformer("Arguments", argsMap.get(configKeyNameUseTransformer))){
+			return false;
+		}
+		
+		if(!setGlobalConfigEpsilon("Arguments", argsMap.get(configKeyNameEpsilon))){
 			return false;
 		}
 		
@@ -151,10 +181,16 @@ public abstract class AbstractAnalyzer{
 			return false;
 		}
 		
-		logger.log(Level.INFO, "Arguments: {0}={1}, {2}={3}",
+		if(epsilon == null){
+			logger.log(Level.SEVERE, "NULL '"+configKeyNameEpsilon+"' value. Must specify in arguments or config files");
+			return false;
+		}
+		
+		logger.log(Level.INFO, "Arguments: {0}={1}, {2}={3}, {4}={5}",
 				new Object[]{
 						configKeyNameUseScaffold, useScaffold,
-						configKeyNameUseTransformer, useTransformer
+						configKeyNameUseTransformer, useTransformer,
+						configKeyNameEpsilon, epsilon
 				});
 		
 		// Only here if success
@@ -277,6 +313,40 @@ public abstract class AbstractAnalyzer{
 										finalGraph.addSignature(spadeQuery.queryNonce);
 
 										spadeQuery.updateGraphResult(finalGraph); // Update the query result with the transformed result graph
+									}
+
+									if(epsilon > -1){
+										final boolean isResultGraphStats = spadeQuery != null
+											&& spadeQuery.getResult().getClass().equals(spade.query.quickgrail.core.GraphStats.class);
+										if(isResultGraphStats){
+											final spade.query.quickgrail.core.GraphStats graphStats =
+												(spade.query.quickgrail.core.GraphStats)spadeQuery.getResult();
+											final spade.query.quickgrail.core.GraphStats.AggregateStats aggregateStats =
+												graphStats.getAggregateStats();
+											if(aggregateStats != null){
+												try{
+													final spade.query.quickgrail.instruction.StatGraph.AggregateType aggregateType;
+													if(aggregateStats.getHistogram() != null){
+														aggregateType = spade.query.quickgrail.instruction.StatGraph.AggregateType.HISTOGRAM;
+													}else if(aggregateStats.getMean() != null){
+														aggregateType = spade.query.quickgrail.instruction.StatGraph.AggregateType.MEAN;
+													}else if(aggregateStats.getStd() != null){
+														aggregateType = spade.query.quickgrail.instruction.StatGraph.AggregateType.STD;
+													}else if(aggregateStats.getDistribution() != null){
+														aggregateType = spade.query.quickgrail.instruction.StatGraph.AggregateType.DISTRIBUTION;
+													}else{
+														throw new Exception("Unsupported aggregate stats type. Allowed: " +
+															java.util.Arrays.asList(
+																spade.query.quickgrail.instruction.StatGraph.AggregateType.values()
+																)
+															);
+													}
+													spade.utility.DifferentialPrivacy.run(graphStats, aggregateType, epsilon);
+												}catch(Exception e){
+													throw new Exception("Failed to privatize aggregate statistics", e);
+												}
+											}
+										}
 									}
 									
 									if(spadeQuery.getError() != null){

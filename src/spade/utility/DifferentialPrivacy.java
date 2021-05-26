@@ -5,20 +5,22 @@ import spade.query.quickgrail.core.GraphStats;
 import spade.query.quickgrail.instruction.StatGraph.AggregateType;
 
 import java.util.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class DifferentialPrivacy
 {
+	private static final Logger logger = Logger.getLogger(DifferentialPrivacy.class.getName());
+
     /** algorithm for getting private histogram based on the
      * description and use case as described in:
      * https://github.com/google/differential-privacy/blob/main/examples/java/CountVisitsPerHour.java
      */
-    private static final double EPSILON = Math.log(3);
-
-    private Double privateStd(final Double std)
+    private static Double privateStd(final Double std, final double epsilon)
     {
         Count dpCount = Count
                 .builder()
-                .epsilon(EPSILON)
+                .epsilon(epsilon)
                 .maxPartitionsContributed(1)
                 .build();
         dpCount.incrementBy(Math.round(std));
@@ -26,11 +28,11 @@ public class DifferentialPrivacy
         return privateStd;
     }
 
-    private Double privateMean(final Double mean)
+    private static Double privateMean(final Double mean, final double epsilon)
     {
         Count dpCount = Count
                 .builder()
-                .epsilon(EPSILON)
+                .epsilon(epsilon)
                 .maxPartitionsContributed(1)
                 .build();
         dpCount.incrementBy(Math.round(mean));
@@ -38,7 +40,7 @@ public class DifferentialPrivacy
         return privateMean;
     }
 
-    private SortedMap<String, Integer> privateHistogram(final Map<String, Integer> histogram)
+    private static SortedMap<String, Integer> privateHistogram(final Map<String, Integer> histogram, final double epsilon)
     {
         SortedMap<String, Count> dpCounts = new TreeMap<>();
         for (Map.Entry<String, Integer> entry: histogram.entrySet())
@@ -47,7 +49,7 @@ public class DifferentialPrivacy
             Integer value = entry.getValue();
             Count dpCount = Count
                     .builder()
-                    .epsilon(EPSILON)
+                    .epsilon(epsilon)
                     .maxPartitionsContributed(1)
                     .build();
             dpCount.incrementBy(value);
@@ -62,7 +64,7 @@ public class DifferentialPrivacy
         return privateHistogram;
     }
 
-    private SortedMap<String, Integer> privateDistribution(final Map<String, Integer> distribution)
+    private static SortedMap<String, Integer> privateDistribution(final Map<String, Integer> distribution, final double epsilon)
     {
         SortedMap<String, Count> dpCounts = new TreeMap<>();
         for (Map.Entry<String, Integer> entry: distribution.entrySet())
@@ -71,7 +73,7 @@ public class DifferentialPrivacy
             Integer value = entry.getValue();
             Count dpCount = Count
                     .builder()
-                    .epsilon(EPSILON)
+                    .epsilon(epsilon)
                     .maxPartitionsContributed(1)
                     .build();
             dpCount.incrementBy(value);
@@ -86,32 +88,34 @@ public class DifferentialPrivacy
         return privateDistribution;
     }
 
-    public void run(GraphStats graphStats, final AggregateType aggregateType)
+    public static void run(GraphStats graphStats, final AggregateType aggregateType, final double epsilon)
     {
         if(aggregateType.equals(AggregateType.HISTOGRAM))
         {
             Map<String, Integer> histogram = graphStats.getAggregateStats().getHistogram();
-            SortedMap<String, Integer> privateHistogram = privateHistogram(histogram);
+            SortedMap<String, Integer> privateHistogram = privateHistogram(histogram, epsilon);
             graphStats.getAggregateStats().setHistogram(privateHistogram);
         }
         else if(aggregateType.equals((AggregateType.MEAN)))
         {
             Double mean = graphStats.getAggregateStats().getMean();
-            Double privateMean = privateMean(mean);
+            Double privateMean = privateMean(mean, epsilon);
             graphStats.getAggregateStats().setMean(privateMean);
         }
         else if(aggregateType.equals(AggregateType.STD))
         {
             Double std = graphStats.getAggregateStats().getMean();
-            Double privateStd = privateStd(std);
+            Double privateStd = privateStd(std, epsilon);
             graphStats.getAggregateStats().setStd(privateStd);
         }
         else if(aggregateType.equals(AggregateType.DISTRIBUTION))
         {
             Map<String, Integer> distribution = graphStats.getAggregateStats().getDistribution();
-            SortedMap<String, Integer> privateDistribution = privateDistribution(distribution);
+            SortedMap<String, Integer> privateDistribution = privateDistribution(distribution, epsilon);
             graphStats.getAggregateStats().setDistribution(privateDistribution);
-        }
+        }else{
+		throw new RuntimeException("Unsupported aggregate statistics type: " + aggregateType);
+	}
     }
 
 }
