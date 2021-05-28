@@ -59,7 +59,7 @@ public class DifferentialPrivacy
         for(Map.Entry<String, Count> dpCount: dpCounts.entrySet())
         {
             String key = dpCount.getKey();
-            privateHistogram.put(key, (int) dpCount.getValue().computeResult());
+            privateHistogram.put(key, Math.max(0, (int) dpCount.getValue().computeResult()));
         }
         return privateHistogram;
     }
@@ -83,7 +83,7 @@ public class DifferentialPrivacy
         for(Map.Entry<String, Count> dpCount: dpCounts.entrySet())
         {
             String key = dpCount.getKey();
-            privateDistribution.put(key, (int) dpCount.getValue().computeResult());
+            privateDistribution.put(key, Math.max(0, (int) dpCount.getValue().computeResult()));
         }
         return privateDistribution;
     }
@@ -104,7 +104,7 @@ public class DifferentialPrivacy
         }
         else if(aggregateType.equals(AggregateType.STD))
         {
-            Double std = graphStats.getAggregateStats().getMean();
+            Double std = graphStats.getAggregateStats().getStd();
             Double privateStd = privateStd(std, epsilon);
             graphStats.getAggregateStats().setStd(privateStd);
         }
