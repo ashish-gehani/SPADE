@@ -1701,21 +1701,31 @@ public class Audit extends AbstractReporter {
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
 		String pid = eventData.get(AuditEventReader.PID);
-		
+
 		String fdOut = eventData.get(AuditEventReader.ARG0);
 		String bytes = eventData.get(AuditEventReader.EXIT);
-		
-		if(!"0".equals(bytes)){	
-			FileDescriptor fdOutDescriptor = processManager.getFd(pid, fdOut);
-			fdOutDescriptor = fdOutDescriptor == null ? addUnknownFd(pid, fdOut) : fdOutDescriptor;
-			
-			Process process = processManager.handleProcessFromSyscall(eventData);
-			artifactManager.artifactVersioned(fdOutDescriptor.identifier);
-			Artifact fdOutArtifact = putArtifactFromSyscall(eventData, fdOutDescriptor.identifier);
-	
-			WasGeneratedBy processToWrittenArtifact = new WasGeneratedBy(fdOutArtifact, process);
-			processToWrittenArtifact.addAnnotation(OPMConstants.EDGE_SIZE, bytes);
-			putEdge(processToWrittenArtifact, getOperation(syscall), time, eventId, AUDIT_SYSCALL_SOURCE);
+
+		if(!"0".equals(bytes)){
+			final FileDescriptor fdOutDescriptor = processManager.getFd(pid, fdOut);
+			if(fdOutDescriptor != null && fdOutDescriptor.getWasOpenedForRead() != null){
+				final Process process = processManager.handleProcessFromSyscall(eventData);
+
+				final String operation;
+				final AbstractEdge edge;
+				if(fdOutDescriptor.getWasOpenedForRead()){
+					final Artifact fdOutArtifact = putArtifactFromSyscall(eventData, fdOutDescriptor.identifier);
+					edge = new Used(process, fdOutArtifact);
+					operation = getOperation(syscall, SYSCALL.READ);
+				}else{
+					artifactManager.artifactVersioned(fdOutDescriptor.identifier);
+					final Artifact fdOutArtifact = putArtifactFromSyscall(eventData, fdOutDescriptor.identifier);
+					edge = new WasGeneratedBy(fdOutArtifact, process);
+					operation = getOperation(syscall, SYSCALL.WRITE);
+				}
+
+				edge.addAnnotation(OPMConstants.EDGE_SIZE, bytes);
+				putEdge(edge, operation, time, eventId, AUDIT_SYSCALL_SOURCE);
+			}
 		}
 	}
 	
