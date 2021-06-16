@@ -48,7 +48,7 @@ then
 	CYGWIN_JVM_JLINE_ARGS="-Djline.terminal=jline.UnixTerminal"
 else
 	SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
-	CLASSPATH="$SPADE_ROOT/lib/neo4j-community-4.1.1/lib/*:$SPADE_ROOT/build:$SPADE_ROOT/lib/*"
+	CLASSPATH="$SPADE_ROOT/lib/guava-30.1.1-jre.jar:$SPADE_ROOT/lib/libany_proto-speed.jar:$SPADE_ROOT/lib/libdifferentialprivacy.jar:$SPADE_ROOT/lib/libprotobuf_java.jar:$SPADE_ROOT/lib/libsummary-proto-speed.jar:$SPADE_ROOT/lib/neo4j-community-4.1.1/lib/*:$SPADE_ROOT/build:$SPADE_ROOT/lib/*"
 	JAVALIBPATH="$SPADE_ROOT/lib/"	
 fi
 
