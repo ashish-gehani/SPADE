@@ -28,6 +28,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import spade.core.AbstractStorage;
 import spade.query.quickgrail.core.GraphDescription;
@@ -84,6 +86,7 @@ import spade.utility.HelperFunctions;
  */
 public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 
+	private static final Logger logger = Logger.getLogger(QuickstepInstructionExecutor.class.getName());
 	private final Quickstep qs;
 //	private final QuickstepExecutor qs;
 	private final QuickstepQueryEnvironment queryEnvironment;
@@ -612,19 +615,130 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		return new GraphStats(numVertices, numEdges);
 	}
 
+	private String createTempResultTable(final Graph graph,
+									   final ElementType elementType,
+									   final String annotationName,
+									   final List<String> extras)
+	{
+		// populate the result table
+		String targetVertexTable = getVertexTableName(graph);
+		String targetEdgeTable = getEdgeTableName(graph);
+		String resultTable = "m_result_";
+		if(elementType.equals(ElementType.VERTEX))
+		{
+			resultTable += targetVertexTable;
+
+		}
+		else if(elementType.equals(ElementType.EDGE))
+		{
+			resultTable += targetEdgeTable;
+		}
+		String createQuery = "drop table " + resultTable + ";\n"
+				+ "create table " + resultTable
+				+ "(id INT, value VARCHAR ("
+				+ Math.max(qs.conf.getMaxEdgeValueLength(), qs.conf.getMaxVertexValueLength())
+				+ "));\n";
+		qs.executeQuery(createQuery);
+
+		String query = "insert into " + resultTable + " select id, value from %s"
+				+ " where id in (select id from %s)"
+				+ " and field=" + annotationName + ";\n";
+		if(elementType.equals(ElementType.VERTEX))
+		{
+			query = String.format(query, vertexAnnotationsTableName, targetVertexTable);
+
+		}
+		else if(elementType.equals(ElementType.EDGE))
+		{
+			query = String.format(query, edgeAnnotationTableName, targetEdgeTable);
+		}
+		qs.executeQuery(query);
+
+		return resultTable;
+	}
+
 	private GraphStats.AggregateStats computeDistribution(final Graph graph,
 														  final ElementType elementType,
 														  final String annotationName,
 														  final List<String> extras)
 	{
-		// TODO: update the function
-		return computeHistogram(graph, elementType, annotationName);
+		// populate the result table
+		int binCount;
+		if(extras.size() == 1)
+		{
+			binCount = Integer.parseInt(extras.get(0));
+		}
+		else
+		{
+			logger.log(Level.SEVERE, "Incorrect number of arguments! Bin count is required.");
+			return null;
+		}
+		String resultTable = createTempResultTable(graph, elementType, annotationName, extras);
+
+		// find max and min of the table to find range
+		double max = -Double.MAX_VALUE;
+		double min = Double.MAX_VALUE;
+		int batchSize = 100;
+		QuickstepBatchIterator qit = new QuickstepBatchIterator(resultTable, batchSize);
+		while(qit.hasNextBatch())
+		{
+			String batch = qit.nextBatch();
+			ResultTable table = ResultTable.FromText(batch, ',');
+			for(ResultTable.Row row: table.getRows())
+			{
+				double value = Double.parseDouble(row.getValue(1));
+				if(value > max)
+					max = value;
+				if(value < min)
+					min = value;
+			}
+		}
+		double range = max - min + 1;
+		double step = range / binCount;
+		SortedMap<String, Integer> distribution = new TreeMap<>();
+		double begin = min;
+		String key;
+		List<Double> ranges = new ArrayList<>();
+		while(begin+step < max)
+		{
+			key = begin + "-" + (begin+step);
+			distribution.put(key, 0);
+			begin += step;
+			ranges.add(begin);
+		}
+		ranges.add(max+1);
+		key = begin  + "-" + max;
+		distribution.put(key, 0);
+		createTempResultTable(graph, elementType, annotationName, extras);
+		// find distribution for each bin
+		// run through the result table again in batches
+		// keep count of frequencies in the map
+		while(qit.hasNextBatch())
+		{
+			String batch = qit.nextBatch();
+			ResultTable table = ResultTable.FromText(batch, ',');
+			for(ResultTable.Row row: table.getRows())
+			{
+				double value = Double.parseDouble(row.getValue(1));
+				for(double r: ranges)
+				{
+					if(value < r)
+					{
+						key = (r-step) + "-" + r;
+						int newCount = distribution.get(key) + 1;
+						distribution.put(key, newCount);
+					}
+				}
+			}
+		}
+		GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats();
+		aggregateStats.setDistribution(distribution);
+		return aggregateStats;
 	}
 
 	private GraphStats.AggregateStats computeStd(final Graph graph, final ElementType elementType,
 												 final String annotationName)
 	{
-
 		String targetVertexTable = getVertexTableName(graph);
 		String targetEdgeTable = getEdgeTableName(graph);
 		String query = "copy select stddev(cast(value as decimal)) from %s"
@@ -1442,5 +1556,50 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				+ rhsEdgeTable + " r" + " WHERE l.id = r.id AND l.name = r.name);\n" + "INSERT INTO "
 				+ targetVertexTable + " SELECT id, name, value FROM " + rhsVertexTable + ";\n" + "INSERT INTO "
 				+ targetEdgeTable + " SELECT id, name, value FROM " + rhsEdgeTable + ";");
+	}
+
+	public class QuickstepBatchIterator extends BatchIterator
+	{
+		String batchTable;
+
+		public QuickstepBatchIterator(final String resultTable, final int batchSize)
+		{
+			super(resultTable, batchSize);
+			batchTable = "m_batch_" + resultTable;
+		}
+
+		@Override
+		public String nextBatch()
+		{
+			// copy batchSize elements from result table into batch table
+			qs.executeQuery(
+					"DROP TABLE " + batchTable + ";\n"
+					+ "create table " + batchTable
+					+ "(id INT, value VARCHAR ("
+					+ Math.max(qs.conf.getMaxEdgeValueLength(), qs.conf.getMaxVertexValueLength())
+					+ "));\n"
+					+ "INSERT INTO " + batchTable + " SELECT * FROM " + resultTable
+					+ " LIMIT " + batchSize + ";\n"
+					);
+			// return batchSize result
+			String result = qs.executeQuery(
+					"COPY SELECT * FROM " + batchTable
+					+ " TO STDOUT  WITH (DELIMITER ',');\n");
+
+			// delete batch table rows from the result
+			qs.executeQuery(
+					"DELETE FROM " + resultTable + " WHERE id IN "
+					+ " SELECT id FROM " + batchTable + ";\n"
+					);
+			return result;
+		}
+
+		@Override
+		public boolean hasNextBatch()
+		{
+			long numVertices = qs
+					.executeQueryForLongResult("COPY SELECT COUNT(*) FROM " + resultTable + " TO stdout;");
+			return numVertices > 0;
+		}
 	}
 }

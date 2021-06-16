@@ -161,4 +161,18 @@ public abstract class QueryInstructionExecutor{
 	 */
 	public abstract GraphStats aggregateGraph(final Graph graph, final ElementType elementType, 
 			final String annotationName, final AggregateType aggregateType, final java.util.List<String> extras);
+
+	public abstract class BatchIterator
+	{
+		protected String resultTable;
+		protected int batchSize;
+		public abstract Object nextBatch();
+		public abstract boolean hasNextBatch();
+
+		public BatchIterator(final String resultTable, final int batchSize)
+		{
+			this.resultTable = resultTable;
+			this.batchSize = batchSize;
+		}
+	}
 }

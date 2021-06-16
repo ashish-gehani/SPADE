@@ -751,7 +751,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		List<String> minMaxResult = executeQueryForResult(minMaxQuery, false).get(0);
 		double min = Double.parseDouble(minMaxResult.get(0));
 		double max = Double.parseDouble(minMaxResult.get(1));
-		double range = max - min;
+		double range = max - min + 1;
 		double step = range / binCount;
 
 		String query = "SELECT ";

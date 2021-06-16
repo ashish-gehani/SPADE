@@ -69,7 +69,7 @@ public class Quickstep extends AbstractStorage {
 	
   private PrintWriter debugLogWriter = null;
   private long timeExecutionStart;
-  private QuickstepConfiguration conf;
+  public QuickstepConfiguration conf;
 
   private long totalNumVerticesProcessed = 0;
   private long totalNumEdgesProcessed = 0;

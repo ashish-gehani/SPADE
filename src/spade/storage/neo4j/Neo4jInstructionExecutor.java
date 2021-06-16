@@ -496,7 +496,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor
 			logger.log(Level.SEVERE, "Error retrieving min and max " + annotationName);
 			return null;
 		}
-		double range = max - min;
+		double range = max - min + 1;
 		double step = range / binCount;
 		String query = "";
 		if(elementType.equals(ElementType.VERTEX))
