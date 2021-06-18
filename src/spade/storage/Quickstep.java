@@ -69,7 +69,7 @@ public class Quickstep extends AbstractStorage {
 	
   private PrintWriter debugLogWriter = null;
   private long timeExecutionStart;
-  public QuickstepConfiguration conf;
+  private QuickstepConfiguration conf;
 
   private long totalNumVerticesProcessed = 0;
   private long totalNumEdgesProcessed = 0;
@@ -77,6 +77,16 @@ public class Quickstep extends AbstractStorage {
 	private final Object screenLock = new Object();
 	private Deduplicate deduplicateScreen = null;
 	private final Map<String, Integer> shortLivedVertexHashToIdMap = new HashMap<String, Integer>();
+
+	public int getMaxEdgeValueLength()
+    {
+        return conf.getMaxEdgeValueLength();
+    }
+
+    public int getMaxVertexValueLength()
+    {
+        return conf.getMaxVertexValueLength();
+    }
 
 	private final void garbageCollectVertexIds(){
 		synchronized(shortLivedVertexHashToIdMap){

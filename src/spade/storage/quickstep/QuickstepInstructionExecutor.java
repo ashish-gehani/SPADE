@@ -31,6 +31,7 @@ import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.commons.math3.util.Precision;
 import spade.core.AbstractStorage;
 import spade.query.quickgrail.core.GraphDescription;
 import spade.query.quickgrail.core.GraphStats;
@@ -213,7 +214,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				sb.append(c);
 			}
 		}
-		return (escaped ? "e" : "") + "'" + sb.toString() + "'";
+		return (escaped ? "e" : "") + "'" + sb + "'";
 	}
 
 	@Override
@@ -636,13 +637,13 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		String createQuery = "drop table " + resultTable + ";\n"
 				+ "create table " + resultTable
 				+ "(id INT, value VARCHAR ("
-				+ Math.max(qs.conf.getMaxEdgeValueLength(), qs.conf.getMaxVertexValueLength())
+				+ Math.max(qs.getMaxEdgeValueLength(), qs.getMaxVertexValueLength())
 				+ "));\n";
 		qs.executeQuery(createQuery);
 
 		String query = "insert into " + resultTable + " select id, value from %s"
 				+ " where id in (select id from %s)"
-				+ " and field=" + annotationName + ";\n";
+				+ " and field=" + formatString(annotationName) + ";\n";
 		if(elementType.equals(ElementType.VERTEX))
 		{
 			query = String.format(query, vertexAnnotationsTableName, targetVertexTable);
@@ -701,13 +702,13 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		List<Double> ranges = new ArrayList<>();
 		while(begin+step < max)
 		{
-			key = begin + "-" + (begin+step);
+			key = Precision.round(begin, 2) + "-" + Precision.round(begin+step, 2);
 			distribution.put(key, 0);
 			begin += step;
 			ranges.add(begin);
 		}
 		ranges.add(max+1);
-		key = begin  + "-" + max;
+		key = Precision.round(begin, 2)  + "-" + Precision.round(max, 2);
 		distribution.put(key, 0);
 		createTempResultTable(graph, elementType, annotationName, extras);
 		// find distribution for each bin
@@ -724,7 +725,8 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				{
 					if(value < r)
 					{
-						key = (r-step) + "-" + r;
+						key = Precision.round(r-step, 2) + "-" +
+								Precision.round(r ,2);
 						int newCount = distribution.get(key) + 1;
 						distribution.put(key, newCount);
 					}
@@ -743,7 +745,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		String targetEdgeTable = getEdgeTableName(graph);
 		String query = "copy select stddev(cast(value as decimal)) from %s"
 				+ " where id in (select id from %s)"
-				+ " and field=" + annotationName
+				+ " and field=" + formatString(annotationName)
 				+ " to stdout;";
 		if(elementType.equals(ElementType.VERTEX))
 		{
@@ -799,7 +801,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		String query = "copy select value, count(*) from %s"
 				+ " where id"
 				+ " in (select id from %s)"
-				+ " and field=" + annotationName
+				+ " and field=" + formatString(annotationName)
 				+ " group by value"
 				+ " order by count(*)"
 				+ " to stdout with (delimiter ',');";
@@ -1576,7 +1578,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 					"DROP TABLE " + batchTable + ";\n"
 					+ "create table " + batchTable
 					+ "(id INT, value VARCHAR ("
-					+ Math.max(qs.conf.getMaxEdgeValueLength(), qs.conf.getMaxVertexValueLength())
+					+ Math.max(qs.getMaxEdgeValueLength(), qs.getMaxVertexValueLength())
 					+ "));\n"
 					+ "INSERT INTO " + batchTable + " SELECT * FROM " + resultTable
 					+ " LIMIT " + batchSize + ";\n"
