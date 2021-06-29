@@ -636,24 +636,22 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		}
 		String createQuery = "drop table " + resultTable + ";\n"
 				+ "create table " + resultTable
-				+ "(id INT, value VARCHAR ("
-				+ Math.max(qs.getMaxEdgeValueLength(), qs.getMaxVertexValueLength())
-				+ "));\n";
-		qs.executeQuery(createQuery);
-
-		String query = "insert into " + resultTable + " select id, value from %s"
+				+ "(id INT, value VARCHAR (%s));\n";
+		String insertQuery = "insert into " + resultTable + " select id, value from %s"
 				+ " where id in (select id from %s)"
 				+ " and field=" + formatString(annotationName) + ";\n";
 		if(elementType.equals(ElementType.VERTEX))
 		{
-			query = String.format(query, vertexAnnotationsTableName, targetVertexTable);
-
+		    createQuery = String.format(createQuery, qs.getMaxVertexValueLength());
+			insertQuery = String.format(insertQuery, vertexAnnotationsTableName, targetVertexTable);
 		}
 		else if(elementType.equals(ElementType.EDGE))
 		{
-			query = String.format(query, edgeAnnotationTableName, targetEdgeTable);
+            createQuery = String.format(createQuery, qs.getMaxEdgeValueLength());
+			insertQuery = String.format(insertQuery, edgeAnnotationTableName, targetEdgeTable);
 		}
-		qs.executeQuery(query);
+        qs.executeQuery(createQuery);
+		qs.executeQuery(insertQuery);
 
 		return resultTable;
 	}
@@ -680,7 +678,8 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		double max = -Double.MAX_VALUE;
 		double min = Double.MAX_VALUE;
 		int batchSize = 100;
-		QuickstepBatchIterator qit = new QuickstepBatchIterator(resultTable, batchSize);
+		QuickstepBatchIterator qit = new QuickstepBatchIterator(resultTable,
+                                        batchSize, elementType);
 		while(qit.hasNextBatch())
 		{
 			String batch = qit.nextBatch();
@@ -1563,26 +1562,35 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	public class QuickstepBatchIterator extends BatchIterator
 	{
 		String batchTable;
+		ElementType elementType;
 
-		public QuickstepBatchIterator(final String resultTable, final int batchSize)
+		public QuickstepBatchIterator(final String resultTable, final int batchSize,
+                                      final ElementType elementType)
 		{
 			super(resultTable, batchSize);
-			batchTable = "m_batch_" + resultTable;
+			this.batchTable = "m_batch_" + resultTable;
+			this.elementType = elementType;
 		}
 
 		@Override
 		public String nextBatch()
 		{
 			// copy batchSize elements from result table into batch table
-			qs.executeQuery(
-					"DROP TABLE " + batchTable + ";\n"
-					+ "create table " + batchTable
-					+ "(id INT, value VARCHAR ("
-					+ Math.max(qs.getMaxEdgeValueLength(), qs.getMaxVertexValueLength())
-					+ "));\n"
-					+ "INSERT INTO " + batchTable + " SELECT * FROM " + resultTable
-					+ " LIMIT " + batchSize + ";\n"
-					);
+            String query = "DROP TABLE " + batchTable + ";\n"
+                    + "create table " + batchTable
+                    + "(id INT, value VARCHAR (%s));\n"
+                    + "INSERT INTO " + batchTable + " SELECT * FROM " + resultTable
+                    + " ORDER BY id "
+					+ " LIMIT " + batchSize + ";\n";
+            if(elementType.equals(ElementType.VERTEX))
+            {
+                query = String.format(query, qs.getMaxVertexValueLength());
+            }
+            else if(elementType.equals(ElementType.EDGE))
+            {
+                query = String.format(query, qs.getMaxEdgeValueLength());
+            }
+            qs.executeQuery(query);
 			// return batchSize result
 			String result = qs.executeQuery(
 					"COPY SELECT * FROM " + batchTable
