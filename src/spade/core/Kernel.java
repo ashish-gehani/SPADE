@@ -1156,7 +1156,7 @@ public class Kernel
 		logger.log(Level.INFO, "Storage added: " + storage.getClass() + " " + arguments + ". Using screens: " + screenNames);
 		outputStream.println("done." 
 				+ (!setAsDefaultQuery ? "" : " [ Querying default ]")
-				+ (" Screens:" + (screenNames.isEmpty() ? "NONE" : screenNames.toString()))
+				//+ (" Screens:" + (screenNames.isEmpty() ? "NONE" : screenNames.toString()))
 				);
 	}
 	
