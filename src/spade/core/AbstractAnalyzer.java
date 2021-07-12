@@ -42,7 +42,17 @@ public abstract class AbstractAnalyzer{
 	
 	private Boolean useScaffold = null;
 	private Boolean useTransformer = null;
-	
+
+	private String arguments;
+
+	public void setArguments(final String arguments){
+		this.arguments = arguments;
+	}
+
+	public String getArguments(){
+		return arguments;
+	}
+
 	// true return means can continue. false return means that cannot continue.
 	private final boolean readGlobalConfigFromConfigFile(Class<? extends AbstractAnalyzer> clazz){
 		if(useScaffold == null || useTransformer == null){

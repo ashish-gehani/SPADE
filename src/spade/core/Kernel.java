@@ -1156,7 +1156,6 @@ public class Kernel
 		logger.log(Level.INFO, "Storage added: " + storage.getClass() + " " + arguments + ". Using screens: " + screenNames);
 		outputStream.println("done." 
 				+ (!setAsDefaultQuery ? "" : " [ Querying default ]")
-				//+ (" Screens:" + (screenNames.isEmpty() ? "NONE" : screenNames.toString()))
 				);
 	}
 	
@@ -1192,34 +1191,31 @@ public class Kernel
             	addReporterCommand(outputStream, className, arguments);
             	break;
             case "analyzer":
-            	arguments = (tokens.length == 3) ? null : tokens[3];
-            	logger.log(Level.INFO, "Adding analyzer: {0}", className);
-            	outputStream.print("Adding analyzer " + className + "... ");
-            	AbstractAnalyzer analyzer;
-            	try
-            	{
-            		Class<? extends AbstractAnalyzer> clazz = 
-            				(Class<? extends AbstractAnalyzer>)Class.forName("spade.analyzer." + className);
-            		Constructor<? extends AbstractAnalyzer> constructor = clazz.getDeclaredConstructor();
-            		analyzer = constructor.newInstance();
-            		if(analyzer.initialize(arguments))
-            		{
-            			analyzers.add(analyzer);
-            			logger.log(Level.INFO, "Analyzer added: {0}", className);
-            			outputStream.println("done");
-            		}
-            		else
-            			outputStream.println("failed");
-            	}catch(Throwable t){
-            		outputStream.println("error: Unable to find/load/initialize class");
-            		outputStream.flush();
-            		logger.log(Level.SEVERE, null, t);
-            		return;
-            	}
+				arguments = (tokens.length == 3) ? null : tokens[3];
+				logger.log(Level.INFO, "Adding analyzer: {0}", className);
+				outputStream.print("Adding analyzer " + className + "... ");
+				AbstractAnalyzer analyzer;
+				try{
+					@SuppressWarnings("unchecked")
+					Class<? extends AbstractAnalyzer> clazz = (Class<? extends AbstractAnalyzer>)Class
+							.forName("spade.analyzer." + className);
+					Constructor<? extends AbstractAnalyzer> constructor = clazz.getDeclaredConstructor();
+					analyzer = constructor.newInstance();
+					if(analyzer.initialize(arguments)){
+						analyzer.setArguments(arguments);
+						analyzers.add(analyzer);
+						logger.log(Level.INFO, "Analyzer added: {0}", className);
+						outputStream.println("done");
+					}else
+						outputStream.println("failed");
+				}catch(Throwable t){
+					outputStream.println("error: Unable to find/load/initialize class");
+					outputStream.flush();
+					logger.log(Level.SEVERE, null, t);
+					return;
+				}
 
-
-                break;
-
+				break;
             case "storage":
                 arguments = (tokens.length == 3) ? null : tokens[3];
                 addStorageCommand(outputStream, className, arguments);
@@ -1550,7 +1546,12 @@ public class Kernel
                 count = 1;
                 for (AbstractAnalyzer analyzer : analyzers)
                 {
-                    outputStream.println("\t" + count + ". " + analyzer.getClass().getName().split("\\.")[2]);
+                	String arguments = analyzer.getArguments();
+                    outputStream.print("\t" + count + ". " + analyzer.getClass().getName().split("\\.")[2]);
+					if(!HelperFunctions.isNullOrEmpty(arguments)){
+						outputStream.print(" (" + arguments + ")");
+					}
+					outputStream.println();
                     count++;
                 }
 
@@ -1568,15 +1569,13 @@ public class Kernel
                 {
                     String arguments = storage.arguments;
                     outputStream.print("\t" + count + ". " + storage.getClass().getName().split("\\.")[2]);
-                    if (arguments != null)
+                    if (arguments != null && !arguments.isBlank())
                     {
                         outputStream.print(" (" + arguments + ")");
                     }
                     if(storage == Kernel.getDefaultQueryStorage()){
                     	outputStream.print(" [ Querying default ]");
                     }
-                    final List<String> screenNames = HelperFunctions.getListOfClassNames(storage.getScreens()); 
-                    outputStream.print((" (Screens:" + (screenNames.isEmpty() ? "NONE" : screenNames.toString()) + ")"));
                     outputStream.println();
                     count++;
                 }

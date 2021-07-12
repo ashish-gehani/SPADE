@@ -23,7 +23,7 @@
 
 print_help ()
 {
-	echo "spade start | stop | debug | control | query | help"
+	echo "spade start | stop | status | debug | control | query | help"
 	echo ""
 	echo "'spade start' : Starts SPADE"
 	echo "'spade stop' : Stops SPADE after buffers empty"
@@ -36,6 +36,10 @@ print_help ()
 	echo "'spade query' : Starts an interactive command line SPADE query client"
 	echo "'spade status' : Shows SPADE status"
 	echo "'spade help' : Prints this message"
+}
+
+is_spade_running(){
+	ps aux | grep -q "[s]pade.core.Kernel\|[s]pade.core.Unikernel" && echo 1 || echo 0
 }
 
 CYGWIN_JVM_JLINE_ARGS=
@@ -67,7 +71,13 @@ else
 	elif [ $1 = "query" ] ; then
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $CYGWIN_JVM_JLINE_ARGS spade.client.CommandLine "$@"
 	elif [ $1 = "control" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $CYGWIN_JVM_JLINE_ARGS spade.client.Control
+		output=$(is_spade_running)
+		if [ "$output" -eq 1 ]
+		then
+			java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $CYGWIN_JVM_JLINE_ARGS spade.client.Control
+		else
+			echo "SPADE is not running"
+		fi
 	elif [ $1 = "debug" ] ; then
 		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGSDEBUG spade.core.Kernel
 	elif [ $1 = "start" ]  || [ $1 = "remote-debug" ] || [ $1 = "unikernel" ] ; then
@@ -140,7 +150,8 @@ else
 		fi
 
 	elif [ $1 = "status" ] ; then
-		if ps aux | grep -q "[s]pade.core.Kernel"
+		output=$(is_spade_running)
+		if [ "$output" -eq 1 ]
 		then
 			echo "Running"
 		else
