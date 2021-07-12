@@ -371,11 +371,11 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 					+ formatString(instruction.annotationValue));
 			if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
 				String analyzeQuery = "\\analyzerange " + getVertexTableName(instruction.subjectGraph) + "\n";
-				evaluateQuery(new EvaluateQuery(analyzeQuery));
+				qs.executeQuery(analyzeQuery);
 				sqlQuery.append(" AND id IN (SELECT id FROM " + getVertexTableName(instruction.subjectGraph) + ")");
 			}
 			sqlQuery.append(" GROUP BY id;");
-			evaluateQuery(new EvaluateQuery(sqlQuery.toString()));
+			qs.executeQuery(sqlQuery.toString());
 		}
 	}
 	
@@ -515,11 +515,11 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 					+ edgeAnnotationTableName);
 			if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
 				String analyzeQuery = "\\analyzerange " + getEdgeTableName(instruction.subjectGraph) + "\n";
-				evaluateQuery(new EvaluateQuery(analyzeQuery));
+				qs.executeQuery(analyzeQuery);
 				sqlQuery.append(" WHERE id IN (SELECT id FROM " + getEdgeTableName(instruction.subjectGraph) + ")");
 			}
 			sqlQuery.append(" GROUP BY id;");
-			evaluateQuery(new EvaluateQuery(sqlQuery.toString()));
+			qs.executeQuery(sqlQuery.toString());
 		}else{
 			StringBuilder sqlQuery = new StringBuilder();
 			sqlQuery.append("INSERT INTO " + getEdgeTableName(instruction.targetGraph) + " SELECT id FROM "
@@ -531,11 +531,11 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 					+ formatString(instruction.annotationValue));
 			if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
 				String analyzeQuery = "\\analyzerange " + getEdgeTableName(instruction.subjectGraph) + "\n";
-				evaluateQuery(new EvaluateQuery(analyzeQuery));
+				qs.executeQuery(analyzeQuery);
 				sqlQuery.append(" AND id IN (SELECT id FROM " + getEdgeTableName(instruction.subjectGraph) + ")");
 			}
 			sqlQuery.append(" GROUP BY id;");
-			evaluateQuery(new EvaluateQuery(sqlQuery.toString()));
+			qs.executeQuery(sqlQuery.toString());
 		}
 	}
 
