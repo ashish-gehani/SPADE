@@ -40,10 +40,13 @@ public abstract class PathIdentifier extends ArtifactIdentifier{
 	
 	public final String combinedPath;
 	
-	public PathIdentifier(String path, String rootFSPath){
+	public final String inode;
+	
+	public PathIdentifier(String path, String rootFSPath, final String inode){
 		this.path = path;
 		this.rootFSPath = rootFSPath;
 		this.combinedPath = LinuxPathResolver.joinPaths(path, rootFSPath, null);
+		this.inode = inode;
 	}
 	
 	@Override
@@ -54,6 +57,9 @@ public abstract class PathIdentifier extends ArtifactIdentifier{
 			annotations.put(OPMConstants.ARTIFACT_ROOT_PATH, rootFSPath);
 		}
 //		annotations.put(OPMConstants.ARTIFACT_PATH, combinedPath);
+		if(inode != null){
+			annotations.put(OPMConstants.ARTIFACT_INODE, inode);
+		}
 		return annotations;
 	}
 
@@ -64,6 +70,7 @@ public abstract class PathIdentifier extends ArtifactIdentifier{
 		final int prime = 31;
 		int result = super.hashCode();
 		result = prime * result + ((combinedPath == null) ? 0 : combinedPath.hashCode());
+		result = prime * result + ((inode == null) ? 0 : inode.hashCode());
 		return result;
 	}
 
@@ -81,11 +88,16 @@ public abstract class PathIdentifier extends ArtifactIdentifier{
 				return false;
 		}else if(!combinedPath.equals(other.combinedPath))
 			return false;
+		if(inode == null){
+			if(other.inode != null)
+				return false;
+		}else if(!inode.equals(other.inode))
+			return false;
 		return true;
 	}
 
 	@Override
 	public String toString() {
-		return this.getClass().getSimpleName() + " [combinedPath=" + combinedPath + "]";
+		return this.getClass().getSimpleName() + " [combinedPath=" + combinedPath + ", inode=" + inode + "]";
 	}
 }

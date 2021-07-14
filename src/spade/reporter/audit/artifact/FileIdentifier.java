@@ -26,8 +26,8 @@ public class FileIdentifier extends PathIdentifier{
 
 	private static final long serialVersionUID = 4297464246093502916L;
 
-	public FileIdentifier(String path, String rootFSPath){
-		super(path, rootFSPath);
+	public FileIdentifier(String path, String rootFSPath, String inode){
+		super(path, rootFSPath, inode);
 	}
 	
 	public String getSubtype(){

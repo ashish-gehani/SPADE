@@ -34,6 +34,7 @@ public class AuditConfiguration{
 			keyFailfast = "failfast",
 			keyFileIO = "fileIO",			
 			keyFsids = "fsids",
+			keyInode = "inode",
 			keyIPC = "IPC",
 			keyMemorySyscalls = "memorySyscalls",
 			keyMergeUnit = "mergeUnit",
@@ -52,6 +53,7 @@ public class AuditConfiguration{
 	private boolean failfast;
 	private boolean fileIO;
 	private boolean fsids;
+	private boolean inode;
 	private boolean IPC;
 	private boolean memorySyscalls;
 	private int mergeUnit;
@@ -70,6 +72,7 @@ public class AuditConfiguration{
 		instance.failfast = ArgumentFunctions.mustParseBoolean(keyFailfast, map);
 		instance.fileIO = ArgumentFunctions.mustParseBoolean(keyFileIO, map);
 		instance.fsids = ArgumentFunctions.mustParseBoolean(keyFsids, map);
+		instance.inode = ArgumentFunctions.mustParseBoolean(keyInode, map);
 		instance.IPC = ArgumentFunctions.mustParseBoolean(keyIPC, map);
 		instance.memorySyscalls = ArgumentFunctions.mustParseBoolean(keyMemorySyscalls, map);
 		instance.units = ArgumentFunctions.mustParseBoolean(keyUnits, map);
@@ -132,6 +135,10 @@ public class AuditConfiguration{
 		return fsids;
 	}
 
+	public boolean isInode(){
+		return inode;
+	}
+
 	public boolean isIPC(){
 		return IPC;
 	}
@@ -179,6 +186,7 @@ public class AuditConfiguration{
 				+ ", " + keyFailfast + "=" + failfast
 				+ ", " + keyFileIO + "=" + fileIO
 				+ ", " + keyFsids + "=" + fsids
+				+ ", " + keyInode + "=" + inode
 				+ ", " + keyIPC + "=" + IPC
 				+ ", " + keyMemorySyscalls + "=" + memorySyscalls
 				+ ", " + keyMergeUnit + "=" + mergeUnit

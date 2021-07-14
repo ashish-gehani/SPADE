@@ -25,8 +25,8 @@ public class PosixMessageQueue extends PathIdentifier{
 
 	private static final long serialVersionUID = -4443657723913576640L;
 
-	public PosixMessageQueue(String path, String rootFSPath){
-		super(path, rootFSPath);
+	public PosixMessageQueue(String path, String rootFSPath, String inode){
+		super(path, rootFSPath, inode);
 	}
 
 	public String getSubtype(){

@@ -63,7 +63,6 @@ import spade.reporter.audit.artifact.DirectoryIdentifier;
 import spade.reporter.audit.artifact.MemoryIdentifier;
 import spade.reporter.audit.artifact.NetworkSocketIdentifier;
 import spade.reporter.audit.artifact.PathIdentifier;
-import spade.reporter.audit.artifact.PosixMessageQueue;
 import spade.reporter.audit.artifact.UnixSocketIdentifier;
 import spade.reporter.audit.artifact.UnknownIdentifier;
 import spade.reporter.audit.artifact.UnnamedNetworkSocketPairIdentifier;
@@ -538,6 +537,10 @@ public class Audit extends AbstractReporter {
 	
 	public final IPCManager getIPCManager(){
 		return ipcManager;
+	}
+
+	public final boolean includeInode(){
+		return auditConfiguration.isInode();
 	}
 
 	@Override
@@ -1284,7 +1287,12 @@ public class Audit extends AbstractReporter {
 			if(syscall == SYSCALL.UNLINK || syscall == SYSCALL.MQ_UNLINK){
 				pathIdentifier = resolvePath(pathRecord, eventData, syscall);
 				if(syscall == SYSCALL.MQ_UNLINK){
-					pathIdentifier = new PosixMessageQueue(pathIdentifier.path, pathIdentifier.rootFSPath);
+					pathIdentifier = 
+							LinuxPathResolver.createPosixMessageQueueIdentifier(
+									pathIdentifier.path, 
+									pathIdentifier.rootFSPath,
+									pathIdentifier.inode,
+									includeInode());
 				}
 			}else if(syscall == SYSCALL.UNLINKAT){
 				pathIdentifier = resolvePath_At(pathRecord, AuditEventReader.ARG0, eventData, syscall);
@@ -1513,7 +1521,12 @@ public class Audit extends AbstractReporter {
 		if(syscall == SYSCALL.OPEN || syscall == SYSCALL.MQ_OPEN){
 			artifactIdentifier = resolvePath(pathRecord, eventData, syscall);
 			if(syscall == SYSCALL.MQ_OPEN){
-				artifactIdentifier = new PosixMessageQueue(artifactIdentifier.path, artifactIdentifier.rootFSPath);
+				artifactIdentifier =
+						LinuxPathResolver.createPosixMessageQueueIdentifier(
+								artifactIdentifier.path, 
+								artifactIdentifier.rootFSPath,
+								artifactIdentifier.inode,
+								includeInode());
 			}
 			flagsString = eventData.get(AuditEventReader.ARG1);
 			modeString = eventData.get(AuditEventReader.ARG2);
@@ -2531,7 +2544,11 @@ public class Audit extends AbstractReporter {
 						// Use a new one because the wasOpenedForRead is updated otherwise it would
 						// be updated in the bound identifier too.
 						UnixSocketIdentifier boundUnixIdentifier = (UnixSocketIdentifier)(boundFileDescriptor.identifier);
-						identifier = new UnixSocketIdentifier(boundUnixIdentifier.path, boundUnixIdentifier.rootFSPath);
+						identifier = LinuxPathResolver.createUnixSocketIdentifier(
+								boundUnixIdentifier.path, 
+								boundUnixIdentifier.rootFSPath, 
+								boundUnixIdentifier.inode,
+								includeInode());
 					}else{
 						log(Level.INFO, "Expected unix identifier but found: " + 
 								boundFileDescriptor.identifier.getClass(), null, time, eventId, syscall);
@@ -2822,7 +2839,7 @@ public class Audit extends AbstractReporter {
 		// TODO need to handle socketpair syscall for that too.
 		if(path != null && !path.isEmpty()){
 			String rootFSPath = processManager.getRoot(pid);
-			return new UnixSocketIdentifier(path, rootFSPath);
+			return LinuxPathResolver.createUnixSocketIdentifier(path, rootFSPath, null, includeInode());
 		}else{
 			return null;
 		}

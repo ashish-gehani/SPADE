@@ -26,8 +26,8 @@ public class CharacterDeviceIdentifier extends PathIdentifier{
 
 	private static final long serialVersionUID = -328725417188868657L;
 
-	public CharacterDeviceIdentifier(String path, String rootFSPath){
-		super(path, rootFSPath);
+	public CharacterDeviceIdentifier(String path, String rootFSPath, String inode){
+		super(path, rootFSPath, inode);
 	}
 	
 	@Override

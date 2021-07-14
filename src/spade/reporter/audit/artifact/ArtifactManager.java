@@ -207,6 +207,7 @@ public class ArtifactManager{
 									append(str, LinuxPathResolver.PATH_SEPARATOR);
 									append(str, LinuxPathResolver.PATH_SEPARATOR);
 									append(str, pathIdentifier.path).append(",");
+									append(str, pathIdentifier.inode).append(",");
 									append(str, pathIdentifier.getSubtype());
 									break;
 								case OPMConstants.SUBTYPE_MEMORY_ADDRESS: 

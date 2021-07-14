@@ -81,6 +81,7 @@ public class AuditEventReader{
 			NAMETYPE_PREFIX = "nametype",
 			NAMETYPE_UNKNOWN = "UNKNOWN",
 			PATH_PREFIX = "path",
+			INODE_PREFIX = "inode",
 			ITEM = "item",
 			PID = "pid",
 			PPID = "ppid",
@@ -567,10 +568,12 @@ public class AuditEventReader{
 		final String mode = tempMap.get(MODE_PREFIX) == null ? "0" : tempMap.get(MODE_PREFIX);
 		final String nametype = tempMap.get(NAMETYPE_PREFIX);
 		final String name = parseAuditString(auditRecord.data, NAME);
+		final String inode = tempMap.get(INODE_PREFIX) == null ? "-1" : tempMap.get(INODE_PREFIX);
 
 		auditRecordKeyValues.put(MODE_PREFIX + itemNumber, mode);
 		auditRecordKeyValues.put(NAMETYPE_PREFIX + itemNumber, nametype);
 		auditRecordKeyValues.put(PATH_PREFIX + itemNumber, name);
+		auditRecordKeyValues.put(INODE_PREFIX + itemNumber, inode);
 		return auditRecordKeyValues;
 	}
 	

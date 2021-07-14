@@ -58,14 +58,19 @@ public class PathRecord implements Comparable<PathRecord>{
 	 * Extracted from the mode variable
 	 */
 	private String permissions = null;
-	
-	public PathRecord(int index, String path, String nametype, String mode){
+	/**
+	 * Extracted from the inode variable
+	 */
+	private String inode = null;
+
+	public PathRecord(int index, String path, String nametype, String mode, String inode){
 		this.index = index;
 		this.path = path;
 		this.nametype = nametype;
 		this.mode = mode;
 		this.pathType = parsePathType(mode);
 		this.permissions = parsePermissions(mode);
+		this.inode = inode;
 	}
 	
 	/**
@@ -124,7 +129,11 @@ public class PathRecord implements Comparable<PathRecord>{
 	public int getIndex(){
 		return index;
 	}
-	
+
+	public String getInode(){
+		return inode;
+	}
+
 	/**
 	 * Compares based on index. If the passed object is null then 1 returned always
 	 */
@@ -144,6 +153,7 @@ public class PathRecord implements Comparable<PathRecord>{
 		result = prime * result + ((mode == null) ? 0 : mode.hashCode());
 		result = prime * result + ((nametype == null) ? 0 : nametype.hashCode());
 		result = prime * result + ((path == null) ? 0 : path.hashCode());
+		result = prime * result + ((inode == null) ? 0 : inode.hashCode());
 		return result;
 	}
 
@@ -173,12 +183,17 @@ public class PathRecord implements Comparable<PathRecord>{
 				return false;
 		} else if (!path.equals(other.path))
 			return false;
+		if (inode == null) {
+			if (other.inode != null)
+				return false;
+		} else if (!inode.equals(other.inode))
+			return false;
 		return true;
 	}
 
 	@Override
 	public String toString() {
-		return "PathRecord [path=" + path + ", index=" + index + ", nametype=" + nametype + ", mode=" + mode + "]";
+		return "PathRecord [path=" + path + ", index=" + index + ", nametype=" + nametype + ", mode=" + mode + ", inode=" + inode + "]";
 	}
 	
 	/**
@@ -207,7 +222,8 @@ public class PathRecord implements Comparable<PathRecord>{
 					PathRecord pathRecord = new PathRecord(itemcount, 
 							eventData.get(AuditEventReader.PATH_PREFIX+itemcount), 
 							eventData.get(AuditEventReader.NAMETYPE_PREFIX+itemcount), 
-							eventData.get(AuditEventReader.MODE_PREFIX+itemcount));
+							eventData.get(AuditEventReader.MODE_PREFIX+itemcount),
+							eventData.get(AuditEventReader.INODE_PREFIX+itemcount));
 					pathRecords.add(pathRecord);
 				}
 			}
@@ -245,7 +261,8 @@ public class PathRecord implements Comparable<PathRecord>{
 		if(path != null){
 			String nametype = eventData.get(AuditEventReader.NAMETYPE_PREFIX+itemNumberInt);
 			String mode = eventData.get(AuditEventReader.MODE_PREFIX+itemNumberInt);
-			return new PathRecord(itemNumberInt, path, nametype, mode);
+			String inode = eventData.get(AuditEventReader.INODE_PREFIX+itemNumberInt);
+			return new PathRecord(itemNumberInt, path, nametype, mode, inode);
 		}
 		return null;
 	}

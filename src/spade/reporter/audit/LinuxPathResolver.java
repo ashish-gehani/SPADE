@@ -31,10 +31,10 @@ import spade.reporter.audit.artifact.FileIdentifier;
 import spade.reporter.audit.artifact.LinkIdentifier;
 import spade.reporter.audit.artifact.NamedPipeIdentifier;
 import spade.reporter.audit.artifact.PathIdentifier;
+import spade.reporter.audit.artifact.PosixMessageQueue;
 import spade.reporter.audit.artifact.UnixSocketIdentifier;
 import spade.reporter.audit.process.FileDescriptor;
 import spade.reporter.audit.process.ProcessManager;
-
 import spade.utility.HelperFunctions;
 
 public class LinuxPathResolver{
@@ -219,24 +219,40 @@ public class LinuxPathResolver{
 	 */
 	private static PathIdentifier getArtifactIdentifierFromPathMode(
 			String path, String rootFSPath,
-			int pathType, 
+			int pathType, String inode, 
 			String time, String eventId, SYSCALL syscall,
 			Audit audit){
+		final String inodeCopy = audit.includeInode() ? inode : null;
+		
 		final int type = pathType & S_IFMT;
 		switch(type){
-			case S_IFREG: return new FileIdentifier(path, rootFSPath);
-			case S_IFDIR: return new DirectoryIdentifier(path, rootFSPath);
-			case S_IFCHR: return new CharacterDeviceIdentifier(path, rootFSPath);
-			case S_IFBLK: return new BlockDeviceIdentifier(path, rootFSPath);
-			case S_IFLNK: return new LinkIdentifier(path, rootFSPath);
-			case S_IFIFO: return new NamedPipeIdentifier(path, rootFSPath);
-			case S_IFSOCK: return new UnixSocketIdentifier(path, rootFSPath);
+			case S_IFREG: return new FileIdentifier(path, rootFSPath, inodeCopy);
+			case S_IFDIR: return new DirectoryIdentifier(path, rootFSPath, inodeCopy);
+			case S_IFCHR: return new CharacterDeviceIdentifier(path, rootFSPath, inodeCopy);
+			case S_IFBLK: return new BlockDeviceIdentifier(path, rootFSPath, inodeCopy);
+			case S_IFLNK: return new LinkIdentifier(path, rootFSPath, inodeCopy);
+			case S_IFIFO: return new NamedPipeIdentifier(path, rootFSPath, inodeCopy);
+			case S_IFSOCK: return new UnixSocketIdentifier(path, rootFSPath, inodeCopy);
 			default:
 				audit.log(Level.INFO, "Unknown file type: "+pathType+". Defaulted to 'File'", null, time, eventId, syscall);
-				return new FileIdentifier(path, rootFSPath);
+				return new FileIdentifier(path, rootFSPath, inodeCopy);
 		}
 	}
 
+	public static UnixSocketIdentifier createUnixSocketIdentifier(
+			final String path, final String rootFSPath, final String inode,
+			final boolean includeInode){
+		final String inodeCopy = includeInode ? inode : null;
+		return new UnixSocketIdentifier(path, rootFSPath, inodeCopy);
+	}
+	
+	public static PosixMessageQueue createPosixMessageQueueIdentifier(
+			final String path, final String rootFSPath, final String inode,
+			final boolean includeInode){
+		final String inodeCopy = includeInode ? inode : null;
+		return new PosixMessageQueue(path, rootFSPath, inodeCopy);
+	}
+	
 	public static PathIdentifier resolvePath(PathRecord pathRecord, String cwdAuditRecord, 
 			String pid, String atSyscallFdKey, String fdString, boolean isAnAtSyscall,
 			String eventTime, String eventId, SYSCALL syscall,
@@ -325,7 +341,8 @@ public class LinuxPathResolver{
 		String finalPath = constructAbsolutePath(path, parentPath, pid);
 		PathIdentifier pathIdentifier = getArtifactIdentifierFromPathMode(
 				finalPath, rootFSPath, 
-				pathRecord.getPathType(), eventTime, eventId, syscall,
+				pathRecord.getPathType(), pathRecord.getInode(), 
+				eventTime, eventId, syscall,
 				audit);
 
 		return pathIdentifier;

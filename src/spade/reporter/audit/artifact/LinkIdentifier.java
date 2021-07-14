@@ -26,8 +26,8 @@ public class LinkIdentifier extends PathIdentifier{
 
 	private static final long serialVersionUID = -3222231038037812756L;
 
-	public LinkIdentifier(String path, String rootFSPath){
-		super(path, rootFSPath);
+	public LinkIdentifier(String path, String rootFSPath, String inode){
+		super(path, rootFSPath, inode);
 	}
 	
 	@Override
