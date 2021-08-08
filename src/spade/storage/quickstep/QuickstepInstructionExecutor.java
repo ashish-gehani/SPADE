@@ -32,6 +32,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.commons.math3.util.Precision;
+import org.apache.commons.lang3.StringUtils;
 import spade.core.AbstractStorage;
 import spade.query.quickgrail.core.GraphDescription;
 import spade.query.quickgrail.core.GraphStats;
@@ -75,7 +76,6 @@ import spade.query.quickgrail.utility.QuickstepUtil;
 import spade.query.quickgrail.utility.ResultTable;
 import spade.query.quickgrail.utility.Schema;
 import spade.storage.Quickstep;
-import spade.utility.AggregationState;
 import spade.utility.HelperFunctions;
 
 /**
@@ -617,9 +617,8 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	private String createTempResultTable(final Graph graph,
-									   final ElementType elementType,
-									   final String annotationName,
-									   final List<String> extras)
+										 final ElementType elementType,
+										 final String annotationName)
 	{
 		// populate the result table
 		String targetVertexTable = getVertexTableName(graph);
@@ -672,7 +671,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 			logger.log(Level.SEVERE, "Incorrect number of arguments! Bin count is required.");
 			return null;
 		}
-		String resultTable = createTempResultTable(graph, elementType, annotationName, extras);
+		String resultTable = createTempResultTable(graph, elementType, annotationName);
 
 		// find max and min of the table to find range
 		double max = -Double.MAX_VALUE;
@@ -704,12 +703,12 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 			key = Precision.round(begin, 2) + "-" + Precision.round(begin+step, 2);
 			distribution.put(key, 0);
 			begin += step;
-			ranges.add(begin);
+			ranges.add(Precision.round(begin, 2));
 		}
-		ranges.add(max+1);
+		ranges.add(Precision.round(max+1, 2));
 		key = Precision.round(begin, 2)  + "-" + Precision.round(max, 2);
 		distribution.put(key, 0);
-		createTempResultTable(graph, elementType, annotationName, extras);
+		createTempResultTable(graph, elementType, annotationName);
 		// find distribution for each bin
 		// run through the result table again in batches
 		// keep count of frequencies in the map
@@ -720,14 +719,23 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 			for(ResultTable.Row row: table.getRows())
 			{
 				double value = Double.parseDouble(row.getValue(1));
+				int i = -1;
 				for(double r: ranges)
 				{
+					i++;
 					if(value < r)
 					{
-						key = Precision.round(r-step, 2) + "-" +
-								Precision.round(r ,2);
+						if(i == ranges.size()-1)
+						{
+							key = (r-step) + "-" + (r-1);
+						}
+						else
+						{
+							key = (r-step) + "-" + r;
+						}
 						int newCount = distribution.get(key) + 1;
 						distribution.put(key, newCount);
+						break;
 					}
 				}
 			}
@@ -740,23 +748,42 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	private GraphStats.AggregateStats computeStd(final Graph graph, final ElementType elementType,
 												 final String annotationName)
 	{
-		String targetVertexTable = getVertexTableName(graph);
-		String targetEdgeTable = getEdgeTableName(graph);
-		String query = "copy select stddev(cast(value as decimal)) from %s"
-				+ " where id in (select id from %s)"
-				+ " and field=" + formatString(annotationName)
-				+ " to stdout;";
-		if(elementType.equals(ElementType.VERTEX))
+		// first calculate the mean
+		String resultTable = createTempResultTable(graph, elementType, annotationName);
+		int batchSize = 100;
+		QuickstepBatchIterator qit = new QuickstepBatchIterator(resultTable,
+				batchSize, elementType);
+		double sum = 0;
+		long count = 0;
+		while(qit.hasNextBatch())
 		{
-			query = String.format(query, vertexAnnotationsTableName, targetVertexTable);
+			String batch = qit.nextBatch();
+			ResultTable table = ResultTable.FromText(batch, ',');
+			for(ResultTable.Row row: table.getRows())
+			{
+				double value = Double.parseDouble(row.getValue(1));
+				sum += value;
+				count++;
+			}
+		}
+		double mean = sum/count;
 
-		}
-		else if(elementType.equals(ElementType.EDGE))
+		// now calculate the rest
+		resultTable = createTempResultTable(graph, elementType, annotationName);
+		qit = new QuickstepBatchIterator(resultTable, batchSize, elementType);
+		double sq_diff_sum = 0;
+		while(qit.hasNextBatch())
 		{
-			query = String.format(query, edgeAnnotationTableName, targetEdgeTable);
+			String batch = qit.nextBatch();
+			ResultTable table = ResultTable.FromText(batch, ',');
+			for(ResultTable.Row row: table.getRows())
+			{
+				double value = Double.parseDouble(row.getValue(1));
+				double sq_diff = Math.pow(value - mean, 2);
+				sq_diff_sum += sq_diff;
+			}
 		}
-		String result = qs.executeQuery(query).trim();
-		Double std = Double.parseDouble(result);
+		double std = Math.sqrt(sq_diff_sum/count);
 		GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats();
 		aggregateStats.setStd(std);
 		return aggregateStats;
@@ -766,23 +793,24 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	private GraphStats.AggregateStats computeMean(final Graph graph, final ElementType elementType,
 												  final String annotationName)
 	{
-		String targetVertexTable = getVertexTableName(graph);
-		String targetEdgeTable = getEdgeTableName(graph);
-		String query = "copy select avg(value) from %s"
-				+ " where id in (select id from %s)"
-				+ " and field =" + annotationName
-				+ " to stdout";
-		if(elementType.equals(ElementType.VERTEX))
+		String resultTable = createTempResultTable(graph, elementType, annotationName);
+		int batchSize = 100;
+		QuickstepBatchIterator qit = new QuickstepBatchIterator(resultTable,
+				batchSize, elementType);
+		double sum = 0;
+		long count = 0;
+		while(qit.hasNextBatch())
 		{
-			query = String.format(query, vertexAnnotationsTableName, targetVertexTable);
-
+			String batch = qit.nextBatch();
+			ResultTable table = ResultTable.FromText(batch, ',');
+			for(ResultTable.Row row: table.getRows())
+			{
+				double value = Double.parseDouble(row.getValue(1));
+				sum += value;
+				count++;
+			}
 		}
-		else if(elementType.equals(ElementType.EDGE))
-		{
-			query = String.format(query, edgeAnnotationTableName, targetEdgeTable);
-		}
-		String result = qs.executeQuery(query).trim();
-		Double mean = Double.parseDouble(result);
+		double mean = sum/count;
 		GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats();
 		aggregateStats.setMean(mean);
 		return aggregateStats;
@@ -1597,9 +1625,21 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 					+ " TO STDOUT  WITH (DELIMITER ',');\n");
 
 			// delete batch table rows from the result
-			qs.executeQuery(
-					"DELETE FROM " + resultTable + " WHERE id IN "
-					+ " SELECT id FROM " + batchTable + ";\n"
+            query = "COPY SELECT id FROM " + batchTable
+                    + " to stdout with (delimiter ',');\n";
+            String temp_result = qs.executeQuery(query);
+            ResultTable table = ResultTable.FromText(temp_result, ',');
+            List<Integer> list = new ArrayList<>();
+            for(ResultTable.Row row: table.getRows())
+            {
+                Integer id = Integer.parseInt(row.getValue(0));
+                list.add(id);
+            }
+            String ids = StringUtils.join(list, ',');
+
+            qs.executeQuery(
+					"DELETE FROM " + resultTable + " WHERE id IN ("
+					+ ids + ");\n"
 					);
 			return result;
 		}
