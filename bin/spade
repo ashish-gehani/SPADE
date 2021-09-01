@@ -42,20 +42,19 @@ is_spade_running(){
 	ps aux | grep -q "[s]pade.core.Kernel\|[s]pade.core.Unikernel" && echo 1 || echo 0
 }
 
+SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
 CYGWIN_JVM_JLINE_ARGS=
 
 if [[ `uname` == *"CYGWIN"* ]]
 then
-	SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
 	SPADE_ROOT=`cygpath -w $SPADE_ROOT`
-	CLASSPATH="$SPADE_ROOT\\lib\\neo4j-community-4.1.1\\lib\\*;$SPADE_ROOT\\build;$SPADE_ROOT\\lib\\*"
 	JAVALIBPATH="$SPADE_ROOT\\lib\\"
 	CYGWIN_JVM_JLINE_ARGS="-Djline.terminal=jline.UnixTerminal"
 else
-	SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
-	CLASSPATH="$SPADE_ROOT/lib/neo4j-community-4.1.1/lib/*:$SPADE_ROOT/build:$SPADE_ROOT/lib/*"
 	JAVALIBPATH="$SPADE_ROOT/lib/"	
 fi
+
+CLASSPATH=$(./bin/classpath.sh)
 
 JVMARGS="-server -Xms8G -Xmx16G"
 JVMARGSDEBUG="-server -Xms8G -Xmx16G -XX:+UseConcMarkSweepGC"

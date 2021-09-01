@@ -4,7 +4,7 @@
 JAVAC=@JAVAC@
 CC=@CC@
 JAR=@JAR@
-JAVAC_CP = lib/neo4j-community-4.1.1/lib/*:build:lib/*
+JAVAC_CP = $(shell ./bin/classpath.sh)
 JAVAC_OPTIONS =$(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none
 ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@
 ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
