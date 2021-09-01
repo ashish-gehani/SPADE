@@ -82,15 +82,8 @@ build: build-java $$(OS_BUILD) lib/spade.jar
 #build-java: download-neo4j core clients utilities storages filters query analyzers sketches transformers reporters
 build-java: download-neo4j core clients utilities storages screens filters query analyzers transformers reporters
 
-NEO4J_DIR=lib/neo4j-community-4.1.1
 download-neo4j:
-	@if [ -d $(NEO4J_DIR) ]; then \
-		echo "Neo4j already exists"; \
-	else \
-		echo "Neo4j does not exist. Downloading now..."; \
-		bin/downloadNeo4j \
-		echo "--- Downloaded Neo4j and dependencies ---"; \
-	fi
+	@bin/downloadNeo4j
 
 .SUFFIXES : .class .java
  

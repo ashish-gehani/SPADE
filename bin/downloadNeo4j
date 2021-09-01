@@ -1,18 +1,30 @@
 #!/bin/bash
-OS_NAME=$(uname)
-if [ $OS_NAME == "Linux" ]
+
+set -e
+
+os_name=$(uname)
+
+download_url="https://neo4j.com/artifact.php?name=neo4j-community-4.1.1-unix.tar.gz"
+download_dir_path="lib"
+downloaded_file_path="${download_dir_path}/neo4j-community-4.1.1.tar.gz"
+neo4j_dir_path="lib/neo4j-community-4.1.1"
+
+if [ -d "${neo4j_dir_path}" ]
 then
-  wget -O lib/neo4j-community-4.1.1.tar.gz "https://neo4j.com/artifact.php?name=neo4j-community-4.1.1-unix.tar.gz"
-  tar -xf lib/neo4j-community-4.1.1.tar.gz -C lib/
-  rm lib/neo4j-community-4.1.1.tar.gz
-elif [ $OS_NAME == "Darwin" ]
-then
-  curl -o lib/neo4j-community-4.1.1.tar.gz "https://neo4j.com/artifact.php?name=neo4j-community-4.1.1-unix.tar.gz"
-  tar -xf lib/neo4j-community-4.1.1.tar.gz -C lib/
-  rm lib/neo4j-community-4.1.1.tar.gz
-elif [[ $OS_NAME == *"CYGWIN"* ]]
-then
-  wget -O lib/neo4j-community-4.1.1.tar.gz "https://neo4j.com/artifact.php?name=neo4j-community-4.1.1-unix.tar.gz"
-  tar -xf lib/neo4j-community-4.1.1.tar.gz -C lib/
-  rm lib/neo4j-community-4.1.1.tar.gz
+  echo "Neo4j exists: ${neo4j_dir_path}"
+  exit 0
 fi
+
+if [[ "$os_name" = "Linux" ]] || [[ "$os_name" = *"CYGWIN"* ]]
+then
+  wget -O "$downloaded_file_path" "$download_url"
+elif [ "$os_name" = "Darwin" ]
+then
+  curl -L -o "$downloaded_file_path" "$download_url"
+else
+  echo "Platform not supported: $os_name"
+  exit 1
+fi
+
+tar -xf "${downloaded_file_path}" -C "${download_dir_path}/"
+rm "$downloaded_file_path"
