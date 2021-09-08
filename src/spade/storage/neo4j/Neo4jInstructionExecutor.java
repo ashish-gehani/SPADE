@@ -24,12 +24,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.TreeMap;
 
 import spade.core.AbstractStorage;
-import spade.query.quickgrail.core.AbstractQueryEnvironment;
+import spade.query.quickgrail.core.EnvironmentVariableManager;
 import spade.query.quickgrail.core.GraphDescription;
-import spade.query.quickgrail.core.GraphStats;
+import spade.query.quickgrail.core.GraphStatistic;
+import spade.query.quickgrail.core.GraphStatistic.Interval;
 import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
@@ -38,12 +40,14 @@ import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
 import spade.query.quickgrail.instruction.DescribeGraph;
+import spade.query.quickgrail.instruction.DescribeGraph.ElementType;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
 import spade.query.quickgrail.instruction.EvaluateQuery;
 import spade.query.quickgrail.instruction.ExportGraph;
 import spade.query.quickgrail.instruction.GetAdjacentVertex;
 import spade.query.quickgrail.instruction.GetEdge;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint;
+import spade.query.quickgrail.instruction.GetGraphStatistic;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLink;
 import spade.query.quickgrail.instruction.GetMatch;
@@ -58,7 +62,6 @@ import spade.query.quickgrail.instruction.IntersectGraph;
 import spade.query.quickgrail.instruction.LimitGraph;
 import spade.query.quickgrail.instruction.OverwriteGraphMetadata;
 import spade.query.quickgrail.instruction.SetGraphMetadata;
-import spade.query.quickgrail.instruction.StatGraph;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
 import spade.query.quickgrail.types.StringType;
@@ -415,25 +418,322 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
-	public GraphStats statGraph(StatGraph instruction){
-		long vertices = 0;
-		long edges = 0;
+	public GraphStatistic.Count getGraphCount(final GetGraphStatistic.Count instruction){
+		final long vertices;
+		final long edges;
 		List<Map<String, Object>> result = storage
-				.executeQueryForSmallResult("match (v:" + instruction.targetGraph.name + ") return count(v) as vcount;");
+				.executeQueryForSmallResult("match (v:" + instruction.graph.name + ") return count(v) as vcount;");
 		if(result.size() > 0){
 			vertices = Long.parseLong(String.valueOf(result.get(0).get("vcount")));
+		}else{
+			vertices = 0;
 		}
-		if(neo4jQueryEnvironment.isBaseGraph(instruction.targetGraph)){
+		if(neo4jQueryEnvironment.isBaseGraph(instruction.graph)){
 			result = storage.executeQueryForSmallResult("match ()-[e]->() return count(e) as ecount;");
 		}else{
 			final String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
 			result = storage.executeQueryForSmallResult("match ()-[e]->() " + "where " + edgeProperty + " contains ',"
-					+ instruction.targetGraph.name + ",' " + "return count(e) as ecount;");
+					+ instruction.graph.name + ",' " + "return count(e) as ecount;");
 		}
 		if(result.size() > 0){
 			edges = Long.parseLong(String.valueOf(result.get(0).get("ecount")));
+		}else{
+			edges = 0;
 		}
-		return new GraphStats(vertices, edges);
+		return new GraphStatistic.Count(vertices, edges);
+	}
+
+	@Override
+	public long getGraphStatisticSize(final Graph graph, final ElementType elementType, final String annotationKey){
+		switch(elementType){
+			case VERTEX:{
+				final List<Map<String, Object>> result = storage.executeQueryForSmallResult(
+						"match (v:" + graph.name + ") where v.`" + annotationKey + "` is not null return count(v) as vcount;"
+						);
+				if(result.size() > 0){
+					return Long.parseLong(String.valueOf(result.get(0).get("vcount")));
+				}else{
+					return 0;
+				}
+			}
+			case EDGE:{
+				final List<Map<String, Object>> result;
+				if(neo4jQueryEnvironment.isBaseGraph(graph)){
+					result = storage.executeQueryForSmallResult(
+							"match ()-[e]->() where e.`" + annotationKey + "` is not null return count(e) as ecount;"
+							);
+				}else{
+					final String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
+					result = storage.executeQueryForSmallResult(
+							"match ()-[e]->() " 
+							+ "where " + edgeProperty + " contains '," + graph.name + ",' "
+							+ "and e.`" + annotationKey + "` is not null "
+							+ "return count(e) as ecount;");
+				}
+				if(result.size() > 0){
+					return Long.parseLong(String.valueOf(result.get(0).get("ecount")));
+				}else{
+					return 0;
+				}
+			}
+			default:{
+				throw new RuntimeException("Unknown element type");
+			}
+		}
+	}
+
+	@Override
+	public GraphStatistic.Distribution getGraphDistribution(final GetGraphStatistic.Distribution instruction){
+		final Graph graph = instruction.graph;
+		final ElementType elementType = instruction.elementType;
+		final String annotationKey = instruction.annotationKey;
+		final Integer binCount = instruction.binCount;
+
+		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
+			return new GraphStatistic.Distribution();
+		}
+
+		final String finalAnnotationKey;
+		final String minMaxQuery;
+		switch(elementType){
+			case VERTEX:{
+				finalAnnotationKey = "toInteger(v." + annotationKey + ")";
+				minMaxQuery = "MATCH (v:" + graph.name + ") RETURN"
+						+ " MIN(" + finalAnnotationKey + ") AS min,"
+						+ " MAX(" + finalAnnotationKey + ") AS max;";
+				break;
+			}
+			case EDGE:{
+				finalAnnotationKey = "toInteger(e." + annotationKey + ")";
+				final String returnStatement = " RETURN"
+						+ " MIN(" + finalAnnotationKey + ") AS min,"
+						+ " MAX(" + finalAnnotationKey + ") AS max;";
+				if(neo4jQueryEnvironment.isBaseGraph(graph)){
+					minMaxQuery = "MATCH ()-[e]->() " + returnStatement;
+				}else{
+					final String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
+					minMaxQuery = "match ()-[e]->()" + " where "
+							+ edgeProperty + " contains '," + graph.name + ",' "
+							+ returnStatement;
+				}
+				break;
+			}
+			default:{
+				throw new RuntimeException("Unknown element type");
+			}
+		}
+
+		final List<Map<String, Object>> minMaxResult = storage.executeQueryForSmallResult(minMaxQuery);
+		if(minMaxResult.size() == 0){
+			throw new RuntimeException("Failed to get min and max for: '" + annotationKey + "'");
+		}
+
+		final Double min = Double.parseDouble(String.valueOf(minMaxResult.get(0).get("min")));
+		final Double max = Double.parseDouble(String.valueOf(minMaxResult.get(0).get("max")));
+
+		final double range = max - min + 1;
+		final double step = range / binCount;
+		String query;
+		switch(elementType){
+			case VERTEX:{
+				query = "match (v:" + graph.name + ")";
+				break;
+			}
+			case EDGE:{
+				if(neo4jQueryEnvironment.isBaseGraph(graph)){
+					query = "match ()-[e]->()";
+				}else{
+					final String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
+					query = "match ()-[e]->()" + "where " + edgeProperty + " contains '," + graph.name + ",'";
+				}
+				break;
+			}
+			default:{
+				throw new RuntimeException("Unknown element type");
+			}
+		}
+
+		final Map<String, Interval> nameToInterval = new TreeMap<>();
+
+		query += " RETURN ";
+		final String countQuery = "SUM(CASE WHEN "
+				+ finalAnnotationKey + " >= %s AND "
+				+ finalAnnotationKey + " < %s "
+				+ "THEN 1 ELSE 0 END) AS `%s`,";
+		double begin = min;
+		while(begin + step < max){
+			final String columnName = String.valueOf(nameToInterval.size());
+			query += String.format(countQuery, 
+					begin, begin + step, 
+					columnName);
+			nameToInterval.put(columnName, new Interval(begin, begin +  step));
+			begin += step;
+		}
+		final String finalColumnName = String.valueOf(nameToInterval.size());
+		final String finalCountQuery = "SUM(CASE WHEN "
+				+ finalAnnotationKey + " >= %s AND "
+				+ finalAnnotationKey + " <= %s "
+				+ "THEN 1 ELSE 0 END) AS `%s`";
+		query += String.format(finalCountQuery, 
+				begin, max, 
+				finalColumnName);
+		nameToInterval.put(finalColumnName, new Interval(begin, max));
+
+		final List<Map<String, Object>> result = storage.executeQueryForSmallResult(query);
+		final SortedMap<Interval, Double> distribution = new TreeMap<>();
+		if(result.size() > 0){
+			final Map<String, Object> data = result.get(0);
+			for(final String key : data.keySet()){
+				final Object valueObject = data.get(key);
+				if(valueObject != null){
+					final String value = String.valueOf(valueObject);
+					final Interval distributionKey = nameToInterval.get(key);
+					final Double distributionValue = Double.parseDouble(value);
+					distribution.put(distributionKey, distributionValue);
+				}
+			}
+		}
+
+		final GraphStatistic.Distribution graphDistribution = new GraphStatistic.Distribution(distribution);
+		return graphDistribution;
+	}
+
+	@Override
+	public GraphStatistic.StandardDeviation getGraphStandardDeviation(final GetGraphStatistic.StandardDeviation instruction){
+		final Graph graph = instruction.graph;
+		final ElementType elementType = instruction.elementType;
+		final String annotationKey = instruction.annotationKey;
+
+		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
+			return new GraphStatistic.StandardDeviation();
+		}
+
+		final String query;
+		switch(elementType){
+			case VERTEX:{
+				query = "match (v:" + graph.name + ") return stDev(toInteger(v." + annotationKey + ")) as std;";
+				break;
+			}
+			case EDGE:{
+				if(neo4jQueryEnvironment.isBaseGraph(graph)){
+					query = "match ()-[e]->() return stDev(toInteger(e." + annotationKey + ")) as std;";
+				}else{
+					final String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
+					query = "match ()-[e]->()"
+							+ "where " + edgeProperty + " contains '," + graph.name + ",' "
+							+ "return stDev(toInteger(e." + annotationKey + ")) as std;";
+				}
+				break;
+			}
+			default:{
+				throw new RuntimeException("Unknown element type");
+			}
+		}
+
+		final List<Map<String, Object>> result = storage.executeQueryForSmallResult(query);
+		final double stdDev;
+		if(result.size() > 0){
+			stdDev = Double.parseDouble(String.valueOf(result.get(0).get("std")));
+		}else{
+			stdDev = 0;
+		}
+
+		final GraphStatistic.StandardDeviation graphStdDev = new GraphStatistic.StandardDeviation(stdDev);
+		return graphStdDev;
+	}
+
+	@Override
+	public GraphStatistic.Mean getGraphMean(final GetGraphStatistic.Mean instruction){
+		final Graph graph = instruction.graph;
+		final ElementType elementType = instruction.elementType;
+		final String annotationKey = instruction.annotationKey;
+
+		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
+			return new GraphStatistic.Mean();
+		}
+
+		final String query;
+		switch(elementType){
+			case VERTEX:{
+				query = "match (v:" + graph.name + ") return AVG(toInteger(v." + annotationKey + ")) as mean;";
+				break;
+			}
+			case EDGE:{
+				if(neo4jQueryEnvironment.isBaseGraph(graph)){
+					query = "match ()-[e]->() return AVG(toInteger(e." + annotationKey + ")) as mean;";
+				}else{
+					final String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
+					query = "match ()-[e]->()" 
+							+ "where " + edgeProperty + " contains '," + graph.name + ",' "
+							+ "return AVG(toInteger(e." + annotationKey + ")) as mean;";
+				}
+				break;
+			}
+			default:{
+				throw new RuntimeException("Unknown element type");
+			}
+		}
+
+		final List<Map<String, Object>> result = storage.executeQueryForSmallResult(query);
+		final Double mean;
+		if(result.size() > 0){
+			mean = Double.parseDouble(String.valueOf(result.get(0).get("mean")));
+		}else{
+			mean = 0.0;
+		}
+
+		final GraphStatistic.Mean graphMean = new GraphStatistic.Mean(mean);
+		return graphMean;
+	}
+
+	@Override
+	public GraphStatistic.Histogram getGraphHistogram(final GetGraphStatistic.Histogram instruction){
+		final Graph graph = instruction.graph;
+		final ElementType elementType = instruction.elementType;
+		final String annotationKey = instruction.annotationKey;
+
+		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
+			return new GraphStatistic.Histogram();
+		}
+
+		final String query;
+		switch(elementType){
+			case VERTEX:{
+				query = "match (v:" + graph.name + ") return v." + annotationKey + " as ann, count(*) as cnt;";
+				break;
+			}
+			case EDGE:{
+				if(neo4jQueryEnvironment.isBaseGraph(graph)){
+					query = "match ()-[e]->() return e." + annotationKey + " as ann, count(*) as cnt;";
+				}else{
+					final String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
+					query = "match ()-[e]->()" 
+							+ "where " + edgeProperty + " contains '," + graph.name + ",' " 
+							+ "return e." + annotationKey + " as ann, count(*) as cnt;";
+				}
+				break;
+			}
+			default:{
+				throw new RuntimeException("Unknown element type");
+			}
+		}
+
+		final List<Map<String, Object>> result = storage.executeQueryForSmallResult(query);
+		final SortedMap<String, Double> histogram = new TreeMap<>();
+		if(result.size() > 0){
+			for(final Map<String, Object> map : result){
+				final Object valueObject = map.get("ann");
+				final Object countObject = map.get("cnt");
+				if(valueObject != null && countObject != null){
+					final String value = String.valueOf(valueObject);
+					final Double count = Double.parseDouble(String.valueOf(countObject));
+					histogram.put(value, count);
+				}
+			}
+		}
+
+		GraphStatistic.Histogram graphHistogram = new GraphStatistic.Histogram(histogram);
+		return graphHistogram;
 	}
 
 	@Override
@@ -622,12 +922,12 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 						if(minObject != null){
 							minValue = String.valueOf(minObject);
 						}else{
-							minValue = AbstractQueryEnvironment.environmentVariableValueUNSET;
+							minValue = EnvironmentVariableManager.getUndefinedConstant();
 						}
 						if(maxObject != null){
 							maxValue = String.valueOf(maxObject);
 						}else{
-							maxValue = AbstractQueryEnvironment.environmentVariableValueUNSET;
+							maxValue = EnvironmentVariableManager.getUndefinedConstant();
 						}
 					}
 					final GraphDescription desc = new GraphDescription(instruction.elementType, instruction.annotationName, 

@@ -19,10 +19,10 @@
  */
 package spade.query.quickgrail.utility;
 
+import spade.query.quickgrail.types.StringType;
+
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Scanner;
+import java.util.*;
 
 /**
  * Helper class for dealing with Quickstep result table.
@@ -242,6 +242,31 @@ public class ResultTable implements Serializable{
       sb.append(CreateRepeated(' ', residual));
     }
     sb.append(' ');
+  }
+
+  public static ResultTable convertMapToResultTable(Map<Object, Object> map)
+  {
+    ResultTable table = new ResultTable();
+    for(Map.Entry<Object, Object> entry: map.entrySet())
+    {
+      Object key = entry.getKey();
+      Object value = entry.getValue();
+      ResultTable.Row row = new ResultTable.Row();
+      row.add(key);
+      row.add(value);
+      table.addRow(row);
+    }
+    return table;
+  }
+
+  public static ResultTable convertDoubleToResultTable(Double value, String valueName)
+  {
+    ResultTable table = new ResultTable();
+    ResultTable.Row row = new ResultTable.Row();
+    row.add(valueName);
+    row.add(value);
+    table.addRow(row);
+    return table;
   }
 
 }

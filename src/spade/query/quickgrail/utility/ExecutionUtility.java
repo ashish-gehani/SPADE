@@ -29,7 +29,7 @@ import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.query.quickgrail.QuickGrailExecutor;
 import spade.query.quickgrail.RemoteResolver;
-import spade.query.quickgrail.core.GraphStats;
+import spade.query.quickgrail.core.GraphStatistic;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
@@ -37,10 +37,10 @@ import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
 import spade.query.quickgrail.instruction.ExportGraph;
 import spade.query.quickgrail.instruction.ExportGraph.Format;
+import spade.query.quickgrail.instruction.GetGraphStatistic;
 import spade.query.quickgrail.instruction.GetVertex;
 import spade.query.quickgrail.instruction.InsertLiteralEdge;
 import spade.query.quickgrail.instruction.InsertLiteralVertex;
-import spade.query.quickgrail.instruction.StatGraph;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
 import spade.reporter.audit.OPMConstants;
@@ -197,8 +197,9 @@ public class ExecutionUtility{
 		return "'" + name + "'";
 	}
 
-	public static GraphStats getGraphStats(final QueryInstructionExecutor instructionExecutor, final Graph graph){
-		return instructionExecutor.statGraph(new StatGraph(graph));
+	public static GraphStatistic.Count getGraphCount(final QueryInstructionExecutor instructionExecutor, 
+			final Graph graph){
+		return instructionExecutor.getGraphCount(new GetGraphStatistic.Count(graph));
 	}
 
 	public static spade.core.Graph exportGraph(final QuickGrailExecutor quickGrailExecutor, final Graph graph){

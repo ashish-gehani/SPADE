@@ -43,6 +43,7 @@ import spade.query.quickgrail.instruction.ExportGraph;
 import spade.query.quickgrail.instruction.GetAdjacentVertex;
 import spade.query.quickgrail.instruction.GetEdge;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint;
+import spade.query.quickgrail.instruction.GetGraphStatistic;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLink;
 import spade.query.quickgrail.instruction.GetMatch;
@@ -59,7 +60,6 @@ import spade.query.quickgrail.instruction.LimitGraph;
 import spade.query.quickgrail.instruction.List;
 import spade.query.quickgrail.instruction.List.ListType;
 import spade.query.quickgrail.instruction.PrintPredicate;
-import spade.query.quickgrail.instruction.StatGraph;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.TransformGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
@@ -396,29 +396,136 @@ public class QuickGrailQueryResolver{
 		instructions.add(new ExportGraph(targetGraph, outputFormat, force, filePathOnServer));
 	}
 
-	private void resolveStatCommand(ArrayList<ParseExpression> arguments){
-		if(arguments.size() != 1){
-			throw new RuntimeException("Invalid number of arguments for stat: expected 1");
-		}
-
+	private Graph resolveStatGraphExpression(final ParseExpression parseExpression){
 		boolean isConstVariable = false;
-		
-		final ParseExpression parseExpression = arguments.get(0);
-		
+
 		if(parseExpression.getExpressionType().equals(ParseExpression.ExpressionType.kVariable)){
 			final ParseVariable parseVariable = (ParseVariable)parseExpression;
 			if(parseVariable.getType().getTypeID().equals(TypeID.kGraph)){
 				isConstVariable = true;
 			}
 		}
-		
+
+		final Graph targetGraph;
+
 		if(isConstVariable){
-			instructions.add(new StatGraph(resolveGraphExpression(parseExpression, null, true)));
+			targetGraph = resolveGraphExpression(parseExpression, null, true);
 		}else{
-			Graph targetGraph = resolveGraphExpression(parseExpression, null, true);
-			Graph distinctifiedGraph = allocateEmptyGraph();
-			instructions.add(new DistinctifyGraph(distinctifiedGraph, targetGraph));
-			instructions.add(new StatGraph(distinctifiedGraph));
+			final Graph resolvedGraph = resolveGraphExpression(parseExpression, null, true);
+			targetGraph = allocateEmptyGraph();
+			instructions.add(new DistinctifyGraph(targetGraph, resolvedGraph));
+		}
+
+		return targetGraph;
+	}
+	
+	private ElementType resolveElementType(final ParseExpression argument){
+		final ParseExpression elementTypeExpression = argument;
+		if(elementTypeExpression.getExpressionType() != ParseExpression.ExpressionType.kName){
+			throw new RuntimeException("Invalid value at " + elementTypeExpression.getLocationString() + ": expected name");
+		}
+		final String elementTypeValue = ((ParseName)elementTypeExpression).getName().getValue();
+		final Result<ElementType> elementTypeResult = HelperFunctions.parseEnumValue(ElementType.class, elementTypeValue, true);
+		if(elementTypeResult.error){
+			throw new RuntimeException("Invalid value at " + elementTypeExpression.getLocationString() + ". Expected one of: " 
+					+ Arrays.asList(ElementType.values()));
+		}
+		final ElementType elementType = elementTypeResult.result;
+		return elementType;
+	}
+
+	private String resolveNameOrLiteralAsString(final ParseExpression argument){
+		final ParseExpression expr = argument;
+		if(expr.getExpressionType() == ParseExpression.ExpressionType.kName){
+			final String value = resolveNameAsString(expr);
+			return value;
+		}else if(expr.getExpressionType() == ParseExpression.ExpressionType.kLiteral){
+			final TypedValue typedValue = ((ParseLiteral)expr).getLiteralValue();
+			final String value;
+			if(typedValue.getType().getTypeID() == TypeID.kString){
+				value = (String)typedValue.getValue();
+			}else if(typedValue.getType().getTypeID() == TypeID.kInteger){
+				value = ((Integer)typedValue.getValue()).toString();
+			}else{
+				throw new RuntimeException("Invalid value type at " + expr.getLocationString() + ": expected name or string or integer");
+			}
+			return value;
+		}else{
+			throw new RuntimeException("Invalid value type at " + expr.getLocationString() + ": name or expected string or integer");
+		}
+	}
+
+	/*
+	 * stat $base
+	 * stat <vertex|edge> <annotation key> <histogram|mean|std|distribution> $base [<arguments>]
+	 */
+	private void resolveStatCommand(ArrayList<ParseExpression> arguments){
+		if(arguments.size() == 0){
+			throw new RuntimeException("Invalid number of arguments for stat: expected at least 1");
+		}
+
+		if(arguments.size() == 1){
+			final Graph targetGraph = resolveStatGraphExpression(arguments.get(0));
+			instructions.add(new GetGraphStatistic.Count(targetGraph));
+		}else{
+			if(arguments.size() < 4){
+				throw new RuntimeException("Invalid number of arguments for stat: expected 1 or at least 4");
+			}
+
+			int argumentIndex = 0;
+			final ElementType elementType = resolveElementType(arguments.get(argumentIndex++));
+			final String annotationKey = resolveNameAsString(arguments.get(argumentIndex++));
+			final String statisticType = resolveNameAsString(arguments.get(argumentIndex++)).toLowerCase();
+			final Graph targetGraph = resolveStatGraphExpression(arguments.get(argumentIndex++));
+
+			final GetGraphStatistic graphStatisticInstruction;
+
+			switch(statisticType){
+				case "histogram":{
+					graphStatisticInstruction = new GetGraphStatistic.Histogram(targetGraph, elementType, annotationKey);
+					break;
+				}
+				case "mean":{
+					graphStatisticInstruction = new GetGraphStatistic.Mean(targetGraph, elementType, annotationKey);
+					break;
+				}
+				case "std":{
+					graphStatisticInstruction = new GetGraphStatistic.StandardDeviation(targetGraph, elementType, annotationKey);
+					break;
+				}
+				case "distribution":{
+					final Integer binCount;
+					if(arguments.size() >= argumentIndex+1){
+						binCount = resolveInteger(arguments.get(argumentIndex++));
+						if(binCount <= 0){
+							throw new RuntimeException("Bin count must be a positive number");
+						}
+					}else{
+						throw new RuntimeException("Missing bin count argument for the histogram");
+					}
+					graphStatisticInstruction = new GetGraphStatistic.Distribution(targetGraph, elementType, annotationKey, binCount);
+					break;
+				}
+				default:{
+					throw new RuntimeException("Unknown graph statistics type. Allowed: ["
+							+ "histogram|mean|std|distribution"
+							+ "]");
+				}	
+			}
+			final int precisionScale;
+			if(arguments.size() >= argumentIndex+1){
+				precisionScale = resolveInteger(arguments.get(argumentIndex++));
+			}else{
+				final EnvironmentVariable envVar = 
+						env.getEnvVarManager().get(EnvironmentVariableManager.Name.precision);
+				if(envVar == null || envVar.getValue() == null){
+					throw new RuntimeException("Missing precision argument and environment variable");
+				}else{
+					precisionScale = (Integer)envVar.getValue();
+				}
+			}
+			graphStatisticInstruction.setPrecisionScale(precisionScale);
+			instructions.add(graphStatisticInstruction);
 		}
 	}
 	
@@ -946,7 +1053,7 @@ public class QuickGrailQueryResolver{
 			throw new RuntimeException("Invalid number of arguments for getLineage: expected either 2 or 3");
 		}
 
-		final EnvironmentVariable maxDepthVar = env.getEnvironmentVariable(AbstractQueryEnvironment.environmentVariableNameMaxDepth);
+		final EnvironmentVariable maxDepthVar = env.getEnvVarManager().get(EnvironmentVariableManager.Name.maxDepth);
 		
 		Graph startGraph = resolveGraphExpression(arguments.get(0), null, true);
 		
@@ -1020,7 +1127,7 @@ public class QuickGrailQueryResolver{
 //		To identify a graph the kVariable type is being used. Start off with kVariable because dstGraph already taken out. 
 		ParseExpression.ExpressionType lastExpressionType = ParseExpression.ExpressionType.kVariable;
 		
-		final EnvironmentVariable maxDepthVar = env.getEnvironmentVariable(AbstractQueryEnvironment.environmentVariableNameMaxDepth);
+		final EnvironmentVariable maxDepthVar = env.getEnvVarManager().get(EnvironmentVariableManager.Name.maxDepth);
 		
 		int i = 2;
 		int total = arguments.size();
@@ -1281,7 +1388,7 @@ public class QuickGrailQueryResolver{
 		if(arguments.size() == 1){
 			limit = resolveInteger(arguments.get(0));
 		}else if(arguments.size() == 0){
-			final EnvironmentVariable limitVar = env.getEnvironmentVariable(AbstractQueryEnvironment.environmentVariableNameLimit);
+			final EnvironmentVariable limitVar = env.getEnvVarManager().get(EnvironmentVariableManager.Name.limit);
 			if(limitVar == null || limitVar.getValue() == null){
 				throw new RuntimeException("Must explicitly specify 'limit' or set it in environment");
 			}
@@ -1309,7 +1416,7 @@ public class QuickGrailQueryResolver{
 		Integer maxDepth = null;
 		
 		if(arguments.size() == 2){
-			final EnvironmentVariable maxDepthVar = env.getEnvironmentVariable(AbstractQueryEnvironment.environmentVariableNameMaxDepth);
+			final EnvironmentVariable maxDepthVar = env.getEnvVarManager().get(EnvironmentVariableManager.Name.maxDepth);
 			if(maxDepthVar == null || maxDepthVar.getValue() == null){
 				throw new RuntimeException("Must explicitly specify max depth or set it in environment");
 			}

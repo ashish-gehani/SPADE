@@ -25,7 +25,7 @@ import java.util.Map;
 import spade.utility.HelperFunctions;
 import spade.utility.Result;
 
-public class EnvironmentVariable{
+public class EnvironmentVariable implements Comparable<EnvironmentVariable>{
 
 	private static interface TypeParser<X>{
 		public X parse(final String value);
@@ -80,5 +80,44 @@ public class EnvironmentVariable{
 	
 	public final Object getValue(){
 		return this.value;
+	}
+
+	@Override
+	public int hashCode(){
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((name == null) ? 0 : name.hashCode());
+		result = prime * result + ((value == null) ? 0 : value.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj){
+		if(this == obj)
+			return true;
+		if(obj == null)
+			return false;
+		if(getClass() != obj.getClass())
+			return false;
+		EnvironmentVariable other = (EnvironmentVariable)obj;
+		if(name == null){
+			if(other.name != null)
+				return false;
+		}else if(!name.equals(other.name))
+			return false;
+		if(value == null){
+			if(other.value != null)
+				return false;
+		}else if(!value.equals(other.value))
+			return false;
+		return true;
+	}
+
+	@Override
+	public int compareTo(EnvironmentVariable o){
+		if(o == null){
+			return 1;
+		}
+		return this.name.compareTo(o.name);
 	}
 }

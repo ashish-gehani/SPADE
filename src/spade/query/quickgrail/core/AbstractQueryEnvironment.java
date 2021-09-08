@@ -21,7 +21,6 @@ package spade.query.quickgrail.core;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.logging.Logger;
@@ -32,6 +31,7 @@ import spade.query.quickgrail.entities.GraphPredicate;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
 import spade.query.quickgrail.utility.TreeStringSerializable;
+import spade.utility.AggregationState;
 import spade.utility.HelperFunctions;
 
 public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
@@ -48,47 +48,35 @@ public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
 
 	private final String baseGraphSymbol = prefixGraphSymbol+"base";
 	private final Graph baseGraph;
-	
-	// START - environment variables
-	
-	public final static String environmentVariableNameMaxDepth = "maxDepth";
-	public final static String environmentVariableNameLimit = "limit";
-	public final static String[] environmentVariableNames = {environmentVariableNameMaxDepth, environmentVariableNameLimit};
-	public final static String environmentVariableValueUNSET = "UNDEFINED";
-	
-	private final List<EnvironmentVariable> environmentVariables = new ArrayList<EnvironmentVariable>();
-	public final EnvironmentVariable getEnvironmentVariable(final String name){
-		for(EnvironmentVariable var : environmentVariables){
-			if(var.name.equalsIgnoreCase(name)){
-				return var;
-			}
-		}
-		return null;
+
+	private final EnvironmentVariableManager envVarManager = new EnvironmentVariableManager();
+	// START - Differential privacy related state
+	private final AggregationState aggregationState = new AggregationState();
+	public final AggregationState getAggregationState(){
+		return aggregationState;
 	}
-	public final List<EnvironmentVariable> getEnvironmentVariables(){
-		return new ArrayList<EnvironmentVariable>(environmentVariables);
-	}
-	
-	// END - environment variables
-	
+	// END - Differential privacy related state
+
 	// Step 1
 	public AbstractQueryEnvironment(final String baseGraphName){
 		if(HelperFunctions.isNullOrEmpty(baseGraphName)){
 			throw new RuntimeException("NULL/Empty base graph name: '"+baseGraphName+"'");
 		}
 		this.baseGraph = new Graph(baseGraphName);
-		
-		// Populate allowed environment variables
-		this.environmentVariables.add(new EnvironmentVariable(environmentVariableNameMaxDepth, Integer.class));
-		this.environmentVariables.add(new EnvironmentVariable(environmentVariableNameLimit, Integer.class));
 	}
-	
+
+	public final EnvironmentVariableManager getEnvVarManager(){
+		return envVarManager;
+	}
+
 	public final void initialize(){
 		initialize(false);
 	}
-	
+
 	// Step 2
 	private final void initialize(boolean reset){
+		envVarManager.initialize();
+
 		if(reset){
 			try{
 				deleteSymbolStorageIfPresent();

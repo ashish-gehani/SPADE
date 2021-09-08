@@ -45,8 +45,9 @@ import spade.core.Settings;
 import spade.core.Vertex;
 import spade.query.quickgrail.core.AbstractQueryEnvironment;
 import spade.query.quickgrail.core.EnvironmentVariable;
+import spade.query.quickgrail.core.EnvironmentVariableManager;
 import spade.query.quickgrail.core.GraphDescription;
-import spade.query.quickgrail.core.GraphStats;
+import spade.query.quickgrail.core.GraphStatistic;
 import spade.query.quickgrail.core.Program;
 import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
@@ -66,6 +67,7 @@ import spade.query.quickgrail.instruction.ExportGraph.Format;
 import spade.query.quickgrail.instruction.GetAdjacentVertex;
 import spade.query.quickgrail.instruction.GetEdge;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint;
+import spade.query.quickgrail.instruction.GetGraphStatistic;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLineage.Direction;
 import spade.query.quickgrail.instruction.GetLink;
@@ -84,7 +86,6 @@ import spade.query.quickgrail.instruction.List.ListType;
 import spade.query.quickgrail.instruction.OverwriteGraphMetadata;
 import spade.query.quickgrail.instruction.PrintPredicate;
 import spade.query.quickgrail.instruction.SetGraphMetadata;
-import spade.query.quickgrail.instruction.StatGraph;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.TransformGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
@@ -316,13 +317,38 @@ public class QuickGrailExecutor{
 		}else if(instruction.getClass().equals(SetGraphMetadata.class)){
 			instructionExecutor.setGraphMetadata((SetGraphMetadata)instruction);
 
-		}else if(instruction.getClass().equals(StatGraph.class)){
-			GraphStats stats = instructionExecutor.statGraph((StatGraph)instruction);
-			if(stats == null){
-				result = "No Result!";
-			}else{
-				result = stats;
-			}
+		}else if(instruction.getClass().equals(GetGraphStatistic.Count.class)){
+			final GetGraphStatistic.Count statInstruction = (GetGraphStatistic.Count)instruction;
+			final GraphStatistic.Count instance = instructionExecutor.getGraphCount(statInstruction);
+			instance.setPrecisionScale(statInstruction.getPrecisionScale());
+			result = instance;
+
+		}else if(instruction.getClass().equals(GetGraphStatistic.Histogram.class)){
+			final GetGraphStatistic.Histogram statInstruction = (GetGraphStatistic.Histogram)instruction;
+			final GraphStatistic.Histogram instance = instructionExecutor.getGraphHistogram(statInstruction);
+			instance.setPrecisionScale(statInstruction.getPrecisionScale());
+			result = instance;
+			
+		}else if(instruction.getClass().equals(GetGraphStatistic.Mean.class)){
+			final GetGraphStatistic.Mean statInstruction = (GetGraphStatistic.Mean)instruction;
+			final GraphStatistic.Mean instance = instructionExecutor.getGraphMean(statInstruction);
+			instance.setPrecisionScale(statInstruction.getPrecisionScale());
+			result = instance;
+			
+		}else if(instruction.getClass().equals(GetGraphStatistic.StandardDeviation.class)){
+			final GetGraphStatistic.StandardDeviation statInstruction = (GetGraphStatistic.StandardDeviation)instruction;
+			final GraphStatistic.StandardDeviation instance = 
+					instructionExecutor.getGraphStandardDeviation(statInstruction);
+			instance.setPrecisionScale(statInstruction.getPrecisionScale());
+			result = instance;
+			
+		}else if(instruction.getClass().equals(GetGraphStatistic.Distribution.class)){
+			final GetGraphStatistic.Distribution statInstruction = (GetGraphStatistic.Distribution)instruction;
+			final GraphStatistic.Distribution instance = 
+					instructionExecutor.getGraphDistribution(statInstruction);
+			instance.setPrecisionScale(statInstruction.getPrecisionScale());
+			result = instance;
+			
 		}else if(instruction.getClass().equals(DescribeGraph.class)){
 			GraphDescription graphDescription = instructionExecutor.describeGraph((DescribeGraph)instruction);
 			if(graphDescription == null){
@@ -366,7 +392,7 @@ public class QuickGrailExecutor{
 		switch(instruction.type){
 			case SET:{
 				final String name = instruction.name;
-				final EnvironmentVariable envVar = queryEnvironment.getEnvironmentVariable(name);
+				final EnvironmentVariable envVar = queryEnvironment.getEnvVarManager().get(name);
 				if(envVar == null){
 					throw new RuntimeException("No environment variable defined by name: " + name);
 				}
@@ -375,7 +401,7 @@ public class QuickGrailExecutor{
 			}
 			case UNSET:{
 				final String name = instruction.name;
-				final EnvironmentVariable envVar = queryEnvironment.getEnvironmentVariable(name);
+				final EnvironmentVariable envVar = queryEnvironment.getEnvVarManager().get(name);
 				if(envVar == null){
 					throw new RuntimeException("No environment variable defined by name: " + name);
 				}
@@ -387,13 +413,13 @@ public class QuickGrailExecutor{
 			}
 			case PRINT:{
 				final String name = instruction.name;
-				final EnvironmentVariable envVar = queryEnvironment.getEnvironmentVariable(name);
+				final EnvironmentVariable envVar = queryEnvironment.getEnvVarManager().get(name);
 				if(envVar == null){
 					throw new RuntimeException("No environment variable defined by name: " + name);
 				}
 				Object value = envVar.getValue();
 				if(value == null){
-					return AbstractQueryEnvironment.environmentVariableValueUNSET; // empty
+					return EnvironmentVariableManager.getUndefinedConstant(); // empty
 				}else{
 					return String.valueOf(value);
 				}
@@ -403,13 +429,13 @@ public class QuickGrailExecutor{
 	}
 	
 	private final ResultTable getTableOfEnvironmentVariables(){
-		final List<EnvironmentVariable> envVars = queryEnvironment.getEnvironmentVariables();
+		final Set<EnvironmentVariable> envVars = queryEnvironment.getEnvVarManager().getAll();
 		final ResultTable table = new ResultTable();
 		for(final EnvironmentVariable envVar : envVars){
 			ResultTable.Row row = new ResultTable.Row();
 			row.add(envVar.name);
 			if(envVar.getValue() == null){
-				row.add(AbstractQueryEnvironment.environmentVariableValueUNSET);
+				row.add(EnvironmentVariableManager.getUndefinedConstant());
 			}else{
 				row.add(String.valueOf(envVar.getValue()));
 			}
@@ -423,8 +449,8 @@ public class QuickGrailExecutor{
 	}
 
 	public spade.core.Graph exportGraph(final ExportGraph instruction){
-		GraphStats stats = instructionExecutor.statGraph(new StatGraph(instruction.targetGraph));
-		long verticesAndEdges = stats.vertices + stats.edges;
+		final GraphStatistic.Count stats = ExecutionUtility.getGraphCount(instructionExecutor, instruction.targetGraph);
+		long verticesAndEdges = stats.getVertices() + stats.getEdges();
 		if(!instruction.force){
 			if(instruction.format == Format.kNormal && verticesAndEdges > getExportGraphDumpLimit()){
 				throw new RuntimeException(
@@ -484,7 +510,7 @@ public class QuickGrailExecutor{
 			if(instruction.type == ListType.ALL || instruction.type == ListType.GRAPH){
 				graphTable = new ResultTable();
 				
-				Map<String, GraphStats> graphsMap = instructionExecutor.listGraphs(instruction);
+				Map<String, GraphStatistic.Count> graphsMap = instructionExecutor.listGraphs(instruction);
 
 				List<String> sortedNonBaseSymbolNames = new ArrayList<String>();
 				sortedNonBaseSymbolNames.addAll(graphsMap.keySet());
@@ -492,20 +518,20 @@ public class QuickGrailExecutor{
 				Collections.sort(sortedNonBaseSymbolNames);
 
 				for(String symbolName : sortedNonBaseSymbolNames){
-					GraphStats graphStats = graphsMap.get(symbolName);
+					GraphStatistic.Count graphStats = graphsMap.get(symbolName);
 					ResultTable.Row row = new ResultTable.Row();
 					row.add(symbolName);
-					row.add(graphStats.vertices);
-					row.add(graphStats.edges);
+					row.add(graphStats.getVertices());
+					row.add(graphStats.getEdges());
 					graphTable.addRow(row);
 				}
 
 				// Add base last
-				GraphStats graphStats = graphsMap.get(queryEnvironment.getBaseGraphSymbol());
+				GraphStatistic.Count graphStats = graphsMap.get(queryEnvironment.getBaseGraphSymbol());
 				ResultTable.Row row = new ResultTable.Row();
 				row.add(queryEnvironment.getBaseGraphSymbol());
-				row.add(graphStats.vertices);
-				row.add(graphStats.edges);
+				row.add(graphStats.getVertices());
+				row.add(graphStats.getEdges());
 				graphTable.addRow(row);
 
 				Schema schema = new Schema();
@@ -576,8 +602,8 @@ public class QuickGrailExecutor{
 				instructionExecutor.intersectGraph(new IntersectGraph(intermediateIntersectionResult, 
 						intermediateResult, intermediateStepGraph));
 				
-				GraphStats stats = ExecutionUtility.getGraphStats(instructionExecutor, intermediateIntersectionResult);
-				if(stats.vertices <= 0){
+				GraphStatistic.Count stats = ExecutionUtility.getGraphCount(instructionExecutor, intermediateIntersectionResult);
+				if(stats.getVertices() <= 0){
 					// No point in going further
 					break;
 				}else{
@@ -592,7 +618,7 @@ public class QuickGrailExecutor{
 
 	private Query getLineage(final GetLineage instruction, final Query originalSPADEQuery){
 		final spade.core.Graph sourceGraph;
-		if(ExecutionUtility.getGraphStats(instructionExecutor, instruction.startGraph).vertices > 0){
+		if(ExecutionUtility.getGraphCount(instructionExecutor, instruction.startGraph).getVertices() > 0){
 			sourceGraph = ExecutionUtility.exportGraph(this, instruction.startGraph);
 		}else{
 			sourceGraph = new spade.core.Graph();
@@ -608,7 +634,7 @@ public class QuickGrailExecutor{
 		}
 		
 		if(sourceGraph.vertexSet().size() == 0
-				|| ExecutionUtility.getGraphStats(instructionExecutor, instruction.subjectGraph).edges == 0){
+				|| ExecutionUtility.getGraphCount(instructionExecutor, instruction.subjectGraph).getEdges() == 0){
 			// Nothing to start from since no vertices OR no where to go in the subject since no edges
 			return originalSPADEQuery;
 		}		
@@ -645,14 +671,14 @@ public class QuickGrailExecutor{
 			final Graph nextLevelVertices = ExecutionUtility.createNewGraph(instructionExecutor);
 			final Graph adjacentGraph = ExecutionUtility.createNewGraph(instructionExecutor);
 			
-			while(ExecutionUtility.getGraphStats(instructionExecutor, currentLevelVertices).vertices > 0){
+			while(ExecutionUtility.getGraphCount(instructionExecutor, currentLevelVertices).getVertices() > 0){
 				if(currentDepth > instruction.depth){
 					break;
 				}else{
 					ExecutionUtility.clearGraph(instructionExecutor, adjacentGraph);
 					instructionExecutor.getAdjacentVertex(
 							new GetAdjacentVertex(adjacentGraph, instruction.subjectGraph, currentLevelVertices, direction));
-					if(ExecutionUtility.getGraphStats(instructionExecutor, adjacentGraph).vertices < 1){
+					if(ExecutionUtility.getGraphCount(instructionExecutor, adjacentGraph).getVertices() < 1){
 						break;
 					}else{
 						// Get only new vertices
@@ -724,10 +750,10 @@ public class QuickGrailExecutor{
 						connection.connect(Kernel.getClientSocketFactory(), 5*1000);
 						final String remoteVertexPredicate = ExecutionUtility.buildRemoteGetVertexPredicate(localNetworkVertex);
 						final String remoteVerticesSymbol = connection.getBaseVertices(remoteVertexPredicate);
-						final GraphStats remoteVerticesStats = connection.statGraph(remoteVerticesSymbol);
-						if(remoteVerticesStats.vertices > 0){
+						final GraphStatistic.Count remoteVerticesStats = connection.getGraphCount(remoteVerticesSymbol);
+						if(remoteVerticesStats.getVertices() > 0){
 							final String remoteLineageSymbol = connection.getBaseLineage(remoteVerticesSymbol, remoteDepth, direction);
-							final GraphStats remoteLineageStats = connection.statGraph(remoteLineageSymbol);
+							final GraphStatistic.Count remoteLineageStats = connection.getGraphCount(remoteLineageSymbol);
 							if(!remoteLineageStats.isEmpty()){
 								spade.core.Graph remoteVerticesGraph = connection.exportGraph(remoteVerticesSymbol);
 								spade.core.Graph remoteLineageGraph = connection.exportGraph(remoteLineageSymbol);

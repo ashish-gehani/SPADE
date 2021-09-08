@@ -39,7 +39,8 @@ public abstract class AbstractAnalyzer{
 	
 	private static final String configKeyNameUseScaffold = "use_scaffold";
 	private static final String configKeyNameUseTransformer = "use_transformer";
-	
+	private static final String configKeyNameEpsilon = "epsilon";
+
 	private Boolean useScaffold = null;
 	private Boolean useTransformer = null;
 
@@ -52,6 +53,8 @@ public abstract class AbstractAnalyzer{
 	public String getArguments(){
 		return arguments;
 	}
+	
+	private Double epsilon = null;
 
 	// true return means can continue. false return means that cannot continue.
 	private final boolean readGlobalConfigFromConfigFile(Class<? extends AbstractAnalyzer> clazz){
@@ -77,6 +80,13 @@ public abstract class AbstractAnalyzer{
 								if(useTransformer == null){
 									if(!setGlobalConfigUseTransformer("config file '"+configFilePath+"'", 
 											configMap.get(configKeyNameUseTransformer))){
+										return false;
+									}
+								}
+								
+								if(epsilon == null){
+									if(!setGlobalConfigEpsilon("config file '"+configFilePath+"'", 
+										configMap.get(configKeyNameEpsilon))){
 										return false;
 									}
 								}
@@ -131,6 +141,23 @@ public abstract class AbstractAnalyzer{
 			}
 		}
 	}
+	
+	// true return means can continue. false return means that cannot continue.
+	private final boolean setGlobalConfigEpsilon(String valueSource, String value){
+		if(value == null){
+			return true;
+		}else{
+			Result<Double> result = HelperFunctions.parseDouble(value, -1, Double.POSITIVE_INFINITY);
+			if(result.error){
+				logger.log(Level.SEVERE, "Invalid boolean value for '"+configKeyNameEpsilon + "' in " + valueSource);
+				logger.log(Level.SEVERE, result.toErrorString());
+				return false;
+			}else{
+				this.epsilon = result.result;
+				return true;
+			}
+		}
+	}
 
 	public final boolean initialize(String arguments){
 		Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(arguments);
@@ -140,6 +167,10 @@ public abstract class AbstractAnalyzer{
 		}
 		
 		if(!setGlobalConfigUseTransformer("Arguments", argsMap.get(configKeyNameUseTransformer))){
+			return false;
+		}
+		
+		if(!setGlobalConfigEpsilon("Arguments", argsMap.get(configKeyNameEpsilon))){
 			return false;
 		}
 		
@@ -161,10 +192,16 @@ public abstract class AbstractAnalyzer{
 			return false;
 		}
 		
-		logger.log(Level.INFO, "Arguments: {0}={1}, {2}={3}",
+		if(epsilon == null){
+			logger.log(Level.SEVERE, "NULL '"+configKeyNameEpsilon+"' value. Must specify in arguments or config files");
+			return false;
+		}
+		
+		logger.log(Level.INFO, "Arguments: {0}={1}, {2}={3}, {4}={5}",
 				new Object[]{
 						configKeyNameUseScaffold, useScaffold,
-						configKeyNameUseTransformer, useTransformer
+						configKeyNameUseTransformer, useTransformer,
+						configKeyNameEpsilon, epsilon
 				});
 		
 		// Only here if success
@@ -177,17 +214,66 @@ public abstract class AbstractAnalyzer{
 	public abstract void shutdown();
 
 	public abstract class QueryConnection implements Runnable{
-		
+
 		private static final String commandSetStorage = "set storage <storage_name>";
 
 		protected final Logger logger = Logger.getLogger(this.getClass().getName());
 
 		private AbstractStorage currentStorage;
-		
+
 		private Query getErrorSPADEQuery(){
 			Query spadeQuery = new Query("<NULL>", "<NULL>", "<NULL>", "<NULL>");
 			spadeQuery.queryFailed("Exiting!");
 			return spadeQuery;
+		}
+
+		private void privatize(final Query spadeQuery) throws Exception{
+			if(epsilon > -1){
+				if(spadeQuery.getResult() instanceof spade.query.quickgrail.core.GraphStatistic){
+					final spade.query.quickgrail.core.GraphStatistic graphStatistic =
+						(spade.query.quickgrail.core.GraphStatistic)spadeQuery.getResult();
+					try{
+						graphStatistic.privatize(epsilon);
+					}catch(Exception e){
+						throw new Exception("Failed to privatize graph statistics", e);
+					}
+				}
+			}
+		}
+
+		private void transformGraph(final Query spadeQuery) throws Exception{
+			boolean isResultAGraph = spadeQuery != null && spadeQuery.getResult() instanceof spade.core.Graph;
+			if(isResultAGraph){
+				Graph finalGraph = (spade.core.Graph)spadeQuery.getResult();
+				if(useTransformer){
+					finalGraph = iterateTransformers(finalGraph, spadeQuery.getTransformerExecutionContext());
+				}
+				finalGraph.setHostName(Kernel.getHostName()); // Set it here because the graph might be modified by the transformers
+				finalGraph.addSignature(spadeQuery.queryNonce);
+
+				spadeQuery.updateGraphResult(finalGraph); // Update the query result with the transformed result graph
+			}
+		}
+
+		private void handleSPADEQueryError(final Query spadeQuery){
+			if(spadeQuery.getError() != null){
+				// Check if exception is serializable
+				try(final ObjectOutputStream oos = new ObjectOutputStream(new ByteArrayOutputStream())){
+					oos.writeObject(spadeQuery.getError());
+				}catch(Throwable t){
+					// The exception is not serializable
+					final String queryErrorString;
+					logger.log(Level.SEVERE, "Non-serializable query-error", t);
+					if(spadeQuery.getError() instanceof Throwable){
+						queryErrorString = ((Throwable)spadeQuery.getError()).getMessage();
+						logger.log(Level.SEVERE, "Query-error!", (Throwable)spadeQuery.getError());
+					}else{
+						queryErrorString = String.valueOf(spadeQuery.getError());
+						logger.log(Level.SEVERE, "Query-error! " + spadeQuery.getError());
+					}
+					spadeQuery.queryFailed(new Exception("Query error: " + queryErrorString));
+				}
+			}
 		}
 		
 		@Override
@@ -277,42 +363,11 @@ public abstract class AbstractAnalyzer{
 								try{
 									spadeQuery = executeQuery(spadeQuery);
 									
-									boolean isResultAGraph = spadeQuery != null && spadeQuery.getResult() instanceof spade.core.Graph;
-									if(isResultAGraph){
-										Graph finalGraph = (spade.core.Graph)spadeQuery.getResult();
-										if(useTransformer){
-											finalGraph = iterateTransformers(finalGraph, spadeQuery.getTransformerExecutionContext());
-										}
-										finalGraph.setHostName(Kernel.getHostName()); // Set it here because the graph might be modified by the transformers
-										finalGraph.addSignature(spadeQuery.queryNonce);
+									transformGraph(spadeQuery);
 
-										spadeQuery.updateGraphResult(finalGraph); // Update the query result with the transformed result graph
-									}
+									privatize(spadeQuery);
 									
-									if(spadeQuery.getError() != null){
-										// Check if exception is serializable
-										try(ObjectOutputStream oos = new ObjectOutputStream(new ByteArrayOutputStream())){
-											oos.writeObject(spadeQuery.getError());
-										}catch(Exception e){
-											// The exception is not serializable
-											if(spadeQuery.getError() instanceof Throwable){
-												try{
-													logger.log(Level.SEVERE, "Non-serializable error", ((Throwable)(spadeQuery.getError())));
-												}catch(Throwable t){
-													
-												}
-												spadeQuery.queryFailed(new Exception("Query error was not serializable. Class '"+spadeQuery.getError().getClass().getName()
-													+"'. Message logged in SPADE log on server."));
-											}else{
-												try{
-													logger.log(Level.SEVERE, "Non-serializable error: " + ((Throwable)(spadeQuery.getError())));
-												}catch(Throwable t){
-													
-												}
-												spadeQuery.queryFailed(new Exception("Query error was not serializable. Class '"+spadeQuery.getError().getClass().getName()+"'"));
-											}
-										}
-									}
+									handleSPADEQueryError(spadeQuery);
 									
 									safeWriteToClient(spadeQuery);
 								}catch(Exception e){
