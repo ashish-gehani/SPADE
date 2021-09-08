@@ -1,64 +1,9 @@
 #!/bin/bash
 
-quickstep_binary_path="./bin/quickstep"
+spade_home_path="$(cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd)"
+script_path="${spade_home_path}/bin/manage-quickstep.sh"
 
-print_help(){
-	echo "Usage:"
-	echo "--------------------------------------------------------------------------------"
-	echo "./bin/startQuickstep <path for Quickstep storage directory> [<soft limit in total memory for the server in MBs>]"
-	echo "If Quickstep storage directory exists then it must be have be created by Quickstep otherwise the directory is created."
-	echo "The soft limit on total memory in MBs must be at least 512 (optional). For details execute the command: '${quickstep_binary_path} -help'"
-	echo "--------------------------------------------------------------------------------"
-}
-
-if [ ! -f "$quickstep_binary_path" ]
-then
-	echo "Error: No Quickstep database binary at path: ${quickstep_binary_path}."
-	echo "Please build Quickstep using the command './bin/installQuickstep' if not already done so."
-	exit 1
-fi
-
-if [[ "$#" -lt 1 ]]; then
-	print_help
-	exit 1
-fi
-
-mem_MBs=$2
-buffer_arg=
-
-if [ ! -z "$mem_MBs" ]
-then
-	if [[ "$mem_MBs" =~ ^[0-9]+$ ]]
-	then
-		if [ "$mem_MBs" -ge 512 ]
-		then
-			temp=$(($mem_MBs / 2))
-			buffer_arg="-buffer_pool_slots=$temp"
-		else
-			print_help
-			exit 1
-		fi
-	else
-		print_help
-		exit 1
-	fi
-fi
-
-if [ ! -e "$1" ];
-then
-	echo "Initializing empty Quickstep storage directory ..."
-	"$quickstep_binary_path" -initialize_db -storage_path="$1" <<< "" 1>/dev/null
-	if [ ! -d "$1" ]
-	then
-		echo "Error: Failed to initialize Quickstep storage directory"
-		exit 1
-	fi
-fi
-
-db_mode=socket
-if [ "$3" = "local" ];
-then
-	db_mode=local
-fi 
-
-"$quickstep_binary_path" -storage_path="$1" "$buffer_arg" -mode="$db_mode" -display_timing=false
+echo ""
+echo "Functionality moved to '$script_path'"
+echo "Execute '${script_path} --help' for help"
+echo ""
