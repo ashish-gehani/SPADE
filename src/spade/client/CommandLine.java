@@ -47,7 +47,7 @@ import jline.ConsoleReader;
 import spade.core.Graph;
 import spade.core.Query;
 import spade.core.Settings;
-import spade.query.quickgrail.core.AbstractQueryEnvironment;
+import spade.query.quickgrail.core.EnvironmentVariableManager;
 import spade.query.quickgrail.instruction.ExportGraph;
 import spade.query.quickgrail.utility.ResultTable;
 import spade.utility.FileUtility;
@@ -395,35 +395,27 @@ public class CommandLine{
 				final List<String> lines = new ArrayList<String>();
 
 				final MutableBoolean queryError = new MutableBoolean(false);
-				
+
 				try{
 					final String storageName = query(clientOutputWriter, clientInputReader, localHostName,
 							"print storage", queryError);
 
 					if(queryError.isFalse() && storageName != null && !storageName.trim().equalsIgnoreCase("No current storage set")){
 						lines.add("set storage " + storageName);
-						
+
 						queryError.setValue(false);
-						
-						final String maxDepthValue = query(clientOutputWriter, clientInputReader, localHostName,
-								"env print maxdepth", queryError);
-						
-						if(queryError.isFalse() && !(maxDepthValue == null || maxDepthValue
-								.equalsIgnoreCase(AbstractQueryEnvironment.environmentVariableValueUNSET))){
-							lines.add("env set maxdepth " + maxDepthValue);
+
+						for(final String envVarName : EnvironmentVariableManager.getAllNames()){
+							final String envVarValue = query(clientOutputWriter, clientInputReader, localHostName,
+									"env print " + envVarName, queryError);
+
+							if(queryError.isFalse() &&
+									!(envVarValue == null || EnvironmentVariableManager.isUndefinedConstant(envVarValue))){
+								lines.add("env set " + envVarName + " " + envVarValue);
+							}
+
+							queryError.setValue(false);
 						}
-						
-						queryError.setValue(false);
-						
-						final String limitValue = query(clientOutputWriter, clientInputReader, localHostName,
-								"env print limit", queryError);
-						
-						if(queryError.isFalse() && !(limitValue == null || limitValue
-								.equalsIgnoreCase(AbstractQueryEnvironment.environmentVariableValueUNSET))){
-							lines.add("env set limit " + limitValue);
-						}
-						
-						queryError.setValue(false);
 					}
 				}catch(Exception e){
 					System.err.println("Failed to get query environment state: " + e.getMessage());

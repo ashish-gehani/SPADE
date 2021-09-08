@@ -31,7 +31,6 @@ import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
 import spade.query.quickgrail.instruction.DescribeGraph;
-import spade.query.quickgrail.instruction.DescribeGraph.ElementType;
 import spade.query.quickgrail.instruction.DistinctifyGraph;
 import spade.query.quickgrail.instruction.EraseSymbols;
 import spade.query.quickgrail.instruction.EvaluateQuery;
@@ -39,6 +38,7 @@ import spade.query.quickgrail.instruction.ExportGraph;
 import spade.query.quickgrail.instruction.GetAdjacentVertex;
 import spade.query.quickgrail.instruction.GetEdge;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint;
+import spade.query.quickgrail.instruction.GetGraphStatistic;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLink;
 import spade.query.quickgrail.instruction.GetMatch;
@@ -54,10 +54,9 @@ import spade.query.quickgrail.instruction.LimitGraph;
 import spade.query.quickgrail.instruction.OverwriteGraphMetadata;
 import spade.query.quickgrail.instruction.PrintPredicate;
 import spade.query.quickgrail.instruction.SetGraphMetadata;
-import spade.query.quickgrail.instruction.StatGraph;
-import spade.query.quickgrail.instruction.StatGraph.AggregateType;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
+import spade.query.quickgrail.instruction.DescribeGraph.ElementType;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
 import spade.query.quickgrail.utility.ResultTable;
 
@@ -97,13 +96,13 @@ public abstract class QueryInstructionExecutor{
 		}
 	}
 	
-	public final Map<String, GraphStats> listGraphs(spade.query.quickgrail.instruction.List instruction){
-		Map<String, GraphStats> allGraphStats = new HashMap<String, GraphStats>();
+	public final Map<String, GraphStatistic.Count> listGraphs(spade.query.quickgrail.instruction.List instruction){
+		Map<String, GraphStatistic.Count> allGraphStats = new HashMap<String, GraphStatistic.Count>();
 		Set<String> allGraphSymbolNames = getQueryEnvironment().getCurrentGraphSymbolsStringMap().keySet();
 		for(String graphSymbol : allGraphSymbolNames){
 			Graph graph = getQueryEnvironment().getGraphSymbol(graphSymbol);
 			try{
-				GraphStats stats = statGraph(new StatGraph(graph));
+				GraphStatistic.Count stats = getGraphCount(new GetGraphStatistic.Count(graph));
 				allGraphStats.put(graphSymbol, stats);
 			}catch(RuntimeException e){
 				logger.log(Level.SEVERE, "Failed to stat graph: " + graphSymbol + ". Skipped.", e);
@@ -111,7 +110,7 @@ public abstract class QueryInstructionExecutor{
 		}
 		String baseSymbol = getQueryEnvironment().getBaseGraphSymbol();
 		Graph baseGraph = getQueryEnvironment().getBaseGraph();
-		GraphStats stats = statGraph(new StatGraph(baseGraph));
+		GraphStatistic.Count stats = getGraphCount(new GetGraphStatistic.Count(baseGraph));
 		allGraphStats.put(baseSymbol, stats);
 		return allGraphStats;
 	}
@@ -122,7 +121,6 @@ public abstract class QueryInstructionExecutor{
 	
 	public abstract void getWhereAnnotationsExist(GetWhereAnnotationsExist instruction);
 	public abstract GraphDescription describeGraph(DescribeGraph instruction);
-	public abstract GraphStats statGraph(StatGraph instruction);
 	public abstract void subtractGraph(SubtractGraph instruction);
 	public abstract void unionGraph(UnionGraph instruction);
 	public abstract void getAdjacentVertex(GetAdjacentVertex instruction);
@@ -151,26 +149,28 @@ public abstract class QueryInstructionExecutor{
 		return newGraph;
 	}
 
-	/**
-	 * @param graph The graph to operate on
-	 * @param elementType Either vertex or edge
-	 * @param annotationName The name of the annotation
-	 * @param aggregateType The aggregate type specified
-	 * @param extras The list of extra arguments (if any). Empty for now.
-	 * @return GraphStats instance
-	 */
-	public abstract GraphStats aggregateGraph(final Graph graph, final ElementType elementType, 
-			final String annotationName, final AggregateType aggregateType, final java.util.List<String> extras);
+	public abstract long getGraphStatisticSize(final Graph graph, final ElementType elementType, final String annotationKey);
 
-	public abstract class BatchIterator
-	{
+	public abstract GraphStatistic.Count getGraphCount(GetGraphStatistic.Count instruction);
+
+	public abstract GraphStatistic.Histogram getGraphHistogram(GetGraphStatistic.Histogram instruction);
+
+	public abstract GraphStatistic.Mean getGraphMean(GetGraphStatistic.Mean instruction);
+
+	public abstract GraphStatistic.StandardDeviation getGraphStandardDeviation(
+			GetGraphStatistic.StandardDeviation instruction);
+
+	public abstract GraphStatistic.Distribution getGraphDistribution(GetGraphStatistic.Distribution instruction);
+
+	public abstract class BatchIterator{
 		protected String resultTable;
 		protected int batchSize;
+
 		public abstract Object nextBatch();
+
 		public abstract boolean hasNextBatch();
 
-		public BatchIterator(final String resultTable, final int batchSize)
-		{
+		public BatchIterator(final String resultTable, final int batchSize){
 			this.resultTable = resultTable;
 			this.batchSize = batchSize;
 		}

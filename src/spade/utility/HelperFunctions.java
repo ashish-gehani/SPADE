@@ -40,6 +40,8 @@ import java.util.regex.Pattern;
 import org.apache.commons.codec.binary.Hex;
 import org.json.JSONObject;
 
+import com.google.privacy.differentialprivacy.Count;
+
 import spade.core.Settings;
 import spade.utility.Execute.Output;
 
@@ -489,7 +491,23 @@ public class HelperFunctions{
 			return Result.failed("Value '"+value+"' not defined for enum. Allowed: " + Arrays.asList(clazz.getEnumConstants()));
 		}
 	}
-	
+
+	public static <X extends Enum<X>> String[] getEnumNames(final Class<X> clazz, final boolean toLowerCase){
+		int index = 0;
+		final String[] result = new String[clazz.getEnumConstants().length];
+		for(final X x : clazz.getEnumConstants()){
+			final String name;
+			if(toLowerCase){
+				name = x.name().toLowerCase();
+			}else{
+				name = x.name();
+			}
+			result[index] = name;
+			index++;
+		}
+		return result;
+	}
+
 	/**
 	 * Convenience function to avoid NULL check when checking if two objects are equal.
 	 * 
@@ -843,4 +861,26 @@ public class HelperFunctions{
 			throw new Exception("Failed to send signal '"+signal+"' to pid '"+pid+"' using command: '" + command + "'", e);
 		}
 	}
+
+	public static double differentiallyPrivatize(final double value, final double epsilon){
+		final Count dpCount = Count
+				.builder()
+				.epsilon(epsilon)
+				.maxPartitionsContributed(1)
+				.build();
+		dpCount.incrementBy(Math.round(value));
+		final double privatized = (double)dpCount.computeResult();
+		return privatized;
+	}
+
+	public static List<String[]> parseAsList(final String str, final String rowDelimiter, final String columnDelimiter){
+		final List<String[]> result = new ArrayList<String[]>();
+		final String rows[] = str.split(rowDelimiter);
+		for(final String row : rows){
+			final String columns[] = row.split(columnDelimiter);
+			result.add(columns);
+		}
+		return result;
+	}
+
 }

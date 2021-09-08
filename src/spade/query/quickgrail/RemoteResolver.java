@@ -26,16 +26,16 @@ import java.util.Set;
 
 import spade.core.AbstractVertex;
 import spade.core.Settings;
-import spade.query.quickgrail.core.GraphStats;
+import spade.query.quickgrail.core.GraphStatistic;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.ExportGraph;
 import spade.query.quickgrail.instruction.ExportGraph.Format;
+import spade.query.quickgrail.instruction.GetGraphStatistic;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetVertex;
-import spade.query.quickgrail.instruction.StatGraph;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.HelperFunctions;
 
@@ -193,8 +193,8 @@ public class RemoteResolver{
 	
 	//////////
 	
-	private static GraphStats getGraphStats(QueryInstructionExecutor instructionExecutor, Graph graph){
-		return instructionExecutor.statGraph(new StatGraph(graph));
+	private static GraphStatistic.Count getGraphCount(QueryInstructionExecutor instructionExecutor, Graph graph){
+		return instructionExecutor.getGraphCount(new GetGraphStatistic.Count(graph));
 	}
 	
 	private static spade.core.Graph exportGraph(QuickGrailExecutor executor, Graph graph){

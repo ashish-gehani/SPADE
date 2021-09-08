@@ -26,15 +26,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-import org.apache.commons.math3.util.Precision;
 import spade.core.AbstractStorage;
-import spade.query.quickgrail.core.AbstractQueryEnvironment;
+import spade.query.quickgrail.core.EnvironmentVariableManager;
 import spade.query.quickgrail.core.GraphDescription;
-import spade.query.quickgrail.core.GraphStats;
-import spade.query.quickgrail.core.GraphStats.AggregateStats;
+import spade.query.quickgrail.core.GraphStatistic;
+import spade.query.quickgrail.core.GraphStatistic.Interval;
 import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
@@ -50,6 +47,7 @@ import spade.query.quickgrail.instruction.ExportGraph;
 import spade.query.quickgrail.instruction.GetAdjacentVertex;
 import spade.query.quickgrail.instruction.GetEdge;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint;
+import spade.query.quickgrail.instruction.GetGraphStatistic;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLink;
 import spade.query.quickgrail.instruction.GetMatch;
@@ -64,8 +62,6 @@ import spade.query.quickgrail.instruction.IntersectGraph;
 import spade.query.quickgrail.instruction.LimitGraph;
 import spade.query.quickgrail.instruction.OverwriteGraphMetadata;
 import spade.query.quickgrail.instruction.SetGraphMetadata;
-import spade.query.quickgrail.instruction.StatGraph;
-import spade.query.quickgrail.instruction.StatGraph.AggregateType;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
 import spade.query.quickgrail.types.StringType;
@@ -74,9 +70,8 @@ import spade.query.quickgrail.utility.Schema;
 import spade.storage.Neo4j;
 import spade.utility.HelperFunctions;
 
-public class Neo4jInstructionExecutor extends QueryInstructionExecutor
-{
-	private static final Logger logger = Logger.getLogger(Neo4jInstructionExecutor.class.getName());
+public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
+
 	private final Neo4j storage;
 	private final Neo4jQueryEnvironment neo4jQueryEnvironment;
 	private final String hashKey;
@@ -423,286 +418,322 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor
 	}
 	
 	@Override
-	public GraphStats statGraph(StatGraph instruction){
-		long vertices = 0;
-		long edges = 0;
+	public GraphStatistic.Count getGraphCount(final GetGraphStatistic.Count instruction){
+		final long vertices;
+		final long edges;
 		List<Map<String, Object>> result = storage
-				.executeQueryForSmallResult("match (v:" + instruction.targetGraph.name + ") return count(v) as vcount;");
+				.executeQueryForSmallResult("match (v:" + instruction.graph.name + ") return count(v) as vcount;");
 		if(result.size() > 0){
 			vertices = Long.parseLong(String.valueOf(result.get(0).get("vcount")));
+		}else{
+			vertices = 0;
 		}
-		if(neo4jQueryEnvironment.isBaseGraph(instruction.targetGraph)){
+		if(neo4jQueryEnvironment.isBaseGraph(instruction.graph)){
 			result = storage.executeQueryForSmallResult("match ()-[e]->() return count(e) as ecount;");
 		}else{
 			final String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
 			result = storage.executeQueryForSmallResult("match ()-[e]->() " + "where " + edgeProperty + " contains ',"
-					+ instruction.targetGraph.name + ",' " + "return count(e) as ecount;");
+					+ instruction.graph.name + ",' " + "return count(e) as ecount;");
 		}
 		if(result.size() > 0){
 			edges = Long.parseLong(String.valueOf(result.get(0).get("ecount")));
+		}else{
+			edges = 0;
 		}
-		return new GraphStats(vertices, edges);
+		return new GraphStatistic.Count(vertices, edges);
 	}
 
-	private GraphStats.AggregateStats computeDistribution(final Graph graph,
-														  final ElementType elementType,
-														  final String annotationName,
-														  final List<String> extras)
-	{
-		int binCount;
-		if(extras.size() == 1)
-		{
-			binCount = Integer.parseInt(extras.get(0));
-		}
-		else
-		{
-			logger.log(Level.SEVERE, "Incorrect number of arguments! Bin count is required.");
-			return null;
-		}
-		String finalAnnotationName = "toInteger(v." + annotationName + ")";
-		String minMaxQuery = null;
-		if(elementType.equals(ElementType.VERTEX))
-		{
-			minMaxQuery = "MATCH (v:" + graph.name + ") "
-					+ "RETURN MIN(" + finalAnnotationName + ") AS min, MAX("
-					+ finalAnnotationName + ") AS max;";
-		}
-		else if(elementType.equals(ElementType.EDGE))
-		{
-			finalAnnotationName = "toInteger(e." + annotationName + ")";
-			String returnStatement = " RETURN MIN(" + finalAnnotationName + ") AS min,"
-					+ "MAX(" + finalAnnotationName + ") AS max;";
-			if(neo4jQueryEnvironment.isBaseGraph(graph))
-			{
-				minMaxQuery = "MATCH ()-[e]->() " + returnStatement;
+	@Override
+	public long getGraphStatisticSize(final Graph graph, final ElementType elementType, final String annotationKey){
+		switch(elementType){
+			case VERTEX:{
+				final List<Map<String, Object>> result = storage.executeQueryForSmallResult(
+						"match (v:" + graph.name + ") where v.`" + annotationKey + "` is not null return count(v) as vcount;"
+						);
+				if(result.size() > 0){
+					return Long.parseLong(String.valueOf(result.get(0).get("vcount")));
+				}else{
+					return 0;
+				}
 			}
-			else
-			{
-				String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
-				minMaxQuery = "match ()-[e]->()" +  "where " + edgeProperty + " contains ',"
-						+ graph.name + ",' " + returnStatement;
+			case EDGE:{
+				final List<Map<String, Object>> result;
+				if(neo4jQueryEnvironment.isBaseGraph(graph)){
+					result = storage.executeQueryForSmallResult(
+							"match ()-[e]->() where e.`" + annotationKey + "` is not null return count(e) as ecount;"
+							);
+				}else{
+					final String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
+					result = storage.executeQueryForSmallResult(
+							"match ()-[e]->() " 
+							+ "where " + edgeProperty + " contains '," + graph.name + ",' "
+							+ "and e.`" + annotationKey + "` is not null "
+							+ "return count(e) as ecount;");
+				}
+				if(result.size() > 0){
+					return Long.parseLong(String.valueOf(result.get(0).get("ecount")));
+				}else{
+					return 0;
+				}
+			}
+			default:{
+				throw new RuntimeException("Unknown element type");
 			}
 		}
-		List<Map<String, Object>> minMaxResult = storage.executeQueryForSmallResult(minMaxQuery);
-		Double min = null;
-		Double max = null;
-		if(minMaxResult.size() > 0)
-		{
-			min = Double.parseDouble(String.valueOf(minMaxResult.get(0).get("min")));
-			max = Double.parseDouble(String.valueOf(minMaxResult.get(0).get("max")));
+	}
+
+	@Override
+	public GraphStatistic.Distribution getGraphDistribution(final GetGraphStatistic.Distribution instruction){
+		final Graph graph = instruction.graph;
+		final ElementType elementType = instruction.elementType;
+		final String annotationKey = instruction.annotationKey;
+		final Integer binCount = instruction.binCount;
+
+		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
+			return new GraphStatistic.Distribution();
 		}
-		if(min == null || max == null)
-		{
-			logger.log(Level.SEVERE, "Error retrieving min and max " + annotationName);
-			return null;
-		}
-		double range = max - min + 1;
-		double step = range / binCount;
-		String query = "";
-		if(elementType.equals(ElementType.VERTEX))
-		{
-			query = "match (v:" + graph.name + ")";
-		}
-		else if(elementType.equals(ElementType.EDGE))
-		{
-			if(neo4jQueryEnvironment.isBaseGraph(graph))
-			{
-				query = "match ()-[e]->()";
+
+		final String finalAnnotationKey;
+		final String minMaxQuery;
+		switch(elementType){
+			case VERTEX:{
+				finalAnnotationKey = "toInteger(v." + annotationKey + ")";
+				minMaxQuery = "MATCH (v:" + graph.name + ") RETURN"
+						+ " MIN(" + finalAnnotationKey + ") AS min,"
+						+ " MAX(" + finalAnnotationKey + ") AS max;";
+				break;
 			}
-			else
-			{
-				String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
-				query = "match ()-[e]->()" +  "where " + edgeProperty + " contains ',"
-						+ graph.name + ",'";
+			case EDGE:{
+				finalAnnotationKey = "toInteger(e." + annotationKey + ")";
+				final String returnStatement = " RETURN"
+						+ " MIN(" + finalAnnotationKey + ") AS min,"
+						+ " MAX(" + finalAnnotationKey + ") AS max;";
+				if(neo4jQueryEnvironment.isBaseGraph(graph)){
+					minMaxQuery = "MATCH ()-[e]->() " + returnStatement;
+				}else{
+					final String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
+					minMaxQuery = "match ()-[e]->()" + " where "
+							+ edgeProperty + " contains '," + graph.name + ",' "
+							+ returnStatement;
+				}
+				break;
+			}
+			default:{
+				throw new RuntimeException("Unknown element type");
 			}
 		}
+
+		final List<Map<String, Object>> minMaxResult = storage.executeQueryForSmallResult(minMaxQuery);
+		if(minMaxResult.size() == 0){
+			throw new RuntimeException("Failed to get min and max for: '" + annotationKey + "'");
+		}
+
+		final Double min = Double.parseDouble(String.valueOf(minMaxResult.get(0).get("min")));
+		final Double max = Double.parseDouble(String.valueOf(minMaxResult.get(0).get("max")));
+
+		final double range = max - min + 1;
+		final double step = range / binCount;
+		String query;
+		switch(elementType){
+			case VERTEX:{
+				query = "match (v:" + graph.name + ")";
+				break;
+			}
+			case EDGE:{
+				if(neo4jQueryEnvironment.isBaseGraph(graph)){
+					query = "match ()-[e]->()";
+				}else{
+					final String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
+					query = "match ()-[e]->()" + "where " + edgeProperty + " contains '," + graph.name + ",'";
+				}
+				break;
+			}
+			default:{
+				throw new RuntimeException("Unknown element type");
+			}
+		}
+
+		final Map<String, Interval> nameToInterval = new TreeMap<>();
+
 		query += " RETURN ";
-		String countQuery = "SUM(CASE WHEN " + finalAnnotationName + "  >= %s AND "
-				+ finalAnnotationName + " < %s THEN 1 ELSE 0 END) AS `%s-%s`,";
+		final String countQuery = "SUM(CASE WHEN "
+				+ finalAnnotationKey + " >= %s AND "
+				+ finalAnnotationKey + " < %s "
+				+ "THEN 1 ELSE 0 END) AS `%s`,";
 		double begin = min;
-		while(begin+step < max)
-		{
-			query += String.format(countQuery, begin, begin+step,
-					Precision.round(begin, 2), Precision.round(begin+step, 2));
+		while(begin + step < max){
+			final String columnName = String.valueOf(nameToInterval.size());
+			query += String.format(countQuery, 
+					begin, begin + step, 
+					columnName);
+			nameToInterval.put(columnName, new Interval(begin, begin +  step));
 			begin += step;
 		}
-		String finalCountQuery = "SUM(CASE WHEN " + finalAnnotationName + "  >= %s AND "
-				+ finalAnnotationName + " <= %s THEN 1 ELSE 0 END) AS `%s-%s`";
-		query += String.format(finalCountQuery, begin, max,
-				Precision.round(begin, 2), Precision.round(max, 2));
+		final String finalColumnName = String.valueOf(nameToInterval.size());
+		final String finalCountQuery = "SUM(CASE WHEN "
+				+ finalAnnotationKey + " >= %s AND "
+				+ finalAnnotationKey + " <= %s "
+				+ "THEN 1 ELSE 0 END) AS `%s`";
+		query += String.format(finalCountQuery, 
+				begin, max, 
+				finalColumnName);
+		nameToInterval.put(finalColumnName, new Interval(begin, max));
 
-		List<Map<String, Object>> result = storage.executeQueryForSmallResult(query);
-		SortedMap<String, Integer> distribution = new TreeMap<>();
-		if(result.size() > 0)
-		{
-			Map<String, Object> data = result.get(0);
-			for(String key: data.keySet())
-			{
-				Object valueObject = data.get(key);
-				if(valueObject != null)
-				{
-					String value = String.valueOf(valueObject);
-					distribution.put(key, Integer.valueOf(value));
+		final List<Map<String, Object>> result = storage.executeQueryForSmallResult(query);
+		final SortedMap<Interval, Double> distribution = new TreeMap<>();
+		if(result.size() > 0){
+			final Map<String, Object> data = result.get(0);
+			for(final String key : data.keySet()){
+				final Object valueObject = data.get(key);
+				if(valueObject != null){
+					final String value = String.valueOf(valueObject);
+					final Interval distributionKey = nameToInterval.get(key);
+					final Double distributionValue = Double.parseDouble(value);
+					distribution.put(distributionKey, distributionValue);
 				}
 			}
 		}
-		AggregateStats aggregateStats = new AggregateStats();
-		aggregateStats.setDistribution(distribution);
-		return aggregateStats;
+
+		final GraphStatistic.Distribution graphDistribution = new GraphStatistic.Distribution(distribution);
+		return graphDistribution;
 	}
 
-	private AggregateStats computeStd(final Graph graph, final ElementType elementType,
-												  final String annotationName)
-	{
-		String query = null;
-		if(elementType.equals(ElementType.VERTEX))
-		{
-			query = "match (v:" + graph.name + ") return stDev(toInteger(v." + annotationName + ")) as std;";
+	@Override
+	public GraphStatistic.StandardDeviation getGraphStandardDeviation(final GetGraphStatistic.StandardDeviation instruction){
+		final Graph graph = instruction.graph;
+		final ElementType elementType = instruction.elementType;
+		final String annotationKey = instruction.annotationKey;
+
+		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
+			return new GraphStatistic.StandardDeviation();
 		}
-		else if(elementType.equals(ElementType.EDGE))
-		{
-			if(neo4jQueryEnvironment.isBaseGraph(graph))
-			{
-				query = "match ()-[e]->() return stDev(toInteger(e." + annotationName + ")) as std;";
+
+		final String query;
+		switch(elementType){
+			case VERTEX:{
+				query = "match (v:" + graph.name + ") return stDev(toInteger(v." + annotationKey + ")) as std;";
+				break;
 			}
-			else
-			{
-				String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
-				query = "match ()-[e]->()" +  "where " + edgeProperty + " contains ',"
-						+ graph.name + ",' " +
-						"return stDev(toInteger(e." + annotationName + ")) as std;";
+			case EDGE:{
+				if(neo4jQueryEnvironment.isBaseGraph(graph)){
+					query = "match ()-[e]->() return stDev(toInteger(e." + annotationKey + ")) as std;";
+				}else{
+					final String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
+					query = "match ()-[e]->()"
+							+ "where " + edgeProperty + " contains '," + graph.name + ",' "
+							+ "return stDev(toInteger(e." + annotationKey + ")) as std;";
+				}
+				break;
+			}
+			default:{
+				throw new RuntimeException("Unknown element type");
 			}
 		}
-		List<Map<String, Object>> result = storage.executeQueryForSmallResult(query);
-		Double std = null;
-		if(result.size() > 0)
-		{
-			std = Double.parseDouble(String.valueOf(result.get(0).get("std")));
+
+		final List<Map<String, Object>> result = storage.executeQueryForSmallResult(query);
+		final double stdDev;
+		if(result.size() > 0){
+			stdDev = Double.parseDouble(String.valueOf(result.get(0).get("std")));
+		}else{
+			stdDev = 0;
 		}
-		AggregateStats aggregateStats = new AggregateStats();
-		aggregateStats.setStd(Precision.round(std, 2));
-		return aggregateStats;
+
+		final GraphStatistic.StandardDeviation graphStdDev = new GraphStatistic.StandardDeviation(stdDev);
+		return graphStdDev;
 	}
 
-	private AggregateStats computeMean(final Graph graph, final ElementType elementType,
-												  final String annotationName)
-	{
-		String query = null;
-		if(elementType.equals(ElementType.VERTEX))
-		{
-			query = "match (v:" + graph.name + ") return AVG(toInteger(v." + annotationName + ")) as mean;";
+	@Override
+	public GraphStatistic.Mean getGraphMean(final GetGraphStatistic.Mean instruction){
+		final Graph graph = instruction.graph;
+		final ElementType elementType = instruction.elementType;
+		final String annotationKey = instruction.annotationKey;
+
+		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
+			return new GraphStatistic.Mean();
 		}
-		else if(elementType.equals(ElementType.EDGE))
-		{
-			if(neo4jQueryEnvironment.isBaseGraph(graph))
-			{
-				query = "match ()-[e]->() return AVG(toInteger(e." + annotationName + ")) as mean;";
+
+		final String query;
+		switch(elementType){
+			case VERTEX:{
+				query = "match (v:" + graph.name + ") return AVG(toInteger(v." + annotationKey + ")) as mean;";
+				break;
 			}
-			else
-			{
-				String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
-				query = "match ()-[e]->()" +  "where " + edgeProperty + " contains ',"
-						+ graph.name + ",' " +
-						"return AVG(toInteger(e." + annotationName + ")) as mean;";
+			case EDGE:{
+				if(neo4jQueryEnvironment.isBaseGraph(graph)){
+					query = "match ()-[e]->() return AVG(toInteger(e." + annotationKey + ")) as mean;";
+				}else{
+					final String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
+					query = "match ()-[e]->()" 
+							+ "where " + edgeProperty + " contains '," + graph.name + ",' "
+							+ "return AVG(toInteger(e." + annotationKey + ")) as mean;";
+				}
+				break;
+			}
+			default:{
+				throw new RuntimeException("Unknown element type");
 			}
 		}
-		List<Map<String, Object>> result = storage.executeQueryForSmallResult(query);
-		Double mean = null;
-		if(result.size() > 0)
-		{
+
+		final List<Map<String, Object>> result = storage.executeQueryForSmallResult(query);
+		final Double mean;
+		if(result.size() > 0){
 			mean = Double.parseDouble(String.valueOf(result.get(0).get("mean")));
+		}else{
+			mean = 0.0;
 		}
-		AggregateStats aggregateStats = new AggregateStats();
-		aggregateStats.setMean(mean);
-		return aggregateStats;
+
+		final GraphStatistic.Mean graphMean = new GraphStatistic.Mean(mean);
+		return graphMean;
 	}
 
-	private AggregateStats computeHistogram(final Graph graph, final ElementType elementType,
-													   final String annotationName)
-	{
-		String query = null;
-		if(elementType.equals(ElementType.VERTEX))
-		{
-			query = "match (v:" + graph.name + ") return v." + annotationName + " as ann, count(*) as cnt;";
+	@Override
+	public GraphStatistic.Histogram getGraphHistogram(final GetGraphStatistic.Histogram instruction){
+		final Graph graph = instruction.graph;
+		final ElementType elementType = instruction.elementType;
+		final String annotationKey = instruction.annotationKey;
+
+		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
+			return new GraphStatistic.Histogram();
 		}
-		else if(elementType.equals(ElementType.EDGE))
-		{
-			if(neo4jQueryEnvironment.isBaseGraph(graph))
-			{
-				query = "match ()-[e]->() return e." + annotationName + " as ann, count(*) as cnt;";
+
+		final String query;
+		switch(elementType){
+			case VERTEX:{
+				query = "match (v:" + graph.name + ") return v." + annotationKey + " as ann, count(*) as cnt;";
+				break;
 			}
-			else
-			{
-				String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
-				query = "match ()-[e]->()" +  "where " + edgeProperty + " contains ',"
-						+ graph.name + ",' " +
-						"return e." + annotationName + " as ann, count(*) as cnt;";
+			case EDGE:{
+				if(neo4jQueryEnvironment.isBaseGraph(graph)){
+					query = "match ()-[e]->() return e." + annotationKey + " as ann, count(*) as cnt;";
+				}else{
+					final String edgeProperty = "e.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
+					query = "match ()-[e]->()" 
+							+ "where " + edgeProperty + " contains '," + graph.name + ",' " 
+							+ "return e." + annotationKey + " as ann, count(*) as cnt;";
+				}
+				break;
+			}
+			default:{
+				throw new RuntimeException("Unknown element type");
 			}
 		}
-		List<Map<String, Object>> result = storage.executeQueryForSmallResult(query);
-		SortedMap<String, Integer> histogram = new TreeMap<>();
-		if(result.size() > 0)
-		{
-			for(Map<String, Object> map: result)
-			{
-				Object valueObject = map.get("ann");
-				Object countObject = map.get("cnt");
-				if(valueObject != null && countObject != null)
-				{
-					String value = String.valueOf(valueObject);
-					Integer count = ((Long) countObject).intValue();
+
+		final List<Map<String, Object>> result = storage.executeQueryForSmallResult(query);
+		final SortedMap<String, Double> histogram = new TreeMap<>();
+		if(result.size() > 0){
+			for(final Map<String, Object> map : result){
+				final Object valueObject = map.get("ann");
+				final Object countObject = map.get("cnt");
+				if(valueObject != null && countObject != null){
+					final String value = String.valueOf(valueObject);
+					final Double count = Double.parseDouble(String.valueOf(countObject));
 					histogram.put(value, count);
 				}
 			}
 		}
-		AggregateStats aggregateStats = new AggregateStats();
-		aggregateStats.setHistogram(histogram);
-		return aggregateStats;
-	}
-	
-	@Override
-	public GraphStats aggregateGraph(final Graph graph, final ElementType elementType, 
-			final String annotationName, final AggregateType aggregateType, final java.util.List<String> extras)
-	{
-		AggregateStats aggregateStats = null;
-		if(aggregateType.equals(AggregateType.HISTOGRAM))
-		{
-			aggregateStats = computeHistogram(graph, elementType, annotationName);
-		}
-		else if(aggregateType.equals(AggregateType.MEAN))
-		{
-			aggregateStats = computeMean(graph, elementType, annotationName);
-		}
-		else if(aggregateType.equals(AggregateType.STD))
-		{
-			aggregateStats = computeStd(graph, elementType, annotationName);
-		}
-		else if(aggregateType.equals(AggregateType.DISTRIBUTION))
-		{
-			aggregateStats = computeDistribution(graph, elementType, annotationName, extras);
-		}
-		/*
-		 * Please refer to the queries in 'statGraph' function (above) and 'describeGraph' on how to refer to 
-		 * the vertex and edge table of a graph. Please refer to the function 'evaluateQuery' on how to get table out
-		 * of the database.
-		 */
 
-		/*
-		 * If any state related to past stats on graph have to be stored then it can be stored in the 'AggregationState' object.
-		 * 
-		 * The lifetime of the object is tried to the lifetime of the storage which is being queried. That means when storage
-		 * is added then the AggregationState object is initialized and when the storage is removed then the AggregationState object
-		 * is discarded, too.
-		 * 
-		 * Also, this object is storage specific i.e. one for each storage.
-		 * 
-		 * Example on how to get the object is shown below.
-		 * 	final AggregationState aggregationState = getQueryEnvironment().getAggregationState();
-		 */
-
-		GraphStats graphStats = statGraph(new StatGraph(graph));
-		graphStats.setAggregateStats(aggregateStats);
-		return graphStats;
+		GraphStatistic.Histogram graphHistogram = new GraphStatistic.Histogram(histogram);
+		return graphHistogram;
 	}
 
 	@Override
@@ -891,12 +922,12 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor
 						if(minObject != null){
 							minValue = String.valueOf(minObject);
 						}else{
-							minValue = AbstractQueryEnvironment.environmentVariableValueUNSET;
+							minValue = EnvironmentVariableManager.getUndefinedConstant();
 						}
 						if(maxObject != null){
 							maxValue = String.valueOf(maxObject);
 						}else{
-							maxValue = AbstractQueryEnvironment.environmentVariableValueUNSET;
+							maxValue = EnvironmentVariableManager.getUndefinedConstant();
 						}
 					}
 					final GraphDescription desc = new GraphDescription(instruction.elementType, instruction.annotationName, 

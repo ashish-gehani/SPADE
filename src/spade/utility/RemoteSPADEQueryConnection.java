@@ -33,7 +33,7 @@ import javax.net.SocketFactory;
 
 import spade.core.AbstractStorage;
 import spade.core.Query;
-import spade.query.quickgrail.core.GraphStats;
+import spade.query.quickgrail.core.GraphStatistic;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.utility.ResultTable;
 
@@ -201,9 +201,9 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 		return storageName;
 	}
 	
-	public synchronized GraphStats statGraph(String symbol){
+	public synchronized GraphStatistic.Count getGraphCount(String symbol){
 		Query response = executeQuery("stat " + symbol);
-		return (GraphStats)response.getResult();
+		return (GraphStatistic.Count)response.getResult();
 	}
 	
 	public synchronized String getBaseVertices(String predicate){

@@ -27,13 +27,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import org.apache.commons.math3.util.Precision;
 
 import spade.core.AbstractStorage;
 import spade.query.quickgrail.core.GraphDescription;
-import spade.query.quickgrail.core.GraphStats;
+import spade.query.quickgrail.core.GraphStatistic;
+import spade.query.quickgrail.core.GraphStatistic.Interval;
 import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
@@ -50,6 +48,7 @@ import spade.query.quickgrail.instruction.ExportGraph;
 import spade.query.quickgrail.instruction.GetAdjacentVertex;
 import spade.query.quickgrail.instruction.GetEdge;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint;
+import spade.query.quickgrail.instruction.GetGraphStatistic;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLineage.Direction;
 import spade.query.quickgrail.instruction.GetLink;
@@ -66,8 +65,6 @@ import spade.query.quickgrail.instruction.LimitGraph;
 import spade.query.quickgrail.instruction.OverwriteGraphMetadata;
 import spade.query.quickgrail.instruction.SetGraphMetadata;
 import spade.query.quickgrail.instruction.SetGraphMetadata.Component;
-import spade.query.quickgrail.instruction.StatGraph.AggregateType;
-import spade.query.quickgrail.instruction.StatGraph;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
 import spade.query.quickgrail.types.StringType;
@@ -81,7 +78,6 @@ import spade.utility.HelperFunctions;
  */
 public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 
-	private static final Logger logger = Logger.getLogger(PostgreSQLInstructionExecutor.class.getName());
 	private final PostgreSQL storage;
 	private final PostgreSQLQueryEnvironment queryEnvironment;
 	
@@ -186,8 +182,24 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		return queryEnvironment.getMetadataEdgeTableName(graphMetadata);
 	}
 
+	// TODO
 	private List<List<String>> executeQueryForResult(String query, boolean addColumnNames){
-		return storage.executeQueryForResult(query, addColumnNames);
+		final List<List<String>> result = storage.executeQueryForResult(query, addColumnNames);
+		/*
+		final Logger l = Logger.getLogger(this.getClass().getName());
+		l.log(Level.SEVERE, "Query: '" + query + "'");
+		String text = "";
+		for(List<String> row : result){
+			String line = "";
+			for(String col : row){
+				line += col + ", ";
+			}
+			line += "\n";
+			text += line;
+		}
+		l.log(Level.SEVERE, "Result:\n" + text);
+		*/
+		return result;
 	}
 
 	@Override
@@ -673,15 +685,17 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		String targetVertexTable = getVertexTableName(instruction.targetGraph);
 		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
 
-		GraphStats graphStats = statGraph(new StatGraph(instruction.sourceGraph));
+		final GraphStatistic.Count graphCount = getGraphCount(
+				new GetGraphStatistic.Count(instruction.sourceGraph)
+				);
 
-		if(graphStats.vertices > 0){
+		if(graphCount.getVertices() > 0){
 			executeQueryForResult("insert into " + targetVertexTable + " select " + getIdColumnName() + " from "
 					+ sourceVertexTable + " group by " + getIdColumnName() + " order by " + getIdColumnName()
 					+ " limit " + instruction.limit + ";", false);
 
 		}
-		if(graphStats.edges > 0){
+		if(graphCount.getEdges() > 0){
 			executeQueryForResult("insert into " + targetEdgeTable + " select " + getIdColumnName() + " from "
 					+ sourceEdgeTable + " group by " + getIdColumnName() + " order by " + getIdColumnName() + " limit "
 					+ instruction.limit + ";", false);
@@ -707,215 +721,264 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
-	public GraphStats statGraph(StatGraph instruction){
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
-		long numVertices = Long.parseLong(
+	public GraphStatistic.Count getGraphCount(final GetGraphStatistic.Count instruction){
+		final String targetVertexTable = getVertexTableName(instruction.graph);
+		final String targetEdgeTable = getEdgeTableName(instruction.graph);
+		final long numVertices = Long.parseLong(
 				executeQueryForResult("select count(*) from " + targetVertexTable, false).get(0).get(0)
 				);
-		long numEdges = Long.parseLong(
+		final long numEdges = Long.parseLong(
 				executeQueryForResult("select count(*) from " + targetEdgeTable, false).get(0).get(0)
 				);
-		return new GraphStats(numVertices, numEdges);
+		return new GraphStatistic.Count(numVertices, numEdges);
 	}
-
-	private GraphStats.AggregateStats computeDistribution(final Graph graph,
-														  final ElementType elementType,
-														  final String annotationName,
-														  final List<String> extras)
-	{
-		String targetVertexTable = getVertexTableName(graph);
-		String targetEdgeTable = getEdgeTableName(graph);
-		int binCount;
-		if(extras.size() == 1)
-		{
-			binCount = Integer.parseInt(extras.get(0));
-		}
-		else
-		{
-			logger.log(Level.SEVERE, "Incorrect number of arguments! Bin count is required.");
-			return null;
-		}
-		String finalAnnotationName = "CAST( " + annotationName + " AS NUMERIC)";
-		String minMaxQuery = "SELECT MIN(" + finalAnnotationName + "), MAX("
-							+ finalAnnotationName + ") FROM %s  WHERE " + getIdColumnName()
-							+ " IN (SELECT " + getIdColumnName() + " FROM %s)";
-		if(elementType.equals(ElementType.VERTEX))
-		{
-			minMaxQuery = String.format(minMaxQuery, getVertexAnnotationTableName(), targetVertexTable);
-		}
-		else if(elementType.equals(ElementType.EDGE))
-		{
-			minMaxQuery = String.format(minMaxQuery, getEdgeAnnotationTableName(), targetEdgeTable);
-		}
-		List<String> minMaxResult = executeQueryForResult(minMaxQuery, false).get(0);
-		double min = Double.parseDouble(minMaxResult.get(0));
-		double max = Double.parseDouble(minMaxResult.get(1));
-		double range = max - min + 1;
-		double step = range / binCount;
-
-		String query = "SELECT ";
-		String countQuery = "COUNT(CASE WHEN " + finalAnnotationName + "  >= %s AND "
-				+ finalAnnotationName + " < %s THEN 1 END) AS \"%s-%s\",";
-		double begin = min;
-		while(begin+step < max)
-		{
-			query += String.format(countQuery, begin, begin+step,
-					Precision.round(begin, 2), Precision.round(begin+step, 2));
-			begin += step;
-		}
-		String finalCountQuery = "COUNT(CASE WHEN " + finalAnnotationName + "  >= %s AND "
-				+ finalAnnotationName + " <= %s THEN 1 END) AS \"%s-%s\"";
-		query += String.format(finalCountQuery, begin, max,
-				Precision.round(begin, 2), Precision.round(max, 2));
-		query += " FROM %s WHERE " + getIdColumnName()
-				+ " IN (SELECT " + getIdColumnName() + " FROM %s)";
-		if(elementType.equals(ElementType.VERTEX))
-		{
-			query = String.format(query, getVertexAnnotationTableName(), targetVertexTable);
-		}
-		else if(elementType.equals(ElementType.EDGE))
-		{
-			query = String.format(query, getEdgeAnnotationTableName(), targetEdgeTable);
-		}
-
-		List<List<String>> result = executeQueryForResult(query, true);
-		SortedMap<String, Integer> distribution = new TreeMap<>();
-		List<String> ranges = result.get(0);
-		List<String> counts = result.get(1);
-		int i = 0;
-		while(i < ranges.size())
-		{
-			distribution.put(ranges.get(i), Integer.parseInt(counts.get(i)));
-			i++;
-		}
-		GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats();
-		aggregateStats.setDistribution(distribution);
-		return aggregateStats;
-	}
-
-	private GraphStats.AggregateStats computeStd(final Graph graph, final ElementType elementType,
-												  final String annotationName)
-	{
-
-		String targetVertexTable = getVertexTableName(graph);
-		String targetEdgeTable = getEdgeTableName(graph);
-		String query = "select stddev(cast(" + annotationName + " as decimal)) from %s"
-				+ " where " + getIdColumnName()
-				+ " in (select "+getIdColumnName()+" from %s)";
-		if(elementType.equals(ElementType.VERTEX))
-		{
-			query = String.format(query, getVertexAnnotationTableName(), targetVertexTable);
-
-		}
-		else if(elementType.equals(ElementType.EDGE))
-		{
-			query = String.format(query, getEdgeAnnotationTableName(), targetEdgeTable);
-		}
-		String result = executeQueryForResult(query, false).get(0).get(0);
-		double std = Double.parseDouble(result);
-		GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats();
-		aggregateStats.setStd(Precision.round(std, 2));
-		return aggregateStats;
-	}
-
-	private GraphStats.AggregateStats computeMean(final Graph graph, final ElementType elementType,
-												  final String annotationName)
-	{
-		String targetVertexTable = getVertexTableName(graph);
-		String targetEdgeTable = getEdgeTableName(graph);
-		String query = "select avg(cast(" + annotationName + " as decimal)) from %s"
-				+ " where " + getIdColumnName()
-				+ " in (select "+getIdColumnName()+" from %s)";
-		if(elementType.equals(ElementType.VERTEX))
-		{
-			query = String.format(query, getVertexAnnotationTableName(), targetVertexTable);
-
-		}
-		else if(elementType.equals(ElementType.EDGE))
-		{
-			query = String.format(query, getEdgeAnnotationTableName(), targetEdgeTable);
-		}
-		String result = executeQueryForResult(query, false).get(0).get(0);
-		double mean = Double.parseDouble(result);
-		GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats();
-		aggregateStats.setMean(Precision.round(mean, 2));
-		return aggregateStats;
-	}
-
-	private GraphStats.AggregateStats computeHistogram(final Graph graph, final ElementType elementType,
-								  					final String annotationName)
-	{
-		String targetVertexTable = getVertexTableName(graph);
-		String targetEdgeTable = getEdgeTableName(graph);
-		String query = "select " + annotationName + ", count(*) from %s"
-				+ " where " + getIdColumnName()
-				+ " in (select " + getIdColumnName() + " from %s)"
-				+ " group by " + annotationName
-				+ "  order by count(*)";
-		List<List<String>> result;
-		if(elementType.equals(ElementType.VERTEX))
-		{
-			query = String.format(query, getVertexAnnotationTableName(), targetVertexTable);
-		}
-		else if(elementType.equals(ElementType.EDGE))
-		{
-			query = String.format(query, getEdgeAnnotationTableName(), targetEdgeTable);
-		}
-
-		result = executeQueryForResult(query, false);
-		SortedMap<String, Integer> histogram = new TreeMap<>();
-		for(final List<String> row : result)
-		{
-			String value = row.get(0);
-			Integer count = Integer.parseInt(row.get(1));
-			histogram.put(value, count);
-		}
-		GraphStats.AggregateStats aggregateStats = new GraphStats.AggregateStats();
-		aggregateStats.setHistogram(histogram);
-		return aggregateStats;
-	}
-
 
 	@Override
-	public GraphStats aggregateGraph(final Graph graph, final ElementType elementType,
-			final String annotationName, final AggregateType aggregateType, final List<String> extras)
-	{
-		GraphStats.AggregateStats aggregateStats = null;
-		if(aggregateType.equals(AggregateType.HISTOGRAM))
-		{
-			aggregateStats = computeHistogram(graph, elementType, annotationName);
+	public long getGraphStatisticSize(final Graph graph, final ElementType elementType, final String annotationKey){
+		final String idColumnName = getIdColumnName();
+		final String annotationTable;
+		final String targetTable;
+		final Set<String> annotationKeys;
+		switch(elementType){
+			case VERTEX:{
+				annotationKeys = getColumnNamesOfVertexAnnotationTable();
+				annotationTable = getVertexAnnotationTableName();
+				targetTable = getVertexTableName(graph);
+				break;
+			}
+			case EDGE:{
+				annotationKeys = getColumnNamesOfEdgeAnnotationTable();
+				annotationTable = getEdgeAnnotationTableName();
+				targetTable = getEdgeTableName(graph);
+				break;
+			}
+			default:{
+				throw new RuntimeException("Unknown element type");
+			}
 		}
-		else if(aggregateType.equals(AggregateType.MEAN))
-		{
-			aggregateStats = computeMean(graph, elementType, annotationName);
-		}
-		else if(aggregateType.equals(AggregateType.STD))
-		{
-			aggregateStats = computeStd(graph, elementType, annotationName);
-		}
-		else if(aggregateType.equals(AggregateType.DISTRIBUTION))
-		{
-			aggregateStats = computeDistribution(graph, elementType, annotationName, extras);
-		}
-		/*
-		 * If any state related to past stats on graph have to be stored then it can be stored in the 'AggregationState' object.
-		 *
-		 * The lifetime of the object is tied to the lifetime of the storage which is being queried. That means when storage
-		 * is added then the AggregationState object is initialized and when the storage is removed then the AggregationState object
-		 * is discarded, too.
-		 *
-		 * Also, this object is storage specific i.e. one for each storage.
-		 *
-		 * Example on how to get the object is shown below.
-		 * final AggregationState aggregationState = getQueryEnvironment().getAggregationState();
-		*/
 
-		GraphStats graphStats = statGraph(new StatGraph(graph));
-		graphStats.setAggregateStats(aggregateStats);
-		return graphStats;
+		if(!annotationKeys.contains(annotationKey)){
+			return 0;
+		}
+
+		final String countQuery = "SELECT count(*) FROM " + annotationTable 
+				+ " WHERE "
+				+ annotationKey + " is not null and " + annotationKey + " <> '' and "
+				+ idColumnName + " IN (SELECT " + idColumnName + " FROM " + targetTable + ")";
+
+		final long size = Long.parseLong(executeQueryForResult(countQuery, false).get(0).get(0));
+		return size;
 	}
 
+	@Override
+	public GraphStatistic.Distribution getGraphDistribution(final GetGraphStatistic.Distribution instruction){
+		final Graph graph = instruction.graph;
+		final ElementType elementType = instruction.elementType;
+		final String annotationKey = instruction.annotationKey;
+		final Integer binCount = instruction.binCount;
+
+		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
+			return new GraphStatistic.Distribution();
+		}
+
+		final String idColumnName = getIdColumnName();
+		final String annotationTable;
+		final String targetTable;
+		switch(elementType){
+			case VERTEX:{
+				annotationTable = getVertexAnnotationTableName();
+				targetTable = getVertexTableName(graph);
+				break;
+			}
+			case EDGE:{
+				annotationTable = getEdgeAnnotationTableName();
+				targetTable = getEdgeTableName(graph);
+				break;
+			}
+			default:{
+				throw new RuntimeException("Unknown element type");
+			}
+		}
+
+		final String finalAnnotationKey = "CAST(" + annotationKey + " AS NUMERIC)";
+		final String minMaxQuery = "SELECT MIN(" + finalAnnotationKey + "),"
+				+ " MAX(" + finalAnnotationKey + ") FROM " + annotationTable 
+				+ " WHERE " + idColumnName
+				+ " IN (SELECT " + idColumnName + " FROM " + targetTable + ")";
+
+		final List<String> minMaxResult = executeQueryForResult(minMaxQuery, false).get(0);
+		final double min = Double.parseDouble(minMaxResult.get(0));
+		final double max = Double.parseDouble(minMaxResult.get(1));
+		final double range = max - min + 1;
+		final double step = range / binCount;
+
+		final Map<String, Interval> nameToInterval = new TreeMap<>();
+		final List<Interval> ranges = new ArrayList<>();
+
+		String query = "SELECT ";
+		final String countSubquery = "COUNT(CASE WHEN " 
+				+ finalAnnotationKey + " >= %s AND "
+				+ finalAnnotationKey + " < %s "
+				+ "THEN 1 END) AS \"%s\",";
+		double begin = min;
+		while(begin + step < max){
+			final String nameToIntervalKey = String.valueOf(nameToInterval.size());
+			query += String.format(countSubquery, 
+					begin, begin + step, 
+					nameToIntervalKey);
+			nameToInterval.put(nameToIntervalKey, new Interval(begin, begin + step));
+			ranges.add(new Interval(begin, begin + step));
+			begin += step;
+		}
+		final String finalNameToIntervalKey = String.valueOf(nameToInterval.size());
+		final String lastCountSubquery = "COUNT(CASE WHEN " 
+				+ finalAnnotationKey + " >= %s AND " 
+				+ finalAnnotationKey + " <= %s "
+				+ "THEN 1 END) AS \"%s\"";
+		query += String.format(lastCountSubquery, 
+				begin, max, 
+				finalNameToIntervalKey);
+		nameToInterval.put(finalNameToIntervalKey, new Interval(begin, max));
+		ranges.add(new Interval(begin, max));
+		query += " FROM " + annotationTable 
+				+ " WHERE " + idColumnName 
+				+ " IN (SELECT " + idColumnName + " FROM " + targetTable + ")";
+
+		final List<List<String>> result = executeQueryForResult(query, false);
+		final SortedMap<Interval, Double> distribution = new TreeMap<>();
+		final List<String> counts = result.get(0);
+		int i = 0;
+		while(i < ranges.size()){
+			distribution.put(ranges.get(i), Double.parseDouble(counts.get(i)));
+			i++;
+		}
+		final GraphStatistic.Distribution graphDistribution = new GraphStatistic.Distribution(distribution);
+		return graphDistribution;
+	}
+
+	@Override
+	public GraphStatistic.StandardDeviation getGraphStandardDeviation(
+			final GetGraphStatistic.StandardDeviation instruction){
+		final Graph graph = instruction.graph;
+		final ElementType elementType = instruction.elementType;
+		final String annotationKey = instruction.annotationKey;
+
+		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
+			return new GraphStatistic.StandardDeviation();
+		}
+
+		final String idColumnName = getIdColumnName();
+		final String annotationTable;
+		final String targetTable;
+		switch(elementType){
+			case VERTEX:{
+				annotationTable = getVertexAnnotationTableName();
+				targetTable = getVertexTableName(graph);
+				break;
+			}
+			case EDGE:{
+				annotationTable = getEdgeAnnotationTableName();
+				targetTable = getEdgeTableName(graph);
+				break;
+			}
+			default:{
+				throw new RuntimeException("Unknown element type");
+			}
+		}
+
+		final String query = "select stddev(cast(" + annotationKey + " as decimal)) "
+				+ "from " + annotationTable + " where " + idColumnName
+				+ " in (select " + idColumnName + " from " + targetTable + ")";
+
+		final String result = executeQueryForResult(query, false).get(0).get(0);
+		final double stdDev = Double.parseDouble(result);
+		final GraphStatistic.StandardDeviation graphStdDev = new GraphStatistic.StandardDeviation(stdDev);
+		return graphStdDev;
+	}
+
+	@Override
+	public GraphStatistic.Mean getGraphMean(final GetGraphStatistic.Mean instruction){
+		final Graph graph = instruction.graph;
+		final ElementType elementType = instruction.elementType;
+		final String annotationKey = instruction.annotationKey;
+
+		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
+			return new GraphStatistic.Mean();
+		}
+
+		final String idColumnName = getIdColumnName();
+		final String annotationTable;
+		final String targetTable;
+		switch(elementType){
+			case VERTEX:{
+				annotationTable = getVertexAnnotationTableName();
+				targetTable = getVertexTableName(graph);
+				break;
+			}
+			case EDGE:{
+				annotationTable = getEdgeAnnotationTableName();
+				targetTable = getEdgeTableName(graph);
+				break;
+			}
+			default:{
+				throw new RuntimeException("Unknown element type");
+			}
+		}
+
+		final String query = "select avg(cast(" + annotationKey + " as decimal)) "
+				+ "from " + annotationTable + " where " + idColumnName
+				+ " in (select " + idColumnName + " from " + targetTable + ")";
+
+		final String result = executeQueryForResult(query, false).get(0).get(0);
+		final double mean = Double.parseDouble(result);
+		final GraphStatistic.Mean graphMean = new GraphStatistic.Mean(mean);
+		return graphMean;
+	}
+
+	@Override
+	public GraphStatistic.Histogram getGraphHistogram(final GetGraphStatistic.Histogram instruction){
+		final Graph graph = instruction.graph;
+		final ElementType elementType = instruction.elementType;
+		final String annotationKey = instruction.annotationKey;
+
+		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
+			return new GraphStatistic.Histogram();
+		}
+
+		final String idColumnName = getIdColumnName();
+		final String annotationTable;
+		final String targetTable;
+		switch(elementType){
+			case VERTEX:{
+				annotationTable = getVertexAnnotationTableName();
+				targetTable = getVertexTableName(graph);
+				break;
+			}
+			case EDGE:{
+				annotationTable = getEdgeAnnotationTableName();
+				targetTable = getEdgeTableName(graph);
+				break;
+			}
+			default:{
+				throw new RuntimeException("Unknown element type");
+			}
+		}
+
+		final String query = "select " + annotationKey + ", count(*) from " + annotationTable
+				+ " where " + idColumnName
+				+ " in (select " + idColumnName + " from " + targetTable + ")"
+				+ " group by " + annotationKey
+				+ " order by count(*)";
+		final List<List<String>> result = executeQueryForResult(query, false);
+		final SortedMap<String, Double> histogram = new TreeMap<>();
+		for(final List<String> row : result){
+			final String value = row.get(0);
+			final Double count = Double.parseDouble(row.get(1));
+			histogram.put(value, count);
+		}
+		final GraphStatistic.Histogram graphHistogram = new GraphStatistic.Histogram(histogram);
+		return graphHistogram;
+	}
 
 	@Override
 	public void subtractGraph(SubtractGraph instruction){
