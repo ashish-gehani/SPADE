@@ -22,6 +22,7 @@ package spade.core;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 import spade.utility.HelperFunctions;
@@ -96,7 +97,11 @@ public abstract class AbstractEdge implements Serializable{
     public final Map<String, String> getCopyOfAnnotations() {
         return new HashMap<String, String>(annotations);
     }
-    
+
+	public final Set<String> getAnnotationKeys(){
+		return annotations.keySet();
+	}
+
     /**
      * Adds an annotation.
      *

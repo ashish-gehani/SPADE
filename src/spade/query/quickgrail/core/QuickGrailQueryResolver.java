@@ -647,7 +647,7 @@ public class QuickGrailQueryResolver{
 				if(arguments.size() != 3){
 					throw new RuntimeException("Invalid arguments for 'env' set command: expected 3");
 				}
-				final String variableName = resolveNameAsString(arguments.get(1)).toLowerCase();
+				final String variableName = resolveNameAsString(arguments.get(1));
 				String variableValue = null;
 				if(arguments.get(2).getExpressionType() != ParseExpression.ExpressionType.kLiteral){
 					throw new RuntimeException("Invalid value at " + arguments.get(2).getLocationString() + ": expected literal");
@@ -667,7 +667,7 @@ public class QuickGrailQueryResolver{
 				if(arguments.size() != 2){
 					throw new RuntimeException("Invalid arguments for 'env' unset command: expected 2");
 				}
-				final String variableName = resolveNameAsString(arguments.get(1)).toLowerCase();
+				final String variableName = resolveNameAsString(arguments.get(1));
 				instructions.add(EnvironmentVariableOperation.instanceOfUnset(variableName));
 			}
 			break;
@@ -682,7 +682,7 @@ public class QuickGrailQueryResolver{
 				if(arguments.size() != 2){
 					throw new RuntimeException("Invalid arguments for 'env' print command: expected 2");
 				}
-				final String variableName = resolveNameAsString(arguments.get(1)).toLowerCase();
+				final String variableName = resolveNameAsString(arguments.get(1));
 				instructions.add(EnvironmentVariableOperation.instanceOfPrint(variableName));
 			}
 			break;

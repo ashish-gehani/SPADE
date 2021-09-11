@@ -19,6 +19,7 @@
  */
 package spade.utility;
 
+import java.net.InetAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -66,5 +67,62 @@ public class ArgumentFunctions{
 		}
 		
 		return result;
+	}
+	
+	public static String mustParseNonEmptyString(final String key, final Map<String, String> map) throws Exception{
+		if(map == null){
+			throw new Exception("NULL map to get the value from for key '" + key + "'");
+		}
+		final String value = map.get(key);
+		if(value == null){
+			throw new Exception("NULL value for key '" + key + "'"); 
+		}
+		if(value.trim().isEmpty()){
+			throw new Exception("Empty value for key '" + key + "'"); 
+		}
+		return value;
+	}
+
+	public static String mustParseNonNullString(final String key, final Map<String, String> map) throws Exception{
+		if(map == null){
+			throw new Exception("NULL map to get the value from for key '" + key + "'");
+		}
+		final String value = map.get(key);
+		if(value == null){
+			throw new Exception("NULL value for key '" + key + "'");
+		}
+		return value.trim();
+	}
+
+	public static String mustParseHost(final String key, final Map<String, String> map) throws Exception{
+		if(map == null){
+			throw new Exception("NULL map to get the value from for key '" + key + "'");
+		}
+		final String value = map.get(key);
+		if(value == null || value.trim().isEmpty()){
+			throw new Exception("NULL/Empty value for key '" + key + "'"); 
+		}
+		try{
+			InetAddress.getByName(value.trim());
+			return value.trim();
+		}catch(Exception e){
+			throw new Exception("Not a valid host name for key '" + key + "'");
+		}
+	}
+	
+	public static String mustParseClass(final String key, final Map<String, String> map) throws Exception{
+		if(map == null){
+			throw new Exception("NULL map to get the value from for key '" + key + "'");
+		}
+		final String value = map.get(key);
+		if(value == null || value.trim().isEmpty()){
+			throw new Exception("NULL/Empty value for key '" + key + "'"); 
+		}
+		try{
+			Class.forName(value.trim());
+			return value.trim();
+		}catch(Exception e){
+			throw new Exception("Not a valid class name for key '" + key + "'");
+		}
 	}
 }

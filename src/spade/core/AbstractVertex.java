@@ -21,6 +21,7 @@ package spade.core;
 
 import java.io.Serializable;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 import spade.utility.HelperFunctions;
@@ -101,6 +102,10 @@ public abstract class AbstractVertex implements Serializable{
      */
 	public final Map<String, String> getCopyOfAnnotations(){
 		return new TreeMap<String, String>(annotations);
+	}
+
+	public final Set<String> getAnnotationKeys(){
+		return annotations.keySet();
 	}
 
     /**
