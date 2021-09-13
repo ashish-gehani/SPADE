@@ -20,7 +20,7 @@ classpath_separator=":"
 if [[ "${os_name}" = *"CYGWIN"* ]]
 then
   # update SPADE home path to windows format
-  spade_home_path=`cygpath -w $SPADE_ROOT`
+  spade_home_path=`cygpath -w $spade_home_path`
   classpath_separator=";"
   is_cygwin=1
 fi

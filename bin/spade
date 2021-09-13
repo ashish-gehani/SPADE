@@ -54,7 +54,7 @@ else
 	JAVALIBPATH="$SPADE_ROOT/lib/"	
 fi
 
-CLASSPATH=$(./bin/classpath.sh)
+CLASSPATH=$(${SPADE_ROOT}/bin/classpath.sh)
 
 JVMARGS="-server -Xms8G -Xmx16G"
 JVMARGSDEBUG="-server -Xms8G -Xmx16G -XX:+UseConcMarkSweepGC"
