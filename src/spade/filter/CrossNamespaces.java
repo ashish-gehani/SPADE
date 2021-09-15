@@ -19,19 +19,26 @@
  */
 package spade.filter;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
+import spade.utility.ArgumentFunctions;
 import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 import spade.utility.Result;
@@ -50,7 +57,9 @@ public class CrossNamespaces extends AbstractFilter{
 		keyArtifactAnnotationsToMatch = "artifactAnnotationsToMatch",
 		keyProcessAnnotationsToMatch = "processAnnotationsToMatch",
 		keyTypesOfArtifactToProcessEdge = "typesOfArtifactToProcessEdge",
-		keyTypesOfProcessToArtifactEdge = "typesOfProcessToArtifactEdge";
+		keyTypesOfProcessToArtifactEdge = "typesOfProcessToArtifactEdge",
+		keyOutput = "output",
+		keyPretty = "pretty";
 	
 	private final Set<String> typesOfArtifactToProcessEdge = new HashSet<String>();
 	private final Set<String> typesOfProcessToArtifactEdge = new HashSet<String>();
@@ -60,148 +69,104 @@ public class CrossNamespaces extends AbstractFilter{
 	
 	private boolean inMemoryMap;
 	private boolean debug;
-	
-	// External map
-	private String artifactToProcessMapId;
+	private boolean pretty;
+	private String outputPath;
+	private BufferedWriter outputWriter;
+
 	private ExternalMap<TreeMap<String, String>, ArrayList<TreeMap<String, String>>> artifactToProcessMap;
 	
 	// In memory map
 	private Map<TreeMap<String, String>, ArrayList<TreeMap<String, String>>> artifactToProcessMapInMemory;
 	
 	private long msgCounter = 0;
-	
+
+	private final List<String> allValuesMustBeNonEmpty(final List<String> values, final String key) throws Exception{
+		final List<String> result = new ArrayList<String>();
+		for(final String value : values){
+			if(HelperFunctions.isNullOrEmpty(value)){
+				throw new Exception("NULL/Empty value in '"+key+"'");
+			}
+			result.add(value.trim());
+		}
+		return result;
+	}
+
 	@Override
 	public boolean initialize(final String arguments){
-		final Map<String, String> map = new HashMap<String, String>();
 		final String configFilePath = Settings.getDefaultConfigFilePath(this.getClass());
 		try{
 			final Map<String, String> configMap = FileUtility.readConfigFileAsKeyValueMap(configFilePath, "=");
-			map.putAll(configMap);
+
+			final List<String> artifactAnnotationsToMatchArguments = 
+					ArgumentFunctions.mustParseCommaSeparatedValues(keyArtifactAnnotationsToMatch, configMap);
+			this.artifactAnnotationsToMatch.addAll(
+					allValuesMustBeNonEmpty(artifactAnnotationsToMatchArguments, keyArtifactAnnotationsToMatch)
+					);
+
+			final List<String> processAnnotationsToMatchArguments = 
+					ArgumentFunctions.mustParseCommaSeparatedValues(keyProcessAnnotationsToMatch, configMap);
+			this.processAnnotationsToMatch.addAll(
+					allValuesMustBeNonEmpty(processAnnotationsToMatchArguments, keyProcessAnnotationsToMatch)
+					);
+
+			final List<String> typesOfArtifactToProcessEdgeArguments = 
+					ArgumentFunctions.mustParseCommaSeparatedValues(keyTypesOfArtifactToProcessEdge, configMap);
+			this.typesOfArtifactToProcessEdge.addAll(
+					allValuesMustBeNonEmpty(typesOfArtifactToProcessEdgeArguments, keyTypesOfArtifactToProcessEdge)
+					);
+
+			final List<String> typesOfProcessToArtifactEdgeArguments = 
+					ArgumentFunctions.mustParseCommaSeparatedValues(keyTypesOfProcessToArtifactEdge, configMap);
+			this.typesOfProcessToArtifactEdge.addAll(
+					allValuesMustBeNonEmpty(typesOfProcessToArtifactEdgeArguments, keyTypesOfProcessToArtifactEdge)
+					);
+
+			final Set<String> commonInTypesOfArtifactToProcessAndTypesOfProcessToArtifact = new HashSet<String>();
+			commonInTypesOfArtifactToProcessAndTypesOfProcessToArtifact.addAll(typesOfArtifactToProcessEdge);
+			commonInTypesOfArtifactToProcessAndTypesOfProcessToArtifact.retainAll(typesOfProcessToArtifactEdge);
+			if(commonInTypesOfArtifactToProcessAndTypesOfProcessToArtifact.size() > 0){
+				throw new Exception("'"+keyTypesOfArtifactToProcessEdge+"' and '"+keyTypesOfProcessToArtifactEdge+"'"
+						+ " cannot have common values. Common: " + commonInTypesOfArtifactToProcessAndTypesOfProcessToArtifact);
+			}
+
+			inMemoryMap = ArgumentFunctions.mustParseBoolean(keyInMemory, configMap);
+			debug = ArgumentFunctions.mustParseBoolean(keyDebug, configMap);
+			outputPath = ArgumentFunctions.mustParseWritableFilePath(keyOutput, configMap);
+			outputWriter = new BufferedWriter(new FileWriter(outputPath));
+			pretty = ArgumentFunctions.mustParseBoolean(keyPretty, configMap);
+
+			if(inMemoryMap){
+				artifactToProcessMapInMemory = new HashMap<TreeMap<String, String>, ArrayList<TreeMap<String, String>>>();
+			}else{
+				final ExternalMapArgument artifactMapArgument = 
+						ArgumentFunctions.mustParseExternalMapArgument(keyArtifactToProcessMapId, configMap);
+
+				final Result<ExternalMap<TreeMap<String, String>, ArrayList<TreeMap<String, String>>>> artifactToProcessMapResult = 
+						ExternalMapManager.create(artifactMapArgument);
+				if(artifactToProcessMapResult.error){
+					throw new Exception("Failed to create external map with id: " + artifactMapArgument.mapId + ". " 
+							+ artifactToProcessMapResult.toErrorString());
+				}
+
+				this.artifactToProcessMap = artifactToProcessMapResult.result;
+				logger.log(Level.INFO, "Map arguments: " + artifactMapArgument);
+			}
+
+			logger.log(Level.INFO, "Arguments: "
+					+ "{0}={1}, {2}=[{3}], {4}=[{5}], {6}=[{7}], {8}=[{9}], {10}={11}, {12}={13}, {14}={15}",
+					new Object[]{
+							keyInMemory, inMemoryMap
+							, keyArtifactAnnotationsToMatch, artifactAnnotationsToMatch
+							, keyProcessAnnotationsToMatch, processAnnotationsToMatch
+							, keyTypesOfArtifactToProcessEdge, typesOfArtifactToProcessEdge
+							, keyTypesOfProcessToArtifactEdge, typesOfProcessToArtifactEdge
+							, keyDebug, debug
+							, keyOutput, outputPath
+							, keyPretty, pretty
+					});
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to read config file: " + configFilePath, e);
 			return false;
-		}
-		map.putAll(HelperFunctions.parseKeyValPairs(arguments));
-		//
-		final String csvValueArtifactAnnotationsToMatch = map.get(keyArtifactAnnotationsToMatch);
-		if(HelperFunctions.isNullOrEmpty(csvValueArtifactAnnotationsToMatch)){
-			logger.log(Level.SEVERE, "NULL/Empty value for '"+keyArtifactAnnotationsToMatch+"'");
-			return false;
-		}
-		final String[] artifactAnnotationsToMatchTokens = csvValueArtifactAnnotationsToMatch.trim().split(",");
-		for(final String artifactAnnotationsToMatchToken : artifactAnnotationsToMatchTokens){
-			if(HelperFunctions.isNullOrEmpty(artifactAnnotationsToMatchToken)){
-				logger.log(Level.SEVERE, "NULL/Empty value in '"+keyArtifactAnnotationsToMatch+"'");
-				return false;
-			}
-			artifactAnnotationsToMatch.add(artifactAnnotationsToMatchToken.trim());
-		}
-		//
-		final String csvValueProcessAnnotationsToMatch = map.get(keyProcessAnnotationsToMatch);
-		if(HelperFunctions.isNullOrEmpty(csvValueProcessAnnotationsToMatch)){
-			logger.log(Level.SEVERE, "NULL/Empty value for '"+keyProcessAnnotationsToMatch+"'");
-			return false;
-		}
-		final String[] processAnnotationsToMatchTokens = csvValueProcessAnnotationsToMatch.trim().split(",");
-		for(final String processAnnotationsToMatchToken : processAnnotationsToMatchTokens){
-			if(HelperFunctions.isNullOrEmpty(processAnnotationsToMatchToken)){
-				logger.log(Level.SEVERE, "NULL/Empty value in '"+keyProcessAnnotationsToMatch+"'");
-				return false;
-			}
-			processAnnotationsToMatch.add(processAnnotationsToMatchToken.trim());
-		}
-		//
-		final String csvValueTypesOfArtifactToProcessEdge = map.get(keyTypesOfArtifactToProcessEdge);
-		if(HelperFunctions.isNullOrEmpty(csvValueTypesOfArtifactToProcessEdge)){
-			logger.log(Level.SEVERE, "NULL/Empty value for '"+keyTypesOfArtifactToProcessEdge+"'");
-			return false;
-		}
-		final String[] typesOfArtifactToProcessEdgeTokens = csvValueTypesOfArtifactToProcessEdge.trim().split(",");
-		for(final String typesOfArtifactToProcessEdgeToken : typesOfArtifactToProcessEdgeTokens){
-			if(HelperFunctions.isNullOrEmpty(typesOfArtifactToProcessEdgeToken)){
-				logger.log(Level.SEVERE, "NULL/Empty value in '"+keyTypesOfArtifactToProcessEdge+"'");
-				return false;
-			}
-			typesOfArtifactToProcessEdge.add(typesOfArtifactToProcessEdgeToken.trim());
-		}
-		//
-		final String csvValueTypesOfProcessToArtifactEdge = map.get(keyTypesOfProcessToArtifactEdge);
-		if(HelperFunctions.isNullOrEmpty(csvValueTypesOfProcessToArtifactEdge)){
-			logger.log(Level.SEVERE, "NULL/Empty value for '"+keyTypesOfProcessToArtifactEdge+"'");
-			return false;
-		}
-		final String[] typesOfProcessToArtifactEdgeTokens = csvValueTypesOfProcessToArtifactEdge.trim().split(",");
-		for(final String typesOfProcessToArtifactEdgeToken : typesOfProcessToArtifactEdgeTokens){
-			if(HelperFunctions.isNullOrEmpty(typesOfProcessToArtifactEdgeToken)){
-				logger.log(Level.SEVERE, "NULL/Empty value in '"+keyTypesOfProcessToArtifactEdge+"'");
-				return false;
-			}
-			typesOfProcessToArtifactEdge.add(typesOfProcessToArtifactEdgeToken.trim());
-		}
-		//
-		final Set<String> commonInTypesOfArtifactToProcessAndTypesOfProcessToArtifact = new HashSet<String>();
-		commonInTypesOfArtifactToProcessAndTypesOfProcessToArtifact.addAll(typesOfArtifactToProcessEdge);
-		commonInTypesOfArtifactToProcessAndTypesOfProcessToArtifact.retainAll(typesOfProcessToArtifactEdge);
-		if(commonInTypesOfArtifactToProcessAndTypesOfProcessToArtifact.size() > 0){
-			logger.log(Level.SEVERE, "'"+keyTypesOfArtifactToProcessEdge+"' and '"+keyTypesOfProcessToArtifactEdge+"'"
-					+ " cannot have common values. Common: " + commonInTypesOfArtifactToProcessAndTypesOfProcessToArtifact);
-			return false;
-		}
-		//
-		final Result<Boolean> inMemoryResult = HelperFunctions.parseBoolean(map.get(keyInMemory));
-		if(inMemoryResult.error){
-			logger.log(Level.SEVERE, "Failed to parse '"+keyInMemory+"'. " + inMemoryResult.toErrorString());
-			return false;
-		}
-		inMemoryMap = inMemoryResult.result;
-		//
-		final Result<Boolean> debugResult = HelperFunctions.parseBoolean(map.get(keyDebug));
-		if(debugResult.error){
-			logger.log(Level.SEVERE, "Failed to parse '"+keyDebug+"'. " + debugResult.toErrorString());
-			return false;
-		}
-		debug = debugResult.result;
-		//
-		ExternalMapArgument externalMapArgument = null;
-		if(!inMemoryMap){
-			artifactToProcessMapId = map.get(keyArtifactToProcessMapId);
-			if(HelperFunctions.isNullOrEmpty(artifactToProcessMapId)){
-				logger.log(Level.SEVERE, "NULL/Empty value for '"+keyArtifactToProcessMapId+"'");
-				return false;
-			}
-			artifactToProcessMapId = artifactToProcessMapId.trim();
-			final Result<ExternalMapArgument> artifactToProcessMapArgumentResult = 
-					ExternalMapManager.parseArgumentFromMap(artifactToProcessMapId, map);
-			if(artifactToProcessMapArgumentResult.error){
-				logger.log(Level.SEVERE, "Invalid arguments for external map with id: " + artifactToProcessMapId + ". " 
-						+ artifactToProcessMapArgumentResult.toErrorString());
-				return false;
-			}
-			externalMapArgument = artifactToProcessMapArgumentResult.result;
-			final Result<ExternalMap<TreeMap<String, String>, ArrayList<TreeMap<String, String>>>> artifactToProcessMapResult = 
-					ExternalMapManager.create(artifactToProcessMapArgumentResult.result);
-			if(artifactToProcessMapResult.error){
-				logger.log(Level.SEVERE, "Failed to create external map with id: " + artifactToProcessMapId + ". " 
-						+ artifactToProcessMapResult.toErrorString());
-				return false;
-			}
-			artifactToProcessMap = artifactToProcessMapResult.result;
-		}else{
-			artifactToProcessMapInMemory = new HashMap<TreeMap<String, String>, ArrayList<TreeMap<String, String>>>();
-		}
-		//
-		logger.log(Level.INFO, "Arguments. {0}={1}, {2}=[{3}], {4}=[{5}], {6}=[{7}], {8}=[{9}], {10}={11}",
-				new Object[]{
-						keyInMemory, inMemoryMap
-						, keyArtifactAnnotationsToMatch, artifactAnnotationsToMatch
-						, keyProcessAnnotationsToMatch, processAnnotationsToMatch
-						, keyTypesOfArtifactToProcessEdge, typesOfArtifactToProcessEdge
-						, keyTypesOfProcessToArtifactEdge, typesOfProcessToArtifactEdge
-						, keyDebug, debug
-				});
-		if(!inMemoryMap){
-			logger.log(Level.INFO, "Map: " + keyArtifactToProcessMapId + "=" + artifactToProcessMapId);
-			logger.log(Level.INFO, "Map arguments: " + externalMapArgument);
 		}
 		return true;
 	}
@@ -212,6 +177,13 @@ public class CrossNamespaces extends AbstractFilter{
 			if(artifactToProcessMap != null){
 				artifactToProcessMap.close();
 				artifactToProcessMap = null;
+			}
+		}
+		if(outputWriter != null){
+			try{
+				outputWriter.close();
+			}catch(Exception e){
+				logger.log(Level.WARNING, "Failed to close file. Buffered data at the tail might be lost", e);
 			}
 		}
 		return true;
@@ -277,7 +249,63 @@ public class CrossNamespaces extends AbstractFilter{
 			artifactToProcessMap.put(key, value);
 		}
 	}
-	
+
+	private final JSONObject createJSONObjectFromMap(final Map<String, String> map) throws Exception{
+		final JSONObject object = new JSONObject();
+		for(final String key : map.keySet()){
+			final String value = map.get(key);
+			if(value != null){
+				object.put(key, value);
+			}
+		}
+		return object;
+	}
+
+	private final JSONObject createJSONEvent(final long eventId, final Map<String, String> artifactAnnotations,
+			final ArrayList<TreeMap<String, String>> writerProcessesAnnotations,
+			final Map<String, String> readerProcessAnnotations,
+			final Map<String, String> readEdgeAnnotations) throws Exception{
+		final JSONObject eventObject = new JSONObject();
+		eventObject.put("cross-namespace-event-id", String.valueOf(eventId));
+		eventObject.put("read-edge", createJSONObjectFromMap(readEdgeAnnotations));
+		eventObject.put("artifact", createJSONObjectFromMap(artifactAnnotations));
+		eventObject.put("reader", createJSONObjectFromMap(readerProcessAnnotations));
+		final JSONArray writerArray = new JSONArray();
+		for(final Map<String, String> writerProcessAnnotations : writerProcessesAnnotations){
+			writerArray.put(createJSONObjectFromMap(writerProcessAnnotations));
+		}
+		eventObject.put("writers", writerArray);
+		return eventObject;
+	}
+
+	private final void writeJSONEvent(final JSONObject eventObject) throws Exception{
+		final String eventString;
+		if(pretty){
+			eventString = eventObject.toString(2);
+		}else{
+			eventString = eventObject.toString();
+		}
+		this.outputWriter.write(eventString + "\n");
+	}
+
+	private final void outputEvent(final long eventId, final Map<String, String> artifactAnnotations,
+			final ArrayList<TreeMap<String, String>> writerProcessesAnnotations,
+			final Map<String, String> readerProcessAnnotations, final Map<String, String> readEdgeAnnotations){
+		final JSONObject eventObject;
+		try{
+			eventObject = createJSONEvent(eventId, artifactAnnotations, writerProcessesAnnotations, readerProcessAnnotations, readEdgeAnnotations);
+		}catch(Exception e){
+			logger.log(Level.WARNING, "Failed to create event as JSON object", e);
+			return;
+		}
+		try{
+			writeJSONEvent(eventObject);
+		}catch(Exception e){
+			logger.log(Level.WARNING, "Failed to write event", e);
+			return;
+		}
+	}
+
 	private final void checkUpdateOrLogCrossFlow(final AbstractEdge edge, 
 			final AbstractVertex process, final AbstractVertex artifact, boolean isRead){
 		final TreeMap<String, String> artifactAnnotations = getAnnotationsFromVertex(artifact, artifactAnnotationsToMatch);
@@ -308,10 +336,7 @@ public class CrossNamespaces extends AbstractFilter{
 							}
 						}
 						if(hadOtherWriters){
-							final String msgPrefix = "[" + this.getClass().getSimpleName() + " event# " + msgCounter++ + "]";
-							logger.log(Level.INFO, msgPrefix + " Artifact: " + artifactAnnotations);
-							logger.log(Level.INFO, msgPrefix + " Writers : " + setOfProcessThatAlreadyWrote);
-							logger.log(Level.INFO, msgPrefix + " Reader  : " + processAnnotations);
+							outputEvent(msgCounter++, artifactAnnotations, setOfProcessThatAlreadyWrote, process.getCopyOfAnnotations(), edge.getCopyOfAnnotations());
 						}
 					}
 				}else{

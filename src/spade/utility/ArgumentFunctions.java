@@ -24,6 +24,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import spade.utility.map.external.ExternalMapArgument;
+import spade.utility.map.external.ExternalMapManager;
+
 public class ArgumentFunctions{
 	
 	public static boolean mustParseBoolean(final String key, final Map<String, String> map) throws Exception{
@@ -123,6 +126,30 @@ public class ArgumentFunctions{
 			return value.trim();
 		}catch(Exception e){
 			throw new Exception("Not a valid class name for key '" + key + "'");
+		}
+	}
+
+	public static ExternalMapArgument mustParseExternalMapArgument(final String key, final Map<String, String> map) throws Exception{
+		String mapId = map.get(key);
+		if(HelperFunctions.isNullOrEmpty(mapId)){
+			throw new Exception("NULL/Empty value for '"+key+"'");
+		}
+		mapId = mapId.trim();
+		final Result<ExternalMapArgument> artifactToProcessMapArgumentResult =  ExternalMapManager.parseArgumentFromMap(mapId, map);
+		if(artifactToProcessMapArgumentResult.error){
+			throw new Exception("Invalid arguments for external map with id: " + mapId + ". " 
+					+ artifactToProcessMapArgumentResult.toErrorString());
+		}
+		return artifactToProcessMapArgumentResult.result;
+	}
+
+	public static String mustParseWritableFilePath(final String key, final Map<String, String> map) throws Exception{
+		final String path = mustParseNonEmptyString(key, map);
+		try{
+			FileUtility.pathMustBeAWritableFile(path);
+			return path;
+		}catch(Exception e){
+			throw new Exception("Not a writable path value for key '" + key + "'", e);
 		}
 	}
 }
