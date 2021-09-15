@@ -13,5 +13,4 @@ script:
   - sudo make install
 notifications:
   email:
-    - raza.ahmad@sri.com
     - hassaan.irshad@sri.com
