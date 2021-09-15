@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.quickgrail.utility;
+package spade.storage.quickstep;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -30,7 +30,6 @@ import java.util.regex.Pattern;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.entities.GraphMetadata;
 import spade.storage.Quickstep;
-import spade.storage.quickstep.QuickstepQueryEnvironment;
 
 /**
  * Convenient functions.

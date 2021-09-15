@@ -70,7 +70,6 @@ import spade.query.quickgrail.instruction.SetGraphMetadata.Component;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
 import spade.query.quickgrail.types.StringType;
-import spade.query.quickgrail.utility.QuickstepUtil;
 import spade.query.quickgrail.utility.ResultTable;
 import spade.query.quickgrail.utility.Schema;
 import spade.storage.Quickstep;

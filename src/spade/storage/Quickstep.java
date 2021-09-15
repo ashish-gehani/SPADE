@@ -43,7 +43,6 @@ import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
-import spade.query.quickgrail.utility.QuickstepUtil;
 import spade.screen.Deduplicate;
 import spade.storage.quickstep.GraphBatch;
 import spade.storage.quickstep.QuickstepClient;
@@ -52,6 +51,7 @@ import spade.storage.quickstep.QuickstepExecutor;
 import spade.storage.quickstep.QuickstepFailure;
 import spade.storage.quickstep.QuickstepInstructionExecutor;
 import spade.storage.quickstep.QuickstepQueryEnvironment;
+import spade.storage.quickstep.QuickstepUtil;
 
 public class Quickstep extends AbstractStorage {
 	private QuickstepInstructionExecutor queryInstructionExecutor = null;

@@ -5,7 +5,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import spade.query.quickgrail.utility.QuickstepUtil;
 import spade.storage.Quickstep;
 import spade.storage.sql.SQLQueryEnvironment;
 
