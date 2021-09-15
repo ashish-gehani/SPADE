@@ -31,6 +31,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -85,6 +86,7 @@ import spade.query.quickgrail.instruction.LimitGraph;
 import spade.query.quickgrail.instruction.List.ListType;
 import spade.query.quickgrail.instruction.OverwriteGraphMetadata;
 import spade.query.quickgrail.instruction.PrintPredicate;
+import spade.query.quickgrail.instruction.RemoteVariableOperation;
 import spade.query.quickgrail.instruction.SetGraphMetadata;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.TransformGraph;
@@ -381,6 +383,11 @@ public class QuickGrailExecutor{
 		}else if(instruction.getClass().equals(TransformGraph.class)){
 			transformGraph((TransformGraph)instruction);
 
+		}else if(instruction.getClass().equals(RemoteVariableOperation.class)){
+			final Serializable optionalResult = remoteVariableOperation((RemoteVariableOperation)instruction);
+			if(optionalResult != null){
+				result = optionalResult;
+			}
 		}else{
 			throw new RuntimeException("Unhandled instruction: " + instruction.getClass());
 		}
@@ -427,7 +434,91 @@ public class QuickGrailExecutor{
 			default: throw new RuntimeException("Unhandled type for environment operation: " + instruction.type);
 		}
 	}
-	
+
+	private final Serializable remoteVariableOperation(final RemoteVariableOperation instruction){
+		switch(instruction.type){
+			case LINK:{
+				queryEnvironment.setRemoteSymbol(
+						instruction.localGraph,
+						new Graph.Remote(instruction.host, instruction.port, instruction.remoteSymbol)
+						);
+				return null;
+			}
+			case UNLINK:{
+				queryEnvironment.removeRemoteSymbol(
+						instruction.localGraph,
+						new Graph.Remote(instruction.host, instruction.port, instruction.remoteSymbol)
+						);
+				return null;
+			}
+			case CLEAR:{
+				queryEnvironment.removeRemoteSymbols(instruction.localGraph);
+				return null;
+			}
+			case COPY:{
+				queryEnvironment.copyRemoteSymbols(instruction.localGraph, instruction.dstLocalGraph);
+				return null;
+			}
+			case LIST:{
+				final Map<String, GraphStatistic.Count> remoteCounts = new TreeMap<String, GraphStatistic.Count>();
+				final Map<SimpleEntry<String, Integer>, Set<Graph.Remote>> groupedRemotes = 
+						instruction.localGraph.groupRemotesByConnections();
+				for(final Map.Entry<SimpleEntry<String, Integer>, Set<Graph.Remote>> entry : groupedRemotes.entrySet()){
+					final SimpleEntry<String, Integer> sock = entry.getKey();
+					final Set<Graph.Remote> remotes = entry.getValue();
+					RemoteSPADEQueryConnection connection = null;
+					try{
+						connection = new RemoteSPADEQueryConnection(Kernel.getHostName(), sock.getKey(), sock.getValue());
+						connection.connect(Kernel.getClientSocketFactory(), 5 * 1000);
+					}catch(Exception e){
+						logger.log(Level.WARNING, "Failed to connect to remote SPADE server at: " + sock, e);
+						connection = null;
+					}
+					for(final Graph.Remote remote : remotes){
+						final String remoteSymbol = remote.symbol;
+						GraphStatistic.Count remoteGraphStatistics = null;
+						if(connection != null){
+							try{
+								remoteGraphStatistics = connection.getGraphCount(remoteSymbol);
+							}catch(Exception e){
+								logger.log(Level.WARNING, "Failed to talk to remote SPADE server at: " + sock, e);
+								remoteGraphStatistics = null;
+							}
+						}
+						if(remoteGraphStatistics == null){
+							remoteGraphStatistics = new GraphStatistic.Count(-1, -1);
+						}
+						remoteCounts.put(remote.toFormattedString(), remoteGraphStatistics);
+					}
+					try{
+						connection.close();
+					}catch(Exception e){
+						logger.log(Level.WARNING, "Failed to close connection to remote SPADE server at: " + sock, e);
+					}
+				}
+
+				final ResultTable table = new ResultTable();
+				for(final String remoteSymbolName : remoteCounts.keySet()){
+					final GraphStatistic.Count graphStats = remoteCounts.get(remoteSymbolName);
+					final ResultTable.Row row = new ResultTable.Row();
+					row.add(remoteSymbolName);
+					row.add(graphStats.getVertices());
+					row.add(graphStats.getEdges());
+					table.addRow(row);
+				}
+
+				final Schema schema = new Schema();
+				schema.addColumn("Remote Graph Name", StringType.GetInstance());
+				schema.addColumn("Number of Vertices", LongType.GetInstance());
+				schema.addColumn("Number of Edges", LongType.GetInstance());
+				table.setSchema(schema);
+				return table;
+			}
+			default:
+				throw new RuntimeException("Unhandled type for remote operation: " + instruction.type);
+		}
+	}
+
 	private final ResultTable getTableOfEnvironmentVariables(){
 		final Set<EnvironmentVariable> envVars = queryEnvironment.getEnvVarManager().getAll();
 		final ResultTable table = new ResultTable();

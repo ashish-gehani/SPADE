@@ -36,23 +36,19 @@ public class QuickstepQueryEnvironment extends SQLQueryEnvironment{
 	}
 
 	@Override
-	public List<List<String>> readTwoColumnsAndMultipleRows(String selectQuery){
-		List<List<String>> rows = new ArrayList<List<String>>();
-		String lines = null;
-		
-		lines = queryExecutor.executeQuery("copy " + selectQuery + " to stdout with (delimiter ',');");
-		for(String line : lines.split("\n")){
-			String[] items = line.split(",");
-			if(items.length == 2){
-				String key = items[0].trim();
-				String value = items[1].trim();
-				List<String> row = new ArrayList<String>();
-				row.add(key);
-				row.add(value);
+	public List<List<String>> readNColumnsAndMultipleRows(String selectQuery, final int n){
+		final List<List<String>> rows = new ArrayList<List<String>>();
+		final String lines = queryExecutor.executeQuery("copy " + selectQuery + " to stdout with (delimiter ',');");
+		for(final String line : lines.split("\n")){
+			final String[] items = line.split(",");
+			if(items.length == n){
+				final List<String> row = new ArrayList<String>();
+				for(final String item : items){
+					row.add(item.trim());
+				}
 				rows.add(row);
 			}
 		}
 		return rows;
 	}
-
 }

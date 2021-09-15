@@ -22,6 +22,7 @@ package spade.storage.sql;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -43,21 +44,44 @@ public abstract class SQLQueryEnvironment extends AbstractQueryEnvironment{
 	private final String typeValuePredicate = "predicate";
 	private final String typeValueIdCount = "idcounter";
 
+	private final String remoteSymbolTableName = "spade_query_remote_symbols";
+
 	public SQLQueryEnvironment(String baseGraphName){
 		super(baseGraphName);
 	}
 
 	public abstract void executeSQLQuery(String... queries);
 	public abstract Set<String> getAllTableNames();
-	public abstract List<List<String>> readTwoColumnsAndMultipleRows(String selectQuery);
+	public abstract List<List<String>> readNColumnsAndMultipleRows(String selectQuery, final int n);;
 
 	@Override
 	public final void createSymbolStorageIfNotPresent(){
 		Set<String> allTablesNames = getAllTableNames();
 		if(!allTablesNames.contains(symbolTableName)){
-			executeSQLQuery("create table " + symbolTableName + "(" + keyColumnName + " varchar(256), "
-					+ valueColumnName + " varchar(1024), " + typeColumnName + " varchar(32))");
-			executeSQLQuery("insert into " + symbolTableName + " values('', '0', '" + typeValueIdCount + "')"); // insert default 0 value
+			executeSQLQuery(
+					"create table " + symbolTableName
+					+ "("
+					+ keyColumnName + " varchar(256), "
+					+ valueColumnName + " varchar(1024), "
+					+ typeColumnName + " varchar(32)"
+					+ ")"
+					);
+			// insert default 0 value
+			executeSQLQuery(
+					"insert into " + symbolTableName
+					+ " values('', '0', '" + typeValueIdCount + "')"
+					);
+		}
+		if(!allTablesNames.contains(remoteSymbolTableName)){
+			executeSQLQuery(
+					"create table " + remoteSymbolTableName
+					+ "("
+					+ "name varchar(256), "
+					+ "host varchar(128), "
+					+ "port varchar(32), "
+					+ "remote_symbol varchar(256)"
+					+ ")"
+					);
 		}
 	}
 
@@ -66,6 +90,9 @@ public abstract class SQLQueryEnvironment extends AbstractQueryEnvironment{
 		Set<String> allTablesNames = getAllTableNames();
 		if(allTablesNames.contains(symbolTableName)){
 			executeSQLQuery("drop table " + symbolTableName + "");
+		}
+		if(allTablesNames.contains(remoteSymbolTableName)){
+			executeSQLQuery("drop table " + remoteSymbolTableName + "");
 		}
 	}
 
@@ -91,6 +118,20 @@ public abstract class SQLQueryEnvironment extends AbstractQueryEnvironment{
 	}
 
 	@Override
+	public final void saveRemoteSymbol(final Graph graph, final Graph.Remote remote){
+		executeSQLQuery(
+				"insert into " + remoteSymbolTableName + " "
+				+ "values"
+				+ "("
+				+ "'" + graph.name + "', "
+				+ "'" + remote.host + "', "
+				+ "'" + remote.port + "', "
+				+ "'" + remote.symbol + "'"
+				+ ")"
+				);
+	}
+
+	@Override
 	public final void saveMetadataSymbol(String symbol, String metadataName, boolean symbolNameWasPresent){
 		saveSymbol(symbol, metadataName, typeValueMetadata, symbolNameWasPresent);
 	}
@@ -100,21 +141,29 @@ public abstract class SQLQueryEnvironment extends AbstractQueryEnvironment{
 		saveSymbol(symbol, predicate, typeValuePredicate, symbolNameWasPresent);
 	}
 
-	private final String buildTwoColumnSelectQuery(String selectColumn1, String selectColumn2, 
-			String table, String whereColumn, String whereValue){
+	private final String buildNColumnSelectQuery(final String[] columns, final String table,
+			final String whereColumn, final String whereValue){
+		if(columns.length == 0){
+			throw new RuntimeException("Columns to project must not be empty");
+		}
+		String selectColumns = "";
+		for(final String column : columns){
+			selectColumns += column + ",";
+		}
+		selectColumns = selectColumns.substring(0, selectColumns.length() - 1);
 		// No semi-colon or new line at the end!
-		return "select " + selectColumn1 + ", " + selectColumn2 + " from " + table + " where " + whereColumn + " = '" + whereValue + "'";
+		return "select " + selectColumns + " from " + table + " where " + whereColumn + " = '" + whereValue + "'";
 	}
-	
+
 	@Override
 	public final int readIdCount(){
-		String query = buildTwoColumnSelectQuery(valueColumnName, typeColumnName, symbolTableName, typeColumnName, typeValueIdCount);
-		List<List<String>> rows = readTwoColumnsAndMultipleRows(query);
+		String query = buildNColumnSelectQuery(new String[]{valueColumnName, typeColumnName}, symbolTableName, typeColumnName, typeValueIdCount);
+		List<List<String>> rows = readNColumnsAndMultipleRows(query, 2);
 		return Integer.parseInt(rows.get(0).get(0));
 	}
 	
 	private final Map<String, String> readSymbolsMap(String symbolType, String query){
-		List<List<String>> rows = readTwoColumnsAndMultipleRows(query);
+		List<List<String>> rows = readNColumnsAndMultipleRows(query, 2);
 		Map<String, String> map = new HashMap<String, String>();
 		for(List<String> row : rows){
 			String key = row.get(0);
@@ -126,22 +175,52 @@ public abstract class SQLQueryEnvironment extends AbstractQueryEnvironment{
 		}
 		return map;
 	}
-	
+
 	@Override
-	public final Map<String, String> readGraphSymbols(){
-		String query = buildTwoColumnSelectQuery(keyColumnName, valueColumnName, symbolTableName, typeColumnName, typeValueGraph);
-		return readSymbolsMap(typeValueGraph, query);
+	public final Map<String, Graph> readGraphSymbols(){
+		final String query = buildNColumnSelectQuery(new String[]{keyColumnName, valueColumnName}, symbolTableName, typeColumnName, typeValueGraph);
+		final Map<String, String> symbolToGraphName = readSymbolsMap(typeValueGraph, query);
+		final Map<String, Graph> symbolToGraph = new HashMap<>();
+		for(final Map.Entry<String, String> entry : symbolToGraphName.entrySet()){
+			symbolToGraph.put(entry.getKey(), new Graph(entry.getValue()));
+		}
+		return symbolToGraph;
+	}
+
+	@Override
+	public final void readRemoteSymbols(final Graph graph){
+		final String query = buildNColumnSelectQuery(
+				new String[]{"name", "host", "port", "remote_symbol"}, remoteSymbolTableName, "name", graph.name);
+		final LinkedHashSet<Graph.Remote> remotes = new LinkedHashSet<Graph.Remote>();
+		final List<List<String>> rows = readNColumnsAndMultipleRows(query, 4);
+		for(final List<String> row : rows){
+			final String name = row.get(0);
+			final String host = row.get(1);
+			final String portStr = row.get(2);
+			final String remoteSymbol = row.get(3);
+			final int port;
+			try{
+				port = Integer.parseInt(portStr);
+			}catch(Exception e){
+				throw new RuntimeException("Non-numeric port for graph '" + name + "' connection: '" + portStr + "'");
+			}
+			final Graph.Remote remote = new Graph.Remote(host, port, remoteSymbol);
+			remotes.add(remote);
+		}
+		for(final Graph.Remote remote : remotes){
+			graph.addRemote(remote);
+		}
 	}
 
 	@Override
 	public final Map<String, String> readMetadataSymbols(){
-		String query = buildTwoColumnSelectQuery(keyColumnName, valueColumnName, symbolTableName, typeColumnName, typeValueMetadata);
+		String query = buildNColumnSelectQuery(new String[]{keyColumnName, valueColumnName}, symbolTableName, typeColumnName, typeValueMetadata);
 		return readSymbolsMap(typeValueMetadata, query);
 	}
 
 	@Override
 	public final Map<String, String> readPredicateSymbols(){
-		String query = buildTwoColumnSelectQuery(keyColumnName, valueColumnName, symbolTableName, typeColumnName, typeValuePredicate);
+		String query = buildNColumnSelectQuery(new String[]{keyColumnName, valueColumnName}, symbolTableName, typeColumnName, typeValuePredicate);
 		return readSymbolsMap(typeValuePredicate, query);
 	}
 	
@@ -153,6 +232,22 @@ public abstract class SQLQueryEnvironment extends AbstractQueryEnvironment{
 	@Override
 	public final void deleteGraphSymbol(String symbol){
 		deleteSymbol(symbol, typeValueGraph);
+	}
+
+	@Override
+	public final void deleteRemoteSymbol(final Graph graph, final Graph.Remote remote){
+		executeSQLQuery(
+				"delete from " + remoteSymbolTableName + " where "
+				+ "name = '" + graph.name + "' and "
+				+ "host = '" + remote.host + "' and "
+				+ "port = '" + remote.port + "' and "
+				+ "remote_symbol = '" + remote.symbol + "'"
+				);
+	}
+
+	@Override
+	public final void deleteRemoteSymbols(final Graph graph){
+		executeSQLQuery("delete from " + remoteSymbolTableName + " where name = '" + graph.name + "'");
 	}
 
 	@Override
@@ -171,6 +266,7 @@ public abstract class SQLQueryEnvironment extends AbstractQueryEnvironment{
 		referencedTables.add(getGraphVertexTableName(getBaseGraph()));
 		referencedTables.add(getGraphEdgeTableName(getBaseGraph()));
 		referencedTables.add(symbolTableName);
+		referencedTables.add(remoteSymbolTableName);
 		for(String name : getCurrentGraphSymbolsStringMap().values()){
 			referencedTables.add(getVertexTableName(name));
 			referencedTables.add(getEdgeTableName(name));
@@ -184,7 +280,7 @@ public abstract class SQLQueryEnvironment extends AbstractQueryEnvironment{
 		List<String> dropQueriesList = new ArrayList<String>();
 		for(String table : allTables){
 			boolean drop = false;
-			if(table.startsWith(prefixSPADETempTableName) || table.startsWith("m_")){ // drop right away if temp table TODO
+			if(table.startsWith(prefixSPADETempTableName) || table.startsWith("m_")){ // drop right away if temp table
 				drop = true;
 			}else{
 				if(isSPADEGraphOrSPADEMetadataName(table)){

@@ -40,7 +40,7 @@ public class PostgreSQLQueryEnvironment extends SQLQueryEnvironment{
 	}
 
 	@Override
-	public final List<List<String>> readTwoColumnsAndMultipleRows(String selectQuery){
+	public List<List<String>> readNColumnsAndMultipleRows(String selectQuery, final int n){
 		return storage.executeQueryForResult(selectQuery + ";", false);
 	}
 

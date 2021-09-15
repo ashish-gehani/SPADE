@@ -106,20 +106,22 @@ public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
 			throw new RuntimeException("Invalid id counter. Must be non-negative: " + idCounter);
 		}
 		this.idCounter = idCounter;
-		
-		Map<String, String> graphSymbols;
+
+		readRemoteSymbols(this.baseGraph);
+
+		Map<String, Graph> graphSymbols;
 		try{
 			graphSymbols = readGraphSymbols();
 		}catch(Throwable t){
 			throw new RuntimeException("Failed to read graph symbols", t);
 		}
 		if(graphSymbols != null && graphSymbols.size() > 0){
-			for(Map.Entry<String, String> entry : graphSymbols.entrySet()){
+			for(Map.Entry<String, Graph> entry : graphSymbols.entrySet()){
 				String key = entry.getKey();
-				String value = entry.getValue();
+				Graph value = entry.getValue();
 				
 				symbolTypeMustBeGraph(key);
-				nameTypeMustBeGraph(value);
+				nameTypeMustBeGraph(value.name);
 				
 				if(isBaseGraphSymbol(key)){
 					throw new RuntimeException("Cannot use reserved graph symbol: '"+getBaseGraphSymbol()+"'");
@@ -129,7 +131,8 @@ public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
 					throw new RuntimeException("Duplicate graph symbol: '"+key+"'");
 				}
 				
-				this.symbolsGraph.put(key, new Graph(value));
+				this.symbolsGraph.put(key, value);
+				readRemoteSymbols(value);
 			}
 		}
 		
@@ -197,10 +200,15 @@ public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
 	public abstract void createSymbolStorageIfNotPresent();
 	public abstract void deleteSymbolStorageIfPresent(); // delete everything
 	public abstract int readIdCount();
-	public abstract Map<String, String> readGraphSymbols();
+	public abstract Map<String, Graph> readGraphSymbols();
+	public abstract void readRemoteSymbols(final Graph graph);
 	public abstract Map<String, String> readMetadataSymbols();
 	public abstract Map<String, String> readPredicateSymbols();
-	
+
+	public final boolean isGraphSymbol(final String symbol){
+		return symbol != null && symbol.startsWith(prefixGraphSymbol);
+	}
+
 	private void symbolTypeMustBeGraph(String symbol){
 		if(symbol == null){
 			throw new RuntimeException("NULL symbol. Expected 'Graph'");
@@ -374,6 +382,21 @@ public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
 		}
 	}
 
+	public abstract void saveRemoteSymbol(final Graph graph, final Graph.Remote remote);
+
+	public final void setRemoteSymbol(final Graph graph, final Graph.Remote remote){
+		if(!graph.containsRemote(remote)){
+			graph.addRemote(remote);
+			saveRemoteSymbol(graph, remote);
+		}
+	}
+
+	public final void copyRemoteSymbols(final Graph graph, final Graph dstGraph){
+		for(final Graph.Remote remote : graph.getRemotes()){
+			setRemoteSymbol(dstGraph, remote);
+		}
+	}
+
 	public abstract void saveMetadataSymbol(String symbol, String metadataName, boolean symbolNameWasPresent);
 
 	public final void setMetadataSymbol(String symbol, GraphMetadata metadata){
@@ -442,19 +465,33 @@ public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
 					+ "Allowed '"+prefixGraphSymbol+"', '"+prefixMetadataSymbol+"', and '"+prefixPredicateSymbol+"'.");
 		}
 	}
-	
+
 	public abstract void deleteGraphSymbol(String symbol);
-	
+
 	public final void removeGraphSymbol(String symbol){
 		if(symbol.equals(getBaseGraphSymbol())){
 			throw new RuntimeException("Cannot erase reserved variables.");
 		}
 		if(symbolsGraph.containsKey(symbol)){
-			symbolsGraph.remove(symbol);
+			final Graph graph = symbolsGraph.remove(symbol);
 			deleteGraphSymbol(symbol);
+			deleteRemoteSymbols(graph);
 		}
 	}
-	
+
+	public abstract void deleteRemoteSymbol(final Graph graph, final Graph.Remote remote);
+	public abstract void deleteRemoteSymbols(final Graph graph);
+
+	public final void removeRemoteSymbol(final Graph graph, final Graph.Remote remote){
+		deleteRemoteSymbol(graph, remote);
+		graph.removeRemote(remote);
+	}
+
+	public final void removeRemoteSymbols(final Graph graph){
+		deleteRemoteSymbols(graph);
+		graph.clearRemotes();
+	}
+
 	public abstract void deleteMetadataSymbol(String symbol);
 	
 	public final void removeMetadataSymbol(String symbol){
@@ -472,7 +509,7 @@ public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
 			deletePredicateSymbol(symbol);
 		}
 	}
-	
+
 	//////////////////
 
 	public Map<String, String> getCurrentGraphSymbolsStringMap(){

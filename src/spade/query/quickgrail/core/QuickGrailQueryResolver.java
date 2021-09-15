@@ -26,6 +26,7 @@ import java.util.LinkedHashSet;
 
 import spade.core.AbstractTransformer;
 import spade.core.AbstractTransformer.ArgumentName;
+import spade.core.Settings;
 import spade.query.quickgrail.entities.Entity;
 import spade.query.quickgrail.entities.EntityType;
 import spade.query.quickgrail.entities.Graph;
@@ -60,6 +61,7 @@ import spade.query.quickgrail.instruction.LimitGraph;
 import spade.query.quickgrail.instruction.List;
 import spade.query.quickgrail.instruction.List.ListType;
 import spade.query.quickgrail.instruction.PrintPredicate;
+import spade.query.quickgrail.instruction.RemoteVariableOperation;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.TransformGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
@@ -313,6 +315,9 @@ public class QuickGrailQueryResolver{
 			break;
 		case "env":
 			resolveEnvCommand(arguments);
+			break;
+		case "remote":
+			resolveRemoteCommand("remote", arguments);
 			break;
 		default:
 			throw new RuntimeException(
@@ -689,7 +694,115 @@ public class QuickGrailQueryResolver{
 			default: throw new RuntimeException("No subcommand '"+subCommand+"' for 'env' command");
 		}
 	}
-	
+
+	private Graph resolveConstGraphVariable(final ParseExpression expression){
+		if(expression.getExpressionType() != ExpressionType.kVariable
+				|| ((ParseVariable)expression).getType().getTypeID() != TypeID.kGraph){
+			throw new RuntimeException("Not a graph variable at " + expression.getLocationString());
+		}else{
+			final Graph graphVariable = resolveGraphVariable(((ParseVariable)expression), null, true);
+			return graphVariable;
+		}
+	}
+
+	private String parseConstGraphVariableName(final ParseExpression expression){
+		if(expression.getExpressionType() != ExpressionType.kVariable
+				|| ((ParseVariable)expression).getType().getTypeID() != TypeID.kGraph){
+			throw new RuntimeException("Not a graph variable at " + expression.getLocationString());
+		}else{
+			final ParseVariable variable = ((ParseVariable)expression);
+			if(variable.getType().getTypeID() != TypeID.kGraph){
+				throw new RuntimeException(
+						"Unexpected variable type: " + variable.getType().getTypeID() + ". Expected: " + TypeID.kGraph);
+			}
+			return variable.getName().getValue();
+		}
+	}
+
+	private void resolveRemoteCommand(final String remoteCommandName, final ArrayList<ParseExpression> arguments){
+		if(arguments.size() < 1){
+			throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' command: expected at least 1");
+		}
+		final String subCommand = resolveNameAsString(arguments.get(0)).toLowerCase();
+		switch(subCommand){
+			case "link":{
+				if(arguments.size() != 4 && arguments.size() != 5){
+					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 4 or 5");
+				}
+				final Graph localVariable = resolveConstGraphVariable(arguments.get(1));
+				final String hostName = resolveNameAsString(arguments.get(2));
+				final int port;
+				final int remoteVariableIndex;
+				final String remoteVariable;
+				if(arguments.size() == 4){
+					port = Settings.getCommandLineQueryPort();
+					remoteVariableIndex = 3;
+				}else if(arguments.size() == 5){
+					port = resolveInteger(arguments.get(3));
+					remoteVariableIndex = 4;
+				}else{
+					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 4 or 5");
+				}
+				remoteVariable = parseConstGraphVariableName(arguments.get(remoteVariableIndex));
+
+				instructions.add(RemoteVariableOperation.instanceOfLink(localVariable, hostName, port, remoteVariable));
+			}
+			break;
+			case "unlink":{
+				if(arguments.size() != 4 && arguments.size() != 5){
+					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 4 or 5");
+				}
+				final Graph localVariable = resolveConstGraphVariable(arguments.get(1));
+				final String hostName = resolveNameAsString(arguments.get(2));
+				final int port;
+				final int remoteVariableIndex;
+				final String remoteVariable;
+				if(arguments.size() == 4){
+					port = Settings.getCommandLineQueryPort();
+					remoteVariableIndex = 3;
+				}else if(arguments.size() == 5){
+					port = resolveInteger(arguments.get(3));
+					remoteVariableIndex = 4;
+				}else{
+					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 4 or 5");
+				}
+				remoteVariable = parseConstGraphVariableName(arguments.get(remoteVariableIndex));
+
+				instructions.add(RemoteVariableOperation.instanceOfUnlink(localVariable, hostName, port, remoteVariable));
+			}
+			break;
+			case "clear":{
+				if(arguments.size() != 2){
+					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 1");
+				}
+				final Graph localVariable = resolveConstGraphVariable(arguments.get(1));
+
+				instructions.add(RemoteVariableOperation.instanceOfClear(localVariable));
+			}
+			break;
+			case "copy":{
+				if(arguments.size() != 3){
+					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 2");
+				}
+				final Graph srcLocalVariable = resolveConstGraphVariable(arguments.get(1));
+				final Graph dstLocalVariable = resolveConstGraphVariable(arguments.get(2));
+
+				instructions.add(RemoteVariableOperation.instanceOfCopy(srcLocalVariable, dstLocalVariable));
+			}
+			break;
+			case "list":{
+				if(arguments.size() != 2){
+					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 1");
+				}
+				final Graph localVariable = resolveConstGraphVariable(arguments.get(1));
+
+				instructions.add(RemoteVariableOperation.instanceOfList(localVariable));
+			}
+			break;
+			default: throw new RuntimeException("No subcommand '" + subCommand + "' for '" + remoteCommandName + "' command");
+		}
+	}
+
 	private void resolveResetCommand(ArrayList<ParseExpression> arguments){
 		if(arguments.size() == 1){
 			String target = resolveNameAsString(arguments.get(0));
@@ -880,7 +993,7 @@ public class QuickGrailQueryResolver{
 		}
 		if(outputGraph == null){
 			if(isConstReference){
-				return new Graph(savedGraph.name);
+				return savedGraph;
 			}
 			outputGraph = allocateEmptyGraph();
 		}
