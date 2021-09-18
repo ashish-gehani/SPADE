@@ -21,13 +21,15 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
  * Subtract one graph from the other.
  */
-public class SubtractGraph extends Instruction{
+public class SubtractGraph extends Instruction<String>{
 	// Output graph.
 	public final Graph outputGraph;
 	// Minuend graph.
@@ -65,5 +67,11 @@ public class SubtractGraph extends Instruction{
 			inline_field_names.add("component");
 			inline_field_values.add(component.name());
 		}
+	}
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.subtractGraph(outputGraph, minuendGraph, subtrahendGraph, component);
+		return null;
 	}
 }

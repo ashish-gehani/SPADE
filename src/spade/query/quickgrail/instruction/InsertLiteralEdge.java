@@ -21,13 +21,15 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
  * Insert a list of edges into a graph by ID.
  */
-public class InsertLiteralEdge extends Instruction{
+public class InsertLiteralEdge extends Instruction<String>{
 	// The target graph to insert the edges.
 	public final Graph targetGraph;
 	// Edge IDs to be inserted.
@@ -56,5 +58,11 @@ public class InsertLiteralEdge extends Instruction{
 		inline_field_values.add(targetGraph.name);
 		inline_field_names.add("edges");
 		inline_field_values.add("{" + String.join(",", edges == null ? new ArrayList<String>() : edges) + "}");
+	}
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.insertLiteralEdge(targetGraph, getEdges());
+		return null;
 	}
 }

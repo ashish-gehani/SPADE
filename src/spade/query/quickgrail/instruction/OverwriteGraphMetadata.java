@@ -21,13 +21,15 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.GraphMetadata;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
  * This class is not yet used in the SPADE integrated QuickGrail.
  */
-public class OverwriteGraphMetadata extends Instruction{
+public class OverwriteGraphMetadata extends Instruction<String>{
 	public final GraphMetadata targetMetadata;
 	public final GraphMetadata lhsMetadata;
 	public final GraphMetadata rhsMetadata;
@@ -54,5 +56,11 @@ public class OverwriteGraphMetadata extends Instruction{
 		inline_field_values.add(lhsMetadata.name);
 		inline_field_names.add("rhsMetadata");
 		inline_field_values.add(rhsMetadata.name);
+	}
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.overwriteGraphMetadata(targetMetadata, lhsMetadata, rhsMetadata);
+		return null;
 	}
 }

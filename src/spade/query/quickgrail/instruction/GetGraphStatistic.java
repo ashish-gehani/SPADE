@@ -19,8 +19,12 @@
  */
 package spade.query.quickgrail.instruction;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.GraphStatistic;
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.instruction.DescribeGraph.ElementType;
 import spade.query.quickgrail.utility.TreeStringSerializable;
@@ -28,7 +32,7 @@ import spade.query.quickgrail.utility.TreeStringSerializable;
 /**
  * Show statistics of a graph.
  */
-public abstract class GetGraphStatistic extends Instruction{
+public abstract class GetGraphStatistic<R extends GraphStatistic> extends Instruction<R>{
 
 	public final Graph graph;
 	private int precisionScale;
@@ -45,7 +49,14 @@ public abstract class GetGraphStatistic extends Instruction{
 		this.precisionScale = precisionScale;
 	}
 
-	public static class Count extends GetGraphStatistic{
+	public void postExecute(final QueryInstructionExecutor executor){
+		final Serializable resultObject = getResult();
+		if(resultObject instanceof GraphStatistic){
+			((GraphStatistic)resultObject).setPrecisionScale(precisionScale);
+		}
+	}
+
+	public static class Count extends GetGraphStatistic<GraphStatistic.Count>{
 		public Count(final Graph graph){
 			super(graph);
 		}
@@ -64,9 +75,14 @@ public abstract class GetGraphStatistic extends Instruction{
 			inline_field_names.add("graph");
 			inline_field_values.add(graph.name);
 		}
+
+		@Override
+		public final GraphStatistic.Count execute(final QueryInstructionExecutor executor){
+			return executor.getGraphCount(graph);
+		}
 	}
 
-	public static class Histogram extends GetGraphStatistic{
+	public static class Histogram extends GetGraphStatistic<GraphStatistic.Histogram>{
 		public final ElementType elementType;
 		public final String annotationKey;
 
@@ -94,9 +110,14 @@ public abstract class GetGraphStatistic extends Instruction{
 			inline_field_names.add("annotationKey");
 			inline_field_values.add(annotationKey);
 		}
+
+		@Override
+		public final GraphStatistic.Histogram execute(final QueryInstructionExecutor executor){
+			return executor.getGraphHistogram(graph, elementType, annotationKey);
+		}
 	}
 
-	public static class Mean extends GetGraphStatistic{
+	public static class Mean extends GetGraphStatistic<GraphStatistic.Mean>{
 		public final ElementType elementType;
 		public final String annotationKey;
 
@@ -124,9 +145,14 @@ public abstract class GetGraphStatistic extends Instruction{
 			inline_field_names.add("annotationKey");
 			inline_field_values.add(annotationKey);
 		}
+
+		@Override
+		public final GraphStatistic.Mean execute(final QueryInstructionExecutor executor){
+			return executor.getGraphMean(graph, elementType, annotationKey);
+		}
 	}
 
-	public static class StandardDeviation extends GetGraphStatistic{
+	public static class StandardDeviation extends GetGraphStatistic<GraphStatistic.StandardDeviation>{
 		public final ElementType elementType;
 		public final String annotationKey;
 
@@ -154,9 +180,14 @@ public abstract class GetGraphStatistic extends Instruction{
 			inline_field_names.add("annotationKey");
 			inline_field_values.add(annotationKey);
 		}
+
+		@Override
+		public final GraphStatistic.StandardDeviation execute(final QueryInstructionExecutor executor){
+			return executor.getGraphStandardDeviation(graph, elementType, annotationKey);
+		}
 	}
 
-	public static class Distribution extends GetGraphStatistic{
+	public static class Distribution extends GetGraphStatistic<GraphStatistic.Distribution>{
 		public final ElementType elementType;
 		public final String annotationKey;
 		public final Integer binCount;
@@ -188,6 +219,11 @@ public abstract class GetGraphStatistic extends Instruction{
 			inline_field_values.add(annotationKey);
 			inline_field_names.add("binCount");
 			inline_field_values.add(Integer.toString(binCount));
+		}
+
+		@Override
+		public final GraphStatistic.Distribution execute(final QueryInstructionExecutor executor){
+			return executor.getGraphDistribution(graph, elementType, annotationKey, binCount);
 		}
 	}
 }

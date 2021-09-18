@@ -21,13 +21,15 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
  * Collapse all edges whose specified fields are the same.
  */
-public class CollapseEdge extends Instruction{
+public class CollapseEdge extends Instruction<String>{
 	// Input graph.
 	public final Graph targetGraph;
 	// Output graph.
@@ -61,5 +63,11 @@ public class CollapseEdge extends Instruction{
 		inline_field_values.add(sourceGraph.name);
 		inline_field_names.add("fields");
 		inline_field_values.add(String.join(",", fields == null ? new ArrayList<String>() : fields));
+	}
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.collapseEdge(targetGraph, sourceGraph, getFields());
+		return null;
 	}
 }

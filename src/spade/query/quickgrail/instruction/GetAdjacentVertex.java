@@ -21,24 +21,25 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
-public class GetAdjacentVertex extends Instruction{
+public class GetAdjacentVertex extends Instruction<String>{
 
 	public final Graph targetGraph;
 	public final Graph subjectGraph;
 	public final Graph sourceGraph;
 	public final GetLineage.Direction direction;
-	
-	public GetAdjacentVertex(Graph targetGraph, Graph subjectGraph, Graph sourceGraph,
-			GetLineage.Direction direction){
+
+	public GetAdjacentVertex(Graph targetGraph, Graph subjectGraph, Graph sourceGraph, GetLineage.Direction direction){
 		this.targetGraph = targetGraph;
 		this.subjectGraph = subjectGraph;
 		this.sourceGraph = sourceGraph;
 		this.direction = direction;
 	}
-	
+
 	@Override
 	public String getLabel(){
 		return this.getClass().getSimpleName();
@@ -57,4 +58,9 @@ public class GetAdjacentVertex extends Instruction{
 		inline_field_values.add(sourceGraph.name);
 	}
 
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.getAdjacentVertex(targetGraph, subjectGraph, sourceGraph, direction);
+		return null;
+	}
 }

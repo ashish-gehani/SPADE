@@ -21,13 +21,15 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
  * Remove all duplicated vertices and edges.
  */
-public class DistinctifyGraph extends Instruction{
+public class DistinctifyGraph extends Instruction<String>{
 	// Input graph.
 	public final Graph targetGraph;
 	// Output graph.
@@ -52,5 +54,11 @@ public class DistinctifyGraph extends Instruction{
 		inline_field_values.add(targetGraph.name);
 		inline_field_names.add("sourceGraph");
 		inline_field_values.add(sourceGraph.name);
+	}
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.distinctifyGraph(targetGraph, sourceGraph);
+		return null;
 	}
 }

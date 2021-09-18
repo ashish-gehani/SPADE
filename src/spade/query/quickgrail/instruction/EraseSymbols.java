@@ -22,19 +22,21 @@ package spade.query.quickgrail.instruction;
 import java.util.ArrayList;
 import java.util.List;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
  * Remove the specified graphs stored in QuickGrail.
  */
-public class EraseSymbols extends Instruction{
+public class EraseSymbols extends Instruction<String>{
 	// The graph variable names to be erased.
 	private final List<String> symbols;
 
 	public EraseSymbols(ArrayList<String> symbols){
 		this.symbols = symbols;
 	}
-	
+
 	public final ArrayList<String> getSymbols(){
 		return symbols == null ? null : new ArrayList<String>(symbols);
 	}
@@ -51,5 +53,11 @@ public class EraseSymbols extends Instruction{
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
 		inline_field_names.add("symbols");
 		inline_field_values.add(String.join(",", symbols == null ? new ArrayList<String>() : symbols));
+	}
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.eraseSymbols(getSymbols());
+		return null;
 	}
 }

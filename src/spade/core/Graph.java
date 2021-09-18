@@ -37,8 +37,8 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.query.quickgrail.instruction.ExportGraph;
 import spade.query.quickgrail.instruction.GetLineage.Direction;
+import spade.query.quickgrail.instruction.SaveGraph;
 import spade.storage.Graphviz;
 import spade.storage.JSON;
 import spade.utility.DotConfiguration;
@@ -505,13 +505,13 @@ public class Graph implements Serializable{
 		return graph;
 	}
 	
-	public static final String exportGraphToString(final ExportGraph.Format format, final Graph graph) throws Exception{
+	public static final String exportGraphToString(final SaveGraph.Format format, final Graph graph) throws Exception{
 		final StringWriter stringBuffer = new StringWriter();
 		exportGraphUsingWriter(format, new BufferedWriter(stringBuffer), graph, true);
 		return stringBuffer.getBuffer().toString();
 	}
 	
-	public static final void exportGraphToFile(final ExportGraph.Format format, final String filePath, final Graph graph) throws Exception{
+	public static final void exportGraphToFile(final SaveGraph.Format format, final String filePath, final Graph graph) throws Exception{
 		if(HelperFunctions.isNullOrEmpty(filePath)){
 			throw new RuntimeException("Cannot export graph to NULL/Empty file path: '"+filePath+"'");
 		}else{
@@ -522,7 +522,7 @@ public class Graph implements Serializable{
 	}
 
 	public static final void exportGraphUsingWriter(
-			final ExportGraph.Format format,
+			final SaveGraph.Format format,
 			final BufferedWriter writer, final Graph graph,
 			final boolean closeWriter) throws Exception{
 		if(graph == null){

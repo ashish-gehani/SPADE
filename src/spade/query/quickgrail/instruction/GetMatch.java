@@ -21,15 +21,18 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
-public class GetMatch extends Instruction{
+public class GetMatch extends Instruction<String>{
 
 	public final Graph targetGraph, graph1, graph2;
 	private final ArrayList<String> annotationKeys = new ArrayList<String>();
-	
-	public GetMatch(final Graph targetGraph, final Graph graph1, final Graph graph2, final ArrayList<String> annotationKeys){
+
+	public GetMatch(final Graph targetGraph, final Graph graph1, final Graph graph2,
+			final ArrayList<String> annotationKeys){
 		this.targetGraph = targetGraph;
 		this.graph1 = graph1;
 		this.graph2 = graph2;
@@ -37,11 +40,11 @@ public class GetMatch extends Instruction{
 			this.annotationKeys.addAll(annotationKeys);
 		}
 	}
-	
+
 	public final ArrayList<String> getAnnotationKeys(){
 		return new ArrayList<String>(annotationKeys);
 	}
-	
+
 	@Override
 	public String getLabel(){
 		return "GetMatch";
@@ -61,5 +64,10 @@ public class GetMatch extends Instruction{
 		inline_field_names.add("annotationKeys");
 		inline_field_values.add(String.join(",", annotationKeys));
 	}
-	
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.getMatch(targetGraph, graph1, graph2, getAnnotationKeys());
+		return null;
+	}
 }

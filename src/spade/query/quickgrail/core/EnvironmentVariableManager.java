@@ -32,7 +32,8 @@ public class EnvironmentVariableManager{
 	public static enum Name{
 		maxDepth(Integer.class), 
 		limit(Integer.class),
-		precision(Integer.class);
+		precision(Integer.class),
+		exportLimit(Integer.class);
 		
 		private final Class<?> type;
 		private Name(final Class<?> type){

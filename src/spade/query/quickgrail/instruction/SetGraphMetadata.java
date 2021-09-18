@@ -21,6 +21,8 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.entities.GraphMetadata;
 import spade.query.quickgrail.utility.TreeStringSerializable;
@@ -28,9 +30,11 @@ import spade.query.quickgrail.utility.TreeStringSerializable;
 /**
  * This class is not yet used in the SPADE integrated QuickGrail.
  */
-public class SetGraphMetadata extends Instruction{
+public class SetGraphMetadata extends Instruction<String>{
 
-	public static enum Component{ kVertex, kEdge, kBoth }
+	public static enum Component{
+		kVertex, kEdge, kBoth
+	}
 
 	public final GraphMetadata targetMetadata;
 	public final Component component;
@@ -67,5 +71,11 @@ public class SetGraphMetadata extends Instruction{
 		inline_field_values.add(name);
 		inline_field_names.add("value");
 		inline_field_values.add(value);
+	}
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.setGraphMetadata(targetMetadata, component, sourceGraph, name, value);
+		return null;
 	}
 }

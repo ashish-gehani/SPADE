@@ -21,25 +21,33 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.GraphDescription;
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
-public class DescribeGraph extends Instruction{
-	
-	public static enum ElementType{ VERTEX, EDGE }
-	public static enum DescriptionType{ COUNT, MINMAX }
-	
+public class DescribeGraph extends Instruction<GraphDescription>{
+
+	public static enum ElementType{
+		VERTEX, EDGE
+	}
+
+	public static enum DescriptionType{
+		COUNT, MINMAX
+	}
+
 	public final Graph graph;
 	public final ElementType elementType;
 	public final String annotationName;
 	public final DescriptionType descriptionType;
-	
+
 	public final Integer limit;
-	
+
 	public final boolean all;
-	
-	public DescribeGraph(final Graph graph, final ElementType elementType,
-			final String annotationName, final DescriptionType descriptionType, final Integer limit){
+
+	public DescribeGraph(final Graph graph, final ElementType elementType, final String annotationName,
+			final DescriptionType descriptionType, final Integer limit){
 		this.graph = graph;
 		this.elementType = elementType;
 		this.annotationName = annotationName;
@@ -47,7 +55,7 @@ public class DescribeGraph extends Instruction{
 		this.limit = limit;
 		this.all = false;
 	}
-	
+
 	public DescribeGraph(final Graph graph, final ElementType elementType, final Integer limit){
 		this.graph = graph;
 		this.elementType = elementType;
@@ -56,7 +64,7 @@ public class DescribeGraph extends Instruction{
 		this.limit = limit;
 		this.all = true;
 	}
-	
+
 	@Override
 	public String getLabel(){
 		return "DescribeGraph";
@@ -83,5 +91,10 @@ public class DescribeGraph extends Instruction{
 			inline_field_names.add("limit");
 			inline_field_values.add(String.valueOf(limit));
 		}
+	}
+
+	@Override
+	public final GraphDescription execute(final QueryInstructionExecutor executor){
+		return executor.describeGraph(this);
 	}
 }

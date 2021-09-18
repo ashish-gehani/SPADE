@@ -21,6 +21,8 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
@@ -28,7 +30,7 @@ import spade.query.quickgrail.utility.TreeStringSerializable;
  * Get a graph that includes all the paths from a set of source vertices to a
  * set of destination vertices.
  */
-public class GetSimplePath extends Instruction{
+public class GetSimplePath extends Instruction<String>{
 	// Output graph.
 	public final Graph targetGraph;
 	// Input graph.
@@ -39,7 +41,7 @@ public class GetSimplePath extends Instruction{
 	public final Graph dstGraph;
 	// Max path length.
 	public final int maxDepth;
-	
+
 	public GetSimplePath(Graph targetGraph, Graph subjectGraph, Graph srcGraph, Graph dstGraph, int maxDepth){
 		this.targetGraph = targetGraph;
 		this.subjectGraph = subjectGraph;
@@ -68,5 +70,11 @@ public class GetSimplePath extends Instruction{
 		inline_field_values.add(dstGraph.name);
 		inline_field_names.add("maxDepth");
 		inline_field_values.add(String.valueOf(maxDepth));
+	}
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.getSimplePath(targetGraph, subjectGraph, srcGraph, dstGraph, maxDepth);
+		return null;
 	}
 }

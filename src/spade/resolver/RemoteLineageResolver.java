@@ -32,7 +32,6 @@ import spade.core.AbstractVertex;
 import spade.core.Kernel;
 import spade.core.Query;
 import spade.core.Settings;
-import spade.query.quickgrail.RemoteResolver;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.utility.HelperFunctions;
 
@@ -79,7 +78,7 @@ public class RemoteLineageResolver extends AbstractRemoteResolver{
 			if(depth < 0){
 				throw new RuntimeException("Negative depth for vertex in map");
 			}
-			String remoteAddress = RemoteResolver.getRemoteAddress(vertex);
+			String remoteAddress = null;//RemoteResolver.getRemoteAddress(vertex);
 			if(HelperFunctions.isNullOrEmpty(remoteAddress)){
 				throw new RuntimeException("Negative depth for vertex in map");
 			}
@@ -152,17 +151,17 @@ public class RemoteLineageResolver extends AbstractRemoteResolver{
 		final int remoteDepth = maxDepth - localDepth;
 		String query = "";
 		query += "dump $base.getLineage($base.getVertex("; // Dump so that we don't have to store it anywhere
-		query += formatQueryName(RemoteResolver.getAnnotationLocalAddress()) + "="
-				+ formatQueryValue(RemoteResolver.getRemoteAddress(localNetworkVertex));
-		query += " and ";
-		query += formatQueryName(RemoteResolver.getAnnotationLocalPort()) + "="
-				+ formatQueryValue(RemoteResolver.getRemotePort(localNetworkVertex));
-		query += " and ";
-		query += formatQueryName(RemoteResolver.getAnnotationRemoteAddress()) + "="
-				+ formatQueryValue(RemoteResolver.getLocalAddress(localNetworkVertex));
-		query += " and ";
-		query += formatQueryName(RemoteResolver.getAnnotationRemotePort()) + "="
-				+ formatQueryValue(RemoteResolver.getLocalPort(localNetworkVertex));
+//		query += formatQueryName(RemoteResolver.getAnnotationLocalAddress()) + "="
+//				+ formatQueryValue(RemoteResolver.getRemoteAddress(localNetworkVertex));
+//		query += " and ";
+//		query += formatQueryName(RemoteResolver.getAnnotationLocalPort()) + "="
+//				+ formatQueryValue(RemoteResolver.getRemotePort(localNetworkVertex));
+//		query += " and ";
+//		query += formatQueryName(RemoteResolver.getAnnotationRemoteAddress()) + "="
+//				+ formatQueryValue(RemoteResolver.getLocalAddress(localNetworkVertex));
+//		query += " and ";
+//		query += formatQueryName(RemoteResolver.getAnnotationRemotePort()) + "="
+//				+ formatQueryValue(RemoteResolver.getLocalPort(localNetworkVertex));
 		query += ")";
 		query += ", " + remoteDepth;
 		query += ", " + getFormattedDirection(direction);

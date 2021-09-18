@@ -20,6 +20,7 @@
 package spade.query.quickgrail.core;
 
 import java.util.AbstractMap.SimpleEntry;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -47,6 +48,7 @@ import spade.query.quickgrail.instruction.GetEdgeEndpoint;
 import spade.query.quickgrail.instruction.GetGraphStatistic;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLink;
+import spade.query.quickgrail.instruction.GetList;
 import spade.query.quickgrail.instruction.GetMatch;
 import spade.query.quickgrail.instruction.GetPath;
 import spade.query.quickgrail.instruction.GetShortestPath;
@@ -55,13 +57,11 @@ import spade.query.quickgrail.instruction.GetSubgraph;
 import spade.query.quickgrail.instruction.GetVertex;
 import spade.query.quickgrail.instruction.InsertLiteralEdge;
 import spade.query.quickgrail.instruction.InsertLiteralVertex;
-import spade.query.quickgrail.instruction.Instruction;
 import spade.query.quickgrail.instruction.IntersectGraph;
 import spade.query.quickgrail.instruction.LimitGraph;
-import spade.query.quickgrail.instruction.List;
-import spade.query.quickgrail.instruction.List.ListType;
 import spade.query.quickgrail.instruction.PrintPredicate;
 import spade.query.quickgrail.instruction.RemoteVariableOperation;
+import spade.query.quickgrail.instruction.SaveGraph;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.TransformGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
@@ -101,7 +101,7 @@ public class QuickGrailQueryResolver{
 		REGEX
 	}
 	
-	private ArrayList<Instruction> instructions;
+	private ArrayList<Instruction<? extends Serializable>> instructions;
 	private AbstractQueryEnvironment env;
 
 	class ExpressionStream{
@@ -167,7 +167,7 @@ public class QuickGrailQueryResolver{
 	 */
 	public Program resolveProgram(ParseProgram parseProgram, AbstractQueryEnvironment env){
 		// Initialize
-		this.instructions = new ArrayList<Instruction>();
+		this.instructions = new ArrayList<Instruction<? extends Serializable>>();
 		this.env = env;
 
 		// Resolve statements.
@@ -293,7 +293,10 @@ public class QuickGrailQueryResolver{
 		ArrayList<ParseExpression> arguments = parseCommand.getArguments();
 		switch(cmdName.getValue().toLowerCase()){
 		case "dump":
-			resolveDumpCommand(arguments);
+			resolveExportCommand(true, arguments);
+			break;
+		case "save":
+			resolveExportCommand(false, arguments);
 			break;
 		case "stat":
 			resolveStatCommand(arguments);
@@ -325,11 +328,10 @@ public class QuickGrailQueryResolver{
 		}
 	}
 
-	private void resolveDumpCommand(final ArrayList<ParseExpression> arguments){
+	private void resolveExportCommand(final boolean isOnlyExport, final ArrayList<ParseExpression> arguments){
 		if(arguments.isEmpty()){
 			throw new RuntimeException("Invalid number of arguments for dump: expected at least 1");
 		}
-
 		boolean force = false;
 		int idx = 0;
 		ParseExpression expression = arguments.get(idx);
@@ -346,59 +348,35 @@ public class QuickGrailQueryResolver{
 			}
 			expression = arguments.get(idx);
 		}
-
 		if(QuickGrailPredicateTree.isGraphPredicateExpression(expression)){
 			PredicateNode predicateNode = QuickGrailPredicateTree.resolveGraphPredicate(expression, env);
 			instructions.add(new PrintPredicate(predicateNode));	
 		}else{ // Must be graph expression if not graph predicate
-			resolveGraphExportCommand(arguments);
-		}
-	}
-	
-	private void resolveGraphExportCommand(final ArrayList<ParseExpression> arguments){
-		if(arguments.isEmpty()){
-			throw new RuntimeException("Invalid number of arguments for dump: expected at least 1");
-		}
+			final Graph targetGraph = resolveGraphExpression(expression, null, true);
+			if(isOnlyExport){
+				instructions.add(new ExportGraph(targetGraph, force));
+			}else{ // is save
+				idx++;
+				if(idx < arguments.size()){
+					final String filePath = resolveNameOrLiteralAsString(arguments.get(idx)).trim();
+					try{
+						FileUtility.pathMustBeAWritableFile(filePath);
+					}catch(Exception e){
+						throw new RuntimeException("Invalid file path for save graph to: '" + filePath + "'", e);
+					}
 
-		boolean force = false;
-		int idx = 0;
-		ParseExpression expression = arguments.get(idx);
-		if(expression.getExpressionType() == ParseExpression.ExpressionType.kName){
-			String forceStr = ((ParseName)expression).getName().getValue();
-			if(forceStr.equalsIgnoreCase("all")){
-				force = true;
-			}else{
-				throw new RuntimeException("Invalid argument for dump: " + forceStr);
-
-			}
-			if(++idx >= arguments.size()){
-				throw new RuntimeException("Invalid arguments for dump: expected 1 graph argument");
-			}
-			expression = arguments.get(idx);
-		}
-
-		final Graph targetGraph = resolveGraphExpression(expression, null, true);
-		
-		ExportGraph.Format outputFormat = ExportGraph.Format.kNormal;
-		
-		String filePathOnServer = null;
-		idx++;
-		if(idx < arguments.size()){
-			filePathOnServer = resolveString(arguments.get(idx)).trim();
-			try{
-				FileUtility.pathMustBeAWritableFile(filePathOnServer);
-			}catch(Exception e){
-				throw new RuntimeException("Invalid server file path for dump command to export graph to: '"+filePathOnServer+"'", e);
-			}
-			
-			if(filePathOnServer.toLowerCase().endsWith(".json")){
-				outputFormat = ExportGraph.Format.kJson;
-			}else{
-				outputFormat = ExportGraph.Format.kDot;
+					final SaveGraph.Format outputFormat;
+					if(filePath.toLowerCase().endsWith(".json")){
+						outputFormat = SaveGraph.Format.kJson;
+					}else{
+						outputFormat = SaveGraph.Format.kDot;
+					}
+					instructions.add(new SaveGraph(targetGraph, outputFormat, force, filePath));
+				}else{
+					throw new RuntimeException("Invalid arguments for save: expected path argument");
+				}
 			}
 		}
-
-		instructions.add(new ExportGraph(targetGraph, outputFormat, force, filePathOnServer));
 	}
 
 	private Graph resolveStatGraphExpression(final ParseExpression parseExpression){
@@ -483,7 +461,7 @@ public class QuickGrailQueryResolver{
 			final String statisticType = resolveNameAsString(arguments.get(argumentIndex++)).toLowerCase();
 			final Graph targetGraph = resolveStatGraphExpression(arguments.get(argumentIndex++));
 
-			final GetGraphStatistic graphStatisticInstruction;
+			final GetGraphStatistic<? extends GraphStatistic> graphStatisticInstruction;
 
 			switch(statisticType){
 				case "histogram":{
@@ -548,26 +526,22 @@ public class QuickGrailQueryResolver{
 			return value;
 		}
 	}
-	
+
 	private void resolveDescribeCommand(final ArrayList<ParseExpression> arguments){
 		if(arguments.size() < 2){
 			throw new RuntimeException("Invalid number of arguments for describe: expected at least 2");
 		}
-		
+
 		final Graph targetGraph = resolveGraphExpression(arguments.get(0), null, true);
-		
-		final ParseExpression elementTypeExpression = arguments.get(1);
-		if(elementTypeExpression.getExpressionType() != ParseExpression.ExpressionType.kName){
-			throw new RuntimeException("Invalid value at " + elementTypeExpression.getLocationString() + ": expected name");
-		}
-		final String elementTypeValue = ((ParseName)elementTypeExpression).getName().getValue();
-		
-		final Result<ElementType> elementTypeResult = HelperFunctions.parseEnumValue(ElementType.class, elementTypeValue, true);
+
+		final String elementTypeValue = resolveNameAsString(arguments.get(1));
+		final Result<ElementType> elementTypeResult = HelperFunctions.parseEnumValue(ElementType.class,
+				elementTypeValue, true);
 		if(elementTypeResult.error){
-			throw new RuntimeException("Invalid value at " + elementTypeExpression.getLocationString() + ". Expected one of: " 
-					+ Arrays.asList(ElementType.values()));
+			throw new RuntimeException("Invalid value at " + arguments.get(1).getLocationString()
+					+ ". Expected one of: " + Arrays.asList(ElementType.values()));
 		}
-		
+
 		if(arguments.size() > 3){
 			if(arguments.size() > 5){
 				throw new RuntimeException("Invalid number of arguments for describe: expected at max 4");
@@ -575,41 +549,46 @@ public class QuickGrailQueryResolver{
 
 			final ParseExpression annotationNameExpression = arguments.get(2);
 			if(annotationNameExpression.getExpressionType() != ParseExpression.ExpressionType.kName){
-				throw new RuntimeException("Invalid value at " + annotationNameExpression.getLocationString() + ": expected name");
+				throw new RuntimeException(
+						"Invalid value at " + annotationNameExpression.getLocationString() + ": expected name");
 			}
 			final String annotationNameValue = ((ParseName)annotationNameExpression).getName().getValue();
-			
+
 			final ParseExpression descriptionTypeExpression = arguments.get(3);
 			if(descriptionTypeExpression.getExpressionType() != ParseExpression.ExpressionType.kName){
-				throw new RuntimeException("Invalid value at " + descriptionTypeExpression.getLocationString() + ": expected name");
+				throw new RuntimeException(
+						"Invalid value at " + descriptionTypeExpression.getLocationString() + ": expected name");
 			}
 			final String descriptionTypeValue = ((ParseName)descriptionTypeExpression).getName().getValue();
-			
-			final Result<DescriptionType> descriptionTypeResult = HelperFunctions.parseEnumValue(DescriptionType.class, descriptionTypeValue, true);
+
+			final Result<DescriptionType> descriptionTypeResult = HelperFunctions.parseEnumValue(DescriptionType.class,
+					descriptionTypeValue, true);
 			if(descriptionTypeResult.error){
-				throw new RuntimeException("Invalid value at " + descriptionTypeExpression.getLocationString() + ". Expected one of: " 
-						+ Arrays.asList(DescriptionType.values()));
+				throw new RuntimeException("Invalid value at " + descriptionTypeExpression.getLocationString()
+						+ ". Expected one of: " + Arrays.asList(DescriptionType.values()));
 			}
-			
-			instructions.add(new DescribeGraph(targetGraph, elementTypeResult.result, annotationNameValue, descriptionTypeResult.result,
-					getOptionalPositiveIntegerArgument(arguments, 4)));
+
+			instructions.add(new DescribeGraph(targetGraph, elementTypeResult.result, annotationNameValue,
+					descriptionTypeResult.result, getOptionalPositiveIntegerArgument(arguments, 4)));
 		}else{
-			instructions.add(new DescribeGraph(targetGraph, elementTypeResult.result, getOptionalPositiveIntegerArgument(arguments, 2)));
+			instructions.add(new DescribeGraph(targetGraph, elementTypeResult.result,
+					getOptionalPositiveIntegerArgument(arguments, 2)));
 		}
 	}
 
 	private void resolveListCommand(ArrayList<ParseExpression> arguments){
 		ExpressionStream stream = new ExpressionStream(arguments);
-		String listTypeString = stream.tryGetNextNameAsString();
-		if(listTypeString == null){
-			instructions.add(new List(null));
+		final String listTypeString = stream.tryGetNextNameAsString();
+		if(listTypeString == null || listTypeString.equalsIgnoreCase("all")){
+			instructions.add(new GetList.GetAll());
+		}else if(listTypeString.equalsIgnoreCase("graph")){
+			instructions.add(new GetList.GetGraph());
+		}else if(listTypeString.equalsIgnoreCase("constraint")){
+			instructions.add(new GetList.GetConstraint());
+		}else if(listTypeString.equalsIgnoreCase("env")){
+			instructions.add(new GetList.GetEnvironment());
 		}else{
-			try{
-				ListType listType = ListType.valueOf(listTypeString.toUpperCase());
-				instructions.add(new List(listType));
-			}catch(Exception e){
-				throw new RuntimeException("Unknown type of object to list: '"+listTypeString+"'");
-			}
+			throw new RuntimeException("Unknown type of object to list: '"+listTypeString+"'");
 		}
 	}
 
@@ -665,7 +644,7 @@ public class QuickGrailQueryResolver{
 				}else{
 					throw new RuntimeException("Invalid value type at " + arguments.get(2).getLocationString() + ": expected string or integer");
 				}
-				instructions.add(EnvironmentVariableOperation.instanceOfSet(variableName, variableValue));
+				instructions.add(new EnvironmentVariableOperation.Set(variableName, variableValue));
 			}
 			break;
 			case "unset":{
@@ -673,14 +652,14 @@ public class QuickGrailQueryResolver{
 					throw new RuntimeException("Invalid arguments for 'env' unset command: expected 2");
 				}
 				final String variableName = resolveNameAsString(arguments.get(1));
-				instructions.add(EnvironmentVariableOperation.instanceOfUnset(variableName));
+				instructions.add(new EnvironmentVariableOperation.Unset(variableName));
 			}
 			break;
 			case "list":{
 				if(arguments.size() != 1){
 					throw new RuntimeException("Invalid arguments for 'env' list command: expected 1");
 				}
-				instructions.add(EnvironmentVariableOperation.instanceOfList());
+				instructions.add(new EnvironmentVariableOperation.List());
 			}
 			break;
 			case "print":{
@@ -688,7 +667,7 @@ public class QuickGrailQueryResolver{
 					throw new RuntimeException("Invalid arguments for 'env' print command: expected 2");
 				}
 				final String variableName = resolveNameAsString(arguments.get(1));
-				instructions.add(EnvironmentVariableOperation.instanceOfPrint(variableName));
+				instructions.add(new EnvironmentVariableOperation.Get(variableName));
 			}
 			break;
 			default: throw new RuntimeException("No subcommand '"+subCommand+"' for 'env' command");
@@ -745,7 +724,7 @@ public class QuickGrailQueryResolver{
 				}
 				remoteVariable = parseConstGraphVariableName(arguments.get(remoteVariableIndex));
 
-				instructions.add(RemoteVariableOperation.instanceOfLink(localVariable, hostName, port, remoteVariable));
+				instructions.add(new RemoteVariableOperation.Link(localVariable, hostName, port, remoteVariable));
 			}
 			break;
 			case "unlink":{
@@ -768,7 +747,7 @@ public class QuickGrailQueryResolver{
 				}
 				remoteVariable = parseConstGraphVariableName(arguments.get(remoteVariableIndex));
 
-				instructions.add(RemoteVariableOperation.instanceOfUnlink(localVariable, hostName, port, remoteVariable));
+				instructions.add(new RemoteVariableOperation.Unlink(localVariable, hostName, port, remoteVariable));
 			}
 			break;
 			case "clear":{
@@ -777,7 +756,7 @@ public class QuickGrailQueryResolver{
 				}
 				final Graph localVariable = resolveConstGraphVariable(arguments.get(1));
 
-				instructions.add(RemoteVariableOperation.instanceOfClear(localVariable));
+				instructions.add(new RemoteVariableOperation.Clear(localVariable));
 			}
 			break;
 			case "copy":{
@@ -787,7 +766,7 @@ public class QuickGrailQueryResolver{
 				final Graph srcLocalVariable = resolveConstGraphVariable(arguments.get(1));
 				final Graph dstLocalVariable = resolveConstGraphVariable(arguments.get(2));
 
-				instructions.add(RemoteVariableOperation.instanceOfCopy(srcLocalVariable, dstLocalVariable));
+				instructions.add(new RemoteVariableOperation.Copy(srcLocalVariable, dstLocalVariable));
 			}
 			break;
 			case "list":{
@@ -796,7 +775,7 @@ public class QuickGrailQueryResolver{
 				}
 				final Graph localVariable = resolveConstGraphVariable(arguments.get(1));
 
-				instructions.add(RemoteVariableOperation.instanceOfList(localVariable));
+				instructions.add(new RemoteVariableOperation.List(localVariable));
 			}
 			break;
 			default: throw new RuntimeException("No subcommand '" + subCommand + "' for '" + remoteCommandName + "' command");
@@ -1291,7 +1270,7 @@ public class QuickGrailQueryResolver{
 			outputGraph = allocateEmptyGraph();
 		}
 		
-		Instruction instruction = null;
+		Instruction<? extends Serializable> instruction = null;
 		
 		if(intermediateSteps.size() == 1){
 			instruction = new GetSimplePath(outputGraph, subjectGraph, srcGraph, 

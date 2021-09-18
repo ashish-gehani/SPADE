@@ -19,56 +19,144 @@
  */
 package spade.query.quickgrail.instruction;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.EnvironmentVariable;
+import spade.query.quickgrail.core.EnvironmentVariableManager;
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
-public class EnvironmentVariableOperation extends Instruction{
+public abstract class EnvironmentVariableOperation<R extends Serializable> extends Instruction<R>{
 
-	public static enum Type{SET, UNSET, LIST, PRINT};
-	
-	public final Type type;
-	public final String name;
-	public final String value;
-	
-	private EnvironmentVariableOperation(final Type operation, final String name, final String value){
-		this.type = operation;
-		this.name = name;
-		this.value = value;
-	}
-	
-	public static final EnvironmentVariableOperation instanceOfPrint(final String name){
-		return new EnvironmentVariableOperation(Type.PRINT, name, null);
-	}
-	
-	public static final EnvironmentVariableOperation instanceOfUnset(final String name){
-		return new EnvironmentVariableOperation(Type.UNSET, name, null);
-	}
-	
-	public static final EnvironmentVariableOperation instanceOfSet(final String name, final String value){
-		return new EnvironmentVariableOperation(Type.SET, name, value);
-	}
-	
-	public static final EnvironmentVariableOperation instanceOfList(){
-		return new EnvironmentVariableOperation(Type.LIST, null, null);
-	}
-	
-	@Override
-	public String getLabel(){
-		return "EnvironmentVariableOperation";
+	public static class Set extends EnvironmentVariableOperation<String>{
+		public final String name;
+		public final String value;
+
+		public Set(final String name, final String value){
+			this.name = name;
+			this.value = value;
+		}
+
+		@Override
+		public String getLabel(){
+			return "EnvironmentVariableOperation.Set";
+		}
+
+		@Override
+		protected void getFieldStringItems(ArrayList<String> inline_field_names, ArrayList<String> inline_field_values,
+				ArrayList<String> non_container_child_field_names,
+				ArrayList<TreeStringSerializable> non_container_child_fields,
+				ArrayList<String> container_child_field_names,
+				ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
+			inline_field_names.add("name");
+			inline_field_values.add(String.valueOf(name));
+			inline_field_names.add("value");
+			inline_field_values.add(String.valueOf(value));
+		}
+
+		@Override
+		public final String execute(final QueryInstructionExecutor executor){
+			final EnvironmentVariable envVar = executor.getQueryEnvironment().getEnvVarManager().get(name);
+			if(envVar == null){
+				throw new RuntimeException("No environment variable defined by name: " + name);
+			}
+			envVar.setValue(value);
+			return null;
+		}
 	}
 
-	@Override
-	protected void getFieldStringItems(ArrayList<String> inline_field_names, ArrayList<String> inline_field_values,
-			ArrayList<String> non_container_child_field_names,
-			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
-			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("type");
-		inline_field_values.add(String.valueOf(type));
-		inline_field_names.add("name");
-		inline_field_values.add(String.valueOf(name));
-		inline_field_names.add("value");
-		inline_field_values.add(String.valueOf(value));
+	public static class Get extends EnvironmentVariableOperation<String>{
+		public final String name;
+
+		public Get(final String name){
+			this.name = name;
+		}
+
+		@Override
+		public String getLabel(){
+			return "EnvironmentVariableOperation.Get";
+		}
+
+		@Override
+		protected void getFieldStringItems(ArrayList<String> inline_field_names, ArrayList<String> inline_field_values,
+				ArrayList<String> non_container_child_field_names,
+				ArrayList<TreeStringSerializable> non_container_child_fields,
+				ArrayList<String> container_child_field_names,
+				ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
+			inline_field_names.add("name");
+			inline_field_values.add(String.valueOf(name));
+		}
+
+		@Override
+		public final String execute(final QueryInstructionExecutor executor){
+			final EnvironmentVariable envVar = executor.getQueryEnvironment().getEnvVarManager().get(name);
+			if(envVar == null){
+				throw new RuntimeException("No environment variable defined by name: " + name);
+			}
+			Object value = envVar.getValue();
+			final String valueStr;
+			if(value == null){
+				valueStr = EnvironmentVariableManager.getUndefinedConstant(); // empty
+			}else{
+				valueStr = String.valueOf(value);
+			}
+			return valueStr;
+		}
 	}
-	
+
+	public static class Unset extends EnvironmentVariableOperation<String>{
+		public final String name;
+
+		public Unset(final String name){
+			this.name = name;
+		}
+
+		@Override
+		public String getLabel(){
+			return "EnvironmentVariableOperation.Unset";
+		}
+
+		@Override
+		protected void getFieldStringItems(ArrayList<String> inline_field_names, ArrayList<String> inline_field_values,
+				ArrayList<String> non_container_child_field_names,
+				ArrayList<TreeStringSerializable> non_container_child_fields,
+				ArrayList<String> container_child_field_names,
+				ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
+			inline_field_names.add("name");
+			inline_field_values.add(String.valueOf(name));
+		}
+
+		@Override
+		public final String execute(final QueryInstructionExecutor executor){
+			final EnvironmentVariable envVar = executor.getQueryEnvironment().getEnvVarManager().get(name);
+			if(envVar == null){
+				throw new RuntimeException("No environment variable defined by name: " + name);
+			}
+			envVar.unsetValue();
+			return null;
+		}
+	}
+
+	public static class List extends EnvironmentVariableOperation<spade.query.quickgrail.core.List.EnvironmentList>{
+		@Override
+		public String getLabel(){
+			return "EnvironmentVariableOperation.List";
+		}
+
+		@Override
+		protected void getFieldStringItems(ArrayList<String> inline_field_names, ArrayList<String> inline_field_values,
+				ArrayList<String> non_container_child_field_names,
+				ArrayList<TreeStringSerializable> non_container_child_fields,
+				ArrayList<String> container_child_field_names,
+				ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
+		}
+
+		@Override
+		public final spade.query.quickgrail.core.List.EnvironmentList execute(final QueryInstructionExecutor executor){
+			return executor.listEnvironment();
+		}
+	}
+
 }

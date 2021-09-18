@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2018 SRI International
+ Copyright (C) 2021 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -22,40 +22,60 @@ package spade.query.quickgrail.instruction;
 import java.util.ArrayList;
 
 import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.List;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
-import spade.query.quickgrail.utility.ResultTable;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
-/**
- * Evaluate an arbitrary SQL query (that is supported by Quickstep).
- */
-public class EvaluateQuery extends Instruction<ResultTable>{
-	public final String nativeQuery;
-
-	public EvaluateQuery(String nativeQuery){
-		this.nativeQuery = nativeQuery;
-	}
-
-	@Override
-	public String getLabel(){
-		return "EvaluateQuery";
-	}
+public abstract class GetList<R extends List> extends Instruction<R>{
 
 	@Override
 	protected void getFieldStringItems(ArrayList<String> inline_field_names, ArrayList<String> inline_field_values,
 			ArrayList<String> non_container_child_field_names,
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("nativeQuery");
-		inline_field_values.add(nativeQuery);
 	}
 
-	@Override
-	public final ResultTable execute(final QueryInstructionExecutor executor){
-		ResultTable table = executor.evaluateQuery(nativeQuery);
-		if(table == null){
-			table = ResultTable.FromText("", ',');
+	public static class GetGraph extends GetList<List.GraphList>{
+		@Override
+		public String getLabel(){
+			return "GetList.GetGraph";
 		}
-		return table;
+		@Override
+		public final List.GraphList execute(final QueryInstructionExecutor executor){
+			return executor.listGraphs();
+		}
+	}
+
+	public static class GetEnvironment extends GetList<List.EnvironmentList>{
+		@Override
+		public String getLabel(){
+			return "GetList.GetEnvironment";
+		}
+		@Override
+		public final List.EnvironmentList execute(final QueryInstructionExecutor executor){
+			return executor.listEnvironment();
+		}
+	}
+
+	public static class GetConstraint extends GetList<List.ConstraintList>{
+		@Override
+		public String getLabel(){
+			return "GetList.GetConstraint";
+		}
+		@Override
+		public final List.ConstraintList execute(final QueryInstructionExecutor executor){
+			return executor.listConstraints();
+		}
+	}
+
+	public static class GetAll extends GetList<List.AllList>{
+		@Override
+		public String getLabel(){
+			return "GetList.GetAll";
+		}
+		@Override
+		public final List.AllList execute(final QueryInstructionExecutor executor){
+			return executor.listAll();
+		}
 	}
 }

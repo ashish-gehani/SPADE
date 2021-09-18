@@ -19,10 +19,10 @@
  */
 package spade.query.quickgrail.core;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-import spade.query.quickgrail.instruction.Instruction;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
@@ -30,15 +30,15 @@ import spade.query.quickgrail.utility.TreeStringSerializable;
  * instructions.
  */
 public class Program extends TreeStringSerializable{
-	private final List<Instruction> instructions = new ArrayList<Instruction>();
+	private final List<Instruction<? extends Serializable>> instructions = new ArrayList<>();
 
-	public Program(List<Instruction> instructions){
+	public Program(List<Instruction<? extends Serializable>> instructions){
 		if(instructions != null){
 			this.instructions.addAll(instructions);
 		}
 	}
 	
-	public final Instruction getInstruction(int i){
+	public final Instruction<? extends Serializable> getInstruction(int i){
 		if(i > -1 && i < instructions.size()){
 			return instructions.get(i);
 		}
@@ -60,6 +60,6 @@ public class Program extends TreeStringSerializable{
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
 		container_child_field_names.add("instructions");
-		container_child_fields.add(new ArrayList<Instruction>(instructions));
+		container_child_fields.add(new ArrayList<Instruction<? extends Serializable>>(instructions));
 	}
 }

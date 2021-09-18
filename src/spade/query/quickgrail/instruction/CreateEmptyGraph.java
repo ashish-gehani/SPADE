@@ -21,6 +21,8 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
@@ -31,7 +33,7 @@ import spade.query.quickgrail.utility.TreeStringSerializable;
  * 
  * Must clear any existing vertices and edges.
  */
-public class CreateEmptyGraph extends Instruction{
+public class CreateEmptyGraph extends Instruction<String>{
 	// Output graph.
 	public final Graph graph;
 
@@ -51,5 +53,11 @@ public class CreateEmptyGraph extends Instruction{
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
 		inline_field_names.add("graph");
 		inline_field_values.add(graph.name);
+	}
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.createEmptyGraph(graph);
+		return null;
 	}
 }

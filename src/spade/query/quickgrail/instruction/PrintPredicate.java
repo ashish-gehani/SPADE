@@ -21,17 +21,19 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
-public class PrintPredicate extends Instruction{
+public class PrintPredicate extends Instruction<PredicateNode>{
 
 	public final PredicateNode predicateRoot;
-	
+
 	public PrintPredicate(PredicateNode predicateRoot){
 		this.predicateRoot = predicateRoot;
 	}
-	
+
 	@Override
 	public String getLabel(){
 		return this.getClass().getSimpleName();
@@ -46,4 +48,8 @@ public class PrintPredicate extends Instruction{
 		inline_field_values.add(predicateRoot.toString());
 	}
 
+	@Override
+	public final PredicateNode execute(final QueryInstructionExecutor executor){
+		return executor.printPredicate(predicateRoot);
+	}
 }

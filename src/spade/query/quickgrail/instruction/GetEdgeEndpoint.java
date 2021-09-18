@@ -21,14 +21,18 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
  * Get end points of all edges in a graph.
  */
-public class GetEdgeEndpoint extends Instruction{
-	public static enum Component{ kSource, kDestination, kBoth }
+public class GetEdgeEndpoint extends Instruction<String>{
+	public static enum Component{
+		kSource, kDestination, kBoth
+	}
 
 	// Output graph.
 	public final Graph targetGraph;
@@ -61,4 +65,9 @@ public class GetEdgeEndpoint extends Instruction{
 		inline_field_values.add(component.name().substring(1));
 	}
 
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.getEdgeEndpoint(targetGraph, subjectGraph, component);
+		return null;
+	}
 }

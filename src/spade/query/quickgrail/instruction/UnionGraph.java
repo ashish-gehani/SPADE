@@ -21,13 +21,15 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
  * Union one graph into the other.
  */
-public class UnionGraph extends Instruction{
+public class UnionGraph extends Instruction<String>{
 	// The target graph.
 	public final Graph targetGraph;
 	// The source graph to be unioned into the target graph.
@@ -52,5 +54,11 @@ public class UnionGraph extends Instruction{
 		inline_field_values.add(targetGraph.name);
 		inline_field_names.add("sourceGraph");
 		inline_field_values.add(sourceGraph.name);
+	}
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.unionGraph(targetGraph, sourceGraph);
+		return null;
 	}
 }

@@ -21,31 +21,35 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
-public class TransformGraph extends Instruction{
+public class TransformGraph extends Instruction<String>{
 
+	public static final int putGraphBatchSize = 100;
+	
 	public final String transformerName;
 	public final String transformerInitializeArgument;
 	public final Graph outputGraph, subjectGraph;
 	private final java.util.List<Object> arguments = new ArrayList<Object>();
-	
-	public TransformGraph(final String transformerName, final String transformerInitializeArgument, 
+
+	public TransformGraph(final String transformerName, final String transformerInitializeArgument,
 			final Graph outputGraph, final Graph subjectGraph){
 		this.transformerName = transformerName;
 		this.transformerInitializeArgument = transformerInitializeArgument;
 		this.outputGraph = outputGraph;
 		this.subjectGraph = subjectGraph;
 	}
-	
+
 	public void addArgument(final Object argument){
 		if(argument == null){
 			throw new RuntimeException("NULL argument not allowed for transformers");
 		}
 		arguments.add(argument);
 	}
-	
+
 	public int getArgumentsSize(){
 		return arguments.size();
 	}
@@ -78,5 +82,11 @@ public class TransformGraph extends Instruction{
 			inline_field_values.add(argument.toString());
 			i++;
 		}
+	}
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.transformGraph(transformerName, transformerInitializeArgument, outputGraph, subjectGraph, arguments, putGraphBatchSize);
+		return null;
 	}
 }

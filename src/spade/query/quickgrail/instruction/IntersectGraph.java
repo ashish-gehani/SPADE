@@ -21,13 +21,15 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 /**
  * Intersect two graphs (i.e. find common vertices and edges).
  */
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
-public class IntersectGraph extends Instruction{
+public class IntersectGraph extends Instruction<String>{
 	// Output graph.
 	public final Graph outputGraph;
 	// Input graphs.
@@ -56,5 +58,11 @@ public class IntersectGraph extends Instruction{
 		inline_field_values.add(lhsGraph.name);
 		inline_field_names.add("rhsGraph");
 		inline_field_values.add(rhsGraph.name);
+	}
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.intersectGraph(outputGraph, lhsGraph, rhsGraph);
+		return null;
 	}
 }

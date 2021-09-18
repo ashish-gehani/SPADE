@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2018 SRI International
+ Copyright (C) 2021 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -17,11 +17,17 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.query.quickgrail.instruction;
+package spade.query.quickgrail.core;
 
-import spade.query.quickgrail.utility.TreeStringSerializable;
+public abstract class BatchIterator{
 
-/**
- * Interface for a QuickGrail primitive instruction.
- */
-public abstract class Instruction extends TreeStringSerializable{}
+	public final int batchSize;
+
+	public BatchIterator(final int batchSize){
+		this.batchSize = batchSize;
+	}
+
+	public abstract Object nextBatch();
+
+	public abstract boolean hasNextBatch();
+}

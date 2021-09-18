@@ -21,21 +21,23 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
-public class GetVertex extends Instruction{
+public class GetVertex extends Instruction<String>{
 
 	public final Graph targetGraph, subjectGraph;
 	public final String annotationKey;
 	public final PredicateOperator operator;
 	public final String annotationValue;
-	
+
 	private boolean hasArguments = false;
-	
-	public GetVertex(Graph targetGraph, Graph subjectGraph, 
-			String annotationKey, PredicateOperator operator, String annotationValue){
+
+	public GetVertex(Graph targetGraph, Graph subjectGraph, String annotationKey, PredicateOperator operator,
+			String annotationValue){
 		this.targetGraph = targetGraph;
 		this.subjectGraph = subjectGraph;
 		this.annotationKey = annotationKey;
@@ -43,16 +45,16 @@ public class GetVertex extends Instruction{
 		this.annotationValue = annotationValue;
 		this.hasArguments = true;
 	}
-	
+
 	public GetVertex(Graph targetGraph, Graph subjectGraph){
 		this(targetGraph, subjectGraph, null, null, null);
 		this.hasArguments = false;
 	}
-	
+
 	public boolean hasArguments(){
 		return hasArguments;
 	}
-	
+
 	@Override
 	public String getLabel(){
 		return "GetVertex";
@@ -75,4 +77,9 @@ public class GetVertex extends Instruction{
 		inline_field_values.add(String.valueOf(annotationValue));
 	}
 
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.getVertex(targetGraph, subjectGraph, annotationKey, operator, annotationValue, hasArguments());
+		return null;
+	}
 }

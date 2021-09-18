@@ -19,78 +19,186 @@
  */
 package spade.query.quickgrail.instruction;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.GraphRemoteCount;
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
-public class RemoteVariableOperation extends Instruction{
+public abstract class RemoteVariableOperation<R extends Serializable> extends Instruction<R>{
 
-	public static enum Type{
-		LINK, UNLINK, LIST, CLEAR, COPY
-	};
-
-	public final Type type;
 	public final Graph localGraph;
-	public final Graph dstLocalGraph;
-	public final String host;
-	public final int port;
-	public final String remoteSymbol;
 
-	public RemoteVariableOperation(Type type, Graph localGraph, String host, int port, String remoteSymbol,
-			final Graph dstLocalGraph){
-		this.type = type;
+	public RemoteVariableOperation(final Graph localGraph){
 		this.localGraph = localGraph;
-		this.host = host;
-		this.port = port;
-		this.remoteSymbol = remoteSymbol;
-		this.dstLocalGraph = dstLocalGraph;
 	}
 
-	public static final RemoteVariableOperation instanceOfUnlink(Graph localGraph, String host, int port,
-			String remoteSymbol){
-		return new RemoteVariableOperation(Type.UNLINK, localGraph, host, port, remoteSymbol, null);
+	public static class Link extends RemoteVariableOperation<String>{
+		public final String host;
+		public final int port;
+		public final String remoteSymbol;
+
+		public Link(final Graph localGraph, final String host, final int port, final String remoteSymbol){
+			super(localGraph);
+			this.host = host;
+			this.port = port;
+			this.remoteSymbol = remoteSymbol;
+		}
+
+		@Override
+		public String getLabel(){
+			return "RemoteVariableOperation.Link";
+		}
+
+		@Override
+		protected void getFieldStringItems(ArrayList<String> inline_field_names, ArrayList<String> inline_field_values,
+				ArrayList<String> non_container_child_field_names,
+				ArrayList<TreeStringSerializable> non_container_child_fields,
+				ArrayList<String> container_child_field_names,
+				ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
+			inline_field_names.add("localGraph");
+			inline_field_values.add(localGraph.name);
+			inline_field_names.add("host");
+			inline_field_values.add(String.valueOf(host));
+			inline_field_names.add("port");
+			inline_field_values.add(String.valueOf(port));
+			inline_field_names.add("remoteSymbol");
+			inline_field_values.add(String.valueOf(remoteSymbol));
+		}
+
+		@Override
+		public final String execute(final QueryInstructionExecutor executor){
+			executor.getQueryEnvironment().setRemoteSymbol(localGraph, new Graph.Remote(host, port, remoteSymbol));
+			return null;
+		}
 	}
 
-	public static final RemoteVariableOperation instanceOfLink(Graph localGraph, String host, int port,
-			String remoteSymbol){
-		return new RemoteVariableOperation(Type.LINK, localGraph, host, port, remoteSymbol, null);
+	public static class Unlink extends RemoteVariableOperation<String>{
+		public final String host;
+		public final int port;
+		public final String remoteSymbol;
+
+		public Unlink(final Graph localGraph, final String host, final int port, final String remoteSymbol){
+			super(localGraph);
+			this.host = host;
+			this.port = port;
+			this.remoteSymbol = remoteSymbol;
+		}
+
+		@Override
+		public String getLabel(){
+			return "RemoteVariableOperation.Unlink";
+		}
+
+		@Override
+		protected void getFieldStringItems(ArrayList<String> inline_field_names, ArrayList<String> inline_field_values,
+				ArrayList<String> non_container_child_field_names,
+				ArrayList<TreeStringSerializable> non_container_child_fields,
+				ArrayList<String> container_child_field_names,
+				ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
+			inline_field_names.add("localGraph");
+			inline_field_values.add(localGraph.name);
+			inline_field_names.add("host");
+			inline_field_values.add(String.valueOf(host));
+			inline_field_names.add("port");
+			inline_field_values.add(String.valueOf(port));
+			inline_field_names.add("remoteSymbol");
+			inline_field_values.add(String.valueOf(remoteSymbol));
+		}
+
+		@Override
+		public final String execute(final QueryInstructionExecutor executor){
+			executor.getQueryEnvironment().removeRemoteSymbol(localGraph, new Graph.Remote(host, port, remoteSymbol));
+			return null;
+		}
 	}
 
-	public static final RemoteVariableOperation instanceOfClear(Graph localGraph){
-		return new RemoteVariableOperation(Type.CLEAR, localGraph, null, 0, null, null);
+	public static class List extends RemoteVariableOperation<GraphRemoteCount>{
+		public List(final Graph localGraph){
+			super(localGraph);
+		}
+
+		@Override
+		public String getLabel(){
+			return "RemoteVariableOperation.List";
+		}
+
+		@Override
+		protected void getFieldStringItems(ArrayList<String> inline_field_names, ArrayList<String> inline_field_values,
+				ArrayList<String> non_container_child_field_names,
+				ArrayList<TreeStringSerializable> non_container_child_fields,
+				ArrayList<String> container_child_field_names,
+				ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
+			inline_field_names.add("localGraph");
+			inline_field_values.add(localGraph.name);
+		}
+
+		@Override
+		public final GraphRemoteCount execute(final QueryInstructionExecutor executor){
+			return executor.listRemoteVariables(localGraph);
+		}
 	}
 
-	public static final RemoteVariableOperation instanceOfList(Graph localGraph){
-		return new RemoteVariableOperation(Type.LIST, localGraph, null, 0, null, null);
+	public static class Clear extends RemoteVariableOperation<String>{
+		public Clear(final Graph localGraph){
+			super(localGraph);
+		}
+
+		@Override
+		public String getLabel(){
+			return "RemoteVariableOperation.Clear";
+		}
+
+		@Override
+		protected void getFieldStringItems(ArrayList<String> inline_field_names, ArrayList<String> inline_field_values,
+				ArrayList<String> non_container_child_field_names,
+				ArrayList<TreeStringSerializable> non_container_child_fields,
+				ArrayList<String> container_child_field_names,
+				ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
+			inline_field_names.add("localGraph");
+			inline_field_values.add(localGraph.name);
+		}
+
+		@Override
+		public final String execute(final QueryInstructionExecutor executor){
+			executor.getQueryEnvironment().removeRemoteSymbols(localGraph);
+			return null;
+		}
 	}
 
-	public static final RemoteVariableOperation instanceOfCopy(Graph srcLocalGraph, Graph dstLocalGraph){
-		return new RemoteVariableOperation(Type.COPY, srcLocalGraph, null, 0, null, dstLocalGraph);
-	}
+	public static class Copy extends RemoteVariableOperation<String>{
+		public final Graph localDstGraph;
 
-	@Override
-	public String getLabel(){
-		return "RemoteVariableOperation";
-	}
+		public Copy(final Graph localGraph, final Graph localDstGraph){
+			super(localGraph);
+			this.localDstGraph = localDstGraph;
+		}
 
-	@Override
-	protected void getFieldStringItems(ArrayList<String> inline_field_names, ArrayList<String> inline_field_values,
-			ArrayList<String> non_container_child_field_names,
-			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
-			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("type");
-		inline_field_values.add(String.valueOf(type));
-		inline_field_names.add("localGraph");
-		inline_field_values.add(localGraph.name);
-		inline_field_names.add("host");
-		inline_field_values.add(String.valueOf(host));
-		inline_field_names.add("port");
-		inline_field_values.add(String.valueOf(port));
-		inline_field_names.add("remoteSymbol");
-		inline_field_values.add(String.valueOf(remoteSymbol));
-		inline_field_names.add("dstLocalGraph");
-		inline_field_values.add(String.valueOf(dstLocalGraph));
+		@Override
+		public String getLabel(){
+			return "RemoteVariableOperation.Copy";
+		}
+
+		@Override
+		protected void getFieldStringItems(ArrayList<String> inline_field_names, ArrayList<String> inline_field_values,
+				ArrayList<String> non_container_child_field_names,
+				ArrayList<TreeStringSerializable> non_container_child_fields,
+				ArrayList<String> container_child_field_names,
+				ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
+			inline_field_names.add("localGraph");
+			inline_field_values.add(localGraph.name);
+			inline_field_names.add("localDstGraph");
+			inline_field_values.add(localDstGraph.name);
+		}
+
+		@Override
+		public final String execute(final QueryInstructionExecutor executor){
+			executor.getQueryEnvironment().copyRemoteSymbols(localGraph, localDstGraph);
+			return null;
+		}
 	}
 
 }

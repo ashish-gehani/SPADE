@@ -21,6 +21,8 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
@@ -29,7 +31,7 @@ import spade.query.quickgrail.utility.TreeStringSerializable;
  * $S.getSubgraph($T) is to find all the vertices and edges that are spanned by
  * the skeleton graph.
  */
-public class GetSubgraph extends Instruction{
+public class GetSubgraph extends Instruction<String>{
 	public final Graph targetGraph;
 	public final Graph subjectGraph;
 	public final Graph skeletonGraph;
@@ -56,5 +58,11 @@ public class GetSubgraph extends Instruction{
 		inline_field_values.add(subjectGraph.name);
 		inline_field_names.add("skeletonGraph");
 		inline_field_values.add(skeletonGraph.name);
+	}
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.getSubgraph(targetGraph, subjectGraph, skeletonGraph);
+		return null;
 	}
 }

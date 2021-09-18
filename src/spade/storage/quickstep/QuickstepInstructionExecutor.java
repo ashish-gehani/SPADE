@@ -29,8 +29,6 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
-import org.apache.commons.lang3.StringUtils;
-
 import spade.core.AbstractStorage;
 import spade.query.quickgrail.core.GraphDescription;
 import spade.query.quickgrail.core.GraphStatistic;
@@ -39,36 +37,14 @@ import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
-import spade.query.quickgrail.instruction.CollapseEdge;
-import spade.query.quickgrail.instruction.CreateEmptyGraph;
-import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
+import spade.query.quickgrail.entities.GraphMetadata;
 import spade.query.quickgrail.instruction.DescribeGraph;
 import spade.query.quickgrail.instruction.DescribeGraph.ElementType;
-import spade.query.quickgrail.instruction.DistinctifyGraph;
-import spade.query.quickgrail.instruction.EvaluateQuery;
-import spade.query.quickgrail.instruction.ExportGraph;
-import spade.query.quickgrail.instruction.GetAdjacentVertex;
-import spade.query.quickgrail.instruction.GetEdge;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint;
-import spade.query.quickgrail.instruction.GetGraphStatistic;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLineage.Direction;
-import spade.query.quickgrail.instruction.GetLink;
-import spade.query.quickgrail.instruction.GetMatch;
-import spade.query.quickgrail.instruction.GetShortestPath;
-import spade.query.quickgrail.instruction.GetSimplePath;
-import spade.query.quickgrail.instruction.GetSubgraph;
-import spade.query.quickgrail.instruction.GetVertex;
-import spade.query.quickgrail.instruction.GetWhereAnnotationsExist;
-import spade.query.quickgrail.instruction.InsertLiteralEdge;
-import spade.query.quickgrail.instruction.InsertLiteralVertex;
-import spade.query.quickgrail.instruction.IntersectGraph;
-import spade.query.quickgrail.instruction.LimitGraph;
-import spade.query.quickgrail.instruction.OverwriteGraphMetadata;
 import spade.query.quickgrail.instruction.SetGraphMetadata;
 import spade.query.quickgrail.instruction.SetGraphMetadata.Component;
-import spade.query.quickgrail.instruction.SubtractGraph;
-import spade.query.quickgrail.instruction.UnionGraph;
 import spade.query.quickgrail.types.StringType;
 import spade.query.quickgrail.utility.ResultTable;
 import spade.query.quickgrail.utility.Schema;
@@ -128,10 +104,10 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void insertLiteralEdge(InsertLiteralEdge instruction){
-		if(!instruction.getEdges().isEmpty()){
+	public void insertLiteralEdge(Graph targetGraph, ArrayList<String> edges){
+		if(!edges.isEmpty()){
 			String insertSubpart = "";
-			for(String edge : instruction.getEdges()){
+			for(String edge : edges){
 				if(edge.length() <= 32){
 					insertSubpart += "('" + edge + "'), ";
 				}
@@ -144,7 +120,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				insertSubpart = insertSubpart.substring(0, insertSubpart.length() - 2);
 				qs.executeQuery("insert into " + tempEdgeTable + " values " + insertSubpart + ";\n");
 				
-				qs.executeQuery("insert into " + getEdgeTableName(instruction.targetGraph)
+				qs.executeQuery("insert into " + getEdgeTableName(targetGraph)
 						+ " select id from " + edgeTableName + " where md5 in (select md5 from "+tempEdgeTable+" group by md5);\n");
 				
 				qs.executeQuery("drop table " + tempEdgeTable + ";\n");
@@ -153,10 +129,10 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void insertLiteralVertex(InsertLiteralVertex instruction){
-		if(!instruction.getVertices().isEmpty()){
+	public void insertLiteralVertex(Graph targetGraph, ArrayList<String> vertices){
+		if(!vertices.isEmpty()){
 			String insertSubpart = "";
-			for(String vertex : instruction.getVertices()){
+			for(String vertex : vertices){
 				if(vertex.length() <= 32){
 					insertSubpart += "('" + vertex + "'), ";
 				}
@@ -169,7 +145,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				insertSubpart = insertSubpart.substring(0, insertSubpart.length() - 2);
 				qs.executeQuery("insert into " + tempVertexTable + " values " + insertSubpart + ";\n");
 				
-				qs.executeQuery("insert into " + getVertexTableName(instruction.targetGraph)
+				qs.executeQuery("insert into " + getVertexTableName(targetGraph)
 						+ " select id from " + vertexTableName + " where md5 in (select md5 from "+tempVertexTable+" group by md5);\n");
 				
 				qs.executeQuery("drop table " + tempVertexTable + ";\n");
@@ -213,16 +189,16 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void createEmptyGraph(CreateEmptyGraph instruction){
-		QuickstepUtil.CreateEmptyGraph(qs, queryEnvironment, instruction.graph);
+	public void createEmptyGraph(Graph graph){
+		QuickstepUtil.CreateEmptyGraph(qs, queryEnvironment, graph);
 	}
 
 	@Override
-	public void distinctifyGraph(DistinctifyGraph instruction){
-		String sourceVertexTable = getVertexTableName(instruction.sourceGraph);
-		String sourceEdgeTable = getEdgeTableName(instruction.sourceGraph);
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+	public void distinctifyGraph(Graph targetGraph, Graph sourceGraph){
+		String sourceVertexTable = getVertexTableName(sourceGraph);
+		String sourceEdgeTable = getEdgeTableName(sourceGraph);
+		String targetVertexTable = getVertexTableName(targetGraph);
+		String targetEdgeTable = getEdgeTableName(targetGraph);
 
 		qs.executeQuery("\\analyzerange " + sourceVertexTable + " " + sourceEdgeTable + "\n");
 		qs.executeQuery("INSERT INTO " + targetVertexTable + " SELECT id FROM " + sourceVertexTable + " GROUP BY id;");
@@ -230,11 +206,10 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void getWhereAnnotationsExist(final GetWhereAnnotationsExist instruction){
-		final Graph targetGraph = instruction.targetGraph;
-		final Graph subjectGraph = instruction.subjectGraph;
+	public void getWhereAnnotationsExist(final Graph targetGraph, final Graph subjectGraph,
+			final ArrayList<String> annotationNames){
 		
-		final ArrayList<String> annotationKeys = instruction.getAnnotationKeys();
+		final ArrayList<String> annotationKeys = annotationNames;
 		
 		qs.executeQuery("\\analyzerange " + getVertexTableName(subjectGraph) + "\n ");
 		
@@ -257,15 +232,13 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
-	public void getMatch(final GetMatch instruction){
-		final Graph g1 = instruction.graph1;
-		final Graph g2 = instruction.graph2;
-		final ArrayList<String> annotationKeys = instruction.getAnnotationKeys();
+	public void getMatch(final Graph targetGraph, final Graph graph1, final Graph graph2,
+			final ArrayList<String> annotationKeys){
 
 		final Set<String> tablesToDrop = new HashSet<String>();
 		
-		qs.executeQuery("\\analyzerange " + getVertexTableName(g1) + "\n "
-				+ "\\analyzerange " + getVertexTableName(g2) + "\n ");
+		qs.executeQuery("\\analyzerange " + getVertexTableName(graph1) + "\n "
+				+ "\\analyzerange " + getVertexTableName(graph2) + "\n ");
 		
 		final ArrayList<String> middleResultTableNames = new ArrayList<String>();
 		
@@ -280,8 +253,8 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 			
 			String query = "insert into m_answer_x "
 					+ "select ga1.id, ga2.id from " 
-					+ getVertexTableName(g1) + " gv1, " + vertexAnnotationsTableName + " ga1, "
-					+ getVertexTableName(g2) + " gv2, " + vertexAnnotationsTableName + " ga2 "
+					+ getVertexTableName(graph1) + " gv1, " + vertexAnnotationsTableName + " ga1, "
+					+ getVertexTableName(graph2) + " gv2, " + vertexAnnotationsTableName + " ga2 "
 					+ "where gv1.id = ga1.id and gv2.id = ga2.id and "
 					+ "( " 
 					+ "ga1.field = '" + annotationKey + "' and ga2.field = '" + annotationKey + "' "
@@ -335,7 +308,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 					}
 				}
 				
-				qs.executeQuery("insert into " + getVertexTableName(instruction.targetGraph) 
+				qs.executeQuery("insert into " + getVertexTableName(targetGraph) 
 					+ " select id from " + lastCommonResultTableName + " group by id;\n");
 
 			}
@@ -352,31 +325,32 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void getVertex(GetVertex instruction){
-		if(!instruction.hasArguments()){
+	public void getVertex(Graph targetGraph, Graph subjectGraph, String annotationKey, PredicateOperator operator,
+			String annotationValue, final boolean hasArguments){
+		if(!hasArguments){
 			StringBuilder sqlQuery = new StringBuilder();
-			sqlQuery.append("INSERT INTO " + getVertexTableName(instruction.targetGraph) + " SELECT id FROM "
+			sqlQuery.append("INSERT INTO " + getVertexTableName(targetGraph) + " SELECT id FROM "
 					+ vertexAnnotationsTableName);
-			if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
-				String analyzeQuery = "\\analyzerange " + getVertexTableName(instruction.subjectGraph) + "\n";
+			if(!queryEnvironment.isBaseGraph(subjectGraph)){
+				String analyzeQuery = "\\analyzerange " + getVertexTableName(subjectGraph) + "\n";
 				qs.executeQuery(analyzeQuery);
-				sqlQuery.append(" WHERE id IN (SELECT id FROM " + getVertexTableName(instruction.subjectGraph) + ")");
+				sqlQuery.append(" WHERE id IN (SELECT id FROM " + getVertexTableName(subjectGraph) + ")");
 			}
 			sqlQuery.append(" GROUP BY id;");
 			qs.executeQuery(sqlQuery.toString());
 		}else{
 			StringBuilder sqlQuery = new StringBuilder();
-			sqlQuery.append("INSERT INTO " + getVertexTableName(instruction.targetGraph) + " SELECT id FROM "
+			sqlQuery.append("INSERT INTO " + getVertexTableName(targetGraph) + " SELECT id FROM "
 					+ vertexAnnotationsTableName + " WHERE");
-			if(!instruction.annotationKey.equals("*")){
-				sqlQuery.append(" field = " + formatString(instruction.annotationKey) + " AND");
+			if(!annotationKey.equals("*")){
+				sqlQuery.append(" field = " + formatString(annotationKey) + " AND");
 			}
-			sqlQuery.append(" value " + resolveOperator(instruction.operator) + " "
-					+ formatString(instruction.annotationValue));
-			if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
-				String analyzeQuery = "\\analyzerange " + getVertexTableName(instruction.subjectGraph) + "\n";
+			sqlQuery.append(" value " + resolveOperator(operator) + " "
+					+ formatString(annotationValue));
+			if(!queryEnvironment.isBaseGraph(subjectGraph)){
+				String analyzeQuery = "\\analyzerange " + getVertexTableName(subjectGraph) + "\n";
 				qs.executeQuery(analyzeQuery);
-				sqlQuery.append(" AND id IN (SELECT id FROM " + getVertexTableName(instruction.subjectGraph) + ")");
+				sqlQuery.append(" AND id IN (SELECT id FROM " + getVertexTableName(subjectGraph) + ")");
 			}
 			sqlQuery.append(" GROUP BY id;");
 			qs.executeQuery(sqlQuery.toString());
@@ -428,18 +402,18 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public ResultTable evaluateQuery(EvaluateQuery instruction){
+	public ResultTable evaluateQuery(final String nativeQuery){
 		List<String> queries = new ArrayList<String>();
 		boolean insideQuotes = false;
 		String currentQuery = "";
-		for(int i = 0; i < instruction.nativeQuery.length(); i++){
-			char c = instruction.nativeQuery.charAt(i);
+		for(int i = 0; i < nativeQuery.length(); i++){
+			char c = nativeQuery.charAt(i);
 			if(c == ';'){
 				if(i == 0){
 					continue;
 				}else{
 					if(insideQuotes == false){
-						if(instruction.nativeQuery.charAt(i-1) != '\\'){
+						if(nativeQuery.charAt(i-1) != '\\'){
 							if(!currentQuery.isBlank()){
 								queries.add(currentQuery.trim());
 							}
@@ -452,7 +426,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				if(c == 0){
 					insideQuotes = !insideQuotes;
 				}else{
-					if(instruction.nativeQuery.charAt(i-1) != '\\'){
+					if(nativeQuery.charAt(i-1) != '\\'){
 						insideQuotes = !insideQuotes;
 					}
 				}
@@ -512,31 +486,32 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void getEdge(GetEdge instruction){
-		if(!instruction.hasArguments()){
+	public void getEdge(Graph targetGraph, Graph subjectGraph, String annotationKey, PredicateOperator operator,
+			String annotationValue, final boolean hasArguments){
+		if(!hasArguments){
 			StringBuilder sqlQuery = new StringBuilder();
-			sqlQuery.append("INSERT INTO " + getEdgeTableName(instruction.targetGraph) + " SELECT id FROM "
+			sqlQuery.append("INSERT INTO " + getEdgeTableName(targetGraph) + " SELECT id FROM "
 					+ edgeAnnotationTableName);
-			if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
-				String analyzeQuery = "\\analyzerange " + getEdgeTableName(instruction.subjectGraph) + "\n";
+			if(!queryEnvironment.isBaseGraph(subjectGraph)){
+				String analyzeQuery = "\\analyzerange " + getEdgeTableName(subjectGraph) + "\n";
 				qs.executeQuery(analyzeQuery);
-				sqlQuery.append(" WHERE id IN (SELECT id FROM " + getEdgeTableName(instruction.subjectGraph) + ")");
+				sqlQuery.append(" WHERE id IN (SELECT id FROM " + getEdgeTableName(subjectGraph) + ")");
 			}
 			sqlQuery.append(" GROUP BY id;");
 			qs.executeQuery(sqlQuery.toString());
 		}else{
 			StringBuilder sqlQuery = new StringBuilder();
-			sqlQuery.append("INSERT INTO " + getEdgeTableName(instruction.targetGraph) + " SELECT id FROM "
+			sqlQuery.append("INSERT INTO " + getEdgeTableName(targetGraph) + " SELECT id FROM "
 					+ edgeAnnotationTableName + " WHERE");
-			if(!instruction.annotationKey.equals("*")){
-				sqlQuery.append(" field = " + formatString(instruction.annotationKey) + " AND");
+			if(!annotationKey.equals("*")){
+				sqlQuery.append(" field = " + formatString(annotationKey) + " AND");
 			}
-			sqlQuery.append(" value " + resolveOperator(instruction.operator) + " "
-					+ formatString(instruction.annotationValue));
-			if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
-				String analyzeQuery = "\\analyzerange " + getEdgeTableName(instruction.subjectGraph) + "\n";
+			sqlQuery.append(" value " + resolveOperator(operator) + " "
+					+ formatString(annotationValue));
+			if(!queryEnvironment.isBaseGraph(subjectGraph)){
+				String analyzeQuery = "\\analyzerange " + getEdgeTableName(subjectGraph) + "\n";
 				qs.executeQuery(analyzeQuery);
-				sqlQuery.append(" AND id IN (SELECT id FROM " + getEdgeTableName(instruction.subjectGraph) + ")");
+				sqlQuery.append(" AND id IN (SELECT id FROM " + getEdgeTableName(subjectGraph) + ")");
 			}
 			sqlQuery.append(" GROUP BY id;");
 			qs.executeQuery(sqlQuery.toString());
@@ -544,18 +519,18 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void getEdgeEndpoint(GetEdgeEndpoint instruction){
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
+	public void getEdgeEndpoint(Graph targetGraph, Graph subjectGraph, GetEdgeEndpoint.Component component){
+		String targetVertexTable = getVertexTableName(targetGraph);
+		String subjectEdgeTable = getEdgeTableName(subjectGraph);
 		qs.executeQuery("DROP TABLE m_answer;\n" + "CREATE TABLE m_answer (id INT);\n" + "\\analyzerange "
 				+ subjectEdgeTable + "\n");
-		if(instruction.component == GetEdgeEndpoint.Component.kSource
-				|| instruction.component == GetEdgeEndpoint.Component.kBoth){
+		if(component == GetEdgeEndpoint.Component.kSource
+				|| component == GetEdgeEndpoint.Component.kBoth){
 			qs.executeQuery("INSERT INTO m_answer SELECT src FROM edge" + " WHERE id IN (SELECT id FROM "
 					+ subjectEdgeTable + ");");
 		}
-		if(instruction.component == GetEdgeEndpoint.Component.kDestination
-				|| instruction.component == GetEdgeEndpoint.Component.kBoth){
+		if(component == GetEdgeEndpoint.Component.kDestination
+				|| component == GetEdgeEndpoint.Component.kBoth){
 			qs.executeQuery("INSERT INTO m_answer SELECT dst FROM edge" + " WHERE id IN (SELECT id FROM "
 					+ subjectEdgeTable + ");");
 		}
@@ -564,13 +539,13 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void intersectGraph(IntersectGraph instruction){
-		String outputVertexTable = getVertexTableName(instruction.outputGraph);
-		String outputEdgeTable = getEdgeTableName(instruction.outputGraph);
-		String lhsVertexTable = getVertexTableName(instruction.lhsGraph);
-		String lhsEdgeTable = getEdgeTableName(instruction.lhsGraph);
-		String rhsVertexTable = getVertexTableName(instruction.rhsGraph);
-		String rhsEdgeTable = getEdgeTableName(instruction.rhsGraph);
+	public void intersectGraph(Graph outputGraph, Graph lhsGraph, Graph rhsGraph){
+		String outputVertexTable = getVertexTableName(outputGraph);
+		String outputEdgeTable = getEdgeTableName(outputGraph);
+		String lhsVertexTable = getVertexTableName(lhsGraph);
+		String lhsEdgeTable = getEdgeTableName(lhsGraph);
+		String rhsVertexTable = getVertexTableName(rhsGraph);
+		String rhsEdgeTable = getEdgeTableName(rhsGraph);
 
 		qs.executeQuery("\\analyzerange " + rhsVertexTable + " " + rhsEdgeTable + "\n");
 		qs.executeQuery("INSERT INTO " + outputVertexTable + " SELECT id FROM " + lhsVertexTable
@@ -580,9 +555,9 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void limitGraph(LimitGraph instruction){
-		String sourceVertexTable = getVertexTableName(instruction.sourceGraph);
-		String sourceEdgeTable = getEdgeTableName(instruction.sourceGraph);
+	public void limitGraph(Graph targetGraph, Graph sourceGraph, int limit){
+		String sourceVertexTable = getVertexTableName(sourceGraph);
+		String sourceEdgeTable = getEdgeTableName(sourceGraph);
 
 		long numVertices = qs
 				.executeQueryForLongResult("COPY SELECT COUNT(*) FROM " + sourceVertexTable + " TO stdout;");
@@ -590,14 +565,14 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 
 		if(numVertices > 0){
 			qs.executeQuery("\\analyzerange " + sourceVertexTable + "\n" + "INSERT INTO "
-					+ getVertexTableName(instruction.targetGraph) + " SELECT id FROM " + sourceVertexTable
-					+ " GROUP BY id" + " ORDER BY id LIMIT " + instruction.limit + ";");
+					+ getVertexTableName(targetGraph) + " SELECT id FROM " + sourceVertexTable
+					+ " GROUP BY id" + " ORDER BY id LIMIT " + limit + ";");
 
 		}
 		if(numEdges > 0){
 			qs.executeQuery("\\analyzerange " + sourceEdgeTable + "\n" + "INSERT INTO "
-					+ getEdgeTableName(instruction.targetGraph) + " SELECT id FROM " + sourceEdgeTable + " GROUP BY id"
-					+ " ORDER BY id LIMIT " + instruction.limit + ";");
+					+ getEdgeTableName(targetGraph) + " SELECT id FROM " + sourceEdgeTable + " GROUP BY id"
+					+ " ORDER BY id LIMIT " + limit + ";");
 		}
 	}
 
@@ -639,9 +614,9 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public GraphStatistic.Count getGraphCount(GetGraphStatistic.Count instruction){
-		final String targetVertexTable = getVertexTableName(instruction.graph);
-		final String targetEdgeTable = getEdgeTableName(instruction.graph);
+	public GraphStatistic.Count getGraphCount(final Graph graph){
+		final String targetVertexTable = getVertexTableName(graph);
+		final String targetEdgeTable = getEdgeTableName(graph);
 		final long numVertices = 
 				qs.executeQueryForLongResult("COPY SELECT COUNT(*) FROM " + targetVertexTable + " TO stdout;");
 		final long numEdges = 
@@ -650,10 +625,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public GraphStatistic.Histogram getGraphHistogram(GetGraphStatistic.Histogram instruction){
-		final Graph graph = instruction.graph;
-		final String annotationKey = instruction.annotationKey;
-		final ElementType elementType = instruction.elementType;
+	public GraphStatistic.Histogram getGraphHistogram(final Graph graph, final ElementType elementType, final String annotationKey){
 
 		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
 			return new GraphStatistic.Histogram();
@@ -698,10 +670,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public GraphStatistic.Mean getGraphMean(final GetGraphStatistic.Mean instruction){
-		final Graph graph = instruction.graph;
-		final ElementType elementType = instruction.elementType;
-		final String annotationKey = instruction.annotationKey;
+	public GraphStatistic.Mean getGraphMean(final Graph graph, final ElementType elementType, final String annotationKey){
 
 		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
 			return new GraphStatistic.Mean();
@@ -709,7 +678,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 
 		final String resultTable = createResultIteratorTable(graph, elementType, annotationKey);
 		final int batchSize = getIteratorBatchSize();
-		final QuickstepBatchIterator qit = new QuickstepBatchIterator(resultTable, batchSize, elementType);
+		final QuickstepBatchIterator qit = new QuickstepBatchIterator(resultTable, batchSize, elementType, qs);
 		double sum = 0;
 		double count = 0;
 		while(qit.hasNextBatch()){
@@ -728,21 +697,18 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 
 	@Override
 	public GraphStatistic.StandardDeviation getGraphStandardDeviation(
-			GetGraphStatistic.StandardDeviation instruction){
-		final Graph graph = instruction.graph;
-		final ElementType elementType = instruction.elementType;
-		final String annotationKey = instruction.annotationKey;
+			final Graph graph, final ElementType elementType, final String annotationKey){
 
 		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
 			return new GraphStatistic.StandardDeviation();
 		}
 
-		final GraphStatistic.Mean graphMean = getGraphMean(new GetGraphStatistic.Mean(graph, elementType, annotationKey));
+		final GraphStatistic.Mean graphMean = getGraphMean(graph, elementType, annotationKey);
 		final double mean = graphMean.getMean();
 
 		final String resultTable = createResultIteratorTable(graph, elementType, annotationKey);
 		final int batchSize = getIteratorBatchSize();
-		final QuickstepBatchIterator qit = new QuickstepBatchIterator(resultTable, batchSize, elementType);
+		final QuickstepBatchIterator qit = new QuickstepBatchIterator(resultTable, batchSize, elementType, qs);
 		double squaredDifferenceSum = 0;
 		double count = 0;
 		while(qit.hasNextBatch()){
@@ -762,11 +728,8 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public GraphStatistic.Distribution getGraphDistribution(final GetGraphStatistic.Distribution instruction){
-		final Graph graph = instruction.graph;
-		final ElementType elementType = instruction.elementType;
-		final String annotationKey = instruction.annotationKey;
-		final Integer binCount = instruction.binCount;
+	public GraphStatistic.Distribution getGraphDistribution(final Graph graph, final ElementType elementType, final String annotationKey,
+			final Integer binCount){
 
 		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
 			return new GraphStatistic.Distribution();
@@ -774,7 +737,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 
 		final String resultTable = createResultIteratorTable(graph, elementType, annotationKey);
 		final int batchSize = getIteratorBatchSize();
-		final QuickstepBatchIterator qit = new QuickstepBatchIterator(resultTable, batchSize, elementType);
+		final QuickstepBatchIterator qit = new QuickstepBatchIterator(resultTable, batchSize, elementType, qs);
 
 		// find max and min of the table to find range
 		double max = Double.NEGATIVE_INFINITY;
@@ -827,8 +790,10 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 						}else{
 							interval = new Interval(r - step, r);
 						}
-						final double newCount = distribution.get(interval) + 1;
-						distribution.put(interval, newCount);
+						if(distribution.get(interval) != null){
+							final double newCount = distribution.get(interval) + 1;
+							distribution.put(interval, newCount);
+						}
 						break;
 					}
 				}
@@ -882,20 +847,20 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void subtractGraph(SubtractGraph instruction){
-		String outputVertexTable = getVertexTableName(instruction.outputGraph);
-		String outputEdgeTable = getEdgeTableName(instruction.outputGraph);
-		String minuendVertexTable = getVertexTableName(instruction.minuendGraph);
-		String minuendEdgeTable = getEdgeTableName(instruction.minuendGraph);
-		String subtrahendVertexTable = getVertexTableName(instruction.subtrahendGraph);
-		String subtrahendEdgeTable = getEdgeTableName(instruction.subtrahendGraph);
+	public void subtractGraph(Graph outputGraph, Graph minuendGraph, Graph subtrahendGraph, Graph.Component component){
+		String outputVertexTable = getVertexTableName(outputGraph);
+		String outputEdgeTable = getEdgeTableName(outputGraph);
+		String minuendVertexTable = getVertexTableName(minuendGraph);
+		String minuendEdgeTable = getEdgeTableName(minuendGraph);
+		String subtrahendVertexTable = getVertexTableName(subtrahendGraph);
+		String subtrahendEdgeTable = getEdgeTableName(subtrahendGraph);
 
-		if(instruction.component == null || instruction.component == Graph.Component.kVertex){
+		if(component == null || component == Graph.Component.kVertex){
 			qs.executeQuery("\\analyzerange " + subtrahendVertexTable + "\n");
 			qs.executeQuery("INSERT INTO " + outputVertexTable + " SELECT id FROM " + minuendVertexTable
 					+ " WHERE id NOT IN (SELECT id FROM " + subtrahendVertexTable + ");");
 		}
-		if(instruction.component == null || instruction.component == Graph.Component.kEdge){
+		if(component == null || component == Graph.Component.kEdge){
 			qs.executeQuery("\\analyzerange " + subtrahendEdgeTable + "\n");
 			qs.executeQuery("INSERT INTO " + outputEdgeTable + " SELECT id FROM " + minuendEdgeTable
 					+ " WHERE id NOT IN (SELECT id FROM " + subtrahendEdgeTable + ");");
@@ -903,38 +868,38 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void unionGraph(UnionGraph instruction){
-		String sourceVertexTable = getVertexTableName(instruction.sourceGraph);
-		String sourceEdgeTable = getEdgeTableName(instruction.sourceGraph);
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+	public void unionGraph(Graph targetGraph, Graph sourceGraph){
+		String sourceVertexTable = getVertexTableName(sourceGraph);
+		String sourceEdgeTable = getEdgeTableName(sourceGraph);
+		String targetVertexTable = getVertexTableName(targetGraph);
+		String targetEdgeTable = getEdgeTableName(targetGraph);
 
 		qs.executeQuery("INSERT INTO " + targetVertexTable + " SELECT id FROM " + sourceVertexTable + ";");
 		qs.executeQuery("INSERT INTO " + targetEdgeTable + " SELECT id FROM " + sourceEdgeTable + ";");
 	}
 
 	@Override
-	public void getAdjacentVertex(GetAdjacentVertex instruction){
+	public void getAdjacentVertex(Graph targetGraph, Graph subjectGraph, Graph sourceGraph, GetLineage.Direction direction){
 		List<Direction> oneDirs = new ArrayList<Direction>();
-		if(instruction.direction == Direction.kBoth){
+		if(direction == Direction.kBoth){
 			oneDirs.add(Direction.kAncestor);
 			oneDirs.add(Direction.kDescendant);
 		}else{
-			oneDirs.add(instruction.direction);
+			oneDirs.add(direction);
 		}
 
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+		String targetVertexTable = getVertexTableName(targetGraph);
+		String targetEdgeTable = getEdgeTableName(targetGraph);
 
-		String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
+		String subjectEdgeTable = getEdgeTableName(subjectGraph);
 		String filter = "";
-		if(!isBaseGraph(instruction.subjectGraph)){
+		if(!isBaseGraph(subjectGraph)){
 			qs.executeQuery("\\analyzerange " + subjectEdgeTable + "\n");
 			filter = " AND edge.id IN (SELECT id FROM " + subjectEdgeTable + ")";
 		}
 
 		for(Direction oneDir : oneDirs){
-			executeOneDirection(oneDir, filter, 1, instruction.sourceGraph);
+			executeOneDirection(oneDir, filter, 1, sourceGraph);
 			qs.executeQuery("\\analyzerange m_answer m_answer_edge\n" + "INSERT INTO " + targetVertexTable
 					+ " SELECT id FROM m_answer;\n" + "INSERT INTO " + targetEdgeTable
 					+ " SELECT id FROM m_answer_edge GROUP BY id;");
@@ -1107,8 +1072,8 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public Map<String, Map<String, String>> exportVertices(ExportGraph instruction){
-		String targetVertexTable = queryEnvironment.getGraphVertexTableName(instruction.targetGraph);
+	public Map<String, Map<String, String>> exportVertices(final Graph targetGraph){
+		String targetVertexTable = queryEnvironment.getGraphVertexTableName(targetGraph);
 
 		Map<String, Map<String, String>> result = _exportVertices(targetVertexTable);
 
@@ -1116,9 +1081,9 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
-	public Set<QueriedEdge> exportEdges(ExportGraph instruction){
-		String targetVertexTable = queryEnvironment.getGraphVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = queryEnvironment.getGraphEdgeTableName(instruction.targetGraph);
+	public Set<QueriedEdge> exportEdges(final Graph targetGraph){
+		String targetVertexTable = queryEnvironment.getGraphVertexTableName(targetGraph);
+		String targetEdgeTable = queryEnvironment.getGraphEdgeTableName(targetGraph);
 		
 		Set<QueriedEdge> edges = _exportEdges(targetVertexTable, targetEdgeTable);
 
@@ -1126,22 +1091,22 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void getLink(GetLink instruction){
+	public void getLink(Graph targetGraph, Graph subjectGraph, Graph srcGraph, Graph dstGraph, int maxDepth){
 		qs.executeQuery("DROP TABLE m_cur;\n" + "DROP TABLE m_next;\n" + "DROP TABLE m_answer;\n"
 				+ "CREATE TABLE m_cur (id INT);\n" + "CREATE TABLE m_next (id INT);\n"
 				+ "CREATE TABLE m_answer (id INT);");
 
 		String filter;
-		if(isBaseGraph(instruction.subjectGraph)){
+		if(isBaseGraph(subjectGraph)){
 			filter = "";
 		}else{
-			filter = " AND edge.id IN (SELECT id FROM " + getEdgeTableName(instruction.subjectGraph) + ")";
+			filter = " AND edge.id IN (SELECT id FROM " + getEdgeTableName(subjectGraph) + ")";
 		}
 
 		// Create subgraph edges table.
 		qs.executeQuery("DROP TABLE m_sgconn;\n" + "CREATE TABLE m_sgconn (src INT, dst INT, depth INT);");
 
-		qs.executeQuery("INSERT INTO m_cur SELECT id FROM " + getVertexTableName(instruction.dstGraph) + ";\n"
+		qs.executeQuery("INSERT INTO m_cur SELECT id FROM " + getVertexTableName(dstGraph) + ";\n"
 				+ "INSERT INTO m_answer SELECT id FROM m_cur;\n" + "\\analyzerange edge\n");
 
 		String loopStmts = "\\analyzerange m_cur\n" + "INSERT INTO m_sgconn SELECT src, dst, $depth FROM edge"
@@ -1154,7 +1119,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				+ "CREATE TABLE m_cur (id INT);\n" + "\\analyzerange m_answer\n"
 				+ "INSERT INTO m_cur SELECT id FROM m_next WHERE id NOT IN (SELECT id FROM m_answer);\n"
 				+ "INSERT INTO m_answer SELECT id FROM m_cur;";
-		for(int i = 0; i < instruction.maxDepth; ++i){
+		for(int i = 0; i < maxDepth; ++i){
 			qs.executeQuery(loopStmts.replace("$depth", String.valueOf(i + 1)));
 
 			String worksetSizeQuery = "COPY SELECT COUNT(*) FROM m_cur TO stdout;";
@@ -1167,20 +1132,20 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				+ "CREATE TABLE m_next (id INT);");
 
 		qs.executeQuery("\\analyzerange m_answer\n" + "INSERT INTO m_cur SELECT id FROM "
-				+ getVertexTableName(instruction.srcGraph) + " WHERE id IN (SELECT id FROM m_answer);\n");
+				+ getVertexTableName(srcGraph) + " WHERE id IN (SELECT id FROM m_answer);\n");
 
 		qs.executeQuery("DROP TABLE m_answer;\n" + "CREATE TABLE m_answer (id INT);\n"
 				+ "INSERT INTO m_answer SELECT id FROM m_cur;" + "\\analyzerange m_answer m_sgconn\n");
 
 		loopStmts = "DROP TABLE m_next;\n" + "CREATE TABLE m_next (id int);\n" + "\\analyzerange m_cur\n"
 				+ "INSERT INTO m_next SELECT dst FROM m_sgconn" + " WHERE src IN (SELECT id FROM m_cur)"
-				+ " AND depth + $depth <= " + String.valueOf(instruction.maxDepth) + " GROUP BY dst;\n"
+				+ " AND depth + $depth <= " + String.valueOf(maxDepth) + " GROUP BY dst;\n"
 				+ "INSERT INTO m_next SELECT src FROM m_sgconn" + " WHERE dst IN (SELECT id FROM m_cur)"
-				+ " AND depth + $depth <= " + String.valueOf(instruction.maxDepth) + " GROUP BY src;\n"
+				+ " AND depth + $depth <= " + String.valueOf(maxDepth) + " GROUP BY src;\n"
 				+ "DROP TABLE m_cur;\n" + "CREATE TABLE m_cur (id INT);\n" + "\\analyzerange m_answer\n"
 				+ "INSERT INTO m_cur SELECT id FROM m_next WHERE id NOT IN (SELECT id FROM m_answer);\n"
 				+ "INSERT INTO m_answer SELECT id FROM m_cur;";
-		for(int i = 0; i < instruction.maxDepth; ++i){
+		for(int i = 0; i < maxDepth; ++i){
 			qs.executeQuery(loopStmts.replace("$depth", String.valueOf(i)));
 
 			String worksetSizeQuery = "COPY SELECT COUNT(*) FROM m_cur TO stdout;";
@@ -1189,8 +1154,8 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 			}
 		}
 
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+		String targetVertexTable = getVertexTableName(targetGraph);
+		String targetEdgeTable = getEdgeTableName(targetGraph);
 
 		qs.executeQuery("\\analyzerange m_answer\n" + "INSERT INTO " + targetVertexTable + " SELECT id FROM m_answer;\n"
 				+ "INSERT INTO " + targetEdgeTable + " SELECT id FROM edge" + " WHERE src IN (SELECT id FROM m_answer)"
@@ -1201,15 +1166,15 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void getShortestPath(GetShortestPath instruction){
+	public void getShortestPath(Graph targetGraph, Graph subjectGraph, Graph srcGraph, Graph dstGraph, int maxDepth){
 		String filter;
 		qs.executeQuery("DROP TABLE m_conn;\n" + "CREATE TABLE m_conn (src INT, dst INT);");
-		if(isBaseGraph(instruction.subjectGraph)){
+		if(isBaseGraph(subjectGraph)){
 			filter = "";
 			qs.executeQuery(
 					"\\analyzecount edge\n" + "INSERT INTO m_conn SELECT src, dst FROM edge GROUP BY src, dst;");
 		}else{
-			String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
+			String subjectEdgeTable = getEdgeTableName(subjectGraph);
 			filter = " AND edge.id IN (SELECT id FROM " + subjectEdgeTable + ")";
 			qs.executeQuery("DROP TABLE m_sgedge;\n" + "CREATE TABLE m_sgedge (src INT, dst INT);\n" + "\\analyzerange "
 					+ subjectEdgeTable + "\n" + "INSERT INTO m_sgedge SELECT src, dst FROM edge"
@@ -1226,7 +1191,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				+ "CREATE TABLE m_cur (id INT, reaching INT);\n" + "CREATE TABLE m_next (id INT, reaching INT);\n"
 				+ "CREATE TABLE m_answer (id INT);");
 
-		qs.executeQuery("INSERT INTO m_cur SELECT id, id FROM " + getVertexTableName(instruction.dstGraph) + ";\n"
+		qs.executeQuery("INSERT INTO m_cur SELECT id, id FROM " + getVertexTableName(dstGraph) + ";\n"
 				+ "\\analyzerange m_cur\n" + "INSERT INTO m_answer SELECT id FROM m_cur GROUP BY id;");
 
 		String loopStmts = "\\analyzecount m_cur\n" + "INSERT INTO m_sgconn SELECT src, dst, reaching, $depth"
@@ -1237,7 +1202,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				+ "\\analyzecount m_next\n" + "INSERT INTO m_cur SELECT id, reaching FROM m_next"
 				+ " WHERE id NOT IN (SELECT id FROM m_answer) GROUP BY id, reaching;\n" + "\\analyzerange m_cur\n"
 				+ "INSERT INTO m_answer SELECT id FROM m_cur GROUP BY id;";
-		for(int i = 0; i < instruction.maxDepth; ++i){
+		for(int i = 0; i < maxDepth; ++i){
 			qs.executeQuery(loopStmts.replace("$depth", String.valueOf(i + 1)));
 
 			String worksetSizeQuery = "COPY SELECT COUNT(*) FROM m_cur TO stdout;";
@@ -1250,7 +1215,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				+ "CREATE TABLE m_next (id INT);");
 
 		qs.executeQuery("\\analyzerange m_answer\n" + "INSERT INTO m_cur SELECT id FROM "
-				+ getVertexTableName(instruction.srcGraph) + " WHERE id IN (SELECT id FROM m_answer);\n");
+				+ getVertexTableName(srcGraph) + " WHERE id IN (SELECT id FROM m_answer);\n");
 
 		qs.executeQuery("DROP TABLE m_answer;\n" + "CREATE TABLE m_answer (id INT);\n"
 				+ "INSERT INTO m_answer SELECT id FROM m_cur;");
@@ -1259,11 +1224,11 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 
 		loopStmts = "DROP TABLE m_next;\n" + "CREATE TABLE m_next(id INT);\n" + "INSERT INTO m_next SELECT MIN(dst)"
 				+ " FROM m_cur, m_sgconn WHERE id = src" + " AND depth + $depth <= "
-				+ String.valueOf(instruction.maxDepth) + " GROUP BY src, reaching;\n" + "DROP TABLE m_cur;\n"
+				+ String.valueOf(maxDepth) + " GROUP BY src, reaching;\n" + "DROP TABLE m_cur;\n"
 				+ "CREATE TABLE m_cur(id INT);\n" + "\\analyzerange m_answer\n"
 				+ "INSERT INTO m_cur SELECT id FROM m_next WHERE id NOT IN (SELECT id FROM m_answer);\n"
 				+ "INSERT INTO m_answer SELECT id FROM m_cur;";
-		for(int i = 0; i < instruction.maxDepth; ++i){
+		for(int i = 0; i < maxDepth; ++i){
 			qs.executeQuery(loopStmts.replace("$depth", String.valueOf(i)));
 
 			String worksetSizeQuery = "COPY SELECT COUNT(*) FROM m_cur TO stdout;";
@@ -1272,8 +1237,8 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 			}
 		}
 
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+		String targetVertexTable = getVertexTableName(targetGraph);
+		String targetEdgeTable = getEdgeTableName(targetGraph);
 
 		qs.executeQuery("\\analyzerange m_answer\n" + "INSERT INTO " + targetVertexTable + " SELECT id FROM m_answer;\n"
 				+ "INSERT INTO " + targetEdgeTable + " SELECT id FROM edge" + " WHERE src IN (SELECT id FROM m_answer)"
@@ -1284,13 +1249,13 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void getSubgraph(GetSubgraph instruction){
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
-		String subjectVertexTable = getVertexTableName(instruction.subjectGraph);
-		String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
-		String skeletonVertexTable = getVertexTableName(instruction.skeletonGraph);
-		String skeletonEdgeTable = getEdgeTableName(instruction.skeletonGraph);
+	public void getSubgraph(Graph targetGraph, Graph subjectGraph, Graph skeletonGraph){
+		String targetVertexTable = getVertexTableName(targetGraph);
+		String targetEdgeTable = getEdgeTableName(targetGraph);
+		String subjectVertexTable = getVertexTableName(subjectGraph);
+		String subjectEdgeTable = getEdgeTableName(subjectGraph);
+		String skeletonVertexTable = getVertexTableName(skeletonGraph);
+		String skeletonEdgeTable = getEdgeTableName(skeletonGraph);
 
 		qs.executeQuery("DROP TABLE m_answer;\n" + "CREATE TABLE m_answer (id INT);");
 
@@ -1312,27 +1277,28 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		qs.executeQuery("DROP TABLE m_answer;");
 	}
 
-	public void getLineage(GetLineage instruction){
+	public void getLineage(Graph targetGraph, Graph subjectGraph, Graph startGraph, int depth, Direction directionArg,
+			boolean onlyLocal){
 		List<Direction> oneDirs = new ArrayList<Direction>();
-		if(instruction.direction == Direction.kBoth){
+		if(directionArg == Direction.kBoth){
 			oneDirs.add(Direction.kAncestor);
 			oneDirs.add(Direction.kDescendant);
 		}else{
-			oneDirs.add(instruction.direction);
+			oneDirs.add(directionArg);
 		}
 
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+		String targetVertexTable = getVertexTableName(targetGraph);
+		String targetEdgeTable = getEdgeTableName(targetGraph);
 
-		String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
+		String subjectEdgeTable = getEdgeTableName(subjectGraph);
 		String filter = "";
-		if(!isBaseGraph(instruction.subjectGraph)){
+		if(!isBaseGraph(subjectGraph)){
 			qs.executeQuery("\\analyzerange " + subjectEdgeTable + "\n");
 			filter = " AND edge.id IN (SELECT id FROM " + subjectEdgeTable + ")";
 		}
 
 		for(Direction oneDir : oneDirs){
-			executeOneDirection(oneDir, filter, instruction.depth, instruction.startGraph);
+			executeOneDirection(oneDir, filter, depth, startGraph);
 			qs.executeQuery("\\analyzerange m_answer m_answer_edge\n" + "INSERT INTO " + targetVertexTable
 					+ " SELECT id FROM m_answer;\n" + "INSERT INTO " + targetEdgeTable
 					+ " SELECT id FROM m_answer_edge GROUP BY id;");
@@ -1380,18 +1346,18 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		}
 	}
 
-	public void getPath(GetSimplePath instruction){
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
-		String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
-		String dstVertexTable = getVertexTableName(instruction.dstGraph);
-		String srcVertexTable = getVertexTableName(instruction.srcGraph);
+	public void getSimplePath(Graph targetGraph, Graph subjectGraph, Graph srcGraph, Graph dstGraph, int maxDepth){
+		String targetVertexTable = getVertexTableName(targetGraph);
+		String targetEdgeTable = getEdgeTableName(targetGraph);
+		String subjectEdgeTable = getEdgeTableName(subjectGraph);
+		String dstVertexTable = getVertexTableName(dstGraph);
+		String srcVertexTable = getVertexTableName(srcGraph);
 		qs.executeQuery("DROP TABLE m_cur;\n" + "DROP TABLE m_next;\n" + "DROP TABLE m_answer;\n"
 				+ "CREATE TABLE m_cur (id INT);\n" + "CREATE TABLE m_next (id INT);\n"
 				+ "CREATE TABLE m_answer (id INT);");
 
 		String filter;
-		if(isBaseGraph(instruction.subjectGraph)){
+		if(isBaseGraph(subjectGraph)){
 			filter = "";
 		}else{
 			filter = " AND edge.id IN (SELECT id FROM " + subjectEdgeTable + ")";
@@ -1410,7 +1376,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				+ "CREATE TABLE m_cur (id INT);\n" + "\\analyzerange m_answer\n"
 				+ "INSERT INTO m_cur SELECT id FROM m_next WHERE id NOT IN (SELECT id FROM m_answer);\n"
 				+ "INSERT INTO m_answer SELECT id FROM m_cur;";
-		for(int i = 0; i < instruction.maxDepth; ++i){
+		for(int i = 0; i < maxDepth; ++i){
 			qs.executeQuery(loopStmts.replace("$depth", String.valueOf(i + 1)));
 
 			String worksetSizeQuery = "COPY SELECT COUNT(*) FROM m_cur TO stdout;";
@@ -1430,13 +1396,13 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 
 		loopStmts = "DROP TABLE m_next;\n" + "CREATE TABLE m_next (id int);\n" + "\\analyzerange m_cur\n"
 				+ "INSERT INTO m_next SELECT dst FROM m_sgconn" + " WHERE src IN (SELECT id FROM m_cur)"
-				+ " AND depth + $depth <= " + String.valueOf(instruction.maxDepth) + " GROUP BY dst;\n"
+				+ " AND depth + $depth <= " + String.valueOf(maxDepth) + " GROUP BY dst;\n"
 				+ "\\analyzerange m_next\n" + "INSERT INTO " + targetEdgeTable + " SELECT id FROM edge"
 				+ " WHERE src IN (SELECT id FROM m_cur)" + " AND dst IN (SELECT id FROM m_next)" + filter + ";\n"
 				+ "DROP TABLE m_cur;\n" + "CREATE TABLE m_cur (id INT);\n" + "\\analyzerange m_answer\n"
 				+ "INSERT INTO m_cur SELECT id FROM m_next WHERE id NOT IN (SELECT id FROM m_answer);\n"
 				+ "INSERT INTO m_answer SELECT id FROM m_cur;";
-		for(int i = 0; i < instruction.maxDepth; ++i){
+		for(int i = 0; i < maxDepth; ++i){
 			qs.executeQuery(loopStmts.replace("$depth", String.valueOf(i)));
 
 			String worksetSizeQuery = "COPY SELECT COUNT(*) FROM m_cur TO stdout;";
@@ -1451,11 +1417,11 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				"DROP TABLE m_cur;\n" + "DROP TABLE m_next;\n" + "DROP TABLE m_answer;\n" + "DROP TABLE m_sgconn;");
 	}
 
-	public void collapseEdge(CollapseEdge instruction){
-		String sourceVertexTable = getVertexTableName(instruction.sourceGraph);
-		String sourceEdgeTable = getEdgeTableName(instruction.sourceGraph);
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+	public void collapseEdge(Graph targetGraph, Graph sourceGraph, ArrayList<String> fields){
+		String sourceVertexTable = getVertexTableName(sourceGraph);
+		String sourceEdgeTable = getEdgeTableName(sourceGraph);
+		String targetVertexTable = getVertexTableName(targetGraph);
+		String targetEdgeTable = getEdgeTableName(targetGraph);
 
 		qs.executeQuery("\\analyzerange " + sourceVertexTable + " " + sourceEdgeTable + "\n");
 		qs.executeQuery("INSERT INTO " + targetVertexTable + " SELECT id FROM " + sourceVertexTable + ";");
@@ -1464,11 +1430,11 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		StringBuilder predicates = new StringBuilder();
 		StringBuilder groups = new StringBuilder();
 
-		for(int i = 0; i < instruction.getFields().size(); ++i){
+		for(int i = 0; i < fields.size(); ++i){
 			String edgeAnnoName = "ea" + i;
 			tables.append(", edge_anno " + edgeAnnoName);
 			predicates.append(" AND e.id = " + edgeAnnoName + ".id" + " AND " + edgeAnnoName + ".field = '"
-					+ instruction.getFields().get(i) + "'");
+					+ fields.get(i) + "'");
 			groups.append(", " + edgeAnnoName + ".value");
 		}
 
@@ -1531,38 +1497,39 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void setGraphMetadata(SetGraphMetadata instruction){
-		String targetVertexTable = queryEnvironment.getMetadataVertexTableName(instruction.targetMetadata);
-		String targetEdgeTable = queryEnvironment.getMetadataEdgeTableName(instruction.targetMetadata);
-		String sourceVertexTable = queryEnvironment.getGraphVertexTableName(instruction.sourceGraph);
-		String sourceEdgeTable = queryEnvironment.getGraphEdgeTableName(instruction.sourceGraph);
+	public void setGraphMetadata(GraphMetadata targetMetadata, SetGraphMetadata.Component component, Graph sourceGraph, String name,
+			String value){
+		String targetVertexTable = queryEnvironment.getMetadataVertexTableName(targetMetadata);
+		String targetEdgeTable = queryEnvironment.getMetadataEdgeTableName(targetMetadata);
+		String sourceVertexTable = queryEnvironment.getGraphVertexTableName(sourceGraph);
+		String sourceEdgeTable = queryEnvironment.getGraphEdgeTableName(sourceGraph);
 
 		qs.executeQuery("\\analyzerange " + sourceVertexTable + " " + sourceEdgeTable + "\n");
 
-		if(instruction.component == Component.kVertex || instruction.component == Component.kBoth){
-			qs.executeQuery("INSERT INTO " + targetVertexTable + " SELECT id, " + FormatStringLiteral(instruction.name)
-					+ ", " + FormatStringLiteral(instruction.value) + " FROM " + sourceVertexTable + " GROUP BY id;");
+		if(component == Component.kVertex || component == Component.kBoth){
+			qs.executeQuery("INSERT INTO " + targetVertexTable + " SELECT id, " + FormatStringLiteral(name)
+					+ ", " + FormatStringLiteral(value) + " FROM " + sourceVertexTable + " GROUP BY id;");
 		}
 
-		if(instruction.component == Component.kEdge || instruction.component == Component.kBoth){
-			qs.executeQuery("INSERT INTO " + targetEdgeTable + " SELECT id, " + FormatStringLiteral(instruction.name)
-					+ ", " + FormatStringLiteral(instruction.value) + " FROM " + sourceEdgeTable + " GROUP BY id;");
+		if(component == Component.kEdge || component == Component.kBoth){
+			qs.executeQuery("INSERT INTO " + targetEdgeTable + " SELECT id, " + FormatStringLiteral(name)
+					+ ", " + FormatStringLiteral(value) + " FROM " + sourceEdgeTable + " GROUP BY id;");
 		}
 	}
 	
 	@Override
-	public void createEmptyGraphMetadata(CreateEmptyGraphMetadata instruction){
-		QuickstepUtil.CreateEmptyGraphMetadata(qs, queryEnvironment, instruction.metadata);
+	public void createEmptyGraphMetadata(GraphMetadata metadata){
+		QuickstepUtil.CreateEmptyGraphMetadata(qs, queryEnvironment, metadata);
 	}
 
 	@Override
-	public void overwriteGraphMetadata(OverwriteGraphMetadata instruction){
-		String targetVertexTable = queryEnvironment.getMetadataVertexTableName(instruction.targetMetadata);
-		String targetEdgeTable = queryEnvironment.getMetadataEdgeTableName(instruction.targetMetadata);
-		String lhsVertexTable = queryEnvironment.getMetadataVertexTableName(instruction.lhsMetadata);
-		String lhsEdgeTable = queryEnvironment.getMetadataEdgeTableName(instruction.lhsMetadata);
-		String rhsVertexTable = queryEnvironment.getMetadataVertexTableName(instruction.rhsMetadata);
-		String rhsEdgeTable = queryEnvironment.getMetadataEdgeTableName(instruction.rhsMetadata);
+	public void overwriteGraphMetadata(GraphMetadata targetMetadata, GraphMetadata lhsMetadata, GraphMetadata rhsMetadata){
+		String targetVertexTable = queryEnvironment.getMetadataVertexTableName(targetMetadata);
+		String targetEdgeTable = queryEnvironment.getMetadataEdgeTableName(targetMetadata);
+		String lhsVertexTable = queryEnvironment.getMetadataVertexTableName(lhsMetadata);
+		String lhsEdgeTable = queryEnvironment.getMetadataEdgeTableName(lhsMetadata);
+		String rhsVertexTable = queryEnvironment.getMetadataVertexTableName(rhsMetadata);
+		String rhsEdgeTable = queryEnvironment.getMetadataEdgeTableName(rhsMetadata);
 
 		qs.executeQuery("\\analyzerange " + rhsVertexTable + " " + rhsEdgeTable + "\n" + "INSERT INTO "
 				+ targetVertexTable + " SELECT id, name, value FROM " + lhsVertexTable + " l"
@@ -1572,71 +1539,5 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				+ rhsEdgeTable + " r" + " WHERE l.id = r.id AND l.name = r.name);\n" + "INSERT INTO "
 				+ targetVertexTable + " SELECT id, name, value FROM " + rhsVertexTable + ";\n" + "INSERT INTO "
 				+ targetEdgeTable + " SELECT id, name, value FROM " + rhsEdgeTable + ";");
-	}
-
-	public class QuickstepBatchIterator extends BatchIterator
-	{
-		String batchTable;
-		ElementType elementType;
-
-		public QuickstepBatchIterator(final String resultTable, final int batchSize,
-                                      final ElementType elementType)
-		{
-			super(resultTable, batchSize);
-			this.batchTable = "m_batch_" + resultTable;
-			this.elementType = elementType;
-		}
-
-		@Override
-		public String nextBatch()
-		{
-			// copy batchSize elements from result table into batch table
-            String query = "DROP TABLE " + batchTable + ";\n"
-                    + "create table " + batchTable
-                    + "(id INT, value VARCHAR (%s));\n"
-                    + "INSERT INTO " + batchTable + " SELECT * FROM " + resultTable
-                    + " ORDER BY id "
-					+ " LIMIT " + batchSize + ";\n";
-            if(elementType.equals(ElementType.VERTEX))
-            {
-                query = String.format(query, qs.getMaxVertexValueLength());
-            }
-            else if(elementType.equals(ElementType.EDGE))
-            {
-                query = String.format(query, qs.getMaxEdgeValueLength());
-            }
-            qs.executeQuery(query);
-			// return batchSize result
-			String result = qs.executeQuery(
-					"COPY SELECT * FROM " + batchTable
-					+ " TO STDOUT  WITH (DELIMITER ',');\n");
-
-			// delete batch table rows from the result
-            query = "COPY SELECT id FROM " + batchTable
-                    + " to stdout with (delimiter ',');\n";
-            String temp_result = qs.executeQuery(query);
-            ResultTable table = ResultTable.FromText(temp_result, ',');
-            List<Integer> list = new ArrayList<>();
-            for(ResultTable.Row row: table.getRows())
-            {
-                Integer id = Integer.parseInt(row.getValue(0));
-                list.add(id);
-            }
-            String ids = StringUtils.join(list, ',');
-
-            qs.executeQuery(
-					"DELETE FROM " + resultTable + " WHERE id IN ("
-					+ ids + ");\n"
-					);
-			return result;
-		}
-
-		@Override
-		public boolean hasNextBatch()
-		{
-			long numVertices = qs
-					.executeQueryForLongResult("COPY SELECT COUNT(*) FROM " + resultTable + " TO stdout;");
-			return numVertices > 0;
-		}
 	}
 }

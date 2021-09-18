@@ -48,7 +48,7 @@ import spade.core.Graph;
 import spade.core.Query;
 import spade.core.Settings;
 import spade.query.quickgrail.core.EnvironmentVariableManager;
-import spade.query.quickgrail.instruction.ExportGraph;
+import spade.query.quickgrail.instruction.SaveGraph;
 import spade.query.quickgrail.utility.ResultTable;
 import spade.utility.FileUtility;
 import spade.utility.HostInfo;
@@ -515,9 +515,9 @@ public class CommandLine{
 								spade.core.Graph graph = (spade.core.Graph)spadeResult;
 								if(RESULT_EXPORT_PATH != null){
 									if(RESULT_EXPORT_PATH.toLowerCase().endsWith(".json")){
-										Graph.exportGraphToFile(ExportGraph.Format.kJson, RESULT_EXPORT_PATH, graph);
+										Graph.exportGraphToFile(SaveGraph.Format.kJson, RESULT_EXPORT_PATH, graph);
 									}else{
-										Graph.exportGraphToFile(ExportGraph.Format.kDot, RESULT_EXPORT_PATH, graph);
+										Graph.exportGraphToFile(SaveGraph.Format.kDot, RESULT_EXPORT_PATH, graph);
 									}
 									return "Output exported to file: " + RESULT_EXPORT_PATH;
 								}else{
@@ -559,7 +559,7 @@ public class CommandLine{
 		if(graph != null){
 			try{
 				boolean closeSystemOut = false;
-				Graph.exportGraphUsingWriter(ExportGraph.Format.kJson, 
+				Graph.exportGraphUsingWriter(SaveGraph.Format.kJson, 
 						new BufferedWriter(new OutputStreamWriter(System.out)), graph, closeSystemOut);
 			}catch(Exception e){
 				System.err.println("Failed to export graph as JSON: " + e.getMessage());

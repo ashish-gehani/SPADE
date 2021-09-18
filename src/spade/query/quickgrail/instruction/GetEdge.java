@@ -21,21 +21,23 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
-public class GetEdge extends Instruction{
-	
+public class GetEdge extends Instruction<String>{
+
 	public final Graph targetGraph, subjectGraph;
 	public final String annotationKey;
 	public final PredicateOperator operator;
 	public final String annotationValue;
-	
+
 	private boolean hasArguments = false;
-	
-	public GetEdge(Graph targetGraph, Graph subjectGraph, 
-			String annotationKey, PredicateOperator operator, String annotationValue){
+
+	public GetEdge(Graph targetGraph, Graph subjectGraph, String annotationKey, PredicateOperator operator,
+			String annotationValue){
 		this.targetGraph = targetGraph;
 		this.subjectGraph = subjectGraph;
 		this.annotationKey = annotationKey;
@@ -43,16 +45,16 @@ public class GetEdge extends Instruction{
 		this.annotationValue = annotationValue;
 		this.hasArguments = true;
 	}
-	
+
 	public GetEdge(Graph targetGraph, Graph subjectGraph){
 		this(targetGraph, subjectGraph, null, null, null);
 		this.hasArguments = false;
 	}
-	
+
 	public boolean hasArguments(){
 		return hasArguments;
 	}
-	
+
 	@Override
 	public String getLabel(){
 		return "GetEdge";
@@ -73,5 +75,11 @@ public class GetEdge extends Instruction{
 		inline_field_values.add(String.valueOf(operator));
 		inline_field_names.add("annotationValue");
 		inline_field_values.add(String.valueOf(annotationValue));
+	}
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.getEdge(targetGraph, subjectGraph, annotationKey, operator, annotationValue, hasArguments());
+		return null;
 	}
 }

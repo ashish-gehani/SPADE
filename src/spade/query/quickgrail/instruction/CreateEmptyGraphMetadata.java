@@ -21,14 +21,16 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.GraphMetadata;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
  * This class is not yet used in the SPADE integrated QuickGrail.
  */
-public class CreateEmptyGraphMetadata extends Instruction{
-	
+public class CreateEmptyGraphMetadata extends Instruction<String>{
+
 	public final GraphMetadata metadata;
 
 	public CreateEmptyGraphMetadata(GraphMetadata metadata){
@@ -47,5 +49,11 @@ public class CreateEmptyGraphMetadata extends Instruction{
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
 		inline_field_names.add("metadata");
 		inline_field_values.add(metadata.name);
+	}
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.createEmptyGraphMetadata(metadata);
+		return null;
 	}
 }

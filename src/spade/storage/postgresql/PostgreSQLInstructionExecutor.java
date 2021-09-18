@@ -37,36 +37,13 @@ import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.entities.GraphMetadata;
-import spade.query.quickgrail.instruction.CollapseEdge;
-import spade.query.quickgrail.instruction.CreateEmptyGraph;
-import spade.query.quickgrail.instruction.CreateEmptyGraphMetadata;
 import spade.query.quickgrail.instruction.DescribeGraph;
 import spade.query.quickgrail.instruction.DescribeGraph.ElementType;
-import spade.query.quickgrail.instruction.DistinctifyGraph;
-import spade.query.quickgrail.instruction.EvaluateQuery;
-import spade.query.quickgrail.instruction.ExportGraph;
-import spade.query.quickgrail.instruction.GetAdjacentVertex;
-import spade.query.quickgrail.instruction.GetEdge;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint;
-import spade.query.quickgrail.instruction.GetGraphStatistic;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLineage.Direction;
-import spade.query.quickgrail.instruction.GetLink;
-import spade.query.quickgrail.instruction.GetMatch;
-import spade.query.quickgrail.instruction.GetShortestPath;
-import spade.query.quickgrail.instruction.GetSimplePath;
-import spade.query.quickgrail.instruction.GetSubgraph;
-import spade.query.quickgrail.instruction.GetVertex;
-import spade.query.quickgrail.instruction.GetWhereAnnotationsExist;
-import spade.query.quickgrail.instruction.InsertLiteralEdge;
-import spade.query.quickgrail.instruction.InsertLiteralVertex;
-import spade.query.quickgrail.instruction.IntersectGraph;
-import spade.query.quickgrail.instruction.LimitGraph;
-import spade.query.quickgrail.instruction.OverwriteGraphMetadata;
 import spade.query.quickgrail.instruction.SetGraphMetadata;
 import spade.query.quickgrail.instruction.SetGraphMetadata.Component;
-import spade.query.quickgrail.instruction.SubtractGraph;
-import spade.query.quickgrail.instruction.UnionGraph;
 import spade.query.quickgrail.types.StringType;
 import spade.query.quickgrail.utility.ResultTable;
 import spade.query.quickgrail.utility.Schema;
@@ -203,10 +180,10 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void insertLiteralEdge(InsertLiteralEdge instruction){
-		if(!instruction.getEdges().isEmpty()){
+	public void insertLiteralEdge(Graph targetGraph, ArrayList<String> edges){
+		if(!edges.isEmpty()){
 			String insertSubpart = "";
-			for(String edge : instruction.getEdges()){
+			for(String edge : edges){
 				if(edge.length() <= 32){
 					insertSubpart += "('" + edge + "'), ";
 				}
@@ -219,7 +196,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 				insertSubpart = insertSubpart.substring(0, insertSubpart.length() - 2);
 				executeQueryForResult("insert into " + tempEdgeTable + " values " + insertSubpart + ";\n", false);
 
-				executeQueryForResult("insert into " + getEdgeTableName(instruction.targetGraph) + " select "
+				executeQueryForResult("insert into " + getEdgeTableName(targetGraph) + " select "
 						+ getIdColumnName() + " from " + getEdgeAnnotationTableName() + " where " + getIdColumnName()
 						+ " in (select " + getIdColumnName() + " from " + tempEdgeTable + " group by "
 						+ getIdColumnName() + ");\n", false);
@@ -230,10 +207,10 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void insertLiteralVertex(InsertLiteralVertex instruction){
-		if(!instruction.getVertices().isEmpty()){
+	public void insertLiteralVertex(Graph targetGraph, ArrayList<String> vertices){
+		if(!vertices.isEmpty()){
 			String insertSubpart = "";
-			for(String vertex : instruction.getVertices()){
+			for(String vertex : vertices){
 				if(vertex.length() <= 32){
 					insertSubpart += "('" + vertex + "'), ";
 				}
@@ -246,7 +223,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 				insertSubpart = insertSubpart.substring(0, insertSubpart.length() - 2);
 				executeQueryForResult("insert into " + tempVertexTable + " values " + insertSubpart + ";\n", false);
 
-				executeQueryForResult("insert into " + getVertexTableName(instruction.targetGraph) + " select "
+				executeQueryForResult("insert into " + getVertexTableName(targetGraph) + " select "
 						+ getIdColumnName() + " from " + getVertexAnnotationTableName() + " where " + getIdColumnName()
 						+ " in (select " + getIdColumnName() + " from " + tempVertexTable + " group by "
 						+ getIdColumnName() + ");\n", false);
@@ -287,20 +264,20 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void createEmptyGraph(CreateEmptyGraph instruction){
-		String vertexTable = getVertexTableName(instruction.graph);
-		String edgeTable = getEdgeTableName(instruction.graph);
+	public void createEmptyGraph(Graph graph){
+		String vertexTable = getVertexTableName(graph);
+		String edgeTable = getEdgeTableName(graph);
 
 		createUUIDTable(vertexTable, true);
 		createUUIDTable(edgeTable, true);
 	}
 
 	@Override
-	public void distinctifyGraph(DistinctifyGraph instruction){
-		String sourceVertexTable = getVertexTableName(instruction.sourceGraph);
-		String sourceEdgeTable = getEdgeTableName(instruction.sourceGraph);
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+	public void distinctifyGraph(Graph targetGraph, Graph sourceGraph){
+		String sourceVertexTable = getVertexTableName(sourceGraph);
+		String sourceEdgeTable = getEdgeTableName(sourceGraph);
+		String targetVertexTable = getVertexTableName(targetGraph);
+		String targetEdgeTable = getEdgeTableName(targetGraph);
 
 		executeQueryForResult("insert into " + targetVertexTable + " select " + getIdColumnName() + " from "
 				+ sourceVertexTable + " group by " + getIdColumnName() + ";", false);
@@ -334,13 +311,11 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
-	public void getWhereAnnotationsExist(final GetWhereAnnotationsExist instruction){
-		final Graph targetGraph = instruction.targetGraph;
-		final Graph subjectGraph = instruction.subjectGraph;
-		final ArrayList<String> annotationKeys = instruction.getAnnotationKeys();
+	public void getWhereAnnotationsExist(final Graph targetGraph, final Graph subjectGraph,
+			final ArrayList<String> annotationNames){
 		
 		final Set<String> existingColumnNames = getColumnNamesOfVertexAnnotationTable();
-		final Set<String> requestedColumnNames = new HashSet<String>(annotationKeys);
+		final Set<String> requestedColumnNames = new HashSet<String>(annotationNames);
 		requestedColumnNames.removeAll(existingColumnNames);
 		if(requestedColumnNames.size() > 0){
 			// User specified column names which do not exist for vertices
@@ -353,10 +328,10 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 				+ "where v.\""+getIdColumnName()+"\" in (select \""+getIdColumnName()+"\" from "
 				+getVertexTableName(subjectGraph)+") and ";
 		
-		for(int i = 0; i < annotationKeys.size(); i++){
-			final String annotationKey = annotationKeys.get(i);
+		for(int i = 0; i < annotationNames.size(); i++){
+			final String annotationKey = annotationNames.get(i);
 			query += "v.\""+annotationKey+"\" is not null";
-			if(i == annotationKeys.size() - 1){ // is last
+			if(i == annotationNames.size() - 1){ // is last
 				// don't append the 'and'
 			}else{
 				query += " and ";
@@ -367,13 +342,12 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void getMatch(final GetMatch instruction){
+	public void getMatch(final Graph targetGraph, final Graph graph1, final Graph graph2,
+			final ArrayList<String> annotationKeys){
 		final Graph g1 = createNewGraph();
-		getWhereAnnotationsExist(new GetWhereAnnotationsExist(g1, instruction.graph1, instruction.getAnnotationKeys()));
+		getWhereAnnotationsExist(g1, graph1, annotationKeys);
 		final Graph g2 = createNewGraph();
-		getWhereAnnotationsExist(new GetWhereAnnotationsExist(g2, instruction.graph2 , instruction.getAnnotationKeys()));
-
-		final ArrayList<String> annotationKeys = instruction.getAnnotationKeys();
+		getWhereAnnotationsExist(g2, graph2 , annotationKeys);
 
 		final Set<String> existingColumnNames = getColumnNamesOfVertexAnnotationTable();
 		final Set<String> requestedColumnNames = new HashSet<String>(annotationKeys);
@@ -422,7 +396,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		executeQueryForResult("insert into m_answer_y select id1 from m_answer_x group by id1", false);
 		executeQueryForResult("insert into m_answer_y select id2 from m_answer_x group by id2", false);
 		
-		executeQueryForResult("insert into " + getVertexTableName(instruction.targetGraph) 
+		executeQueryForResult("insert into " + getVertexTableName(targetGraph) 
 			+ " select id from m_answer_y group by id;\n", false);
 		
 		executeQueryForResult("drop table if exists m_answer_y", false);
@@ -499,31 +473,30 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
-	public void getVertex(GetVertex instruction){
-		if(!instruction.hasArguments()){
+	public void getVertex(Graph targetGraph, Graph subjectGraph, String annotationKey, PredicateOperator operator,
+			String annotationValue, final boolean hasArguments){
+		if(!hasArguments){
 			String sqlQuery = 
-					"insert into " + getVertexTableName(instruction.targetGraph) 
+					"insert into " + getVertexTableName(targetGraph) 
 					+ " select " + getIdColumnName() + " from "
-					+ getVertexTableName(instruction.subjectGraph)
+					+ getVertexTableName(subjectGraph)
 					+ " group by " + getIdColumnName();
 			executeQueryForResult(sqlQuery, false);
 		}else{ // has arguments
 			final String wildCard = "*";
 			final Set<String> existingColumnNames = getColumnNamesOfVertexAnnotationTable();
-			final String annotationKey = instruction.annotationKey;
-			final PredicateOperator operator = instruction.operator;
 			
 			if(!annotationKey.equals(wildCard) && !existingColumnNames.contains(annotationKey)){
 				if(!operator.equals(PredicateOperator.NOT_EQUAL)){
 					// Don't insert anything since the value is null and it cannot match anything
 				}else{
 					// insert everything because the column is null so it would never equal the value passed
-					String sqlQuery = "insert into " + getVertexTableName(instruction.targetGraph)
+					String sqlQuery = "insert into " + getVertexTableName(targetGraph)
 						+ " select " + getIdColumnName() + " from "
 						+ getVertexAnnotationTableName();
 					
-					if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
-						sqlQuery += " where  " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+getVertexTableName(instruction.subjectGraph)+")";
+					if(!queryEnvironment.isBaseGraph(subjectGraph)){
+						sqlQuery += " where  " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+getVertexTableName(subjectGraph)+")";
 					}
 					
 					sqlQuery += " group by " + getIdColumnName() + ";";
@@ -531,29 +504,29 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 				}
 			}else{
 				String sqlQuery = 
-						"insert into " + getVertexTableName(instruction.targetGraph) 
+						"insert into " + getVertexTableName(targetGraph) 
 						+ " select " + getIdColumnName() + " from "
 						+ getVertexAnnotationTableName();
 				
 				Set<String> columnNames = new HashSet<String>();
 				
-				if("*".equals(instruction.annotationKey)){
+				if("*".equals(annotationKey)){
 					columnNames.addAll(existingColumnNames);
 				}else{
-					columnNames.add(instruction.annotationKey);
+					columnNames.add(annotationKey);
 				}
 				
 				sqlQuery += " where (";
 				
 				for(String columnName : columnNames){
-					sqlQuery += buildComparison(columnName, operator, instruction.annotationValue) + " or ";	
+					sqlQuery += buildComparison(columnName, operator, annotationValue) + " or ";	
 				}
 				
 				sqlQuery = sqlQuery.substring(0, sqlQuery.length() - 3); // remove the last 'or '
 				sqlQuery += ")";
 				
-				if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
-					sqlQuery += " and " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+getVertexTableName(instruction.subjectGraph)+")";
+				if(!queryEnvironment.isBaseGraph(subjectGraph)){
+					sqlQuery += " and " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+getVertexTableName(subjectGraph)+")";
 				}
 				
 				sqlQuery += " group by " + getIdColumnName() + ";";
@@ -563,10 +536,10 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public ResultTable evaluateQuery(EvaluateQuery instruction){
+	public ResultTable evaluateQuery(final String nativeQuery){
 		ResultTable table = new ResultTable();
 
-		List<List<String>> listOfLists = executeQueryForResult(instruction.nativeQuery, true);
+		List<List<String>> listOfLists = executeQueryForResult(nativeQuery, true);
 		if(listOfLists.size() > 0){
 			List<String> headings = listOfLists.remove(0);
 			for(List<String> row : listOfLists){
@@ -587,31 +560,30 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void getEdge(GetEdge instruction){
-		if(!instruction.hasArguments()){
+	public void getEdge(Graph targetGraph, Graph subjectGraph, String annotationKey, PredicateOperator operator,
+			String annotationValue, final boolean hasArguments){
+		if(!hasArguments){
 			String sqlQuery = 
-					"insert into " + getEdgeTableName(instruction.targetGraph) 
+					"insert into " + getEdgeTableName(targetGraph) 
 					+ " select " + getIdColumnName() + " from "
-					+ getEdgeTableName(instruction.subjectGraph)
+					+ getEdgeTableName(subjectGraph)
 					+ " group by " + getIdColumnName();
 			executeQueryForResult(sqlQuery, false);
 		}else{ // has arguments
 			final String wildCard = "*";
 			final Set<String> existingColumnNames = getColumnNamesOfEdgeAnnotationTable();
-			final String annotationKey = instruction.annotationKey;
-			final PredicateOperator operator = instruction.operator;
 			
 			if(!annotationKey.equals(wildCard) && !existingColumnNames.contains(annotationKey)){
 				if(!operator.equals(PredicateOperator.NOT_EQUAL)){
 					// Don't insert anything since the value is null and it cannot match anything
 				}else{
 					// insert everything because the column is null so it would never equal the value passed
-					String sqlQuery = "insert into " + getEdgeTableName(instruction.targetGraph)
+					String sqlQuery = "insert into " + getEdgeTableName(targetGraph)
 						+ " select " + getIdColumnName() + " from "
 						+ getEdgeAnnotationTableName();
 					
-					if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
-						sqlQuery += " where " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+getEdgeTableName(instruction.subjectGraph)+")";
+					if(!queryEnvironment.isBaseGraph(subjectGraph)){
+						sqlQuery += " where " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+getEdgeTableName(subjectGraph)+")";
 					}
 					
 					sqlQuery += " group by " + getIdColumnName() + ";";
@@ -620,13 +592,13 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 			}else{
 			
 				String sqlQuery = 
-						"insert into " + getEdgeTableName(instruction.targetGraph) 
+						"insert into " + getEdgeTableName(targetGraph) 
 						+ " select " + getIdColumnName() + " from "
 						+ getEdgeAnnotationTableName();
 				
 				Set<String> columnNames = new HashSet<String>();
 				
-				if("*".equals(instruction.annotationKey)){
+				if("*".equals(annotationKey)){
 					columnNames.addAll(existingColumnNames);
 				}else{
 					columnNames.add(annotationKey);
@@ -635,14 +607,14 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 				sqlQuery += " where (";
 				
 				for(String columnName : columnNames){
-					sqlQuery += buildComparison(columnName, operator, instruction.annotationValue) + " or ";	
+					sqlQuery += buildComparison(columnName, operator, annotationValue) + " or ";	
 				}
 				
 				sqlQuery = sqlQuery.substring(0, sqlQuery.length() - 3); // remove the last 'or '
 				sqlQuery += ")";
 				
-				if(!queryEnvironment.isBaseGraph(instruction.subjectGraph)){
-					sqlQuery += " and " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+getEdgeTableName(instruction.subjectGraph)+")";
+				if(!queryEnvironment.isBaseGraph(subjectGraph)){
+					sqlQuery += " and " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+getEdgeTableName(subjectGraph)+")";
 				}
 				
 				sqlQuery += " group by " + getIdColumnName() + ";";
@@ -652,22 +624,22 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void getEdgeEndpoint(GetEdgeEndpoint instruction){
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
+	public void getEdgeEndpoint(Graph targetGraph, Graph subjectGraph, GetEdgeEndpoint.Component component){
+		String targetVertexTable = getVertexTableName(targetGraph);
+		String subjectEdgeTable = getEdgeTableName(subjectGraph);
 
 		String answerTable = "m_answer";
 
 		createUUIDTable(answerTable, true);
 
-		if(instruction.component == GetEdgeEndpoint.Component.kSource
-				|| instruction.component == GetEdgeEndpoint.Component.kBoth){
+		if(component == GetEdgeEndpoint.Component.kSource
+				|| component == GetEdgeEndpoint.Component.kBoth){
 			executeQueryForResult("insert into " + answerTable + " select \"" + getIdColumnNameChildVertex()
 					+ "\" from " + getEdgeAnnotationTableName() + " where " + getIdColumnName() + " in (select "
 					+ getIdColumnName() + " from " + subjectEdgeTable + ");", false);
 		}
-		if(instruction.component == GetEdgeEndpoint.Component.kDestination
-				|| instruction.component == GetEdgeEndpoint.Component.kBoth){
+		if(component == GetEdgeEndpoint.Component.kDestination
+				|| component == GetEdgeEndpoint.Component.kBoth){
 			executeQueryForResult("insert into " + answerTable + " select \"" + getIdColumnNameParentVertex()
 					+ "\" from " + getEdgeAnnotationTableName() + " where " + getIdColumnName() + " in (select "
 					+ getIdColumnName() + " from " + subjectEdgeTable + ");", false);
@@ -679,37 +651,35 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void limitGraph(LimitGraph instruction){
-		String sourceVertexTable = getVertexTableName(instruction.sourceGraph);
-		String sourceEdgeTable = getEdgeTableName(instruction.sourceGraph);
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+	public void limitGraph(Graph targetGraph, Graph sourceGraph, int limit){
+		String sourceVertexTable = getVertexTableName(sourceGraph);
+		String sourceEdgeTable = getEdgeTableName(sourceGraph);
+		String targetVertexTable = getVertexTableName(targetGraph);
+		String targetEdgeTable = getEdgeTableName(targetGraph);
 
-		final GraphStatistic.Count graphCount = getGraphCount(
-				new GetGraphStatistic.Count(instruction.sourceGraph)
-				);
+		final GraphStatistic.Count graphCount = getGraphCount(sourceGraph);
 
 		if(graphCount.getVertices() > 0){
 			executeQueryForResult("insert into " + targetVertexTable + " select " + getIdColumnName() + " from "
 					+ sourceVertexTable + " group by " + getIdColumnName() + " order by " + getIdColumnName()
-					+ " limit " + instruction.limit + ";", false);
+					+ " limit " + limit + ";", false);
 
 		}
 		if(graphCount.getEdges() > 0){
 			executeQueryForResult("insert into " + targetEdgeTable + " select " + getIdColumnName() + " from "
 					+ sourceEdgeTable + " group by " + getIdColumnName() + " order by " + getIdColumnName() + " limit "
-					+ instruction.limit + ";", false);
+					+ limit + ";", false);
 		}
 	}
 
 	@Override
-	public void intersectGraph(IntersectGraph instruction){
-		String outputVertexTable = getVertexTableName(instruction.outputGraph);
-		String outputEdgeTable = getEdgeTableName(instruction.outputGraph);
-		String lhsVertexTable = getVertexTableName(instruction.lhsGraph);
-		String lhsEdgeTable = getEdgeTableName(instruction.lhsGraph);
-		String rhsVertexTable = getVertexTableName(instruction.rhsGraph);
-		String rhsEdgeTable = getEdgeTableName(instruction.rhsGraph);
+	public void intersectGraph(Graph outputGraph, Graph lhsGraph, Graph rhsGraph){
+		String outputVertexTable = getVertexTableName(outputGraph);
+		String outputEdgeTable = getEdgeTableName(outputGraph);
+		String lhsVertexTable = getVertexTableName(lhsGraph);
+		String lhsEdgeTable = getEdgeTableName(lhsGraph);
+		String rhsVertexTable = getVertexTableName(rhsGraph);
+		String rhsEdgeTable = getEdgeTableName(rhsGraph);
 
 		executeQueryForResult("insert into " + outputVertexTable + " select " + getIdColumnName() + " from "
 				+ lhsVertexTable + " where " + getIdColumnName() + " in (select " + getIdColumnName() + " from "
@@ -721,9 +691,9 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
-	public GraphStatistic.Count getGraphCount(final GetGraphStatistic.Count instruction){
-		final String targetVertexTable = getVertexTableName(instruction.graph);
-		final String targetEdgeTable = getEdgeTableName(instruction.graph);
+	public GraphStatistic.Count getGraphCount(final Graph graph){
+		final String targetVertexTable = getVertexTableName(graph);
+		final String targetEdgeTable = getEdgeTableName(graph);
 		final long numVertices = Long.parseLong(
 				executeQueryForResult("select count(*) from " + targetVertexTable, false).get(0).get(0)
 				);
@@ -771,11 +741,8 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public GraphStatistic.Distribution getGraphDistribution(final GetGraphStatistic.Distribution instruction){
-		final Graph graph = instruction.graph;
-		final ElementType elementType = instruction.elementType;
-		final String annotationKey = instruction.annotationKey;
-		final Integer binCount = instruction.binCount;
+	public GraphStatistic.Distribution getGraphDistribution(final Graph graph, final ElementType elementType, final String annotationKey,
+			final Integer binCount){
 
 		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
 			return new GraphStatistic.Distribution();
@@ -858,10 +825,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 
 	@Override
 	public GraphStatistic.StandardDeviation getGraphStandardDeviation(
-			final GetGraphStatistic.StandardDeviation instruction){
-		final Graph graph = instruction.graph;
-		final ElementType elementType = instruction.elementType;
-		final String annotationKey = instruction.annotationKey;
+			final Graph graph, final ElementType elementType, final String annotationKey){
 
 		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
 			return new GraphStatistic.StandardDeviation();
@@ -897,10 +861,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public GraphStatistic.Mean getGraphMean(final GetGraphStatistic.Mean instruction){
-		final Graph graph = instruction.graph;
-		final ElementType elementType = instruction.elementType;
-		final String annotationKey = instruction.annotationKey;
+	public GraphStatistic.Mean getGraphMean(final Graph graph, final ElementType elementType, final String annotationKey){
 
 		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
 			return new GraphStatistic.Mean();
@@ -936,10 +897,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public GraphStatistic.Histogram getGraphHistogram(final GetGraphStatistic.Histogram instruction){
-		final Graph graph = instruction.graph;
-		final ElementType elementType = instruction.elementType;
-		final String annotationKey = instruction.annotationKey;
+	public GraphStatistic.Histogram getGraphHistogram(final Graph graph, final ElementType elementType, final String annotationKey){
 
 		if(getGraphStatisticSize(graph, elementType, annotationKey) <= 0){
 			return new GraphStatistic.Histogram();
@@ -981,20 +939,20 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void subtractGraph(SubtractGraph instruction){
-		String outputVertexTable = getVertexTableName(instruction.outputGraph);
-		String outputEdgeTable = getEdgeTableName(instruction.outputGraph);
-		String minuendVertexTable = getVertexTableName(instruction.minuendGraph);
-		String minuendEdgeTable = getEdgeTableName(instruction.minuendGraph);
-		String subtrahendVertexTable = getVertexTableName(instruction.subtrahendGraph);
-		String subtrahendEdgeTable = getEdgeTableName(instruction.subtrahendGraph);
+	public void subtractGraph(Graph outputGraph, Graph minuendGraph, Graph subtrahendGraph, Graph.Component component){
+		String outputVertexTable = getVertexTableName(outputGraph);
+		String outputEdgeTable = getEdgeTableName(outputGraph);
+		String minuendVertexTable = getVertexTableName(minuendGraph);
+		String minuendEdgeTable = getEdgeTableName(minuendGraph);
+		String subtrahendVertexTable = getVertexTableName(subtrahendGraph);
+		String subtrahendEdgeTable = getEdgeTableName(subtrahendGraph);
 
-		if(instruction.component == null || instruction.component == Graph.Component.kVertex){
+		if(component == null || component == Graph.Component.kVertex){
 			executeQueryForResult("insert into " + outputVertexTable + " select " + getIdColumnName() + " from "
 					+ minuendVertexTable + " where " + getIdColumnName() + " not in (select " + getIdColumnName()
 					+ " from " + subtrahendVertexTable + ");", false);
 		}
-		if(instruction.component == null || instruction.component == Graph.Component.kEdge){
+		if(component == null || component == Graph.Component.kEdge){
 			executeQueryForResult("insert into " + outputEdgeTable + " select " + getIdColumnName() + " from "
 					+ minuendEdgeTable + " where " + getIdColumnName() + " not in (select " + getIdColumnName()
 					+ " from " + subtrahendEdgeTable + ");", false);
@@ -1002,11 +960,11 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void unionGraph(UnionGraph instruction){
-		String sourceVertexTable = getVertexTableName(instruction.sourceGraph);
-		String sourceEdgeTable = getEdgeTableName(instruction.sourceGraph);
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+	public void unionGraph(Graph targetGraph, Graph sourceGraph){
+		String sourceVertexTable = getVertexTableName(sourceGraph);
+		String sourceEdgeTable = getEdgeTableName(sourceGraph);
+		String targetVertexTable = getVertexTableName(targetGraph);
+		String targetEdgeTable = getEdgeTableName(targetGraph);
 
 		executeQueryForResult("insert into " + targetVertexTable + " select "
 				+getIdColumnName()+" from " + sourceVertexTable + ";", false);
@@ -1015,24 +973,24 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void getAdjacentVertex(GetAdjacentVertex instruction){
+	public void getAdjacentVertex(Graph targetGraph, Graph subjectGraph, Graph sourceGraph, GetLineage.Direction directionArg){
 		final List<Direction> directions = new ArrayList<Direction>();
-		if(instruction.direction == Direction.kBoth){
+		if(directionArg == Direction.kBoth){
 			directions.add(Direction.kAncestor);
 			directions.add(Direction.kDescendant);
 		}else{
-			directions.add(instruction.direction);
+			directions.add(directionArg);
 		}
 
-		final String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		final String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
-		final String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
+		final String targetVertexTable = getVertexTableName(targetGraph);
+		final String targetEdgeTable = getEdgeTableName(targetGraph);
+		final String subjectEdgeTable = getEdgeTableName(subjectGraph);
 		final String cursorTable = "m_cur";
 		final String nextTable = "m_next";
 		final String answerTable = "m_answer";
 		final String answerEdgeTable = "m_answer_edge";
 		
-		final String filter = queryEnvironment.isBaseGraph(instruction.subjectGraph) ? ""
+		final String filter = queryEnvironment.isBaseGraph(subjectGraph) ? ""
 				: " and " + getEdgeAnnotationTableName() + "." + getIdColumnName() 
 				+ " in (select "+getIdColumnName()+" from "+subjectEdgeTable+")";
 
@@ -1040,7 +998,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 			if(direction != Direction.kAncestor && direction != Direction.kDescendant){
 				throw new RuntimeException("Unexpected direction: " + direction);
 			}
-			final String startVertexTable = getVertexTableName(instruction.sourceGraph);
+			final String startVertexTable = getVertexTableName(sourceGraph);
 			final String src = direction == Direction.kAncestor ? getIdColumnNameChildVertex() : getIdColumnNameParentVertex();
 			final String dst = direction == Direction.kAncestor ? getIdColumnNameParentVertex() : getIdColumnNameChildVertex();
 			
@@ -1085,8 +1043,8 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public Map<String, Map<String, String>> exportVertices(ExportGraph instruction){
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
+	public Map<String, Map<String, String>> exportVertices(final Graph targetGraph){
+		String targetVertexTable = getVertexTableName(targetGraph);
 		
 		List<List<String>> verticesListOfList = executeQueryForResult("select * from " + getVertexAnnotationTableName() 
 				+ " where " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+targetVertexTable+")", true);
@@ -1115,8 +1073,8 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
-	public Set<QueriedEdge> exportEdges(ExportGraph instruction){
-		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+	public Set<QueriedEdge> exportEdges(final Graph targetGraph){
+		String targetEdgeTable = getEdgeTableName(targetGraph);
 		
 		List<List<String>> edgesListOfList = executeQueryForResult("select * from " + getEdgeAnnotationTableName() 
 		+ " where " + getIdColumnName() + " in (select "+getIdColumnName()+" from "+targetEdgeTable+")", true);
@@ -1152,17 +1110,17 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void collapseEdge(CollapseEdge instruction){
-		String sourceVertexTable = getVertexTableName(instruction.sourceGraph);
-		String sourceEdgeTable = getEdgeTableName(instruction.sourceGraph);
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+	public void collapseEdge(Graph targetGraph, Graph sourceGraph, ArrayList<String> fields){
+		String sourceVertexTable = getVertexTableName(sourceGraph);
+		String sourceEdgeTable = getEdgeTableName(sourceGraph);
+		String targetVertexTable = getVertexTableName(targetGraph);
+		String targetEdgeTable = getEdgeTableName(targetGraph);
 
 		String groupByClause = "group by ";
 		groupByClause += "\"" + getIdColumnNameChildVertex() + "\", ";
 		groupByClause += "\"" + getIdColumnNameParentVertex() + "\", ";
 
-		for(String annotationKey : instruction.getFields()){
+		for(String annotationKey : fields){
 			groupByClause += "\"" + annotationKey + "\", ";
 
 		}
@@ -1177,13 +1135,13 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void getSubgraph(GetSubgraph instruction){
-		final String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		final String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
-		final String subjectVertexTable = getVertexTableName(instruction.subjectGraph);
-		final String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
-		final String skeletonVertexTable = getVertexTableName(instruction.skeletonGraph);
-		final String skeletonEdgeTable = getEdgeTableName(instruction.skeletonGraph);
+	public void getSubgraph(Graph targetGraph, Graph subjectGraph, Graph skeletonGraph){
+		final String targetVertexTable = getVertexTableName(targetGraph);
+		final String targetEdgeTable = getEdgeTableName(targetGraph);
+		final String subjectVertexTable = getVertexTableName(subjectGraph);
+		final String subjectEdgeTable = getEdgeTableName(subjectGraph);
+		final String skeletonVertexTable = getVertexTableName(skeletonGraph);
+		final String skeletonEdgeTable = getEdgeTableName(skeletonGraph);
 
 		final String answerTable = "m_answer";
 		
@@ -1216,16 +1174,16 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
-	public void getShortestPath(GetShortestPath instruction){
+	public void getShortestPath(Graph targetGraph, Graph subjectGraph, Graph srcGraph, Graph dstGraph, int maxDepth){
 		String filter;
 		dropTable("m_conn");
 		noResultExecuteQuery("create table m_conn ("+getIdColumnNameChildVertex()+" uuid, "+getIdColumnNameParentVertex()+" uuid)");
-		if(queryEnvironment.isBaseGraph(instruction.subjectGraph)){
+		if(queryEnvironment.isBaseGraph(subjectGraph)){
 			filter = "";
 			noResultExecuteQuery("insert into m_conn select \"" + getIdColumnNameChildVertex() + "\", \"" + getIdColumnNameParentVertex() + "\" "
 					+ "from " + getEdgeAnnotationTableName() + " group by \"" + getIdColumnNameChildVertex() + "\", \"" + getIdColumnNameParentVertex() + "\"");
 		}else{
-			String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
+			String subjectEdgeTable = getEdgeTableName(subjectGraph);
 			filter = " and "+getEdgeAnnotationTableName()+".\""+getIdColumnName()+"\" in (select "+getIdColumnName()+" from " + subjectEdgeTable + ")";
 			dropTable("m_sgedge");
 			noResultExecuteQuery("create table m_sgedge ("+getIdColumnNameChildVertex()+" uuid, "+getIdColumnNameParentVertex()+" uuid)");
@@ -1247,10 +1205,10 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		noResultExecuteQuery("create table m_answer ("+getIdColumnName()+" uuid)");
 
 		noResultExecuteQuery("insert into m_cur select "+getIdColumnName()+", " + getIdColumnName() + " from " 
-				+ getVertexTableName(instruction.dstGraph));
+				+ getVertexTableName(dstGraph));
 		noResultExecuteQuery("insert into m_answer select " + getIdColumnName() + " from m_cur group by " + getIdColumnName());
 		
-		for(int i = 0; i < instruction.maxDepth; ++i){
+		for(int i = 0; i < maxDepth; ++i){
 			noResultExecuteQuery(
 					"insert into m_sgconn select " + getIdColumnNameChildVertex() + ", " + getIdColumnNameParentVertex() + ", reaching, "+String.valueOf(i + 1)+" "
 					+ "from m_cur, m_conn where " + getIdColumnName() + " = " + getIdColumnNameParentVertex());
@@ -1275,19 +1233,19 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		noResultExecuteQuery("create table m_cur ("+getIdColumnName()+" uuid)");
 		noResultExecuteQuery("create table m_next ("+getIdColumnName()+" uuid)");
 
-		noResultExecuteQuery("insert into m_cur select " + getIdColumnName() + " from " + getVertexTableName(instruction.srcGraph)
+		noResultExecuteQuery("insert into m_cur select " + getIdColumnName() + " from " + getVertexTableName(srcGraph)
 				+ " where " + getIdColumnName() + " in (select "+getIdColumnName()+" from m_answer)");
 
 		dropTable("m_answer");
 		noResultExecuteQuery("create table m_answer ("+getIdColumnName()+" uuid)");
 		noResultExecuteQuery("insert into m_answer select " + getIdColumnName() + " from m_cur");
 
-		for(int i = 0; i < instruction.maxDepth; ++i){
+		for(int i = 0; i < maxDepth; ++i){
 			dropTable("m_next");
 			noResultExecuteQuery("create table m_next ("+getIdColumnName()+" uuid)");
 			noResultExecuteQuery("insert into m_next select min(" + getIdColumnNameParentVertex() + "::text)::uuid" // TODO as?
 					+ " from m_cur, m_sgconn where " + getIdColumnName() + " = " + getIdColumnNameChildVertex() + " and depth + " + String.valueOf(i) 
-					+ " <= " + String.valueOf(instruction.maxDepth) + " group by " + getIdColumnNameChildVertex() + ", reaching");
+					+ " <= " + String.valueOf(maxDepth) + " group by " + getIdColumnNameChildVertex() + ", reaching");
 			dropTable("m_cur");
 			noResultExecuteQuery("create table m_cur ("+getIdColumnName()+" uuid)");
 			noResultExecuteQuery("insert into m_cur select "+getIdColumnName()+" from m_next where "
@@ -1301,8 +1259,8 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 			}
 		}
 
-		String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+		String targetVertexTable = getVertexTableName(targetGraph);
+		String targetEdgeTable = getEdgeTableName(targetGraph);
 
 		noResultExecuteQuery("insert into " + targetVertexTable + " select " + getIdColumnName() + " from m_answer");
 		noResultExecuteQuery("insert into " + targetEdgeTable + " select \"" + getIdColumnName() + "\" from " + getEdgeAnnotationTableName()
@@ -1312,24 +1270,25 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
-	public void getLineage(GetLineage instruction){
+	public void getLineage(Graph targetGraph, Graph subjectGraph, Graph startGraph, int depth, Direction directionArg,
+			boolean onlyLocal){
 		final List<Direction> directions = new ArrayList<Direction>();
-		if(instruction.direction == Direction.kBoth){
+		if(directionArg == Direction.kBoth){
 			directions.add(Direction.kAncestor);
 			directions.add(Direction.kDescendant);
 		}else{
-			directions.add(instruction.direction);
+			directions.add(directionArg);
 		}
 
-		final String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		final String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
-		final String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
+		final String targetVertexTable = getVertexTableName(targetGraph);
+		final String targetEdgeTable = getEdgeTableName(targetGraph);
+		final String subjectEdgeTable = getEdgeTableName(subjectGraph);
 		final String currentTable = "m_cur";
 		final String nextTable = "m_next";
 		final String answerTable = "m_answer";
 		final String answerEdgeTable = "m_answer_edge";
 		
-		final String filter = queryEnvironment.isBaseGraph(instruction.subjectGraph) ? ""
+		final String filter = queryEnvironment.isBaseGraph(subjectGraph) ? ""
 				: " and " + getEdgeAnnotationTableName() + "." + getIdColumnName() 
 				+ " in (select "+getIdColumnName()+" from "+subjectEdgeTable+")";
 
@@ -1337,7 +1296,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 			if(direction != Direction.kAncestor && direction != Direction.kDescendant){
 				throw new RuntimeException("Unexpected direction: " + direction);
 			}
-			final String startVertexTable = getVertexTableName(instruction.startGraph);
+			final String startVertexTable = getVertexTableName(startGraph);
 			final String src = direction == Direction.kAncestor ? getIdColumnNameChildVertex() : getIdColumnNameParentVertex();
 			final String dst = direction == Direction.kAncestor ? getIdColumnNameParentVertex() : getIdColumnNameChildVertex();
 			
@@ -1349,7 +1308,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 			executeQueryForResult("insert into "+currentTable+" select "+getIdColumnName()+" from " + startVertexTable + ";", false);
 			executeQueryForResult("insert into " + answerTable + " select " + getIdColumnName() + " from " + currentTable + ";", false);
 
-			for(int i = 0; i < instruction.depth; ++i){
+			for(int i = 0; i < depth; ++i){
 				createUUIDTable(nextTable, true);
 				executeQueryForResult("insert into " + nextTable + " select \"" + dst + "\" from " + getEdgeAnnotationTableName()
 					+ " where \"" + src + "\" in (select "+getIdColumnName()+" from "+currentTable+")"
@@ -1382,8 +1341,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
-	public void getPath(GetSimplePath instruction){
-		final int maxDepth = instruction.maxDepth;
+	public void getSimplePath(Graph targetGraph, Graph subjectGraph, Graph srcGraph, Graph dstGraph, int maxDepth){
 		
 		final String depthColumnName = "depth";
 		final String currentTable = "m_cur";
@@ -1391,11 +1349,11 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		final String answerTable = "m_answer";
 		final String currentSubgraphTable = "m_sgconn";
 		
-		final String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		final String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
-		final String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
-		final String dstVertexTable = getVertexTableName(instruction.dstGraph);
-		final String srcVertexTable = getVertexTableName(instruction.srcGraph);
+		final String targetVertexTable = getVertexTableName(targetGraph);
+		final String targetEdgeTable = getEdgeTableName(targetGraph);
+		final String subjectEdgeTable = getEdgeTableName(subjectGraph);
+		final String dstVertexTable = getVertexTableName(dstGraph);
+		final String srcVertexTable = getVertexTableName(srcGraph);
 		
 		createUUIDTable(currentTable, true);
 		createUUIDTable(nextTable, true);
@@ -1410,7 +1368,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		executeQueryForResult("insert into "+currentTable+" select "+getIdColumnName()+" from " + dstVertexTable, false);
 		executeQueryForResult("insert into "+answerTable+" select "+getIdColumnName()+" from " + currentTable, false);
 		
-		final String filter = queryEnvironment.isBaseGraph(instruction.subjectGraph) 
+		final String filter = queryEnvironment.isBaseGraph(subjectGraph) 
 				? "" : " and "+getEdgeAnnotationTableName()+"."+getIdColumnName()+" in (select "+getIdColumnName()+" from " + subjectEdgeTable + ")";
 		
 		final String q0 = "insert into " + currentSubgraphTable + " select \"" + getIdColumnNameChildVertex() + "\", \""
@@ -1458,7 +1416,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		final String qq0 = ""; // createUUIDTable(nextTable, true);
 		final String qq1 = "insert into " + nextTable + " select \"" + getIdColumnNameParentVertex() + "\" from " + currentSubgraphTable
 				+ " where \"" + getIdColumnNameChildVertex() + "\" in (select "+getIdColumnName()+" from "+currentTable+")"
-				+ " and " + depthColumnName + " + %s <= " + instruction.maxDepth + " group by \""+getIdColumnNameParentVertex()+"\";";
+				+ " and " + depthColumnName + " + %s <= " + maxDepth + " group by \""+getIdColumnNameParentVertex()+"\";";
 		final String qq2 = "insert into " + targetEdgeTable + " select " + getIdColumnName() + " from " + getEdgeAnnotationTableName()
 				+ " where \""+getIdColumnNameChildVertex()+"\" in (select " + getIdColumnName() + " from " + currentTable + ")"
 				+ " and \""+getIdColumnNameParentVertex()+"\" in (select "+getIdColumnName()+" from "+nextTable+") " + filter + ";";
@@ -1491,12 +1449,12 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
-	public void getLink(GetLink instruction){
-		if(instruction.maxDepth <= 0){
+	public void getLink(Graph targetGraph, Graph subjectGraph, Graph srcGraph, Graph dstGraph, int maxDepth){
+		if(maxDepth <= 0){
 			return;
 		}
 		
-		final int maxDepth = instruction.maxDepth - 1;
+		maxDepth = maxDepth - 1;
 		
 		final String depthColumnName = "depth";
 		final String currentTable = "m_cur";
@@ -1504,11 +1462,11 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		final String answerTable = "m_answer";
 		final String currentSubgraphTable = "m_sgconn";
 		
-		final String dstVertexTable = getVertexTableName(instruction.dstGraph);
-		final String srcVertexTable = getVertexTableName(instruction.srcGraph);
-		final String subjectEdgeTable = getEdgeTableName(instruction.subjectGraph);
-		final String targetVertexTable = getVertexTableName(instruction.targetGraph);
-		final String targetEdgeTable = getEdgeTableName(instruction.targetGraph);
+		final String dstVertexTable = getVertexTableName(dstGraph);
+		final String srcVertexTable = getVertexTableName(srcGraph);
+		final String subjectEdgeTable = getEdgeTableName(subjectGraph);
+		final String targetVertexTable = getVertexTableName(targetGraph);
+		final String targetEdgeTable = getEdgeTableName(targetGraph);
 		
 		createUUIDTable(currentTable, true);
 		createUUIDTable(nextTable, true);
@@ -1524,7 +1482,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		executeQueryForResult("insert into "+answerTable+" select "+getIdColumnName()+" from " + currentTable, false);
 		
 		
-		final String filter = queryEnvironment.isBaseGraph(instruction.subjectGraph) 
+		final String filter = queryEnvironment.isBaseGraph(subjectGraph) 
 				? "" : " and "+getEdgeAnnotationTableName()+"."+getIdColumnName()+" in (select "+getIdColumnName()+" from " + subjectEdgeTable + ")";
 		final String q0 = "insert into "+currentSubgraphTable+" select \""+getIdColumnNameChildVertex()+"\", \""+getIdColumnNameParentVertex()+"\", %s from " + getEdgeAnnotationTableName()
 				+ " where \""+getIdColumnNameParentVertex()+"\" in (select "+getIdColumnName()+" from " + currentTable + ")"
@@ -1577,10 +1535,10 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		final String qq0 = ""; // createUUIDTable(nextTable, true);
 		final String qq1 = "insert into " + nextTable + " select \"" + getIdColumnNameParentVertex() + "\" from " + currentSubgraphTable
 				+ " where \"" + getIdColumnNameChildVertex() + "\" in (select "+getIdColumnName()+" from "+currentTable+")"
-				+ " and " + depthColumnName + " + %s <= " + instruction.maxDepth + " group by \""+getIdColumnNameParentVertex()+"\";";
+				+ " and " + depthColumnName + " + %s <= " + maxDepth + " group by \""+getIdColumnNameParentVertex()+"\";";
 		final String qq2 = "insert into " + nextTable + " select \"" + getIdColumnNameChildVertex() + "\" from " + currentSubgraphTable
 				+ " where \"" + getIdColumnNameParentVertex() + "\" in (select "+getIdColumnName()+" from "+currentTable+")"
-				+ " and " + depthColumnName + " + %s <= " + instruction.maxDepth + " group by \""+getIdColumnNameChildVertex()+"\";";
+				+ " and " + depthColumnName + " + %s <= " + maxDepth + " group by \""+getIdColumnNameChildVertex()+"\";";
 		final String qq3 = ""; // createUUIDTable(cursorTable, true);
 		final String qq4 = "insert into " + currentTable + " select " + getIdColumnName() + " from " + nextTable 
 				+ " where " + getIdColumnName() + " not in (select "+getIdColumnName()+" from "+answerTable+");";
@@ -1616,9 +1574,9 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
-	public void createEmptyGraphMetadata(CreateEmptyGraphMetadata instruction){
-		String vertexTable = getMetadataVertexTableName(instruction.metadata);
-		String edgeTable = getMetadataEdgeTableName(instruction.metadata);
+	public void createEmptyGraphMetadata(GraphMetadata metadata){
+		String vertexTable = getMetadataVertexTableName(metadata);
+		String edgeTable = getMetadataEdgeTableName(metadata);
 
 		StringBuilder sb = new StringBuilder();
 		sb.append("DROP TABLE " + vertexTable + ";\n");
@@ -1629,13 +1587,13 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void overwriteGraphMetadata(OverwriteGraphMetadata instruction){
-		String targetVertexTable = getMetadataVertexTableName(instruction.targetMetadata);
-		String targetEdgeTable = getMetadataEdgeTableName(instruction.targetMetadata);
-		String lhsVertexTable = getMetadataVertexTableName(instruction.lhsMetadata);
-		String lhsEdgeTable = getMetadataEdgeTableName(instruction.lhsMetadata);
-		String rhsVertexTable = getMetadataVertexTableName(instruction.rhsMetadata);
-		String rhsEdgeTable = getMetadataEdgeTableName(instruction.rhsMetadata);
+	public void overwriteGraphMetadata(GraphMetadata targetMetadata, GraphMetadata lhsMetadata, GraphMetadata rhsMetadata){
+		String targetVertexTable = getMetadataVertexTableName(targetMetadata);
+		String targetEdgeTable = getMetadataEdgeTableName(targetMetadata);
+		String lhsVertexTable = getMetadataVertexTableName(lhsMetadata);
+		String lhsEdgeTable = getMetadataEdgeTableName(lhsMetadata);
+		String rhsVertexTable = getMetadataVertexTableName(rhsMetadata);
+		String rhsEdgeTable = getMetadataEdgeTableName(rhsMetadata);
 
 		executeQueryForResult("INSERT INTO " + targetVertexTable + " SELECT id, name, value FROM " + lhsVertexTable
 				+ " l" + " WHERE NOT EXISTS (SELECT * FROM " + rhsVertexTable + " r"
@@ -1647,18 +1605,19 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
-	public void setGraphMetadata(SetGraphMetadata instruction){
-		String targetVertexTable = getMetadataVertexTableName(instruction.targetMetadata);
-		String targetEdgeTable = getMetadataEdgeTableName(instruction.targetMetadata);
-		String sourceVertexTable = getVertexTableName(instruction.sourceGraph);
-		String sourceEdgeTable = getEdgeTableName(instruction.sourceGraph);
+	public void setGraphMetadata(GraphMetadata targetMetadata, SetGraphMetadata.Component component, Graph sourceGraph, String name,
+			String value){
+		String targetVertexTable = getMetadataVertexTableName(targetMetadata);
+		String targetEdgeTable = getMetadataEdgeTableName(targetMetadata);
+		String sourceVertexTable = getVertexTableName(sourceGraph);
+		String sourceEdgeTable = getEdgeTableName(sourceGraph);
 
-		if(instruction.component == Component.kVertex || instruction.component == Component.kBoth){
+		if(component == Component.kVertex || component == Component.kBoth){
 //			executeQueryForResult("INSERT INTO " + targetVertexTable + " SELECT id, " + FormatStringLiteral(instruction.name)
 //					+ ", " + FormatStringLiteral(instruction.value) + " FROM " + sourceVertexTable + " GROUP BY id;");
 		}
 
-		if(instruction.component == Component.kEdge || instruction.component == Component.kBoth){
+		if(component == Component.kEdge || component == Component.kBoth){
 //			executeQueryForResult("INSERT INTO " + targetEdgeTable + " SELECT id, " + FormatStringLiteral(instruction.name)
 //					+ ", " + FormatStringLiteral(instruction.value) + " FROM " + sourceEdgeTable + " GROUP BY id;");
 		}

@@ -21,27 +21,30 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
-public class GetWhereAnnotationsExist extends Instruction{
+public class GetWhereAnnotationsExist extends Instruction<String>{
 
 	public final Graph targetGraph;
 	public final Graph subjectGraph;
 	private final ArrayList<String> annotationNames = new ArrayList<String>();
-	
-	public GetWhereAnnotationsExist(final Graph targetGraph, final Graph subjectGraph, final ArrayList<String> annotationNames){
+
+	public GetWhereAnnotationsExist(final Graph targetGraph, final Graph subjectGraph,
+			final ArrayList<String> annotationNames){
 		this.targetGraph = targetGraph;
 		this.subjectGraph = subjectGraph;
 		if(annotationNames != null){
 			this.annotationNames.addAll(annotationNames);
 		}
 	}
-	
+
 	public final ArrayList<String> getAnnotationKeys(){
 		return new ArrayList<String>(annotationNames);
 	}
-	
+
 	@Override
 	public String getLabel(){
 		return "GetWhereAnnotationsExist";
@@ -59,5 +62,10 @@ public class GetWhereAnnotationsExist extends Instruction{
 		inline_field_names.add("annotationNames");
 		inline_field_values.add(String.join(",", annotationNames));
 	}
-	
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.getWhereAnnotationsExist(targetGraph, subjectGraph, annotationNames);
+		return null;
+	}
 }

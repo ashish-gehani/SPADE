@@ -21,6 +21,8 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
@@ -30,7 +32,7 @@ import spade.query.quickgrail.utility.TreeStringSerializable;
  *
  * Warning: This operation could be very slow when the input graph is large.
  */
-public class GetShortestPath extends Instruction{
+public class GetShortestPath extends Instruction<String>{
 	// Output graph.
 	public final Graph targetGraph;
 	// Input graph.
@@ -70,5 +72,11 @@ public class GetShortestPath extends Instruction{
 		inline_field_values.add(dstGraph.name);
 		inline_field_names.add("maxDepth");
 		inline_field_values.add(String.valueOf(maxDepth));
+	}
+
+	@Override
+	public final String execute(final QueryInstructionExecutor executor){
+		executor.getShortestPath(targetGraph, subjectGraph, srcGraph, dstGraph, maxDepth);
+		return null;
 	}
 }
