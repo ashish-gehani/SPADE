@@ -61,7 +61,7 @@ dump all $paths
   * `stat` _graph_
 * Print graph as a SPADE `Graph`
   * `dump` _graph_
-  * using `all` prints entire graph, even if it exceeds limit in `cfg/spade.query.quickgrail.QuickGrailExecutor.config`
+  * using `all` prints entire graph, even if it exceeds limit in `exportLimit` environment variable
 * Print constraint
   * `dump` _constraint_
 * Remove a list of variables (_graph_ or _constraint_)
