@@ -1,0 +1,5 @@
+$passwd = $base.getVertex("path" = '/etc/passwd')
+$lineage = $base.getLineage($passwd, 6, 'd')
+stat $lineage
+remote list $lineage
+dump all $lineage
