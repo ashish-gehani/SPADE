@@ -931,8 +931,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
-	public void getLineage(Graph targetGraph, Graph subjectGraph, Graph startGraph, int depth, Direction direction,
-			boolean onlyLocal){
+	public void getLineage(Graph targetGraph, Graph subjectGraph, Graph startGraph, int depth, Direction direction){
 		final String edgeProperty = "e1.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		if(direction.equals(GetLineage.Direction.kAncestor) || direction.equals(GetLineage.Direction.kBoth)){
 			String query = "match ";

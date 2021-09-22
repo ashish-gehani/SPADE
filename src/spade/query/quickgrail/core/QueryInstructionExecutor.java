@@ -45,7 +45,9 @@ import spade.query.quickgrail.entities.GraphMetadata;
 import spade.query.quickgrail.entities.GraphPredicate;
 import spade.query.quickgrail.instruction.DescribeGraph;
 import spade.query.quickgrail.instruction.DescribeGraph.ElementType;
+import spade.query.quickgrail.instruction.ExportGraph;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint.Component;
+import spade.query.quickgrail.instruction.GetGraphStatistic;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.instruction.GetLineage.Direction;
 import spade.query.quickgrail.instruction.SaveGraph;
@@ -162,8 +164,7 @@ public abstract class QueryInstructionExecutor{
 	public abstract long getGraphStatisticSize(final Graph graph, final ElementType elementType,
 			final String annotationKey);
 
-	public abstract void getLineage(Graph targetGraph, Graph subjectGraph, Graph startGraph, int depth, Direction direction,
-			boolean onlyLocal);
+	public abstract void getLineage(Graph targetGraph, Graph subjectGraph, Graph startGraph, int depth, Direction direction);
 
 	public abstract void getLink(Graph targetGraph, Graph subjectGraph, Graph srcGraph, Graph dstGraph, int maxDepth);
 
@@ -202,7 +203,7 @@ public abstract class QueryInstructionExecutor{
 		for(final String symbolName : symbolNames){
 			final Graph graph = environment.getGraphSymbol(symbolName);
 			try{
-				final GraphStatistic.Count count = getGraphCount(graph);
+				final GraphStatistic.Count count = new GetGraphStatistic.Count(graph).execute(this);
 				result.put(symbolName, count);
 			}catch(RuntimeException e){
 				throw new RuntimeException("Failed to stat graph: '" + symbolName + "'", e);
@@ -259,7 +260,8 @@ public abstract class QueryInstructionExecutor{
 
 	public final void saveGraph(final Graph targetGraph, final SaveGraph.Format format, final boolean force,
 			final String filePath){
-		final spade.core.Graph exportedGraph = exportGraph(targetGraph, force);
+		final boolean verify = false;
+		final spade.core.Graph exportedGraph = new ExportGraph(targetGraph, force, verify).execute(this);
 		try{
 			spade.core.Graph.exportGraphToFile(format, filePath, exportedGraph);
 		}catch(Exception e){
@@ -555,4 +557,42 @@ public abstract class QueryInstructionExecutor{
 			}
 		}
 	}
+
+	public final ArrayList<Integer> getPathLengths(final Graph subjectGraph, final Graph startGraph, 
+			final Graph toGraph, final int maxDepth){
+		final java.util.ArrayList<Integer> result = new java.util.ArrayList<Integer>();
+		final Graph commonGraph = createNewGraph();
+		final Graph currentLevelGraph = createNewGraph();
+		final Graph sourceGraph = createNewGraph();
+		final Graph adjacentGraph = createNewGraph();
+		unionGraph(sourceGraph, startGraph);
+		for(int i = 0; i < maxDepth; i++){
+			getAdjacentVertex(adjacentGraph, subjectGraph, sourceGraph, GetLineage.Direction.kAncestor);
+
+			subtractGraph(currentLevelGraph, adjacentGraph, sourceGraph, Graph.Component.kVertex);
+			final GraphStatistic.Count currentLevelCount = getGraphCount(currentLevelGraph);
+			if(currentLevelCount.getVertices() <= 0){
+				break;
+			}
+
+			intersectGraph(commonGraph, currentLevelGraph, toGraph);
+			final GraphStatistic.Count commonCount = getGraphCount(commonGraph);
+			if(commonCount.getVertices() > 0){
+				// Found a path at this depth
+				result.add(i + 1);
+			}
+
+			clearGraph(adjacentGraph);
+			clearGraph(commonGraph);
+			clearGraph(sourceGraph);
+			unionGraph(sourceGraph, currentLevelGraph);
+			clearGraph(currentLevelGraph);
+		}
+		clearGraph(adjacentGraph);
+		clearGraph(commonGraph);
+		clearGraph(sourceGraph);
+		clearGraph(currentLevelGraph);
+		return result;
+	}
+
 }

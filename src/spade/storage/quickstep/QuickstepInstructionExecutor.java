@@ -1277,8 +1277,8 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		qs.executeQuery("DROP TABLE m_answer;");
 	}
 
-	public void getLineage(Graph targetGraph, Graph subjectGraph, Graph startGraph, int depth, Direction directionArg,
-			boolean onlyLocal){
+	@Override
+	public void getLineage(Graph targetGraph, Graph subjectGraph, Graph startGraph, int depth, Direction directionArg){
 		List<Direction> oneDirs = new ArrayList<Direction>();
 		if(directionArg == Direction.kBoth){
 			oneDirs.add(Direction.kAncestor);

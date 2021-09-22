@@ -99,6 +99,10 @@ public class DiscrepancyDetector{
 		}
 	}
 
+	public final boolean isFindInconsistency(){
+		return findInconsistency;
+	}
+
 	// true if no error
 	public synchronized boolean doDiscrepancyDetection(final spade.core.Graph newGraph,
 			final Set<AbstractVertex> newGraphStartVertices, final int newGraphMaxDepth,

@@ -57,6 +57,10 @@ public abstract class List implements Serializable{
 			map.put(symbolName, count);
 		}		
 
+		public final boolean contains(final String symbolName){
+			return map.get(symbolName) != null;
+		}
+
 		private final void addRow(final ResultTable table, final String name){
 			final GraphStatistic.Count count = map.get(name);
 			final ResultTable.Row row = new ResultTable.Row();

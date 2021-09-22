@@ -26,6 +26,7 @@ import java.math.BigInteger;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -43,6 +44,7 @@ import org.json.JSONObject;
 import com.google.privacy.differentialprivacy.Count;
 
 import spade.core.Settings;
+import spade.transformer.ABE;
 import spade.utility.Execute.Output;
 
 public class HelperFunctions{
@@ -883,4 +885,47 @@ public class HelperFunctions{
 		return result;
 	}
 
+	public static int max(final Collection<Integer> collection){
+		int max = Integer.MIN_VALUE;
+		final Iterator<Integer> iterator = collection.iterator();
+		while(iterator.hasNext()){
+			final Integer i = iterator.next();
+			if(i != null){
+				if(i > max){
+					max = i;
+				}
+			}
+		}
+		return max;
+	}
+
+	public static int min(final Collection<Integer> collection){
+		int min = Integer.MAX_VALUE;
+		final Iterator<Integer> iterator = collection.iterator();
+		while(iterator.hasNext()){
+			final Integer i = iterator.next();
+			if(i != null){
+				if(i < min){
+					min = i;
+				}
+			}
+		}
+		return min;
+	}
+
+	public static spade.core.Graph decryptGraph(final spade.core.Graph graph){
+		if(graph instanceof ABEGraph){
+			final ABE decrypter = new ABE();
+			final boolean canDecrypt = decrypter.initialize(null);
+			if(canDecrypt){
+				final spade.core.Graph graphDecrypted = decrypter.decryptGraph((spade.utility.ABEGraph)graph);
+				graphDecrypted.setHostName(graph.getHostName());
+				return graphDecrypted;
+			}else{
+				throw new RuntimeException("Failed to initialize ABE decryption");
+			}
+		}else{
+			return graph;
+		}
+	}
 }

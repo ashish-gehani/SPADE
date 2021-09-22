@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2018 SRI International
+ Copyright (C) 2021 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -23,27 +23,29 @@ import java.util.ArrayList;
 
 import spade.query.quickgrail.core.Instruction;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
-import spade.query.quickgrail.core.RemoteGraph;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
-/**
- * Export a QuickGrail graph to spade.core.Graph or to DOT representation.
- */
-public class ExportGraph extends Instruction<spade.core.Graph>{
+public class GetPathLengths extends Instruction<java.util.ArrayList<Integer>>{
 
-	public final Graph targetGraph;
-	public final boolean force, verify;
+	public final Graph startGraph, subjectGraph, toGraph;
+	public final int maxDepth;
 
-	public ExportGraph(final Graph targetGraph, final boolean force, final boolean verify){
-		this.targetGraph = targetGraph;
-		this.force = force;
-		this.verify = verify;
+	public GetPathLengths(final Graph startGraph, final Graph subjectGraph, final Graph toGraph, final int maxDepth){
+		this.startGraph = startGraph;
+		this.subjectGraph = subjectGraph;
+		this.toGraph = toGraph;
+		this.maxDepth = maxDepth;
+	}
+
+	@Override
+	public java.util.ArrayList<Integer> execute(final QueryInstructionExecutor executor){
+		return executor.getPathLengths(subjectGraph, startGraph, toGraph, maxDepth);
 	}
 
 	@Override
 	public String getLabel(){
-		return "ExportGraph";
+		return "GetPathLengths";
 	}
 
 	@Override
@@ -51,25 +53,14 @@ public class ExportGraph extends Instruction<spade.core.Graph>{
 			ArrayList<String> non_container_child_field_names,
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("targetGraph");
-		inline_field_values.add(targetGraph.name);
-		inline_field_names.add("force");
-		inline_field_values.add(String.valueOf(force));
-		inline_field_names.add("verify");
-		inline_field_values.add(String.valueOf(verify));
+		inline_field_names.add("startGraph");
+		inline_field_values.add(startGraph.name);
+		inline_field_names.add("subjectGraph");
+		inline_field_values.add(subjectGraph.name);
+		inline_field_names.add("toGraph");
+		inline_field_values.add(toGraph.name);
+		inline_field_names.add("maxDepth");
+		inline_field_values.add(String.valueOf(maxDepth));
 	}
 
-	@Override
-	public final spade.core.Graph execute(final QueryInstructionExecutor executor){
-		spade.core.Graph resultGraph = executor.exportGraph(targetGraph, force);
-		if(resultGraph == null){
-			resultGraph = new spade.core.Graph();
-		}
-
-		final boolean verifyRemote = false;
-		final RemoteGraph remoteGraph = new RemoteVariableOperation.Export(targetGraph, force, verifyRemote).execute(executor);
-		resultGraph.union(remoteGraph);
-
-		return resultGraph;
-	}
 }

@@ -22,6 +22,7 @@ package spade.query.quickgrail.instruction;
 import java.io.Serializable;
 import java.util.ArrayList;
 
+import spade.query.quickgrail.core.GraphRemoteCount;
 import spade.query.quickgrail.core.GraphStatistic;
 import spade.query.quickgrail.core.Instruction;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
@@ -78,7 +79,24 @@ public abstract class GetGraphStatistic<R extends GraphStatistic> extends Instru
 
 		@Override
 		public final GraphStatistic.Count execute(final QueryInstructionExecutor executor){
-			return executor.getGraphCount(graph);
+			GraphStatistic.Count result = executor.getGraphCount(graph);
+			long remoteVertexCount = 0, remoteEdgeCount = 0;
+			final GraphRemoteCount remoteCounts = new RemoteVariableOperation.List(graph).execute(executor);
+			for(final GraphStatistic.Count count : remoteCounts.get().values()){
+				if(count.getVertices() > 0){
+					remoteVertexCount += count.getVertices();
+				}
+				if(count.getEdges() > 0){
+					remoteEdgeCount += count.getEdges();
+				}
+			}
+			if(result == null){
+				result = new GraphStatistic.Count(remoteVertexCount, remoteEdgeCount);
+			}else{
+				result.addVertices(remoteVertexCount);
+				result.addEdges(remoteEdgeCount);
+			}
+			return result;
 		}
 	}
 

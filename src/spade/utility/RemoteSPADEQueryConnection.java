@@ -34,6 +34,7 @@ import javax.net.SocketFactory;
 import spade.core.AbstractStorage;
 import spade.core.Query;
 import spade.query.quickgrail.core.GraphStatistic;
+import spade.query.quickgrail.core.List;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.query.quickgrail.utility.ResultTable;
 
@@ -82,7 +83,20 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 	private synchronized final void removeSymbol(String symbol){
 		generatedSymbols.remove(symbol);
 	}
-	
+
+	public final String generateUniqueRemoteSymbolName(){
+		final spade.query.quickgrail.core.List.GraphList graphList = getGraphList();
+		int serialNumber = 0;
+		final String generatedNamePrefix = "$remote_lineage_";
+		while(true){
+			final String generatedName = generatedNamePrefix + serialNumber;
+			serialNumber++;
+			if(!graphList.contains(generatedName)){
+				return generatedName;
+			}
+		}
+	}
+
 	public synchronized void connect(final SocketFactory socketFactory, final int timeoutInMillis) throws Exception{
 		mustNotBeConnected();
 		
@@ -205,6 +219,10 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 		Query response = executeQuery("stat " + symbol);
 		return (GraphStatistic.Count)response.getResult();
 	}
+
+	public synchronized List.GraphList getGraphList(){
+		return (List.GraphList)(executeQuery("list graph").getResult());
+	}
 	
 	public synchronized String getBaseVertices(String predicate){
 		return getVertices(baseSymbol, predicate);
@@ -223,12 +241,17 @@ public final class RemoteSPADEQueryConnection implements Closeable{
 	}
 	
 	public synchronized spade.core.Graph exportGraph(final String symbol){
-		return exportGraph(symbol, true);
+		return exportGraph(symbol, true, true);
 	}
 	
-	public synchronized spade.core.Graph exportGraph(final String symbol, final boolean verify){
+	public synchronized spade.core.Graph exportGraph(final String symbol, final boolean force, final boolean verify){
 		final String nonce = String.valueOf(System.nanoTime());
-		Query response = executeQuery("dump force " + symbol, nonce);
+		String queryString = "dump ";
+		if(force){
+			queryString += "all ";
+		}
+		queryString += symbol;
+		Query response = executeQuery(queryString, nonce);
 		spade.core.Graph graph = (spade.core.Graph)response.getResult();
 		if(verify){
 			if(!graph.verifySignature(nonce)){

@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2018 SRI International
+ Copyright (C) 2021 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -19,38 +19,28 @@
  */
 package spade.query.quickgrail.core;
 
-import java.io.Serializable;
+import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
 
-import spade.core.AbstractTransformer;
-import spade.query.quickgrail.utility.TreeStringSerializable;
+public class RemoteGraph extends spade.core.Graph{
 
-/**
- * Interface for a QuickGrail primitive instruction.
- */
-public abstract class Instruction<R extends Serializable>extends TreeStringSerializable{
+	private static final long serialVersionUID = 8086586645137800461L;
 
-	private Serializable result;
+	public final String localName;
 
-	public final Serializable getResult(){
-		return result;
+	public RemoteGraph(final String localName){
+		this.localName = localName;
 	}
 
-	public final void setResult(final Serializable result){
-		this.result = result;
+	public void put(final String remoteUri, final spade.core.Graph graph){
+		final String keyRemoteUri = "SPADE URI";
+		for(final AbstractVertex vertex : graph.vertexSet()){
+			vertex.addAnnotation(keyRemoteUri, remoteUri);
+			super.putVertex(vertex);
+		}
+		for(final AbstractEdge edge : graph.edgeSet()){
+			edge.addAnnotation(keyRemoteUri, remoteUri);
+			super.putEdge(edge);
+		}
 	}
-
-	// Pre-execution
-	public void updateTransformerExecutionContext(final QueryInstructionExecutor executor,
-			final AbstractTransformer.ExecutionContext context){
-		// Nothing
-	}
-
-	// Execution
-	public abstract R execute(final QueryInstructionExecutor executor);
-
-	// Post-execution
-	public void postExecute(final QueryInstructionExecutor executor){
-		// Nothing
-	}
-
 }

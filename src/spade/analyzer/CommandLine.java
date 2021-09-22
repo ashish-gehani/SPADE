@@ -256,6 +256,8 @@ public class CommandLine extends AbstractAnalyzer{
 					lines.addAll(getConstraintHelp(tab));
 					lines.add("");
 					lines.addAll(getGraphHelp(tab));
+					lines.add("");
+					lines.addAll(getRemoteVariablesHelp(tab));
 				}
 				break;
 				case CONTROL:{
@@ -274,6 +276,10 @@ public class CommandLine extends AbstractAnalyzer{
 					lines.addAll(getEnvironmentVariablesHelp(tab));
 				}
 				break;
+				case REMOTE:{
+					lines.addAll(getRemoteVariablesHelp(tab));
+				}
+				break;
 				default: throw new RuntimeException("Unknown type for help command: " + type);
 			}
 			
@@ -287,9 +293,23 @@ public class CommandLine extends AbstractAnalyzer{
 		private final List<String> getEnvironmentVariablesHelp(final String tab){
 			return new ArrayList<String>(Arrays.asList(
 					"Environment Variable(s) help:",
-					tab + "env set maxDepth|limit <number>",
-					tab + "env unset maxDepth|limit",
-					tab + "env print maxDepth|limit"
+					tab + "env set <name> <number>",
+					tab + "env unset <name>",
+					tab + "env print <name>"
+					));
+		}
+
+		private final List<String> getRemoteVariablesHelp(final String tab){
+			return new ArrayList<String>(Arrays.asList(
+					"Remote Variable(s) help:",
+					tab + "remote create \"<remote host>\" <remote graph variable>",
+					tab + "remote query \"<remote host>\" '<remote query string>'",
+					tab + "remote link <local graph variable> \"<remote host>\" <remote graph variable>",
+					tab + "remote unlink <local graph variable> \"<remote host>\" <remote graph variable>",
+					tab + "remote clear <local graph variable>",
+					tab + "remote copy <local src graph variable> <local dst graph variable>",
+					tab + "remote list <local graph variable>",
+					tab + "remote export <local graph variable>"
 					));
 		}
 		

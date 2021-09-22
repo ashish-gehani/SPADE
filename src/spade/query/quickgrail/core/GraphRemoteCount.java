@@ -34,7 +34,7 @@ public class GraphRemoteCount implements Serializable{
 
 	public final String localName;
 
-	public final Map<String, GraphStatistic.Count> remotes = new TreeMap<>();
+	private final Map<String, GraphStatistic.Count> remotes = new TreeMap<>();
 
 	public GraphRemoteCount(final String localName){
 		this.localName = localName;
@@ -42,6 +42,10 @@ public class GraphRemoteCount implements Serializable{
 
 	public void put(final String remoteUri, final GraphStatistic.Count count){
 		remotes.put(remoteUri, count);
+	}
+
+	public Map<String, GraphStatistic.Count> get(){
+		return remotes;
 	}
 
 	public ResultTable getAsResultTable(){

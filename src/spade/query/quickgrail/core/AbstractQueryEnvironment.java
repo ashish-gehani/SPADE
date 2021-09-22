@@ -21,8 +21,10 @@ package spade.query.quickgrail.core;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import spade.query.quickgrail.entities.Graph;
@@ -391,9 +393,25 @@ public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
 		}
 	}
 
-	public final void copyRemoteSymbols(final Graph graph, final Graph dstGraph){
-		for(final Graph.Remote remote : graph.getRemotes()){
+	public final void copyRemoteSymbols(final Graph dstGraph, final Graph srcGraph){
+		for(final Graph.Remote remote : srcGraph.getRemotes()){
 			setRemoteSymbol(dstGraph, remote);
+		}
+	}
+
+	public final void intersectRemoteSymbols(final Graph resultGraph, final Graph lhsGraph, final Graph rhsGraph){
+		final Set<Graph.Remote> commonRemotes = new HashSet<Graph.Remote>(lhsGraph.getRemotes());
+		commonRemotes.retainAll(new HashSet<Graph.Remote>(rhsGraph.getRemotes()));
+		for(final Graph.Remote commonRemote : commonRemotes){
+			setRemoteSymbol(resultGraph, commonRemote);
+		}
+	}
+
+	public final void subtractRemoteSymbols(final Graph resultGraph, final Graph lhsGraph, final Graph rhsGraph){
+		final Set<Graph.Remote> onlyLHSRemotes = new HashSet<Graph.Remote>(lhsGraph.getRemotes());
+		onlyLHSRemotes.removeAll(new HashSet<Graph.Remote>(rhsGraph.getRemotes()));
+		for(final Graph.Remote onlyLHSRemote : onlyLHSRemotes){
+			setRemoteSymbol(resultGraph, onlyLHSRemote);
 		}
 	}
 

@@ -1270,8 +1270,7 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
-	public void getLineage(Graph targetGraph, Graph subjectGraph, Graph startGraph, int depth, Direction directionArg,
-			boolean onlyLocal){
+	public void getLineage(Graph targetGraph, Graph subjectGraph, Graph startGraph, int depth, Direction directionArg){
 		final List<Direction> directions = new ArrayList<Direction>();
 		if(directionArg == Direction.kBoth){
 			directions.add(Direction.kAncestor);

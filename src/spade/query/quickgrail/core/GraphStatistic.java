@@ -82,7 +82,19 @@ public abstract class GraphStatistic implements Serializable{
 		public long getEdges(){
 			return edges;
 		}
-		
+
+		public void addVertices(long vertices){
+			if(vertices > 0){
+				this.vertices += vertices; 
+			}
+		}
+
+		public void addEdges(long edges){
+			if(edges > 0){
+				this.edges += edges; 
+			}
+		}
+
 		public boolean isEmpty(){
 			return vertices == 0 && edges == 0;
 		}

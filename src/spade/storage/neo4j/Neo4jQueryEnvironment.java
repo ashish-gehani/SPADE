@@ -289,7 +289,11 @@ public class Neo4jQueryEnvironment extends AbstractQueryEnvironment{
 
 	@Override
 	public final void deleteRemoteSymbols(final Graph graph){
-		storage.executeQuery("match (" + "v:" + remoteSymbolNodeLabel + ") remove v.`" + graph.name + "`;");
+		deleteRemoteSymbols(graph.name);
+	}
+
+	public final void deleteRemoteSymbols(final String graphName){
+		storage.executeQuery("match (" + "v:" + remoteSymbolNodeLabel + ") remove v.`" + graphName + "`;");
 	}
 
 	private void updateGraphSymbols(){
@@ -352,6 +356,7 @@ public class Neo4jQueryEnvironment extends AbstractQueryEnvironment{
 		nonGarbageNames.addAll(referencedGraphNames); // Don't delete a label if it is reference in the symbol graph map
 		nonGarbageNames.add(getBaseGraph().name); // Don't delete the base vertex label i.e. VERTEX but depends on config
 		nonGarbageNames.add(symbolNodeLabel); // Don't delete the symbol node label used to store symbol info
+		nonGarbageNames.add(remoteSymbolNodeLabel); // Don't delete the remote symbol node label used to store symbol info
 
 		// Get all labels from the storage
 		final Set<String> allLabels = getAllVertexLabels();
@@ -370,7 +375,11 @@ public class Neo4jQueryEnvironment extends AbstractQueryEnvironment{
 		}catch(Throwable t){
 			logger.log(Level.WARNING, "Failed to delete garbage labels from nodes: " + garbageLabels, t);
 		}
-		
+
+		for(final String garbageLabel : garbageLabels){
+			deleteRemoteSymbols(garbageLabel);
+		}
+
 		// Garbage labels dropped from nodes by now
 
 		// Get all symbols from the property
@@ -388,6 +397,7 @@ public class Neo4jQueryEnvironment extends AbstractQueryEnvironment{
 			for(String garbageEdgeSymbol : garbageEdgeSymbols){
 				try{
 					dropEdgeSymbol(garbageEdgeSymbol);
+					deleteRemoteSymbols(garbageEdgeSymbol);
 				}catch(Throwable t){
 					logger.log(Level.WARNING, "Failed to delete garbage value in '"+edgeLabelsPropertyName+"' key of edges: '" + garbageEdgeSymbol + "'.", t);
 				}

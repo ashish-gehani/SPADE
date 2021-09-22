@@ -296,6 +296,35 @@ public abstract class SQLQueryEnvironment extends AbstractQueryEnvironment{
 		if(dropQueriesList.size() > 0){
 			executeSQLQuery(dropQueriesList.toArray(new String[]{}));
 		}
+
+		final String query = buildNColumnSelectQuery(new String[]{keyColumnName, valueColumnName}, symbolTableName, typeColumnName, typeValueGraph);
+		final Map<String, String> symbolToGraphName = readSymbolsMap(typeValueGraph, query);
+		String graphNamesAsString = "";
+		for(final Map.Entry<String, String> entry : symbolToGraphName.entrySet()){
+			graphNamesAsString += "'" + entry.getValue() + "',";
+		}
+		if(graphNamesAsString.length() > 0){
+			graphNamesAsString = graphNamesAsString.substring(0, graphNamesAsString.length() - 1);
+			executeSQLQuery(
+					"delete from " + remoteSymbolTableName
+					+ " where name not in"
+					+ " ("
+					+ graphNamesAsString
+					+ ")"
+					);
+		}
+		/*
+		 * Works for PostgreSQL but not for Quickstep.
+		 * Quickstep doesn't allow nested queries.
+		executeSQLQuery(
+				"delete from " + remoteSymbolTableName
+				+ " where name not in"
+				+ " ("
+				+ "select " + valueColumnName + " from " + symbolTableName
+				+ " where " + typeColumnName + "='" + typeValueGraph + "'"
+				+ ")"
+				);
+		*/
 	}
 	
 	public static final String getVertexTableName(String name){

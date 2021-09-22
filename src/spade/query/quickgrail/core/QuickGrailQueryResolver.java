@@ -19,8 +19,8 @@
  */
 package spade.query.quickgrail.core;
 
-import java.util.AbstractMap.SimpleEntry;
 import java.io.Serializable;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -51,6 +51,8 @@ import spade.query.quickgrail.instruction.GetLink;
 import spade.query.quickgrail.instruction.GetList;
 import spade.query.quickgrail.instruction.GetMatch;
 import spade.query.quickgrail.instruction.GetPath;
+import spade.query.quickgrail.instruction.GetPathLengths;
+import spade.query.quickgrail.instruction.GetRemoteLineage;
 import spade.query.quickgrail.instruction.GetShortestPath;
 import spade.query.quickgrail.instruction.GetSimplePath;
 import spade.query.quickgrail.instruction.GetSubgraph;
@@ -243,7 +245,7 @@ public class QuickGrailQueryResolver{
 
 		ParseString var = parseAssignment.getLhs().getName();
 		ParseExpression rhs = parseAssignment.getRhs();
-		ParseAssignment.AssignmentType atype = parseAssignment.getAssignmentType();
+		final ParseAssignment.AssignmentType atype = parseAssignment.getAssignmentType();
 
 		Graph resultGraph;
 		if(atype == ParseAssignment.AssignmentType.kEqual){
@@ -261,6 +263,7 @@ public class QuickGrailQueryResolver{
 				}else{
 					resultGraph = allocateEmptyGraph();
 					instructions.add(new UnionGraph(resultGraph, lhsGraph));
+					instructions.add(new RemoteVariableOperation.Copy(resultGraph, lhsGraph));
 				}
 				resolveGraphExpression(rhs, resultGraph, true);
 				break;
@@ -269,12 +272,14 @@ public class QuickGrailQueryResolver{
 				Graph rhsGraph = resolveGraphExpression(rhs, null, true);
 				resultGraph = allocateEmptyGraph();
 				instructions.add(new SubtractGraph(resultGraph, lhsGraph, rhsGraph, null));
+				instructions.add(new RemoteVariableOperation.Subtract(resultGraph, lhsGraph, rhsGraph));
 				break;
 			}
 			case kIntersectEqual:{
 				Graph rhsGraph = resolveGraphExpression(rhs, null, true);
 				resultGraph = allocateEmptyGraph();
 				instructions.add(new IntersectGraph(resultGraph, lhsGraph, rhsGraph));
+				instructions.add(new RemoteVariableOperation.Intersect(resultGraph, lhsGraph, rhsGraph));
 				break;
 			}
 			default:
@@ -285,6 +290,7 @@ public class QuickGrailQueryResolver{
 		}
 		Graph distinctifiedGraph = allocateEmptyGraph();
 		instructions.add(new DistinctifyGraph(distinctifiedGraph, resultGraph));
+		instructions.add(new RemoteVariableOperation.Copy(distinctifiedGraph, resultGraph));
 		env.setGraphSymbol(var.getValue(), distinctifiedGraph);
 	}
 
@@ -322,6 +328,9 @@ public class QuickGrailQueryResolver{
 		case "remote":
 			resolveRemoteCommand("remote", arguments);
 			break;
+		case "pathlengths":
+			resolvePathLengthsCommand(arguments);
+			break;
 		default:
 			throw new RuntimeException(
 					"Unsupported command \"" + cmdName.getValue() + "\" at " + cmdName.getLocationString());
@@ -354,7 +363,8 @@ public class QuickGrailQueryResolver{
 		}else{ // Must be graph expression if not graph predicate
 			final Graph targetGraph = resolveGraphExpression(expression, null, true);
 			if(isOnlyExport){
-				instructions.add(new ExportGraph(targetGraph, force));
+				final boolean verify = true;
+				instructions.add(new ExportGraph(targetGraph, force, verify));
 			}else{ // is save
 				idx++;
 				if(idx < arguments.size()){
@@ -704,6 +714,50 @@ public class QuickGrailQueryResolver{
 		}
 		final String subCommand = resolveNameAsString(arguments.get(0)).toLowerCase();
 		switch(subCommand){
+			case "create":{
+				if(arguments.size() != 3 && arguments.size() != 4){
+					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 3 or 4");
+				}
+				final String hostName = resolveNameAsString(arguments.get(1));
+				final int port;
+				final int remoteVariableIndex;
+				final String remoteVariable;
+				if(arguments.size() == 3){
+					port = Settings.getCommandLineQueryPort();
+					remoteVariableIndex = 2;
+				}else if(arguments.size() == 4){
+					port = resolveInteger(arguments.get(2));
+					remoteVariableIndex = 3;
+				}else{
+					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 3 or 4");
+				}
+				remoteVariable = parseConstGraphVariableName(arguments.get(remoteVariableIndex));
+	
+				final String remoteQuery = remoteVariable + " = vertices()";
+				instructions.add(new RemoteVariableOperation.Query(hostName, port, remoteQuery));
+			}
+			break;
+			case "query":{
+				if(arguments.size() != 3 && arguments.size() != 4){
+					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 3 or 4");
+				}
+				final String hostName = resolveNameAsString(arguments.get(1));
+				final int port;
+				final int remoteVariableIndex;
+				if(arguments.size() == 3){
+					port = Settings.getCommandLineQueryPort();
+					remoteVariableIndex = 2;
+				}else if(arguments.size() == 4){
+					port = resolveInteger(arguments.get(2));
+					remoteVariableIndex = 3;
+				}else{
+					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 3 or 4");
+				}
+				final String remoteQuery = resolveString(arguments.get(remoteVariableIndex));
+
+				instructions.add(new RemoteVariableOperation.Query(hostName, port, remoteQuery));
+			}
+			break;
 			case "link":{
 				if(arguments.size() != 4 && arguments.size() != 5){
 					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 4 or 5");
@@ -766,7 +820,7 @@ public class QuickGrailQueryResolver{
 				final Graph srcLocalVariable = resolveConstGraphVariable(arguments.get(1));
 				final Graph dstLocalVariable = resolveConstGraphVariable(arguments.get(2));
 
-				instructions.add(new RemoteVariableOperation.Copy(srcLocalVariable, dstLocalVariable));
+				instructions.add(new RemoteVariableOperation.Copy(dstLocalVariable, srcLocalVariable));
 			}
 			break;
 			case "list":{
@@ -778,8 +832,30 @@ public class QuickGrailQueryResolver{
 				instructions.add(new RemoteVariableOperation.List(localVariable));
 			}
 			break;
+			case "export":{
+				if(arguments.size() != 2){
+					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 1");
+				}
+				final Graph localVariable = resolveConstGraphVariable(arguments.get(1));
+
+				final boolean force = true;
+				final boolean verify = false;
+				instructions.add(new RemoteVariableOperation.Export(localVariable, force, verify));
+			}
+			break;
 			default: throw new RuntimeException("No subcommand '" + subCommand + "' for '" + remoteCommandName + "' command");
 		}
+	}
+
+	private final void resolvePathLengthsCommand(ArrayList<ParseExpression> arguments){
+		if(arguments.size() != 4){
+			throw new RuntimeException("Invalid arguments for 'pathlengths' command: expected 4");
+		}
+		final Graph subjectGraph = resolveConstGraphVariable(arguments.get(0));
+		final Graph startGraph = resolveConstGraphVariable(arguments.get(1));
+		final Graph toGraph = resolveConstGraphVariable(arguments.get(2));
+		final int maxDepth = resolveInteger(arguments.get(3));
+		instructions.add(new GetPathLengths(startGraph, subjectGraph, toGraph, maxDepth));
 	}
 
 	private void resolveResetCommand(ArrayList<ParseExpression> arguments){
@@ -881,6 +957,7 @@ public class QuickGrailQueryResolver{
 
 	private Entity resolveGraphMethod(Graph subject, ParseString methodName, ArrayList<ParseExpression> arguments,
 			Entity outputEntity){
+		boolean onlyLocal = true;
 		switch(methodName.getValue()){
 		case "getVertex":
 			return resolveGetVertexOrEdge(Graph.Component.kVertex, subject, arguments, ToGraph(outputEntity));
@@ -897,9 +974,11 @@ public class QuickGrailQueryResolver{
 			return outputGraph;
 		}
 		case "getLineage":
-			return resolveGetLineage(subject, arguments, ToGraph(outputEntity), false);
+			onlyLocal = false;
+			return resolveGetLineage(subject, arguments, ToGraph(outputEntity), onlyLocal);
 		case "getLocalLineage":
-			return resolveGetLineage(subject, arguments, ToGraph(outputEntity), true);
+			onlyLocal = true;
+			return resolveGetLineage(subject, arguments, ToGraph(outputEntity), onlyLocal);
 		case "getNeighbor":
 			return resolveGetNeighbor(subject, arguments, ToGraph(outputEntity));
 		case "getLink":
@@ -1183,7 +1262,10 @@ public class QuickGrailQueryResolver{
 			outputGraph = allocateEmptyGraph();
 		}
 
-		instructions.add(new GetLineage(outputGraph, subjectGraph, startGraph, depth, direction, onlyLocal));
+		instructions.add(new GetLineage(outputGraph, subjectGraph, startGraph, depth, direction));
+		if(!onlyLocal){
+			instructions.add(new GetRemoteLineage(outputGraph, subjectGraph, startGraph, depth, direction));
+		}
 		return outputGraph;
 	}
 
