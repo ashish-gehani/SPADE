@@ -29,7 +29,13 @@ classpath_str=""
 
 while IFS= read -r line
 do
-  path_with_spade_home="${spade_home_path}/${line}"
+  path_with_spade_home=""
+  if echo "$line" | grep -q "^/"
+  then
+    path_with_spade_home="${line}"
+  else
+    path_with_spade_home="${spade_home_path}/${line}"
+  fi
   classpath_str="${classpath_str}${path_with_spade_home}${classpath_separator}"
 done < "${spade_classpath_file}"
 
