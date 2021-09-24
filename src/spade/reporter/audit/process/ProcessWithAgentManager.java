@@ -35,8 +35,8 @@ import spade.vertex.opm.Process;
  */
 public class ProcessWithAgentManager extends ProcessManager{
 
-	public ProcessWithAgentManager(Audit reporter, boolean simplify, boolean fsids, boolean units, boolean namespaces, final LinuxConstants platformConstants) throws Exception{
-		super(reporter, simplify, fsids, units, namespaces, platformConstants);
+	public ProcessWithAgentManager(Audit reporter, boolean simpleCreds, boolean fsids, boolean units, boolean namespaces, final LinuxConstants platformConstants) throws Exception{
+		super(reporter, simpleCreds, fsids, units, namespaces, platformConstants);
 	}
 	
 	protected void clearAll(){}

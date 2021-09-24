@@ -43,6 +43,7 @@ public class AuditConfiguration{
 			keyReportKill = "reportKill",
 			keyRootFS = "rootFS",
 			keySimplify = "simplify",
+			keySimpleCreds = "simpleCreds",
 			keyUnits = "units";
 	
 	private boolean agents;
@@ -62,6 +63,7 @@ public class AuditConfiguration{
 	private boolean reportKill;
 	private boolean rootFS;
 	private boolean simplify;
+	private boolean simpleCreds;
 	private boolean units;
 
 	public static AuditConfiguration instance(final Map<String, String> map, final boolean isLive) throws Exception{
@@ -81,6 +83,7 @@ public class AuditConfiguration{
 		instance.reportKill = ArgumentFunctions.mustParseBoolean(keyReportKill, map);
 		instance.rootFS = ArgumentFunctions.mustParseBoolean(keyRootFS, map);
 		instance.simplify = ArgumentFunctions.mustParseBoolean(keySimplify, map);
+		instance.simpleCreds = ArgumentFunctions.mustParseBoolean(keySimpleCreds, map);
 		
 		if(isLive){
 			instance.excludeProctitle = ArgumentFunctions.mustParseBoolean(keyExcludeProctitle, map);
@@ -171,6 +174,10 @@ public class AuditConfiguration{
 		return simplify;
 	}
 
+	public boolean isSimpleCreds(){
+		return simpleCreds;
+	}
+
 	public boolean isUnits(){
 		return units;
 	}
@@ -195,6 +202,7 @@ public class AuditConfiguration{
 				+ ", " + keyReportKill +"=" + reportKill
 				+ ", " + keyRootFS + "=" + rootFS
 				+ ", " + keySimplify + "=" + simplify
+				+ ", " + keySimpleCreds + "=" + simpleCreds
 				+ ", " + keyUnits + "=" + units
 				+ "]";
 	}

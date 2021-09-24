@@ -72,7 +72,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 	/**
 	 * Used to tell if simple agent or complete agent needs to be created
 	 */
-	private final boolean simplify;
+	private final boolean simpleCreds;
 	
 	private final boolean fsids;
 	
@@ -88,10 +88,10 @@ public abstract class ProcessManager extends ProcessStateManager{
 	
 	private final LinuxConstants platformConstants;
 	
-	protected ProcessManager(Audit reporter, boolean simplify, boolean fsids, boolean units, boolean namespaces,
+	protected ProcessManager(Audit reporter, boolean simpleCreds, boolean fsids, boolean units, boolean namespaces,
 			final LinuxConstants platformConstants) throws Exception{
 		this.reporter = reporter;
-		this.simplify = simplify;
+		this.simpleCreds = simpleCreds;
 		this.fsids = fsids;
 		this.units = units;
 		this.namespaces = namespaces;
@@ -367,7 +367,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		String euid = eventData.get(AuditEventReader.EUID);
 		String gid = eventData.get(AuditEventReader.GID);
 		String egid = eventData.get(AuditEventReader.EGID);
-		if(simplify){
+		if(simpleCreds){
 			return new AgentIdentifier(uid, euid, gid, egid);
 		}else{
 			return new AgentIdentifier(uid, euid, gid, egid, 

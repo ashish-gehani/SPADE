@@ -377,14 +377,14 @@ public class Audit extends AbstractReporter {
 		try{
 			if(auditConfiguration.isAgents()){ // Make sure that this is done before starting the event reader thread
 				processManager = new ProcessWithoutAgentManager(this, 
-						auditConfiguration.isSimplify(),
+						auditConfiguration.isSimpleCreds(),
 						auditConfiguration.isFsids(), 
 						auditConfiguration.isUnits(), 
 						auditConfiguration.isNamespaces(), 
 						platformConstants);
 			}else{
 				processManager = new ProcessWithAgentManager(this,
-						auditConfiguration.isSimplify(),
+						auditConfiguration.isSimpleCreds(),
 						auditConfiguration.isFsids(), 
 						auditConfiguration.isUnits(), 
 						auditConfiguration.isNamespaces(),
