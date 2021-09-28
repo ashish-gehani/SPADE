@@ -364,7 +364,7 @@ public class OPMConstants {
 	 * @param operation operation to parse
 	 * @return list of found operations. NULL list if the format of the operation is unexpected
 	 */
-	private static List<String> parseOperation(String operation){
+	public static List<String> parseOperation(String operation){
 		if(operation == null || operation.trim().isEmpty()){
 			return null;
 		}else{

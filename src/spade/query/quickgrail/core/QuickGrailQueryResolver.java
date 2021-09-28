@@ -32,6 +32,7 @@ import spade.query.quickgrail.entities.Entity;
 import spade.query.quickgrail.entities.EntityType;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.entities.GraphPredicate;
+import spade.query.quickgrail.instruction.ClamProv;
 import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.DescribeGraph;
@@ -1000,6 +1001,8 @@ public class QuickGrailQueryResolver{
 			return resolveCollapseEdge(subject, arguments, ToGraph(outputEntity));
 		case "transform":
 			return resolveTransformGraph(subject, arguments, ToGraph(outputEntity));
+		case "clamProv":
+			return resolveClamProv(subject, arguments, ToGraph(outputEntity));
 		case "attr":
 		case "attrVertex":
 		case "attrEdge":
@@ -1488,6 +1491,19 @@ public class QuickGrailQueryResolver{
 		}
 		instructions.add(instruction);
 
+		return outputGraph;
+	}
+
+	private Graph resolveClamProv(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
+		if(arguments.size() != 2){
+			throw new RuntimeException("Invalid number of arguments for clamProv: expected 2");
+		}
+		final String dependencyMapPath = resolveString(arguments.get(0));
+		final int maxDepth = resolveInteger(arguments.get(1));
+		if(outputGraph == null){
+			outputGraph = allocateEmptyGraph();
+		}
+		instructions.add(new ClamProv(outputGraph, subjectGraph, dependencyMapPath, maxDepth));
 		return outputGraph;
 	}
 

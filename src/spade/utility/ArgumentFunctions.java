@@ -52,7 +52,28 @@ public class ArgumentFunctions{
 		}
 		return result.result.intValue();
 	}
-	
+
+	private static long mustParseLongRanged(final String key, final Map<String, String> map,
+			final long min, final long max) throws Exception{
+		if(map == null){
+			throw new Exception("NULL map to get the value from for key '" + key + "'");
+		}
+		final String value = map.get(key);
+		final Result<Long> result = HelperFunctions.parseLong(value, 10, min, max);
+		if(result.error){
+			throw new Exception("Failed to parse long value for key '" + key + "'. Error: " + result.toErrorString());
+		}
+		return result.result.longValue();
+	}
+
+	public static long mustParseLong(final String key, final Map<String, String> map) throws Exception{
+		return mustParseLongRanged(key, map, Long.MIN_VALUE, Long.MAX_VALUE);
+	}
+
+	public static long mustBeGreaterThanZero(final String key, final Map<String, String> map) throws Exception{
+		return mustParseLongRanged(key, map, 1L, Long.MAX_VALUE);
+	}
+
 	public static List<String> mustParseCommaSeparatedValues(final String key, final Map<String, String> map) throws Exception{
 		if(map == null){
 			throw new Exception("NULL map to get the value from for key '" + key + "'");
@@ -150,6 +171,16 @@ public class ArgumentFunctions{
 			return path;
 		}catch(Exception e){
 			throw new Exception("Not a writable path value for key '" + key + "'", e);
+		}
+	}
+
+	public static String mustParseReadableFilePath(final String key, final Map<String, String> map) throws Exception{
+		final String path = mustParseNonEmptyString(key, map);
+		try{
+			FileUtility.pathMustBeAReadableFile(path);
+			return path;
+		}catch(Exception e){
+			throw new Exception("Not a readable path value for key '" + key + "'", e);
 		}
 	}
 }

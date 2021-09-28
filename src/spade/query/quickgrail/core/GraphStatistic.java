@@ -79,6 +79,10 @@ public abstract class GraphStatistic implements Serializable{
 			return vertices;
 		}
 
+		public boolean hasVertices(){
+			return vertices > 0;
+		}
+
 		public long getEdges(){
 			return edges;
 		}
