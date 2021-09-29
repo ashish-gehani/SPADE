@@ -20,19 +20,19 @@ import spade.filter.clamprov.ClamProvLogReader;
 import spade.filter.clamprov.ClamProvThread;
 import spade.utility.ArgumentFunctions;
 import spade.utility.FileUtility;
+import spade.utility.HelperFunctions;
 
 public class ClamProv extends AbstractFilter{
 
 	private static final Logger logger = Logger.getLogger(ClamProv.class.getName());
 
-	public static final String
-		annotationKeyCallSiteId = "call site id";
-
 	private static final String
+		argumentKeyCallSiteAnnotation = "annotation",
 		argumentKeyWindowMillis = "window",
 		argumentKeySleepMillis = "sleep",
 		argumentKeyUserDirectories = "userDirectories";
 
+	private String annotationName;
 	private long windowMillis;
 	private long sleepMillis;
 
@@ -45,10 +45,11 @@ public class ClamProv extends AbstractFilter{
 	public synchronized final boolean initialize(final String arguments){
 		try{
 			final String configPath = Settings.getDefaultConfigFilePath(this.getClass());
-			final Map<String, String> configMap = FileUtility.readConfigFileAsKeyValueMap(configPath, "=");
+			final Map<String, String> configMap = HelperFunctions.parseKeyValuePairsFrom(arguments, new String[]{configPath});
 			this.windowMillis = ArgumentFunctions.mustBeGreaterThanZero(argumentKeyWindowMillis, configMap);
 			this.sleepMillis = ArgumentFunctions.mustBeGreaterThanZero(argumentKeySleepMillis, configMap);
 			final List<String> userDirectories = ArgumentFunctions.mustParseCommaSeparatedValues(argumentKeyUserDirectories, configMap);
+			this.annotationName = ArgumentFunctions.mustParseNonEmptyString(argumentKeyCallSiteAnnotation, configMap);
 
 			auditBuffer = new Buffer<AbstractEdge>(this.windowMillis);
 			clamProvBuffer = new Buffer<Long>(this.windowMillis);
@@ -74,6 +75,14 @@ public class ClamProv extends AbstractFilter{
 					throw new Exception("Failed to start clam-prov thread for '" + clamProvLogPath + "'", e);
 				}
 			}
+
+			logger.log(Level.INFO, "Configuration ["
+					+ argumentKeyWindowMillis + "=" + windowMillis
+					+ ", " + argumentKeySleepMillis + "=" + sleepMillis
+					+ ", " + argumentKeyUserDirectories + "=" + userDirectories
+					+ ", " + argumentKeyCallSiteAnnotation + "=" + annotationName
+					+ "]"
+					);
 
 			return true;
 		}catch(Exception e){
@@ -138,7 +147,7 @@ public class ClamProv extends AbstractFilter{
 	}
 
 	private final void putUpdatedEdge(final AbstractEdge edge, final long callSiteId){
-		edge.addAnnotation(annotationKeyCallSiteId, String.valueOf(callSiteId));
+		edge.addAnnotation(annotationName, String.valueOf(callSiteId));
 		putInNextFilter(edge);
 	}
 

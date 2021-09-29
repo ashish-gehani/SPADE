@@ -19,8 +19,6 @@
  */
 package spade.query.quickgrail.instruction;
 
-import static spade.filter.ClamProv.annotationKeyCallSiteId;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -28,6 +26,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import spade.query.quickgrail.core.GraphStatistic;
 import spade.query.quickgrail.core.Instruction;
@@ -36,55 +36,42 @@ import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
-public class ClamProv extends Instruction<String>{
+public class RefineDependencies extends Instruction<String>{
+
+	private static final Pattern edgePattern = Pattern.compile("\"(.*)\" -> \"(.*)\" \\[label=\"WasDependentOn\"", Pattern.DOTALL);
 
 	public final Graph targetGraph, subjectGraph;
-
-	public final int maxDepth;
-
 	public final String dependencyMapPath;
-	private final Map<String, LinkedHashSet<String>> callSiteToDepdendentOnCallSites = new HashMap<>();
+	public final int maxDepth;
+	public final String edgeAnnotationName;
 
-	public ClamProv(final Graph targetGraph, final Graph subjectGraph, final String dependencyMapPath, final int maxDepth){
+	private final Map<String, LinkedHashSet<String>> edgeToDepdendentOnEdges = new HashMap<>();
+
+	public RefineDependencies(final Graph targetGraph, final Graph subjectGraph, final String dependencyMapPath, final int maxDepth,
+			final String edgeAnnotationName){
 		this.targetGraph = targetGraph;
 		this.subjectGraph = subjectGraph;
 		this.dependencyMapPath = dependencyMapPath;
 		this.maxDepth = maxDepth;
+		this.edgeAnnotationName = edgeAnnotationName;
 	}
 
 	private final Map<String, LinkedHashSet<String>> readDependencyMap(final String path) throws Exception{
 		try(final BufferedReader reader = new BufferedReader(new FileReader(new File(path)))){
 			final Map<String, LinkedHashSet<String>> result = new HashMap<>();
 
-			String lastCallSiteId = null;
 			String line = null;
 			while((line = reader.readLine()) != null){
-				final String tokens[] = line.trim().split(",", 3);
-				switch(tokens[0].trim()){
-					case "call-site":{
-						lastCallSiteId = tokens[2].trim();
+				final Matcher edgeMatcher = edgePattern.matcher(line);
+				if(edgeMatcher.find()){
+					final String dependent = edgeMatcher.group(1);
+					final String dependentOn = edgeMatcher.group(2);
+					LinkedHashSet<String> existingList = result.get(dependent);
+					if(existingList == null){
+						existingList = new LinkedHashSet<String>();
+						result.put(dependent, existingList);
 					}
-					break;
-					case "tags":{
-						if(lastCallSiteId == null){
-							continue;
-						}
-						LinkedHashSet<String> existingList = result.get(lastCallSiteId);
-						if(existingList == null){
-							existingList = new LinkedHashSet<String>();
-							result.put(lastCallSiteId, existingList);
-						}
-	
-						final String newList[] = tokens[2].trim().split(",");
-						for(String newItem : newList){
-							newItem = newItem.trim();
-							if(!newItem.isEmpty()){
-								existingList.add(newItem);
-							}
-						}
-					}
-					break;
-					default: continue;
+					existingList.add(dependentOn);
 				}
 			}
 
@@ -97,26 +84,26 @@ public class ClamProv extends Instruction<String>{
 	@Override
 	public String execute(final QueryInstructionExecutor executor){
 		try{
-			callSiteToDepdendentOnCallSites.putAll(readDependencyMap(this.dependencyMapPath));
+			edgeToDepdendentOnEdges.putAll(readDependencyMap(this.dependencyMapPath));
 		}catch(Exception e){
-			throw new RuntimeException("Failed to read clam-prov dependency map: '" + this.dependencyMapPath + "'", e);
+			throw new RuntimeException("Failed to read dependency map: '" + this.dependencyMapPath + "'", e);
 		}
 		final Graph srcEdgeGraph = executor.createNewGraph();
 		final Graph srcVerticesGraph = executor.createNewGraph();
 		final Graph dstEdgeGraph = executor.createNewGraph();
 		final Graph dstVerticesGraph = executor.createNewGraph();
 		final Graph tmpPathGraph = executor.createNewGraph();
-		for(final Map.Entry<String, LinkedHashSet<String>> entry : callSiteToDepdendentOnCallSites.entrySet()){
+		for(final Map.Entry<String, LinkedHashSet<String>> entry : edgeToDepdendentOnEdges.entrySet()){
 			final String srcCallSite = entry.getKey();
 
-			executor.getEdge(srcEdgeGraph, subjectGraph, annotationKeyCallSiteId, PredicateOperator.EQUAL, srcCallSite, true);
+			executor.getEdge(srcEdgeGraph, subjectGraph, this.edgeAnnotationName, PredicateOperator.EQUAL, srcCallSite, true);
 			executor.getEdgeEndpoint(srcVerticesGraph, srcEdgeGraph, GetEdgeEndpoint.Component.kSource);
 
 			final GraphStatistic.Count srcVerticesCount = executor.getGraphCount(srcVerticesGraph);
 			if(srcVerticesCount.hasVertices()){
 				final LinkedHashSet<String> dstCallSites = entry.getValue();
 				for(final String dstCallSite : dstCallSites){
-					executor.getEdge(dstEdgeGraph, subjectGraph, annotationKeyCallSiteId, PredicateOperator.EQUAL, dstCallSite, true);
+					executor.getEdge(dstEdgeGraph, subjectGraph, this.edgeAnnotationName, PredicateOperator.EQUAL, dstCallSite, true);
 					executor.getEdgeEndpoint(dstVerticesGraph, dstEdgeGraph, GetEdgeEndpoint.Component.kDestination);
 
 					final GraphStatistic.Count dstVerticesCount = executor.getGraphCount(dstVerticesGraph);
@@ -139,7 +126,7 @@ public class ClamProv extends Instruction<String>{
 
 	@Override
 	public String getLabel(){
-		return "ClamProv";
+		return "RefineDependencies";
 	}
 
 	@Override
@@ -155,6 +142,8 @@ public class ClamProv extends Instruction<String>{
 		inline_field_values.add(dependencyMapPath);
 		inline_field_names.add("maxDepth");
 		inline_field_values.add(String.valueOf(maxDepth));
+		inline_field_names.add("edgeAnnotationName");
+		inline_field_values.add(edgeAnnotationName);
 	}
 
 }

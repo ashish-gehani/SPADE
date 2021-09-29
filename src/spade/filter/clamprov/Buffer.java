@@ -21,8 +21,8 @@ package spade.filter.clamprov;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.Map;
-import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -31,7 +31,7 @@ public class Buffer<T>{
 	private final long windowMillis;
 	private Long oldestEventMillis = null;
 
-	private final Map<BufferKey, TreeMap<Long, PriorityQueue<T>>> events = new HashMap<>();
+	private final Map<BufferKey, TreeMap<Long, LinkedList<T>>> events = new HashMap<>();
 
 	public Buffer(final long windowMillis){
 		this.windowMillis = windowMillis;
@@ -45,21 +45,21 @@ public class Buffer<T>{
 			oldestEventMillis = removeOlderThan(eventMillis - windowMillis);
 		}
 
-		TreeMap<Long, PriorityQueue<T>> times = events.get(bufferKey);
+		TreeMap<Long, LinkedList<T>> times = events.get(bufferKey);
 		if(times == null){
-			times = new TreeMap<Long, PriorityQueue<T>>();
+			times = new TreeMap<Long, LinkedList<T>>();
 			events.put(bufferKey, times);
 		}
-		PriorityQueue<T> values = times.get(eventMillis);
+		LinkedList<T> values = times.get(eventMillis);
 		if(values == null){
-			values = new PriorityQueue<T>();
+			values = new LinkedList<T>();
 			times.put(eventMillis, values);
 		}
 		values.add(value);
 	}
 
 	public synchronized final T get(final BufferKey bufferKey, final long eventMillis){
-		final TreeMap<Long, PriorityQueue<T>> times = events.get(bufferKey);
+		final TreeMap<Long, LinkedList<T>> times = events.get(bufferKey);
 		if(times == null){
 			return null;
 		}
@@ -70,7 +70,7 @@ public class Buffer<T>{
 		long minDiffMillis = Long.MAX_VALUE;
 
 		Long keyForValues = eventMillis;
-		PriorityQueue<T> values = times.get(keyForValues);
+		LinkedList<T> values = times.get(keyForValues);
 		if(values == null){
 			for(final Long keyMillis : times.keySet()){
 				if(keyMillis >= eventMaxMillis){
@@ -106,11 +106,11 @@ public class Buffer<T>{
 
 		final Set<BufferKey> outerKeysToRemove = new HashSet<>();
 
-		for(final Map.Entry<BufferKey, TreeMap<Long, PriorityQueue<T>>> outerEntry : events.entrySet()){
+		for(final Map.Entry<BufferKey, TreeMap<Long, LinkedList<T>>> outerEntry : events.entrySet()){
 			final Set<Long> innerKeysToRemove = new HashSet<Long>();
 
-			final TreeMap<Long, PriorityQueue<T>> times = outerEntry.getValue();
-			for(final Map.Entry<Long, PriorityQueue<T>> innerEntry : times.entrySet()){
+			final TreeMap<Long, LinkedList<T>> times = outerEntry.getValue();
+			for(final Map.Entry<Long, LinkedList<T>> innerEntry : times.entrySet()){
 				final boolean doRemove;
 				final Long keyMillis = innerEntry.getKey();
 				if(keyMillis >= timeMillis){

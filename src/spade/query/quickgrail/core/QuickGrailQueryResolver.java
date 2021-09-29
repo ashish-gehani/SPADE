@@ -32,7 +32,6 @@ import spade.query.quickgrail.entities.Entity;
 import spade.query.quickgrail.entities.EntityType;
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.entities.GraphPredicate;
-import spade.query.quickgrail.instruction.ClamProv;
 import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
 import spade.query.quickgrail.instruction.DescribeGraph;
@@ -63,6 +62,7 @@ import spade.query.quickgrail.instruction.InsertLiteralVertex;
 import spade.query.quickgrail.instruction.IntersectGraph;
 import spade.query.quickgrail.instruction.LimitGraph;
 import spade.query.quickgrail.instruction.PrintPredicate;
+import spade.query.quickgrail.instruction.RefineDependencies;
 import spade.query.quickgrail.instruction.RemoteVariableOperation;
 import spade.query.quickgrail.instruction.SaveGraph;
 import spade.query.quickgrail.instruction.SubtractGraph;
@@ -849,13 +849,13 @@ public class QuickGrailQueryResolver{
 	}
 
 	private final void resolvePathLengthsCommand(ArrayList<ParseExpression> arguments){
-		if(arguments.size() != 4){
-			throw new RuntimeException("Invalid arguments for 'pathlengths' command: expected 4");
+		if(arguments.size() != 3 && arguments.size() != 4){
+			throw new RuntimeException("Invalid arguments for 'pathlengths' command: expected 3 or 4");
 		}
 		final Graph subjectGraph = resolveConstGraphVariable(arguments.get(0));
 		final Graph startGraph = resolveConstGraphVariable(arguments.get(1));
 		final Graph toGraph = resolveConstGraphVariable(arguments.get(2));
-		final int maxDepth = resolveInteger(arguments.get(3));
+		final int maxDepth = getMaxDepth(arguments, 3);
 		instructions.add(new GetPathLengths(startGraph, subjectGraph, toGraph, maxDepth));
 	}
 
@@ -1001,8 +1001,8 @@ public class QuickGrailQueryResolver{
 			return resolveCollapseEdge(subject, arguments, ToGraph(outputEntity));
 		case "transform":
 			return resolveTransformGraph(subject, arguments, ToGraph(outputEntity));
-		case "clamProv":
-			return resolveClamProv(subject, arguments, ToGraph(outputEntity));
+		case "refineDependencies":
+			return resolveRefineDependencies(methodName.getValue(), subject, arguments, ToGraph(outputEntity));
 		case "attr":
 		case "attrVertex":
 		case "attrEdge":
@@ -1494,16 +1494,31 @@ public class QuickGrailQueryResolver{
 		return outputGraph;
 	}
 
-	private Graph resolveClamProv(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
-		if(arguments.size() != 2){
-			throw new RuntimeException("Invalid number of arguments for clamProv: expected 2");
+	private int getMaxDepth(final ArrayList<ParseExpression> arguments, final int maxDepthArgumentIndex){
+		if(arguments.size() >= maxDepthArgumentIndex){
+			final EnvironmentVariable maxDepthVar = env.getEnvVarManager().get(EnvironmentVariableManager.Name.maxDepth);
+			if(maxDepthVar == null || maxDepthVar.getValue() == null){
+				throw new RuntimeException("Must explicitly specify max depth or set it in environment");
+			}
+			return (Integer)maxDepthVar.getValue();
+		}else{
+			return resolveInteger(arguments.get(maxDepthArgumentIndex));
+		}
+	}
+
+	private Graph resolveRefineDependencies(final String methodName, 
+			Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
+		if(arguments.size() < 2){
+			throw new RuntimeException("Invalid number of arguments for " + methodName + ": expected 2 or 3");
 		}
 		final String dependencyMapPath = resolveString(arguments.get(0));
-		final int maxDepth = resolveInteger(arguments.get(1));
+		final String edgeAnnotationName = resolveNameOrLiteralAsString(arguments.get(1));
+		final int maxDepth = getMaxDepth(arguments, 2);
+
 		if(outputGraph == null){
 			outputGraph = allocateEmptyGraph();
 		}
-		instructions.add(new ClamProv(outputGraph, subjectGraph, dependencyMapPath, maxDepth));
+		instructions.add(new RefineDependencies(outputGraph, subjectGraph, dependencyMapPath, maxDepth, edgeAnnotationName));
 		return outputGraph;
 	}
 
@@ -1600,20 +1615,9 @@ public class QuickGrailQueryResolver{
 			throw new RuntimeException("Invalid number of arguments for getShortestPath: expected either 2 or 3");
 		}
 
-		Graph srcGraph = resolveGraphExpression(arguments.get(0), null, true);
-		Graph dstGraph = resolveGraphExpression(arguments.get(1), null, true);
-		
-		Integer maxDepth = null;
-		
-		if(arguments.size() == 2){
-			final EnvironmentVariable maxDepthVar = env.getEnvVarManager().get(EnvironmentVariableManager.Name.maxDepth);
-			if(maxDepthVar == null || maxDepthVar.getValue() == null){
-				throw new RuntimeException("Must explicitly specify max depth or set it in environment");
-			}
-			maxDepth = (Integer)maxDepthVar.getValue();
-		}else{ // size is 3
-			maxDepth = resolveInteger(arguments.get(2));
-		}
+		final Graph srcGraph = resolveGraphExpression(arguments.get(0), null, true);
+		final Graph dstGraph = resolveGraphExpression(arguments.get(1), null, true);
+		final Integer maxDepth = getMaxDepth(arguments, 2);
 
 		if(outputGraph == null){
 			outputGraph = allocateEmptyGraph();
