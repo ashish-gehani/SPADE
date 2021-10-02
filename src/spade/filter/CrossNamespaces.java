@@ -357,6 +357,16 @@ public class CrossNamespaces extends AbstractFilter{
 		}
 	}
 
+	private final ArrayList<Matched> pruneReaderFromWriters(final Matched reader, final ArrayList<Matched> writers){
+		final ArrayList<Matched> prunedWriters = new ArrayList<Matched>();
+		for(final Matched writer : writers){
+			if(!writer.equals(reader)){
+				prunedWriters.add(writer);
+			}
+		}
+		return prunedWriters;
+	}
+
 	private final void checkUpdateOrLogCrossFlow(final AbstractEdge edge, 
 			final AbstractVertex process, final AbstractVertex artifact, boolean isRead){
 		final Matched artifactAnnotations = new Matched(getAnnotationsFromVertex(artifact, artifactAnnotationsToMatch));
@@ -400,8 +410,11 @@ public class CrossNamespaces extends AbstractFilter{
 					}
 				}
 				if(hadOtherWriters){
-					outputEvent(msgCounter++, artifactAnnotations, 
-							setOfProcessThatAlreadyWrote, process.getCopyOfAnnotations(), edge.getCopyOfAnnotations());
+					final ArrayList<Matched> prunedWriters = pruneReaderFromWriters(processAnnotations, setOfProcessThatAlreadyWrote);
+					if(!prunedWriters.isEmpty()){
+						outputEvent(msgCounter++, artifactAnnotations, 
+								setOfProcessThatAlreadyWrote, process.getCopyOfAnnotations(), edge.getCopyOfAnnotations());
+					}
 				}
 			}
 		}else{
