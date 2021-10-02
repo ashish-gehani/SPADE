@@ -21,6 +21,7 @@ package spade.filter;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -39,7 +40,6 @@ import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.core.Settings;
 import spade.utility.ArgumentFunctions;
-import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 import spade.utility.Result;
 import spade.utility.map.external.ExternalMap;
@@ -56,6 +56,8 @@ public class CrossNamespaces extends AbstractFilter{
 		keyArtifactToProcessMapId = "artifactToProcessMapId",
 		keyArtifactAnnotationsToMatch = "artifactAnnotationsToMatch",
 		keyProcessAnnotationsToMatch = "processAnnotationsToMatch",
+		keyArtifactAnnotationsToReport = "artifactAnnotationsToReport",
+		keyProcessAnnotationsToReport = "processAnnotationsToReport",
 		keyTypesOfArtifactToProcessEdge = "typesOfArtifactToProcessEdge",
 		keyTypesOfProcessToArtifactEdge = "typesOfProcessToArtifactEdge",
 		keyOutput = "output",
@@ -66,18 +68,21 @@ public class CrossNamespaces extends AbstractFilter{
 	
 	private final Set<String> artifactAnnotationsToMatch = new HashSet<String>();
 	private final Set<String> processAnnotationsToMatch = new HashSet<String>();
-	
+
+	private final Set<String> artifactAnnotationsToReport = new HashSet<String>();
+	private final Set<String> processAnnotationsToReport = new HashSet<String>();
+
 	private boolean inMemoryMap;
 	private boolean debug;
 	private boolean pretty;
 	private String outputPath;
 	private BufferedWriter outputWriter;
 
-	private ExternalMap<TreeMap<String, String>, ArrayList<TreeMap<String, String>>> artifactToProcessMap;
-	
-	// In memory map
-	private Map<TreeMap<String, String>, ArrayList<TreeMap<String, String>>> artifactToProcessMapInMemory;
-	
+	private ExternalMap<Matched, ArrayList<Matched>> artifactToProcessMap;
+	private Map<Matched, ArrayList<Matched>> artifactToProcessMapInMemory;
+
+	private Map<Matched, HashSet<Matched>> matchedToReportMapInMemory;
+
 	private long msgCounter = 0;
 
 	private final List<String> allValuesMustBeNonEmpty(final List<String> values, final String key) throws Exception{
@@ -95,7 +100,7 @@ public class CrossNamespaces extends AbstractFilter{
 	public boolean initialize(final String arguments){
 		final String configFilePath = Settings.getDefaultConfigFilePath(this.getClass());
 		try{
-			final Map<String, String> configMap = FileUtility.readConfigFileAsKeyValueMap(configFilePath, "=");
+			final Map<String, String> configMap = HelperFunctions.parseKeyValuePairsFrom(arguments, new String[]{configFilePath});
 
 			final List<String> artifactAnnotationsToMatchArguments = 
 					ArgumentFunctions.mustParseCommaSeparatedValues(keyArtifactAnnotationsToMatch, configMap);
@@ -108,6 +113,22 @@ public class CrossNamespaces extends AbstractFilter{
 			this.processAnnotationsToMatch.addAll(
 					allValuesMustBeNonEmpty(processAnnotationsToMatchArguments, keyProcessAnnotationsToMatch)
 					);
+
+			if(!HelperFunctions.isNullOrEmpty(configMap.get(keyArtifactAnnotationsToReport))){
+				final List<String> artifactAnnotationsToReportArguments = 
+						ArgumentFunctions.mustParseCommaSeparatedValues(keyArtifactAnnotationsToReport, configMap);
+				this.artifactAnnotationsToReport.addAll(
+						allValuesMustBeNonEmpty(artifactAnnotationsToReportArguments, keyArtifactAnnotationsToReport)
+						);
+			}
+
+			if(!HelperFunctions.isNullOrEmpty(configMap.get(keyProcessAnnotationsToReport))){
+				final List<String> processAnnotationsToReportArguments = 
+						ArgumentFunctions.mustParseCommaSeparatedValues(keyProcessAnnotationsToReport, configMap);
+				this.processAnnotationsToReport.addAll(
+						allValuesMustBeNonEmpty(processAnnotationsToReportArguments, keyProcessAnnotationsToReport)
+						);
+			}
 
 			final List<String> typesOfArtifactToProcessEdgeArguments = 
 					ArgumentFunctions.mustParseCommaSeparatedValues(keyTypesOfArtifactToProcessEdge, configMap);
@@ -134,14 +155,15 @@ public class CrossNamespaces extends AbstractFilter{
 			outputPath = ArgumentFunctions.mustParseWritableFilePath(keyOutput, configMap);
 			outputWriter = new BufferedWriter(new FileWriter(outputPath));
 			pretty = ArgumentFunctions.mustParseBoolean(keyPretty, configMap);
+			matchedToReportMapInMemory = new HashMap<Matched, HashSet<Matched>>();
 
 			if(inMemoryMap){
-				artifactToProcessMapInMemory = new HashMap<TreeMap<String, String>, ArrayList<TreeMap<String, String>>>();
+				artifactToProcessMapInMemory = new HashMap<Matched, ArrayList<Matched>>();
 			}else{
 				final ExternalMapArgument artifactMapArgument = 
 						ArgumentFunctions.mustParseExternalMapArgument(keyArtifactToProcessMapId, configMap);
 
-				final Result<ExternalMap<TreeMap<String, String>, ArrayList<TreeMap<String, String>>>> artifactToProcessMapResult = 
+				final Result<ExternalMap<Matched, ArrayList<Matched>>> artifactToProcessMapResult = 
 						ExternalMapManager.create(artifactMapArgument);
 				if(artifactToProcessMapResult.error){
 					throw new Exception("Failed to create external map with id: " + artifactMapArgument.mapId + ". " 
@@ -153,7 +175,7 @@ public class CrossNamespaces extends AbstractFilter{
 			}
 
 			logger.log(Level.INFO, "Arguments: "
-					+ "{0}={1}, {2}=[{3}], {4}=[{5}], {6}=[{7}], {8}=[{9}], {10}={11}, {12}={13}, {14}={15}",
+					+ "{0}={1}, {2}=[{3}], {4}=[{5}], {6}=[{7}], {8}=[{9}], {10}={11}, {12}={13}, {14}={15}, {16}=[{17}], {18}=[{19}]",
 					new Object[]{
 							keyInMemory, inMemoryMap
 							, keyArtifactAnnotationsToMatch, artifactAnnotationsToMatch
@@ -163,6 +185,8 @@ public class CrossNamespaces extends AbstractFilter{
 							, keyDebug, debug
 							, keyOutput, outputPath
 							, keyPretty, pretty
+							, keyArtifactAnnotationsToReport, artifactAnnotationsToReport
+							, keyProcessAnnotationsToReport, processAnnotationsToReport
 					});
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to read config file: " + configFilePath, e);
@@ -226,15 +250,20 @@ public class CrossNamespaces extends AbstractFilter{
 			final Set<String> annotationsToGetSet){
 		final TreeMap<String, String> finalMap = new TreeMap<String, String>();
 		for(final String annotationToGet : annotationsToGetSet){
-			final String annotationVaue = vertex.getAnnotation(annotationToGet);
-			if(annotationVaue != null){
-				finalMap.put(annotationToGet, annotationVaue);
+			final String annotationValue;
+			if(annotationToGet.equals(AbstractVertex.hashKey)){
+				annotationValue = vertex.bigHashCode();
+			}else{
+				annotationValue = vertex.getAnnotation(annotationToGet);
+			}
+			if(annotationValue != null){
+				finalMap.put(annotationToGet, annotationValue);
 			}
 		}
 		return finalMap;
 	}
 	
-	private final ArrayList<TreeMap<String, String>> mapGetter(final TreeMap<String, String> key){
+	private final ArrayList<Matched> mapGetter(final Matched key){
 		if(inMemoryMap){
 			return artifactToProcessMapInMemory.get(key);
 		}else{
@@ -242,7 +271,7 @@ public class CrossNamespaces extends AbstractFilter{
 		}
 	}
 	
-	private final void mapPutter(final TreeMap<String, String> key, final ArrayList<TreeMap<String, String>> value){
+	private final void mapPutter(final Matched key, final ArrayList<Matched> value){
 		if(inMemoryMap){
 			artifactToProcessMapInMemory.put(key, value);
 		}else{
@@ -261,18 +290,39 @@ public class CrossNamespaces extends AbstractFilter{
 		return object;
 	}
 
-	private final JSONObject createJSONEvent(final long eventId, final Map<String, String> artifactAnnotations,
-			final ArrayList<TreeMap<String, String>> writerProcessesAnnotations,
+	private final JSONObject createJSONEvent(final long eventId, final Matched artifactAnnotations,
+			final ArrayList<Matched> writerProcessesAnnotations,
 			final Map<String, String> readerProcessAnnotations,
 			final Map<String, String> readEdgeAnnotations) throws Exception{
 		final JSONObject eventObject = new JSONObject();
 		eventObject.put("cross-namespace-event-id", String.valueOf(eventId));
 		eventObject.put("read-edge", createJSONObjectFromMap(readEdgeAnnotations));
-		eventObject.put("artifact", createJSONObjectFromMap(artifactAnnotations));
+		eventObject.put("artifact", createJSONObjectFromMap(artifactAnnotations.annotations));
+
+		final JSONArray artifactsArray = new JSONArray();
+		final HashSet<Matched> artifactAnnotationsToReportSet = matchedToReportMapInMemory.get(artifactAnnotations);
+		if(artifactAnnotationsToReportSet != null){
+			for(final Matched artifactAnnotationsToReport : artifactAnnotationsToReportSet){
+				final TreeMap<String, String> finalMap = new TreeMap<>(artifactAnnotations.annotations);
+				finalMap.putAll(artifactAnnotationsToReport.annotations);
+				artifactsArray.put(createJSONObjectFromMap(finalMap));
+			}
+		}
+		eventObject.put("artifacts", artifactsArray);
+
 		eventObject.put("reader", createJSONObjectFromMap(readerProcessAnnotations));
 		final JSONArray writerArray = new JSONArray();
-		for(final Map<String, String> writerProcessAnnotations : writerProcessesAnnotations){
-			writerArray.put(createJSONObjectFromMap(writerProcessAnnotations));
+		for(final Matched writerProcessAnnotations : writerProcessesAnnotations){
+			final HashSet<Matched> writerProcessAnnotationsToReportSet = matchedToReportMapInMemory.get(writerProcessAnnotations);
+			if(writerProcessAnnotationsToReportSet == null){
+				writerArray.put(createJSONObjectFromMap(writerProcessAnnotations.annotations));
+			}else{
+				for(final Matched writerProcessAnnotationsToReport : writerProcessAnnotationsToReportSet){
+					final TreeMap<String, String> finalMap = new TreeMap<>(writerProcessAnnotations.annotations);
+					finalMap.putAll(writerProcessAnnotationsToReport.annotations);
+					writerArray.put(createJSONObjectFromMap(finalMap));
+				}
+			}
 		}
 		eventObject.put("writers", writerArray);
 		return eventObject;
@@ -288,12 +338,13 @@ public class CrossNamespaces extends AbstractFilter{
 		this.outputWriter.write(eventString + "\n");
 	}
 
-	private final void outputEvent(final long eventId, final Map<String, String> artifactAnnotations,
-			final ArrayList<TreeMap<String, String>> writerProcessesAnnotations,
+	private final void outputEvent(final long eventId, final Matched artifactAnnotations,
+			final ArrayList<Matched> writerProcessesAnnotations,
 			final Map<String, String> readerProcessAnnotations, final Map<String, String> readEdgeAnnotations){
 		final JSONObject eventObject;
 		try{
-			eventObject = createJSONEvent(eventId, artifactAnnotations, writerProcessesAnnotations, readerProcessAnnotations, readEdgeAnnotations);
+			eventObject = createJSONEvent(eventId, 
+					artifactAnnotations, writerProcessesAnnotations, readerProcessAnnotations, readEdgeAnnotations);
 		}catch(Exception e){
 			logger.log(Level.WARNING, "Failed to create event as JSON object", e);
 			return;
@@ -308,47 +359,107 @@ public class CrossNamespaces extends AbstractFilter{
 
 	private final void checkUpdateOrLogCrossFlow(final AbstractEdge edge, 
 			final AbstractVertex process, final AbstractVertex artifact, boolean isRead){
-		final TreeMap<String, String> artifactAnnotations = getAnnotationsFromVertex(artifact, artifactAnnotationsToMatch);
+		final Matched artifactAnnotations = new Matched(getAnnotationsFromVertex(artifact, artifactAnnotationsToMatch));
 		if(artifactAnnotations.isEmpty()){
 			if(debug){
 				logger.log(Level.WARNING, "Ignoring vertex (artifact) containing none of the specified artifact annotations to match in edge: " + edge);
 			}
-		}else{
-			final TreeMap<String, String> processAnnotations = getAnnotationsFromVertex(process, processAnnotationsToMatch);
-			if(processAnnotations.isEmpty()){
-				if(debug){
-					logger.log(Level.WARNING, "Ignoring vertex (process) containing none of the specified process annotations to match in edge: " + edge);
+			return;
+		}
+		final Matched processAnnotations = new Matched(getAnnotationsFromVertex(process, processAnnotationsToMatch));
+		if(processAnnotations.isEmpty()){
+			if(debug){
+				logger.log(Level.WARNING, "Ignoring vertex (process) containing none of the specified process annotations to match in edge: " + edge);
+			}
+			return;
+		}
+
+		final Matched artifactAnnotationsToReportValue = new Matched(getAnnotationsFromVertex(artifact, this.artifactAnnotationsToReport));
+		if(!artifactAnnotationsToReportValue.isEmpty()){
+			HashSet<Matched> existingSet = matchedToReportMapInMemory.get(artifactAnnotations);
+			if(existingSet == null){
+				existingSet = new HashSet<>();
+				matchedToReportMapInMemory.put(artifactAnnotations, existingSet);
+			}
+			existingSet.add(artifactAnnotationsToReportValue);
+		}
+
+		if(isRead){
+			// Check if there was a write
+			final ArrayList<Matched> setOfProcessThatAlreadyWrote = mapGetter(artifactAnnotations);
+			if(setOfProcessThatAlreadyWrote != null){
+				boolean hadOtherWriters = false;
+				final int indexOfReaderInWriter = setOfProcessThatAlreadyWrote.indexOf(processAnnotations);
+				if(indexOfReaderInWriter == -1){ // not found
+					if(setOfProcessThatAlreadyWrote.size() > 0){ // There were other writers
+						hadOtherWriters = true;
+					}
+				}else{ // found
+					if(setOfProcessThatAlreadyWrote.size() > 1){ // There were other writers (excluding this one since it was found)
+						hadOtherWriters = true;
+					}
 				}
-			}else{
-				if(isRead){
-					// Check if there was a write
-					final ArrayList<TreeMap<String, String>> setOfProcessThatAlreadyWrote = mapGetter(artifactAnnotations);
-					if(setOfProcessThatAlreadyWrote != null){
-						boolean hadOtherWriters = false;
-						final int indexOfReaderInWriter = setOfProcessThatAlreadyWrote.indexOf(processAnnotations);
-						if(indexOfReaderInWriter == -1){ // not found
-							if(setOfProcessThatAlreadyWrote.size() > 0){ // There were other writers
-								hadOtherWriters = true;
-							}
-						}else{ // found
-							if(setOfProcessThatAlreadyWrote.size() > 1){ // There were other writers (excluding this one since it was found)
-								hadOtherWriters = true;
-							}
-						}
-						if(hadOtherWriters){
-							outputEvent(msgCounter++, artifactAnnotations, setOfProcessThatAlreadyWrote, process.getCopyOfAnnotations(), edge.getCopyOfAnnotations());
-						}
-					}
-				}else{
-					ArrayList<TreeMap<String, String>> setOfProcessThatAlreadyWrote = mapGetter(artifactAnnotations);
-					if(setOfProcessThatAlreadyWrote == null){
-						setOfProcessThatAlreadyWrote = new ArrayList<TreeMap<String, String>>();
-						mapPutter(artifactAnnotations, setOfProcessThatAlreadyWrote);
-					}
-					setOfProcessThatAlreadyWrote.remove(processAnnotations); // Remove if already present because we don't want duplicates
-					setOfProcessThatAlreadyWrote.add(processAnnotations); // Add it as the last to maintain order for future
+				if(hadOtherWriters){
+					outputEvent(msgCounter++, artifactAnnotations, 
+							setOfProcessThatAlreadyWrote, process.getCopyOfAnnotations(), edge.getCopyOfAnnotations());
 				}
 			}
+		}else{
+			final Matched processAnnotationsToReportValue = new Matched(getAnnotationsFromVertex(process, this.processAnnotationsToReport));
+			if(!processAnnotationsToReportValue.isEmpty()){
+				HashSet<Matched> existingSet = matchedToReportMapInMemory.get(processAnnotations);
+				if(existingSet == null){
+					existingSet = new HashSet<>();
+					matchedToReportMapInMemory.put(processAnnotations, existingSet);
+				}
+				existingSet.add(processAnnotationsToReportValue);
+			}
+
+			ArrayList<Matched> setOfProcessThatAlreadyWrote = mapGetter(artifactAnnotations);
+			if(setOfProcessThatAlreadyWrote == null){
+				setOfProcessThatAlreadyWrote = new ArrayList<Matched>();
+				mapPutter(artifactAnnotations, setOfProcessThatAlreadyWrote);
+			}
+			setOfProcessThatAlreadyWrote.remove(processAnnotations); // Remove if already present because we don't want duplicates
+			setOfProcessThatAlreadyWrote.add(processAnnotations); // Add it as the last to maintain order for future
+		}
+	}
+
+	private static class Matched implements Serializable{
+		private static final long serialVersionUID = 6218289689183807202L;
+		private final TreeMap<String, String> annotations = new TreeMap<>();
+		private Matched(final TreeMap<String, String> annotations){
+			this.annotations.putAll(annotations);
+		}
+		private boolean isEmpty(){
+			return this.annotations.isEmpty();
+		}
+		@Override
+		public int hashCode(){
+			final int prime = 31;
+			int result = 1;
+			result = prime * result + ((annotations == null) ? 0 : annotations.hashCode());
+			return result;
+		}
+		@Override
+		public boolean equals(Object obj){
+			if(this == obj)
+				return true;
+			if(obj == null)
+				return false;
+			if(getClass() != obj.getClass())
+				return false;
+			Matched other = (Matched)obj;
+			if(annotations == null){
+				if(other.annotations != null)
+					return false;
+			}else if(!annotations.equals(other.annotations))
+				return false;
+			return true;
+		}
+		@Override
+		public String toString(){
+			return "Matched [annotations=" + annotations + "]";
 		}
 	}
 }
