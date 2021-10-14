@@ -1,7 +1,45 @@
 # Allow audit access for normal users
+
+###
+# CONSTANTS
+###
+os_linux="Linux"
+os_darwin="Darwin"
+os_fedora="Fedora"
+
+###
+# RESOLVE PLATFORM
+###
+os_name=$(uname)
+if [ "$os_name" = "$os_linux" ]
+then
+  os_release_file="/etc/os-release"
+  os_id=$(grep "^ID=" "$os_release_file" | cut -d '=' -f 2)
+  if [ "$os_id" = "fedora" ]
+  then
+    os_current="$os_fedora"
+  elif [ "$os_id" = "ubuntu" ]
+  then
+    os_current="$os_linux"
+  fi
+fi
+
+[ -z "$os_current" ] && echo "ERROR: Unknown platform. Allowed: ${os_linux}, ${os_fedora}" && exit 1
+
+###
+# RESOLVE PLATFORM REQUIREMENTS
+###
+if [ "$os_current" = "$os_fedora" ]
+then
+  af_unix_path="/etc/audit/plugins.d/af_unix.conf"
+elif [ "$os_current" = "$os_linux" ]
+then
+  af_unix_path="/etc/audisp/plugins.d/af_unix.conf"
+fi
+
 sudo chmod ug+s `which auditctl`
 sudo chmod ug+s `which iptables`
 sudo chmod ug+s `which kmod`
 sudo chown root bin/spadeAuditBridge bin/deleteModule
 sudo chmod ug+s bin/spadeAuditBridge bin/deleteModule
-sudo sed -i "s/active = no/active = yes/" /etc/audisp/plugins.d/af_unix.conf
+sudo sed -i "s/active = no/active = yes/" "$af_unix_path"
