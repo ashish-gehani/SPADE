@@ -50,10 +50,12 @@ public class ProcMon extends AbstractReporter{
 	private static final Logger logger = Logger.getLogger(ProcMon.class.getName());
 	private static final String
 		keyInput = "input",
-		keyVersions = "versions";
+		keyVersions = "versions",
+		keyWaitForLog = "waitForLog";
 
 	private boolean versions;
-	private String inputPath;	
+	private boolean waitForLog;
+	private String inputPath;
     private EventReader eventReader;
 
     private Map<String, Process> processMap = new HashMap<String, Process>();
@@ -71,6 +73,7 @@ public class ProcMon extends AbstractReporter{
 					new String[]{Settings.getDefaultConfigFilePath(this.getClass())});
 			this.inputPath = ArgumentFunctions.mustParseReadableFilePath(keyInput, configMap);
 			this.versions = ArgumentFunctions.mustParseBoolean(keyVersions, configMap);
+			this.waitForLog = ArgumentFunctions.mustParseBoolean(keyWaitForLog, configMap);
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to read/parse arguments and configurations", e);
 			return false;
@@ -100,6 +103,7 @@ public class ProcMon extends AbstractReporter{
 					closeEventReader();
 				}
 				logger.log(Level.INFO, "Finished processing file: '" + inputPath + "'");
+				shutdown = true;
 			}
 		};
 		try{
@@ -124,6 +128,11 @@ public class ProcMon extends AbstractReporter{
 
 	@Override
 	public boolean shutdown(){
+		if(waitForLog){
+			while(!shutdown){
+				HelperFunctions.sleepSafe(1000);
+			}
+		}
 		shutdown = true;
 		return true;
 	}
@@ -344,4 +353,5 @@ public class ProcMon extends AbstractReporter{
 		final Used used = ProvenanceModel.createNetworkReadEdge(event, process, network);
 		putEdge(used);
 	}
+
 }
