@@ -96,7 +96,7 @@ public class CSVEventReader extends EventReader{
     	, INDEX_DATE_AND_TIME
     	, INDEX_TID;
 
-	private BufferedReader reader = null;
+	private au.com.bytecode.opencsv.CSVReader reader = null;
 
 	public CSVEventReader(final String filePath) throws Exception{
 		super(filePath);
@@ -104,7 +104,7 @@ public class CSVEventReader extends EventReader{
 			final java.io.FileInputStream fileInputStream = new java.io.FileInputStream(new java.io.File(filePath));
 			fileInputStream.read(new byte[3]); // consume BOM bytes
 			final java.io.InputStreamReader inputStreamReader = new java.io.InputStreamReader(fileInputStream, java.nio.charset.StandardCharsets.UTF_8);
-			reader = new BufferedReader(inputStreamReader);
+			reader = new au.com.bytecode.opencsv.CSVReader(inputStreamReader);
 			final boolean isHeader = true;
 			final String[] headerValues = parseCSVLine(isHeader);
 			if(headerValues == null){
@@ -209,26 +209,7 @@ public class CSVEventReader extends EventReader{
 	}
 
 	private String[] parseCSVLine(final boolean isHeader) throws Exception{
-		String line = reader.readLine();
-		if(line == null){
-			return null;
-		}
-		line = line.trim();
-		if(isHeader){
-			// strip the leading characters before the first '"'
-			final int index = line.indexOf('"');
-			if(index > -1){
-				line = line.substring(index);
-			}else{
-				throw new Exception("Malformed CSV header line. Missing '\"': " + line);
-			}
-		}
-		if(!(line.startsWith("\"") && line.endsWith("\""))){
-			throw new Exception("Malformed CSV line. Missing surrounding '\"': " + line);
-		}
-		line = line.substring(1, line.length() - 1);
-		final String[] tokens = line.split("\",\""); 
-		return tokens;
+		return reader.readNext();
 	}
 
 	private String _getToken(final String[] tokens, final Integer index, final boolean optional) throws Exception{
