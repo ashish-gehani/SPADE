@@ -19,7 +19,6 @@
  */
 package spade.reporter.procmon;
 
-import java.io.FileReader;
 import java.io.IOException;
 
 import javax.xml.stream.XMLInputFactory;
@@ -86,6 +85,15 @@ public class XMLEventReader extends EventReader{
 		}
 	}
 
+	private String readTextInTag() throws Exception{
+		final int textEventType = reader.next(); // goto text XMLStreamReader.CHARACTERS
+		if(textEventType == XMLStreamReader.END_ELEMENT){
+			return "";
+		}else{
+			return reader.getText();
+		}
+	}
+
 	private Event parseEvent() throws Exception{
 		String timeOfDay = null;
         String processName = null;
@@ -112,28 +120,27 @@ public class XMLEventReader extends EventReader{
 			final int xmlEventType = reader.next();
 			if(xmlEventType == XMLStreamReader.START_ELEMENT){
 				final String tagName = reader.getLocalName();
-				//final int textEventType = reader.next(); // goto text XMLStreamReader.CHARACTERS
 				switch(tagName){
-					case TAG_TIME:			timeOfDay = reader.getText(); break;
-					case TAG_PROCESS_NAME:	processName = reader.getText(); break;
-					case TAG_PID:			pid = reader.getText(); break;
-					case TAG_OPERATION:		operation = reader.getText(); break;
-					case TAG_PATH:			path = reader.getText(); break;
-					case TAG_RESULT:		result = reader.getText(); break;
-					case TAG_DETAIL:		detail = reader.getText(); break;
-					case TAG_DURATION:		duration = reader.getText(); break;
-					case TAG_EVENT_CLASS:	eventClass = reader.getText(); break;
-					case TAG_IMAGE_PATH:	imagePath = reader.getText(); break;
-					case TAG_COMPANY:		company = reader.getText(); break;
-					case TAG_DESCRIPTION:	description = reader.getText(); break;
-					case TAG_VERSION:		version = reader.getText(); break;
-					case TAG_USER:			user = reader.getText(); break;
-					case TAG_COMMAND_LINE:	commandLine = reader.getText(); break;
-					case TAG_PARENT_PID:	parentPid = reader.getText(); break;
-					case TAG_ARCHITECTURE:	architecture = reader.getText(); break;
-					case TAG_CATEGORY:		category = reader.getText(); break;
-					case TAG_DATE_AND_TIME: dateAndTime = reader.getText(); break;
-					case TAG_TID:			tid = reader.getText(); break;
+					case TAG_TIME:			timeOfDay = readTextInTag(); break;
+					case TAG_PROCESS_NAME:	processName = readTextInTag(); break;
+					case TAG_PID:			pid = readTextInTag(); break;
+					case TAG_OPERATION:		operation = readTextInTag(); break;
+					case TAG_PATH:			path = readTextInTag(); break;
+					case TAG_RESULT:		result = readTextInTag(); break;
+					case TAG_DETAIL:		detail = readTextInTag(); break;
+					case TAG_DURATION:		duration = readTextInTag(); break;
+					case TAG_EVENT_CLASS:	eventClass = readTextInTag(); break;
+					case TAG_IMAGE_PATH:	imagePath = readTextInTag(); break;
+					case TAG_COMPANY:		company = readTextInTag(); break;
+					case TAG_DESCRIPTION:	description = readTextInTag(); break;
+					case TAG_VERSION:		version = readTextInTag(); break;
+					case TAG_USER:			user = readTextInTag(); break;
+					case TAG_COMMAND_LINE:	commandLine = readTextInTag(); break;
+					case TAG_PARENT_PID:	parentPid = readTextInTag(); break;
+					case TAG_ARCHITECTURE:	architecture = readTextInTag(); break;
+					case TAG_CATEGORY:		category = readTextInTag(); break;
+					case TAG_DATE_AND_TIME: dateAndTime = readTextInTag(); break;
+					case TAG_TID:			tid = readTextInTag(); break;
 					default: break;
 				}
 			}else if(xmlEventType == XMLStreamReader.END_ELEMENT){

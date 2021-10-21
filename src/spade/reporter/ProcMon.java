@@ -71,13 +71,22 @@ public class ProcMon extends AbstractReporter{
 		try{
 			final Map<String, String> configMap = HelperFunctions.parseKeyValuePairsFrom(arguments,
 					new String[]{Settings.getDefaultConfigFilePath(this.getClass())});
-			this.inputPath = ArgumentFunctions.mustParseReadableFilePath(keyInput, configMap);
-			this.versions = ArgumentFunctions.mustParseBoolean(keyVersions, configMap);
-			this.waitForLog = ArgumentFunctions.mustParseBoolean(keyWaitForLog, configMap);
+			final String inputPath = ArgumentFunctions.mustParseReadableFilePath(keyInput, configMap);
+			final boolean versions = ArgumentFunctions.mustParseBoolean(keyVersions, configMap);
+			final boolean waitForLog = ArgumentFunctions.mustParseBoolean(keyWaitForLog, configMap);
+
+			return launch(inputPath, versions, waitForLog);
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to read/parse arguments and configurations", e);
 			return false;
 		}
+
+    }
+
+	public boolean launch(final String inputPath, final boolean versions, final boolean waitForLog) throws Exception{
+		this.inputPath = inputPath;
+		this.versions = versions;
+		this.waitForLog = waitForLog;
 
 		try{
 			eventReader = EventReader.createReader(this.inputPath);
@@ -113,7 +122,7 @@ public class ProcMon extends AbstractReporter{
 			logger.log(Level.SEVERE, "Failed to create ProcMon CSV log reader", e);
 			closeEventReader();
 			return false;
-		}	
+		}
     }
 
     private void closeEventReader(){
