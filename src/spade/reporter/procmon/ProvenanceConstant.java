@@ -39,7 +39,7 @@ public class ProvenanceConstant{
 		, PROCESS_DESCRIPTION = "description"
 		, PROCESS_VERSION = "version"
 
-		, AGENT_USER = EventReader.COLUMN_USER
+		, AGENT_USER = "User"
 
 		, EDGE_TIME = "time"
 		, EDGE_DATE_TIME = "datetime"

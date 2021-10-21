@@ -80,7 +80,7 @@ public class ProcMon extends AbstractReporter{
 		}
 
 		try{
-			eventReader = new EventReader(this.inputPath);
+			eventReader = EventReader.createReader(this.inputPath);
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to create ProcMon CSV log reader", e);
 			return false;
