@@ -101,7 +101,10 @@ public class CSVEventReader extends EventReader{
 	public CSVEventReader(final String filePath) throws Exception{
 		super(filePath);
 		try{
-			reader = new BufferedReader(new FileReader(filePath));
+			final java.io.FileInputStream fileInputStream = new java.io.FileInputStream(new java.io.File(filePath));
+			fileInputStream.read(new byte[3]); // consume BOM bytes
+			final java.io.InputStreamReader inputStreamReader = new java.io.InputStreamReader(fileInputStream, java.nio.charset.StandardCharsets.UTF_8);
+			reader = new BufferedReader(inputStreamReader);
 			final boolean isHeader = true;
 			final String[] headerValues = parseCSVLine(isHeader);
 			if(headerValues == null){
