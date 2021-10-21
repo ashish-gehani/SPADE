@@ -49,9 +49,6 @@ ifeq ($(OS_NAME), Linux)
 	REPLIB_OSFLAG = -D_LLVMREPORTER_LINUX
 	LLVM_RULE = build-linux-llvm
 endif
-ifneq (, $(findstring CYGWIN, $(OS_NAME)))
-	JAVAC_CP = lib\neo4j-community-4.1.1\lib\*;build;lib\*
-endif
 
 # kernel modules build default = true
 ifndef KERNEL_MODULES
