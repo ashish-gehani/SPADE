@@ -238,7 +238,7 @@ public class ProcMon extends AbstractReporter{
 		final Agent agentVertex = ProvenanceModel.createAgentVertex(event);
 		putVertex(agentVertex);
 
-		final WasControlledBy wasControlledBy = new WasControlledBy(processVertex, agentVertex);
+		final WasControlledBy wasControlledBy = ProvenanceModel.createWasControlledByEdge(event, processVertex, agentVertex);
 		putEdge(wasControlledBy);
 
 		if(processMap.containsKey(ppid)){

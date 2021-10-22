@@ -42,7 +42,8 @@ public class AverageDurationBetweenEvents{
 	public double get(){
 		// Required as the default value in case no 'last' event
 		if(lastEventTime == null){
-			return Double.MAX_VALUE;
+//			return Double.MAX_VALUE;
+			return Long.MAX_VALUE;
 		}
 		return average;
 	}

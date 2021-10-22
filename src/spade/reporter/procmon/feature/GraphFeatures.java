@@ -53,12 +53,20 @@ public class GraphFeatures{
 
 	private final Set<String> maliciousProcessNames = new HashSet<>();
 
+	private final Map<String, Double> vertexLabels = new HashMap<>();
+	private final Map<String, String> vertexStatuses = new HashMap<>();
+	private final Map<String, Integer> vertexAncestorsCount = new HashMap<>();
+
 	public GraphFeatures(final Set<String> maliciousProcessNames){
 		this.maliciousProcessNames.addAll(maliciousProcessNames);
 	}
 
 	private String getProcessStatus(final AbstractVertex vertex) throws Exception{
-		return getProcessFeatures(vertex).getStatus();
+		return getProcessStatus(vertex.bigHashCode());
+	}
+
+	public String getProcessStatus(final String bigHashCode){
+		return vertexStatuses.get(bigHashCode);
 	}
 
 	private boolean isNotBenignStatus(final AbstractVertex vertex) throws Exception{
@@ -74,19 +82,27 @@ public class GraphFeatures{
 	}
 
 	private void setMaliciousStatus(final AbstractVertex vertex) throws Exception{
-		getProcessFeatures(vertex).setStatus(statusMalicious);
+		vertexStatuses.put(vertex.bigHashCode(), statusMalicious);
 	}
 
 	private void setTaintStatus(final AbstractVertex vertex) throws Exception{
-		getProcessFeatures(vertex).setStatus(statusTainted);
+		vertexStatuses.put(vertex.bigHashCode(), statusTainted);
 	}
 
 	private void setBenignStatus(final AbstractVertex vertex) throws Exception{
-		getProcessFeatures(vertex).setStatus(statusBenign);
+		vertexStatuses.put(vertex.bigHashCode(), statusBenign);
 	}
 
 	private Double getLabel(final AbstractVertex vertex) throws Exception{
-		return getProcessFeatures(vertex).getLabel();
+		Double label = getLabel(vertex.bigHashCode());
+		if(label == null){
+			label = labelGood;
+		}
+		return label;
+	}
+
+	public Double getLabel(final String bigHashCode){
+		return vertexLabels.get(bigHashCode);
 	}
 
 	private boolean isLabelBad(final AbstractVertex vertex) throws Exception{
@@ -106,15 +122,19 @@ public class GraphFeatures{
 	}
 
 	private void updateLabel(final AbstractVertex vertex, final double updatedLabel) throws Exception{
-		getProcessFeatures(vertex).setLabel(updatedLabel);
+		vertexLabels.put(vertex.bigHashCode(), updatedLabel);
 	}
 
-	private int getAncestorsCount(final AbstractVertex vertex) throws Exception{
-		return getProcessFeatures(vertex).getAncestorsCount();
+	public int getAncestorsCount(final AbstractVertex vertex) throws Exception{
+		Integer ancestorsCount = vertexAncestorsCount.get(vertex.bigHashCode());
+		if(ancestorsCount == null){
+			ancestorsCount = 0;
+		}
+		return ancestorsCount;
 	}
 
 	private void updateAncestorsCount(final AbstractVertex vertex, int updatedAncestorsCount) throws Exception{
-		getProcessFeatures(vertex).updateAncestorsCount(updatedAncestorsCount);
+		vertexAncestorsCount.put(vertex.bigHashCode(), updatedAncestorsCount);
 	}
 
 	private ProcessFeatures getProcessFeatures(final AbstractVertex vertex) throws Exception{

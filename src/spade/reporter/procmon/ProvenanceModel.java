@@ -27,6 +27,7 @@ import java.time.format.DateTimeFormatter;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.edge.opm.Used;
+import spade.edge.opm.WasControlledBy;
 import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
 import spade.vertex.opm.Agent;
@@ -36,7 +37,7 @@ import spade.vertex.opm.Process;
 public class ProvenanceModel{
 
 	private final static DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("hh:mm:ss.n a");
-	private final static DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss.n a");
+	private final static DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy h:mm:ss a");
 
 	public static Process createProcessVertex(final Event event){
 		final Process process = new Process();
@@ -63,6 +64,13 @@ public class ProvenanceModel{
 		final WasTriggeredBy wasTriggeredBy = new WasTriggeredBy(processVertex, parentProcessVertex);
 		addTimeAndDateTimeToEdge(event, wasTriggeredBy);
 		return wasTriggeredBy;
+	}
+
+	public static WasControlledBy createWasControlledByEdge(final Event event,
+			final Process processVertex, final Agent agentVertex){
+		final WasControlledBy wasControlledBy = new WasControlledBy(processVertex, agentVertex);
+		addTimeAndDateTimeToEdge(event, wasControlledBy);
+		return wasControlledBy;
 	}
 
 	public static Artifact createPathArtifact(final Event event){
@@ -147,6 +155,7 @@ public class ProvenanceModel{
 		addTimeAndDateTimeToEdge(event, edge);
 		edge.addAnnotation(ProvenanceConstant.EDGE_OPERATION, event.getOperation());
 		edge.addAnnotation(ProvenanceConstant.EDGE_DETAIL, event.getDetail());
+		edge.addAnnotation(ProvenanceConstant.EDGE_DURATION, event.getDuration());
 	}
 
 	public static Used createNetworkReadEdge(final Event event, final Process process, final Artifact network){
@@ -201,7 +210,7 @@ public class ProvenanceModel{
 				}
 			}
 		}
-		return null;
+		return 0.0;
 	}
 
 	public static String getDirectoryPath(final String filePath){
@@ -311,7 +320,8 @@ public class ProvenanceModel{
 	}
 
 	public static double getEdgeDurationResolved(final AbstractEdge edge){
-		return Double.parseDouble(edge.getAnnotation(ProvenanceConstant.EDGE_DURATION));
+		final String durationStr = edge.getAnnotation(ProvenanceConstant.EDGE_DURATION);
+		return Double.parseDouble(durationStr);
 	}
 
 	public static String getFilePath(final AbstractVertex vertex){

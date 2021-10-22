@@ -293,12 +293,12 @@ public class ProcessFeatureGetterSet{
 	};
 	private static final ProcessFeatureGetter<Double> processLabel = new ProcessFeatureGetter<>(){
 		public Double get(final GraphFeatures graphFeatures, final ProcessIdentifier processIdentifier){
-			return graphFeatures.getProcessFeatures(processIdentifier).getLabel();
+			return graphFeatures.getLabel(graphFeatures.getProcessFeatures(processIdentifier).getBigHashCode());
 		}
 	};
 	private static final ProcessFeatureGetter<String> processStatus = new ProcessFeatureGetter<>(){
 		public String get(final GraphFeatures graphFeatures, final ProcessIdentifier processIdentifier){
-			return graphFeatures.getProcessFeatures(processIdentifier).getStatus();
+			return graphFeatures.getProcessStatus(graphFeatures.getProcessFeatures(processIdentifier).getBigHashCode());
 		}
 	};
 	private static final ProcessFeatureGetter<Set<String>> childProcessNamesList = new ProcessFeatureGetter<>(){

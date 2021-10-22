@@ -47,10 +47,6 @@ public class ProcessFeatures{
 	private String commandLine;
 	private String bigHashCode;
 
-	private Double label;
-	private String status;
-	private Integer ancestorsCount;
-
 	public ProcessFeatures(final double beginningThreshold){
 		final Condition beginningThresholdCondition = new Condition(){
 			@Override
@@ -122,30 +118,6 @@ public class ProcessFeatures{
 
 	public final void setVertexBigHashCode(final String bigHashCode){
 		this.bigHashCode = bigHashCode;
-	}
-
-	public final void setLabel(final double label){
-		this.label = label;
-	}
-
-	public final void setStatus(final String status){
-		this.status = status;
-	}
-
-	public final void updateAncestorsCount(final int ancestorsCount){
-		this.ancestorsCount = ancestorsCount;
-	}
-
-	public final Double getLabel(){
-		return label;
-	}
-
-	public final String getStatus(){
-		return status;
-	}
-
-	public final int getAncestorsCount(){
-		return ancestorsCount;
 	}
 
 	public LocalDateTime getFirstActivityDateTime(){

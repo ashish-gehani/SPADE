@@ -64,21 +64,31 @@ public class WindowsFeatures extends AbstractFilter{
 			final Map<String, String> map = HelperFunctions.parseKeyValuePairsFrom(arguments, new String[]{
 					Settings.getDefaultConfigFilePath(this.getClass())
 			});
-			this.filePathProcessFeatures = ArgumentFunctions.mustParseWritableFilePath(keyFilePathProcessFeatures, map);
-			this.filePathArtifactFeatures = ArgumentFunctions.mustParseWritableFilePath(keyFilePathArtifactFeatures, map);
-			this.maliciousProcessNames.addAll(ArgumentFunctions.mustParseCommaSeparatedValues(keyMaliciousProcessNames, map));
-			this.graphFeatures = new GraphFeatures(this.maliciousProcessNames);
+			final String filePathProcessFeatures = ArgumentFunctions.mustParseWritableFilePath(keyFilePathProcessFeatures, map);
+			final String filePathArtifactFeatures = ArgumentFunctions.mustParseWritableFilePath(keyFilePathArtifactFeatures, map);
+			final List<String> maliciousProcessNames = ArgumentFunctions.mustParseCommaSeparatedValues(keyMaliciousProcessNames, map);
 
-			logger.log(Level.INFO, "Arguments {"
-					+ keyMaliciousProcessNames + "=" + maliciousProcessNames
-					+ ", " + keyFilePathProcessFeatures + "=" + filePathProcessFeatures
-					+ ", " + keyFilePathArtifactFeatures + "=" + filePathArtifactFeatures
-					+ "}");
-			return true;
+			return initialize(filePathProcessFeatures, filePathArtifactFeatures, maliciousProcessNames);
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to add filter", e);
 			return false;
 		}
+	}
+
+	public boolean initialize(final String filePathProcessFeatures, final String filePathArtifactFeatures,
+			final List<String> maliciousProcessNames){
+		this.filePathArtifactFeatures = filePathArtifactFeatures;
+		this.filePathProcessFeatures = filePathProcessFeatures;
+		this.maliciousProcessNames.addAll(maliciousProcessNames);
+
+		this.graphFeatures = new GraphFeatures(this.maliciousProcessNames);
+
+		logger.log(Level.INFO, "Arguments {"
+				+ keyMaliciousProcessNames + "=" + maliciousProcessNames
+				+ ", " + keyFilePathProcessFeatures + "=" + filePathProcessFeatures
+				+ ", " + keyFilePathArtifactFeatures + "=" + filePathArtifactFeatures
+				+ "}");
+		return true;
 	}
 
 	@Override
