@@ -46,7 +46,8 @@ public class GraphFeatures{
 			Arrays.asList(extensionExe, extensionDat, extensionDll, extensionBin));
 
 	private static final double scaleTime = 10000000;
-	private static final double beginningThreshold = scaleTime;
+	private final double beginningThreshold;
+	private final double taintedParentWeight;
 
 	private final Map<ProcessIdentifier, ProcessFeatures> processFeaturesMap = new HashMap<>();
 	private final Map<ArtifactIdentifier, ArtifactFeatures> artifactFeaturesMap = new HashMap<>();
@@ -57,8 +58,11 @@ public class GraphFeatures{
 	private final Map<String, String> vertexStatuses = new HashMap<>();
 	private final Map<String, Integer> vertexAncestorsCount = new HashMap<>();
 
-	public GraphFeatures(final Set<String> maliciousProcessNames){
+	public GraphFeatures(final Set<String> maliciousProcessNames, 
+			final double inceptionTime, final double taintedParentWeight){
 		this.maliciousProcessNames.addAll(maliciousProcessNames);
+		this.beginningThreshold = inceptionTime;
+		this.taintedParentWeight = taintedParentWeight;
 	}
 
 	private String getProcessStatus(final AbstractVertex vertex) throws Exception{
@@ -228,7 +232,7 @@ public class GraphFeatures{
 			final double factor; // Alpha
 			// Indicator function
 			if(parentVertexLabel > 0.5){
-				factor = 5.0;
+				factor = taintedParentWeight;
 			}else{
 				factor = 1.0;
 			}

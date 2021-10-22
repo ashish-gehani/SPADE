@@ -52,10 +52,14 @@ public class WindowsFeatures extends AbstractFilter{
 	private static final String
 		keyMaliciousProcessNames = "malicious"
 		, keyFilePathProcessFeatures = "processFeaturesPath"
-		, keyFilePathArtifactFeatures = "filePathFeaturesPath";
+		, keyFilePathArtifactFeatures = "filePathFeaturesPath"
+		, keyInceptionTime = "inceptionTime"
+		, keyTaintedParentWeight = "taintedParentWeight";
 
 	private final Set<String> maliciousProcessNames = new HashSet<>();
 	private String filePathProcessFeatures, filePathArtifactFeatures;
+	private double inceptionTime;
+	private double taintedParentWeight;
 	private GraphFeatures graphFeatures;
 
 	@Override
@@ -67,8 +71,11 @@ public class WindowsFeatures extends AbstractFilter{
 			final String filePathProcessFeatures = ArgumentFunctions.mustParseWritableFilePath(keyFilePathProcessFeatures, map);
 			final String filePathArtifactFeatures = ArgumentFunctions.mustParseWritableFilePath(keyFilePathArtifactFeatures, map);
 			final List<String> maliciousProcessNames = ArgumentFunctions.mustParseCommaSeparatedValues(keyMaliciousProcessNames, map);
+			final double inceptionTime = ArgumentFunctions.mustParseDouble(keyInceptionTime, map);
+			final double taintedParentWeight = ArgumentFunctions.mustParseDouble(keyTaintedParentWeight, map);
 
-			return initialize(filePathProcessFeatures, filePathArtifactFeatures, maliciousProcessNames);
+			return initialize(filePathProcessFeatures, filePathArtifactFeatures, maliciousProcessNames, 
+					inceptionTime, taintedParentWeight);
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to add filter", e);
 			return false;
@@ -76,17 +83,22 @@ public class WindowsFeatures extends AbstractFilter{
 	}
 
 	public boolean initialize(final String filePathProcessFeatures, final String filePathArtifactFeatures,
-			final List<String> maliciousProcessNames){
+			final List<String> maliciousProcessNames,
+			final double inceptionTime, final double taintedParentWeight){
 		this.filePathArtifactFeatures = filePathArtifactFeatures;
 		this.filePathProcessFeatures = filePathProcessFeatures;
 		this.maliciousProcessNames.addAll(maliciousProcessNames);
+		this.inceptionTime = inceptionTime;
+		this.taintedParentWeight = taintedParentWeight;
 
-		this.graphFeatures = new GraphFeatures(this.maliciousProcessNames);
+		this.graphFeatures = new GraphFeatures(this.maliciousProcessNames, this.inceptionTime, this.taintedParentWeight);
 
 		logger.log(Level.INFO, "Arguments {"
 				+ keyMaliciousProcessNames + "=" + maliciousProcessNames
 				+ ", " + keyFilePathProcessFeatures + "=" + filePathProcessFeatures
 				+ ", " + keyFilePathArtifactFeatures + "=" + filePathArtifactFeatures
+				+ ", " + keyInceptionTime + "=" + inceptionTime
+				+ ", " + keyInceptionTime + "=" + taintedParentWeight
 				+ "}");
 		return true;
 	}

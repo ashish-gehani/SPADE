@@ -286,7 +286,11 @@ public class ProvenanceModel{
 	public static LocalDateTime getEdgeDateTimeResolved(final AbstractEdge edge){
 		final String dateTime = edge.getAnnotation(ProvenanceConstant.EDGE_DATE_TIME);
 		if(dateTime != null){
-			return LocalDateTime.parse(dateTime, dateTimeFormatter);
+			try{
+				return LocalDateTime.parse(dateTime, dateTimeFormatter);
+			}catch(Exception e){
+				throw e;
+			}
 		}else{
 			final String time = edge.getAnnotation(ProvenanceConstant.EDGE_TIME);
 			final LocalTime timeObject = LocalTime.parse(time, timeFormatter);
@@ -331,4 +335,5 @@ public class ProvenanceModel{
 	public static String getAgentName(final AbstractVertex vertex){
 		return vertex.getAnnotation(ProvenanceConstant.AGENT_USER);
 	}
+
 }

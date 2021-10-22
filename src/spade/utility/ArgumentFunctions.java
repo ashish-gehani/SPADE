@@ -53,6 +53,22 @@ public class ArgumentFunctions{
 		return result.result.intValue();
 	}
 
+	public static double mustParseDouble(final String key, final Map<String, String> map, final double min, final double max) throws Exception{
+		if(map == null){
+			throw new Exception("NULL map to get the value from for key '" + key + "'");
+		}
+		final String value = map.get(key);
+		final Result<Double> result = HelperFunctions.parseDouble(value, min, max);
+		if(result.error){
+			throw new Exception("Failed to parse double value for key '" + key + "'. Error: " + result.toErrorString());
+		}
+		return result.result;
+	}
+
+	public static double mustParseDouble(final String key, final Map<String, String> map) throws Exception{
+		return mustParseDouble(key, map, Double.MIN_NORMAL, Double.MAX_VALUE);
+	}
+
 	private static long mustParseLongRanged(final String key, final Map<String, String> map,
 			final long min, final long max) throws Exception{
 		if(map == null){
