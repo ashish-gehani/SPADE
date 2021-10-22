@@ -92,7 +92,21 @@ public class ArgumentFunctions{
 		
 		return result;
 	}
-	
+
+	public static final List<String> allValuesMustBeNonEmpty(final List<String> values, final String key) throws Exception{
+		if(values.isEmpty()){
+			throw new Exception("Empty value in '"+key+"'");
+		}
+		final List<String> result = new ArrayList<String>();
+		for(final String value : values){
+			if(HelperFunctions.isNullOrEmpty(value)){
+				throw new Exception("NULL/Empty value in '"+key+"'");
+			}
+			result.add(value.trim());
+		}
+		return result;
+	}
+
 	public static String mustParseNonEmptyString(final String key, final Map<String, String> map) throws Exception{
 		if(map == null){
 			throw new Exception("NULL map to get the value from for key '" + key + "'");
@@ -104,7 +118,7 @@ public class ArgumentFunctions{
 		if(value.trim().isEmpty()){
 			throw new Exception("Empty value for key '" + key + "'"); 
 		}
-		return value;
+		return value.trim();
 	}
 
 	public static String mustParseNonNullString(final String key, final Map<String, String> map) throws Exception{

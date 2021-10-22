@@ -19,372 +19,348 @@
  */
 package spade.reporter;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.core.AbstractReporter;
+import spade.core.Settings;
 import spade.edge.opm.Used;
 import spade.edge.opm.WasControlledBy;
 import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
+import spade.reporter.procmon.Event;
+import spade.reporter.procmon.EventReader;
+import spade.reporter.procmon.ProvenanceModel;
+import spade.reporter.procmon.SystemConstant;
+import spade.utility.ArgumentFunctions;
+import spade.utility.HelperFunctions;
 import spade.vertex.opm.Agent;
 import spade.vertex.opm.Artifact;
 import spade.vertex.opm.Process;
 
 /**
- *
  * @author dawood
  */
-public class ProcMon extends AbstractReporter {
+public class ProcMon extends AbstractReporter{
 
-    private BufferedReader eventReader;
+	private static final Logger logger = Logger.getLogger(ProcMon.class.getName());
+	private static final String
+		keyInput = "input",
+		keyVersions = "versions",
+		keyWaitForLog = "waitForLog";
+
+	private boolean versions;
+	private boolean waitForLog;
+	private String inputPath;
+    private EventReader eventReader;
+
     private Map<String, Process> processMap = new HashMap<String, Process>();
+    private Map<String, Set<String>> threadMap = new HashMap<String,Set<String>>();
     private Map<String, Integer> artifactVersions = new HashMap<String, Integer>();
     private Set<String> loadedImages = new HashSet<String>();
     private Set<String> networkConnections = new HashSet<String>();
-    static final Logger logger = Logger.getLogger(ProcMon.class.getName());
+    
     private volatile boolean shutdown = false;
-    ////////////////////////////////////////////////////////////////////////////
-    private final String COLUMN_TIME = "Time of Day";
-    private final String COLUMN_PROCESS_NAME = "Process Name";
-    private final String COLUMN_PID = "PID";
-    private final String COLUMN_OPERATION = "Operation";
-    private final String COLUMN_PATH = "Path";
-    private final String COLUMN_RESULT = "Result";
-    private final String COLUMN_DETAIL = "Detail";
-    private final String COLUMN_DURATION = "Duration";
-    private final String COLUMN_EVENT_CLASS = "Event Class";
-    private final String COLUMN_IMAGE_PATH = "Image Path";
-    private final String COLUMN_COMPANY = "Company";
-    private final String COLUMN_DESCRIPTION = "Description";
-    private final String COLUMN_VERSION = "Version";
-    private final String COLUMN_USER = "User";
-    private final String COLUMN_COMMAND_LINE = "Command Line";
-    private final String COLUMN_PARENT_PID = "Parent PID";
-    private final String COLUMN_ARCHITECTURE = "Architecture";
-    private final String COLUMN_CATEGORY = "Category";
-	private final List<String> columnNames = Arrays.asList(
-			COLUMN_TIME
-			, COLUMN_PROCESS_NAME
-			, COLUMN_PID
-			, COLUMN_OPERATION
-			, COLUMN_PATH
-			, COLUMN_RESULT
-			, COLUMN_DETAIL
-			, COLUMN_DURATION
-			, COLUMN_EVENT_CLASS
-			, COLUMN_IMAGE_PATH
-			, COLUMN_COMPANY
-			, COLUMN_DESCRIPTION
-			, COLUMN_VERSION
-			, COLUMN_USER
-			, COLUMN_COMMAND_LINE
-			, COLUMN_PARENT_PID
-			, COLUMN_ARCHITECTURE
-			, COLUMN_CATEGORY
-			);
-    ////////////////////////////////////////////////////////////////////////////
-    private int N_TIME;
-    private int N_PROCESS_NAME;
-    private int N_PID;
-    private int N_OPERATION;
-    private int N_PATH;
-    private int N_RESULT;
-    private int N_DETAIL;
-    private int N_DURATION;
-    private int N_EVENT_CLASS;
-    private int N_IMAGE_PATH;
-    private int N_COMPANY;
-    private int N_DESCRIPTION;
-    private int N_VERSION;
-    private int N_USER;
-    private int N_COMMAND_LINE;
-    private int N_PARENT_PID;
-    private int N_ARCHITECTURE;
-    private int N_CATEGORY;
-    ////////////////////////////////////////////////////////////////////////////
-    private final String EVENT_CLASS_REGISTRY = "Registry";
-    private final String EVENT_CLASS_FILE_SYSTEM = "File System";
-    ////////////////////////////////////////////////////////////////////////////
-    private final String CATEGORY_READ = "Read";
-    private final String CATEGORY_WRITE = "Write";
-    private final String CATEGORY_READ_METADATA = "Read Metadata";
-    private final String CATEGORY_WRITE_METADATA = "Write Metadata";
-    ////////////////////////////////////////////////////////////////////////////
-    private final String OPERATION_LoadImage = "Load Image";
-    private final String OPERATION_TCPSend = "TCP Send";
-    private final String OPERATION_UDPSend = "UDP Send";
-    private final String OPERATION_TCPReceive = "TCP Receive";
-    private final String OPERATION_UDPReceive = "UDP Receive";
-    ////////////////////////////////////////////////////////////////////////////
 
     @Override
-    public boolean launch(String arguments) {
-        if (arguments == null) {
-            return false;
-        }
-        try {
-			Map<String, Integer> columnMap = new HashMap<String, Integer>();
-			eventReader = new BufferedReader(new FileReader(arguments));
-			String initLine = eventReader.readLine();
-			if(initLine == null){
-				throw new Exception("Empty input file");
+	public boolean launch(String arguments){
+		try{
+			final Map<String, String> configMap = HelperFunctions.parseKeyValuePairsFrom(arguments,
+					new String[]{Settings.getDefaultConfigFilePath(this.getClass())});
+			final String inputPath = ArgumentFunctions.mustParseReadableFilePath(keyInput, configMap);
+			final boolean versions = ArgumentFunctions.mustParseBoolean(keyVersions, configMap);
+			final boolean waitForLog = ArgumentFunctions.mustParseBoolean(keyWaitForLog, configMap);
+
+			return launch(inputPath, versions, waitForLog);
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to read/parse arguments and configurations", e);
+			return false;
+		}
+
+    }
+
+	public boolean launch(final String inputPath, final boolean versions, final boolean waitForLog) throws Exception{
+		this.inputPath = inputPath;
+		this.versions = versions;
+		this.waitForLog = waitForLog;
+
+		try{
+			eventReader = EventReader.createReader(this.inputPath);
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to create ProcMon CSV log reader", e);
+			return false;
+		}
+
+		final Runnable eventProcessor = new Runnable(){
+			public void run(){
+				try{
+					Event event;
+					while(!shutdown){
+						event = eventReader.read();
+						if(event == null){
+							break;
+						}
+						handleEvent(event);
+					}
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to read/process event", e);
+				}finally{
+					closeEventReader();
+				}
+				logger.log(Level.INFO, "Finished processing file: '" + inputPath + "'");
+				shutdown = true;
 			}
-			initLine = initLine.trim();
-			if(initLine.isBlank() || initLine.length() < 2){
-				throw new Exception(
-						"Invalid input file. First line must contain name of columns selected in Process Monitor");
+		};
+		try{
+			new Thread(eventProcessor, "ProcMon-Thread").start();
+			return true;
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to create ProcMon CSV log reader", e);
+			closeEventReader();
+			return false;
+		}
+    }
+
+    private void closeEventReader(){
+    	if(eventReader != null){
+			try{
+				eventReader.close();
+			}catch(Exception sube){
+				
 			}
-			final String[] columns = initLine.substring(1, initLine.length() - 1).split("\",\"");
-			if(columns.length < columnNames.size()){
-				throw new Exception("Missing column names in input file. Must contain: " + columnNames);
+		}
+    }
+
+	@Override
+	public boolean shutdown(){
+		if(waitForLog){
+			while(!shutdown){
+				HelperFunctions.sleepSafe(1000);
 			}
-			for(int i = 0; i < columns.length; i++){
-				columnMap.put(columns[i], i);
-			}
-			for(final String columnName : columnNames){
-				if(columnMap.get(columnName) == null){
-					throw new Exception("Missing column '" + columnName + "' in input file");
+		}
+		shutdown = true;
+		return true;
+	}
+
+	private void handleEvent(final Event event){
+		if(!event.isSuccessful()){
+			return;
+		}
+
+		handleProcess(event);
+
+		final String eventClass = event.getEventClass();
+		final String category = event.getCategory();
+		final String operation = event.getOperation();
+
+		switch(category){
+			case SystemConstant.CATEGORY_READ:
+			case SystemConstant.CATEGORY_READ_METADATA:{
+				switch(eventClass){
+					case SystemConstant.EVENT_CLASS_REGISTRY:
+					case SystemConstant.EVENT_CLASS_FILE_SYSTEM:{
+						readArtifact(event);
+						return;
+					}
+					default: break;
 				}
 			}
-            N_TIME = columnMap.get(COLUMN_TIME);
-            N_PROCESS_NAME = columnMap.get(COLUMN_PROCESS_NAME);
-            N_PID = columnMap.get(COLUMN_PID);
-            N_OPERATION = columnMap.get(COLUMN_OPERATION);
-            N_PATH = columnMap.get(COLUMN_PATH);
-            N_RESULT = columnMap.get(COLUMN_RESULT);
-            N_DETAIL = columnMap.get(COLUMN_DETAIL);
-            N_DURATION = columnMap.get(COLUMN_DURATION);
-            N_EVENT_CLASS = columnMap.get(COLUMN_EVENT_CLASS);
-            N_IMAGE_PATH = columnMap.get(COLUMN_IMAGE_PATH);
-            N_COMPANY = columnMap.get(COLUMN_COMPANY);
-            N_DESCRIPTION = columnMap.get(COLUMN_DESCRIPTION);
-            N_VERSION = columnMap.get(COLUMN_VERSION);
-            N_USER = columnMap.get(COLUMN_USER);
-            N_COMMAND_LINE = columnMap.get(COLUMN_COMMAND_LINE);
-            N_PARENT_PID = columnMap.get(COLUMN_PARENT_PID);
-            N_ARCHITECTURE = columnMap.get(COLUMN_ARCHITECTURE);
-            N_CATEGORY = columnMap.get(COLUMN_CATEGORY);
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, exception.getMessage(), exception);
-            return false;
-        }
-        Runnable lineProcessor = new Runnable() {
-            public void run() {
-                try {
-                    String line;
-                    while (!shutdown) {
-                        line = eventReader.readLine();
-                        if (line == null) {
-                            break;
-                        }
-                        while (!line.endsWith("\"")) {
-                            line += eventReader.readLine();
-                        }
-                        processLine(line);
-                    }
-                    logger.log(Level.INFO, "Finished parsing file");
-                    eventReader.close();
-                } catch (Exception exception) {
-                    logger.log(Level.SEVERE, null, exception);
-                }
-            }
-        };
-        new Thread(lineProcessor, "ProcMon-Thread").start();
-        return true;
+			break;
+			case SystemConstant.CATEGORY_WRITE:
+			case SystemConstant.CATEGORY_WRITE_METADATA:{
+				switch(eventClass){
+					case SystemConstant.EVENT_CLASS_REGISTRY:
+					case SystemConstant.EVENT_CLASS_FILE_SYSTEM:{
+						writeArtifact(event);
+						return;
+					}
+					default: break;
+			}
+			}
+			break;
+			default: break;
+		}
+
+		switch(operation){
+			case SystemConstant.OPERATION_LOAD_IMAGE:{
+				loadImage(event);
+				return;
+			}
+			case SystemConstant.OPERATION_TCP_SEND:
+			case SystemConstant.OPERATION_UDP_SEND:
+			case SystemConstant.OPERATION_TCP_CONNECT:
+			case SystemConstant.OPERATION_TCP_RECONNECT:{
+				networkSend(event);
+				return;
+			}
+			case SystemConstant.OPERATION_TCP_RECEIVE:
+			case SystemConstant.OPERATION_UDP_RECEIVE:{
+				networkReceive(event);
+				return;
+			}
+			default: break;
+		}
+
+	}
+
+	private void handleProcess(final Event event){
+		final String pid = event.getPid();
+		if(!processMap.containsKey(pid)){
+			createProcess(event);
+			if(event.hasTid()){
+				final String tid = event.getTid();
+				final Set<String> threads = new HashSet<String>();
+				threads.add(tid);
+				threadMap.put(pid, threads);
+			}
+		}
+		if(event.hasTid()){// to allow to count how many thread it launched, graph no longer acyclic
+			final String tid = event.getTid();
+			if(processMap.containsKey(pid) && (!threadMap.get(pid).contains(tid))){
+				createWasTriggeredBy(event);
+				threadMap.get(pid).add(tid);
+			}
+		}
+	}
+
+	private void createProcess(final Event event){
+		final String pid = event.getPid();
+		final String ppid = event.getParentPid();
+
+		final Process processVertex = ProvenanceModel.createProcessVertex(event);
+		putVertex(processVertex);
+		processMap.put(pid, processVertex);
+
+		final Agent agentVertex = ProvenanceModel.createAgentVertex(event);
+		putVertex(agentVertex);
+
+		final WasControlledBy wasControlledBy = ProvenanceModel.createWasControlledByEdge(event, processVertex, agentVertex);
+		putEdge(wasControlledBy);
+
+		if(processMap.containsKey(ppid)){
+			final Process parentProcessVertex = processMap.get(ppid);
+			final WasTriggeredBy wasTriggeredBy = ProvenanceModel.createWasTriggeredByEdge(event, processVertex, parentProcessVertex);
+			putEdge(wasTriggeredBy);
+		}
+	}
+
+	private void createWasTriggeredBy(final Event event){
+    	final String pid = event.getPid();
+    	final Process processVertex = processMap.get(pid);
+    	final Process parentProcessVertex = processMap.get(pid);
+    	final WasTriggeredBy wasTriggeredBy = ProvenanceModel.createWasTriggeredByEdge(event, processVertex, parentProcessVertex);
+    	putEdge(wasTriggeredBy);
     }
 
-    @Override
-    public boolean shutdown() {
-        shutdown = true;
-        return true;
-    }
+	private int getPathVersion(final String path, final boolean increment){
+		int version;
+		if(artifactVersions.get(path) != null){
+			version = artifactVersions.get(path);
+			if(increment){
+				version++;
+				artifactVersions.put(path, version);
+			}
+		}else{
+			version = 0;
+			artifactVersions.put(path, version);
+			// Do no increment so that all start with 0
+		}
+		return version;
+	}
 
-    private void processLine(String line) {
-        try {
-            String[] data = line.substring(1, line.length() - 1).split("\",\"");
-            if (!data[N_RESULT].equals("SUCCESS")) {
-                return;
-            }
+	private boolean putPathVertex(final String path){
+		return !artifactVersions.containsKey(path);
+	}
 
-            if (!processMap.containsKey(data[N_PID])) {
-                createProcess(data);
-            }
+	private void readArtifact(final Event event){
+		final String pid = event.getPid();
+		final String path = event.getPath();
 
-            String eventClass = data[N_EVENT_CLASS];
-            String category = data[N_CATEGORY];
-            String operation = data[N_OPERATION];
+		final boolean put = putPathVertex(path);
+		final int version = getPathVersion(path, false);
 
-            if (category.equals(CATEGORY_READ) || category.equals(CATEGORY_READ_METADATA)) {
-                if (eventClass.equals(EVENT_CLASS_REGISTRY) || eventClass.equals(EVENT_CLASS_FILE_SYSTEM)) {
-                    readArtifact(data);
-                }
-            } else if (category.equals(CATEGORY_WRITE) || category.equals(CATEGORY_WRITE_METADATA)) {
-                if (eventClass.equals(EVENT_CLASS_REGISTRY) || eventClass.equals(EVENT_CLASS_FILE_SYSTEM)) {
-                    writeArtifact(data);
-                }
-            } else if (operation.equals(OPERATION_LoadImage)) {
-                loadImage(data);
-            } else if (operation.equals(OPERATION_TCPSend) || operation.equals(OPERATION_UDPSend)) {
-                networkSend(data);
-            } else if (operation.equals(OPERATION_TCPReceive) || operation.equals(OPERATION_UDPReceive)) {
-                networkReceive(data);
-            }
-        } catch (Exception exception) {
-            System.err.println("Error parsing line: " + line);
-//            logger.log(Level.SEVERE, null, exception);
-        }
-    }
+		final Artifact artifact = ProvenanceModel.createPathArtifact(event);
+		if(versions){
+			ProvenanceModel.addVersionToArtifact(artifact, version);
+		}
 
-    private void createProcess(String[] data) {
-        String pid = data[N_PID];
-        String ppid = data[N_PARENT_PID];
+		if(put){
+			putVertex(artifact);
+		}
 
-        Process process = new Process();
-        process.addAnnotation("pid", pid);
-        process.addAnnotation("ppid", ppid);
-        process.addAnnotation("name", data[N_PROCESS_NAME]);
-        process.addAnnotation("imagepath", data[N_IMAGE_PATH]);
-        process.addAnnotation("commandline", data[N_COMMAND_LINE]);
-        process.addAnnotation("arch", data[N_ARCHITECTURE]);
-        process.addAnnotation("company", data[N_COMPANY]);
-        process.addAnnotation("description", data[N_DESCRIPTION]);
-        process.addAnnotation("version", data[N_VERSION]);
+		final Process processVertex = processMap.get(pid);
+		final Used used = ProvenanceModel.createPathReadEdge(event, processVertex, artifact);
+		putEdge(used);
+	}
 
-        putVertex(process);
-        processMap.put(pid, process);
+	private void writeArtifact(final Event event){
+		final String pid = event.getPid();
+		final String path = event.getPath();
 
-        Agent user = new Agent();
-        user.addAnnotation(COLUMN_USER, data[N_USER]);
-        putVertex(user);
+		final boolean put = putPathVertex(path);
+		final int version = getPathVersion(path, true);
 
-        WasControlledBy wcb = new WasControlledBy(process, user);
-        putEdge(wcb);
+		final Artifact artifact = ProvenanceModel.createPathArtifact(event);
+		if(versions){
+			ProvenanceModel.addVersionToArtifact(artifact, version);
+		}
 
-        if (processMap.containsKey(ppid)) {
-            WasTriggeredBy wtb = new WasTriggeredBy(process, processMap.get(ppid));
-            wtb.addAnnotation("time", data[N_TIME]);
-            putEdge(wtb);
-        }
-    }
+		if(put){
+			putVertex(artifact);
+		}
 
-    private void readArtifact(String[] data) {
-        String pid = data[N_PID];
-        String path = data[N_PATH];
+		final Process processVertex = processMap.get(pid);
+		final WasGeneratedBy wasGeneratedBy = ProvenanceModel.createPathWriteEdge(event, artifact, processVertex);
+		putEdge(wasGeneratedBy);
+	}
 
-        boolean put = !artifactVersions.containsKey(path);
-        int version = artifactVersions.containsKey(path) ? artifactVersions.get(path) : 0;
-        artifactVersions.put(path, version);
+	private void loadImage(final Event event){
+		final String pid = event.getPid();
+		final String path = event.getPath();
 
-        Artifact artifact = new Artifact();
-        artifact.addAnnotation("class", data[N_EVENT_CLASS]);
-        artifact.addAnnotation("path", path);
-        artifact.addAnnotation("version", Integer.toString(version));
+		final Artifact image = ProvenanceModel.createImageArtifact(event);
+		if(!loadedImages.contains(path)){
+			loadedImages.add(path);
+			putVertex(image);
+		}
 
-        if (put) {
-            putVertex(artifact);
-        }
+		final Process process = processMap.get(pid);
+		final Used used = ProvenanceModel.createImageLoadEdge(event, process, image);
+		putEdge(used);
+	}
 
-        Used used = new Used(processMap.get(pid), artifact);
-        used.addAnnotation("time", data[N_TIME]);
-        used.addAnnotation("operation", data[N_OPERATION]);
-        used.addAnnotation("category", data[N_CATEGORY]);
-        used.addAnnotation("detail", data[N_DETAIL]);
-        used.addAnnotation("duration", data[N_DURATION]);
-        putEdge(used);
-    }
+	private void networkSend(final Event event){
+		final String pid = event.getPid();
+		final String path = event.getPath();
+		final Artifact network = ProvenanceModel.createNetworkArtifact(path);
 
-    private void writeArtifact(String[] data) {
-        String pid = data[N_PID];
-        String path = data[N_PATH];
+		if(!networkConnections.contains(path)){
+			networkConnections.add(path);
+			putVertex(network);
+		}
 
-        int version = artifactVersions.containsKey(path) ? artifactVersions.get(path) + 1 : 1;
-        artifactVersions.put(path, version);
+		final Process process = processMap.get(pid);
+		final WasGeneratedBy wasGeneratedBy = ProvenanceModel.createNetworkWriteEdge(event, network, process);
+		putEdge(wasGeneratedBy);
+	}
 
-        Artifact artifact = new Artifact();
-        artifact.addAnnotation("class", data[N_EVENT_CLASS]);
-        artifact.addAnnotation("path", path);
-        artifact.addAnnotation("version", Integer.toString(version));
-        putVertex(artifact);
+	private void networkReceive(final Event event){
+		final String pid = event.getPid();
+		final String path = event.getPath();
+		final Artifact network = ProvenanceModel.createNetworkArtifact(path);
 
-        WasGeneratedBy wgb = new WasGeneratedBy(artifact, processMap.get(pid));
-        wgb.addAnnotation("time", data[N_TIME]);
-        wgb.addAnnotation("operation", data[N_OPERATION]);
-        wgb.addAnnotation("category", data[N_CATEGORY]);
-        wgb.addAnnotation("detail", data[N_DETAIL]);
-        wgb.addAnnotation("duration", data[N_DURATION]);
-        putEdge(wgb);
-    }
+		if(!networkConnections.contains(path)){
+			networkConnections.add(path);
+			putVertex(network);
+		}
 
-    private void loadImage(String[] data) {
-        String pid = data[N_PID];
+		final Process process = processMap.get(pid);
+		final Used used = ProvenanceModel.createNetworkReadEdge(event, process, network);
+		putEdge(used);
+	}
 
-        Artifact image = new Artifact();
-        image.addAnnotation("type", "file");
-        image.addAnnotation("path", data[N_PATH]);
-        if (loadedImages.add(data[N_PATH])) {
-            putVertex(image);
-        }
-
-        Used used = new Used(processMap.get(pid), image);
-        used.addAnnotation("time", data[N_TIME]);
-        used.addAnnotation("operation", data[N_OPERATION]);
-        used.addAnnotation("detail", data[N_DETAIL]);
-        used.addAnnotation("duration", data[N_DURATION]);
-        putEdge(used);
-    }
-
-    private void networkSend(String[] data) {
-        String pid = data[N_PID];
-        String[] hosts = data[N_PATH].split(" -> ");
-        String[] local = hosts[0].split(":");
-        String[] remote = hosts[1].split(":");
-
-        Artifact network = new Artifact();
-        network.addAnnotation("subtype", "network");
-        network.addAnnotation("local host", local[0]);
-        network.addAnnotation("local port", local[1]);
-        network.addAnnotation("remote host", remote[0]);
-        network.addAnnotation("remote port", remote[1]);
-        if (networkConnections.add(data[N_PATH])) {
-            putVertex(network);
-        }
-
-        WasGeneratedBy wgb = new WasGeneratedBy(network, processMap.get(pid));
-        wgb.addAnnotation("time", data[N_TIME]);
-        wgb.addAnnotation("operation", data[N_OPERATION]);
-        wgb.addAnnotation("detail", data[N_DETAIL]);
-        putEdge(wgb);
-    }
-
-    private void networkReceive(String[] data) {
-        String pid = data[N_PID];
-        String[] hosts = data[N_PATH].split(" -> ");
-        String[] local = hosts[0].split(":");
-        String[] remote = hosts[1].split(":");
-
-        Artifact network = new Artifact();
-        network.addAnnotation("subtype", "network");
-        network.addAnnotation("local host", local[0]);
-        network.addAnnotation("local port", local[1]);
-        network.addAnnotation("remote host", remote[0]);
-        network.addAnnotation("remote port", remote[1]);
-        if (networkConnections.add(data[N_PATH])) {
-            putVertex(network);
-        }
-
-        Used used = new Used(processMap.get(pid), network);
-        used.addAnnotation("time", data[N_TIME]);
-        used.addAnnotation("operation", data[N_OPERATION]);
-        used.addAnnotation("detail", data[N_DETAIL]);
-        putEdge(used);
-    }
 }
