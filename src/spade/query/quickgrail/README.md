@@ -58,7 +58,16 @@ dump all $paths
   * `env unset` _variable_name_
   * `env print` _variable_name_
 * Print graph statistics
-  * `stat` _graph_
+  * Print vertex count and edge count in a graph
+    * `stat` _graph_
+  * Print the mean of values of a vertex annotation or an edge annotation in a graph
+    * `stat <vertex|edge> "annotation key" mean` _graph_
+  * Print the standard deviation of values of a vertex annotation or an edge annotation in a graph
+    * `stat <vertex|edge> "annotation key" std` _graph_
+  * Print the histogram of values of a vertex annotation or an edge annotation in a graph
+    * `stat <vertex|edge> "annotation key" histogram` _graph_
+  * Print the distribution of values of a vertex annotation or an edge annotation in a graph
+    * `stat <vertex|edge> "annotation key" distribution` _graph_ `[<number of buckets>]`
 * Print graph as a SPADE `Graph`
   * `dump` _graph_
   * using `all` prints entire graph, even if it exceeds limit in `exportLimit` environment variable
