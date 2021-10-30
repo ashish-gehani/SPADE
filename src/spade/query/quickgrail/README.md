@@ -67,7 +67,8 @@ dump all $paths
   * Print _histogram of values_ of vertex/edge annotation key (in specified graph)
     * `stat <vertex|edge> "annotation key" histogram` _graph_
   * Print _distribution of values_ of vertex/edge annotation key (in specified graph)
-    * `stat <vertex|edge> "annotation key" distribution` _graph_ `[<number of buckets>]`
+    * `stat <vertex|edge> "annotation key" distribution` `<number of buckets>` _graph_
+    * `number of buckets` is required to determine the size of a bucket based on the range of values
 * Print graph as a SPADE `Graph`
   * `dump` _graph_
   * using `all` prints entire graph, even if it exceeds limit in `exportLimit` environment variable
