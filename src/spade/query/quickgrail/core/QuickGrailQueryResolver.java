@@ -107,62 +107,6 @@ public class QuickGrailQueryResolver{
 	private ArrayList<Instruction<? extends Serializable>> instructions;
 	private AbstractQueryEnvironment env;
 
-	class ExpressionStream{
-		private ArrayList<ParseExpression> stream;
-		private int position = 0;
-
-		public ExpressionStream(ArrayList<ParseExpression> stream){
-			this.stream = stream;
-			this.position = 0;
-		}
-
-		public boolean hasNext(){
-			return position < stream.size();
-		}
-
-		public ParseExpression getNextExpression(){
-			if(!hasNext()){
-				throw new RuntimeException("Require more arguments");
-			}
-			return stream.get(position++);
-		}
-
-		public String tryGetNextNameAsString(){
-			if(!hasNext()){
-				return null;
-			}
-			ParseExpression expression = stream.get(position);
-			if(expression.getExpressionType() != ExpressionType.kName){
-				return null;
-			}
-			++position;
-			return ((ParseName)expression).getName().getValue();
-		}
-
-		public String getNextString(){
-			if(!hasNext()){
-				throw new RuntimeException("Require more arguments");
-			}
-			return resolveString(stream.get(position++));
-		}
-
-		public String getNextNameOrString(){
-			if(!hasNext()){
-				throw new RuntimeException("Require more arguments");
-			}
-			ParseExpression expression = stream.get(position++);
-			switch(expression.getExpressionType()){
-			case kName:
-				return resolveNameAsString(expression);
-			case kLiteral:
-				return resolveString(expression);
-			default:
-				break;
-			}
-			throw new RuntimeException("Expected name or string literal");
-		}
-	}
-
 	/**
 	 * Top-level API for resolving parse trees (that represent a list of QuickGrail
 	 * queries) into a low-level program (a list of primitive instructions ready to
@@ -369,7 +313,7 @@ public class QuickGrailQueryResolver{
 			}else{ // is save
 				idx++;
 				if(idx < arguments.size()){
-					final String filePath = resolveNameOrLiteralAsString(arguments.get(idx)).trim();
+					final String filePath = QueryResolverHelper.resolveNameOrLiteralAsString(arguments.get(idx)).trim();
 					try{
 						FileUtility.pathMustBeAWritableFile(filePath);
 					}catch(Exception e){
@@ -428,34 +372,13 @@ public class QuickGrailQueryResolver{
 		return elementType;
 	}
 
-	private String resolveNameOrLiteralAsString(final ParseExpression argument){
-		final ParseExpression expr = argument;
-		if(expr.getExpressionType() == ParseExpression.ExpressionType.kName){
-			final String value = resolveNameAsString(expr);
-			return value;
-		}else if(expr.getExpressionType() == ParseExpression.ExpressionType.kLiteral){
-			final TypedValue typedValue = ((ParseLiteral)expr).getLiteralValue();
-			final String value;
-			if(typedValue.getType().getTypeID() == TypeID.kString){
-				value = (String)typedValue.getValue();
-			}else if(typedValue.getType().getTypeID() == TypeID.kInteger){
-				value = ((Integer)typedValue.getValue()).toString();
-			}else{
-				throw new RuntimeException("Invalid value type at " + expr.getLocationString() + ": expected name or string or integer");
-			}
-			return value;
-		}else{
-			throw new RuntimeException("Invalid value type at " + expr.getLocationString() + ": name or expected string or integer");
-		}
-	}
-
 	/*
 	 * stat $base
-	 * stat <vertex|edge> <annotation key> <histogram|mean|std|distribution> $base [<arguments>]
+	 * stat <vertex|edge> <annotation key> <histogram|mean|std|distribution> [<arguments>] $base 
 	 */
 	private void resolveStatCommand(ArrayList<ParseExpression> arguments){
 		if(arguments.size() == 0){
-			throw new RuntimeException("Invalid number of arguments for stat: expected at least 1");
+			throw new RuntimeException("Invalid number of arguments for stat: expected 1 or at least 4");
 		}
 
 		if(arguments.size() == 1){
@@ -468,73 +391,48 @@ public class QuickGrailQueryResolver{
 
 			int argumentIndex = 0;
 			final ElementType elementType = resolveElementType(arguments.get(argumentIndex++));
-			final String annotationKey = resolveNameAsString(arguments.get(argumentIndex++));
-			final String statisticType = resolveNameAsString(arguments.get(argumentIndex++)).toLowerCase();
-			final Graph targetGraph = resolveStatGraphExpression(arguments.get(argumentIndex++));
+			final String annotationKey = QueryResolverHelper.resolveNameAsString(arguments.get(argumentIndex++));
+			final String statisticType = QueryResolverHelper.resolveNameAsString(arguments.get(argumentIndex++)).toLowerCase();
 
 			final GetGraphStatistic<? extends GraphStatistic> graphStatisticInstruction;
 
 			switch(statisticType){
 				case "histogram":{
+					final Graph targetGraph = resolveStatGraphExpression(arguments.get(argumentIndex++));
 					graphStatisticInstruction = new GetGraphStatistic.Histogram(targetGraph, elementType, annotationKey);
 					break;
 				}
 				case "mean":{
+					final Graph targetGraph = resolveStatGraphExpression(arguments.get(argumentIndex++));
 					graphStatisticInstruction = new GetGraphStatistic.Mean(targetGraph, elementType, annotationKey);
 					break;
 				}
 				case "std":{
+					final Graph targetGraph = resolveStatGraphExpression(arguments.get(argumentIndex++));
 					graphStatisticInstruction = new GetGraphStatistic.StandardDeviation(targetGraph, elementType, annotationKey);
 					break;
 				}
 				case "distribution":{
-					final Integer binCount;
-					if(arguments.size() >= argumentIndex+1){
-						binCount = resolveInteger(arguments.get(argumentIndex++));
-						if(binCount <= 0){
-							throw new RuntimeException("Bin count must be a positive number");
-						}
-					}else{
-						throw new RuntimeException("Missing bin count argument for the histogram");
-					}
-					graphStatisticInstruction = new GetGraphStatistic.Distribution(targetGraph, elementType, annotationKey, binCount);
+					final Integer bucketCount = QueryResolverHelper.resolveInteger(arguments.get(argumentIndex++));
+					final Graph targetGraph = resolveStatGraphExpression(arguments.get(argumentIndex++));
+					graphStatisticInstruction = new GetGraphStatistic.Distribution(targetGraph, elementType, annotationKey, bucketCount);
 					break;
 				}
 				default:{
 					throw new RuntimeException("Unknown graph statistics type. Allowed: ["
 							+ "histogram|mean|std|distribution"
 							+ "]");
-				}	
+				}
 			}
 			final int precisionScale;
-			if(arguments.size() >= argumentIndex+1){
-				precisionScale = resolveInteger(arguments.get(argumentIndex++));
+			final EnvironmentVariable envVar = env.getEnvVarManager().get(EnvironmentVariableManager.Name.precision);
+			if(envVar == null || envVar.getValue() == null){
+				throw new RuntimeException("Precision environment variable not set");
 			}else{
-				final EnvironmentVariable envVar = 
-						env.getEnvVarManager().get(EnvironmentVariableManager.Name.precision);
-				if(envVar == null || envVar.getValue() == null){
-					throw new RuntimeException("Missing precision argument and environment variable");
-				}else{
-					precisionScale = (Integer)envVar.getValue();
-				}
+				precisionScale = (Integer)envVar.getValue();
 			}
 			graphStatisticInstruction.setPrecisionScale(precisionScale);
 			instructions.add(graphStatisticInstruction);
-		}
-	}
-	
-	private final Integer getOptionalPositiveIntegerArgument(final ArrayList<ParseExpression> arguments, final int i){
-		if(i >= arguments.size()){
-			return null;
-		}else{
-			if(i < 0){
-				throw new RuntimeException("Negative index for argument");
-			}
-			final Integer value = resolveInteger(arguments.get(i));
-			if(value < 1){
-				throw new RuntimeException("Only positive value for limit allowed");
-			}
-			return value;
 		}
 	}
 
@@ -545,7 +443,7 @@ public class QuickGrailQueryResolver{
 
 		final Graph targetGraph = resolveGraphExpression(arguments.get(0), null, true);
 
-		final String elementTypeValue = resolveNameAsString(arguments.get(1));
+		final String elementTypeValue = QueryResolverHelper.resolveNameAsString(arguments.get(1));
 		final Result<ElementType> elementTypeResult = HelperFunctions.parseEnumValue(ElementType.class,
 				elementTypeValue, true);
 		if(elementTypeResult.error){
@@ -580,10 +478,10 @@ public class QuickGrailQueryResolver{
 			}
 
 			instructions.add(new DescribeGraph(targetGraph, elementTypeResult.result, annotationNameValue,
-					descriptionTypeResult.result, getOptionalPositiveIntegerArgument(arguments, 4)));
+					descriptionTypeResult.result, QueryResolverHelper.getOptionalPositiveIntegerArgument(arguments, 4)));
 		}else{
 			instructions.add(new DescribeGraph(targetGraph, elementTypeResult.result,
-					getOptionalPositiveIntegerArgument(arguments, 2)));
+					QueryResolverHelper.getOptionalPositiveIntegerArgument(arguments, 2)));
 		}
 	}
 
@@ -636,13 +534,13 @@ public class QuickGrailQueryResolver{
 		if(arguments.size() < 1){
 			throw new RuntimeException("Invalid arguments for 'env' command: expected at least 1");
 		}
-		final String subCommand = resolveNameAsString(arguments.get(0)).toLowerCase();
+		final String subCommand = QueryResolverHelper.resolveNameAsString(arguments.get(0)).toLowerCase();
 		switch(subCommand){
 			case "set":{
 				if(arguments.size() != 3){
 					throw new RuntimeException("Invalid arguments for 'env' set command: expected 3");
 				}
-				final String variableName = resolveNameAsString(arguments.get(1));
+				final String variableName = QueryResolverHelper.resolveNameAsString(arguments.get(1));
 				String variableValue = null;
 				if(arguments.get(2).getExpressionType() != ParseExpression.ExpressionType.kLiteral){
 					throw new RuntimeException("Invalid value at " + arguments.get(2).getLocationString() + ": expected literal");
@@ -662,7 +560,7 @@ public class QuickGrailQueryResolver{
 				if(arguments.size() != 2){
 					throw new RuntimeException("Invalid arguments for 'env' unset command: expected 2");
 				}
-				final String variableName = resolveNameAsString(arguments.get(1));
+				final String variableName = QueryResolverHelper.resolveNameAsString(arguments.get(1));
 				instructions.add(new EnvironmentVariableOperation.Unset(variableName));
 			}
 			break;
@@ -677,7 +575,7 @@ public class QuickGrailQueryResolver{
 				if(arguments.size() != 2){
 					throw new RuntimeException("Invalid arguments for 'env' print command: expected 2");
 				}
-				final String variableName = resolveNameAsString(arguments.get(1));
+				final String variableName = QueryResolverHelper.resolveNameAsString(arguments.get(1));
 				instructions.add(new EnvironmentVariableOperation.Get(variableName));
 			}
 			break;
@@ -713,13 +611,13 @@ public class QuickGrailQueryResolver{
 		if(arguments.size() < 1){
 			throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' command: expected at least 1");
 		}
-		final String subCommand = resolveNameAsString(arguments.get(0)).toLowerCase();
+		final String subCommand = QueryResolverHelper.resolveNameAsString(arguments.get(0)).toLowerCase();
 		switch(subCommand){
 			case "create":{
 				if(arguments.size() != 3 && arguments.size() != 4){
 					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 3 or 4");
 				}
-				final String hostName = resolveNameAsString(arguments.get(1));
+				final String hostName = QueryResolverHelper.resolveNameAsString(arguments.get(1));
 				final int port;
 				final int remoteVariableIndex;
 				final String remoteVariable;
@@ -727,7 +625,7 @@ public class QuickGrailQueryResolver{
 					port = Settings.getCommandLineQueryPort();
 					remoteVariableIndex = 2;
 				}else if(arguments.size() == 4){
-					port = resolveInteger(arguments.get(2));
+					port = QueryResolverHelper.resolveInteger(arguments.get(2));
 					remoteVariableIndex = 3;
 				}else{
 					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 3 or 4");
@@ -742,19 +640,19 @@ public class QuickGrailQueryResolver{
 				if(arguments.size() != 3 && arguments.size() != 4){
 					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 3 or 4");
 				}
-				final String hostName = resolveNameAsString(arguments.get(1));
+				final String hostName = QueryResolverHelper.resolveNameAsString(arguments.get(1));
 				final int port;
 				final int remoteVariableIndex;
 				if(arguments.size() == 3){
 					port = Settings.getCommandLineQueryPort();
 					remoteVariableIndex = 2;
 				}else if(arguments.size() == 4){
-					port = resolveInteger(arguments.get(2));
+					port = QueryResolverHelper.resolveInteger(arguments.get(2));
 					remoteVariableIndex = 3;
 				}else{
 					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 3 or 4");
 				}
-				final String remoteQuery = resolveString(arguments.get(remoteVariableIndex));
+				final String remoteQuery = QueryResolverHelper.resolveString(arguments.get(remoteVariableIndex));
 
 				instructions.add(new RemoteVariableOperation.Query(hostName, port, remoteQuery));
 			}
@@ -764,7 +662,7 @@ public class QuickGrailQueryResolver{
 					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 4 or 5");
 				}
 				final Graph localVariable = resolveConstGraphVariable(arguments.get(1));
-				final String hostName = resolveNameAsString(arguments.get(2));
+				final String hostName = QueryResolverHelper.resolveNameAsString(arguments.get(2));
 				final int port;
 				final int remoteVariableIndex;
 				final String remoteVariable;
@@ -772,7 +670,7 @@ public class QuickGrailQueryResolver{
 					port = Settings.getCommandLineQueryPort();
 					remoteVariableIndex = 3;
 				}else if(arguments.size() == 5){
-					port = resolveInteger(arguments.get(3));
+					port = QueryResolverHelper.resolveInteger(arguments.get(3));
 					remoteVariableIndex = 4;
 				}else{
 					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 4 or 5");
@@ -787,7 +685,7 @@ public class QuickGrailQueryResolver{
 					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 4 or 5");
 				}
 				final Graph localVariable = resolveConstGraphVariable(arguments.get(1));
-				final String hostName = resolveNameAsString(arguments.get(2));
+				final String hostName = QueryResolverHelper.resolveNameAsString(arguments.get(2));
 				final int port;
 				final int remoteVariableIndex;
 				final String remoteVariable;
@@ -795,7 +693,7 @@ public class QuickGrailQueryResolver{
 					port = Settings.getCommandLineQueryPort();
 					remoteVariableIndex = 3;
 				}else if(arguments.size() == 5){
-					port = resolveInteger(arguments.get(3));
+					port = QueryResolverHelper.resolveInteger(arguments.get(3));
 					remoteVariableIndex = 4;
 				}else{
 					throw new RuntimeException("Invalid arguments for '" + remoteCommandName + "' " + subCommand + " command: expected 4 or 5");
@@ -861,7 +759,7 @@ public class QuickGrailQueryResolver{
 
 	private void resolveResetCommand(ArrayList<ParseExpression> arguments){
 		if(arguments.size() == 1){
-			String target = resolveNameAsString(arguments.get(0));
+			String target = QueryResolverHelper.resolveNameAsString(arguments.get(0));
 			if(target.equals("workspace")){
 				env.resetWorkspace();
 			}
@@ -1204,7 +1102,7 @@ public class QuickGrailQueryResolver{
 
 		Graph startGraph = resolveGraphExpression(arguments.get(0), null, true);
 
-		String dirStr = resolveString(arguments.get(1));
+		String dirStr = QueryResolverHelper.resolveString(arguments.get(1));
 		GetLineage.Direction direction;
 		if(dirStr.startsWith("a")){
 			direction = GetLineage.Direction.kAncestor;
@@ -1241,13 +1139,13 @@ public class QuickGrailQueryResolver{
 		TypedValue value = ((ParseLiteral)arguments.get(1)).getLiteralValue();
 		if(value.getType().getTypeID() == TypeID.kInteger){
 			depth = (Integer)value.getValue();
-			dirStr = resolveString(arguments.get(2));
+			dirStr = QueryResolverHelper.resolveString(arguments.get(2));
 		}else if(value.getType().getTypeID() == TypeID.kString){
 			if(maxDepthVar == null || maxDepthVar.getValue() == null){
 				throw new RuntimeException("Must explicitly specify max depth or set it in environment");
 			}
 			depth = (Integer)maxDepthVar.getValue();
-			dirStr = resolveString(arguments.get(1));
+			dirStr = QueryResolverHelper.resolveString(arguments.get(1));
 		}else{
 			throw new RuntimeException("Invalid value at " + arguments.get(1).getLocationString() + ": expected integer or string literal");
 		}
@@ -1279,7 +1177,7 @@ public class QuickGrailQueryResolver{
 
 		Graph srcGraph = resolveGraphExpression(arguments.get(0), null, true);
 		Graph dstGraph = resolveGraphExpression(arguments.get(1), null, true);
-		Integer maxDepth = resolveInteger(arguments.get(2));
+		Integer maxDepth = QueryResolverHelper.resolveInteger(arguments.get(2));
 
 		if(outputGraph == null){
 			outputGraph = allocateEmptyGraph();
@@ -1314,7 +1212,7 @@ public class QuickGrailQueryResolver{
 				// Last was graph expression so can be another graph expression or a literal
 				if(currentExpression.getExpressionType() == ParseExpression.ExpressionType.kLiteral){
 					// Must be an integer
-					final Integer maxDepth = resolveInteger(currentExpression);
+					final Integer maxDepth = QueryResolverHelper.resolveInteger(currentExpression);
 					currentEntry.setValue(maxDepth);
 					intermediateSteps.add(currentEntry);
 					lastExpressionType = ParseExpression.ExpressionType.kLiteral;
@@ -1375,7 +1273,7 @@ public class QuickGrailQueryResolver{
 	private Graph resolveCollapseEdge(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
 		ArrayList<String> fields = new ArrayList<String>();
 		for(ParseExpression e : arguments){
-			fields.add(resolveString(e));
+			fields.add(QueryResolverHelper.resolveString(e));
 		}
 
 		if(outputGraph == null){
@@ -1392,7 +1290,7 @@ public class QuickGrailQueryResolver{
 		}
 
 		final ParseExpression transformerNameExpression = argumentExpressions.get(0);
-		final String transformerName = resolveNameAsString(transformerNameExpression);
+		final String transformerName = QueryResolverHelper.resolveNameAsString(transformerNameExpression);
 		final Result<AbstractTransformer> createResult = AbstractTransformer.create(transformerName);
 		if(createResult.error){
 			throw new RuntimeException(createResult.errorMessage, createResult.exception);
@@ -1408,7 +1306,7 @@ public class QuickGrailQueryResolver{
 		final java.util.List<ParseExpression> queryArgumentExpressions;
 		if(argumentExpressions.size() > 1
 				&& argumentExpressions.get(1).getExpressionType() == ParseExpression.ExpressionType.kName){
-			transformerInitializeArgument = resolveNameAsString(argumentExpressions.get(1));
+			transformerInitializeArgument = QueryResolverHelper.resolveNameAsString(argumentExpressions.get(1));
 			queryArgumentExpressions = argumentExpressions.subList(2, argumentExpressions.size()); // rest are transformer arguments
 			offset = 2;
 		}else{
@@ -1449,7 +1347,7 @@ public class QuickGrailQueryResolver{
 							|| ((ParseLiteral)queryArgumentExpression).getLiteralValue().getType().getTypeID() != TypeID.kInteger){
 						throw new RuntimeException("Transformer argument in query must be an integer literal at index: " + (i + offset));
 					}else{
-						final Integer maxDepthLiteral = resolveInteger(queryArgumentExpression);
+						final Integer maxDepthLiteral = QueryResolverHelper.resolveInteger(queryArgumentExpression);
 						instructionArguments.add(maxDepthLiteral);
 					}
 					break;
@@ -1459,7 +1357,7 @@ public class QuickGrailQueryResolver{
 							|| ((ParseLiteral)queryArgumentExpression).getLiteralValue().getType().getTypeID() != TypeID.kString){
 						throw new RuntimeException("Transformer argument in query must be a string literal at index: " + (i + offset));
 					}else{
-						final String directionLiteral = resolveString(queryArgumentExpression).toLowerCase();
+						final String directionLiteral = QueryResolverHelper.resolveString(queryArgumentExpression).toLowerCase();
 						final GetLineage.Direction direction;
 						if("ancestors".startsWith(directionLiteral)){
 							direction = GetLineage.Direction.kAncestor;
@@ -1502,7 +1400,7 @@ public class QuickGrailQueryResolver{
 			}
 			return (Integer)maxDepthVar.getValue();
 		}else{
-			return resolveInteger(arguments.get(maxDepthArgumentIndex));
+			return QueryResolverHelper.resolveInteger(arguments.get(maxDepthArgumentIndex));
 		}
 	}
 
@@ -1511,8 +1409,8 @@ public class QuickGrailQueryResolver{
 		if(arguments.size() < 2){
 			throw new RuntimeException("Invalid number of arguments for " + methodName + ": expected 2 or 3");
 		}
-		final String dependencyMapPath = resolveString(arguments.get(0));
-		final String edgeAnnotationName = resolveNameOrLiteralAsString(arguments.get(1));
+		final String dependencyMapPath = QueryResolverHelper.resolveString(arguments.get(0));
+		final String edgeAnnotationName = QueryResolverHelper.resolveNameOrLiteralAsString(arguments.get(1));
 		final int maxDepth = getMaxDepth(arguments, 2);
 
 		if(outputGraph == null){
@@ -1572,7 +1470,7 @@ public class QuickGrailQueryResolver{
 		Graph graph2 = resolveGraphExpression(arguments.get(0), null, true);
 		ArrayList<String> annotationKeys = new ArrayList<String>();
 		for(int i = 1; i < arguments.size(); i++){
-			final String str = resolveString(arguments.get(i));
+			final String str = QueryResolverHelper.resolveString(arguments.get(i));
 			if(HelperFunctions.isNullOrEmpty(str)){
 				throw new RuntimeException("Invalid blank/null string in arguments at " + arguments.get(i).getLocationString());
 			}
@@ -1591,7 +1489,7 @@ public class QuickGrailQueryResolver{
 		Integer limit = null;
 		
 		if(arguments.size() == 1){
-			limit = resolveInteger(arguments.get(0));
+			limit = QueryResolverHelper.resolveInteger(arguments.get(0));
 		}else if(arguments.size() == 0){
 			final EnvironmentVariable limitVar = env.getEnvVarManager().get(EnvironmentVariableManager.Name.limit);
 			if(limitVar == null || limitVar.getValue() == null){
@@ -1625,38 +1523,6 @@ public class QuickGrailQueryResolver{
 
 		instructions.add(new GetShortestPath(outputGraph, subjectGraph, srcGraph, dstGraph, maxDepth));
 		return outputGraph;
-	}
-
-	private Integer resolveInteger(ParseExpression expression){
-		if(expression.getExpressionType() != ParseExpression.ExpressionType.kLiteral){
-			throw new RuntimeException(
-					"Invalid value at " + expression.getLocationString() + ": expected integer literal");
-		}
-		TypedValue value = ((ParseLiteral)expression).getLiteralValue();
-		if(value.getType().getTypeID() != TypeID.kInteger){
-			throw new RuntimeException(
-					"Invalid value type at " + expression.getLocationString() + ": expected integer");
-		}
-		return (Integer)value.getValue();
-	}
-
-	private String resolveString(ParseExpression expression){
-		if(expression.getExpressionType() != ParseExpression.ExpressionType.kLiteral){
-			throw new RuntimeException(
-					"Invalid value at " + expression.getLocationString() + ": expected string literal");
-		}
-		TypedValue value = ((ParseLiteral)expression).getLiteralValue();
-		if(value.getType().getTypeID() != TypeID.kString){
-			throw new RuntimeException("Invalid value type at " + expression.getLocationString() + ": expected string");
-		}
-		return (String)value.getValue();
-	}
-
-	private String resolveNameAsString(ParseExpression expression){
-		if(expression.getExpressionType() != ParseExpression.ExpressionType.kName){
-			throw new RuntimeException("Invalid value at " + expression.getLocationString() + ": expected name");
-		}
-		return ((ParseName)expression).getName().getValue();
 	}
 
 	private Graph allocateEmptyGraph(){
