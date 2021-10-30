@@ -36,6 +36,9 @@ pkg_name_fedora="postgresql-server-13.4"
 data_dir_fedora="/var/lib/pgsql"
 access_file_fedora="${data_dir_fedora}/data/pg_hba.conf"
 
+config_key_db_name="database"
+config_key_db_user="username"
+config_key_db_pass="password"
 ###
 # FUNCTIONS
 ###
@@ -46,13 +49,16 @@ print_help(){
   echo "Usage:"
   echo "  manage-postgres.sh install | uninstall | info"
   echo ""
-  echo "'manage-postgres.sh install <arguments>' : Install Postgres database. 'setup' command auto-runs if install successful"
+  echo "'manage-postgres.sh install <arguments>'   : Install Postgres database. 'setup' command auto-runs if install successful"
   echo "'manage-postgres.sh uninstall <arguments>' : Uninstall Postgres database and delete ALL existing databases"
-  echo "'manage-postgres.sh setup <arguments>' : Setup Postgres user and database for SPADE"
-  echo "'manage-postgres.sh info' : Display Postgres database info"
+  echo "'manage-postgres.sh setup <arguments>'     : Setup Postgres user and database for SPADE"
+  echo "'manage-postgres.sh info'                  : Display Postgres database info"
+  echo "'manage-postgres.sh connect'               : Connect to Postgres database"
+  echo "'manage-postgres.sh drop <arguments>'      : Drop database"
+  echo "'manage-postgres.sh clear <arguments>'     : Clear database"
   echo ""
   echo "Arguments:"
-  echo "  For 'install'|'setup' command:"
+  echo "  For 'install'|'setup'|'clear'|'drop' command:"
   echo "    -c|--config <file>: Path to SPADE PostgreSQL storage configuration. Default: '${cfg_path}'"
   echo "  For 'uninstall' command:"
   echo "    -p|--purge: Delete data on uninstall"
@@ -81,13 +87,96 @@ get_value_for_key(){
   echo $output
 }
 
+must_get_value_for_key(){
+  from_cfg_path="$1"
+  key="$2"
+  [ ! -f "$from_cfg_path" ] && echo "Configuration file not found: '$from_cfg_path'" && exit 1
+  value=$(get_value_for_key "$from_cfg_path" "$key")
+  [ -z "$value" ] && echo "Missing '$key' key in configuration file: $from_cfg_path" && exit 1
+  echo $value
+}
+
+get_psql_command_prefix(){
+  db_manage_prefix=""
+
+  if [ "$os_current" = "$os_darwin" ]
+  then
+    db_manage_prefix="psql -U $psql_usr"
+  elif [ "$os_current" = "$os_fedora" ]
+  then
+    db_manage_prefix="sudo -u $psql_usr psql"
+  elif [ "$os_current" = "$os_linux" ]
+  then
+    db_manage_prefix="sudo -u $psql_usr psql"
+  fi
+  echo "$db_manage_prefix"
+}
+
+exec_psql_command(){
+  command="$1"
+  db_manage_prefix=$(get_psql_command_prefix)
+
+  eval "$db_manage_prefix $command"
+}
+
+is_user_present(){
+  db_user="$1"
+  output=$(exec_psql_command "--no-align --tuples-only --command \"select 1 from pg_roles where rolname='${db_user}';\"")
+  if [ ! -z "$output" ]; then
+    if [ "$output" -eq 1 ]; then
+      echo 1
+      return 1
+    fi
+  fi
+  echo 0
+  return 0
+}
+
+is_db_present(){
+  db_name="$1"
+  output=$(exec_psql_command "--no-align --tuples-only --command \"select 1 from pg_database where datname='${db_name}';\"")
+  if [ ! -z "$output" ]; then
+    if [ "$output" -eq 1 ]; then
+      echo 1
+      return 1
+    fi
+  fi
+  echo 0
+  return 0
+}
+
+must_get_db_name(){
+  from_cfg_path="$1"
+  output=$(must_get_value_for_key "$from_cfg_path" "$config_key_db_name")
+  echo "$output"
+}
+
+must_get_db_user(){
+  from_cfg_path="$1"
+  output=$(must_get_value_for_key "$from_cfg_path" "$config_key_db_user")
+  echo "$output"
+}
+
+must_get_db_pass(){
+  from_cfg_path="$1"
+  output=$(must_get_value_for_key "$from_cfg_path" "$config_key_db_pass")
+  echo "$output"
+}
+
 ###
 # THERE MUST BE A COMMAND
 ###
 cmd="$1"
 [ -z "$cmd" ] && print_help && exit 1
 shift
-[[ "$cmd" != "install" ]] && [[ "$cmd" != "uninstall" ]] && [[ "$cmd" != "setup" ]] && [[ "$cmd" != "info" ]] && print_help && exit 1
+[[ "$cmd" != "install" ]] && \
+  [[ "$cmd" != "uninstall" ]] && \
+  [[ "$cmd" != "setup" ]] && \
+  [[ "$cmd" != "info" ]] && \
+  [[ "$cmd" != "connect" ]] && \
+  [[ "$cmd" != "clear" ]] && \
+  [[ "$cmd" != "drop" ]] && \
+  print_help && exit 1
 
 ###
 # PARSE ARGUMENTS
@@ -156,6 +245,16 @@ then
 fi
 
 ###
+#  CONNECT COMMAND
+###
+if [ "$cmd" = "connect" ]; then
+  db_name=$(must_get_db_name "$cfg_path")
+  db_manage_prefix=$(get_psql_command_prefix)
+  $db_manage_prefix -d $db_name
+  exit 0
+fi
+
+###
 # INFO COMMAND
 ###
 if [ "$cmd" = "info" ]
@@ -173,6 +272,17 @@ then
   then
     apt list --installed 2>/dev/null | grep "$pkg_name_linux"
   fi
+
+  echo ""
+
+  db_name=$(must_get_db_name "$cfg_path")
+  db_user=$(must_get_db_user "$cfg_path")
+
+  output=$(is_user_present "$db_user")
+  [ "$output" -eq 1 ] && echo "User exists: ${db_user}" || echo "User not found: ${db_user}"
+  output=$(is_db_present "$db_name")
+  [ "$output" -eq 1 ] && echo "Database exists: ${db_name}" || echo "Database not found: ${db_name}"
+
   exit 0
 fi
 
@@ -277,62 +387,68 @@ then
 fi
 
 ###
+# CLEAR & DROP COMMANDS
+###
+clear_success=0
+if [[ "$cmd" = "clear" ]] || [[ "$cmd" = "drop" ]]; then
+  db_name=$(must_get_db_name "$cfg_path")
+
+  error=0
+
+  exec_psql_command "--command \"drop database if exists $db_name;\"" &>/dev/null && \
+    echo "Database $db_name dropped" || \
+    error=1
+
+  [ "$error" -eq 1 ] && echo "Failed to drop database $db_name" && exit 1
+
+#  exec_psql_command "--command \"drop user if exists $db_user;\"" &>/dev/null && \
+#    echo "User $db_user dropped" || \
+#    error=1
+#  [ "$error" -eq 1 ] && echo "Failed to drop user $db_user" && exit 1
+
+  if [[ "$cmd" = "clear" ]]; then
+    clear_success=1
+  fi
+fi
+
+###
 # SETUP COMMAND
 ###
-if [[ "$install_success" -eq 1 ]] || [[ "$cmd" = "setup" ]]
+if [[ "$install_success" -eq 1 ]] || [[ "$clear_success" -eq 1 ]] || [[ "$cmd" = "setup" ]]
 then
   installed=$(is_installed)
   [ "$installed" -eq 0 ] && echo "PostgreSQL package is not installed" && exit 0
 
-  [ ! -f "$cfg_path" ] && echo "Configuration file not found: '$cfg_path'" && exit 1
-
-  db_name=$(get_value_for_key "$cfg_path" "database")
-  db_user=$(get_value_for_key "$cfg_path" "username")
-  db_pass=$(get_value_for_key "$cfg_path" "password")
-
-  [ -z "$db_name" ] && echo "Missing 'database' key in configuration file" && exit 1
-  [ -z "$db_user" ] && echo "Missing 'databaseUsername' key in configuration file" && exit 1
-  [ -z "$db_pass" ] && echo "Missing 'databasePassword' key in configuration file" && exit 1
-
-  db_manage_prefix=""
-
-  if [ "$os_current" = "$os_darwin" ]
-  then
-    db_manage_prefix="psql -U $psql_usr"
-  elif [ "$os_current" = "$os_fedora" ]
-  then
-    db_manage_prefix="sudo -u $psql_usr psql"
-  elif [ "$os_current" = "$os_linux" ]
-  then
-    db_manage_prefix="sudo -u $psql_usr psql"
-  fi
+  db_name=$(must_get_db_name "$cfg_path")
+  db_user=$(must_get_db_user "$cfg_path")
+  db_pass=$(must_get_db_pass "$cfg_path")
 
   error=0
 
   # Create user if not present
-  output=$($db_manage_prefix --no-align --tuples-only --command "select 1 from pg_roles where rolname='${db_user}';")
-  if [ -z "$output" ]
+  output=$(is_user_present "$db_user")
+  if [ "$output" -eq 0 ]
   then
-    $db_manage_prefix --command "create user $db_user with password '$db_pass';" &>/dev/null && \
+    exec_psql_command "--command \"create user $db_user with password '$db_pass';\"" &>/dev/null && \
       echo "User $db_user created" || \
       error=1
   else
-    $db_manage_prefix --command "alter user $db_user with password '$db_pass';" &>/dev/null && \
+    exec_psql_command "--command \"alter user $db_user with password '$db_pass';\"" &>/dev/null && \
       echo "User $db_user updated" || \
       error=1
   fi
   [ "$error" -eq 1 ] && echo "Failed to setup user $db_user" && exit 1
 
   # Update user
-  $db_manage_prefix --command "alter user $db_user with superuser;" &>/dev/null && \
+  exec_psql_command "--command \"alter user $db_user with superuser;\"" &>/dev/null && \
     echo "User $db_user update successful" || \
     echo "User $db_user update failed"
 
   # Create db if not present
-  output=$($db_manage_prefix --no-align --tuples-only --command "select 1 from pg_database where datname='${db_name}';")
-  if [ -z "$output" ]
+  output=$(is_db_present "$db_name")
+  if [ "$output" -eq 0 ]
   then
-    $db_manage_prefix --command "create database $db_name;" &>/dev/null && \
+    exec_psql_command "--command \"create database $db_name;\"" &>/dev/null && \
       echo "Database $db_name created" || \
       error=1
   else
@@ -341,7 +457,7 @@ then
   [ "$error" -eq 1 ] && echo "Failed to setup database $db_name" && exit 1
 
   # Update db
-  $db_manage_prefix --command "grant all privileges on database $db_name to $db_user;" &>/dev/null && \
+  exec_psql_command "--command \"grant all privileges on database $db_name to $db_user;\"" &>/dev/null && \
     echo "Database $db_name update successful" || \
     echo "Database $db_name update failed"
 
