@@ -61,14 +61,14 @@ dump all $paths
   * Print _vertex count_ and _edge count_ (in specified graph)
     * `stat` _graph_
   * Print _mean value_ of vertex/edge annotation key (in specified graph)
-    * `stat <vertex|edge> "annotation key" mean` _graph_
+    * `stat vertex|edge <key> mean` _graph_
   * Print _standard deviation of values_ for vertex/edge annotation key (in specified graph)
-    * `stat <vertex|edge> "annotation key" std` _graph_
+    * `stat vertex|edge <key> std` _graph_
   * Print _histogram of values_ of vertex/edge annotation key (in specified graph)
-    * `stat <vertex|edge> "annotation key" histogram` _graph_
+    * `stat vertex|edge <key> histogram` _graph_
   * Print _distribution of values_ of vertex/edge annotation key (in specified graph)
-    * `stat <vertex|edge> "annotation key" distribution` `<number of buckets>` _graph_
-    * `number of buckets` is required to determine the size of a bucket based on the range of values
+    * `stat vertex|edge <key> distribution <number of bins>` _graph_
+    * _distribution_ divides the values from minimum to maximum into specified number of sub-range bins
 * Print graph as a SPADE `Graph`
   * `dump` _graph_
   * using `all` prints entire graph, even if it exceeds limit in `exportLimit` environment variable
@@ -152,12 +152,12 @@ _return-type_ **method-name** ( **_argument-type_** formal-argument, ... )
 
 ## Operators
 * Graph Union `+`, `+=`
-  * E.g. `$3 = $1 + $2`
-  * E.g. `$b += $a`
+  * e.g. `$3 = $1 + $2`
+  * e.g. `$b += $a`
 * Graph Intersection `&`, `&=`
-  * E.g. `$3 = $1 & $2`
-  * E.g. `$b &= $a`
-* Graph Subtract `-`, `-=`
-  * E.g. `$3 = $1 - $2`
-  * E.g. `$b -= $a`
+  * e.g. `$3 = $1 & $2`
+  * e.g. `$b &= $a`
+* Graph Difference `-`, `-=`
+  * e.g. `$3 = $1 - $2`
+  * e.g. `$b -= $a`
 
