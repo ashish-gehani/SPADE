@@ -58,15 +58,15 @@ dump all $paths
   * `env unset` _variable_name_
   * `env print` _variable_name_
 * Print graph statistics
-  * Print vertex count and edge count in a graph
+  * Print _vertex count_ and _edge count_ (in specified graph)
     * `stat` _graph_
-  * Print the mean of values of a vertex annotation or an edge annotation in a graph
+  * Print _mean value_ of vertex/edge annotation key (in specified graph)
     * `stat <vertex|edge> "annotation key" mean` _graph_
-  * Print the standard deviation of values of a vertex annotation or an edge annotation in a graph
+  * Print _standard deviation of values_ for vertex/edge annotation key (in specified graph)
     * `stat <vertex|edge> "annotation key" std` _graph_
-  * Print the histogram of values of a vertex annotation or an edge annotation in a graph
+  * Print _histogram of values_ of vertex/edge annotation key (in specified graph)
     * `stat <vertex|edge> "annotation key" histogram` _graph_
-  * Print the distribution of values of a vertex annotation or an edge annotation in a graph
+  * Print _distribution of values_ of vertex/edge annotation key (in specified graph)
     * `stat <vertex|edge> "annotation key" distribution` _graph_ `[<number of buckets>]`
 * Print graph as a SPADE `Graph`
   * `dump` _graph_
