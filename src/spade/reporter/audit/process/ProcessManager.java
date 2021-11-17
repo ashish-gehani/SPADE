@@ -350,7 +350,8 @@ public abstract class ProcessManager extends ProcessStateManager{
 		String pidInEvent = eventData.get(AuditEventReader.PID);
 		return new ProcessIdentifier(pidInEvent, eventData.get(AuditEventReader.PPID), 
 				eventData.get(AuditEventReader.COMM), eventData.get(AuditEventReader.CWD), null, null, 
-				eventData.get(AuditEventReader.TIME), getUnitId(), OPMConstants.SOURCE_AUDIT_SYSCALL, null);
+				eventData.get(AuditEventReader.TIME), getUnitId(), OPMConstants.SOURCE_AUDIT_SYSCALL, null,
+				eventData.get(AuditEventReader.EXE));
 	}
 	
 	/**
@@ -457,6 +458,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		String cwd = eventData.get(AuditEventReader.CWD);
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		final String childExe = eventData.get(AuditEventReader.EXE);
 		
 		Process parentProcessVertex = handleProcessFromSyscall(eventData);
 
@@ -481,10 +483,11 @@ public abstract class ProcessManager extends ProcessStateManager{
 //		}
 		
 		AgentIdentifier agentIdentifier = buildAgentIdentifierFromSyscall(eventData);
-		ProcessIdentifier childProcessIdentifier = new ProcessIdentifier(pid, ppid, comm, cwd, commandLine, time, 
+		ProcessIdentifier childProcessIdentifier = 
+				new ProcessIdentifier(pid, ppid, comm, cwd, commandLine, time, 
 				null, getUnitId(), source, 
 //				nsPid);
-				getProcessUnitState(pid).getProcess().nsPid);
+				getProcessUnitState(pid).getProcess().nsPid, childExe);
 		NamespaceIdentifier namespaceIdentifier = buildNamespaceIdentifierForPid(pid);
 		
 		Process childProcessVertex = putProcessVertex(time, eventId, childProcessIdentifier, agentIdentifier, namespaceIdentifier, source);
@@ -529,6 +532,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		String cwd = eventData.get(AuditEventReader.CWD);
 		String time = eventData.get(AuditEventReader.TIME);
 		String eventId = eventData.get(AuditEventReader.EVENT_ID);
+		final String childExe = eventData.get(AuditEventReader.EXE);
 		
 		final int flags = HelperFunctions.parseInt(flagsString, 0);
 		String parentPid = eventData.get(AuditEventReader.PID);
@@ -570,7 +574,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 		boolean handle = true;
 
 		ProcessIdentifier childProcessIdentifier = new ProcessIdentifier(childPid, parentPid, comm, cwd,
-				parentProcessIdentifier.commandLine, time, null, getUnitId(), source, nsChildPid);
+				parentProcessIdentifier.commandLine, time, null, getUnitId(), source, nsChildPid, childExe);
 		// ids inside can be null. ProcessStateManager decides what to do with it
 		NamespaceIdentifier namespaces = getNamespaceIdentifierFromEventData(eventData);
 		Process childVertex = putProcessVertex(time, eventId, childProcessIdentifier, agentIdentifier, namespaces, source);

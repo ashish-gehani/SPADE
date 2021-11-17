@@ -60,6 +60,7 @@ public class AuditEventReader{
 			EGID = "egid",
 			EUID = "euid",
 			EVENT_ID = "eventid",
+			EXE = "exe",
 			EXECVE_ARGC = "execve_argc",
 			ARGC = "argc",
 			EXECVE_PREFIX = "execve_",
