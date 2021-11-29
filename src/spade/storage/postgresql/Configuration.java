@@ -23,6 +23,7 @@ import java.util.Map;
 
 import spade.utility.ArgumentFunctions;
 import spade.utility.FileUtility;
+import spade.utility.HelperFunctions;
 
 public class Configuration{
 
@@ -51,9 +52,9 @@ public class Configuration{
 	private boolean secondaryIndexes;
 	private int fetchSize;
 
-	public final void load(final String path) throws Exception{
+	public final void load(final String arguments, final String path) throws Exception{
 		try{
-			final Map<String, String> map = FileUtility.readConfigFileAsKeyValueMap(path, "=");
+			final Map<String, String> map = HelperFunctions.parseKeyValuePairsFrom(arguments, new String[]{path});
 			driverClassName = ArgumentFunctions.mustParseClass(keyDriver, map);
 			jdbcProtocol = ArgumentFunctions.mustParseNonEmptyString(keyProtocol, map);
 			host = ArgumentFunctions.mustParseHost(keyHost, map);

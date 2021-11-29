@@ -74,10 +74,10 @@ public class PostgreSQL extends SQL{
 	private Connection connection = null;
 
 	@Override
-	public boolean initialize(String arguments){
+	public boolean initialize(final String arguments){
 		try{
 			final String configPath = Settings.getDefaultConfigFilePath(this.getClass());
-			this.configuration.load(configPath);
+			this.configuration.load(arguments, configPath);
 
 			graphBuffer.setMaxSize(this.configuration.getBufferSize());
 
@@ -92,6 +92,7 @@ public class PostgreSQL extends SQL{
 
 			setupDatabase(connection, configuration.isSecondaryIndexes());
 
+			logger.info(this.configuration.toString());
 			return true;
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to initialize PostgreSQL storage", e);
