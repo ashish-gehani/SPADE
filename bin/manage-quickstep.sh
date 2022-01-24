@@ -42,6 +42,14 @@ cmd="$1"
 [ -z "$cmd" ] && print_help && exit 1
 shift
 
+### INSTALL COMMAND
+
+if [ "$cmd" = "install" ]
+then
+  "${spade_home_path}/bin/installQuickstep"
+  exit 0
+fi
+
 ### VERIFY EXECUTABLE PRESENCE
 
 if [ ! -f "$quickstep_binary_path" ]
@@ -67,14 +75,6 @@ then
   pids=$(get_quickstep_pids)
   [ ! -z "$pids" ] && echo "Sending stop signal to quickstep process(es): '$pids'" && kill -9 $pids
   exit 1
-fi
-
-### INSTALL COMMAND
-
-if [ "$cmd" = "install" ]
-then
-  "${spade_home_path}/bin/installQuickstep"
-  exit 0
 fi
 
 ### ALL OTHER COMMANDS

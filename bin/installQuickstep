@@ -1,29 +1,27 @@
 #!/bin/bash
 
 spade_home_path="$(cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd)"
-BASE_DIR="${spade_home_path}/bin"
 
-if [ -f "${BASE_DIR}/quickstep" ]
-then
-  echo "Quickstep already installed: '${BASE_DIR}/quickstep'"
+exe_path="${spade_home_path}/bin/quickstep"
+src_path="${spade_home_path}/bin/quickstep_source"
+
+if [ -f "${exe_path}" ]; then
+  echo "Quickstep already installed: '${exe_path}'"
   exit 0
 fi
 
-if [ -a ${BASE_DIR}/quickstep/source ]; then
+if [ -d "${src_path}" ]; then
   echo "Note: Quickstep repository already exists. Skipping the download stage."
 else
   # Clone Quickstep repository and checkout the trace-dev branch.
-  git clone https://github.com/UWQuickstep/quickstep.git -b trace-dev --recursive ${BASE_DIR}/quickstep/source
+  git clone https://github.com/UWQuickstep/quickstep.git -b trace-dev --recursive "${src_path}"
 
   # Download third party libraries.
-  cd ${BASE_DIR}/quickstep/source/third_party && ./download_and_patch_prerequisites.sh
-  
-  # Return to base directory.
-  cd ${BASE_DIR}
+  cd "${src_path}/third_party" && ./download_and_patch_prerequisites.sh
 fi
 
 # Build Quickstep.
-cd ${BASE_DIR}/quickstep/source/build && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ .. && make -j8 quickstep_cli_shell
+cd "${src_path}/build" && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ .. && make -j8 quickstep_cli_shell
 
 # Copy out executable and clean up.
-cd ${BASE_DIR} && cp ${BASE_DIR}/quickstep/source/build/quickstep_cli_shell ${BASE_DIR}/bin/quickstep && rm -rf ${BASE_DIR}/quickstep
+cp "${src_path}/build/quickstep_cli_shell" "${exe_path}" && rm -rf "${src_path}"
