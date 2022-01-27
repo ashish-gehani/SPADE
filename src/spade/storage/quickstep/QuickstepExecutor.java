@@ -56,11 +56,7 @@ public class QuickstepExecutor {
 
     @Override
     public String call() {
-      if (query.length() < 256) {
-        logInfo("[Quickstep query]\n" + query);
-      } else {
-        logInfo("[Quickstep query]\n" + query.substring(0, 64).replace("\n", "\\n") + " ...");
-      }
+		logInfo("[Quickstep query]\n" + query);
 
       int numRetries = 0;
       QuickstepFailure failure = null;
@@ -91,11 +87,7 @@ public class QuickstepExecutor {
 
     private void logOutput(String output, String kind) {
       if (!output.isEmpty()) {
-        if (output.length() < 64) {
-          logInfo("[Quickstep " + kind + "] " + output.replace("\n", "\\n"));
-        } else {
-          logInfo("[Quickstep " + kind + "] " + output.substring(0, 64).replace("\n", "\\n") + " ...");
-        }
+			logInfo("[Quickstep " + kind + "] " + output.replace("\n", "\\n"));
       }
     }
   }

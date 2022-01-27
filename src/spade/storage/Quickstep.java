@@ -78,15 +78,17 @@ public class Quickstep extends AbstractStorage {
 	private Deduplicate deduplicateScreen = null;
 	private final Map<String, Integer> shortLivedVertexHashToIdMap = new HashMap<String, Integer>();
 
-	public int getMaxEdgeValueLength()
-    {
-        return conf.getMaxEdgeValueLength();
-    }
+	public int getMaxEdgeValueLength(){
+		return conf.getMaxEdgeValueLength();
+	}
 
-    public int getMaxVertexValueLength()
-    {
-        return conf.getMaxVertexValueLength();
-    }
+	public int getMaxVertexKeyLength(){
+		return conf.getMaxVertexKeyLength();
+	}
+
+	public int getMaxVertexValueLength(){
+		return conf.getMaxVertexValueLength();
+	}
 
 	private final void garbageCollectVertexIds(){
 		synchronized(shortLivedVertexHashToIdMap){

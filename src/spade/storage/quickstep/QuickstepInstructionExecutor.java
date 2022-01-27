@@ -230,98 +230,147 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		query += ";";
 		qs.executeQuery(query);
 	}
-	
+
+	private String getMatchCreateSubsetTable(final Graph srcGraph){
+		final int maxVertexKeyLength = qs.getMaxVertexKeyLength();
+		final int maxVertexValueLength = qs.getMaxVertexValueLength();
+		final String srcGraphVertexTable = getVertexTableName(srcGraph);
+		final String subsetTable = "m_" + srcGraphVertexTable + "_vertex_anno_subset";
+		qs.executeQuery("drop table " + subsetTable + ";\n");
+//		qs.executeQuery("create table " + subsetTable
+//				+ "(id int, field varchar(" + maxVertexKeyLength + "), value varchar(" + maxVertexValueLength
+//				+ ")) WITH BLOCKPROPERTIES (TYPE compressed_columnstore, SORT id, COMPRESS (id, field, value));\n");
+		// BLOCKPROPERTIES cannot be reused! don't know why. The DB crashes.
+		qs.executeQuery("create table " + subsetTable
+				+ "(id int, field varchar(" + maxVertexKeyLength + "), value varchar(" + maxVertexValueLength
+				+ "));\n");
+		return subsetTable;
+	}
+
+	private String getMatchGetWhereClause(final String vertexAnnoAlias, final ArrayList<String> annotationKeys){
+		String whereFieldClause = "";
+		for(int i = 0; i < annotationKeys.size(); i++){
+			final String annotationKey = annotationKeys.get(i);
+			whereFieldClause += vertexAnnoAlias + ".field = '" + annotationKey + "'";
+			if(i != annotationKeys.size() - 1){
+				whereFieldClause += " or ";
+			}
+		}
+		return whereFieldClause;
+	}
+
+	private void getMatchDoSubsetJoinWithMain(final String subsetTable, final Graph srcGraph,
+			final String vertexAnnoAlias,
+			final String whereClause){
+		final String srcGraphVertexTable = getVertexTableName(srcGraph);
+//		final String query = "insert into " + subsetTable + " select " + vertexAnnoAlias + ".id, " + vertexAnnoAlias
+//				+ ".field, " + vertexAnnoAlias + ".value " + "from " + vertexAnnotationsTableName + " "
+//				+ vertexAnnoAlias + ", " + srcGraphVertexTable + " vo " + "where (" + vertexAnnoAlias
+//				+ ".id = vo.id) and " + "(" + whereClause + ");\n";
+		// avoid join
+		final String query = "insert into " + subsetTable + " select " + vertexAnnoAlias + ".id, " + vertexAnnoAlias
+				+ ".field, " + vertexAnnoAlias + ".value " + "from " + vertexAnnotationsTableName + " "
+				+ vertexAnnoAlias + " where " + vertexAnnoAlias + ".id in (select id from " + srcGraphVertexTable + ") "
+				+ "and " + "(" + whereClause + ")"
+				+ ";\n";
+		qs.executeQuery(query);
+	}
+
+	private void getMatchDoSubsetJoinWithSubset(final Graph targetGraph, final String subsetTable1,
+			final String subsetTable2, final int annotationKeysCount){
+		final String targetVertexTable = getVertexTableName(targetGraph);
+		final String joinResultTable = "m_" + targetVertexTable;
+		qs.executeQuery("drop table " + joinResultTable + ";\n");
+		qs.executeQuery("create table " + joinResultTable + "(mcount int, id1 int, id2 int);\n");
+		
+		final String subsetTable1Alias = "t1";
+		final String subsetTable2Alias = "t2";
+		final String query = "insert into " + joinResultTable + " select count(*), " + 
+				subsetTable1Alias + ".id, " + subsetTable2Alias + ".id from " +
+				subsetTable1 + " " + subsetTable1Alias + ", " + subsetTable2 + " " + subsetTable2Alias + " where " +
+				subsetTable1Alias + ".field = " + subsetTable2Alias + ".field and " + 
+				subsetTable1Alias + ".value = " + subsetTable2Alias + ".value group by " + 
+				subsetTable1Alias + ".id, " + subsetTable2Alias + ".id having " +
+				"count(*) = " + annotationKeysCount + ";\n";
+
+		qs.executeQuery(query);
+		
+		final String insertSubsetTable1Query = "insert into " + targetVertexTable + " select id1 from "
+				+ joinResultTable + ";\n";
+		final String insertSubsetTable2Query = "insert into " + targetVertexTable + " select id2 from "
+				+ joinResultTable + ";\n";
+
+		qs.executeQuery(insertSubsetTable1Query);
+		qs.executeQuery(insertSubsetTable2Query);
+		
+		qs.executeQuery("drop table " + joinResultTable + ";\n");
+	}
+
+	private long getMatchGetCountOfAnnotationKeysInGraph(final Graph graph, final String vertexAnnoAlias,
+			final String whereClause){
+		final String graphVertexTable = getVertexTableName(graph);
+		final String query = "copy select count(*) from " + vertexAnnotationsTableName + " " + vertexAnnoAlias
+				+ " where "
+				+ vertexAnnoAlias
+				+ ".id in (select id from " + graphVertexTable + ") " + "and " + "(" + whereClause + ")"
+				+ " to stdout;";
+		return qs.executeQueryForLongResult(query);
+	}
+
 	@Override
 	public void getMatch(final Graph targetGraph, final Graph graph1, final Graph graph2,
 			final ArrayList<String> annotationKeys){
+		/*
+		 * OLD join based approach in commit:
+		 * https://github.com/ashish-gehani/SPADE/commit/05bfe7501f4f1a6f8e77c709c528085e3207fe2d
+		 * 
+		 * Current Approach:
+		 * Special cases:
+		 * 1. Empty result, if no annotation keys given
+		 * 2. Empty result, if the two graph variables are equal AND if all of the given annotation keys don't exist
+		 * 3. Result same as one of the graph variables, if both graph variables are equal and any of the given annotation keys exist
+		 * 
+		 * General case:
+		 * Collect all specified annotations for each variable in their own tables tables (see caveats below)
+		 * Caveats: repetition of BLOCKPROPERTIES breaks the db, and join worse than nested query
+		 * Join the new tables of both variable, collect all rows where the field and value are the same in both tables
+		 * Group the result by id of both tables so that count can be computed on each group 
+		 * If the size of the group is equal to the number of annotation keys then that means all of the annotation keys matched
+		 * Now we have the ids of the vertices with all matching annotation keys
+		 * Put the columns (id columns) in the result table one by one
+		 * 
+		 * TODO support left-match and right-match for finer grained analysis?
+		 */
+		qs.executeQuery("\\analyzerange " + getVertexTableName(graph1) + "\n");
+		qs.executeQuery("\\analyzerange " + getVertexTableName(graph2) + "\n");
 
-		final Set<String> tablesToDrop = new HashSet<String>();
-		
-		qs.executeQuery("\\analyzerange " + getVertexTableName(graph1) + "\n "
-				+ "\\analyzerange " + getVertexTableName(graph2) + "\n ");
-		
-		final ArrayList<String> middleResultTableNames = new ArrayList<String>();
-		
-		for(int i = 0; i < annotationKeys.size(); i++){
-			final String annotationKey = annotationKeys.get(i);
-			
-			qs.executeQuery(
-					"drop table m_answer_x;\n " 
-					+ "create table m_answer_x (id1 int, id2 int);\n ");
-			
-			tablesToDrop.add("m_answer_x");
-			
-			String query = "insert into m_answer_x "
-					+ "select ga1.id, ga2.id from " 
-					+ getVertexTableName(graph1) + " gv1, " + vertexAnnotationsTableName + " ga1, "
-					+ getVertexTableName(graph2) + " gv2, " + vertexAnnotationsTableName + " ga2 "
-					+ "where gv1.id = ga1.id and gv2.id = ga2.id and "
-					+ "( " 
-					+ "ga1.field = '" + annotationKey + "' and ga2.field = '" + annotationKey + "' "
-					+ "and ga1.value = ga2.value "
-					+ ");\n ";
-			
-			qs.executeQuery(query);
-			
-			long count = qs.executeQueryForLongResult("copy select count(*) from m_answer_x to stdout;");
-			
-			if(count == 0){
-				break; // No need to continue
-			}
-			
-			final String middleResultTableName = "m_answer_middle_" + i;
-			
-			qs.executeQuery(
-					"drop table " + middleResultTableName + ";\n " 
-					+ "create table " + middleResultTableName + " (id int);\n "
-					+ "insert into " + middleResultTableName + " select id1 from m_answer_x group by id1;\n "
-					+ "insert into " + middleResultTableName + " select id2 from m_answer_x group by id2;\n ");
-			
-			middleResultTableNames.add(middleResultTableName);
-			tablesToDrop.add(middleResultTableName);
+
+		final String vertexAnnoAlias = "va";
+		final String whereFieldClause = getMatchGetWhereClause(vertexAnnoAlias, annotationKeys);
+		final int annotationKeysCount = annotationKeys.size();
+		if(annotationKeysCount == 0){
+			return;
 		}
-		
-		if(middleResultTableNames.size() > 0 && middleResultTableNames.size() == annotationKeys.size()){
-			long count = qs.executeQueryForLongResult("copy select count(*) from " + middleResultTableNames.get(0) + " to stdout;");
-			
-			if(count > 0){
-				String lastCommonResultTableName = "m_answer_common_" + 0;
-				qs.executeQuery("drop table " + lastCommonResultTableName + ";\n " 
-						+ "create table " + lastCommonResultTableName + " (id int);\n ");
-				tablesToDrop.add(lastCommonResultTableName);
-				
-				qs.executeQuery("insert into " + lastCommonResultTableName + " select id from " + middleResultTableNames.get(0) + " group by id;\n");
-				
-				for(int i = 1; i < middleResultTableNames.size(); i++){
-					String currentCommonResultTableName = "m_answer_common_" + i;
-					qs.executeQuery("drop table " + currentCommonResultTableName + ";\n " 
-							+ "create table " + currentCommonResultTableName + " (id int);\n ");
-					tablesToDrop.add(currentCommonResultTableName);
-					
-					qs.executeQuery("insert into " + currentCommonResultTableName + " select id from " + lastCommonResultTableName
-							+ " where id in (select id from " + middleResultTableNames.get(i) + ");");
-	
-					lastCommonResultTableName = currentCommonResultTableName;
-					count = qs.executeQueryForLongResult("copy select count(*) from " + currentCommonResultTableName + " to stdout;");
-					if(count == 0){
-						break; // No need to continue
-					}
-				}
-				
-				qs.executeQuery("insert into " + getVertexTableName(targetGraph) 
-					+ " select id from " + lastCommonResultTableName + " group by id;\n");
-
+		if(graph1.equals(graph2)){
+			if(getMatchGetCountOfAnnotationKeysInGraph(graph1, vertexAnnoAlias, whereFieldClause) == 0){
+				return;
+			}else{
+				final String graph1VertexTable = getVertexTableName(graph1);
+				final String targetVertexTable = getVertexTableName(targetGraph);
+				qs.executeQuery("insert into " + targetVertexTable + " select id from " + graph1VertexTable + ";\n");
+				return;
 			}
 		}
-		
-		String dropQueries = "";
-		for(String tableToDrop : tablesToDrop){
-			dropQueries += " drop table " + tableToDrop + ";\n";
-		}
-		
-		if(dropQueries.length() > 0){
-			qs.executeQuery(dropQueries);
-		}
+
+		final String subsetTable1 = getMatchCreateSubsetTable(graph1);
+		final String subsetTable2 = getMatchCreateSubsetTable(graph2);
+
+		getMatchDoSubsetJoinWithMain(subsetTable1, graph1, vertexAnnoAlias, whereFieldClause);
+		getMatchDoSubsetJoinWithMain(subsetTable2, graph2, vertexAnnoAlias, whereFieldClause);
+
+		getMatchDoSubsetJoinWithSubset(targetGraph, subsetTable1, subsetTable2, annotationKeysCount);
+
+		qs.executeQuery("drop table " + subsetTable1 + ";\n drop table " + subsetTable2 + ";\n");
 	}
 
 	@Override
@@ -1346,6 +1395,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		}
 	}
 
+	@Override
 	public void getSimplePath(Graph targetGraph, Graph subjectGraph, Graph srcGraph, Graph dstGraph, int maxDepth){
 		String targetVertexTable = getVertexTableName(targetGraph);
 		String targetEdgeTable = getEdgeTableName(targetGraph);
@@ -1417,6 +1467,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				"DROP TABLE m_cur;\n" + "DROP TABLE m_next;\n" + "DROP TABLE m_answer;\n" + "DROP TABLE m_sgconn;");
 	}
 
+	@Override
 	public void collapseEdge(Graph targetGraph, Graph sourceGraph, ArrayList<String> fields){
 		String sourceVertexTable = getVertexTableName(sourceGraph);
 		String sourceEdgeTable = getEdgeTableName(sourceGraph);
