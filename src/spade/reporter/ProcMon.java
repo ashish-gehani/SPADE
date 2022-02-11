@@ -157,6 +157,21 @@ public class ProcMon extends AbstractReporter{
 		final String category = event.getCategory();
 		final String operation = event.getOperation();
 
+		if(eventClass == null){
+			logger.log(Level.WARNING, "No event class in event: " + String.valueOf(event));
+			return;
+		}
+
+		if(category == null){
+			logger.log(Level.WARNING, "No category in event: " + String.valueOf(event));
+			return;
+		}
+
+		if(operation == null){
+			logger.log(Level.WARNING, "No operation in event: " + String.valueOf(event));
+			return;
+		}
+
 		switch(category){
 			case SystemConstant.CATEGORY_READ:
 			case SystemConstant.CATEGORY_READ_METADATA:{
