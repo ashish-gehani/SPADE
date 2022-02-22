@@ -20,147 +20,140 @@
 package spade.filter;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
+import java.util.TreeMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
+import spade.core.Settings;
+import spade.core.Vertex;
+import spade.utility.ArgumentFunctions;
+import spade.utility.HelperFunctions;
+import spade.utility.SkeletonGraph;
 
 public class GraphFinesse extends AbstractFilter {
 
-    // 'ancestors' maps a given vertex to its ancestors.
-    private final Map<AbstractVertex, Set<AbstractVertex>> ancestors;
-    // 'descendants' maps a given vertex to its descendants. We use this to update
-    // the ancestors map when an edge is added.
-    private final Map<AbstractVertex, Set<AbstractVertex>> descendants;
-    // 'passedVertices' maps a given vertex to a boolean indicating whether it has
-    // been passed to the next filter or not.
-    private final Map<AbstractVertex, Boolean> passedVertices;
-    // 'passedEdges' maps a given edge to a boolean indicating whether it has been 
-    // passed to the next filter or not.
-    private final Map<AbstractEdge, Boolean> passedEdges;
-    // 'vertexVersions' maps a given vertex to it's version number.
-    private final Map<AbstractVertex, Integer> vertexVersions;
-    // 'vertexStrings' maps a string representation of a vertex to the actual vertex.
-    private final Map<String, AbstractVertex> vertexStrings;
-    private final int initialVersion = 0;
-    private final String versionAnnotation = "GFVersion";
+	private static final Logger logger = Logger.getLogger(GraphFinesse.class.getName());
 
-    public GraphFinesse() {
-        ancestors = new HashMap<>();
-        descendants = new HashMap<>();
-        passedVertices = new HashMap<>();
-        passedEdges = new HashMap<>();
-        vertexVersions = new HashMap<>();
-        vertexStrings = new HashMap<>();
-    }
+	private static final String configKeyVersion = "annotation";
+
+	private String versionAnnotationName;
+
+	private final Map<String, VertexState> verticesState = new HashMap<>();
+
+	private final SkeletonGraph skeletonGraph = new SkeletonGraph();
+
+	@Override
+	public boolean initialize(final String arguments){
+		try{
+			final Map<String, String> map = HelperFunctions.parseKeyValuePairsFrom(arguments,
+					new String[]{Settings.getDefaultConfigFilePath(this.getClass())});
+			this.versionAnnotationName = ArgumentFunctions.mustParseNonEmptyString(configKeyVersion, map);
+			logger.log(Level.INFO, "Arguments [{0}={1}]", new Object[]{configKeyVersion, versionAnnotationName});
+			return true;
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to initialize filter", e);
+			return false;
+		}
+	}
 
     @Override
-    public void putVertex(AbstractVertex incomingVertex) {
-        if (vertexStrings.containsKey(incomingVertex.toString())) {
-            // We've already seen this vertex.
-            return;
-        }
-        AbstractVertex copy = incomingVertex.copyAsVertex();
-        copy.addAnnotation(versionAnnotation, Integer.toString(initialVersion));
-        // For comparison purposes, we store the string representation of the 
-        // original vertex since the filter may change the version.
-        vertexStrings.put(incomingVertex.toString(), copy);
-        passedVertices.put(copy, Boolean.FALSE);
-        vertexVersions.put(copy, initialVersion);
-    }
+	public void putVertex(final AbstractVertex vertex){
+		if(vertex == null){
+			return;
+		}
+		final String vertexHash = vertex.bigHashCode();
+		if(verticesState.get(vertexHash) == null){
+			verticesState.put(vertexHash, new VertexState(vertex));
+		}
+	}
 
-    // Given an incoming edge A->B, GF uses the following rules:
-    // 1) If A->B already exists, then it is a duplicate --> discard.
-    // 2) If A exists in the ancestors of B, then this edge will create a
-    //    cycle --> create a new version A' and add edge A'->B.
-    // 3) If rules (1) and (2) are not met, then add the edge as a normal edge.
-    @Override
-    public void putEdge(AbstractEdge edge) {
-        AbstractVertex source = vertexStrings.get(edge.getChildVertex().toString());
-        AbstractVertex destination = vertexStrings.get(edge.getParentVertex().toString());
-        AbstractEdge copyEdge = copyEdge(edge);
-        copyEdge.setChildVertex(source);
-        copyEdge.setParentVertex(destination);
+	@Override
+	public void putEdge(final AbstractEdge edge){
+		if(edge == null){
+			return;
+		}
+		final AbstractVertex child = edge.getChildVertex();
+		final AbstractVertex parent = edge.getParentVertex();
+		if(child == null || parent == null){
+			return;
+		}
 
-        // Check for rule 1
-        if (passedEdges.containsKey(copyEdge)) // Check for rule 2
-        {
-            return;
-        }
+		// init
+		putVertex(child);
+		putVertex(parent);
 
-        // Check for rule 2
-        if (ancestors.containsKey(destination) && ancestors.get(destination).contains(source)) {
-            // Rule 2 is hit, update the vertex number.
-            int newVersion = vertexVersions.get(source) + 1;
-            source.removeAnnotation(versionAnnotation);
-            source.addAnnotation(versionAnnotation, Integer.toString(newVersion));
-            vertexVersions.put(source, newVersion);
-        }
+		final String childHash = child.bigHashCode();
+		final String parentHash = parent.bigHashCode();
+		if(!skeletonGraph.willCreateCycle(childHash, parentHash)){
+			final VertexState childState = verticesState.get(childHash);
+			final VertexState parentState = verticesState.get(parentHash);
+			putEdgeInNextFilter(edge, childState.putInNextFilter(), parentState.putInNextFilter());
+		}else{
+			if(Objects.equals(childHash, parentHash)){
+				// Self-loop special case since the hash i.e. childHash == parentHash and states
+				// are equal
+				final VertexState oneState = verticesState.get(childHash);
+				final AbstractVertex childCurrentVertex = oneState.putInNextFilter();
+				oneState.incrementVersion();
+				// Create after incrementing the version
+				final AbstractVertex parentCurrentVertex = oneState.putInNextFilter();
+				putEdgeInNextFilter(edge, childCurrentVertex, parentCurrentVertex);
+			}else{
+				final VertexState childState = verticesState.get(childHash);
+				final VertexState parentState = verticesState.get(parentHash);
+				childState.incrementVersion();
+				putEdgeInNextFilter(edge, childState.putInNextFilter(), parentState.putInNextFilter());
+			}
+		}
+		skeletonGraph.putEdge(childHash, parentHash);
+	}
 
-        updateAncestors(source, destination);
-        updateDescendants(source, destination);
+	private void putEdgeInNextFilter(final AbstractEdge edge, final AbstractVertex childCurrentVertex,
+			final AbstractVertex parentCurrentVertex){
+		final AbstractEdge currentEdge = new Edge(childCurrentVertex, parentCurrentVertex);
+		currentEdge.addAnnotations(edge.getCopyOfAnnotations());
+		putInNextFilter(currentEdge);
+	}
 
-        // Pass the edges and vertices.
-        checkVertexCache(source);
-        checkVertexCache(destination);
-        putInNextFilter(copyEdge);
-    }
+	private class VertexState{
+		private final TreeMap<String, String> annotations = new TreeMap<>();
+		private boolean hasBeenPut;
+		private long version;
+		private AbstractVertex vertex;
 
-    private void updateAncestors(AbstractVertex source, AbstractVertex destination) {
-        // Update the ancestors for this vertex and its descendants.
-        if (!ancestors.containsKey(source)) {
-            HashSet<AbstractVertex> vertexAncestors = new HashSet<>();
-            vertexAncestors.add(destination);
-            ancestors.put(source, vertexAncestors);
-        }
-        // Update the ancestors for this vertex by adding all the ancestors
-        // of the destination vertex.
-        ancestors.get(source).addAll(ancestors.get(destination));
-        // Update the ancestors of the descendants of this vertex since this
-        // edge may have created new descendants.
-        for (AbstractVertex descendant : descendants.get(source)) {
-            if (ancestors.containsKey(descendant)) {
-                ancestors.get(descendant).add(source);
-                ancestors.get(descendant).addAll(ancestors.get(source));
-            }
-        }
-    }
+		private VertexState(final AbstractVertex vertex){
+			this.annotations.putAll(vertex.getCopyOfAnnotations());
+			this.hasBeenPut = false;
+			this.version = 0;
+			this.vertex = createVertex();
+		}
 
-    private void updateDescendants(AbstractVertex source, AbstractVertex destination) {
-        // Update the descendants for this vertex and its ancestors.
-        if (!descendants.containsKey(destination)) {
-            HashSet<AbstractVertex> vertexDescendants = new HashSet<>();
-            vertexDescendants.add(source);
-            descendants.put(destination, vertexDescendants);
-        }
-        // Update the descendants for this vertex by adding all the descendants
-        // of the source vertex.
-        descendants.get(destination).addAll(descendants.get(source));
-        // Update the descendants of the ancestors of this vertex since this
-        // edge may have created new ancestors.
-        for (AbstractVertex ancestor : ancestors.get(source)) {
-            if (descendants.containsKey(ancestor)) {
-                descendants.get(ancestor).add(source);
-                descendants.get(ancestor).addAll(descendants.get(source));
-            }
-        }
-    }
+		private AbstractVertex createVertex(){
+			final AbstractVertex vertex = new Vertex();
+			vertex.addAnnotations(this.annotations);
+			vertex.addAnnotation(GraphFinesse.this.versionAnnotationName, String.valueOf(version));
+			return vertex;
+		}
 
-    private void checkVertexCache(AbstractVertex vertex) {
-        if (Objects.equals(passedVertices.get(vertex), Boolean.FALSE)) {
-            putInNextFilter(vertex);
-            passedVertices.put(vertex, Boolean.TRUE);
-        }
-    }
+		private void incrementVersion(){
+			this.hasBeenPut = false;
+			this.version++;
+			this.vertex = createVertex();
+		}
 
-    private AbstractEdge copyEdge(AbstractEdge edge) {
-        AbstractEdge copy = new Edge(edge.getChildVertex(), edge.getParentVertex());
-        copy.addAnnotations(edge.getCopyOfAnnotations());
-        return copy;
-    }
+		private AbstractVertex putInNextFilter(){
+			if(hasBeenPut){
+				return this.vertex;
+			}
+			this.hasBeenPut = true;
+			GraphFinesse.this.putInNextFilter(this.vertex);
+			return this.vertex;
+		}
+	}
 }
