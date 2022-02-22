@@ -460,7 +460,8 @@ public class Graph implements Serializable{
 		return resultGraph;
 	}
 	
-	public static final Graph importGraphFromDOTFile(final String filePath) throws Exception{
+	public static final Graph importGraphFromDOTFile(final String filePath, final boolean referenceMode)
+			throws Exception{
 		final boolean blocking = true, closeReaderOnShutdown = true;
 		final int reportingIntervalSeconds = -1;
 		final boolean logAll = false;
@@ -468,7 +469,8 @@ public class Graph implements Serializable{
 		final spade.reporter.Graphviz reporter = new spade.reporter.Graphviz();
 		final spade.core.Buffer buffer = new spade.core.Buffer();
 		reporter.setBuffer(buffer);
-		reporter.launchUnsafe(filePath, reportingIntervalSeconds, blocking, closeReaderOnShutdown, logAll);
+		reporter.launchUnsafe(filePath, reportingIntervalSeconds, referenceMode, blocking, closeReaderOnShutdown,
+				logAll);
 		reporter.shutdown();
 		
 		return createGraphFromBuffer(buffer);

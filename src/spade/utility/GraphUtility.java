@@ -74,7 +74,8 @@ public class GraphUtility {
     private static void importGraph(String path, String target) {
     	Graph graph = null;
     	try{
-    		graph = Graph.importGraphFromDOTFile(path);
+			final boolean referenceMode = false;
+			graph = Graph.importGraphFromDOTFile(path, referenceMode);
     	}catch(Exception e){
     		outputStream.println("Error importing graph! : " + e.getMessage());
             return;

@@ -51,16 +51,20 @@ public class Graphviz extends AbstractReporter{
 
 	//
 
-	private static final String keyInput = "input", keyReportingIntervalSeconds = "reportingIntervalSeconds";
+	private static final String keyInput = "input", keyReportingIntervalSeconds = "reportingIntervalSeconds",
+			keyReferenceMode = "referenceMode";
 
 	private String inputFilePath = null;
 	private Long reportingIntervalMillis = null;
+	private Boolean referenceMode;
 
 	private boolean reportingEnabled = false;
 	
 	private boolean isLaunched = false;
 	private boolean closeReaderOnShutdown = true;
 	private boolean logAll = true;
+
+	private Map<String, AbstractVertex> hashToVertex = new HashMap<>();
 
 	///////////////////////////////////////////////////////
 
@@ -177,13 +181,16 @@ public class Graphviz extends AbstractReporter{
 
 		final String inputFilePathString = map.remove(keyInput);
 		final String reportingIntervalSecondsString = map.remove(keyReportingIntervalSeconds);
+		final String referenceModeString = map.remove(keyReferenceMode);
 		
 		try{
 			final boolean blocking = false;
 			final boolean closeReaderOnShutdown = true;
 			final boolean logAll = true;
-			launch(inputFilePathString, reportingIntervalSecondsString, blocking, closeReaderOnShutdown, logAll);
-			log(Level.INFO, "Arguments ["+keyInput+"="+inputFilePathString+", "+keyReportingIntervalSeconds+"="+reportingIntervalSecondsString+"]");
+			launch(inputFilePathString, reportingIntervalSecondsString, referenceModeString, blocking,
+					closeReaderOnShutdown, logAll);
+			log(Level.INFO, "Arguments [" + keyInput + "=" + inputFilePathString + ", " + keyReportingIntervalSeconds
+					+ "=" + reportingIntervalSecondsString + ", " + keyReferenceMode + "=" + referenceModeString + "]");
 
 			if(!map.isEmpty()){
 				log(Level.INFO, "Unused key-value pairs in the arguments and/or config file: " + map);
@@ -197,7 +204,8 @@ public class Graphviz extends AbstractReporter{
 	}
 	
 	public final synchronized void launch(final String inputFilePathString, final String reportingIntervalSecondsString,
-			final boolean blocking, final boolean closeReaderOnShutdown, final boolean logAll) throws Exception{
+			final String referenceModeString, final boolean blocking, final boolean closeReaderOnShutdown,
+			final boolean logAll) throws Exception{
 		final Result<Long> reportingIntervalSecondsResult = 
 				HelperFunctions.parseLong(reportingIntervalSecondsString, 10, Integer.MIN_VALUE, Integer.MAX_VALUE);
 		if(reportingIntervalSecondsResult.error){
@@ -211,11 +219,18 @@ public class Graphviz extends AbstractReporter{
 			throw new Exception("Invalid input file path to read from: '"+inputFilePathString+"'", e);
 		}
 
-		launchUnsafe(inputFilePathString, reportingIntervalSecondsResult.result.intValue(), blocking, closeReaderOnShutdown, logAll);
+		final Result<Boolean> referenceModeResult = HelperFunctions.parseBoolean(referenceModeString);
+		if(referenceModeResult.error){
+			throw new Exception("Invalid value for '" + keyReferenceMode + "'. " + referenceModeResult.errorMessage);
+		}
+
+		launchUnsafe(inputFilePathString, reportingIntervalSecondsResult.result.intValue(), referenceModeResult.result.booleanValue()
+				, blocking, closeReaderOnShutdown, logAll);
 	}
 	
 	public final synchronized void launchUnsafe(final String validateInputFilePath, final int reportingIntervalSeconds,
-			final boolean blocking, final boolean closeReaderOnShutdown, final boolean logAll) throws Exception{
+			final boolean referenceMode, final boolean blocking, final boolean closeReaderOnShutdown,
+			final boolean logAll) throws Exception{
 		if(isLaunched){
 			throw new Exception("Reporter already launched");
 		}
@@ -224,6 +239,7 @@ public class Graphviz extends AbstractReporter{
 		try{
 			this.inputFilePath = validateInputFilePath;
 			this.reportingIntervalMillis = reportingIntervalSeconds * 1000L;
+			this.referenceMode = referenceMode;
 			if(this.reportingIntervalMillis > 0){
 				this.reportingEnabled = true;
 			}
@@ -292,12 +308,23 @@ public class Graphviz extends AbstractReporter{
 					annotations.put(key_value[0], key_value[1]);
 				}
 			}
-			
-			AbstractVertex vertex = new Vertex(key);
-			vertex.addAnnotations(annotations);
+
+			final AbstractVertex vertex;
+			if(this.referenceMode){
+				vertex = new Vertex(key);
+				vertex.addAnnotations(annotations);
+			}else{
+				vertex = new Vertex();
+				vertex.addAnnotations(annotations);
+				this.hashToVertex.put(vertex.bigHashCode(), vertex);
+			}
 
 			vertexCountIncrement();
 			putVertex(vertex);
+
+			if(!this.referenceMode){
+				this.hashToVertex.put(vertex.bigHashCode(), vertex);
+			}
 		}else if(edgeMatcher.find()){
 			final String childKey = edgeMatcher.group(1);
 			final String parentKey = edgeMatcher.group(2);
@@ -315,7 +342,15 @@ public class Graphviz extends AbstractReporter{
 				}
 			}
 
-			AbstractEdge edge = new Edge(new Vertex(childKey), new Vertex(parentKey));
+			final AbstractVertex childVertex, parentVertex;
+			if(this.referenceMode){
+				childVertex = new Vertex(childKey);
+				parentVertex = new Vertex(parentKey);
+			}else{
+				childVertex = this.hashToVertex.get(childKey);
+				parentVertex = this.hashToVertex.get(parentKey);
+			}
+			final AbstractEdge edge = new Edge(childVertex, parentVertex);
 			edge.addAnnotations(annotations);
 			
 			edgeCountIncrement();
@@ -344,6 +379,9 @@ public class Graphviz extends AbstractReporter{
 				this.reader = null;
 			}
 
+			if(!this.referenceMode){
+				this.hashToVertex.clear();
+			}
 			printStats(true);
 		}
 		return true;
