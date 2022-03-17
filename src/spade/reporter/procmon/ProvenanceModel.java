@@ -36,9 +36,6 @@ import spade.vertex.opm.Process;
 
 public class ProvenanceModel{
 
-	private final static DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("hh:mm:ss.n a");
-	private final static DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy h:mm:ss a");
-
 	public static Process createProcessVertex(final Event event){
 		final Process process = new Process();
 		process.addAnnotation(ProvenanceConstant.PROCESS_PID, event.getPid());
@@ -283,7 +280,8 @@ public class ProvenanceModel{
 
 	// "10:29:11.9878662 AM"
 	// "10/22/2021 10:29:11.9878662 AM" 
-	public static LocalDateTime getEdgeDateTimeResolved(final AbstractEdge edge){
+	public static LocalDateTime getEdgeDateTimeResolved(final AbstractEdge edge, final DateTimeFormatter timeFormatter,
+			final DateTimeFormatter dateTimeFormatter){
 		final String dateTime = edge.getAnnotation(ProvenanceConstant.EDGE_DATE_TIME);
 		if(dateTime != null){
 			try{

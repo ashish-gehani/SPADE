@@ -57,7 +57,8 @@ public class XMLEventReader extends EventReader{
 			final XMLInputFactory factory = XMLInputFactory.newInstance();
 			final java.io.FileInputStream fileInputStream = new java.io.FileInputStream(new java.io.File(filePath));
 			fileInputStream.read(new byte[3]); // consume BOM bytes
-			final java.io.InputStreamReader inputStreamReader = new java.io.InputStreamReader(fileInputStream, java.nio.charset.StandardCharsets.UTF_8);
+			final java.io.InputStreamReader inputStreamReader = new java.io.InputStreamReader(fileInputStream,
+					java.nio.charset.StandardCharsets.UTF_8);
 			reader = factory.createXMLStreamReader(inputStreamReader);
 		}catch(Exception e){
 			throw new Exception("Failed to create xml file reader", e);

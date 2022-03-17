@@ -20,6 +20,7 @@
 package spade.filter;
 
 import java.io.FileOutputStream;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -54,12 +55,16 @@ public class WindowsFeatures extends AbstractFilter{
 		, keyFilePathProcessFeatures = "processFeaturesPath"
 		, keyFilePathArtifactFeatures = "filePathFeaturesPath"
 		, keyInceptionTime = "inceptionTime"
-		, keyTaintedParentWeight = "taintedParentWeight";
+		, keyTaintedParentWeight = "taintedParentWeight"
+		, keyPatternTime = "patternTime"
+		, keyPatternDateTime = "patternDateTime";
 
 	private final Set<String> maliciousProcessNames = new HashSet<>();
 	private String filePathProcessFeatures, filePathArtifactFeatures;
 	private double inceptionTime;
 	private double taintedParentWeight;
+	private DateTimeFormatter timeFormatter;
+	private DateTimeFormatter dateTimeFormatter;
 	private GraphFeatures graphFeatures;
 
 	@Override
@@ -73,9 +78,11 @@ public class WindowsFeatures extends AbstractFilter{
 			final List<String> maliciousProcessNames = ArgumentFunctions.mustParseCommaSeparatedValues(keyMaliciousProcessNames, map);
 			final double inceptionTime = ArgumentFunctions.mustParseDouble(keyInceptionTime, map);
 			final double taintedParentWeight = ArgumentFunctions.mustParseDouble(keyTaintedParentWeight, map);
+			final DateTimeFormatter timeFormatter = ArgumentFunctions.mustParseJavaDateTimeFormat(keyPatternTime, map);
+			final DateTimeFormatter dateTimeFormatter = ArgumentFunctions.mustParseJavaDateTimeFormat(keyPatternDateTime, map);
 
 			return initialize(filePathProcessFeatures, filePathArtifactFeatures, maliciousProcessNames, 
-					inceptionTime, taintedParentWeight);
+					inceptionTime, taintedParentWeight, timeFormatter, dateTimeFormatter);
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to add filter", e);
 			return false;
@@ -84,14 +91,18 @@ public class WindowsFeatures extends AbstractFilter{
 
 	public boolean initialize(final String filePathProcessFeatures, final String filePathArtifactFeatures,
 			final List<String> maliciousProcessNames,
-			final double inceptionTime, final double taintedParentWeight){
+			final double inceptionTime, final double taintedParentWeight, final DateTimeFormatter timeFormatter,
+			final DateTimeFormatter dateTimeFormatter){
 		this.filePathArtifactFeatures = filePathArtifactFeatures;
 		this.filePathProcessFeatures = filePathProcessFeatures;
 		this.maliciousProcessNames.addAll(maliciousProcessNames);
 		this.inceptionTime = inceptionTime;
 		this.taintedParentWeight = taintedParentWeight;
+		this.timeFormatter = timeFormatter;
+		this.dateTimeFormatter = dateTimeFormatter;
 
-		this.graphFeatures = new GraphFeatures(this.maliciousProcessNames, this.inceptionTime, this.taintedParentWeight);
+		this.graphFeatures = new GraphFeatures(this.maliciousProcessNames, this.inceptionTime, this.taintedParentWeight,
+				this.timeFormatter, this.dateTimeFormatter);
 
 		logger.log(Level.INFO, "Arguments {"
 				+ keyMaliciousProcessNames + "=" + maliciousProcessNames
@@ -99,6 +110,7 @@ public class WindowsFeatures extends AbstractFilter{
 				+ ", " + keyFilePathArtifactFeatures + "=" + filePathArtifactFeatures
 				+ ", " + keyInceptionTime + "=" + inceptionTime
 				+ ", " + keyInceptionTime + "=" + taintedParentWeight
+				+ ", " + keyPatternTime + "=" + timeFormatter + ", " + keyPatternDateTime + "=" + dateTimeFormatter
 				+ "}");
 		return true;
 	}

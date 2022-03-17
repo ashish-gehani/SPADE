@@ -20,8 +20,10 @@
 package spade.utility;
 
 import java.net.InetAddress;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import spade.utility.map.external.ExternalMapArgument;
@@ -211,6 +213,16 @@ public class ArgumentFunctions{
 			return path;
 		}catch(Exception e){
 			throw new Exception("Not a readable path value for key '" + key + "'", e);
+		}
+	}
+
+	public static DateTimeFormatter mustParseJavaDateTimeFormat(final String key, final Map<String, String> map)
+			throws Exception{
+		final String dateTimePatternString = mustParseNonEmptyString(key, map);
+		try{
+			return DateTimeFormatter.ofPattern(dateTimePatternString, Locale.ENGLISH);
+		}catch(Exception e){
+			throw new Exception("Not a valid Java DateTime pattern '" + dateTimePatternString + "'", e);
 		}
 	}
 }

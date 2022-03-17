@@ -20,6 +20,7 @@
 package spade.reporter.procmon.feature;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -48,6 +49,8 @@ public class GraphFeatures{
 	private static final double scaleTime = 10000000;
 	private final double beginningThreshold;
 	private final double taintedParentWeight;
+	private final DateTimeFormatter timeFormatter;
+	private final DateTimeFormatter dateTimeFormatter;
 
 	private final Map<ProcessIdentifier, ProcessFeatures> processFeaturesMap = new HashMap<>();
 	private final Map<ArtifactIdentifier, ArtifactFeatures> artifactFeaturesMap = new HashMap<>();
@@ -59,10 +62,13 @@ public class GraphFeatures{
 	private final Map<String, Integer> vertexAncestorsCount = new HashMap<>();
 
 	public GraphFeatures(final Set<String> maliciousProcessNames, 
-			final double inceptionTime, final double taintedParentWeight){
+			final double inceptionTime, final double taintedParentWeight, final DateTimeFormatter timeFormatter,
+			final DateTimeFormatter dateTimeFormatter){
 		this.maliciousProcessNames.addAll(maliciousProcessNames);
 		this.beginningThreshold = inceptionTime;
 		this.taintedParentWeight = taintedParentWeight;
+		this.timeFormatter = timeFormatter;
+		this.dateTimeFormatter = dateTimeFormatter;
 	}
 
 	private String getProcessStatus(final AbstractVertex vertex) throws Exception{
@@ -244,12 +250,16 @@ public class GraphFeatures{
 		}
 	}
 
+	private final LocalDateTime getDateTimeFromEdge(final AbstractEdge edge){
+		return ProvenanceModel.getEdgeDateTimeResolved(edge, this.timeFormatter, this.dateTimeFormatter);
+	}
+
 	private void updateLifeDurationForProcesses(final AbstractEdge edge) throws Exception{
 		final AbstractVertex childVertex = edge.getChildVertex();
 		final AbstractVertex parentVertex = edge.getParentVertex();
 
 		final ProcessFeatures processFeatures;
-		final LocalDateTime edgeDateTime = ProvenanceModel.getEdgeDateTimeResolved(edge);
+		final LocalDateTime edgeDateTime = getDateTimeFromEdge(edge);
 		if(ProvenanceModel.isProcessVertex(childVertex)){
 			processFeatures = getProcessFeatures(childVertex);
 		}else if(ProvenanceModel.isProcessVertex(parentVertex)){
@@ -294,7 +304,7 @@ public class GraphFeatures{
 	private void handleWasTriggeredBy(final AbstractEdge edge) throws Exception{
 		final AbstractVertex childVertex = edge.getChildVertex();
 		final AbstractVertex parentVertex = edge.getParentVertex();
-		final LocalDateTime edgeDateTime = ProvenanceModel.getEdgeDateTimeResolved(edge);
+		final LocalDateTime edgeDateTime = getDateTimeFromEdge(edge);
 
 		final ProcessIdentifier triggeredProcessIdentifier = ProcessIdentifier.get(childVertex);
 		final ProcessIdentifier triggererProcessIdentifier = ProcessIdentifier.get(parentVertex);
@@ -331,7 +341,7 @@ public class GraphFeatures{
 		final AbstractVertex childVertex = edge.getChildVertex();
 		final AbstractVertex parentVertex = edge.getParentVertex();
 		final ProcessFeatures processFeatures = getProcessFeatures(childVertex);
-		final LocalDateTime edgeDateTime = ProvenanceModel.getEdgeDateTimeResolved(edge);
+		final LocalDateTime edgeDateTime = getDateTimeFromEdge(edge);
 
 		final UsedFlowFeatures usedFlowFeatures = processFeatures.getUsedFlowFeatures();
 
@@ -364,7 +374,7 @@ public class GraphFeatures{
 		final AbstractVertex childVertex = edge.getChildVertex();
 		final AbstractVertex parentVertex = edge.getParentVertex();
 		final ProcessFeatures processFeatures = getProcessFeatures(parentVertex);
-		final LocalDateTime edgeDateTime = ProvenanceModel.getEdgeDateTimeResolved(edge);
+		final LocalDateTime edgeDateTime = getDateTimeFromEdge(edge);
 
 		final WasGeneratedByFlowFeatures wasGeneratedByFlowFeatures = processFeatures.getWasGeneratedByFlowFeatures();
 
