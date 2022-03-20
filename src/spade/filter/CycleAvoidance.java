@@ -19,98 +19,229 @@
  */
 package spade.filter;
 
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.TreeMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
+import spade.core.Settings;
+import spade.utility.ArgumentFunctions;
+import spade.utility.HelperFunctions;
 
-public class CycleAvoidance extends AbstractFilter {
+// Source: https://www.usenix.org/legacy/event/fast09/tech/slides/muniswamy.pdf
+public class CycleAvoidance extends AbstractFilter{
 
-    // 'ancestors' maps a given vertex to its ancestors.
-    private final Map<AbstractVertex, Set<AbstractVertex>> ancestors;
-    // 'passedVertices' maps a given vertex to a boolean indicating whether it has
-    // been passed to the next filter or not.
-    private final Map<AbstractVertex, Boolean> passedVertices;
-    private final int initialVersion = 0;
-    private final String versionAnnotation = "Version";
+	private static final Logger logger = Logger.getLogger(CycleAvoidance.class.getName());
 
-    public CycleAvoidance() {
-        ancestors = new HashMap<>();
-        passedVertices = new HashMap<>();
-    }
+	private static final String keyVersionAnnotationName = "versionAnnotationName",
+			keyInitialVersion = "initialVersion", keyKeepAllVertices = "keepAllVertices";
 
-    @Override
-    public void putVertex(AbstractVertex incomingVertex) {
-        if (passedVertices.containsKey(incomingVertex)) {
-            // We've already seen this vertex.
-            return;
-        }
-        if (incomingVertex.getAnnotation(versionAnnotation) == null) {
-            incomingVertex.addAnnotation(versionAnnotation, Integer.toString(initialVersion));
-        }
-        passedVertices.put(incomingVertex, Boolean.FALSE);
-    }
+	private String versionAnnotationName;
+	private long initialVersion;
+	private boolean keepAllVertices;
 
-    // Given an incoming edge A->B(i), CA uses the following rules:
-    // 1) If no B exists, then add the edge.
-    // 2) If B(j) exists and j==i, then discard the edge.
-    // 3) If B(j) exists and j>i, then discard the edge.
-    // 3) If B(j) exists and j<i, then create a new A' and add A'->B(i).
-    @Override
-    public void putEdge(AbstractEdge edge) {
-        AbstractVertex source = edge.getChildVertex();
-        AbstractVertex destination = edge.getParentVertex();
-        AbstractEdge copyEdge = copyEdge(edge);
-        copyEdge.setChildVertex(source);
-        copyEdge.setParentVertex(destination);
+	private final GlobalState globalState = new GlobalState();
+	private final LocalState localState = new LocalState();
 
-        if (!ancestors.containsKey(source)) {
-            HashSet<AbstractVertex> vertexAncestors = new HashSet<>();
-            ancestors.put(source, vertexAncestors);
-        }
+	@Override
+	public boolean initialize(final String arguments){
+		try{
+			final Map<String, String> map = HelperFunctions.parseKeyValuePairsFrom(arguments, new String[]{
+					Settings.getDefaultConfigFilePath(this.getClass())
+			});
+			final String versionAnnotationName = ArgumentFunctions.mustParseNonEmptyString(keyVersionAnnotationName,
+					map);
+			final long initialVersion = ArgumentFunctions.mustParseLong(keyInitialVersion, map);
+			final boolean keepAllVertices = ArgumentFunctions.mustParseBoolean(keyKeepAllVertices, map);
+			return initialize(versionAnnotationName, initialVersion, keepAllVertices);
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to initialize filter", e);
+			return false;
+		}
+	}
 
-        Map<String, String> currentAnnotations = new HashMap<>();
-        currentAnnotations.putAll(destination.getCopyOfAnnotations());
-        int currentVersion = Integer.parseInt(currentAnnotations.remove(versionAnnotation));
-        // Look for ancestor vertex.
-        for (AbstractVertex ancestor : ancestors.get(source)) {
-            Map<String, String> annotations = new HashMap<>();
-            annotations.putAll(ancestor.getCopyOfAnnotations());
-            int existingVersion = Integer.parseInt(annotations.remove(versionAnnotation));
-            if (currentAnnotations.equals(annotations)) {
-                if (currentVersion == existingVersion || currentVersion < existingVersion) {
-                    return;
-                } else {
-                    currentVersion++;
-                    destination = destination.copyAsVertex();
-                    destination.addAnnotation(versionAnnotation, Integer.toString(currentVersion));
-                    copyEdge.setParentVertex(destination);
-                }
-                break;
-            }
-        }
+	public boolean initialize(final String versionAnnotationName, final long initialVersion,
+			final boolean keepAllVertices){
+		this.versionAnnotationName = versionAnnotationName;
+		this.initialVersion = initialVersion;
+		this.keepAllVertices = keepAllVertices;
+		logger.log(Level.INFO,
+				"Arguments {" + keyVersionAnnotationName + "=" + this.versionAnnotationName + ", " + keyInitialVersion
+						+ "=" + this.initialVersion + ", " + keyKeepAllVertices + "=" + this.keepAllVertices
+				+ "}");
+		return true;
+	}
 
-        checkVertexCache(source);
-        checkVertexCache(destination);
-        putInNextFilter(copyEdge);
-    }
+	@Override
+	public void putVertex(final AbstractVertex vertex){
+		if(vertex == null){
+			return;
+		}
+		final VertexState vertexState;
+		if(!globalState.contains(vertex)){
+			vertexState = globalState.add(vertex);
+		}else{
+			vertexState = globalState.getState(vertex);
+		}
+		if(keepAllVertices){
+			vertexState.putInNextFilterIfHasNotBeenPut();
+		}
+	}
 
-    private void checkVertexCache(AbstractVertex vertex) {
-        if (Objects.equals(passedVertices.get(vertex), Boolean.FALSE)) {
-            putInNextFilter(vertex);
-            passedVertices.put(vertex, Boolean.TRUE);
-        }
-    }
+	@Override
+	public void putEdge(final AbstractEdge edge){
+		if(edge == null){
+			return;
+		}
+		final AbstractVertex childVertex = edge.getChildVertex();
+		final AbstractVertex parentVertex = edge.getParentVertex();
+		if(childVertex == null || parentVertex == null){
+			return;
+		}
+		if(childVertex.equals(parentVertex)){
+			return;
+		}
+		// Init just in case the reporter doesn't report vertices separately
+		putVertex(childVertex);
+		putVertex(parentVertex);
 
-    private AbstractEdge copyEdge(AbstractEdge edge) {
-        AbstractEdge copy = new Edge(edge.getChildVertex(), edge.getParentVertex());
-        copy.addAnnotations(edge.getCopyOfAnnotations());
-        return copy;
-    }
+		final VertexParentState childParentState;
+		if(!localState.contains(childVertex)){
+			childParentState = localState.add(childVertex);
+		}else{
+			childParentState = localState.getState(childVertex);
+		}
+
+		final VertexState childGlobalState = globalState.getState(childVertex);
+		final VertexState parentGlobalState =  globalState.getState(parentVertex);
+		final Long parentGlobalVersion = parentGlobalState.getCAVersion();
+
+		final boolean put;
+
+		if(!childParentState.hasParent(parentVertex)){
+			childParentState.addParent(parentVertex, parentGlobalVersion);
+			childGlobalState.incrementCAVersion();
+			put = true;
+		}else{
+			final Long parentLocalVersion = childParentState.getParentVersion(parentVertex);
+			if(parentLocalVersion == parentGlobalVersion){
+				// discard because duplicate
+				put = false;
+			}else if(parentLocalVersion > parentGlobalVersion){
+				// discard because might cause cycles
+				put = false;
+			}else{
+				childGlobalState.incrementCAVersion();
+				put = true;
+			}
+		}
+
+		if(put){
+			final AbstractVertex caChildVertex = childGlobalState.putInNextFilterIfHasNotBeenPut();
+			final AbstractVertex caParentVertex = parentGlobalState.putInNextFilterIfHasNotBeenPut();
+			final AbstractEdge caEdge = new Edge(caChildVertex, caParentVertex);
+			caEdge.addAnnotations(edge.getCopyOfAnnotations());
+			putInNextFilter(caEdge);
+		}
+	}
+
+	private class GlobalState{
+		private final TreeMap<String, VertexState> vertices = new TreeMap<>();
+
+		private VertexState add(final AbstractVertex vertex){
+			final String hash = vertex.bigHashCode();
+			final Map<String, String> annotations = vertex.getCopyOfAnnotations();
+			final VertexState vertexState = new VertexState(annotations);
+			vertices.put(hash, vertexState);
+			return vertexState;
+		}
+
+		private VertexState getState(final AbstractVertex vertex){
+			return vertices.get(vertex.bigHashCode());
+		}
+
+		private boolean contains(final AbstractVertex vertex){
+			return getState(vertex) != null;
+		}
+	}
+
+	private class VertexState{
+		private final TreeMap<String, String> annotations = new TreeMap<>();
+		private long caVersion = initialVersion;
+		private boolean hasBeenPut = false;
+
+		private VertexState(final Map<String, String> annotations){
+			this.annotations.putAll(annotations);
+		}
+
+		private long getCAVersion(){
+			return caVersion;
+		}
+
+		private void incrementCAVersion(){
+			if(!hasBeenPut){
+				// don't double-increment
+			}else{
+				caVersion++;
+				hasBeenPut = false;
+			}
+		}
+
+		private AbstractVertex createVertexWithCurrentState(){
+			final AbstractVertex vertex = new spade.core.Vertex();
+			vertex.addAnnotations(this.annotations);
+			vertex.addAnnotation(versionAnnotationName, String.valueOf(caVersion));
+			return vertex;
+		}
+
+		private AbstractVertex putInNextFilterIfHasNotBeenPut(){
+			final AbstractVertex vertex = this.createVertexWithCurrentState();
+			if(!this.hasBeenPut){
+				putInNextFilter(vertex);
+				this.hasBeenPut = true;
+			}
+			return vertex;
+		}
+	}
+
+	private class VertexParentState{
+		private final TreeMap<String, Long> parentVersions = new TreeMap<>();
+
+		private boolean hasParent(final AbstractVertex parent){
+			return getParentVersion(parent) != null;
+		}
+
+		private Long getParentVersion(final AbstractVertex parent){
+			return parentVersions.get(parent.bigHashCode());
+		}
+
+		private void addParent(final AbstractVertex parent, final Long version){
+			final String parentHash = parent.bigHashCode();
+			parentVersions.put(parentHash, version);
+		}
+	}
+
+	private class LocalState{
+		private final TreeMap<String, VertexParentState> vertices = new TreeMap<>();
+
+		private VertexParentState getState(final AbstractVertex vertex){
+			return vertices.get(vertex.bigHashCode());
+		}
+
+		private boolean contains(final AbstractVertex vertex){
+			return getState(vertex) != null;
+		}
+
+		private VertexParentState add(final AbstractVertex vertex){
+			final String hash = vertex.bigHashCode();
+			final VertexParentState vertexParentState = new VertexParentState();
+			vertices.put(hash, vertexParentState);
+			return vertexParentState;
+		}
+	}
+
 }
