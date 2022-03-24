@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -988,31 +989,14 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	private Map<String, Map<String, String>> _exportVertices(String targetVertexTable){
-		Map<String, Map<String, String>> idToAnnos = new HashMap<String, Map<String, String>>();
-		
 		Map<String, String> idToHash = _getIdToHashOfVertices(targetVertexTable);
 		if(idToHash.size() == 0){
-			return idToAnnos;
+			return new HashMap<String, Map<String, String>>();
 		}
 		
-		String vertexAnnoStr = qs.executeQuery("COPY SELECT * FROM vertex_anno WHERE id IN (SELECT id FROM "
-				+ targetVertexTable + ") TO stdout WITH (DELIMITER e'\\n');");
-		String[] vertexAnnoLines = vertexAnnoStr.split("\n");
-		vertexAnnoStr = null;
-
-		if(vertexAnnoLines.length % 3 != 0){
-			throw new RuntimeException("Unexpected export vertex annotations query output");
-		}
-		for(int i = 0; i < vertexAnnoLines.length; i += 3){
-			// TODO: accelerate with cache.
-			String id = vertexAnnoLines[i];
-			Map<String, String> annotations = idToAnnos.get(id);
-			if(annotations == null){
-				annotations = new HashMap<String, String>();
-				idToAnnos.put(id, annotations);
-			}
-			annotations.put(vertexAnnoLines[i + 1], vertexAnnoLines[i + 2]);
-		}
+		final String vertexAnnoQuery = "COPY SELECT * FROM vertex_anno WHERE id IN (SELECT id FROM " + targetVertexTable
+				+ ") TO stdout WITH (DELIMITER e'\\n');";
+		final Map<String, Map<String, String>> idToAnnos = parseTableAsIdToAnnotations(vertexAnnoQuery, "vertex");
 		
 		////////////
 		
@@ -1030,7 +1014,41 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		
 		return result;
 	}
-	
+
+	private Map<String, Map<String, String>> parseTableAsIdToAnnotations(final String query, final String tableType){
+		String annoTableResultStr = qs.executeQuery(query);
+
+		final Map<String, Map<String, String>> idToAnnos = new HashMap<String, Map<String, String>>();
+
+		try(final Scanner scanner = new Scanner(annoTableResultStr)){
+			while(scanner.hasNextLine()){
+				final String idLine = scanner.nextLine();
+				// Skip last newline.
+				if(idLine.isEmpty() && !scanner.hasNextLine()){
+					break;
+				}
+				// There must be a second line
+				if(!scanner.hasNextLine()){
+					throw new RuntimeException("Unexpected export " + tableType + " annotations query output");
+				}
+				final String keyLine = scanner.nextLine();
+				// There must be a third line
+				if(!scanner.hasNextLine()){
+					throw new RuntimeException("Unexpected export " + tableType + " annotations query output");
+				}
+				final String valueLine = scanner.nextLine();
+				Map<String, String> annos = idToAnnos.get(idLine);
+				if(annos == null){
+					annos = new HashMap<String, String>();
+					idToAnnos.put(idLine, annos);
+				}
+				annos.put(keyLine, valueLine);
+			}
+		}
+
+		return idToAnnos;
+	}
+
 	private Map<String, String> _getIdToHashOfSrcDstVertices(String targetEdgeTable){
 		qs.executeQuery("drop table m_export_edge;\n" + "create table m_export_edge (id INT);\n");
 		
@@ -1081,28 +1099,10 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		
 		//////
 
-		String edgeAnnoStr = qs.executeQuery("COPY SELECT * FROM edge_anno WHERE id IN (SELECT id FROM "
-				+ targetEdgeTable + ") TO stdout WITH (DELIMITER e'\\n');");
-		String[] edgeAnnoLines = edgeAnnoStr.split("\n");
-		edgeAnnoStr = null;
+		final String edgeAnnoQuery = "COPY SELECT * FROM edge_anno WHERE id IN (SELECT id FROM " + targetEdgeTable
+				+ ") TO stdout WITH (DELIMITER e'\\n');";
+		final Map<String, Map<String, String>> edgeIdToAnnos = parseTableAsIdToAnnotations(edgeAnnoQuery, "edge");
 
-		if(edgeAnnoLines.length % 3 != 0){
-			throw new RuntimeException("Unexpected export edge annotations query output");
-		}
-		
-		final Map<String, Map<String, String>> edgeIdToAnnos = new HashMap<String, Map<String, String>>();
-		
-		for(int i = 0; i < edgeAnnoLines.length; i += 3){
-			// TODO: accelerate with cache.
-			String id = edgeAnnoLines[i];
-			Map<String, String> annos = edgeIdToAnnos.get(id);
-			if(annos == null){
-				annos = new HashMap<String, String>();
-				edgeIdToAnnos.put(id, annos);
-			}
-			annos.put(edgeAnnoLines[i + 1], edgeAnnoLines[i + 2]);
-		}
-		
 		Set<String> edgeIds = new HashSet<String>();
 		edgeIds.addAll(edgeIdToSrcDstIds.keySet());
 		edgeIds.addAll(edgeIdToAnnos.keySet());
