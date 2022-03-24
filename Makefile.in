@@ -50,9 +50,9 @@ ifeq ($(OS_NAME), Linux)
 	LLVM_RULE = build-linux-llvm
 endif
 
-# kernel modules build default = true
+# kernel modules build default = false
 ifndef KERNEL_MODULES
-	KERNEL_MODULES = true
+	KERNEL_MODULES = false
 endif
 
 # -------- Default Build Configuration -----
