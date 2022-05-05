@@ -1134,6 +1134,31 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 				+ " from " + sourceEdgeTable + ") " + groupByClause + ";", false);
 	}
 
+	private final void getSubsetCommon(final String sourceTable, final String targetTable, final long fromInclusive,
+			final long toExclusive){
+		final String idColumnName = getIdColumnName();
+		executeQueryForResult("insert into " + targetTable + " select " + idColumnName + " from " + "(select distinct "
+				+ idColumnName + ", dense_rank() over (order by " + idColumnName + ") as rn from " + sourceTable + ") "
+				+ "as temp_table where "
+				+ "temp_table.rn >= " + fromInclusive + " and temp_table.rn < " + toExclusive, false);
+	}
+
+	@Override
+	public void getSubsetVertex(final Graph targetGraph, final Graph sourceGraph, final long fromInclusive,
+			final long toExclusive){
+		final String sourceTable = getVertexTableName(sourceGraph);
+		final String targetTable = getVertexTableName(targetGraph);
+		getSubsetCommon(sourceTable, targetTable, fromInclusive, toExclusive);
+	}
+
+	@Override
+	public void getSubsetEdge(final Graph targetGraph, final Graph sourceGraph, final long fromInclusive,
+			final long toExclusive){
+		final String sourceTable = getEdgeTableName(sourceGraph);
+		final String targetTable = getEdgeTableName(targetGraph);
+		getSubsetCommon(sourceTable, targetTable, fromInclusive, toExclusive);
+	}
+
 	@Override
 	public void getSubgraph(Graph targetGraph, Graph subjectGraph, Graph skeletonGraph){
 		final String targetVertexTable = getVertexTableName(targetGraph);

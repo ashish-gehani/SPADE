@@ -132,9 +132,17 @@ _return-type_ **method-name** ( **_argument-type_** formal-argument, ... )
 * _graph_ **getSubgraph** ( **_graph_** skeletonGraph )
   * Get all vertices and edges that are spanned by `skeletonGraph`
     * e.g. `$2 = $base.getSubgraph($1)`
-* _graph_ **limit** ( [**_int_** limit] )
-  * Get first (ordered by id) _limit_ vertices / edges
-    * e.g. `$2 = $1.limit(10)` or `$2 = $1.limit()` to implicitly use `limit` environment variable
+<!--* _graph_ **limit** ( [**_int_** limit] )-->
+<!--  * Get first (ordered by id) _limit_ vertices / edges-->
+<!--    * e.g. `$2 = $1.limit(10)` or `$2 = $1.limit()` to implicitly use `limit` environment variable-->
+* _graph_ **vertexSubset** ( **_int_** from, **_int_** to )
+  * Get the vertex subset (ordered by id) between `from` (inclusive), and `to` (exclusive)
+* _graph_ **edgeSubset** ( **_int_** from, **_int_** to )
+  * Get the edge subset (ordered by id) between `from` (inclusive), and `to` (exclusive)
+* _graph_ **vertexSample** ( **_int_** sampleSize )
+  * Get the randomly sampled vertex subset of size `sampleSize`
+* _graph_ **edgeSample** ( **_int_** sampleSize )
+  * Get the randomly sampled edge subset of size `sampleSize`
 
 * _graph_ **transform** ( **_name_** transformer[, argument]*)
   * Use a pre-defined [_transformer_](https://github.com/ashish-gehani/SPADE/wiki/Available-transformers) to return a rewritten version of the graph.

@@ -1494,6 +1494,54 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 				+ " GROUP BY src, dst" + groups.toString() + ";");
 	}
 
+	private void getSubsetBasedOnType(final String sourceTable, final String targetTable, final String intermTable,
+			final String intermTableIdType, final String graphElementTableName, final long fromInclusive,
+			final long toExclusive){
+		final long range = toExclusive - fromInclusive;
+		final String md5ColumnName = "md5";
+		final String idColumnName = "id";
+
+		qs.executeQuery("DROP TABLE " + intermTable + ";\n");
+		qs.executeQuery(
+				"CREATE TABLE " + intermTable + " (" + idColumnName + " " + intermTableIdType + ", " + md5ColumnName
+						+ " CHAR(32));\n");
+
+		qs.executeQuery("\\analyzerange " + sourceTable + "\n");
+
+		qs.executeQuery("insert into " + intermTable + " select " + idColumnName + ", " + md5ColumnName + " from "
+				+ graphElementTableName + " where " + idColumnName + " in " + "(select " + idColumnName + " from "
+				+ sourceTable + ")" + " order by " + md5ColumnName
+				+ " asc limit " + toExclusive + ";\n");
+		qs.executeQuery("insert into " + targetTable + " select " + idColumnName + " from " + intermTable + " order by "
+				+ md5ColumnName + " desc limit " + range + ";");
+
+		qs.executeQuery("DROP TABLE " + intermTable + ";\n");
+	}
+
+	@Override
+	public void getSubsetVertex(final Graph targetGraph, final Graph sourceGraph, final long fromInclusive,
+			final long toExclusive){
+		final String sourceTable = getVertexTableName(sourceGraph);
+		final String targetTable = getVertexTableName(targetGraph);
+		final String intermTable = "m_interm_" + targetTable;
+		final String intermTableIdType = "INT";
+		
+		getSubsetBasedOnType(sourceTable, targetTable, intermTable, intermTableIdType, vertexTableName, fromInclusive,
+				toExclusive);
+	}
+
+	@Override
+	public void getSubsetEdge(final Graph targetGraph, final Graph sourceGraph, final long fromInclusive,
+			final long toExclusive){
+		final String sourceTable = getEdgeTableName(sourceGraph);
+		final String targetTable = getEdgeTableName(targetGraph);
+		final String intermTable = "m_interm_" + targetTable;
+		final String intermTableIdType = "LONG";
+
+		getSubsetBasedOnType(sourceTable, targetTable, intermTable, intermTableIdType, edgeTableName, fromInclusive,
+				toExclusive);
+	}
+
 	private String getVertexTableName(Graph graph){
 		return queryEnvironment.getGraphVertexTableName(graph);
 	}

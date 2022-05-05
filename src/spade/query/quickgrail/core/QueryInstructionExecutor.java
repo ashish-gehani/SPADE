@@ -276,6 +276,12 @@ public abstract class QueryInstructionExecutor{
 
 	public abstract void unionGraph(Graph targetGraph, Graph sourceGraph);
 
+	public abstract void getSubsetVertex(final Graph targetGraph, final Graph sourceGraph, final long fromInclusive,
+			final long toExclusive);
+
+	public abstract void getSubsetEdge(final Graph targetGraph, final Graph sourceGraph, final long fromInclusive,
+			final long toExclusive);
+
 	//////////////////////////////////////////////////////////////
 
 	public abstract Map<String, Map<String, String>> exportVertices(final Graph targetGraph);

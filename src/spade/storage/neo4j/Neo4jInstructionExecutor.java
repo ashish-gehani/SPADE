@@ -72,6 +72,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		}
 	}
 	
+	@Override
 	public final Neo4jQueryEnvironment getQueryEnvironment(){
 		return neo4jQueryEnvironment;
 	}
@@ -306,6 +307,30 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		storage.executeQuery(query);
 	}
 	
+	@Override
+	public void getSubsetVertex(final Graph targetGraph, final Graph sourceGraph, final long fromInclusive,
+			final long toExclusive){
+		final String query = "match (v:" + sourceGraph.name + ") with v order by v.`" + hashKey
+				+ "` asc with collect(v)[" + fromInclusive + ".." + toExclusive
+				+ "] as vlist unwind vlist as vref set vref:" + targetGraph.name
+				+ ";";
+		storage.executeQuery(query);
+	}
+
+	@Override
+	public void getSubsetEdge(final Graph targetGraph, final Graph sourceGraph, final long fromInclusive,
+			final long toExclusive){
+		final String edgeProperty = "e0.`" + neo4jQueryEnvironment.edgeLabelsPropertyName + "`";
+		String query = "match ()-[e0]->() ";
+		if(!neo4jQueryEnvironment.isBaseGraph(sourceGraph)){
+			query += "where " + edgeProperty + " contains '," + sourceGraph.name + ",' ";
+		}
+		query += "with e0 order by e0.`" + hashKey + "` asc with collect(e0)[" + fromInclusive + ".." + toExclusive + "] " + 
+				"as e0list unwind e0list as e ";
+		query += buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name) + ";";
+		storage.executeQuery(query);
+	}
+
 	@Override
 	public void getEdge(Graph targetGraph, Graph subjectGraph, String annotationKey, PredicateOperator operator,
 			String annotationValue, final boolean hasArguments){

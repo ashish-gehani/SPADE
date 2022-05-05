@@ -31,6 +31,7 @@ import spade.core.Settings;
 import spade.query.quickgrail.entities.Entity;
 import spade.query.quickgrail.entities.EntityType;
 import spade.query.quickgrail.entities.Graph;
+import spade.query.quickgrail.entities.Graph.Component;
 import spade.query.quickgrail.entities.GraphPredicate;
 import spade.query.quickgrail.instruction.CollapseEdge;
 import spade.query.quickgrail.instruction.CreateEmptyGraph;
@@ -52,10 +53,12 @@ import spade.query.quickgrail.instruction.GetList;
 import spade.query.quickgrail.instruction.GetMatch;
 import spade.query.quickgrail.instruction.GetPath;
 import spade.query.quickgrail.instruction.GetPathLengths;
+import spade.query.quickgrail.instruction.GetRandomSample;
 import spade.query.quickgrail.instruction.GetRemoteLineage;
 import spade.query.quickgrail.instruction.GetShortestPath;
 import spade.query.quickgrail.instruction.GetSimplePath;
 import spade.query.quickgrail.instruction.GetSubgraph;
+import spade.query.quickgrail.instruction.GetSubset;
 import spade.query.quickgrail.instruction.GetVertex;
 import spade.query.quickgrail.instruction.InsertLiteralEdge;
 import spade.query.quickgrail.instruction.InsertLiteralVertex;
@@ -920,6 +923,18 @@ public class QuickGrailQueryResolver{
 			return resolveLimit(subject, arguments, ToGraph(outputEntity));
 		case "getMatch":
 			return resolveGetMatch(subject, arguments, ToGraph(outputEntity));
+		case "sample":
+			return resolveGetRandomSampleBoth(subject, arguments, ToGraph(outputEntity));
+		case "vertexSample":
+			return resolveGetRandomSample(subject, arguments, ToGraph(outputEntity), Component.kVertex);
+		case "edgeSample":
+			return resolveGetRandomSample(subject, arguments, ToGraph(outputEntity), Component.kEdge);
+		case "subset":
+			return resolveGetSubsetBoth(subject, arguments, ToGraph(outputEntity));
+		case "vertexSubset":
+			return resolveGetSubset(subject, arguments, ToGraph(outputEntity), Component.kVertex);
+		case "edgeSubset":
+			return resolveGetSubset(subject, arguments, ToGraph(outputEntity), Component.kEdge);
 		default:
 			break;
 		}
@@ -1484,7 +1499,55 @@ public class QuickGrailQueryResolver{
 		instructions.add(new GetMatch(outputGraph, subjectGraph, graph2, annotationKeys));
 		return outputGraph;
 	}
-	
+
+	private Graph resolveGetRandomSampleBoth(final Graph subjectGraph, final ArrayList<ParseExpression> arguments,
+			Graph outputGraph){
+		outputGraph = resolveGetRandomSample(subjectGraph, arguments, outputGraph, Graph.Component.kVertex);
+		outputGraph = resolveGetRandomSample(subjectGraph, arguments, outputGraph, Graph.Component.kEdge);
+		return outputGraph;
+	}
+
+	private Graph resolveGetRandomSample(final Graph subjectGraph, final ArrayList<ParseExpression> arguments,
+			Graph outputGraph, final Graph.Component graphComponent){
+		final int argumentsSize = arguments.size();
+		if(argumentsSize != 1){
+			throw new RuntimeException("Invalid number of arguments for random sample: expected 1");
+		}
+		final long sampleSize = QueryResolverHelper.resolveInteger(arguments.get(0));
+		if(outputGraph == null){
+			outputGraph = allocateEmptyGraph();
+		}
+		instructions.add(new GetRandomSample(outputGraph, subjectGraph, sampleSize, graphComponent));
+		return outputGraph;
+	}
+
+	private Graph resolveGetSubsetBoth(final Graph subjectGraph, final ArrayList<ParseExpression> arguments,
+			Graph outputGraph){
+		outputGraph = resolveGetSubset(subjectGraph, arguments, outputGraph, Graph.Component.kVertex);
+		outputGraph = resolveGetSubset(subjectGraph, arguments, outputGraph, Graph.Component.kEdge);
+		return outputGraph;
+	}
+
+	private Graph resolveGetSubset(final Graph subjectGraph, final ArrayList<ParseExpression> arguments,
+			Graph outputGraph, final Graph.Component graphComponent){
+		final int argumentsSize = arguments.size();
+		if(argumentsSize < 1 || argumentsSize > 2){
+			throw new RuntimeException("Invalid number of arguments for subset: expected 1 or 2");
+		}
+		final long from = QueryResolverHelper.resolveInteger(arguments.get(0));
+		final Long to;
+		if(argumentsSize == 2){
+			to = Long.valueOf(QueryResolverHelper.resolveInteger(arguments.get(1)));
+		}else{
+			to = null;
+		}
+		if(outputGraph == null){
+			outputGraph = allocateEmptyGraph();
+		}
+		instructions.add(new GetSubset(outputGraph, subjectGraph, from, to, graphComponent));
+		return outputGraph;
+	}
+
 	private Graph resolveLimit(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
 		Integer limit = null;
 		
