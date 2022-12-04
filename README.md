@@ -4,7 +4,7 @@ Please refer to **SPADE**'s [documentation](../../wiki) to learn how to use it t
 
 To learn more about **SPADE**, please see:
 
-  * Ashish Gehani and Dawood Tariq, **SPADE: Support for Provenance Auditing in Distributed Environments**, _13th ACM/IFIP/USENIX International Conference on Middleware_, 2012. [[PDF](http://www.csl.sri.com/users/gehani/papers/MW-2012.SPADE.pdf)] <SPAN STYLE="color:red">[[Test-of-time Award](https://middleware-conf.github.io/2022/awards/)]</SPAN>
+  * Ashish Gehani and Dawood Tariq, **SPADE: Support for Provenance Auditing in Distributed Environments**, _13th ACM/IFIP/USENIX International Conference on Middleware_, 2012. [[PDF](http://www.csl.sri.com/users/gehani/papers/MW-2012.SPADE.pdf)]
   * Ashish Gehani, Hasanat Kazmi, and Hassaan Irshad, **Scaling SPADE to "Big Provenance"**, _8th USENIX Workshop on the Theory and Practice of Provenance (TaPP)_, 2016. [[PDF](http://www.csl.sri.com/users/gehani/papers/TaPP-2016.Scaling.pdf)]
   * Ashish Gehani, Raza Ahmad, Hassaan Irshad, Jianqiao Zhu, and Jignesh Patel, **Digging Into "Big Provenance" (With SPADE)**, _ACM Queue, Vol. 19(3) / Communications of the ACM, Vol. 64(12)_, 2021. [[PDF](http://www.csl.sri.com/users/gehani/papers/Queue-2021.QuickGrail.pdf)]
 
