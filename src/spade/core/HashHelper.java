@@ -134,15 +134,4 @@ public abstract class HashHelper{
 		return bytesList;
 	}
 	
-	public static void main(String [] args) throws Exception{
-		final String data = "test";
-		final String hashHexString = defaultInstance.hashToHexString(data);
-		final byte[] hashByteArray = defaultInstance.hashToByteArray(data);
-		
-		System.out.println(hashHexString + ", " + hashHexString.length());
-		System.out.println(toList(hashByteArray) + ", " + hashByteArray.length);
-		
-		System.out.println(defaultInstance.convertHashByteArrayToHashHexString(hashByteArray));
-		System.out.println(toList(defaultInstance.convertHashHexStringToHashByteArray(hashHexString)));
-	}
 }

@@ -201,7 +201,7 @@ public class BlockingBuffer extends Buffer{
 	}
 	
 	private final synchronized double getRate(final long count){
-		return (double)count / (((double)(System.currentTimeMillis() - createdAtMillis)) / (1000.0 * 60.0));
+		return count / ((System.currentTimeMillis() - createdAtMillis) / (1000.0 * 60.0));
 	}
 	
 	private final void log(final Level level, final String msg){
@@ -221,97 +221,9 @@ public class BlockingBuffer extends Buffer{
 							String.format("Size=%s, Get-count=%s, Put-count=%s, Free-mem=%.3f percent", 
 									size(), getGetCount(), getPutCount(), HelperFunctions.getFreeMemoryPercentage())
 							);
-//					log(Level.INFO, 
-//							String.format("Size=%s, Get-rate=%.3f per min, Put-rate=%.3f per min, Used-mem=%.3f percent, free-mem=%.3f, fakemem=%s", 
-//									size(), getGetRate(), getPutRate(), 0.0, HelperFunctions.getFreeMemoryPercentage(), getFakeMemSize())
-//							);
 				}
 			}
 		}
 	}
-	
-	// Test block
-	/*
-	private static final String getFakeMemSize(){
-		BigDecimal bd = new BigDecimal(fakeMem.size());
-		bd = bd.multiply(new BigDecimal(fixedBytesSize));
-		bd = bd.divide(new BigDecimal(1024.0 * 1024.0 * 1024.0));
-		return String.format("%.3f gb", bd.doubleValue());
-	}
-	
-	private static final int fixedBytesSize = 1024 * 1024;
-	private static List<Object> fakeMem = new ArrayList<Object>();
-	
-	private static volatile boolean shutdownx = false;
-	
-	public static void main(String[] args) throws Exception{
-		
-		final AbstractVertex vertex = new Vertex();
-		final AbstractEdge edge = new Edge(vertex, vertex);
-		
-		final long readerSleepMillis = 10000;
-		final long writerSleepMillis = 10000;
-		final long hoggerSleepMillis = 50;
-		
-		final BlockingBuffer bb = new BlockingBuffer("50", Graphviz.class);
-		
-		final Thread readerThread = new Thread(new Runnable(){
-			public void run(){
-				while(!shutdownx){
-					bb.getBufferElement();
-					HelperFunctions.sleepSafe(readerSleepMillis);
-				}
-			}
-		});
-		readerThread.start();
-		
-		final Thread writerThread = new Thread(new Runnable(){
-			public void run(){
-				while(!shutdownx){
-					bb.putVertex(vertex);
-					bb.putEdge(edge);
-					HelperFunctions.sleepSafe(writerSleepMillis);
-				}
-			}
-		});
-		writerThread.start();
-		
-		final MutableBoolean add = new MutableBoolean(true);
-		final Thread hoggerThread = new Thread(new Runnable(){
-			public void run(){
-				while(!shutdownx){
-					if(add.isTrue()){
-						fakeMem.add(ByteBuffer.allocate(fixedBytesSize));
-					}else{
-						if(fakeMem.size() > 0){
-							fakeMem.remove(fakeMem.size() - 1);
-						}
-					}
-					System.gc();
-					Runtime.getRuntime().gc();
-					HelperFunctions.sleepSafe(hoggerSleepMillis);
-				}
-			}
-		});
-		hoggerThread.start();
-		
-		final BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-		System.out.print("-> ");
-		String line = null;
-		while((line = reader.readLine()) != null){
-			line = line.trim();
-			if(line.equalsIgnoreCase("exit") || line.equalsIgnoreCase("quit")){
-				break;
-			}
-			if(line.equalsIgnoreCase("add")){
-				add.setValue(true);
-			}
-			if(line.equalsIgnoreCase("rem")){
-				add.setValue(false);
-			}
-			System.out.print("-> ");
-		}
-		shutdownx = true;
-	}
-	*/
+
 }

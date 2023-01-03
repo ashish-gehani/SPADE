@@ -779,91 +779,11 @@ public class Kernel
                 }
                 outputStream.println("done");
                 break;
-            
-            case "get":
-            case "set":
-            case "unset":{
-            	configGetSetCommand(outputStream, line);
-            }
-            break;
                 
             default:
             	printConfigCommandUsage(outputStream);
                 break;
         }
-    }
-    
-    private static enum ConfigPropertyOperation{ GET, SET, UNSET };
-    private final static void configGetSetCommand(final PrintStream outputStream, final String line){
-    	final String tokens[] = line.split("\\s+");
-    	final int tokensLength = tokens.length;
-    	if(tokensLength > 0){
-    		if(tokens[0].equalsIgnoreCase("config")){
-    			if(tokensLength > 1){
-    				Result<ConfigPropertyOperation> propertyOperationResult = 
-    						HelperFunctions.parseEnumValue(ConfigPropertyOperation.class, tokens[1], true);
-    				if(!propertyOperationResult.error){
-    					if(tokensLength > 2){
-    						final String moduleType = tokens[2];
-    						if(moduleType.equalsIgnoreCase("reporter")){
-    							if(tokensLength > 3){
-    								final String reporterName = tokens[3];
-    								final AbstractReporter reporter = findReporter(reporterName);
-    								if(reporter != null){
-    									if(tokensLength > 4){
-    										final String propertyName = tokens[4];
-    										if(propertyOperationResult.result.equals(ConfigPropertyOperation.GET)){
-    											try{
-    												final Object value = reporter.getProperty(propertyName);
-    												final String msg = 
-    														(value == null)
-    														? ("'" + propertyName + "' is NULL")
-    														: ("'" + propertyName + "' = '" + value + "'");
-    												outputStream.println(msg);
-    							                    logger.log(Level.INFO, "[GET] '" + reporterName + "' " + moduleType + ". " + msg);
-    							                    return; // return here!!!
-    											}catch(final Exception e){
-    												logger.log(Level.WARNING, 
-    														"Failed to get '" + reporterName + "' "+ moduleType + " property '"+propertyName+"'", e);
-    											}
-											}else if(propertyOperationResult.result.equals(ConfigPropertyOperation.SET)){
-												if(tokensLength > 5){
-													final String[] limitedTokens = line.split("\\s+", 6);
-													final String propertyValue = limitedTokens[5];
-													try{
-														reporter.setProperty(propertyName, propertyValue);
-														final String msg = "'" + propertyName + "' = '" + propertyValue + "'";
-	    												outputStream.println("OK");
-	    							                    logger.log(Level.INFO, "[SET] '" + reporterName + "' " + moduleType + ". " + msg);
-	    							                    return; // return here!!!
-													}catch(Exception e){
-														logger.log(Level.WARNING, 
-	    														"Failed to set '" + reporterName + "' "+ moduleType + " property '"+propertyName+"' value '"+propertyValue+"'", e);
-													}
-												}
-											}else if(propertyOperationResult.result.equals(ConfigPropertyOperation.UNSET)){
-												try{
-													reporter.unsetProperty(propertyName);
-    												final String msg = "'" + propertyName + "' = '";
-    												outputStream.println("OK");
-    							                    logger.log(Level.INFO, "[UNSET] '" + reporterName + "' " + moduleType + ". " + msg);
-    							                    return; // return here!!!
-    											}catch(final Exception e){
-    												logger.log(Level.WARNING, 
-    														"Failed to unset '" + reporterName + "' "+ moduleType + " property '"+propertyName+"'", e);
-    											}
-											}
-    									}
-    								}
-    							}
-    						}
-    					}
-    				}
-    			}
-    		}
-    	}
-    	// here only case of unknown command
-    	printConfigCommandUsage(outputStream);
     }
 
     private final static void printConfigCommandUsage(final PrintStream outputStream){
@@ -1267,14 +1187,14 @@ public class Kernel
 	                    return;
 	                }
 	                // Set the next filter of this newly added filter.
-	                filter.setNextFilter((AbstractFilter) filters.get(index));
+	                filter.setNextFilter(filters.get(index));
 	                if (index > 0)
 	                {
 	                    // If the newly added filter is not the first in the list, then
 	                    // then configure the previous filter in the list to point to
 	                    // this
 	                    // newly added filter as its next.
-	                    ((AbstractFilter) filters.get(index - 1)).setNextFilter(filter);
+	                    filters.get(index - 1).setNextFilter(filter);
 	                }
 	
 	                filters.add(index, filter);

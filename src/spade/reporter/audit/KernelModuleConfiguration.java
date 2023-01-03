@@ -34,7 +34,6 @@ public class KernelModuleConfiguration{
 	public static final String 
 			keyKernelModuleMainPath = "kernelModuleMain",
 			keyKernelModuleControllerPath = "kernelModuleController",
-			keyKernelModuleDeleteBinaryPath = "kernelModuleDeleteBinary", 
 			keyHarden = "harden",
 			keyLocalEndpoints = "localEndpoints", 
 			keyHandleLocalEndpoints = "handleLocalEndpoints",
@@ -44,7 +43,7 @@ public class KernelModuleConfiguration{
 			keyNetfilterHooksUser = "netfilterHooksUser",
 			keyHandleNetworkAddressTranslation = "handleNetworkAddressTranslation";
 
-	private String kernelModuleMainPath, kernelModuleControllerPath, kernelModuleDeleteBinaryPath;
+			private String kernelModuleMainPath, kernelModuleControllerPath;
 	private boolean harden, localEndpoints;
 	private Boolean handleLocalEndpoints;
 	private Set<String> hardenProcesses = new HashSet<String>();
@@ -54,13 +53,12 @@ public class KernelModuleConfiguration{
 	private boolean handleNetworkAddressTranslation;
 
 	private KernelModuleConfiguration(final String kernelModuleMainPath, final String kernelModuleControllerPath,
-			final String kernelModuleDeleteBinaryPath, final boolean harden, final boolean localEndpoints,
+			final boolean harden, final boolean localEndpoints,
 			final Boolean handleLocalEndpoints, final Set<String> hardenProcesses,
 			final boolean networkAddressTranslation, final boolean netfilterHooksLogCT, 
 			final boolean netfilterHooksUser, final boolean handleNetworkAddressTranslation){
 		this.kernelModuleMainPath = kernelModuleMainPath;
 		this.kernelModuleControllerPath = kernelModuleControllerPath;
-		this.kernelModuleDeleteBinaryPath = kernelModuleDeleteBinaryPath;
 		this.harden = harden;
 		this.localEndpoints = localEndpoints;
 		this.handleLocalEndpoints = handleLocalEndpoints;
@@ -86,11 +84,9 @@ public class KernelModuleConfiguration{
 			throws Exception{
 		String valueKernelModuleMainPath = map.get(keyKernelModuleMainPath);
 		String valueKernelModuleControllerPath = map.get(keyKernelModuleControllerPath);
-		String valueKernelModuleDeleteBinaryPath = map.get(keyKernelModuleDeleteBinaryPath);
 		
 		final String kernelModuleMainPath;
 		final String kernelModuleControllerPath;
-		final String kernelModuleDeleteBinaryPath;
 		final boolean localEndpoints;
 		final boolean harden;
 		final Boolean handleLocalEndpoints;
@@ -177,15 +173,6 @@ public class KernelModuleConfiguration{
 			 * verify that the delete utility path is correct.
 			 */
 			if(harden){
-				valueKernelModuleDeleteBinaryPath = Settings.getPathRelativeToSPADERootIfNotAbsolute(valueKernelModuleDeleteBinaryPath);
-				try{
-					FileUtility.pathMustBeAReadableExecutableFile(valueKernelModuleDeleteBinaryPath);
-					kernelModuleDeleteBinaryPath = valueKernelModuleDeleteBinaryPath;
-				}catch(Exception e){
-					throw new Exception("The kernel module deletion utility specified by '"
-							+ keyKernelModuleDeleteBinaryPath + "' must be a readable and executable file: '"
-							+ valueKernelModuleDeleteBinaryPath + "'", e);
-				}
 				final String valueHardenProcesses = map.get(keyHardenProcesses);
 				if(!HelperFunctions.isNullOrEmpty(valueHardenProcesses)){
 					hardenProcesses.addAll(ArgumentFunctions.mustParseCommaSeparatedValues(keyHardenProcesses, map));
@@ -196,8 +183,6 @@ public class KernelModuleConfiguration{
 						}
 					}
 				}
-			}else{
-				kernelModuleDeleteBinaryPath = null;
 			}
 
 			/*
@@ -222,7 +207,7 @@ public class KernelModuleConfiguration{
 			 * We are not live i.e. log playback so we only care about handling of local
 			 * endpoint records in the log
 			 */
-			kernelModuleMainPath = kernelModuleControllerPath = kernelModuleDeleteBinaryPath = null;
+			kernelModuleMainPath = kernelModuleControllerPath = null;
 			localEndpoints = false;
 			harden = false;
 			final String valueHandleLocalEndpoints = map.get(keyHandleLocalEndpoints);
@@ -246,7 +231,7 @@ public class KernelModuleConfiguration{
 		}
 
 		return new KernelModuleConfiguration(kernelModuleMainPath, kernelModuleControllerPath,
-				kernelModuleDeleteBinaryPath, harden, localEndpoints, handleLocalEndpoints, hardenProcesses,
+				harden, localEndpoints, handleLocalEndpoints, hardenProcesses,
 				networkAddressTranslation, netfilterHooksLogCT, netfilterHooksUser, handleNetworkAddressTranslation);
 	}
 
@@ -278,10 +263,6 @@ public class KernelModuleConfiguration{
 
 	public String getKernelModuleControllerPath(){
 		return kernelModuleControllerPath;
-	}
-
-	public String getKernelModuleDeleteBinaryPath(){
-		return kernelModuleDeleteBinaryPath;
 	}
 
 	public boolean isHarden(){
@@ -329,7 +310,6 @@ public class KernelModuleConfiguration{
 		return "KernelModuleConfiguration ["
 				+ keyKernelModuleMainPath + "=" + kernelModuleMainPath
 				+ ", " + keyKernelModuleControllerPath + "=" + kernelModuleControllerPath
-				+ ", " + keyKernelModuleDeleteBinaryPath + "=" + kernelModuleDeleteBinaryPath
 				+ ", " + keyHarden + "=" + harden
 				+ ", " + keyLocalEndpoints + "=" + localEndpoints
 				+ ", " + keyHandleLocalEndpoints + "=" + handleLocalEndpoints

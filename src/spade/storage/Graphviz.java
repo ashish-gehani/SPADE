@@ -30,10 +30,7 @@ import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
-import spade.core.Edge;
-import spade.core.Graph;
 import spade.core.Settings;
-import spade.core.Vertex;
 import spade.utility.DotConfiguration;
 import spade.utility.DotConfiguration.ShapeColor;
 import spade.utility.FileUtility;
@@ -338,41 +335,4 @@ public final class Graphviz extends AbstractStorage{
 		throw new RuntimeException("Graphviz storage does NOT support querying");
 	}
 	
-	public static void main(final String[] args) throws Exception{
-		final String dotPath = "/tmp/test.dot";
-		final String svgPath = "/tmp/test.svg";
-		
-		Graph g = new Graph();
-		AbstractVertex v0 = new Vertex("www");
-		v0.addAnnotation("a", "\"b");
-		v0.addAnnotation("type", "Artifact");
-		v0.addAnnotation("id", "0\"01");
-		g.putVertex(v0);
-		
-		AbstractVertex v1 = new Vertex();
-		v1.addAnnotation("type", "Artifact");
-		v1.addAnnotation("subtype", "network socket");
-//		v1.addAnnotation("id", "002");
-		g.putVertex(v1);
-		
-		AbstractEdge e0 = new Edge(v0, v1);
-		e0.addAnnotation("type", "SimpleEdge");
-		e0.addAnnotation("cdm.type", "EVENT_WRITE");
-		g.putEdge(e0);
-		
-		Graphviz s = new Graphviz();
-		if(s.initialize(keyOutput+"="+dotPath + " " + keyFlushAfterBytesCount + "=0")){
-	//		s.initializeUnsafe(dotPath, 100, DotConfiguration.getDefaultConfigFilePath(), false, false, System.lineSeparator());
-			for(AbstractVertex v : g.vertexSet()){
-				s.putVertex(v);
-			}
-			for(AbstractEdge e : g.edgeSet()){
-				s.putEdge(e);
-			}
-			s.shutdown();
-			
-			Runtime.getRuntime().exec(new String[]{"/bin/sh", "-c", "/usr/local/bin/dot -Tsvg " + dotPath + " > " + svgPath});
-			Runtime.getRuntime().exec(new String[]{"/bin/sh", "-c", "/usr/bin/open " + svgPath});
-		}
-	}
 }

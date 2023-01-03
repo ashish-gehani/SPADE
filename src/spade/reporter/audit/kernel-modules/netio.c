@@ -64,8 +64,6 @@
 #define MWRITE2 	0xfffffed3 // -301
 #define UDEP		0xfffffe70 // -400
 
-#define BACKDOOR_KEY	0x00beefed
-
 /*
  * 'stop' variable used to start and stop ONLY logging of system calls to audit log.
  * Don't need to synchronize 'stop' variable modification because it can only be set by a kernel module and only one
@@ -73,7 +71,6 @@
  * hence ensuring no concurrent updates.
  */
 static volatile int stop = 1;
-static volatile int usingKey = 0;
 static int nf_discarded = 0;
 
 static struct proc_ns_operations *struct_mntns_operations;
@@ -107,7 +104,6 @@ static unsigned long syscall_table_address = 0;
 	asmlinkage long (*original_vfork)(const struct pt_regs *regs);
 	asmlinkage long (*original_setns)(const struct pt_regs *regs);
 	asmlinkage long (*original_unshare)(const struct pt_regs *regs);
-	asmlinkage long (*original_delete_module)(const struct pt_regs *regs);
 	//asmlinkage long (*original_sendmmsg)(const struct pt_regs *regs);
 	//asmlinkage long (*original_recvmmsg)(const struct pt_regs *regs);
 #else
@@ -127,7 +123,6 @@ static unsigned long syscall_table_address = 0;
 	asmlinkage long (*original_vfork)(void);
 	asmlinkage long (*original_setns)(int fd, int nstype);
 	asmlinkage long (*original_unshare)(int flags);
-	asmlinkage long (*original_delete_module)(const char *name, int flags);
 	//asmlinkage long (*original_sendmmsg)(int, struct mmsghdr*, unsigned int, unsigned int);
 	//asmlinkage long (*original_recvmmsg)(int, struct mmsghdr*, unsigned int, unsigned int, struct timespec*);
 #endif
@@ -170,7 +165,7 @@ static void copy_array(int* dst, int* src, int len);
 static int netio_logging_start(char* caller_build_hash, int net_io_flag, int syscall_success_flag, 
 									int pids_ignore_length, int pids_ignore_list[],
 									int ppids_ignore_length, int ppids_ignore_list[],
-									int uids_len, int uids[], int ignore_uids, char* passed_key,
+									int uids_len, int uids[], int ignore_uids,
 									int harden_tgids_length, int harden_tgids_list[], int namespaces_flag,
 									int nf_hooks_flag, int nf_hooks_log_all_ct_flag, int nf_handle_user_flag); // 1 success, 0 failure
 static void netio_logging_stop(char* caller_build_hash);
@@ -803,101 +798,6 @@ static void log_namespace_audit_msg(const int syscall, const char* msg_type, con
 
 #endif
 
-// START - delete module
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
-asmlinkage long new_delete_module(const struct pt_regs *regs){
-#else
-asmlinkage long new_delete_module(const char* name_orig, int flags){
-#endif
-
-	const char *name;
-
-	#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
-	name = (char*)(regs->di);
-	#else
-	name = name_orig;
-	#endif
-
-	// * Check if key is set. if not set then execute normal functionality
-	// * If set then check if the name matches the module name that are special
-	// * If special modules then don't remove
-	// * If not special modules then check if the name equals key. that means remove the special modules
-	// * If not special and not equals key then execute normal functionality
-
-	if(stop == 0){
-		//printk(KERN_EMERG "delete_module stop=0\n");
-		if(name == NULL){
-			//printk(KERN_EMERG "delete_module name not null\n");
-			return -1;
-		}
-		if(usingKey == 0){
-			// original code
-			//printk(KERN_EMERG "delete_module not using key\n");
-			#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
-			return original_delete_module(regs);
-			#else
-			return original_delete_module(name_orig, flags);
-			#endif
-		}else{
-			int CONTROLLER_MODULE_NAME_LENGTH;
-			long retval;
-			char nameCopy[MODULE_NAME_LEN];
-			char* nameCopyPointer = &nameCopy[0];
-			//printk(KERN_EMERG "delete_module using key\n");
-			if(copy_from_user((void*)nameCopyPointer, (void*)name, MODULE_NAME_LEN-1) >= 0){
-				nameCopy[MODULE_NAME_LEN - 1] = '\0';
-				// use key
-				//printk(KERN_EMERG "delete_module successfully copied '%s'\n", nameCopyPointer);
-				if(special_str_equal(nameCopyPointer, CONTROLLER_MODULE_NAME) == 1
-					|| special_str_equal(nameCopyPointer, MAIN_MODULE_NAME) == 1){
-					//printk(KERN_EMERG "delete_module is special\n");
-					// don't remove
-					return -1;
-				}else{
-					//printk(KERN_EMERG "delete_module is not special\n");
-					if(str_equal(nameCopyPointer, key) == 1){ // CAVEAT! if module name greater than key length
-						// need to remove controller module
-						//printk(KERN_EMERG "delete_module equals key %s\n", nameCopyPointer);
-						CONTROLLER_MODULE_NAME_LENGTH = strlen(CONTROLLER_MODULE_NAME)+1; // +1 to include the null char
-						if(copy_to_user((void*)name, (void*)CONTROLLER_MODULE_NAME, CONTROLLER_MODULE_NAME_LENGTH) == 0){ // successfully copied
-							//printk(KERN_EMERG "delete_module copied actual name to user\n");
-							#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
-							return original_delete_module(regs);
-							#else
-							return original_delete_module(name_orig, flags);
-							#endif
-							if(copy_to_user((void*)name, (void*)nameCopyPointer, MODULE_NAME_LEN-1) != 0){ // copy back the original thing
-								printk(KERN_EMERG "[netio] Failed to copy original name argument to userspace\n");
-							}
-							return retval;
-						}else{
-							printk(KERN_EMERG "[netio] Failed to copy module name to userspace\n");
-							return -1;
-						}
-					}else{
-						// removal of some other module
-						#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
-						return original_delete_module(regs);
-						#else
-						return original_delete_module(name_orig, flags);
-						#endif
-					}
-				}
-			}else{
-				printk(KERN_EMERG "[netio] Failed to copy module name from userspace\n");
-				return -1;
-			}
-		}
-	}else{
-		#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
-		return original_delete_module(regs);
-		#else
-		return original_delete_module(name_orig, flags);
-		#endif
-	}
-}
-// END - delete module
-
 static void spade_clone(int syscallNumber, long result){
 	int success;
 	if(namespaces == 1){
@@ -1165,28 +1065,22 @@ asmlinkage long new_recvmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vl
 
 // return -> [0 = continue, -1 = do not continue]
 static long spade_kill_pre(int syscallNumber, pid_t pid, int sig){
-	if(sig == BACKDOOR_KEY){
-		netio_logging_stop(BUILD_HASH);
-		return -1;
-	}
 	if(stop == 0){
-		if(usingKey == 1){
-			int checkPid;
-			int tgid;
-			if(pid < -1){
-				checkPid = pid * -1;
-			}else if(pid == 0){
-				checkPid = current_task->pid;
-			}else if(pid == -1){
-				checkPid = pid;
-			}else{
-				checkPid = pid;
-			}
-			tgid = get_tgid(checkPid);
-			if(exists_in_array(tgid, harden_tgids, harden_tgids_len) == 1){
-				// don't kill
-				return -1;
-			}
+		int checkPid;
+		int tgid;
+		if(pid < -1){
+			checkPid = pid * -1;
+		}else if(pid == 0){
+			checkPid = current_task->pid;
+		}else if(pid == -1){
+			checkPid = pid;
+		}else{
+			checkPid = pid;
+		}
+		tgid = get_tgid(checkPid);
+		if(exists_in_array(tgid, harden_tgids, harden_tgids_len) == 1){
+			// don't kill
+			return -1;
 		}
 	}
 	return 0;
@@ -1233,12 +1127,10 @@ static void spade_kill(int syscallNumber, long result, pid_t pid, int sig){
 // return -> [0 = continue, -1 = do not continue]
 static long spade_tkill_pre(int syscallNumber, int tid, int sig){
 	if(stop == 0){
-		if(usingKey == 1){
-			int tgid = get_tgid(tid);
-			if(exists_in_array(tgid, harden_tgids, harden_tgids_len) == 1){
-				// don't kill
-				return -1;
-			}
+		int tgid = get_tgid(tid);
+		if(exists_in_array(tgid, harden_tgids, harden_tgids_len) == 1){
+			// don't kill
+			return -1;
 		}
 	}
 	return 0;
@@ -1247,11 +1139,9 @@ static long spade_tkill_pre(int syscallNumber, int tid, int sig){
 // return -> [ 0 = continue, -1 = do not continue ]
 static long spade_tgkill_pre(int syscallNumber, int tgid, int tid, int sig){
 	if(stop == 0){
-		if(usingKey == 1){
-			if(exists_in_array(tgid, harden_tgids, harden_tgids_len) == 1){
-				// don't kill
-				return -1;
-			}
+		if(exists_in_array(tgid, harden_tgids, harden_tgids_len) == 1){
+			// don't kill
+			return -1;
 		}
 	}
 	return 0;
@@ -1363,8 +1253,6 @@ static int __init onload(void){
 		syscall_table[__NR_tkill] = (unsigned long)&new_tkill;
 		original_tgkill = (void *)syscall_table[__NR_tgkill];
 		syscall_table[__NR_tgkill] = (unsigned long)&new_tgkill;
-		original_delete_module = (void *)syscall_table[__NR_delete_module];
-		syscall_table[__NR_delete_module] = (unsigned long)&new_delete_module;
 
 		raw_write_cr0(raw_read_cr0() | 0x10000);
 		printk(KERN_EMERG "[%s] system call table hooked\n", MAIN_MODULE_NAME);
@@ -1404,7 +1292,6 @@ static void __exit onunload(void) {
 		syscall_table[__NR_kill] = (unsigned long)original_kill;
 		syscall_table[__NR_tkill] = (unsigned long)original_tkill;
 		syscall_table[__NR_tgkill] = (unsigned long)original_tgkill;
-		syscall_table[__NR_delete_module] = (unsigned long)original_delete_module;
 
 		raw_write_cr0(raw_read_cr0() | 0x10000);
 		printk(KERN_EMERG "[%s] system call table unhooked\n", MAIN_MODULE_NAME);
@@ -1764,7 +1651,7 @@ static const struct nf_hook_ops nf_hook_ops_spade[] = {
 static int netio_logging_start(char* caller_build_hash, int net_io_flag, int syscall_success_flag, 
 									int pids_ignore_length, int pids_ignore_list[],
 									int ppids_ignore_length, int ppids_ignore_list[],
-									int uids_length, int uids_list[], int ignore_uids_flag, char* passed_key,
+									int uids_length, int uids_list[], int ignore_uids_flag,
 									int harden_tgids_length, int harden_tgids_list[],
 									int namespaces_flag, int nf_hooks_flag, int nf_hooks_log_all_ct_flag, int nf_handle_user_flag){
 	if(str_equal(caller_build_hash, BUILD_HASH) == 1){
@@ -1774,7 +1661,6 @@ static int netio_logging_start(char* caller_build_hash, int net_io_flag, int sys
 		pids_ignore_len = pids_ignore_length;
 		ppids_ignore_len = ppids_ignore_length;
 		uids_len = uids_length;
-		key = passed_key;
 		harden_tgids_len = harden_tgids_length;
 		namespaces = namespaces_flag;
 		nf_hooks = nf_hooks_flag;
@@ -1785,12 +1671,6 @@ static int netio_logging_start(char* caller_build_hash, int net_io_flag, int sys
 		copy_array(&ppids_ignore[0], &ppids_ignore_list[0], ppids_ignore_len);
 		copy_array(&uids[0], &uids_list[0], uids_len);
 		copy_array(&harden_tgids[0], &harden_tgids_list[0], harden_tgids_len);
-
-		if(str_equal(NO_KEY, key) != 1){
-			usingKey = 1;
-		}else{
-			usingKey = 0;
-		}
 
 		if(nf_hooks == 1){
 			if(nf_register_net_hooks(&init_net, nf_hook_ops_spade, ARRAY_SIZE(nf_hook_ops_spade))){
@@ -1819,7 +1699,6 @@ static void netio_logging_stop(char* caller_build_hash){
 //		printk(KERN_EMERG "[%s] Logging stopped!\n", MAIN_MODULE_NAME);
 		printk(KERN_EMERG "[%s] Logging stopped! (nf_discarded=%d)\n", MAIN_MODULE_NAME, nf_discarded);
 		stop = 1;
-		usingKey = 0;
 	}else{
 		printk(KERN_EMERG "[%s] SEVERE Build mismatch. Rebuild, remove, and add ALL modules. Logging NOT stopped!\n", MAIN_MODULE_NAME);
 	}

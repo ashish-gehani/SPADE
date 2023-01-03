@@ -763,15 +763,4 @@ public class Configuration{
 				;
 		return configString;
 	}
-
-	public static void main(final String [] args) throws Exception{
-		Result<Configuration> result = Configuration.initialize(
-				null, 
-				"cfg/spade.storage.Neo4j.config");
-		if(result.error){
-			System.out.println(result.toErrorString());
-		}else{
-			System.out.println(result.result);
-		}
-	}
 }

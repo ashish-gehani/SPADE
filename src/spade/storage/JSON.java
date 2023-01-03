@@ -22,7 +22,6 @@ package spade.storage;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
-import java.io.OutputStreamWriter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
@@ -33,10 +32,7 @@ import org.json.JSONObject;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
-import spade.core.Edge;
-import spade.core.Graph;
 import spade.core.Settings;
-import spade.core.Vertex;
 import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 import spade.utility.Result;
@@ -317,41 +313,5 @@ public final class JSON extends AbstractStorage{
 	public final synchronized Object executeQuery(String query){
 		throw new RuntimeException("JSON storage does NOT support querying");
 	}
-	
-	public static void main(final String[] args) throws Exception{
-		final String jsonPath = "/tmp/test.txt";
-		
-		Graph g = new Graph();
-		AbstractVertex v0 = new Vertex();
-		v0.addAnnotation("a", "\"b");
-		v0.addAnnotation("type", "Artifact");
-		v0.addAnnotation("id", "0\"01");
-		g.putVertex(v0);
-		
-		AbstractVertex v1 = new Vertex();
-		v1.addAnnotation("type", "Artifact");
-		v1.addAnnotation("subtype", "network socket");
-//		v1.addAnnotation("id", "002");
-		g.putVertex(v1);
-		
-		AbstractEdge e0 = new Edge(v0, v1);
-		e0.addAnnotation("type", "SimpleEdge");
-		e0.addAnnotation("cdm.type", "EVENT_WRITE");
-		g.putEdge(e0);
-		
-		JSON s = new JSON();
-		if(true){//s.initialize(keyOutput+"="+jsonPath + " " + keyFlushAfterBytesCount + "=0")){
-			s.initializeUnsafe(new BufferedWriter(new OutputStreamWriter(System.out)), true, true, true, System.lineSeparator(), false);
-			for(AbstractVertex v : g.vertexSet()){
-				s.putVertex(v);
-			}
-			for(AbstractEdge e : g.edgeSet()){
-				s.putEdge(e);
-			}
-			s.shutdown();
-			
-			//Runtime.getRuntime().exec(new String[]{"/bin/sh", "-c", "/usr/bin/open " + jsonPath});
-		}
-		System.out.println("I did not get closed");
-	}
+
 }

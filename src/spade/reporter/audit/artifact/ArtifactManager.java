@@ -19,10 +19,6 @@
  */
 package spade.reporter.audit.artifact;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,7 +27,6 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 
 import spade.core.Settings;
@@ -50,133 +45,6 @@ import spade.utility.map.external.ExternalMapManager;
 import spade.vertex.opm.Artifact;
 
 public class ArtifactManager{
-
-	public static void main(String[] args) throws Exception{
-		testArtifactStateConverter();
-		//testArtifactsMap(900000, true);
-	}
-	
-	private static void testArtifactStateConverter() throws Exception{
-		boolean hasBeenPuts [] = {true, false};
-		BigInteger bigInts [] = {null, new BigInteger("261783")};
-		String strs [] = {null, "", "null","random"}; // no commas!!!
-		Set<Set<String>> sets = new HashSet<Set<String>>();
-		sets.add(null);
-		sets.add(new HashSet<String>());
-		Set<String> subset = new HashSet<String>();
-		subset.add(null);subset.add("");subset.add("null");subset.add("random"); // no commas!!!
-		for(int x = 0; x < 10; x++){
-			subset.add(String.valueOf(x));
-		}
-		sets.add(subset);
-		
-		
-		double total = 0, passed = 0, failed = 0;
-		double serializeTimeMillis = 0, deserializeTimeMillis = 0;
-		double javaSerializeTimeMillis = 0, javaDeserializeTimeMillis = 0;
-		double totalBytes = 0;
-		double javaTotalBytes = 0;
-		
-		for(boolean hasBeenPut : hasBeenPuts){
-			for(BigInteger epoch : bigInts){
-				for(BigInteger version : bigInts){
-					for(BigInteger lastEpoch : bigInts){
-						for(BigInteger lastVersion : bigInts){
-							for(String permissions : strs){
-								for(String lastPermissions : strs){
-									for(Set<String> previousPermissions : sets){
-										total++;
-										ArtifactState s1 = new ArtifactState(hasBeenPut, epoch, version, lastEpoch,
-												lastVersion, permissions, lastPermissions, previousPermissions);
-										long start = System.currentTimeMillis();
-										byte[] s1bytes = artifactStateConverter.serialize(s1);
-										serializeTimeMillis += (System.currentTimeMillis() - start);
-										totalBytes+=s1bytes.length;
-										start = System.currentTimeMillis();
-										ArtifactState s2 = artifactStateConverter.deserialize(s1bytes);
-										deserializeTimeMillis += (System.currentTimeMillis() - start);
-										if(!s1.equals(s2)){
-											failed++;
-											System.out.println(s1);
-											System.out.println(s2);
-											System.out.println();
-										}else{
-											passed++;
-										}
-										
-										start = System.currentTimeMillis();
-										s1bytes = javaSerialize(s1);
-										javaSerializeTimeMillis += (System.currentTimeMillis() - start);
-										javaTotalBytes+=s1bytes.length;
-										start = System.currentTimeMillis();
-										s2 = javaDeserialize(s1bytes);
-										javaDeserializeTimeMillis += (System.currentTimeMillis() - start);
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		
-		total++;
-		ArtifactState s1 = null;
-		long start = System.currentTimeMillis();
-		byte[] s1bytes = artifactStateConverter.serialize(s1);
-		serializeTimeMillis += (System.currentTimeMillis() - start);
-		start = System.currentTimeMillis();
-		ArtifactState s2 = artifactStateConverter.deserialize(s1bytes);
-		deserializeTimeMillis += (System.currentTimeMillis() - start);
-		if(s1 != s2){
-			failed++;
-		}else{
-			passed++;
-		}
-		
-		start = System.currentTimeMillis();
-		s1bytes = javaSerialize(s1);
-		javaSerializeTimeMillis += (System.currentTimeMillis() - start);
-		start = System.currentTimeMillis();
-		s2 = javaDeserialize(s1bytes);
-		javaDeserializeTimeMillis += (System.currentTimeMillis() - start);
-		
-		System.out.println("Total=" + total + ", passed=" + passed + ", failed=" + failed);
-		System.out.println("[custom] Avg. serialize time=" + (serializeTimeMillis/total) + " ms");
-		System.out.println("[custom] Avg. deserialize time=" + (deserializeTimeMillis/total) + " ms");
-		System.out.println("[custom] Total bytes=" + (totalBytes));
-		System.out.println("[custom] Avg. bytes=" + (totalBytes/total));
-		System.out.println("[ java ] Avg. serialize time=" + (javaSerializeTimeMillis/total) + " ms");
-		System.out.println("[ java ] Avg. deserialize time=" + (javaDeserializeTimeMillis/total) + " ms");
-		System.out.println("[ java ] Total bytes=" + (javaTotalBytes));
-		System.out.println("[ java ] Avg. bytes=" + (javaTotalBytes/total));
-		System.out.println("[ delta] Avg. serialize time=" + ((serializeTimeMillis/total) - (javaSerializeTimeMillis/total)) + " ms");
-		System.out.println("[ delta] Avg. deserialize time=" + ((deserializeTimeMillis/total) - (javaDeserializeTimeMillis/total)) + " ms");
-		System.out.println("[ delta] Total bytes=" + FileUtils.byteCountToDisplaySize((long)(javaTotalBytes - totalBytes)));
-		System.out.println("[ delta] Avg. bytes=" + ((totalBytes/total) - (javaTotalBytes/total)));
-	}
-	
-	private static byte[] javaSerialize(Object o) throws Exception{
-		if(o == null){
-			return null;
-		}else{
-			ByteArrayOutputStream byteOutputStream = new ByteArrayOutputStream();
-			ObjectOutputStream objectOutputStream = new ObjectOutputStream(byteOutputStream);
-			objectOutputStream.writeObject(o);
-			objectOutputStream.flush();
-			return byteOutputStream.toByteArray();
-		}
-	}
-	
-	private static ArtifactState javaDeserialize(byte[] valueBytes) throws Exception{
-		if(valueBytes == null){
-			return null;
-		}else{
-			ByteArrayInputStream byteInputStream = new ByteArrayInputStream(valueBytes);
-			ObjectInputStream objectInputStream = new ObjectInputStream(byteInputStream);
-			return (ArtifactState)objectInputStream.readObject();
-		}
-	}
 
 	private static final Converter<ArtifactIdentifier, byte[]> artifactIdentifierConverter =
 			new Converter<ArtifactIdentifier, byte[]>(){
@@ -274,7 +142,7 @@ public class ArtifactManager{
 				}
 				@Override
 				public byte[] serializeObject(Object o) throws Exception{
-					return serializeObject((ArtifactIdentifier)o);
+					return serializeObject(o);
 				}
 				@Override
 				public ArtifactIdentifier deserialize(byte[] j) throws Exception{

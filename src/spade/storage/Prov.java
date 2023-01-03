@@ -37,15 +37,7 @@ import org.apache.jena.util.FileManager;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
-import spade.edge.prov.Used;
-import spade.edge.prov.WasAssociatedWith;
-import spade.edge.prov.WasDerivedFrom;
-import spade.edge.prov.WasGeneratedBy;
-import spade.edge.prov.WasInformedBy;
 import spade.utility.HelperFunctions;
-import spade.vertex.prov.Activity;
-import spade.vertex.prov.Agent;
-import spade.vertex.prov.Entity;
 
 public class Prov extends AbstractStorage{
 
@@ -411,49 +403,4 @@ public class Prov extends AbstractStorage{
 
 	}
 
-	public static void main(String [] args) throws Exception{
-		Activity a = new Activity("abc");
-		a.addAnnotation("name", "a1");
-		Activity b = new Activity();
-		b.addAnnotation("name", "a2");
-		WasInformedBy e = new WasInformedBy(b, a);
-		e.addAnnotation("operation", "forked");
-		Entity f1 = new Entity();
-		f1.addAnnotation("filename", "file_f1");
-		Entity f2 = new Entity();
-		f2.addAnnotation("filename", "file_f2");
-		WasGeneratedBy e2 = new WasGeneratedBy(f1, a);
-		e2.addAnnotation("operation", "write");
-		WasDerivedFrom e3 = new WasDerivedFrom(f2, f1);
-		e3.addAnnotation("operation", "rename");
-		Agent agent = new Agent();
-		agent.addAnnotation("user", "spade");
-		WasAssociatedWith e4 = new WasAssociatedWith(a, agent);
-		e4.addAnnotation("test", "anno");
-		Used e5 = new Used(b, f2);
-		e5.addAnnotation("operation", "read");
-		e5.addAnnotation("time", String.format("%.3f", ((double)System.currentTimeMillis() / 1000.000)));
-
-		Prov ttl = new Prov();
-		ttl.initialize("output=/tmp/prov.ttl audit=/tmp/audit.rdfs");
-		Prov provn = new Prov();
-		provn.initialize("output=/tmp/prov.provn audit=/tmp/audit.rdfs");
-
-		Prov provs[] = new Prov[]{ttl, provn};
-
-		for(int cc = 0; cc<provs.length; cc++){
-			Prov prov = provs[cc];
-			prov.putVertex(a);
-			prov.putVertex(b);
-			prov.putVertex(f1);
-			prov.putVertex(f2);
-			prov.putVertex(agent);
-			prov.putEdge(e);
-			prov.putEdge(e2);
-			prov.putEdge(e3);
-			prov.putEdge(e4);
-			prov.putEdge(e5);
-			prov.shutdown();
-		}
-	}
 }

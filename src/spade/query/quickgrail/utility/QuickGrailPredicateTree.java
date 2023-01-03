@@ -252,16 +252,6 @@ public class QuickGrailPredicateTree{
 		}
 	}
 	
-	public static void testSer3(PredicateNode node) throws Throwable{
-		System.out.println("***Test3-start");
-		System.out.println("original="+node);
-		String serialized = serializePredicateNodeForStorage(node);
-		System.out.println("length=" + serialized.length() + ", data=" + serialized);
-		PredicateNode newNode = deserializePredicateNodeFromStorage(serialized);
-		System.out.println("newNode="+newNode);
-		System.out.println("***Test3-end ("+arePredicateNodesEqual(node, newNode)+")");
-	}
-	
 	public static class PredicateNode implements Serializable{
 		
 		private static final long serialVersionUID = -585074800550409280L;
@@ -281,6 +271,7 @@ public class QuickGrailPredicateTree{
 			return right;
 		}
 
+		@Override
 		public String toString(){
 			return toStringInOrder();
 		}

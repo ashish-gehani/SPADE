@@ -578,11 +578,3 @@ public class Graph implements Serializable{
 	}
 
 }
-
-/*
-if(decryptionLevel.equals(HIGH)){
-	long tl = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").parse(timestamp).getTime();
-	double td = ((double)tl) / (1000.00);
-	timestamp = String.format("%.3f", td);
-}
-*/

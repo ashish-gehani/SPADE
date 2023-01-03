@@ -19,7 +19,6 @@
  */
 package spade.storage;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -39,9 +38,7 @@ import org.neo4j.graphdb.schema.IndexDefinition;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractVertex;
-import spade.core.Edge;
 import spade.core.Settings;
-import spade.core.Vertex;
 import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.storage.neo4j.CacheManager;
@@ -761,73 +758,5 @@ public class Neo4j extends AbstractStorage{
 		}else{
 			throw new RuntimeException("Storage already shutdown. Query failed: " + queryObject);
 		}
-	}
-
-	public static void main(String[] args) throws Exception{
-		Neo4j s = new Neo4j();
-		s.initialize(null);
-
-		final List<AbstractVertex> vertices = new ArrayList<AbstractVertex>();
-		for(int i = 0; i < 500; i++){
-			final String hash = "vhash:" + String.valueOf(i);
-			final AbstractVertex v = new Vertex(hash);
-			vertices.add(v);
-			s.putVertex(v);
-			HelperFunctions.sleepSafe(500);
-		}
-
-		try{
-			System.out.println(s.executeQuery("match (v) return count(v);"));
-		}catch(Exception e){
-			e.printStackTrace();
-		}
-		try{
-			System.out.println(s.executeQuery("match ()-[e]->() return count(e);"));
-		}catch(Exception e){
-			e.printStackTrace();
-		}
-
-		for(int i = 0; i < 500 - 1; i++){
-			final String hash = "ehash:" + String.valueOf(i);
-			AbstractEdge edge = new Edge(vertices.get(i), vertices.get(i + 1));
-			edge.addAnnotation("abc", hash);
-			s.putEdge(edge);
-			HelperFunctions.sleepSafe(500);
-		}
-		HelperFunctions.sleepSafe(5000);
-
-		try{
-			System.out.println(s.executeQuery("match (v) return count(v);"));
-		}catch(Exception e){
-			e.printStackTrace();
-		}
-
-		try{
-			System.out.println(s.executeQuery("match ()-[e]->() return count(e);"));
-		}catch(Exception e){
-			e.printStackTrace();
-		}
-
-		try{
-			System.out.println(s.executeQuery("call db.indexes;"));
-		}catch(Exception e){
-			e.printStackTrace();
-		}
-
-		s.shutdown();
-
-		System.exit(0);
-
-		// Stats
-		
-		/*
-		 * with index (vertex) put time = 255 + 237 + 253 ms commit time = 241 + 279
-		 * 227 ms Count = [{count(v)=10000}]
-		 */
-
-		/*
-		 * without index (vertex) put time = 185 + 238 + 241 ms commit time = 172 + 158
-		 * + 159 ms Count = [{count(v)=10000}]
-		 */
 	}
 }

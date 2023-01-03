@@ -226,11 +226,13 @@ public class Audit extends AbstractReporter {
 				try{
 					KernelModuleManager.disableModule(kernelModuleConfiguration.getKernelModuleControllerPath(),
 							kernelModuleConfiguration.isHarden(),
-							kernelModuleConfiguration.getKernelModuleDeleteBinaryPath(), new Consumer<String>(){
+							new Consumer<String>(){
+								@Override
 								public void accept(String str){
 									logger.log(Level.INFO, str);
 								}
 							}, new BiConsumer<String, Throwable>(){
+								@Override
 								public void accept(String str, Throwable t){
 									logger.log(Level.WARNING, str, t);
 								}
@@ -489,6 +491,7 @@ public class Audit extends AbstractReporter {
 								kernelModuleConfiguration.isNetfilterHooksUser(),
 								kernelModuleConfiguration.isHarden(), tgidsToHarden,
 								new Consumer<String>(){
+									@Override
 									public void accept(final String str){
 										logger.log(Level.INFO, str);
 									}
@@ -510,10 +513,12 @@ public class Audit extends AbstractReporter {
 							auditConfiguration.isCwd(), auditConfiguration.isRootFS(), 
 							auditConfiguration.isNamespaces(), auditConfiguration.isIPC(), 
 							new Consumer<String>(){
+								@Override
 								public void accept(String str){
 									logger.log(Level.INFO, str);
 								}
 							}, new BiConsumer<String, Throwable>(){
+								@Override
 								public void accept(String str, Throwable t){
 									logger.log(Level.WARNING, str, t);
 								}
@@ -568,11 +573,13 @@ public class Audit extends AbstractReporter {
 			try{
 				KernelModuleManager.disableModule(kernelModuleConfiguration.getKernelModuleControllerPath(),
 						kernelModuleConfiguration.isHarden(),
-						kernelModuleConfiguration.getKernelModuleDeleteBinaryPath(), new Consumer<String>(){
+						new Consumer<String>(){
+							@Override
 							public void accept(String str){
 								logger.log(Level.INFO, str);
 							}
 						}, new BiConsumer<String, Throwable>(){
+							@Override
 							public void accept(String str, Throwable t){
 								logger.log(Level.WARNING, str, t);
 							}
@@ -2254,7 +2261,7 @@ public class Audit extends AbstractReporter {
 	private AddressPort getLocalAddressPort(SYSCALL syscall, String time, String eventId, String pid, String fd){
 		NetworkSocketIdentifier identifier = getNetworkIdentifier(syscall, time, eventId, pid, fd);
 		if(identifier != null){
-			NetworkSocketIdentifier networkIdentifier = ((NetworkSocketIdentifier)identifier);
+			NetworkSocketIdentifier networkIdentifier = (identifier);
 			return new AddressPort(networkIdentifier.getLocalHost(), networkIdentifier.getLocalPort());
 		}else{
 			return null;
