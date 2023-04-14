@@ -10,11 +10,13 @@ To learn more about **SPADE**, please see:
 
 Please see the lists of [people](../../wiki/people) and [publications](../../wiki/publications) associated with the project for further information.
 
+<!--
 ---
 
 This is the current status of the _master_ branch of the repository:
 
 [![Build Status](https://travis-ci.org/ashish-gehani/SPADE.svg?branch=master)](https://travis-ci.org/ashish-gehani/SPADE)
+-->
 
 ---
 
