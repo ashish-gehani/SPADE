@@ -76,6 +76,7 @@ public class VersionProcess extends AbstractFilter{
 		return true;
 	}
 
+	// Only store state for process, rest will be passed to putInNextFilter
 	@Override
 	public void putVertex(final AbstractVertex vertex){
 		if(vertex == null){
@@ -95,6 +96,7 @@ public class VersionProcess extends AbstractFilter{
 		}
 	}
 
+	// Add annotation for versioned edge
 	private void addReadInfoToEdge(final AbstractEdge edge){
 		edge.addAnnotation(edgeAnnoKey, edgeAnnoValue);
 	}
@@ -112,7 +114,7 @@ public class VersionProcess extends AbstractFilter{
 		putVertex(childVertex);
 		putVertex(parentVertex);
 
-
+		// Case for self-edge
 		if(childVertex.equals(parentVertex)){
 			final VertexState childState = verticesState.get(childVertex.bigHashCode());
 			final AbstractVertex childVertexCurrentState = childState.putInNextFilterIfHasNotBeenPut(childVertex);
@@ -122,6 +124,7 @@ public class VersionProcess extends AbstractFilter{
 			putInNextFilter(childStateChangeAndCopyEdge);
 		}
 
+		// Versioning process vertex
 		else if(childVertex.type() == "Process" && parentVertex.type() == "Artifact" && edge.type() == "Used"){
 			final VertexState childState = verticesState.get(childVertex.bigHashCode());
 			final AbstractVertex childVertexCurrentState = childState.putInNextFilterIfHasNotBeenPut(childVertex);
@@ -132,16 +135,19 @@ public class VersionProcess extends AbstractFilter{
 			parentCurrentVertex.addAnnotations(parentVertex.getCopyOfAnnotations());
 			putInNextFilter(parentCurrentVertex);
 
+			// Edge for new versioned process and artifact
 			final AbstractEdge edgeCopy = new Edge(childVertexNewState, parentCurrentVertex);
 			edgeCopy.addAnnotations(edge.getCopyOfAnnotations());
 			putInNextFilter(edgeCopy);
-
+			
+			// Edge for new versioned process and old versioned process
 			final AbstractEdge childStateChangeEdge = new Edge(childVertexNewState, childVertexCurrentState);
 			addReadInfoToEdge(childStateChangeEdge);
 			putInNextFilter(childStateChangeEdge);
 			
 		}
 
+		// Case for other edge types
 		else
         {
 			if (verticesState.get(childVertex.bigHashCode()) == null || verticesState.get(parentVertex.bigHashCode()) == null) {
