@@ -155,8 +155,7 @@ audit-kernel-module:
 				exit 1; \
 			else \
 				if [ $(OS_KERNEL_NUMBER) -ge $(MAX_OS_KERNEL_NUMBER) ]; then \
-					echo 'Kernel version > 5.7: might fail. Using hack from https://github.com/xcellerator/linux_kernel_hacking/issues/3#issue-782815541 by hkerma'; \
-					echo 'Better pray...'; \
+					echo 'Warning: Kernel version > 5.7 uses workaround from https://github.com/xcellerator/linux_kernel_hacking/issues/3#issue-782815541 by hkerma'; \
 				else \
 					echo 'Building kernel modules normally'; \
 				fi; \
