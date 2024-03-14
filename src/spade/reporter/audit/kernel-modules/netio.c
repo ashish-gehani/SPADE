@@ -20,7 +20,7 @@
 
 #include <linux/audit.h>
 #include <linux/file.h>
-// #include <linux/kallsyms.h>
+#include <linux/kallsyms.h>
 #include <linux/mnt_namespace.h>
 #include <linux/pid_namespace.h>
 #include <linux/net_namespace.h>
