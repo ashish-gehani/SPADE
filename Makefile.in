@@ -155,11 +155,12 @@ audit-kernel-module:
 				exit 1; \
 			else \
 				if [ $(OS_KERNEL_NUMBER) -ge $(MAX_OS_KERNEL_NUMBER) ]; then \
-					echo 'ERROR: Kernel modules not supported for kernel versions 5.7 and higher. Use command "make KERNEL_MODULES=false" to skip building kernel modules.'; \
-					exit 1; \
+					echo 'Kernel version > 5.7: might fail. Using hack from https://github.com/xcellerator/linux_kernel_hacking/issues/3#issue-782815541 by hkerma'; \
+					echo 'Better pray...'; \
 				else \
-					$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE); \
-				fi \
+					echo 'Building kernel modules normally'; \
+				fi; \
+				$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE); \
 			fi \
 		else \
 			$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE) clean; \

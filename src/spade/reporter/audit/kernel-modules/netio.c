@@ -20,7 +20,7 @@
 
 #include <linux/audit.h>
 #include <linux/file.h>
-#include <linux/kallsyms.h>
+// #include <linux/kallsyms.h>
 #include <linux/mnt_namespace.h>
 #include <linux/pid_namespace.h>
 #include <linux/net_namespace.h>
@@ -183,6 +183,20 @@ static void log_namespaces_info_newprocess(const int syscall, const long pid, co
 
 static unsigned long raw_read_cr0(void);
 static void raw_write_cr0(unsigned long value);
+
+
+// kallsyms hack @hkerma
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,7,0)
+	#define KPROBE_LOOKUP 1
+	#include <linux/kprobes.h>
+	static struct kprobe kp = {
+		.symbol_name = "kallsyms_lookup_name"
+	};
+#else
+	#include <linux/kallsyms.h>
+#endif
+
+
 
 static int special_str_equal(const char* hay, const char* constantModuleName){
 	int hayLength = strlen(hay);
@@ -1151,6 +1165,23 @@ static int load_namespace_symbols(){
 	unsigned long symbol_address;
 	symbol_address = 0;
 
+	// Kallsyms hack @hkerma
+	#ifdef KPROBE_LOOKUP
+		/* typedef for kallsyms_lookup_name() so we can easily cast kp.addr */
+		typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
+		kallsyms_lookup_name_t kallsyms_lookup_name;
+
+		/* register the kprobe */
+		register_kprobe(&kp);
+
+		/* assign kallsyms_lookup_name symbol to kp.addr */
+		kallsyms_lookup_name = (kallsyms_lookup_name_t) kp.addr;
+
+		/* done with the kprobe, so unregister it */
+		unregister_kprobe(&kp);
+	#endif
+
+
 	symbol_address = kallsyms_lookup_name("mntns_operations");
 	if(symbol_address == 0){
 		printk(KERN_EMERG "[%s] mount namespace inaccessible\n", MAIN_MODULE_NAME);
@@ -1207,6 +1238,26 @@ static int __init onload(void){
 	if(load_namespace_symbols() == 0){
 		return success;
 	}
+
+	// kallsyms hack @hkerma
+	#ifdef KPROBE_LOOKUP
+		/* typedef for kallsyms_lookup_name() so we can easily cast kp.addr */
+		typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
+		kallsyms_lookup_name_t kallsyms_lookup_name;
+
+		/* register the kprobe */
+		register_kprobe(&kp);
+
+		/* assign kallsyms_lookup_name symbol to kp.addr */
+		kallsyms_lookup_name = (kallsyms_lookup_name_t) kp.addr;
+
+		/* done with the kprobe, so unregister it */
+		unregister_kprobe(&kp);
+	#endif
+
+	printk("Looking up sys_call_table\n");
+
+
 
 	syscall_table_address = kallsyms_lookup_name("sys_call_table");
 	//printk(KERN_EMERG "sys_call_table address = %lx\n", syscall_table_address);
