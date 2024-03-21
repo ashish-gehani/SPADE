@@ -3,9 +3,6 @@
 ###
 # CONSTANTS
 ###
-os_linux="Linux"
-os_darwin="Darwin"
-os_fedora="Fedora"
 
 spadeAuditBridgePath="bin/spadeAuditBridge"
 
@@ -13,31 +10,22 @@ spadeAuditBridgePath="bin/spadeAuditBridge"
 # RESOLVE PLATFORM
 ###
 os_name=$(uname)
-if [ "$os_name" = "$os_linux" ]
+if [ "$os_name" = "Linux" ]
 then
   os_release_file="/etc/os-release"
   os_id=$(grep "^ID=" "$os_release_file" | cut -d '=' -f 2)
-  if [ "$os_id" = "fedora" ]
-  then
-    os_current="$os_fedora"
-  elif [ "$os_id" = "ubuntu" ]
-  then
-    os_current="$os_linux"
-  fi
+  os_version=$(grep "^VERSION_ID=" "$os_release_file" | cut -d '=' -f 2)
+else
+  echo "ERROR: Only Linux supported" && exit 1
 fi
-
-[ -z "$os_current" ] && echo "ERROR: Unknown platform. Allowed: ${os_linux}, ${os_fedora}" && exit 1
 
 ###
 # RESOLVE PLATFORM REQUIREMENTS
 ###
-if [ "$os_current" = "$os_fedora" ]
-then
-  af_unix_path="/etc/audit/plugins.d/af_unix.conf"
-elif [ "$os_current" = "$os_linux" ]
-then
-  af_unix_path="/etc/audisp/plugins.d/af_unix.conf"
-fi
+
+# Old Ubuntu location
+# af_unix_path="/etc/audisp/plugins.d/af_unix.conf"
+af_unix_path="/etc/audit/plugins.d/af_unix.conf"
 
 sudo chmod ug+s `which auditctl`
 sudo chmod ug+s `which iptables`
