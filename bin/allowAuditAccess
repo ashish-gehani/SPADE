@@ -23,9 +23,13 @@ fi
 # RESOLVE PLATFORM REQUIREMENTS
 ###
 
-# Old Ubuntu location
-# af_unix_path="/etc/audisp/plugins.d/af_unix.conf"
+# New Ubuntu location
 af_unix_path="/etc/audit/plugins.d/af_unix.conf"
+
+if [ -f "/etc/audisp/plugins.d/af_unix.conf" ]; then
+    # Old Ubuntu location
+    af_unix_path="/etc/audisp/plugins.d/af_unix.conf"
+fi
 
 sudo chmod ug+s `which auditctl`
 sudo chmod ug+s `which iptables`
