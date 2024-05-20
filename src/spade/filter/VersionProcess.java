@@ -15,6 +15,19 @@
 
  You should have received a copy of the GNU General Public License  
  along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+ The VersionProcess filter assumes that the input graph contains 
+ edges representing a read ("Used") operation involving process 
+ vertices. It is also assumed that the state of a process vertex 
+ can change as a result of a read operation, which is reflected 
+ by versioning the process vertex.
+ This is done by incrementing the version number of the process 
+ vertex each time it reads data (i.e., each time a "Used" edge is 
+ encountered). The filter also creates new edges to connect the 
+ versioned process vertices to their respective artifacts.
+ The transformed graph will have versioned process vertices, with 
+ each version representing a different state of the process.
+
  --------------------------------------------------------------------------------
  */
 package spade.filter;
@@ -145,28 +158,6 @@ public class VersionProcess extends AbstractFilter{
 			addReadInfoToEdge(childStateChangeEdge);
 			putInNextFilter(childStateChangeEdge);
 			
-		}
-
-		// Versioning process vertex for read operation 
-		else if (childVertex.type() == "Artifact" && parentVertex.type() == "Process" && edge.type() == "WasGeneratedBy") {
-			final VertexState parentState = verticesState.get(parentVertex.bigHashCode());
-			final AbstractVertex parentVertexCurrentState = parentState.putInNextFilterIfHasNotBeenPut(parentVertex);
-			parentState.incrementVORVersion();
-			final AbstractVertex parentVertexNewState = parentState.putInNextFilterIfHasNotBeenPut(parentVertex);
-	
-			final AbstractVertex childCurrentVertex = new spade.core.Vertex();
-			childCurrentVertex.addAnnotations(childVertex.getCopyOfAnnotations());
-			putInNextFilter(childCurrentVertex);
-	
-			// Edge for new versioned process and artifact
-			final AbstractEdge edgeCopy = new Edge(childCurrentVertex, parentVertexNewState);
-			edgeCopy.addAnnotations(edge.getCopyOfAnnotations());
-			putInNextFilter(edgeCopy);
-	
-			// Edge for new versioned process and old versioned process
-			final AbstractEdge parentStateChangeEdge = new Edge(parentVertexNewState, parentVertexCurrentState);
-			addReadInfoToEdge(parentStateChangeEdge);
-			putInNextFilter(parentStateChangeEdge);
 		}
 
 		// Case for other edge types
