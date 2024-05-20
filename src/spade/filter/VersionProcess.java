@@ -136,7 +136,7 @@ public class VersionProcess extends AbstractFilter{
 			putInNextFilter(childStateChangeAndCopyEdge);
 		}
 
-		// Versioning process vertex for write operation 
+		// Versioning process vertex for read operation 
 		else if(childVertex.type() == "Process" && parentVertex.type() == "Artifact" && edge.type() == "Used"){
 			final VertexState childState = verticesState.get(childVertex.bigHashCode());
 			final AbstractVertex childVertexCurrentState = childState.putInNextFilterIfHasNotBeenPut(childVertex);
