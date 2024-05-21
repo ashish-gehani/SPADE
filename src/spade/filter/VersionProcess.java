@@ -1,5 +1,17 @@
 /*
  --------------------------------------------------------------------------------
+ The VersionProcess filter assumes that the input graph contains 
+ edges representing a read ("Used") operation involving process 
+ vertices. It is also assumed that the state of a process vertex 
+ can change as a result of a read operation, which is reflected 
+ by versioning the process vertex.
+ This is done by incrementing the version number of the process 
+ vertex each time it reads data (i.e., each time a "Used" edge is 
+ encountered). The filter also creates new edges to connect the 
+ versioned process vertices to their respective artifacts.
+ The transformed graph will have versioned process vertices, with 
+ each version representing a different state of the process.
+
  SPADE - Support for Provenance Auditing in Distributed Environments.
  Copyright (C) 2022 SRI International
 
@@ -124,7 +136,7 @@ public class VersionProcess extends AbstractFilter{
 			putInNextFilter(childStateChangeAndCopyEdge);
 		}
 
-		// Versioning process vertex
+		// Versioning process vertex for read operation 
 		else if(childVertex.type() == "Process" && parentVertex.type() == "Artifact" && edge.type() == "Used"){
 			final VertexState childState = verticesState.get(childVertex.bigHashCode());
 			final AbstractVertex childVertexCurrentState = childState.putInNextFilterIfHasNotBeenPut(childVertex);
@@ -150,8 +162,13 @@ public class VersionProcess extends AbstractFilter{
 		// Case for other edge types
 		else
         {
+			// Check if either child or parent vertex is not a process vertex
 			if (verticesState.get(childVertex.bigHashCode()) == null || verticesState.get(parentVertex.bigHashCode()) == null) {
+				
+				// Both child and parent vertices are not process vertices
 				if (verticesState.get(childVertex.bigHashCode()) == null && verticesState.get(parentVertex.bigHashCode()) == null) {
+					
+					// Create new vertices with current annotations
 					final AbstractVertex childCurrentVertex = new spade.core.Vertex();
 					childCurrentVertex.addAnnotations(childVertex.getCopyOfAnnotations());
 					putInNextFilter(childCurrentVertex);
@@ -160,15 +177,21 @@ public class VersionProcess extends AbstractFilter{
 					parentCurrentVertex.addAnnotations(parentVertex.getCopyOfAnnotations());
 					putInNextFilter(parentCurrentVertex);
 
+					// Create a copy of the edge with the new vertices and add it to the next filter
 					final AbstractEdge edgeCopy = new Edge(childCurrentVertex, parentCurrentVertex);
 					edgeCopy.addAnnotations(edge.getCopyOfAnnotations());
 					putInNextFilter(edgeCopy);
 				}
+
+				// Only the child vertex is not a process vertex
 				else if(verticesState.get(childVertex.bigHashCode()) == null) {
+
+					// Create a new child vertex with current annotations
 					final AbstractVertex childCurrentVertex = new spade.core.Vertex();
 					childCurrentVertex.addAnnotations(childVertex.getCopyOfAnnotations());
 					putInNextFilter(childCurrentVertex);
 
+					// Get the current state of the parent process vertex
 					final VertexState parentState = verticesState.get(parentVertex.bigHashCode());
 					final AbstractVertex parentCurrentVertex = parentState.putInNextFilterIfHasNotBeenPut(parentVertex);
 
@@ -176,10 +199,15 @@ public class VersionProcess extends AbstractFilter{
 					edgeCopy.addAnnotations(edge.getCopyOfAnnotations());
 					putInNextFilter(edgeCopy);
 				}
+
+				// Only the parent vertex is not a process vertex
 				else if(verticesState.get(parentVertex.bigHashCode()) == null) {
+
+					// Get the current state of the child process vertex
 					final VertexState childState = verticesState.get(childVertex.bigHashCode());
 					final AbstractVertex childCurrentVertex = childState.putInNextFilterIfHasNotBeenPut(childVertex);
 
+					// Create a new parent vertex with current annotations
 					final AbstractVertex parentCurrentVertex = new spade.core.Vertex();
 					parentCurrentVertex.addAnnotations(parentVertex.getCopyOfAnnotations());
 					putInNextFilter(parentCurrentVertex);
@@ -189,7 +217,10 @@ public class VersionProcess extends AbstractFilter{
 					putInNextFilter(edgeCopy);
 				} 
 			} 
+
+			// Both child and parent vertices are process vertices
             else {
+				// Get the current states of the child and parent process vertices
 				final VertexState childState = verticesState.get(childVertex.bigHashCode());
 				final AbstractVertex childCurrentVertex = childState.putInNextFilterIfHasNotBeenPut(childVertex);
 
