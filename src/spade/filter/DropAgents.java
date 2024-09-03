@@ -23,14 +23,15 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 
-public class DropAgents extends AbstractFilter{
-    private final String agentType = "Principal";
+public class DropAgents extends AbstractFilter {
+    private final String cdmAgentType = "Principal";
+    private final String generalAgentType = "Agent";
     private final String agentEdgeType = "Edge";
 
     @Override
 	public void putVertex(AbstractVertex vertex){
         final String vertexType = vertex.getAnnotation("type");
-		if(vertex == null || agentType.equals(vertexType)){
+		if(vertex == null || cdmAgentType.equals(vertexType) || generalAgentType.equals(vertexType)){
 			return;
         }
 		putInNextFilter(vertex);
@@ -38,6 +39,7 @@ public class DropAgents extends AbstractFilter{
 	
 	@Override
 	public void putEdge(AbstractEdge edge){
+		// If an edge is connected to a dropped vertex drop the edge as well
 		if(edge == null || edge.getChildVertex() == null || edge.getParentVertex() == null){
 			return;
 		}
