@@ -23,15 +23,20 @@ import spade.core.AbstractEdge;
 import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 
-public class DropAgents extends AbstractFilter {
+/*
+ * This filter drops all principal vertices and the edges they have with any other vertex
+ * 
+ * NOTE: The filter assumes that no other active filters have set the existing vertices to null.
+ */
+
+public class DropPrincipals extends AbstractFilter {
     private final String cdmAgentType = "Principal";
-    private final String generalAgentType = "Agent";
     private final String agentEdgeType = "Edge";
 
     @Override
 	public void putVertex(AbstractVertex vertex){
         final String vertexType = vertex.getAnnotation("type");
-		if(vertex == null || cdmAgentType.equals(vertexType) || generalAgentType.equals(vertexType)){
+		if(vertex == null || cdmAgentType.equals(vertexType)){
 			return;
         }
 		putInNextFilter(vertex);
@@ -43,6 +48,7 @@ public class DropAgents extends AbstractFilter {
 		if(edge == null || edge.getChildVertex() == null || edge.getParentVertex() == null){
 			return;
 		}
+		
 		if(agentEdgeType.equals(edge.getAnnotation("type"))){
 			return;
 		}
