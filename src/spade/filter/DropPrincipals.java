@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2015 SRI International
+ Copyright (C) 2024 SRI International
 
  This program is free software: you can redistribute it and/or  
  modify it under the terms of the GNU General Public License as  
@@ -24,7 +24,7 @@ import spade.core.AbstractFilter;
 import spade.core.AbstractVertex;
 
 /*
- * This filter drops all principal vertices and the edges they have with any other vertex
+ * This filter drops all CDM Principal vertices and the edges incident upon them.
  * 
  * NOTE: The filter assumes that no other active filters have set the existing vertices to null.
  */
