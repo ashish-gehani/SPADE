@@ -17,6 +17,21 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
+
+ /*
+ About the filter:
+	The VersionProcess filter assumes that the input graph contains 
+	edges representing a read ("Used") operation involving process 
+	vertices. It is also assumed that the state of a process vertex 
+	can change as a result of a read operation, which is reflected 
+	by versioning the process vertex.
+	This is done by incrementing the version number of the process 
+	vertex each time it reads data (i.e., each time a "Used" edge is 
+	encountered). The filter also creates new edges to connect the 
+	versioned process vertices to their respective artifacts.
+	The transformed graph will have versioned process vertices, with 
+	each version representing a different state of the process.
+ */
 package spade.filter;
 
 import java.util.HashMap;
@@ -114,18 +129,8 @@ public class VersionProcess extends AbstractFilter{
 		putVertex(childVertex);
 		putVertex(parentVertex);
 
-		// Case for self-edge
-		if(childVertex.equals(parentVertex)){
-			final VertexState childState = verticesState.get(childVertex.bigHashCode());
-			final AbstractVertex childVertexCurrentState = childState.putInNextFilterIfHasNotBeenPut(childVertex);
-			
-			final AbstractEdge childStateChangeAndCopyEdge = new Edge(childVertexCurrentState, childVertexCurrentState);
-			childStateChangeAndCopyEdge.addAnnotations(edge.getCopyOfAnnotations());
-			putInNextFilter(childStateChangeAndCopyEdge);
-		}
-
-		// Versioning process vertex
-		else if(childVertex.type() == "Process" && parentVertex.type() == "Artifact" && edge.type() == "Used"){
+		// Versioning process vertex for read operation 
+		if(childVertex.type() == "Process" && parentVertex.type() == "Artifact" && edge.type() == "Used"){
 			final VertexState childState = verticesState.get(childVertex.bigHashCode());
 			final AbstractVertex childVertexCurrentState = childState.putInNextFilterIfHasNotBeenPut(childVertex);
 			childState.incrementVORVersion();
@@ -145,62 +150,6 @@ public class VersionProcess extends AbstractFilter{
 			addReadInfoToEdge(childStateChangeEdge);
 			putInNextFilter(childStateChangeEdge);
 			
-		}
-
-		// Case for other edge types
-		else
-        {
-			if (verticesState.get(childVertex.bigHashCode()) == null || verticesState.get(parentVertex.bigHashCode()) == null) {
-				if (verticesState.get(childVertex.bigHashCode()) == null && verticesState.get(parentVertex.bigHashCode()) == null) {
-					final AbstractVertex childCurrentVertex = new spade.core.Vertex();
-					childCurrentVertex.addAnnotations(childVertex.getCopyOfAnnotations());
-					putInNextFilter(childCurrentVertex);
-
-					final AbstractVertex parentCurrentVertex = new spade.core.Vertex();
-					parentCurrentVertex.addAnnotations(parentVertex.getCopyOfAnnotations());
-					putInNextFilter(parentCurrentVertex);
-
-					final AbstractEdge edgeCopy = new Edge(childCurrentVertex, parentCurrentVertex);
-					edgeCopy.addAnnotations(edge.getCopyOfAnnotations());
-					putInNextFilter(edgeCopy);
-				}
-				else if(verticesState.get(childVertex.bigHashCode()) == null) {
-					final AbstractVertex childCurrentVertex = new spade.core.Vertex();
-					childCurrentVertex.addAnnotations(childVertex.getCopyOfAnnotations());
-					putInNextFilter(childCurrentVertex);
-
-					final VertexState parentState = verticesState.get(parentVertex.bigHashCode());
-					final AbstractVertex parentCurrentVertex = parentState.putInNextFilterIfHasNotBeenPut(parentVertex);
-
-					final AbstractEdge edgeCopy = new Edge(childCurrentVertex, parentCurrentVertex);
-					edgeCopy.addAnnotations(edge.getCopyOfAnnotations());
-					putInNextFilter(edgeCopy);
-				}
-				else if(verticesState.get(parentVertex.bigHashCode()) == null) {
-					final VertexState childState = verticesState.get(childVertex.bigHashCode());
-					final AbstractVertex childCurrentVertex = childState.putInNextFilterIfHasNotBeenPut(childVertex);
-
-					final AbstractVertex parentCurrentVertex = new spade.core.Vertex();
-					parentCurrentVertex.addAnnotations(parentVertex.getCopyOfAnnotations());
-					putInNextFilter(parentCurrentVertex);
-
-					final AbstractEdge edgeCopy = new Edge(childCurrentVertex, parentCurrentVertex);
-					edgeCopy.addAnnotations(edge.getCopyOfAnnotations());
-					putInNextFilter(edgeCopy);
-				} 
-			} 
-            else {
-				final VertexState childState = verticesState.get(childVertex.bigHashCode());
-				final AbstractVertex childCurrentVertex = childState.putInNextFilterIfHasNotBeenPut(childVertex);
-
-				final VertexState parentState = verticesState.get(parentVertex.bigHashCode());
-				final AbstractVertex parentCurrentVertex = parentState.putInNextFilterIfHasNotBeenPut(parentVertex);
-
-				final AbstractEdge edgeCopy = new Edge(childCurrentVertex, parentCurrentVertex);
-				edgeCopy.addAnnotations(edge.getCopyOfAnnotations());
-				putInNextFilter(edgeCopy);
-			}
-
 		}
 	}
 
