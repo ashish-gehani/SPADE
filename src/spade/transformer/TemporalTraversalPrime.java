@@ -138,3 +138,143 @@ public class TemporalTraversalPrime extends AbstractTransformer{
                 Double minTime = -2.0;
                 Graph childGraph = null;
                 minTime = finalGraph.vertexSet().isEmpty() ? getMintime(vertex, edgeMap) : getMintime(vertex, finalEdgeMap);
+                                childGraph = finalGraph.vertexSet().isEmpty() || adjacentGraph == null ? new Graph() : adjacentGraph;
+                if (levelCount == 1) {
+                        if (minTime < graphMinTime) {
+                                graphMinTime = minTime;
+                        }
+                }
+                logger.log(Level.INFO, "Got mintime: " + minTime.toString());
+
+                
+                HashMap<String, AbstractEdge> vertexChildEdges = edgeMap.get(vertex.bigHashCode()).get("childEdges");
+                HashMap<String, AbstractEdge> vertexParentEdges = edgeMap.get(vertex.bigHashCode()).get("parentEdges");
+
+                for (HashMap.Entry<String, AbstractEdge> entry : vertexChildEdges.entrySet()) {
+                        AbstractEdge edge = entry.getValue();
+                        AbstractEdge newEdge = createNewWithoutAnnotations(edge);
+                        try{
+                                Double time = Double.parseDouble(getAnnotationSafe(newEdge, annotationName));
+                                if (time > minTime) {
+                                        if (time > graphMaxTime) {
+                                        graphMaxTime = time;
+                                        }
+                                        childGraph.putVertex(newEdge.getChildVertex());
+                                        childGraph.putVertex(newEdge.getParentVertex());
+                                        childGraph.putEdge(newEdge);
+                                }
+                        }catch(Exception e){
+                                logger.log(Level.SEVERE, "Failed to parse where " + annotationName + "='"
+                                                + getAnnotationSafe(newEdge, annotationName) + "'");
+                                logger.log(Level.SEVERE, e.getMessage());
+                        }
+                }
+                
+                for (HashMap.Entry<String, AbstractEdge> entry : vertexParentEdges.entrySet()) {
+                        AbstractEdge edge = entry.getValue();
+                        AbstractEdge newEdge = createNewWithoutAnnotations(edge);
+                        childGraph.putVertex(newEdge.getChildVertex());
+                        childGraph.putVertex(newEdge.getParentVertex());
+                        childGraph.putEdge(newEdge);
+                }
+
+                return childGraph;
+        }
+
+        public HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> setEdgeMap(Graph graph) {
+                HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> edgeMap = new HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>>();
+                for(AbstractVertex vertex: graph.vertexSet()) {
+                        edgeMap.put(vertex.bigHashCode(), new HashMap<String, HashMap<String, AbstractEdge>>(){{put("parentEdges", new HashMap<String, AbstractEdge>()); put("childEdges", new HashMap<String, AbstractEdge>());}});
+                }
+                
+                for(AbstractEdge edge : graph.edgeSet()) {
+                        AbstractVertex edgeChild = edge.getChildVertex();
+                        AbstractVertex edgeParent = edge.getParentVertex();
+                        final String edgeHash = edge.bigHashCode();
+                        edgeMap.get(edgeChild.bigHashCode()).get("parentEdges").put(edgeHash, edge);
+                        edgeMap.get(edgeParent.bigHashCode()).get("childEdges").put(edgeHash, edge);
+                }
+
+                return edgeMap;
+        }
+
+
+
+        /**
+            *
+        */
+        @Override
+        public Graph transform(Graph graph, ExecutionContext context) {
+                Set<AbstractVertex> currentLevel = new HashSet<AbstractVertex>();
+                /*
+                * Pick a start vertex to begin traversal pass it to transform method in SPADE Query client
+                * Example: $1 = $2.transform(TemporalTraversalPrime, "order=timestamp", $startVertex, 'descendant')
+                *
+                */
+                List<AbstractVertex> startGraphVertexSet = new ArrayList<AbstractVertex>(context.getSourceGraph().vertexSet());
+                AbstractVertex startVertex = startGraphVertexSet.get(0);
+
+                HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> edgeMap = setEdgeMap(graph);
+
+                Integer levelCount = 0;
+
+                currentLevel.add(startVertex);
+                Graph finalGraph = new Graph();
+                logger.log(Level.INFO, "Starting");
+                while(!currentLevel.isEmpty()) {
+                        logger.log(Level.INFO, "current level is " + String.valueOf(levelCount));
+                        Graph adjacentGraph = null;
+                        HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> finalEdgeMap = setEdgeMap(finalGraph);
+                        for(AbstractVertex node : currentLevel) {
+                                // get children of current level nodes
+                                // timestamp of subsequent edges > than current
+                                adjacentGraph = getAllChildrenForAVertex(node, adjacentGraph, finalGraph, graph, levelCount, edgeMap, finalEdgeMap);
+                        }
+                        logger.log(Level.INFO, "children recieved");
+                        if(! adjacentGraph.vertexSet().isEmpty()){// If children exists
+                                logger.log(Level.INFO, "adding");
+                                // Add children in graph and run DFS on children
+                                Set<AbstractVertex> nextLevelVertices = new HashSet<AbstractVertex>();
+                                nextLevelVertices.addAll(adjacentGraph.vertexSet());
+                                nextLevelVertices.removeAll(currentLevel);
+                                nextLevelVertices.removeAll(finalGraph.vertexSet());
+                                currentLevel.clear();
+                                currentLevel.addAll(nextLevelVertices);
+                                finalGraph.union(adjacentGraph);
+                        } else {
+                                logger.log(Level.INFO, "breaking");
+                                break;
+                        }
+                        finalEdgeMap = null;
+                        levelCount++;
+                }
+
+                try {
+                        if (outputTime) {
+                        final JSONObject graphTimeSpan = new JSONObject();
+                        if (graphMaxTime == Double.MIN_VALUE && graphMinTime == Double.MAX_VALUE) {
+                                logger.log(Level.INFO, "Charra bc", finalGraph.toString());
+                                graphMaxTime = -1.0;
+                                graphMinTime = -1.0;
+                        } else if (graphMaxTime == Double.MIN_VALUE || graphMinTime == Double.MAX_VALUE) {
+                                logger.log(Level.SEVERE, "This shouldn't be happening");
+                        }
+                        graphTimeSpan.put("start_time", graphMinTime);
+                        graphTimeSpan.put("end_time", graphMaxTime);
+
+                        outputWriter.write(graphTimeSpan.toString() + "\n");
+                        outputWriter.close();
+                        }
+                }catch (Exception e) {
+                        logger.log(Level.SEVERE, "Failed to create JSON Object for TemporalTraversalPrime Transformer", e);
+                }
+
+                edgeMap = null;
+
+                logger.log(Level.INFO, "done writing");
+
+                return finalGraph;
+        }
+
+}
+
