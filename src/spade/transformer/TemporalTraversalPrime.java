@@ -253,7 +253,7 @@ public class TemporalTraversalPrime extends AbstractTransformer{
                         if (outputTime) {
                         final JSONObject graphTimeSpan = new JSONObject();
                         if (graphMaxTime == Double.MIN_VALUE && graphMinTime == Double.MAX_VALUE) {
-                                logger.log(Level.INFO, "Charra bc", finalGraph.toString());
+                                logger.log(Level.INFO, finalGraph.toString());
                                 graphMaxTime = -1.0;
                                 graphMinTime = -1.0;
                         } else if (graphMaxTime == Double.MIN_VALUE || graphMinTime == Double.MAX_VALUE) {
