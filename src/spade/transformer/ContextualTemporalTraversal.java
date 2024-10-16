@@ -1,4 +1,18 @@
-/*
+/**
+ ContextualTemporalTraversal Transformer
+ ----------------------------------
+ This transformer performs a context-sensitive temporal traversal of a graph.
+ The traversal ensures causally future events are included by considering only 
+ edges with timestamps greater than a calculated minimum time for each vertex, 
+ rather than a global timestamp. It was specifically developed for use in 
+ Watson's adapted DFS implementation in the Shadewatcher system. 
+  
+ This approach helps in summarizing behavior instances while avoiding false 
+ dependencies and dependency explosions. Refer to WATSON: Abstracting Behaviors 
+ from Audit Logs via Aggregation of Contextual Semantics section III-d for more 
+ details. 
+ Notes:
+  - Outputs traversal time span to `/tmp/temporal_traversal.json`.
 --------------------------------------------------------------------------------
 SPADE - Support for Provenance Auditing in Distributed Environments.
 Copyright (C) 2015 SRI International
