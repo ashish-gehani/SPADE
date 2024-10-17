@@ -56,9 +56,9 @@ import spade.core.Graph;
 import spade.reporter.audit.OPMConstants;
 import spade.utility.HelperFunctions;
 
-public class TemporalTraversalPrime extends AbstractTransformer{
+public class ContextualTemporalTraversal extends AbstractTransformer{
 
-        private static final Logger logger = Logger.getLogger(TemporalTraversalPrime.class.getName());
+        private static final Logger logger = Logger.getLogger(ContextualTemporalTraversal.class.getName());
         private Boolean outputTime;
         private Double graphMinTime;
         private Double graphMaxTime;
@@ -222,7 +222,7 @@ public class TemporalTraversalPrime extends AbstractTransformer{
                 Set<AbstractVertex> currentLevel = new HashSet<AbstractVertex>();
                 /*
                 * Pick a start vertex to begin traversal pass it to transform method in SPADE Query client
-                * Example: $1 = $2.transform(TemporalTraversalPrime, "order=timestamp", $startVertex, 'descendant')
+                * Example: $1 = $2.transform(ContextualTemporalTraversal, "order=timestamp", $startVertex, 'descendant')
                 *
                 */
                 List<AbstractVertex> startGraphVertexSet = new ArrayList<AbstractVertex>(context.getSourceGraph().vertexSet());
@@ -280,7 +280,7 @@ public class TemporalTraversalPrime extends AbstractTransformer{
                         outputWriter.close();
                         }
                 }catch (Exception e) {
-                        logger.log(Level.SEVERE, "Failed to create JSON Object for TemporalTraversalPrime Transformer", e);
+                        logger.log(Level.SEVERE, "Failed to create JSON Object for ContextualTemporalTraversal Transformer", e);
                 }
 
                 edgeMap = null;
