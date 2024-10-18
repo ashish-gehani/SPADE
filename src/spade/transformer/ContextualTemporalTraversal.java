@@ -1,36 +1,24 @@
 /**
- ContextualTemporalTraversal Transformer
- ----------------------------------
- This transformer performs a context-sensitive temporal traversal of a graph.
- The traversal ensures causally future events are included by considering only 
- edges with timestamps greater than a calculated minimum time for each vertex, 
- rather than a global timestamp. It was specifically developed for use in 
- Watson's adapted DFS implementation in the Shadewatcher system. 
-  
- This approach helps in summarizing behavior instances while avoiding false 
- dependencies and dependency explosions. Refer to WATSON: Abstracting Behaviors 
- from Audit Logs via Aggregation of Contextual Semantics section III-d for more 
- details. 
- Notes:
-  - Outputs traversal time span to `/tmp/temporal_traversal.json`.
---------------------------------------------------------------------------------
-SPADE - Support for Provenance Auditing in Distributed Environments.
-Copyright (C) 2015 SRI International
+ * ContextualTemporalTraversal Transformer
+ * ----------------------------------
+ * This transformer performs a context-sensitive temporal traversal of a graph. The traversal ensures causally future events are included by considering only edges with timestamps greater than a calculated minimum time for each vertex, rather than a global timestamp. It was specifically developed for use in Watson's adapted DFS implementation in the Shadewatcher system.
+ *  
+ * This approach helps in summarizing behavior instances while avoiding false dependencies and dependency explosions. Refer to WATSON: Abstracting Behaviors from Audit Logs via Aggregation of Contextual Semantics section III-d for more details.
+ * 
+ * Notes:
+ *  - Outputs traversal time span to `/tmp/temporal_traversal.json`.
+ * --------------------------------------------------------------------------------
+ * SPADE - Support for Provenance Auditing in Distributed Environments.
+ * Copyright (C) 2015 SRI International
+ * 
+ * This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License along with this program. If not, see <http://www.gnu.org/licenses/>.
+ * --------------------------------------------------------------------------------
+ */
 
-This program is free software: you can redistribute it and/or
-modify it under the terms of the GNU General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <http://www.gnu.org/licenses/>.
---------------------------------------------------------------------------------
-*/
 
 package spade.transformer;
 
@@ -242,8 +230,8 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                         logger.log(Level.SEVERE, "Source graph is empty. Cannot initiate traversal.");
                         return null;
                 }
-                AbstractVertex startVertex = startGraphVertexSet.get(0);// Select the first vertex from the list as the
-                                                                        // starting point for traversal
+                AbstractVertex startVertex = startGraphVertexSet.get(0);// Select the first vertex from the list as the starting point for traversal
+                                                                       
                 HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> edgeMap = setEdgeMap(graph);
 
                 Integer levelCount = 0;
