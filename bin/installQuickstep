@@ -14,7 +14,7 @@ if [ -d "${src_path}" ]; then
   echo "Note: Quickstep repository already exists. Skipping the download stage."
 else
   # Clone Quickstep repository and checkout the trace-dev branch.
-  git clone https://github.com/UWQuickstep/quickstep.git -b trace-dev --recursive "${src_path}"
+  git clone https://github.com/ashish-gehani/quickstep.git -b trace-dev --recursive "${src_path}"
 
   # Download third party libraries.
   cd "${src_path}/third_party" && ./download_and_patch_prerequisites.sh
