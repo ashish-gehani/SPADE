@@ -50,9 +50,7 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
         private static final Logger logger = Logger.getLogger(ContextualTemporalTraversal.class.getName());
         private Double graphMinTime;
         private Double graphMaxTime;
-        private static final String keyOutputFilename = "outputFilename",
-                        keyAnnotationName = "annotationName",
-                        keyOutputTime = "outputTime";
+        private static final String keyOutputFilename = "outputFilename",keyAnnotationName = "annotationName",keyOutputTime = "outputTime";
 
         private Boolean outputTime;
         private String outputFilename;
@@ -65,7 +63,6 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                 try {
                         // Parse arguments with defaults from config file
                         Map<String, String> argumentsMap = HelperFunctions.parseKeyValPairs(arguments);
-
                         annotationName = ArgumentFunctions.mustParseNonEmptyString(keyAnnotationName, argumentsMap);
                         outputFilename = ArgumentFunctions.mustParseNonEmptyString(keyOutputFilename, argumentsMap);
                         outputTime = ArgumentFunctions.mustParseBoolean(keyOutputTime, argumentsMap);
@@ -76,10 +73,8 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                                 }
                                 outputWriter = new BufferedWriter(new FileWriter(file, true));
                         }
-
                         graphMinTime = Double.MAX_VALUE;
                         graphMaxTime = Double.MIN_VALUE;
-
                         return true;
                 } catch (Exception e) {
                         logger.log(Level.SEVERE, "Failed to initialize ContextualTemporalTraversal", e);
@@ -89,9 +84,7 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
 
         @Override
         public LinkedHashSet<ArgumentName> getArgumentNames() {
-                return new LinkedHashSet<ArgumentName>(
-                                Arrays.asList(
-                                                ArgumentName.SOURCE_GRAPH));
+                return new LinkedHashSet<ArgumentName>(Arrays.asList(ArgumentName.SOURCE_GRAPH));
         }
 
         /*
@@ -100,8 +93,7 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
          * Find edge with lowest timestamp that is our start time for our traversal
          *
          */
-        public Double getMintime(AbstractVertex vertex,
-                        HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> edgeMap) {
+        public Double getMintime(AbstractVertex vertex,HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> edgeMap) {
                 Double minTime = Double.MAX_VALUE;
 
                 HashMap<String, AbstractEdge> vertexParentEdges = edgeMap.get(vertex.bigHashCode()).get("parentEdges");
@@ -115,16 +107,13 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                                         minTime = time;
                                 }
                         } catch (Exception e) {
-                                logger.log(Level.SEVERE, "Failed to parse where " + annotationName + "='"
-                                                + getAnnotationSafe(newEdge, annotationName) + "'");
+                                logger.log(Level.SEVERE, "Failed to parse where " + annotationName + "='" + getAnnotationSafe(newEdge, annotationName) + "'");
                         }
                 }
 
                 if (minTime == Double.MAX_VALUE) {
-                        // If minTime is still Double.MAX_VALUE, this indicates that no valid time was
-                        // found
-                        // for any edges associated with the current vertex. In this case, setting
-                        // minTime
+                        // If minTime is still Double.MAX_VALUE, this indicates that no valid time was found
+                        // for any edges associated with the current vertex. In this case, setting minTime
                         // to -1.0 allows us to handle this condition appropriately in later stages.
                         logger.log(Level.INFO, "No valid timestamp found for vertex: " + vertex);
                         minTime = -1.0;
@@ -133,20 +122,14 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
         }
 
         /*
-         * Get children for a vertex that are from edges with increasing time edges with
-         * lesser time will not be considered
+         * Get children for a vertex that are from edges with increasing time edges with lesser time will not be considered
          *
-         *
-         * Note: Passing adjacentGraph to collect all children from multiple vertices
-         * from one level into one graph
+         * Note: Passing adjacentGraph to collect all children from multiple vertices from one level into one graph
          */
-        public Graph getAllChildrenForAVertex(AbstractVertex vertex, Graph adjacentGraph, Graph finalGraph, Graph graph,
-                        Integer levelCount, HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> edgeMap,
-                        HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> finalEdgeMap) {
+        public Graph getAllChildrenForAVertex(AbstractVertex vertex, Graph adjacentGraph, Graph finalGraph, Graph graph, Integer levelCount, HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> edgeMap, HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> finalEdgeMap) {
                 Double minTime = -2.0;// Initialize minTime with -2.0 to signify unprocessed state before comparison
                 Graph childGraph = null;
-                minTime = finalGraph.vertexSet().isEmpty() ? getMintime(vertex, edgeMap)
-                                : getMintime(vertex, finalEdgeMap);
+                minTime = finalGraph.vertexSet().isEmpty() ? getMintime(vertex, edgeMap) : getMintime(vertex, finalEdgeMap);
                 childGraph = finalGraph.vertexSet().isEmpty() || adjacentGraph == null ? new Graph() : adjacentGraph;
                 if (levelCount == 1) {
                         if (minTime < graphMinTime) {
@@ -154,7 +137,6 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                         }
                 }
                 logger.log(Level.INFO, "Got mintime: " + minTime.toString());
-
                 HashMap<String, AbstractEdge> vertexChildEdges = edgeMap.get(vertex.bigHashCode()).get("childEdges");
                 HashMap<String, AbstractEdge> vertexParentEdges = edgeMap.get(vertex.bigHashCode()).get("parentEdges");
 
@@ -172,8 +154,7 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                                         childGraph.putEdge(newEdge);
                                 }
                         } catch (Exception e) {
-                                logger.log(Level.SEVERE, "Failed to parse where " + annotationName + "='"
-                                                + getAnnotationSafe(newEdge, annotationName) + "'");
+                                logger.log(Level.SEVERE, "Failed to parse where " + annotationName + "='" + getAnnotationSafe(newEdge, annotationName) + "'");
                                 logger.log(Level.SEVERE, e.getMessage());
                         }
                 }
@@ -199,7 +180,6 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                                 }
                         });
                 }
-
                 for (AbstractEdge edge : graph.edgeSet()) {
                         AbstractVertex edgeChild = edge.getChildVertex();
                         AbstractVertex edgeParent = edge.getParentVertex();
@@ -207,7 +187,6 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                         edgeMap.get(edgeChild.bigHashCode()).get("parentEdges").put(edgeHash, edge);
                         edgeMap.get(edgeParent.bigHashCode()).get("childEdges").put(edgeHash, edge);
                 }
-
                 return edgeMap;
         }
 
@@ -224,38 +203,30 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                  * $startVertex, 'descendant')
                  *
                  */
-                List<AbstractVertex> startGraphVertexSet = new ArrayList<AbstractVertex>(
-                                context.getSourceGraph().vertexSet());
+                List<AbstractVertex> startGraphVertexSet = new ArrayList<AbstractVertex>(context.getSourceGraph().vertexSet());
                 if (startGraphVertexSet.isEmpty()) {
                         logger.log(Level.SEVERE, "Source graph is empty. Cannot initiate traversal.");
                         return null;
                 }
                 AbstractVertex startVertex = startGraphVertexSet.get(0);// Select the first vertex from the list as the starting point for traversal
-                                                                       
                 HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> edgeMap = setEdgeMap(graph);
-
                 Integer levelCount = 0;
 
                 currentLevel.add(startVertex);
                 Graph finalGraph = new Graph();
                 logger.log(Level.INFO, "Traversal started. Initiating the process with the selected start vertex.");
                 while (!currentLevel.isEmpty()) {
-                        logger.log(Level.INFO, "Processing vertices at level: " + levelCount
-                                        + ". Checking child vertices for traversal.");
+                        logger.log(Level.INFO, "Processing vertices at level: " + levelCount + ". Checking child vertices for traversal.");
                         Graph adjacentGraph = null;
-                        HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> finalEdgeMap = setEdgeMap(
-                                        finalGraph);
+                        HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> finalEdgeMap = setEdgeMap(finalGraph);
                         for (AbstractVertex node : currentLevel) {
                                 // get children of current level nodes
                                 // timestamp of subsequent edges > than current
-                                adjacentGraph = getAllChildrenForAVertex(node, adjacentGraph, finalGraph, graph,
-                                                levelCount, edgeMap, finalEdgeMap);
+                                adjacentGraph = getAllChildrenForAVertex(node, adjacentGraph, finalGraph, graph, levelCount, edgeMap, finalEdgeMap);
                         }
-                        logger.log(Level.INFO, "Children vertices received for current level " + levelCount
-                                        + ". Moving to process them.");
+                        logger.log(Level.INFO, "Children vertices received for current level " + levelCount + ". Moving to process them.");
                         if (!adjacentGraph.vertexSet().isEmpty()) {// If children exists
-                                logger.log(Level.INFO,
-                                                "Adding child vertices to graph and preparing for DFS on the next level.");
+                                logger.log(Level.INFO, "Adding child vertices to graph and preparing for DFS on the next level.");
                                 // Add children in graph and run DFS on children
                                 Set<AbstractVertex> nextLevelVertices = new HashSet<AbstractVertex>();
                                 nextLevelVertices.addAll(adjacentGraph.vertexSet());
@@ -276,8 +247,7 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                         if (outputTime) {
                                 final JSONObject graphTimeSpan = new JSONObject();
                                 if (graphMaxTime == Double.MIN_VALUE && graphMinTime == Double.MAX_VALUE) {
-                                        logger.log(Level.INFO, "Traversal complete. Final graph structure: "
-                                                        + finalGraph.toString());
+                                        logger.log(Level.INFO, "Traversal complete. Final graph structure: " + finalGraph.toString());
                                         graphMaxTime = -1.0;
                                         graphMinTime = -1.0;
                                 } else if (graphMaxTime == Double.MIN_VALUE || graphMinTime == Double.MAX_VALUE) {
@@ -290,9 +260,7 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                                                 outputWriter.write(graphTimeSpan.toString() + "\n");
                                         }
                                 } catch (Exception e) {
-                                        logger.log(Level.SEVERE,
-                                                        "Failed to create JSON Object for ContextualTemporalTraversal Transformer",
-                                                        e);
+                                        logger.log(Level.SEVERE,"Failed to create JSON Object for ContextualTemporalTraversal Transformer",e);
                                 } finally {
                                         if (outputWriter != null) {
                                                 try {
@@ -304,15 +272,10 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                                 }
                         }
                 } catch (Exception e) {
-                        logger.log(Level.SEVERE,
-                                        "Failed to create JSON Object for ContextualTemporalTraversal Transformer", e);
+                        logger.log(Level.SEVERE, "Failed to create JSON Object for ContextualTemporalTraversal Transformer", e);
                 }
-
                 edgeMap = null;
-
-                logger.log(Level.INFO, "Traversal timespan written to output file. Start time: " + graphMinTime
-                                + ", End time: " + graphMaxTime);
-
+                logger.log(Level.INFO, "Traversal timespan written to output file. Start time: " + graphMinTime + ", End time: " + graphMaxTime);
                 return finalGraph;
         }
 
