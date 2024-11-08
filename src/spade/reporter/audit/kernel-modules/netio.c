@@ -162,13 +162,13 @@ static int copy_uint32_t_from_user(uint32_t *dst, const uint32_t __user *src);
 static int exists_in_array(int, int[], int);
 static int log_syscall(int, int, int, int);
 static void copy_array(int* dst, int* src, int len);
-static int netio_logging_start(char* caller_build_hash, int net_io_flag, int syscall_success_flag, 
+int netio_logging_start(char* caller_build_hash, int net_io_flag, int syscall_success_flag, 
 									int pids_ignore_length, int pids_ignore_list[],
 									int ppids_ignore_length, int ppids_ignore_list[],
 									int uids_len, int uids[], int ignore_uids,
 									int harden_tgids_length, int harden_tgids_list[], int namespaces_flag,
 									int nf_hooks_flag, int nf_hooks_log_all_ct_flag, int nf_handle_user_flag); // 1 success, 0 failure
-static void netio_logging_stop(char* caller_build_hash);
+void netio_logging_stop(char* caller_build_hash);
 static int get_tgid(int);
 static int special_str_equal(const char* hay, const char* constantModuleName);
 static int get_hex_saddr_from_fd_getname(char* result, int max_result_size, int *fd_sock_type, int sock_fd, int peer, long *net_inum);
@@ -1079,6 +1079,7 @@ asmlinkage long new_recvmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vl
 
 // return -> [0 = continue, -1 = do not continue]
 static long spade_kill_pre(int syscallNumber, pid_t pid, int sig){
+	struct task_struct* current_task = current;
 	if(stop == 0){
 		int checkPid;
 		int tgid;
@@ -1699,7 +1700,7 @@ static const struct nf_hook_ops nf_hook_ops_spade[] = {
 	}
 };
 
-static int netio_logging_start(char* caller_build_hash, int net_io_flag, int syscall_success_flag, 
+int netio_logging_start(char* caller_build_hash, int net_io_flag, int syscall_success_flag, 
 									int pids_ignore_length, int pids_ignore_list[],
 									int ppids_ignore_length, int ppids_ignore_list[],
 									int uids_length, int uids_list[], int ignore_uids_flag,
@@ -1742,7 +1743,7 @@ static int netio_logging_start(char* caller_build_hash, int net_io_flag, int sys
 	}
 }
 
-static void netio_logging_stop(char* caller_build_hash){
+void netio_logging_stop(char* caller_build_hash){
 	if(str_equal(caller_build_hash, BUILD_HASH) == 1){
 		if(nf_hooks == 1){
 			nf_unregister_net_hooks(&init_net, nf_hook_ops_spade, ARRAY_SIZE(nf_hook_ops_spade));
