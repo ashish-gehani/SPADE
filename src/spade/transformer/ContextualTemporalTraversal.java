@@ -73,8 +73,9 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                                 }
                                 outputWriter = new BufferedWriter(new FileWriter(file, true));
                         }
-                        graphMinTime = Double.MAX_VALUE;
-                        graphMaxTime = Double.MIN_VALUE;
+                        // Initialize graphMinTime and graphMaxTime to null
+                        graphMinTime = null;
+                        graphMaxTime = null;
                         return true;
                 } catch (Exception e) {
                         logger.log(Level.SEVERE, "Failed to initialize ContextualTemporalTraversal", e);
@@ -88,121 +89,107 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
         }
 
         /*
-         * Check all edges that have child matching our target Vertex and see their
-         * timestamps
+         * Check all edges that have child matching our target Vertex and see their timestamps
          * Find edge with lowest timestamp that is our start time for our traversal
-         *
          */
         public Double getMintime(AbstractVertex vertex,HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> edgeMap) {
-                Double minTime = Double.MAX_VALUE;
-
+                Double minTime = null;
                 HashMap<String, AbstractEdge> vertexParentEdges = edgeMap.get(vertex.bigHashCode()).get("parentEdges");
 
                 for (HashMap.Entry<String, AbstractEdge> entry : vertexParentEdges.entrySet()) {
-                        AbstractEdge edge = entry.getValue();
-                        AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-                        try {
-                                Double time = Double.parseDouble(getAnnotationSafe(newEdge, annotationName));
-                                if (time < minTime) {
-                                        minTime = time;
-                                }
-                        } catch (Exception e) {
-                                logger.log(Level.SEVERE, "Failed to parse where " + annotationName + "='" + getAnnotationSafe(newEdge, annotationName) + "'");
+                    AbstractEdge edge = entry.getValue();
+                    AbstractEdge newEdge = createNewWithoutAnnotations(edge);
+                    try {
+                        Double time = Double.parseDouble(getAnnotationSafe(newEdge, annotationName));
+                        if (minTime == null || time < minTime) {
+                            minTime = time;
                         }
+                    } catch (Exception e) {
+                        logger.log(Level.SEVERE, "Failed to parse where " + annotationName + "='" + getAnnotationSafe(newEdge, annotationName) + "'");
+                    }
                 }
-
-                if (minTime == Double.MAX_VALUE) {
-                        // If minTime is still Double.MAX_VALUE, this indicates that no valid time was found
-                        // for any edges associated with the current vertex. In this case, setting minTime
-                        // to -1.0 allows us to handle this condition appropriately in later stages.
-                        logger.log(Level.INFO, "No valid timestamp found for vertex: " + vertex);
-                        minTime = -1.0;
+        
+                if (minTime == null) {
+                    // Log that no valid timestamp was found
+                    logger.log(Level.INFO, "No valid timestamp found for vertex: " + vertex);
                 }
                 return minTime;
-        }
+            }
 
         /*
-         * Get children for a vertex that are from edges with increasing time edges with lesser time will not be considered
-         *
+         * Get children for a vertex that are from edges with increasing time, edges with lesser time will not be considered
          * Note: Passing adjacentGraph to collect all children from multiple vertices from one level into one graph
          */
         public Graph getAllChildrenForAVertex(AbstractVertex vertex, Graph adjacentGraph, Graph finalGraph, Graph graph, Integer levelCount, HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> edgeMap, HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> finalEdgeMap) {
-                Double minTime = -2.0;// Initialize minTime with -2.0 to signify unprocessed state before comparison
-                Graph childGraph = null;
+                Double minTime = null;
+                Graph childGraph = finalGraph.vertexSet().isEmpty() || adjacentGraph == null ? new Graph() : adjacentGraph;
                 minTime = finalGraph.vertexSet().isEmpty() ? getMintime(vertex, edgeMap) : getMintime(vertex, finalEdgeMap);
-                childGraph = finalGraph.vertexSet().isEmpty() || adjacentGraph == null ? new Graph() : adjacentGraph;
                 if (levelCount == 1) {
-                        if (minTime < graphMinTime) {
-                                graphMinTime = minTime;
-                        }
+                    if (minTime != null && (graphMinTime == null || minTime < graphMinTime)) {
+                        graphMinTime = minTime;
+                    }
                 }
-                logger.log(Level.INFO, "Got mintime: " + minTime.toString());
+                logger.log(Level.INFO, "Got mintime: " + minTime);
                 HashMap<String, AbstractEdge> vertexChildEdges = edgeMap.get(vertex.bigHashCode()).get("childEdges");
                 HashMap<String, AbstractEdge> vertexParentEdges = edgeMap.get(vertex.bigHashCode()).get("parentEdges");
-
+        
                 for (HashMap.Entry<String, AbstractEdge> entry : vertexChildEdges.entrySet()) {
-                        AbstractEdge edge = entry.getValue();
-                        AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-                        try {
-                                Double time = Double.parseDouble(getAnnotationSafe(newEdge, annotationName));
-                                if (time > minTime) {
-                                        if (time > graphMaxTime) {
-                                                graphMaxTime = time;
-                                        }
-                                        childGraph.putVertex(newEdge.getChildVertex());
-                                        childGraph.putVertex(newEdge.getParentVertex());
-                                        childGraph.putEdge(newEdge);
-                                }
-                        } catch (Exception e) {
-                                logger.log(Level.SEVERE, "Failed to parse where " + annotationName + "='" + getAnnotationSafe(newEdge, annotationName) + "'");
-                                logger.log(Level.SEVERE, e.getMessage());
+                    AbstractEdge edge = entry.getValue();
+                    AbstractEdge newEdge = createNewWithoutAnnotations(edge);
+                    try {
+                        Double time = Double.parseDouble(getAnnotationSafe(newEdge, annotationName));
+                        if (minTime == null || time > minTime) {
+                            if (graphMaxTime == null || time > graphMaxTime) {
+                                graphMaxTime = time;
+                            }
+                            childGraph.putVertex(newEdge.getChildVertex());
+                            childGraph.putVertex(newEdge.getParentVertex());
+                            childGraph.putEdge(newEdge);
                         }
+                    } catch (Exception e) {
+                        logger.log(Level.SEVERE, "Failed to parse where " + annotationName + "='" + getAnnotationSafe(newEdge, annotationName) + "'");
+                        logger.log(Level.SEVERE, e.getMessage());
+                    }
                 }
-
+        
                 for (HashMap.Entry<String, AbstractEdge> entry : vertexParentEdges.entrySet()) {
-                        AbstractEdge edge = entry.getValue();
-                        AbstractEdge newEdge = createNewWithoutAnnotations(edge);
-                        childGraph.putVertex(newEdge.getChildVertex());
-                        childGraph.putVertex(newEdge.getParentVertex());
-                        childGraph.putEdge(newEdge);
+                    AbstractEdge edge = entry.getValue();
+                    AbstractEdge newEdge = createNewWithoutAnnotations(edge);
+                    childGraph.putVertex(newEdge.getChildVertex());
+                    childGraph.putVertex(newEdge.getParentVertex());
+                    childGraph.putEdge(newEdge);
                 }
-
+        
                 return childGraph;
-        }
+            }
 
         public HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> setEdgeMap(Graph graph) {
                 HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>> edgeMap = new HashMap<String, HashMap<String, HashMap<String, AbstractEdge>>>();
                 for (AbstractVertex vertex : graph.vertexSet()) {
-                        edgeMap.put(vertex.bigHashCode(), new HashMap<String, HashMap<String, AbstractEdge>>() {
-                                {
-                                        put("parentEdges", new HashMap<String, AbstractEdge>());
-                                        put("childEdges", new HashMap<String, AbstractEdge>());
-                                }
-                        });
+                    edgeMap.put(vertex.bigHashCode(), new HashMap<String, HashMap<String, AbstractEdge>>() {
+                        {
+                            put("parentEdges", new HashMap<String, AbstractEdge>());
+                            put("childEdges", new HashMap<String, AbstractEdge>());
+                        }
+                    });
                 }
                 for (AbstractEdge edge : graph.edgeSet()) {
-                        AbstractVertex edgeChild = edge.getChildVertex();
-                        AbstractVertex edgeParent = edge.getParentVertex();
-                        final String edgeHash = edge.bigHashCode();
-                        edgeMap.get(edgeChild.bigHashCode()).get("parentEdges").put(edgeHash, edge);
-                        edgeMap.get(edgeParent.bigHashCode()).get("childEdges").put(edgeHash, edge);
+                    AbstractVertex edgeChild = edge.getChildVertex();
+                    AbstractVertex edgeParent = edge.getParentVertex();
+                    final String edgeHash = edge.bigHashCode();
+                    edgeMap.get(edgeChild.bigHashCode()).get("parentEdges").put(edgeHash, edge);
+                    edgeMap.get(edgeParent.bigHashCode()).get("childEdges").put(edgeHash, edge);
                 }
                 return edgeMap;
-        }
+            }
 
-        /**
-            *
-        */
         @Override
         public Graph transform(Graph graph, ExecutionContext context) {
-                Set<AbstractVertex> currentLevel = new HashSet<AbstractVertex>();
+                Set<AbstractVertex> currentLevel = new HashSet<>();
                 /*
-                 * Pick a start vertex to begin traversal pass it to transform method in SPADE
-                 * Query client
-                 * Example: $1 = $2.transform(ContextualTemporalTraversal, "order=timestamp",
-                 * $startVertex, 'descendant')
-                 *
-                 */
+                * Pick a start vertex to begin traversal. Pass it to transform method in SPADE Query client.
+                * Example: $1 = $2.transform(ContextualTemporalTraversal, "order=timestamp", $startVertex, 'descendant')
+                */
                 List<AbstractVertex> startGraphVertexSet = new ArrayList<AbstractVertex>(context.getSourceGraph().vertexSet());
                 if (startGraphVertexSet.isEmpty()) {
                         logger.log(Level.SEVERE, "Source graph is empty. Cannot initiate traversal.");
@@ -244,33 +231,34 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                 }
 
                 try {
-                        if (outputTime) {
-                                final JSONObject graphTimeSpan = new JSONObject();
-                                if (graphMaxTime == Double.MIN_VALUE && graphMinTime == Double.MAX_VALUE) {
-                                        logger.log(Level.INFO, "Traversal complete. Final graph structure: " + finalGraph.toString());
-                                        graphMaxTime = -1.0;
-                                        graphMinTime = -1.0;
-                                } else if (graphMaxTime == Double.MIN_VALUE || graphMinTime == Double.MAX_VALUE) {
-                                        logger.log(Level.SEVERE, "This shouldn't be happening");
-                                }
+                if (outputTime) {
+                        final JSONObject graphTimeSpan = new JSONObject();
+                        if (graphMaxTime == null && graphMinTime == null) {
+                                logger.log(Level.INFO, "Traversal complete. Final graph structure: " + finalGraph.toString());
+                                graphTimeSpan.put("start_time", JSONObject.NULL);
+                                graphTimeSpan.put("end_time", JSONObject.NULL);
+                        } else if (graphMaxTime == null || graphMinTime == null) {
+                                logger.log(Level.SEVERE, "This shouldn't be happening");
+                        } else {
                                 graphTimeSpan.put("start_time", graphMinTime);
                                 graphTimeSpan.put("end_time", graphMaxTime);
-                                try {
-                                        if (outputWriter != null) {
-                                                outputWriter.write(graphTimeSpan.toString() + "\n");
-                                        }
-                                } catch (Exception e) {
-                                        logger.log(Level.SEVERE,"Failed to create JSON Object for ContextualTemporalTraversal Transformer",e);
-                                } finally {
-                                        if (outputWriter != null) {
-                                                try {
-                                                        outputWriter.close();
-                                                } catch (IOException e) {
-                                                        logger.log(Level.SEVERE, "Failed to close output writer", e);
-                                                }
+                        }
+                        try {
+                                if (outputWriter != null) {
+                                        outputWriter.write(graphTimeSpan.toString() + "\n");
+                                }
+                        } catch (Exception e) {
+                                logger.log(Level.SEVERE,"Failed to write JSON Object for ContextualTemporalTraversal Transformer", e);
+                        } finally {
+                                if (outputWriter != null) {
+                                        try {
+                                                outputWriter.close();
+                                        } catch (IOException e) {
+                                                logger.log(Level.SEVERE, "Failed to close output writer", e);
                                         }
                                 }
                         }
+                }
                 } catch (Exception e) {
                         logger.log(Level.SEVERE, "Failed to create JSON Object for ContextualTemporalTraversal Transformer", e);
                 }
