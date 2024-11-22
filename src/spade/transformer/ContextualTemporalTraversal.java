@@ -72,10 +72,12 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                                         file.createNewFile();
                                 }
                                 outputWriter = new BufferedWriter(new FileWriter(file, true));
+                                logger.log(Level.INFO, "Output file for traversal results will be written to: " + outputFilename);
                         }
                         // Initialize graphMinTime and graphMaxTime to null
                         graphMinTime = null;
                         graphMaxTime = null;
+                        
                         return true;
                 } catch (Exception e) {
                         logger.log(Level.SEVERE, "Failed to initialize ContextualTemporalTraversal", e);
