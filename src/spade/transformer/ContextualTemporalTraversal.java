@@ -100,14 +100,13 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
 
                 for (HashMap.Entry<String, AbstractEdge> entry : vertexParentEdges.entrySet()) {
                     AbstractEdge edge = entry.getValue();
-                    AbstractEdge newEdge = createNewWithoutAnnotations(edge);
                     try {
-                        Double time = Double.parseDouble(getAnnotationSafe(newEdge, annotationName));
+                        Double time = Double.parseDouble(getAnnotationSafe(edge, annotationName));
                         if (minTime == null || time < minTime) {
                             minTime = time;
                         }
                     } catch (Exception e) {
-                        logger.log(Level.SEVERE, "Failed to parse where " + annotationName + "='" + getAnnotationSafe(newEdge, annotationName) + "'");
+                        logger.log(Level.SEVERE, "Failed to parse where " + annotationName + "='" + getAnnotationSafe(edge, annotationName) + "'");
                     }
                 }
         
@@ -140,7 +139,8 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                     AbstractEdge newEdge = createNewWithoutAnnotations(edge);
                     try {
                         Double time = Double.parseDouble(getAnnotationSafe(newEdge, annotationName));
-                        if (minTime == null || time > minTime) {
+                        if (minTime == null || time > minTime) { 
+                                // If minTime is null, all child edges are considered adjacent
                             if (graphMaxTime == null || time > graphMaxTime) {
                                 graphMaxTime = time;
                             }
@@ -215,8 +215,8 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                         }
                         logger.log(Level.INFO, "Children vertices received for current level " + levelCount + ". Moving to process them.");
                         if (!adjacentGraph.vertexSet().isEmpty()) {// If children exists
-                                logger.log(Level.INFO, "Adding child vertices to graph and preparing for DFS on the next level.");
-                                // Add children in graph and run DFS on children
+                                logger.log(Level.INFO, "Adding child vertices to graph and preparing for BFS on the next level.");
+                                // Add children in graph and run BFS on children
                                 Set<AbstractVertex> nextLevelVertices = new HashSet<AbstractVertex>();
                                 nextLevelVertices.addAll(adjacentGraph.vertexSet());
                                 nextLevelVertices.removeAll(currentLevel);
