@@ -424,6 +424,13 @@ then
   db_pass=$(must_get_db_pass "$cfg_path")
 
   error=0
+  
+  # if inside a docker container
+  if [ -f /.dockerenv ]
+  then
+    printf '#!/bin/sh\nexit 0' > /usr/sbin/policy-rc.d
+    echo "Updated policy-rc.d for container"
+  fi
 
   # Create user if not present
   output=$(is_user_present "$db_user")
