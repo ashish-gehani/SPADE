@@ -43,6 +43,7 @@ import java.util.regex.Pattern;
 public class LLVM extends AbstractReporter {
 
     public static volatile boolean shutdown;
+    public static final String PID_PREFIX = "#Pid = ";
     public Map<String, Stack> functionStackMap; // Each Stack holds the function call stack for a thread.
     ServerSocket server;
     public static final int THREAD_SLEEP_DELAY = 400;
@@ -55,22 +56,22 @@ public class LLVM extends AbstractReporter {
     public boolean launch(String arguments) {
         /*
         * argument can be 'forcedremoval=true' (default) or 'forcedremoval=false'
-        * if forcedremoval is specified as false, on removal of the reporter, reporter won't 
+        * if forcedremoval is specified as false, on removal of the reporter, reporter won't
         * shutdown unless the socket buffer from where instrumented programs sends in
         * provenance data is empitited.
         * if forcedremoval is true, it will discard this buffer and proceed to shutdown
         */
         try{
             String[] pairs = arguments.split("\\s+");
-            for (String pair : pairs) {                 
+            for (String pair : pairs) {
                 String[] keyvalue = pair.split("=");
                 String key = keyvalue[0];
                 String value = keyvalue[1];
-    
+
                 if (key.equals("forcedremoval") && value.equals("false")) {
                     forcedRemoval = false;
                 }
-                        
+
             }
             } catch (NullPointerException e) {
             } catch (ArrayIndexOutOfBoundsException e) {
@@ -174,19 +175,43 @@ class EventHandler implements Runnable {
         }
     }
 
+    private String extractThreadId(String line) {
+        if (line.startsWith(LLVM.PID_PREFIX)) {
+            String[] parts = line.split("\\s+"); // Split by spaces
+            if (parts.length > 2) {
+                return parts[2]; // The thread ID is the third part
+            }
+        } else {
+            int index = line.indexOf(' ');
+            return line.substring(0, index);
+        }
+        return null;
+    }
+
+    private int getIndex(String line) {
+        if (line.startsWith(LLVM.PID_PREFIX)) {
+            int index = line.indexOf(':');
+            if (index > 0) {
+                index = index - 2; // Return the index of 'L' or 'E'
+            }
+            return index;
+        } else {
+            int index = line.indexOf(' ');
+            return index;
+        }
+    }
     //trace contains thread id, function entry or exit, function name and arguments or return value.
     //trace looks like "123 E: $foo Arg #0: i32 %a =123".
+    // trace looks like "#Pid = 2273022730 L: @main  R:  i32 %6 =0"
     private void parseEvent(String line) {
         try {
             AbstractVertex function;
             AbstractVertex argument;
             AbstractEdge edge;
+            line = line.trim();
             if (line.length() > 0) {
-                // get thread id
-                String tid;
-
-                int index = line.indexOf(' ');
-                tid = line.substring(0, index);
+                String tid = extractThreadId(line);
+                int index = getIndex(line);
 
                 // if the functionStackMap does not contain a stack for that thread, create a new stack.
                 if (!LLVM.reporter.functionStackMap.containsKey(tid)) {
