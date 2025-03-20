@@ -28,6 +28,7 @@ import spade.vertex.prov.Agent;
 import spade.vertex.prov.Entity;
 
 import java.util.Map;
+import java.util.logging.Logger;
 
 /**
  *
@@ -35,13 +36,23 @@ import java.util.Map;
  */
 public abstract class OPM2ProvVertexEdge extends AbstractFilter {
 
+    public final Logger logger = Logger.getLogger(this.getClass().getName());
+
     @Override
     public void putVertex(AbstractVertex incomingVertex) {
-        putInNextFilter(createProvVertex(incomingVertex));
+        final AbstractVertex newVertex = createProvVertex(incomingVertex);
+        if (newVertex == null) {
+            return;
+        }
+        putInNextFilter(newVertex);
     }
 
     @Override
     public void putEdge(AbstractEdge incomingEdge) {
+        if (incomingEdge == null){
+            logger.warning("Unexpectedly received NULL edge");
+            return;
+        }
         AbstractVertex childVertex = createProvVertex(incomingEdge.getChildVertex());
         AbstractVertex parentVertex = createProvVertex(incomingEdge.getParentVertex());
         AbstractEdge newEdge = null;
@@ -55,6 +66,9 @@ public abstract class OPM2ProvVertexEdge extends AbstractFilter {
             newEdge = new spade.edge.prov.WasGeneratedBy((Entity) childVertex, (Activity) parentVertex);
         } else if (incomingEdge instanceof spade.edge.opm.WasTriggeredBy) {
             newEdge = new spade.edge.prov.WasInformedBy((Activity) childVertex, (Activity) parentVertex);
+        } else {
+            logger.warning("Unhandled edge type: " + incomingEdge.getClass().getName());
+            return;
         }
         for (Map.Entry<String, String> entry : incomingEdge.getCopyOfAnnotations().entrySet()) {
         	if(entry.getKey().equals(OPMConstants.TYPE))
@@ -65,6 +79,10 @@ public abstract class OPM2ProvVertexEdge extends AbstractFilter {
     }
 
     private AbstractVertex createProvVertex(AbstractVertex vertex) {
+        if (vertex == null){
+            logger.warning("Unexpectedly received NULL vertex");
+            return null;
+        }
         AbstractVertex newVertex = null;
         if (vertex instanceof spade.vertex.opm.Agent) {
             newVertex = new spade.vertex.prov.Agent();
@@ -72,6 +90,9 @@ public abstract class OPM2ProvVertexEdge extends AbstractFilter {
             newVertex = new spade.vertex.prov.Entity();
         } else if (vertex instanceof spade.vertex.opm.Process) {
             newVertex = new spade.vertex.prov.Activity();
+        } else {
+            logger.warning("Unhandled vertex type: " + vertex.getClass().getName());
+            return null;
         }
         Map<String, String> annotationsCopy = vertex.getCopyOfAnnotations();
         for (Map.Entry<String, String> entry : annotationsCopy.entrySet()) {
