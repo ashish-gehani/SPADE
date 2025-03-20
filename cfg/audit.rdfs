@@ -1,0 +1,19 @@
+<rdf:RDF xml:base="http://spade.csl.sri.com/rdf/audit.rdfs#">
+    <rdfs:Property rdf:ID="subtype" rdfs:comment="can be one of: 'file' - for filesystem entities OR 'network' - for network flows"/>
+    <rdfs:Property rdf:ID="path" rdfs:comment="location in the local filesystem"/>
+    <rdfs:Property rdf:ID="filename" rdfs:comment="only for subtype 'file', name of the file that was operated on"/>
+    <rdfs:Property rdf:ID="version" rdfs:comment="how many times file has been written since being opened"/>
+    <rdfs:Property rdf:ID="ppid" rdfs:comment="parent's process identifier"/>
+    <rdfs:Property rdf:ID="pid" rdfs:comment="operating system process identifier"/>
+    <rdfs:Property rdf:ID="uid" rdfs:comment="operating system identifier of user that ran the program"/>
+    <rdfs:Property rdf:ID="gid" rdfs:comment="operating system identifier of user's group when they ran the program"/>
+    <rdfs:Property rdf:ID="source" rdfs:comment="can be one of: '/dev/audit' - if information came from the Linux kernel's Audit subsystem OR '/proc' - if information was extracted from Linux's /proc pseudofilesystem"/>
+    <rdfs:Property rdf:ID="operation" rdfs:comment="can be one of: 'write' - data was transferred from process to file OR 'send' - data was transferred from process to network OR 'connect' - outgoing network connection was established OR 'truncate' - data at end of file was removed OR 'chmod' - process changed file's permissions OR 'fork' - another independent process was created OR 'clone' - another process created with shared state OR 'execve' - child process replaced parent OR 'setuid' - process ownership changed OR 'read - data was transferred from file to process OR 'recv' - data was transferred from network to process OR 'accept' - incoming network connection was established OR 'rename' - the same entity has a new name OR 'link' - a new name can be used to refer to the old entity"/>
+    <rdfs:Property rdf:ID="time" rdfs:comment="when the event occurred"/>
+    <rdfs:Property rdf:ID="cwd" rdfs:comment="current working directory of user (in the shell when they ran the program)"/>
+    <rdfs:Property rdf:ID="commandline" rdfs:comment="program name and arguments provided"/>
+    <rdfs:Property rdf:ID="size" rdfs:comment="only for operations 'write', 'send', 'send', and 'recv', the number of bytes transferred"/>
+    <rdfs:Property rdf:ID="mode" rdfs:comment="only for operation 'chmod', the permissions that were applied"/>
+    <rdfs:Property rdf:ID="type" rdfs:comment="type of edge or vertex as string literal"/>
+    <rdfs:Property rdf:ID="name" rdfs:comment="command used to invoke the program"/>
+</rdf:RDF>
