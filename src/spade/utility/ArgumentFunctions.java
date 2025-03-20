@@ -19,7 +19,10 @@
  */
 package spade.utility;
 
+import java.io.IOError;
 import java.net.InetAddress;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Paths;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +34,20 @@ import spade.utility.map.external.ExternalMapManager;
 
 public class ArgumentFunctions{
 	
+	public static String getUserFriendlyPrintableFullPath(final String pathStr){
+		if(pathStr == null){
+			return "(null)";
+		}
+		try {
+            return Paths.get(
+				"" // CWD
+				, pathStr
+				).normalize().toAbsolutePath().toString();
+        } catch (InvalidPathException | IOError | SecurityException e) {
+            return pathStr;
+        }
+	}
+
 	public static boolean mustParseBoolean(final String key, final Map<String, String> map) throws Exception{
 		if(map == null){
 			throw new Exception("NULL map to get the value from for key '" + key + "'");
@@ -202,7 +219,7 @@ public class ArgumentFunctions{
 			FileUtility.pathMustBeAWritableFile(path);
 			return path;
 		}catch(Exception e){
-			throw new Exception("Not a writable path value for key '" + key + "'", e);
+			throw new Exception("Not a writable path value for key '" + key + "': '" + getUserFriendlyPrintableFullPath(path) + "'", e);
 		}
 	}
 
@@ -212,7 +229,7 @@ public class ArgumentFunctions{
 			FileUtility.pathMustBeAReadableFile(path);
 			return path;
 		}catch(Exception e){
-			throw new Exception("Not a readable path value for key '" + key + "'", e);
+			throw new Exception("Not a readable path value for key '" + key + "': '" + getUserFriendlyPrintableFullPath(path) + "'", e);
 		}
 	}
 
