@@ -56,15 +56,30 @@ public abstract class OPM2ProvVertexEdge extends AbstractFilter {
         AbstractVertex childVertex = createProvVertex(incomingEdge.getChildVertex());
         AbstractVertex parentVertex = createProvVertex(incomingEdge.getParentVertex());
         AbstractEdge newEdge = null;
-        if (incomingEdge instanceof spade.edge.opm.Used) {
+        if (
+            incomingEdge instanceof spade.edge.opm.Used
+            || spade.edge.opm.Used.typeValue.equals(incomingEdge.type())
+        ) {
             newEdge = new spade.edge.prov.Used((Activity) childVertex, (Entity) parentVertex);
-        } else if (incomingEdge instanceof spade.edge.opm.WasControlledBy) {
+        } else if (
+            incomingEdge instanceof spade.edge.opm.WasControlledBy
+            || spade.edge.opm.WasControlledBy.typeValue.equals(incomingEdge.type())
+        ) {
             newEdge = new spade.edge.prov.WasAssociatedWith((Activity) childVertex, (Agent) parentVertex);
-        } else if (incomingEdge instanceof spade.edge.opm.WasDerivedFrom) {
+        } else if (
+            incomingEdge instanceof spade.edge.opm.WasDerivedFrom
+            || spade.edge.opm.WasDerivedFrom.typeValue.equals(incomingEdge.type())
+        ) {
             newEdge = new spade.edge.prov.WasDerivedFrom((Entity) childVertex, (Entity) parentVertex);
-        } else if (incomingEdge instanceof spade.edge.opm.WasGeneratedBy) {
+        } else if (
+            incomingEdge instanceof spade.edge.opm.WasGeneratedBy
+            || spade.edge.opm.WasGeneratedBy.typeValue.equals(incomingEdge.type())
+        ) {
             newEdge = new spade.edge.prov.WasGeneratedBy((Entity) childVertex, (Activity) parentVertex);
-        } else if (incomingEdge instanceof spade.edge.opm.WasTriggeredBy) {
+        } else if (
+            incomingEdge instanceof spade.edge.opm.WasTriggeredBy
+            || spade.edge.opm.WasTriggeredBy.typeValue.equals(incomingEdge.type())
+        ) {
             newEdge = new spade.edge.prov.WasInformedBy((Activity) childVertex, (Activity) parentVertex);
         } else {
             logger.warning("Unhandled edge type: " + incomingEdge.getClass().getName());
@@ -84,11 +99,20 @@ public abstract class OPM2ProvVertexEdge extends AbstractFilter {
             return null;
         }
         AbstractVertex newVertex = null;
-        if (vertex instanceof spade.vertex.opm.Agent) {
+        if (
+            vertex instanceof spade.vertex.opm.Agent
+            || spade.vertex.opm.Agent.typeValue.equals(vertex.type())
+        ) {
             newVertex = new spade.vertex.prov.Agent();
-        } else if (vertex instanceof spade.vertex.opm.Artifact) {
+        } else if (
+            vertex instanceof spade.vertex.opm.Artifact
+            || spade.vertex.opm.Artifact.typeValue.equals(vertex.type())
+        ) {
             newVertex = new spade.vertex.prov.Entity();
-        } else if (vertex instanceof spade.vertex.opm.Process) {
+        } else if (
+            vertex instanceof spade.vertex.opm.Process
+            || spade.vertex.opm.Process.typeValue.equals(vertex.type())
+        ) {
             newVertex = new spade.vertex.prov.Activity();
         } else {
             logger.warning("Unhandled vertex type: " + vertex.getClass().getName());
