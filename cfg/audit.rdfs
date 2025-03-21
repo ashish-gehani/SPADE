@@ -1,19 +1,70 @@
-<rdf:RDF xml:base="http://spade.csl.sri.com/rdf/audit.rdfs#">
-    <rdfs:Property rdf:ID="subtype" rdfs:comment="can be one of: 'file' - for filesystem entities OR 'network' - for network flows"/>
-    <rdfs:Property rdf:ID="path" rdfs:comment="location in the local filesystem"/>
-    <rdfs:Property rdf:ID="filename" rdfs:comment="only for subtype 'file', name of the file that was operated on"/>
-    <rdfs:Property rdf:ID="version" rdfs:comment="how many times file has been written since being opened"/>
-    <rdfs:Property rdf:ID="ppid" rdfs:comment="parent's process identifier"/>
-    <rdfs:Property rdf:ID="pid" rdfs:comment="operating system process identifier"/>
-    <rdfs:Property rdf:ID="uid" rdfs:comment="operating system identifier of user that ran the program"/>
-    <rdfs:Property rdf:ID="gid" rdfs:comment="operating system identifier of user's group when they ran the program"/>
-    <rdfs:Property rdf:ID="source" rdfs:comment="can be one of: '/dev/audit' - if information came from the Linux kernel's Audit subsystem OR '/proc' - if information was extracted from Linux's /proc pseudofilesystem"/>
-    <rdfs:Property rdf:ID="operation" rdfs:comment="can be one of: 'write' - data was transferred from process to file OR 'send' - data was transferred from process to network OR 'connect' - outgoing network connection was established OR 'truncate' - data at end of file was removed OR 'chmod' - process changed file's permissions OR 'fork' - another independent process was created OR 'clone' - another process created with shared state OR 'execve' - child process replaced parent OR 'setuid' - process ownership changed OR 'read - data was transferred from file to process OR 'recv' - data was transferred from network to process OR 'accept' - incoming network connection was established OR 'rename' - the same entity has a new name OR 'link' - a new name can be used to refer to the old entity"/>
-    <rdfs:Property rdf:ID="time" rdfs:comment="when the event occurred"/>
-    <rdfs:Property rdf:ID="cwd" rdfs:comment="current working directory of user (in the shell when they ran the program)"/>
-    <rdfs:Property rdf:ID="commandline" rdfs:comment="program name and arguments provided"/>
-    <rdfs:Property rdf:ID="size" rdfs:comment="only for operations 'write', 'send', 'send', and 'recv', the number of bytes transferred"/>
-    <rdfs:Property rdf:ID="mode" rdfs:comment="only for operation 'chmod', the permissions that were applied"/>
-    <rdfs:Property rdf:ID="type" rdfs:comment="type of edge or vertex as string literal"/>
-    <rdfs:Property rdf:ID="name" rdfs:comment="command used to invoke the program"/>
+<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf	=	"http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+xmlns:rdfs	=	"http://www.w3.org/2000/01/rdf-schema#"
+xml:base	=	"http://spade.csl.sri.com/rdf/audit.rdfs#"
+>
+
+    <rdfs:Property rdf:ID="uid" rdfs:comment="Operating system identifier of user that ran the program's semantic"/>
+    <rdfs:Property rdf:ID="euid" rdfs:comment="Operating system identifier of effective user of program's semantic"/>
+    <rdfs:Property rdf:ID="gid" rdfs:comment="Operating system identifier of user's group when they ran the program's semantic"/>
+    <rdfs:Property rdf:ID="egid" rdfs:comment="Operating system identifier of effective group of program's semantic"/>
+    <rdfs:Property rdf:ID="suid" rdfs:comment="Saved identifier when program's effective user has changed's semantic"/>
+    <rdfs:Property rdf:ID="sgid" rdfs:comment="Saved identifier when program's effective group has changed's semantic"/>
+    <rdfs:Property rdf:ID="fsuid" rdfs:comment="Program's user identifier for filesystem access checks's semantic"/>
+    <rdfs:Property rdf:ID="fsgid" rdfs:comment="Program's group identifier for filesystem access checks's semantic"/>
+    <rdfs:Property rdf:ID="source" rdfs:comment="Indicates the origin of information (syscall, netfilter, /proc, or beep)'s semantic"/>
+    <rdfs:Property rdf:ID="name" rdfs:comment="Command used to invoke program's semantic"/>
+    <rdfs:Property rdf:ID="pid" rdfs:comment="Process identifier; for WasDerivedFrom: process that performed the operation's semantic"/>
+    <rdfs:Property rdf:ID="nsPid" rdfs:comment="Operating system process identifier in pid namespace's semantic"/>
+    <rdfs:Property rdf:ID="ppid" rdfs:comment="Parent's process identifier's semantic"/>
+    <rdfs:Property rdf:ID="cwd" rdfs:comment="Only for process from operation 'execve', current working directory of user (in the shell when they ran the program)'s semantic"/>
+    <rdfs:Property rdf:ID="commandLine" rdfs:comment="Only for process from operation 'execve', program name and arguments provided's semantic"/>
+    <rdfs:Property rdf:ID="startTime" rdfs:comment="If known, when the process (or unit) started (in Unix time)'s semantic"/>
+    <rdfs:Property rdf:ID="seenTime" rdfs:comment="If 'start time' not known, (Unix) time of first event seen from process's semantic"/>
+    <rdfs:Property rdf:ID="unit" rdfs:comment="Only if UBSI used, unique identifier of unit (with '0' denoting the non-unit part of the process)'s semantic"/>
+    <rdfs:Property rdf:ID="count" rdfs:comment="Only if UBSI used and 'unit'≠'0', number of times entire 'unit' loop ran previously's semantic"/>
+    <rdfs:Property rdf:ID="iteration" rdfs:comment="Only if UBSI used and 'unit'≠'0', number of times 'unit' loop has iterated's semantic"/>
+    <rdfs:Property rdf:ID="mountNamespace" rdfs:comment="Filesystem mount point namespace's semantic"/>
+    <rdfs:Property rdf:ID="userNamespace" rdfs:comment="User/group identifier namespace's semantic"/>
+    <rdfs:Property rdf:ID="netNamespace" rdfs:comment="Network namespace; for Artifact subtype network socket: net namespace of process initiating connection; for Process: network namespace's semantic"/>
+    <rdfs:Property rdf:ID="pidNamespace" rdfs:comment="Process identifier namespace's semantic"/>
+    <rdfs:Property rdf:ID="childrenPidNamespace" rdfs:comment="Process identifier namespace of children's semantic"/>
+    <rdfs:Property rdf:ID="ipcNamespace" rdfs:comment="Inter-process message queue namespace; for Process: inter-process message queue namespace; for Artifact subtypes system v message queue and system v shared memory: ipc namespace of operating process's semantic"/>
+    <rdfs:Property rdf:ID="exe" rdfs:comment="Path of the executable of the process"/>
+    <rdfs:Property rdf:ID="subtype" rdfs:comment="Specifies the artifact type (memory, file, link, directory, etc.)'s semantic"/>
+    <rdfs:Property rdf:ID="memoryAddress" rdfs:comment="Only for subtype memory, location in memory's semantic"/>
+    <rdfs:Property rdf:ID="size" rdfs:comment="Number of bytes transferred or allocated's semantic"/>
+    <rdfs:Property rdf:ID="tgid" rdfs:comment="Only for subtype memory, unnamed pipe, unknown, unix socket pair, or network socket pair, group identifier of threads that share memory or file descriptors's semantic"/>
+    <rdfs:Property rdf:ID="time" rdfs:comment="If known, when the event occurred (in Unix time)'s semantic"/>
+    <rdfs:Property rdf:ID="path" rdfs:comment="Only for subtype file, named pipe, link, directory, block device, character device, unix socket, or posix message queue, location in the local filesystem's semantic"/>
+    <rdfs:Property rdf:ID="rootPath" rdfs:comment="Only for subtype file, named pipe, link, directory, block device, character device, unix socket, or posix message queue, root filesystem location's semantic"/>
+    <rdfs:Property rdf:ID="inode" rdfs:comment="Only for subtype file, named pipe, link, directory, block device, character device, unix socket, or posix message queue, inode in the local filesystem's semantic"/>
+    <rdfs:Property rdf:ID="permissions" rdfs:comment="Only for subtype file, link, directory, block device, character device, named pipe, or unix socket, filesystem access mode's semantic"/>
+    <rdfs:Property rdf:ID="version" rdfs:comment="Only for subtype file, link, directory, block device, character device, named pipe, unnamed pipe, memory, unix socket, or unknown, how many times it has been written's semantic"/>
+    <rdfs:Property rdf:ID="epoch" rdfs:comment="Only for subtype file, link, directory, block device, character device, named pipe, unnamed pipe, unix socket, network socket, or unknown, how many times an artifact has been created at specified path's semantic"/>
+    <rdfs:Property rdf:ID="fd" rdfs:comment="Only for subtype unknown, descriptor used to access file's semantic"/>
+    <rdfs:Property rdf:ID="readFd" rdfs:comment="Only for subtype unnamed pipe, descriptor used to read pipe's semantic"/>
+    <rdfs:Property rdf:ID="writeFd" rdfs:comment="Only for subtype unnamed pipe, descriptor used to write pipe's semantic"/>
+    <rdfs:Property rdf:ID="fd0" rdfs:comment="Only for subtypes unix socket pair and network socket pair, descriptor used to access connected socket pair's semantic"/>
+    <rdfs:Property rdf:ID="fd1" rdfs:comment="Only for subtypes unix socket pair and network socket pair, descriptor used to access connected socket pair's semantic"/>
+    <rdfs:Property rdf:ID="localAddress" rdfs:comment="Only for subtype network socket, host from which connection originates's semantic"/>
+    <rdfs:Property rdf:ID="localPort" rdfs:comment="Only for subtype network socket, connection port used at originating host's semantic"/>
+    <rdfs:Property rdf:ID="remoteAddress" rdfs:comment="Only for subtype network socket, host at which connection terminates's semantic"/>
+    <rdfs:Property rdf:ID="remotePort" rdfs:comment="Only for subtype network socket, connection port used at terminating host's semantic"/>
+    <rdfs:Property rdf:ID="protocol" rdfs:comment="Can be one of: udp or tcp, only for subtype network socket, connection protocol used's semantic"/>
+    <rdfs:Property rdf:ID="id" rdfs:comment="Only for subtypes system v message queue, and system v shared memory, System V resource identifier's semantic"/>
+    <rdfs:Property rdf:ID="ownerUid" rdfs:comment="Only for subtypes system v message queue, and system v shared memory, user identifier for owner of System V resource's semantic"/>
+    <rdfs:Property rdf:ID="ownerGid" rdfs:comment="Only for subtypes system v message queue, and system v shared memory, group identifier for owner of System V resource's semantic"/>
+    <rdfs:Property rdf:ID="operation" rdfs:comment="Describes the type of operation performed (create, open, read, write, etc.)'s semantic"/>
+    <rdfs:Property rdf:ID="flags" rdfs:comment="Status or creation flags used with operations's semantic"/>
+    <rdfs:Property rdf:ID="request" rdfs:comment="Only for operation 'ptrace', specifies the request type's semantic"/>
+    <rdfs:Property rdf:ID="signal" rdfs:comment="Only for operation 'kill', signal sent's semantic"/>
+    <rdfs:Property rdf:ID="eventId" rdfs:comment="If 'source' is 'syscall', underlying event's identifier's semantic"/>
+    <rdfs:Property rdf:ID="mode" rdfs:comment="Permissions applied to file's semantic"/>
+    <rdfs:Property rdf:ID="protection" rdfs:comment="Only for operations 'mmap', and 'mprotect', permissions set for memory location's semantic"/>
+    <rdfs:Property rdf:ID="offset" rdfs:comment="Offset in the file's semantic"/>
+    <rdfs:Property rdf:ID="whence" rdfs:comment="Only for system call 'lseek', directive on how to use the 'offset' value's semantic"/>
+    <rdfs:Property rdf:ID="advice" rdfs:comment="Only for system call 'madvise', advice on memory use's semantic"/>
+    
+
 </rdf:RDF>
