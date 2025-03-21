@@ -1,4 +1,8 @@
-<rdf:RDF xml:base="http://spade.csl.sri.com/rdf/audit-tc.rdfs#">
+<?xml version="1.0"?>
+<rdf:RDF xmlns:rdf	=	"http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+xmlns:rdfs	=	"http://www.w3.org/2000/01/rdf-schema#"
+xml:base	=	"http://spade.csl.sri.com/rdf/audit-tc.rdfs#"
+>
     <rdfs:Property rdf:ID="entityType" rdfs:comment="can be one of: 'file' - for filesystem entities OR 'network' - for network flows OR 'pipe' for inter-process flow OR 'memory' - for memory addresses OR 'unknown'"/>
     <rdfs:Property rdf:ID="path" rdfs:comment="location in the local filesystem"/>
     <rdfs:Property rdf:ID="memoryAddress" rdfs:comment="location in memory"/>
