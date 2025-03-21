@@ -68,7 +68,7 @@ public class OPM2ProvTC extends OPM2ProvVertexEdge{
 			Map<String, String> annotationsCopy = incomingEdge.getCopyOfAnnotations();
 			convertAnnotationsInMap(annotationsCopy);
 			edgeCopy.addAnnotations(annotationsCopy);
-			super.putEdge(incomingEdge);
+			super.putEdge(edgeCopy);
 		}else{
 			super.putEdge(incomingEdge);
 		}
