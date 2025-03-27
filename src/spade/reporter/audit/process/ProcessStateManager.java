@@ -91,6 +91,10 @@ public abstract class ProcessStateManager{
 		return _getProcessState(pid).nsIpcId;
 	}
 
+	public String getCgroupNamespace(String pid){
+		return _getProcessState(pid).nsCgroupId;
+	}
+
 	public String getPidChildrenNamespace(String pid){
 		return _getProcessState(pid).nsPidChildrenId;
 	}
@@ -113,6 +117,9 @@ public abstract class ProcessStateManager{
 		}
 		if(!HelperFunctions.isNullOrEmpty(namespace.ipc)){
 			_getProcessState(pid).nsIpcId = namespace.ipc;
+		}
+		if(!HelperFunctions.isNullOrEmpty(namespace.cgroup)){
+			_getProcessState(pid).nsCgroupId = namespace.cgroup;
 		}
 	}
 	
@@ -274,6 +281,7 @@ class ProcessState{
 	String nsIpcId = "-1";
 	String nsNetId = "-1";
 	String nsPidChildrenId = "-1";
+	String nsCgroupId = "-1";
 	
 	String memoryTgid;
 	String fdTgid;

@@ -29,15 +29,16 @@ public class NamespaceIdentifier implements VertexIdentifier{
 
 	private static final long serialVersionUID = -2857253082117578023L;
 	
-	public final String mount, user, net, pid, pid_children, ipc;
+	public final String mount, user, net, pid, pid_children, ipc, cgroup;
 	
-	public NamespaceIdentifier(String mount, String user, String net, String pid, String pid_children, String ipc){
+	public NamespaceIdentifier(String mount, String user, String net, String pid, String pid_children, String ipc, String cgroup){
 		this.mount = mount;
 		this.user = user;
 		this.net = net;
 		this.pid = pid;
 		this.pid_children = pid_children;
 		this.ipc = ipc;
+		this.cgroup = cgroup;
 	}
 	
 	public Map<String, String> getAnnotationsMap(){
@@ -60,6 +61,9 @@ public class NamespaceIdentifier implements VertexIdentifier{
 		if(ipc != null){
 			map.put(OPMConstants.PROCESS_IPC_NAMESPACE, ipc);
 		}
+		if(cgroup != null){
+			map.put(OPMConstants.PROCESS_CGROUP_NAMESPACE, cgroup);
+		}
 		return map;
 	}
 
@@ -73,6 +77,7 @@ public class NamespaceIdentifier implements VertexIdentifier{
 		result = prime * result + ((user == null) ? 0 : user.hashCode());
 		result = prime * result + ((pid_children == null) ? 0 : pid_children.hashCode());
 		result = prime * result + ((ipc == null) ? 0 : ipc.hashCode());
+		result = prime * result + ((cgroup == null) ? 0 : cgroup.hashCode());
 		return result;
 	}
 
@@ -115,11 +120,16 @@ public class NamespaceIdentifier implements VertexIdentifier{
 				return false;
 		}else if(!ipc.equals(other.ipc))
 			return false;
+		if(cgroup == null){
+			if(other.cgroup != null)
+				return false;
+		}else if(!cgroup.equals(other.cgroup))
+			return false;
 		return true;
 	}
 
 	@Override
 	public String toString(){
-		return "NamespaceIdentifier [mount=" + mount + ", user=" + user + ", net=" + net + ", pid=" + pid + ", pid_children="+pid_children+", ipc=" + ipc + "]";
+		return "NamespaceIdentifier [mount=" + mount + ", user=" + user + ", net=" + net + ", pid=" + pid + ", pid_children="+pid_children+", ipc=" + ipc + ", cgroup=" + cgroup + "]";
 	}
 }

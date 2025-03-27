@@ -144,6 +144,7 @@ public class AuditEventReader{
 			NS_INUM_PID_FOR_CHILDREN = "ns_inum_pid_children",
 			NS_INUM_USER = "ns_inum_usr",
 			NS_INUM_IPC = "ns_inum_ipc",
+			NS_INUM_CGROUP = "ns_inum_cgroup",
 			NF_SUBTYPE_KEY = "nf_subtype",
 			NF_SUBTYPE_VALUE = "nf_netfilter",
 			NF_HOOK_KEY = "nf_hook",

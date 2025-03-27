@@ -380,9 +380,9 @@ public abstract class ProcessManager extends ProcessStateManager{
 	protected NamespaceIdentifier buildNamespaceIdentifierForPid(String pid){
 		if(namespaces){
 			return new NamespaceIdentifier(getMountNamespace(pid), getUsrNamespace(pid), 
-					getNetNamespace(pid), getPidNamespace(pid), getPidChildrenNamespace(pid), getIpcNamespace(pid));
+					getNetNamespace(pid), getPidNamespace(pid), getPidChildrenNamespace(pid), getIpcNamespace(pid), getCgroupNamespace(pid));
 		}else{
-			return new NamespaceIdentifier(null, null, null, null, null, null);
+			return new NamespaceIdentifier(null, null, null, null, null, null, null);
 		}
 	}
 	
@@ -506,9 +506,10 @@ public abstract class ProcessManager extends ProcessStateManager{
 					eventData.get(AuditEventReader.NS_INUM_NET),
 					eventData.get(AuditEventReader.NS_INUM_PID),
 					eventData.get(AuditEventReader.NS_INUM_PID_FOR_CHILDREN),
-					eventData.get(AuditEventReader.NS_INUM_IPC));
+					eventData.get(AuditEventReader.NS_INUM_IPC),
+					eventData.get(AuditEventReader.NS_INUM_CGROUP));
 		}else{
-			return new NamespaceIdentifier(null, null, null, null, null, null);
+			return new NamespaceIdentifier(null, null, null, null, null, null, null);
 		}
 	}
 	

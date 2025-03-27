@@ -84,6 +84,7 @@ public class OPMConstants {
 			PROCESS_NET_NAMESPACE = "net namespace",
 			PROCESS_PID_NAMESPACE = "pid namespace",
 			PROCESS_IPC_NAMESPACE = "ipc namespace",
+			PROCESS_CGROUP_NAMESPACE = "cgroup namespace",
 			PROCESS_PID_CHILDREN_NAMESPACE = "children pid namespace",
 			
 			// Artifact specific annotations

@@ -78,6 +78,7 @@ static struct proc_ns_operations *struct_pidns_operations;
 static struct proc_ns_operations *struct_netns_operations;
 static struct proc_ns_operations *struct_userns_operations;
 static struct proc_ns_operations *struct_ipcns_operations;
+static struct proc_ns_operations *struct_cgroupns_operations;
 
 static unsigned long syscall_table_address = 0;
 
@@ -175,7 +176,8 @@ static int get_hex_saddr_from_fd_getname(char* result, int max_result_size, int 
 
 static int load_namespace_symbols(void);
 static long get_ns_inum(struct task_struct *struct_task_struct, const struct proc_ns_operations *proc_ns_operations);
-static void log_namespace_audit_msg(const int syscall, const char* msg_type, const long ns_pid, const long host_pid, const long inum_mnt, const long inum_net, const long inum_pid, const long inum_pid_children, const long inum_usr, const long inum_ipc);
+static void log_namespace_audit_msg(const int syscall, const char* msg_type, const long ns_pid, const long host_pid, const long inum_mnt, const long inum_net, const long inum_pid, const long inum_pid_children, const long inum_usr, const long inum_ipc,
+const long inum_cgroup);
 static void log_namespaces_task(const int syscall, const char* msg_type, struct task_struct *struct_task_struct, const long ns_pid, const long host_pid);
 static void log_namespaces_pid(const int syscall, const char* msg_type, const long pid);
 static void log_namespaces_info(const int syscall, const char* msg_type, const long pid, const int success);
@@ -517,6 +519,7 @@ static void log_namespaces_task(const int syscall, const char* msg_type, struct 
 	long inum_net;
 	long inum_user;
 	long inum_ipc;
+	long inum_cgroup;
 	struct pid_namespace * struct_nspid;
 
 	inum_mnt = -1;
@@ -543,17 +546,18 @@ static void log_namespaces_task(const int syscall, const char* msg_type, struct 
 	//inum_pid_children = get_ns_inum(struct_task_struct, struct_pidns_operations);
 	inum_user = get_ns_inum(struct_task_struct, struct_userns_operations);
 	inum_ipc = get_ns_inum(struct_task_struct, struct_ipcns_operations);
+	inum_cgroup = get_ns_inum(struct_task_struct, struct_cgroupns_operations);
 
-	log_namespace_audit_msg(syscall, msg_type, ns_pid, host_pid, inum_mnt, inum_net, inum_pid, inum_pid_children, inum_user, inum_ipc);
+	log_namespace_audit_msg(syscall, msg_type, ns_pid, host_pid, inum_mnt, inum_net, inum_pid, inum_pid_children, inum_user, inum_ipc, inum_cgroup);
 }
 
 static void log_namespace_audit_msg(const int syscall, const char* msg_type, const long ns_pid, const long host_pid,
-		const long inum_mnt, const long inum_net, const long inum_pid, const long inum_pid_children, const long inum_usr, const long inum_ipc){
+		const long inum_mnt, const long inum_net, const long inum_pid, const long inum_pid_children, const long inum_usr, const long inum_ipc, const long inum_cgroup){
 	audit_log(current->audit_context,
 					GFP_KERNEL, AUDIT_USER,
-					"ns_syscall=%d ns_subtype=ns_namespaces ns_operation=ns_%s ns_ns_pid=%ld ns_host_pid=%ld ns_inum_mnt=%ld ns_inum_net=%ld ns_inum_pid=%ld ns_inum_pid_children=%ld ns_inum_usr=%ld ns_inum_ipc=%ld",
+					"ns_syscall=%d ns_subtype=ns_namespaces ns_operation=ns_%s ns_ns_pid=%ld ns_host_pid=%ld ns_inum_mnt=%ld ns_inum_net=%ld ns_inum_pid=%ld ns_inum_pid_children=%ld ns_inum_usr=%ld ns_inum_ipc=%ld ns_inum_cgroup=%ld",
 					syscall, msg_type, ns_pid, host_pid,
-					inum_mnt, inum_net, inum_pid, inum_pid_children, inum_usr, inum_ipc);
+					inum_mnt, inum_net, inum_pid, inum_pid_children, inum_usr, inum_ipc, inum_cgroup);
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
@@ -1217,6 +1221,13 @@ static int load_namespace_symbols(){
 		return 0;
 	}
 	struct_ipcns_operations = (struct proc_ns_operations*)symbol_address;
+
+	symbol_address = kallsyms_lookup_name("cgroupns_operations");
+	if(symbol_address == 0){
+		printk(KERN_EMERG "[%s] cgroup namespace inaccessible\n", MAIN_MODULE_NAME);
+		return 0;
+	}
+	struct_cgroupns_operations = (struct proc_ns_operations*)symbol_address;
 	return 1;
 }
 
