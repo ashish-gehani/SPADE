@@ -78,6 +78,38 @@ public class HostInfo{
 		}
 	}
 
+	/*
+	 * Return the output of 'uname -m'
+	 * 
+	 * @return The non-null machine hardware name
+	 * @throws Exception
+	 */
+	public static String getMachineHardwareName() throws Exception{
+		String command = "uname -m";
+		Execute.Output output = Execute.getOutput(command);
+		if(output.hasError()){
+			throw new Exception("'uname' error: " + output.getStdErr());
+		}else{
+			List<String> stdOutLines = output.getStdOut();
+			if(stdOutLines.isEmpty()){
+				throw new Exception("Unexpected 'uname' output: Empty");
+			}else{
+				return stdOutLines.get(0);
+			}
+		}
+	}
+
+	/*
+	 * Check if ARM
+	 * 
+	 * @return True
+	 * @throws Exception
+	 */
+	public static boolean isARMMachine() throws Exception{
+		final String m = getMachineHardwareName();
+		return m.startsWith("aarch") || m.startsWith("arm");
+	}
+
 	/**
 	 * Class to read host information from the underlying operating system.
 	 * Currently only for Ubuntu 14.04.
