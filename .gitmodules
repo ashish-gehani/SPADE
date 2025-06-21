@@ -1,0 +1,3 @@
+[submodule "src/spade/reporter/audit/bpf/ameba"]
+	path = src/spade/reporter/audit/bpf/ameba
+	url = https://github.com/hassaanirshad/ameba.git
