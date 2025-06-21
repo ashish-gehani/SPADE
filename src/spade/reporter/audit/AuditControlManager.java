@@ -21,34 +21,77 @@ package spade.reporter.audit;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.HashSet;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+import spade.core.Settings;
 import spade.reporter.audit.ProcessUserSyscallFilter.SystemCallRuleType;
 import spade.reporter.audit.ProcessUserSyscallFilter.UserMode;
+import spade.utility.ArgumentFunctions;
 import spade.utility.Execute;
+import spade.utility.FileUtility;
+import spade.utility.HostInfo;
 
 public class AuditControlManager{
 
-	private static String constructSubRuleForFields(final String key, final String operator, final Set<String> values){
+	private final static String keySyscallsNotOnARM = "syscallsNotOnARM";
+
+	private final boolean isARM;
+	private final Set<String> syscallsNotOnARM;
+
+	public AuditControlManager() throws Exception{
+		this.isARM = HostInfo.isARMMachine();
+
+		final String configFilePath = Settings.getDefaultConfigFilePath(this.getClass());
+		final Map<String, String> configMap = new HashMap<String, String>();
+		try{
+			configMap.putAll(FileUtility.readConfigFileAsKeyValueMap(configFilePath, "="));
+		}catch(Exception e){
+			throw new IllegalArgumentException("Failed to read config file: " + configFilePath, e);
+		}
+
+		this.syscallsNotOnARM = new HashSet<String>(ArgumentFunctions.mustParseCommaSeparatedValues(keySyscallsNotOnARM, configMap));
+	}
+
+	public final void shutdown(){
+		// Nothing to do
+	}
+
+	private String constructSubRuleForFields(final String key, final String operator, final Set<String> values){
 		final StringBuffer str = new StringBuffer();
 		for(final String value : values){
 			str.append("-F " + key + operator + value + " ");
 		}
 		return str.toString().trim();
 	}
-	
-	private static String constructSubRuleForSystemCalls(final String ... systemCalls){
+
+	private boolean disallowSyscallUse(final String syscall){
+
+		if (isARM == true){
+			if (syscallsNotOnARM.contains(syscall)){
+				return true;
+			}
+			return false;
+		}
+		return false;
+	}
+
+	private String constructSubRuleForSystemCalls(final String ... systemCalls){
 		final StringBuffer str = new StringBuffer();
 		for(final String systemCall : systemCalls){
+			if (disallowSyscallUse(systemCall))
+				continue;
 			str.append("-S " + systemCall + " ");
 		}
 		return str.toString().trim();
 	}
 
-	private static List<String> constructRules(
+	private List<String> constructRules(
 			final SystemCallRuleType systemCallRuleType, 
 			final String userId, final UserMode userMode,
 			final Set<String> pidsToIgnore, final Set<String> ppidsToIgnore,
@@ -191,7 +234,7 @@ public class AuditControlManager{
 		return rules;
 	}
 	
-	private static List<String> executeAuditctl(final String subcommand) throws Exception{
+	private List<String> executeAuditctl(final String subcommand) throws Exception{
 		final String command = "auditctl " + subcommand;
 		try{
 			final Execute.Output output = Execute.getOutput(command);
@@ -204,7 +247,7 @@ public class AuditControlManager{
 		}
 	}
 	
-	private static List<String> deleteAllRules() throws Exception{
+	private List<String> deleteAllRules() throws Exception{
 		try{
 			return executeAuditctl("-D");
 		}catch(Exception e){
@@ -212,7 +255,7 @@ public class AuditControlManager{
 		}
 	}
 	
-	private static List<String> deleteRule(final String subcommand) throws Exception{
+	private List<String> deleteRule(final String subcommand) throws Exception{
 		try{
 			return executeAuditctl("-d " + subcommand);
 		}catch(Exception e){
@@ -220,7 +263,7 @@ public class AuditControlManager{
 		}
 	}
 	
-	public static List<String> listAllRules() throws Exception{
+	public List<String> listAllRules() throws Exception{
 		try{
 			return executeAuditctl("-l");
 		}catch(Exception e){
@@ -228,7 +271,7 @@ public class AuditControlManager{
 		}
 	}
 
-	private static List<String> appendRule(final String subcommand) throws Exception{
+	private List<String> appendRule(final String subcommand) throws Exception{
 		try{
 			return executeAuditctl("-a " + subcommand);
 		}catch(Exception e){
@@ -236,7 +279,7 @@ public class AuditControlManager{
 		}
 	}
 	
-	public static void unset(final SystemCallRuleType systemCallRuleType) throws Exception{
+	public void unset(final SystemCallRuleType systemCallRuleType) throws Exception{
 		try{
 			if(systemCallRuleType == SystemCallRuleType.ALL || systemCallRuleType == SystemCallRuleType.DEFAULT){
 				deleteAllRules();
@@ -246,7 +289,7 @@ public class AuditControlManager{
 		}
 	}
 	
-	public static void set(
+	public void set(
 			final SystemCallRuleType systemCallRuleType, 
 			final String userId, final UserMode userMode,
 			final Set<String> pidsToIgnore, final Set<String> ppidsToIgnore,

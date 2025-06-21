@@ -113,6 +113,8 @@ public class Audit extends AbstractReporter {
 	private ArtifactConfiguration artifactConfiguration = null;
 	
 	private AuditConfiguration auditConfiguration;
+
+	private AuditControlManager auditControlManager;
 	
 	private KernelModuleConfiguration kernelModuleConfiguration;
 	
@@ -209,7 +211,7 @@ public class Audit extends AbstractReporter {
 			if(input != null && processUserSyscallFilter != null){
 				if(input.isLiveMode()){
 					try{
-						AuditControlManager.unset(processUserSyscallFilter.getSystemCallRuleType());
+						auditControlManager.unset(processUserSyscallFilter.getSystemCallRuleType());
 					}catch(Exception e){
 						logger.log(Level.WARNING, "Failed to do Linux audit rules cleanup", e);
 					}
@@ -265,7 +267,10 @@ public class Audit extends AbstractReporter {
 			}
 			if(netfilterHooksManager != null){
 				netfilterHooksManager.shutdown();
-			}	
+			}
+			if(auditControlManager != null){
+				auditControlManager.shutdown();
+			}
 		}
 	}
 
@@ -350,6 +355,13 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.INFO, kernelModuleConfiguration.toString());
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to initialize kernel module configuration", e);
+			return false;
+		}
+
+		try{
+			auditControlManager = new AuditControlManager();
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to initialize audit control manager", e);
 			return false;
 		}
 
@@ -503,7 +515,7 @@ public class Audit extends AbstractReporter {
 				}
 				
 				try{
-					AuditControlManager.set(processUserSyscallFilter.getSystemCallRuleType(),
+					auditControlManager.set(processUserSyscallFilter.getSystemCallRuleType(),
 							processUserSyscallFilter.getUserId(), processUserSyscallFilter.getUserMode(),
 							processUserSyscallFilter.getPidsOfProcessesToIgnore(), processUserSyscallFilter.getPpidsOfProcessesToIgnore(),
 							excludeProctitle, 
