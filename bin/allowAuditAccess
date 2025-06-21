@@ -5,6 +5,7 @@
 ###
 
 spadeAuditBridgePath="bin/spadeAuditBridge"
+amebaPath="src/spade/reporter/audit/bpf/ameba/bin/ameba"
 
 ###
 # RESOLVE PLATFORM
@@ -32,4 +33,6 @@ sudo chmod ug+s `which iptables`
 sudo chmod ug+s `which kmod`
 sudo chown root "${spadeAuditBridgePath}"
 sudo chmod ug+s "${spadeAuditBridgePath}"
+sudo chown root "${amebaPath}"
+sudo chmod ug+s "${amebaPath}"
 sudo sed -i "s/active = no/active = yes/" "$af_unix_path"
