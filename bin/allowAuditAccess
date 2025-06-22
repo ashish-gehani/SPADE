@@ -5,7 +5,7 @@
 ###
 
 spadeAuditBridgePath="bin/spadeAuditBridge"
-amebaPath="src/spade/reporter/audit/bpf/ameba/bin/ameba"
+amebaPath="bin/ameba"
 
 ###
 # RESOLVE PLATFORM
