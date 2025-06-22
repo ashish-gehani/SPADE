@@ -9,6 +9,8 @@ JAVAC_OPTIONS =$(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none
 ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@
 ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
 AUDIT_KERNEL_MODULES_MAKEFILE = src/spade/reporter/audit/kernel-modules/Makefile
+AUDIT_BPF_AMEBA_DIR = src/spade/reporter/audit/bpf/ameba
+AUDIT_BPF_AMEBA_INSTALL_DIR = $(shell realpath ./bin)
 
 #
 # In Ubuntu, when you install llvm headers, it puts llvm and llvm-c inside version folder.
@@ -140,7 +142,7 @@ lib/spade.jar: build-java $$(OS_BUILD)
 	$(JAR) cvf lib/spade.jar -C build .
 
 # Build the LinuxAudit reporter.
-build-linuxaudit: build/spade/reporter/Audit.class bin/spadeAuditBridge audit-kernel-module
+build-linuxaudit: build/spade/reporter/Audit.class bin/spadeAuditBridge audit-kernel-module audit-bpf-ameba
 	@echo '-----> IMPORTANT: To use the LinuxAudit reporter, please run the following commands to allow SPADE access to the audit stream:'
 	@echo '----->        	sudo chown root bin/spadeAuditBridge'
 	@echo '----->        	sudo chmod ug+s bin/spadeAuditBridge'
@@ -167,6 +169,9 @@ audit-kernel-module:
 	else \
 		echo 'Skipped kernel modules. OS Kernel not supported'; \
 	fi
+audit-bpf-ameba:
+	$(MAKE) --no-print-directory -C $(AUDIT_BPF_AMEBA_DIR) -f Makefile all
+	$(MAKE) --no-print-directory -C $(AUDIT_BPF_AMEBA_DIR) -f Makefile install INSTALL_DIR=$(AUDIT_BPF_AMEBA_INSTALL_DIR)
 
 # Build the LinuxFUSE reporter.
 build-linuxfuse: src/spade/reporter/spade_reporter_LinuxFUSE.h lib/libLinuxFUSE.so
@@ -280,6 +285,7 @@ clean:
 	@rm -rf log
 	@rm -rf tmp
 	@$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE) clean
+	@$(MAKE) --no-print-directory -C $(AUDIT_BPF_AMEBA_DIR) -f Makefile clean
  
 DESTDIR = @prefix@
 install:
