@@ -182,6 +182,21 @@ public class ArgumentFunctions{
 			throw new Exception("Not a valid host name for key '" + key + "'");
 		}
 	}
+
+	public static int mustParsePort(final String key, final Map<String, String> map) throws Exception{
+		if(map == null){
+			throw new Exception("NULL map to get the value from for key '" + key + "'");
+		}
+		final String value = map.get(key);
+		if(value == null || value.trim().isEmpty()){
+			throw new Exception("NULL/Empty value for key '" + key + "'"); 
+		}
+		int port = mustParseInteger(key, map);
+		if (port < 1 || port > 65535) {
+			throw new Exception("Value for key '" + key + "' not in range: (1:65535)"); 
+		}
+		return port;
+	}
 	
 	public static String mustParseClass(final String key, final Map<String, String> map) throws Exception{
 		if(map == null){
