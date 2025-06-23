@@ -28,12 +28,14 @@ import spade.utility.FileUtility;
 public class AmebaConfig {
 
     private final static String
+        KEY_VERBOSE = "verbose",
         KEY_AMEBA_LOG_PATH = "ameba_log_path",
         KEY_AMEBA_BIN_PATH = "ameba_bin_path",
         KEY_OUTPUT_FILE_PATH = "output_file_path",
         KEY_OUTPUT_IP = "output_ip",
         KEY_OUTPUT_PORT = "output_port";
 
+    private boolean verbose;
     private String amebaLogPath;
     private String amebaBinPath;
     private String outputFilePath;
@@ -56,11 +58,16 @@ public class AmebaConfig {
         final String strOutputIP = configMap.get(AmebaConfig.KEY_OUTPUT_IP);
         final String strOutputPort = configMap.get(AmebaConfig.KEY_OUTPUT_PORT);
 
-        FileUtility.pathMustBeAWritableFile(strAmebaLogPath);
-        this.amebaLogPath = strAmebaLogPath;
+        this.verbose = ArgumentFunctions.mustParseBoolean(AmebaConfig.KEY_VERBOSE, configMap);
 
         FileUtility.pathMustBeAReadableExecutableFile(strAmebaBinPath);
         this.amebaBinPath = strAmebaBinPath;
+
+        // Optional
+        if (strAmebaLogPath != null) {
+            FileUtility.pathMustBeAWritableFile(strAmebaLogPath);
+        }
+        this.amebaLogPath = strAmebaLogPath;
 
         if (
             (strOutputIP == null && strOutputPort != null) || 
@@ -84,6 +91,14 @@ public class AmebaConfig {
             this.outputPort = ArgumentFunctions.mustParsePort(AmebaConfig.KEY_OUTPUT_PORT, configMap);
             this.outputType = AmebaOutputType.NET;
         }
+    }
+
+    public boolean isVerbose() {
+        return verbose;
+    }
+
+    public void setVerbose(final boolean verbose) {
+        this.verbose = verbose;
     }
 
     public String getAmebaLogPath() {

@@ -30,7 +30,7 @@ import spade.utility.HelperFunctions;
 
 public class AmebaProcessTest {
 
-    public static void main(String[] prog_args) throws Exception {
+    private static AmebaProcess createProcess() throws Exception {
         final String []args = new String[]{
             "namespaces=true"
             , "netIO=true"
@@ -51,8 +51,13 @@ public class AmebaProcessTest {
 
 		AuditConfiguration auditConfiguration = AuditConfiguration.instance(map, isLiveMode);
 
-        final boolean verbose = false;
-        AmebaProcess ap = new AmebaProcess(auditConfiguration, processUserSyscallFilter, verbose);
+        AmebaProcess ap = new AmebaProcess(auditConfiguration, processUserSyscallFilter);
+
+        return ap;
+    }
+
+    public static void main(String[] prog_args) throws Exception {
+        AmebaProcess ap = createProcess();
 
         System.out.println("Ameba arguments: " + ap.getAmebaArguments().buildArgumentString());
 

@@ -44,8 +44,6 @@ public class AmebaProcess {
 
 	private final Logger logger = Logger.getLogger(AmebaProcess.class.getName());
 
-	private final boolean verbose;
-
     private final AmebaConfig config;
     private final AmebaArguments args;
 
@@ -53,12 +51,10 @@ public class AmebaProcess {
 
 	public AmebaProcess(
 		final AuditConfiguration auditConfig,
-        final ProcessUserSyscallFilter processUserSyscallFilter,
-		final boolean verbose
+        final ProcessUserSyscallFilter processUserSyscallFilter
 	) throws Exception{
         this.config = new AmebaConfig(Settings.getDefaultConfigFilePath(this.getClass()));
 		this.args = new AmebaArguments();
-		this.verbose = verbose;
 
 		this.args.setOutputFilePath(this.config.getOutputFilePath());
         this.args.setOutputIP(this.config.getOutputIP());
@@ -122,7 +118,7 @@ public class AmebaProcess {
         try {
             String line;
             while ((line = reader.readLine()) != null) {
-				if (verbose) {
+				if (this.config.isVerbose()) {
 					logger.info(prefix + " " + line);
 					continue;
 				}
@@ -226,7 +222,7 @@ public class AmebaProcess {
 					throw new RuntimeException("Process stopped unexpectedly");
 				}
 
-				if (verbose) {
+				if (this.config.isVerbose()) {
 					logger.log(Level.INFO, amebaLogMsg.toString());
 				}
 
