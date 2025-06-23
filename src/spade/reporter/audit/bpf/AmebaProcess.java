@@ -44,6 +44,8 @@ public class AmebaProcess {
 
 	private final Logger logger = Logger.getLogger(AmebaProcess.class.getName());
 
+	private final boolean verbose;
+
     private final AmebaConfig config;
     private final AmebaArguments args;
 
@@ -51,10 +53,12 @@ public class AmebaProcess {
 
 	public AmebaProcess(
 		final AuditConfiguration auditConfig,
-        final ProcessUserSyscallFilter processUserSyscallFilter
+        final ProcessUserSyscallFilter processUserSyscallFilter,
+		final boolean verbose
 	) throws Exception{
         this.config = new AmebaConfig(Settings.getDefaultConfigFilePath(this.getClass()));
 		this.args = new AmebaArguments();
+		this.verbose = verbose;
 
 		this.args.setOutputFilePath(this.config.getOutputFilePath());
         this.args.setOutputIP(this.config.getOutputIP());
@@ -118,7 +122,36 @@ public class AmebaProcess {
         try {
             String line;
             while ((line = reader.readLine()) != null) {
-                logger.info(prefix + " " + line);
+				if (verbose) {
+					logger.info(prefix + " " + line);
+					continue;
+				}
+
+				// If not verbose then log only select messages.
+
+				JSONObject jsonObj = null;
+				try {
+					jsonObj = new JSONObject(line);
+				} catch (Exception e) {
+					logger.log(Level.WARNING, "Expected JSON output but got: " + line, e);
+					continue;
+				}
+
+				AmebaLogMsg amebaLogMsg = null;
+				try {
+					amebaLogMsg = AmebaLogMsg.fromJson(jsonObj);
+				} catch (Exception e) {
+					logger.log(Level.WARNING, "Expected structured log msg but got: " + line, e);
+					continue;
+				}
+
+				AmebaAppState appState = amebaLogMsg.getState();
+				if (
+					appState == AmebaAppState.APP_STATE_OPERATIONAL_WITH_ERROR ||
+					appState == AmebaAppState.APP_STATE_STOPPED_WITH_ERROR
+				) {
+                	logger.info(prefix + " " + line);
+				}
             }
         } catch (IOException e) {
             logger.log(Level.WARNING, prefix + " stream closed or errored out.", e);
@@ -193,6 +226,10 @@ public class AmebaProcess {
 					throw new RuntimeException("Process stopped unexpectedly");
 				}
 
+				if (verbose) {
+					logger.log(Level.INFO, amebaLogMsg.toString());
+				}
+
 				if (appState == AmebaAppState.APP_STATE_OPERATIONAL_PID) {
 					try {
 						int pid = amebaLogMsg.getPid();
@@ -202,7 +239,6 @@ public class AmebaProcess {
 						throw new RuntimeException("Failed to get pid from: " + amebaLogMsg.toString(), e);
 					}
 				} else {
-					logger.log(Level.INFO, amebaLogMsg.toString());
 					continue;
 				}
 			}
