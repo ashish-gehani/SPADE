@@ -30,28 +30,68 @@ import spade.utility.HelperFunctions;
 
 public class AmebaProcessTest {
 
-    private static AmebaProcess createProcess() throws Exception {
-        final String []args = new String[]{
+    private static AuditConfiguration createAuditConfiguration(
+        final Map<String, String> auditConfigMap, final boolean isLiveMode
+    ) throws Exception {
+        final String []argsArray = new String[]{
             "namespaces=true"
             , "netIO=true"
             , "user=audited_user"
         };
 
-        final String arguments = String.join(" ", args);
-        final Map<String, String> map = new HashMap<String, String>();
+        final String argsStr = String.join(" ", argsArray);
 
-        final String defaultConfigFilePath = 
-            Settings.getDefaultConfigFilePath(spade.reporter.Audit.class);
-        map.putAll(HelperFunctions.parseKeyValuePairsFrom(arguments, new String[]{defaultConfigFilePath}));
+        auditConfigMap.putAll(
+            HelperFunctions.parseKeyValuePairsFrom(
+                argsStr, new String[]{
+                    Settings.getDefaultConfigFilePath(
+                        spade.reporter.Audit.class
+                    )
+                }
+            )
+        );
+    
+        final AuditConfiguration auditConfiguration = AuditConfiguration.instance(auditConfigMap, isLiveMode);
 
+        return auditConfiguration;
+    }
+
+    private static AmebaConfig createAmebaConfig() throws Exception {
+        final AmebaConfig amebaConfig = new AmebaConfig(
+            HelperFunctions.parseKeyValuePairsFrom(
+                "", new String[]{
+                    Settings.getDefaultConfigFilePath(
+                        spade.reporter.audit.bpf.AmebaConfig.class
+                    )
+                }
+            )
+        );
+        return amebaConfig;
+    }
+
+    private static ProcessUserSyscallFilter createProcessUserSyscallFilter(
+        final Map<String, String> auditConfigMap, final boolean isLiveMode
+    ) throws Exception {
+        final ProcessUserSyscallFilter processUserSyscallFilter = ProcessUserSyscallFilter.instance(
+            auditConfigMap, "spadeAuditBridge", isLiveMode
+        );
+        return processUserSyscallFilter;
+    }
+
+    private static AmebaProcess createProcess() throws Exception {
         final boolean isLiveMode = true;
+        final AmebaConfig amebaConfig = createAmebaConfig();
+        final Map<String, String> auditConfigMapToPopulate = new HashMap<String, String>();
+        final AuditConfiguration auditConfig = createAuditConfiguration(auditConfigMapToPopulate, isLiveMode);
+        final Map<String, String> auditConfigMapPopulated = auditConfigMapToPopulate;
+        final ProcessUserSyscallFilter processUserSyscallFilter = createProcessUserSyscallFilter(
+            auditConfigMapPopulated, isLiveMode
+        );
+        final AmebaArguments amebaArguments = AmebaArguments.createAmebaArguments(
+            auditConfig, processUserSyscallFilter, amebaConfig
+        );
 
-        ProcessUserSyscallFilter processUserSyscallFilter = 
-            ProcessUserSyscallFilter.instance(map, "spadeAuditBridge", isLiveMode);
-
-		AuditConfiguration auditConfiguration = AuditConfiguration.instance(map, isLiveMode);
-
-        AmebaProcess ap = new AmebaProcess(auditConfiguration, processUserSyscallFilter);
+        final AmebaProcess ap = new AmebaProcess(amebaArguments, amebaConfig);
 
         return ap;
     }
@@ -61,12 +101,20 @@ public class AmebaProcessTest {
 
         System.out.println("Ameba arguments: " + ap.getAmebaArguments().buildArgumentString());
 
+        System.out.println("Ameba starting");
+
         ap.start();
+
+        System.out.println("Ameba started");
 
         System.out.println("Ameba pid: " + ap.getPid());
 
         Thread.sleep(5*1000);
 
+        System.out.println("Ameba stopping");
+
         ap.stop();
+
+        System.out.println("Ameba stopped");
     }
 }
