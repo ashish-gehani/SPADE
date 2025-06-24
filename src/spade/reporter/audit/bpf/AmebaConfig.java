@@ -19,7 +19,6 @@
  */
 package spade.reporter.audit.bpf;
 
-import java.util.HashMap;
 import java.util.Map;
 
 import spade.utility.ArgumentFunctions;
@@ -41,17 +40,9 @@ public class AmebaConfig {
     private String outputFilePath;
     private String outputIP;
     private Integer outputPort;
-
     private AmebaOutputType outputType;
 
-    public AmebaConfig(final String configFilePath) throws Exception{
-		final Map<String, String> configMap = new HashMap<String, String>();
-		try{
-			configMap.putAll(FileUtility.readConfigFileAsKeyValueMap(configFilePath, "="));
-		}catch(Exception e){
-			throw new IllegalArgumentException("Failed to read config file: " + configFilePath, e);
-		}
-
+    public AmebaConfig(final Map<String, String> configMap) throws Exception {
         final String strAmebaLogPath = configMap.get(AmebaConfig.KEY_AMEBA_LOG_PATH);
         final String strAmebaBinPath = configMap.get(AmebaConfig.KEY_AMEBA_BIN_PATH);
         final String strOutputFilePath = configMap.get(AmebaConfig.KEY_OUTPUT_FILE_PATH);
@@ -97,56 +88,27 @@ public class AmebaConfig {
         return verbose;
     }
 
-    public void setVerbose(final boolean verbose) {
-        this.verbose = verbose;
-    }
-
     public String getAmebaLogPath() {
         return amebaLogPath;
-    }
-
-    public void setAmebaLogPath(final String amebaLogPath) {
-        this.amebaLogPath = amebaLogPath;
     }
 
     public String getAmebaBinPath() {
         return amebaBinPath;
     }
 
-    public void setAmebaBinPath(final String amebaBinPath) {
-        this.amebaBinPath = amebaBinPath;
-    }
-
     public String getOutputFilePath() {
         return outputFilePath;
-    }
-
-    public void setOutputFilePath(String outputFilePath) {
-        this.outputFilePath = outputFilePath;
     }
 
     public String getOutputIP() {
         return outputIP;
     }
 
-    public void setOutputIP(String outputIP) {
-        this.outputIP = outputIP;
-    }
-
     public Integer getOutputPort() {
         return outputPort;
-    }
-
-    public void setOutputPort(Integer outputPort) {
-        this.outputPort = outputPort;
     }
 
     public AmebaOutputType getOutputType() {
         return this.outputType;
     }
-
-    public void setOutputType(AmebaOutputType outputType) {
-        this.outputType = outputType;
-    }
-
 }
