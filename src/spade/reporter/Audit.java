@@ -68,6 +68,9 @@ import spade.reporter.audit.artifact.UnknownIdentifier;
 import spade.reporter.audit.artifact.UnnamedNetworkSocketPairIdentifier;
 import spade.reporter.audit.artifact.UnnamedPipeIdentifier;
 import spade.reporter.audit.artifact.UnnamedUnixSocketPairIdentifier;
+import spade.reporter.audit.bpf.AmebaArguments;
+import spade.reporter.audit.bpf.AmebaConfig;
+import spade.reporter.audit.bpf.AmebaProcess;
 import spade.reporter.audit.process.FileDescriptor;
 import spade.reporter.audit.process.ProcessManager;
 import spade.reporter.audit.process.ProcessWithAgentManager;
@@ -129,6 +132,8 @@ public class Audit extends AbstractReporter {
 	private ProcessUserSyscallFilter processUserSyscallFilter;
 	
 	private SPADEAuditBridgeProcess spadeAuditBridgeProcess;
+
+	private AmebaProcess amebaProcess;
 	
 	private AuditEventReader auditEventReader;
 	// A flag to block on shutdown call if buffers are being emptied and events are still being read
@@ -250,6 +255,11 @@ public class Audit extends AbstractReporter {
 					spadeAuditBridgeProcess.stop(forceStopSPADEAuditBridge);
 				}catch(Exception e){
 					logger.log(Level.WARNING, "Failed to SPADE audit bridge process cleanup", e);
+				}
+			}
+			if (amebaProcess != null) {
+				if (!amebaProcess.stop()) {
+					logger.log(Level.WARNING, "Failed to stop AMEBA process");
 				}
 			}
 			if(auditEventReader != null){
@@ -440,6 +450,24 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Failed to start SPADE audit bridge process", e);
 			return false;
 		}
+
+		try {
+			final AmebaConfig amebaConfig = AmebaConfig.create();
+			final AmebaArguments amebaArguments = AmebaArguments.create(
+				auditConfiguration, processUserSyscallFilter, amebaConfig
+			);
+			this.amebaProcess = AmebaProcess.create(
+				input.isLiveMode(),
+				amebaConfig,
+				amebaArguments,
+				auditConfiguration,
+				processUserSyscallFilter
+			);
+			this.amebaProcess.start();
+		} catch (Exception e) {
+			logger.log(Level.SEVERE, "Failed to start AMEBA process", e);
+			return false;
+		}
 		
 		try{
 			this.auditEventReader = new AuditEventReader(input.getSPADEAuditBridgeName(), spadeAuditBridgeProcess.getStdOutStream());
@@ -609,6 +637,12 @@ public class Audit extends AbstractReporter {
 				spadeAuditBridgeProcess.stop(forceStop);
 			}catch(Exception e){
 				logger.log(Level.WARNING, "Failed to stop SPADE audit bridge process", e);
+			}
+		}
+
+		if (amebaProcess != null) {
+			if (!amebaProcess.stop()) {
+				logger.log(Level.WARNING, "Failed to stop AMEBA process");
 			}
 		}
 

@@ -21,8 +21,10 @@ package spade.reporter.audit.bpf;
 
 import java.util.Map;
 
+import spade.core.Settings;
 import spade.utility.ArgumentFunctions;
 import spade.utility.FileUtility;
+import spade.utility.HelperFunctions;
 
 public class AmebaConfig {
 
@@ -110,5 +112,18 @@ public class AmebaConfig {
 
     public AmebaOutputType getOutputType() {
         return this.outputType;
+    }
+
+    public static AmebaConfig create() throws Exception {
+        final AmebaConfig amebaConfig = new AmebaConfig(
+            HelperFunctions.parseKeyValuePairsFrom(
+                "", new String[]{
+                    Settings.getDefaultConfigFilePath(
+                        spade.reporter.audit.bpf.AmebaConfig.class
+                    )
+                }
+            )
+        );
+        return amebaConfig;
     }
 }

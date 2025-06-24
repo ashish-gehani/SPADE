@@ -185,7 +185,7 @@ public class AmebaArguments {
             .toArray();
     }
 
-    public static AmebaArguments createAmebaArguments(
+    public static AmebaArguments create(
         final AuditConfiguration auditConfiguration,
         final ProcessUserSyscallFilter processUserSyscallFilter,
         final AmebaConfig amebaConfig

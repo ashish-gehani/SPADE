@@ -23,6 +23,8 @@ package spade.reporter.audit.bpf;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -34,6 +36,8 @@ import java.util.logging.SimpleFormatter;
 
 import org.json.JSONObject;
 
+import spade.reporter.audit.AuditConfiguration;
+import spade.reporter.audit.ProcessUserSyscallFilter;
 import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 
@@ -298,4 +302,15 @@ public class AmebaProcess {
 		private int pid;
 		private ExecutorService streamReadersService;
 	}
+
+	public static AmebaProcess create(
+		final boolean isLiveMode,
+		final AmebaConfig amebaConfig,
+		final AmebaArguments amebaArguments,
+		final AuditConfiguration auditConfig,
+		final ProcessUserSyscallFilter processUserSyscallFilter
+	) throws Exception {
+        final AmebaProcess ap = new AmebaProcess(amebaArguments, amebaConfig);
+        return ap;
+    }
 }

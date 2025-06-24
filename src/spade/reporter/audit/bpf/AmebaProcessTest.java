@@ -56,19 +56,6 @@ public class AmebaProcessTest {
         return auditConfiguration;
     }
 
-    private static AmebaConfig createAmebaConfig() throws Exception {
-        final AmebaConfig amebaConfig = new AmebaConfig(
-            HelperFunctions.parseKeyValuePairsFrom(
-                "", new String[]{
-                    Settings.getDefaultConfigFilePath(
-                        spade.reporter.audit.bpf.AmebaConfig.class
-                    )
-                }
-            )
-        );
-        return amebaConfig;
-    }
-
     private static ProcessUserSyscallFilter createProcessUserSyscallFilter(
         final Map<String, String> auditConfigMap, final boolean isLiveMode
     ) throws Exception {
@@ -80,19 +67,18 @@ public class AmebaProcessTest {
 
     private static AmebaProcess createProcess() throws Exception {
         final boolean isLiveMode = true;
-        final AmebaConfig amebaConfig = createAmebaConfig();
+        final AmebaConfig amebaConfig = AmebaConfig.create();
         final Map<String, String> auditConfigMapToPopulate = new HashMap<String, String>();
         final AuditConfiguration auditConfig = createAuditConfiguration(auditConfigMapToPopulate, isLiveMode);
         final Map<String, String> auditConfigMapPopulated = auditConfigMapToPopulate;
         final ProcessUserSyscallFilter processUserSyscallFilter = createProcessUserSyscallFilter(
             auditConfigMapPopulated, isLiveMode
         );
-        final AmebaArguments amebaArguments = AmebaArguments.createAmebaArguments(
-            auditConfig, processUserSyscallFilter, amebaConfig
+        final AmebaArguments amebaArguments = AmebaArguments.create(auditConfig, processUserSyscallFilter, amebaConfig);
+
+        final AmebaProcess ap = AmebaProcess.create(
+            isLiveMode, amebaConfig, amebaArguments, auditConfig, processUserSyscallFilter
         );
-
-        final AmebaProcess ap = new AmebaProcess(amebaArguments, amebaConfig);
-
         return ap;
     }
 
