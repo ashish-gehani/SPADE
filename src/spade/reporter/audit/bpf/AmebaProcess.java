@@ -23,20 +23,17 @@ package spade.reporter.audit.bpf;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
 import java.util.logging.Level;
+import java.util.logging.FileHandler;
+import java.util.logging.SimpleFormatter;
 
 import org.json.JSONObject;
 
-import spade.core.Settings;
-import spade.reporter.audit.AuditConfiguration;
-import spade.reporter.audit.ProcessUserSyscallFilter;
-import spade.reporter.audit.ProcessUserSyscallFilter.UserMode;
 import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 
@@ -44,30 +41,34 @@ public class AmebaProcess {
 
 	private final Logger logger = Logger.getLogger(AmebaProcess.class.getName());
 
-    private final AmebaConfig config;
     private final AmebaArguments args;
+
+	private final AmebaConfig config;
 
 	private final ProcessState state = new ProcessState();
 
 	public AmebaProcess(
-		final AuditConfiguration auditConfig,
-        final ProcessUserSyscallFilter processUserSyscallFilter
-	) throws Exception{
-        this.config = new AmebaConfig(Settings.getDefaultConfigFilePath(this.getClass()));
-		this.args = new AmebaArguments();
+		final AmebaArguments args,
+		final AmebaConfig config
+	) throws Exception {
+        this.args = args;
+		this.config = config;
+		initLogger();
+	}
 
-		this.args.setOutputFilePath(this.config.getOutputFilePath());
-        this.args.setOutputIP(this.config.getOutputIP());
-        this.args.setOutputPort(this.config.getOutputPort());
-        this.args.setOutputType(this.config.getOutputType());
-        this.args.setGlobalMode(AmebaMode.CAPTURE);
-        this.args.setNetioMode(auditConfig.isNetIO() ? AmebaMode.CAPTURE : AmebaMode.IGNORE);
-        this.args.setPidMode(AmebaMode.IGNORE);
-        this.args.setPidList(processUserSyscallFilter.getPidsOfProcessesToIgnore().stream().mapToInt(Integer::parseInt).toArray());
-        this.args.setPpidMode(AmebaMode.IGNORE);
-        this.args.setPpidList(processUserSyscallFilter.getPpidsOfProcessesToIgnore().stream().mapToInt(Integer::parseInt).toArray());
-        this.args.setUidMode(processUserSyscallFilter.getUserMode() == UserMode.CAPTURE ? AmebaMode.CAPTURE : AmebaMode.IGNORE);
-        this.args.setUidList(Set.of(processUserSyscallFilter.getUserId()).stream().mapToInt(Integer::parseInt).toArray());
+	private void initLogger() {
+		if (config.getAmebaLogPath() != null) {
+			try {
+				final boolean append = false;
+				final boolean useParentHandlers = false;
+				final FileHandler fileHandler = new FileHandler(config.getAmebaLogPath(), append);
+				fileHandler.setFormatter(new SimpleFormatter());
+				logger.addHandler(fileHandler);
+				logger.setUseParentHandlers(useParentHandlers);
+			} catch (Exception e) {
+				logger.warning("Failed to set up file for logger. Defaulting to main log. Error: " + e.getMessage());
+			}
+		}
 	}
 
 	public AmebaConfig getAmebaConfig() {
