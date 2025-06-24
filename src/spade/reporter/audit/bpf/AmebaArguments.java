@@ -19,13 +19,20 @@
  */
 package spade.reporter.audit.bpf;
 
-import java.util.List;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+
+import spade.reporter.audit.AuditConfiguration;
+import spade.reporter.audit.ProcessUserSyscallFilter;
+import spade.reporter.audit.ProcessUserSyscallFilter.UserMode;
 
 public class AmebaArguments {
 
-    private final static int MAX_ID_LIST_SIZE = 10;
-    public final static String 
+    private static final int MAX_ID_LIST_SIZE = 10;
+
+    public static final String
         ARG_NAME_GLOBAL_MODE = "--global-mode",
         ARG_NAME_PPID_MODE = "--ppid-mode",
         ARG_NAME_PID_MODE = "--pid-mode",
@@ -38,171 +45,129 @@ public class AmebaArguments {
         ARG_NAME_OUTPUT_IP = "--ip",
         ARG_NAME_OUTPUT_PORT = "--port";
 
+    private final AmebaMode globalMode;
+    private final AmebaMode ppidMode;
+    private final AmebaMode pidMode;
+    private final AmebaMode uidMode;
+    private final AmebaMode netioMode;
 
-    private AmebaMode
-        globalMode,
-        ppidMode,
-        pidMode,
-        uidMode,
-        netioMode;
+    private final int[] ppidList;
+    private final int[] pidList;
+    private final int[] uidList;
 
-    private int 
-        ppidList[] = new int[MAX_ID_LIST_SIZE],
-        pidList[] = new int[MAX_ID_LIST_SIZE],
-        uidList[] = new int[MAX_ID_LIST_SIZE];
+    private final String outputFilePath;
+    private final String outputIP;
+    private final int outputPort;
 
-    private String outputFilePath;
-    private String outputIP;
-    private int outputPort;
+    private final AmebaOutputType outputType;
 
-    private AmebaOutputType outputType;
-    
-    public AmebaMode getGlobalMode() {
-        return globalMode;
+    private AmebaArguments(Builder builder) {
+        this.globalMode = builder.globalMode;
+        this.ppidMode = builder.ppidMode;
+        this.pidMode = builder.pidMode;
+        this.uidMode = builder.uidMode;
+        this.netioMode = builder.netioMode;
+        this.ppidList = builder.ppidList;
+        this.pidList = builder.pidList;
+        this.uidList = builder.uidList;
+        this.outputFilePath = builder.outputFilePath;
+        this.outputIP = builder.outputIP;
+        this.outputPort = builder.outputPort;
+        this.outputType = builder.outputType;
     }
 
-    public void setGlobalMode(AmebaMode globalMode) {
-        this.globalMode = globalMode;
-    }
+    public static class Builder {
+        private AmebaMode globalMode;
+        private AmebaMode ppidMode;
+        private AmebaMode pidMode;
+        private AmebaMode uidMode;
+        private AmebaMode netioMode;
 
-    public AmebaMode getPpidMode() {
-        return ppidMode;
-    }
+        private int[] ppidList = new int[MAX_ID_LIST_SIZE];
+        private int[] pidList = new int[MAX_ID_LIST_SIZE];
+        private int[] uidList = new int[MAX_ID_LIST_SIZE];
 
-    public void setPpidMode(AmebaMode ppidMode) {
-        this.ppidMode = ppidMode;
-    }
+        private String outputFilePath;
+        private String outputIP;
+        private int outputPort;
 
-    public AmebaMode getPidMode() {
-        return pidMode;
-    }
+        private AmebaOutputType outputType;
 
-    public void setPidMode(AmebaMode pidMode) {
-        this.pidMode = pidMode;
-    }
+        public Builder setGlobalMode(AmebaMode mode) { this.globalMode = mode; return this; }
+        public Builder setPpidMode(AmebaMode mode) { this.ppidMode = mode; return this; }
+        public Builder setPidMode(AmebaMode mode) { this.pidMode = mode; return this; }
+        public Builder setUidMode(AmebaMode mode) { this.uidMode = mode; return this; }
+        public Builder setNetioMode(AmebaMode mode) { this.netioMode = mode; return this; }
 
-    public AmebaMode getUidMode() {
-        return uidMode;
-    }
+        public Builder setPpidList(int[] list) {
+            validateList(list, "PPID");
+            this.ppidList = Arrays.copyOf(list, MAX_ID_LIST_SIZE);
+            return this;
+        }
 
-    public void setUidMode(AmebaMode uidMode) {
-        this.uidMode = uidMode;
-    }
+        public Builder setPidList(int[] list) {
+            validateList(list, "PID");
+            this.pidList = Arrays.copyOf(list, MAX_ID_LIST_SIZE);
+            return this;
+        }
 
-    public AmebaMode getNetioMode() {
-        return netioMode;
-    }
+        public Builder setUidList(int[] list) {
+            validateList(list, "UID");
+            this.uidList = Arrays.copyOf(list, MAX_ID_LIST_SIZE);
+            return this;
+        }
 
-    public void setNetioMode(AmebaMode netioMode) {
-        this.netioMode = netioMode;
-    }
+        public Builder setOutputFilePath(String path) { this.outputFilePath = path; return this; }
+        public Builder setOutputIP(String ip) { this.outputIP = ip; return this; }
+        public Builder setOutputPort(int port) { this.outputPort = port; return this; }
+        public Builder setOutputType(AmebaOutputType type) { this.outputType = type; return this; }
 
-    // Getters and setters for list fields
-    public int[] getPpidList() {
-        return ppidList;
-    }
+        public AmebaArguments build() {
+            return new AmebaArguments(this);
+        }
 
-    public void setPpidList(int[] ppidList) {
-        if (ppidList.length <= MAX_ID_LIST_SIZE) {
-            System.arraycopy(ppidList, 0, this.ppidList, 0, ppidList.length);
-        } else {
-            throw new IllegalArgumentException("PPID list exceeds max size of " + MAX_ID_LIST_SIZE);
+        private void validateList(int[] list, String name) {
+            if (list.length > MAX_ID_LIST_SIZE)
+                throw new IllegalArgumentException(name + " list exceeds max size of " + MAX_ID_LIST_SIZE);
         }
     }
 
-    public int[] getPidList() {
-        return pidList;
-    }
-
-    public void setPidList(int[] pidList) {
-        if (pidList.length <= MAX_ID_LIST_SIZE) {
-            System.arraycopy(pidList, 0, this.pidList, 0, pidList.length);
-        } else {
-            throw new IllegalArgumentException("PID list exceeds max size of " + MAX_ID_LIST_SIZE);
-        }
-    }
-
-    public int[] getUidList() {
-        return uidList;
-    }
-
-    public void setUidList(int[] uidList) {
-        if (uidList.length <= MAX_ID_LIST_SIZE) {
-            System.arraycopy(uidList, 0, this.uidList, 0, uidList.length);
-        } else {
-            throw new IllegalArgumentException("UID list exceeds max size of " + MAX_ID_LIST_SIZE);
-        }
-    }
-
-    public String getOutputFilePath() {
-        return outputFilePath;
-    }
-
-    public void setOutputFilePath(String outputFilePath) {
-        this.outputFilePath = outputFilePath;
-    }
-
-    public String getOutputIP() {
-        return outputIP;
-    }
-
-    public void setOutputIP(String outputIP) {
-        this.outputIP = outputIP;
-    }
-
-    public int getOutputPort() {
-        return outputPort;
-    }
-
-    public void setOutputPort(int outputPort) {
-        this.outputPort = outputPort;
-    }
-
-    public AmebaOutputType getOutputType() {
-        return this.outputType;
-    }
-
-    public void setOutputType(AmebaOutputType outputType) {
-        this.outputType = outputType;
-    }
+    // Accessors
+    public AmebaMode getGlobalMode() { return globalMode; }
+    public AmebaMode getPpidMode() { return ppidMode; }
+    public AmebaMode getPidMode() { return pidMode; }
+    public AmebaMode getUidMode() { return uidMode; }
+    public AmebaMode getNetioMode() { return netioMode; }
+    public int[] getPpidList() { return ppidList; }
+    public int[] getPidList() { return pidList; }
+    public int[] getUidList() { return uidList; }
+    public String getOutputFilePath() { return outputFilePath; }
+    public String getOutputIP() { return outputIP; }
+    public int getOutputPort() { return outputPort; }
+    public AmebaOutputType getOutputType() { return outputType; }
 
     public List<String> buildArgumentArray() {
-        final List<String> args = new ArrayList<String>();
+        List<String> args = new ArrayList<>();
 
-        if (globalMode != null)
-            args.add(ARG_NAME_GLOBAL_MODE + "=" + globalMode.getValue());
-
-        if (ppidMode != null)
-            args.add(ARG_NAME_PPID_MODE + "=" + ppidMode.getValue());
-
-        if (pidMode != null)
-            args.add(ARG_NAME_PID_MODE + "=" + pidMode.getValue());
-
-        if (uidMode != null)
-            args.add(ARG_NAME_UID_MODE + "=" + uidMode.getValue());
-
-        if (netioMode != null)
-            args.add(ARG_NAME_NETIO_MODE + "=" + netioMode.getValue());
+        if (globalMode != null) args.add(ARG_NAME_GLOBAL_MODE + "=" + globalMode.getValue());
+        if (ppidMode != null) args.add(ARG_NAME_PPID_MODE + "=" + ppidMode.getValue());
+        if (pidMode != null) args.add(ARG_NAME_PID_MODE + "=" + pidMode.getValue());
+        if (uidMode != null) args.add(ARG_NAME_UID_MODE + "=" + uidMode.getValue());
+        if (netioMode != null) args.add(ARG_NAME_NETIO_MODE + "=" + netioMode.getValue());
 
         args.add(ARG_NAME_PPID_LIST + "=" + arrayToString(ppidList));
         args.add(ARG_NAME_PID_LIST + "=" + arrayToString(pidList));
         args.add(ARG_NAME_UID_LIST + "=" + arrayToString(uidList));
 
-        if (outputFilePath != null && !outputFilePath.isEmpty())
-            args.add(ARG_NAME_OUTPUT_FILE_PATH + "=" + outputFilePath);
-
-        if (outputIP != null && !outputIP.isEmpty())
-            args.add(ARG_NAME_OUTPUT_IP + "=" + outputIP);
-
-        if (outputPort > 0)
-            args.add(ARG_NAME_OUTPUT_PORT + "=" + outputPort);
+        if (outputFilePath != null && !outputFilePath.isEmpty()) args.add(ARG_NAME_OUTPUT_FILE_PATH + "=" + outputFilePath);
+        if (outputIP != null && !outputIP.isEmpty()) args.add(ARG_NAME_OUTPUT_IP + "=" + outputIP);
+        if (outputPort > 0) args.add(ARG_NAME_OUTPUT_PORT + "=" + outputPort);
 
         return args;
     }
 
     public String buildArgumentString() {
-        List<String> args = this.buildArgumentArray();
-        return String.join(" ", args);
+        return String.join(" ", buildArgumentArray());
     }
 
     private String arrayToString(int[] array) {
@@ -213,4 +178,34 @@ public class AmebaArguments {
         }
         return sb.toString();
     }
+
+    private static int[] convertSetToIntArray(Set<String> stringSet) {
+        return stringSet.stream()
+            .mapToInt(Integer::parseInt)
+            .toArray();
+    }
+
+    public static AmebaArguments createAmebaArguments(
+        final AuditConfiguration auditConfiguration,
+        final ProcessUserSyscallFilter processUserSyscallFilter,
+        final AmebaConfig amebaConfig
+    ) throws Exception {
+        final AmebaArguments amebaArgs = 
+            new AmebaArguments.Builder()
+            .setGlobalMode(AmebaMode.CAPTURE)
+            .setNetioMode(auditConfiguration.isNetIO() ? AmebaMode.CAPTURE : AmebaMode.IGNORE)
+            .setOutputFilePath(amebaConfig.getOutputFilePath())
+            .setOutputIP(amebaConfig.getOutputIP())
+            .setOutputPort(amebaConfig.getOutputPort())
+            .setOutputType(amebaConfig.getOutputType())
+            .setPidList(convertSetToIntArray(processUserSyscallFilter.getPidsOfProcessesToIgnore()))
+            .setPidMode(AmebaMode.IGNORE)
+            .setPpidList(convertSetToIntArray(processUserSyscallFilter.getPpidsOfProcessesToIgnore()))
+            .setPpidMode(AmebaMode.IGNORE)
+            .setUidList(convertSetToIntArray(Set.of(processUserSyscallFilter.getUserId())))
+            .setUidMode(processUserSyscallFilter.getUserMode() == UserMode.CAPTURE ? AmebaMode.CAPTURE : AmebaMode.IGNORE)
+            .build();
+        return amebaArgs;
+    }
 }
+
