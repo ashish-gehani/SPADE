@@ -42,6 +42,7 @@ public class AmebaToAuditRecordStreamTest {
             try {
                 record = stream.read();
             } catch (SocketException e) {
+                // Socket closed.
                 continue;
             }
             if (record == null)
