@@ -21,35 +21,37 @@ package spade.reporter.audit.bpf;
 
 import java.net.SocketException;
 
-public class AmebaEventReaderTest {
+import spade.reporter.audit.AuditRecord;
+
+public class AmebaToAuditRecordStreamTest {
 
     public static void main(String[] args) throws Exception {
-        final AmebaEventReader eventReader = AmebaEventReader.create(AmebaConfig.create());
+        final AmebaToAuditRecordStream stream = AmebaToAuditRecordStream.create(AmebaConfig.create());
 
         new Thread(() -> {
             try {
                 Thread.sleep(30_000);
-                eventReader.close();
+                stream.close();
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }).start();
 
         while (true) {
-            String eventStr;
+            AuditRecord record;
             try {
-                eventStr = eventReader.readEvent();
+                record = stream.read();
             } catch (SocketException e) {
                 continue;
             }
-            if (eventStr == null)
+            if (record == null)
                 break;
-            System.out.println(eventStr);
+            System.out.println(record);
         }
 
-        System.out.println("Buffer size: " + eventReader.getBufferCurrentSize());
+        System.out.println("Buffer size: " + stream.getBufferCurrentSize());
 
-        eventReader.close();
+        stream.close();
     }
 
 }

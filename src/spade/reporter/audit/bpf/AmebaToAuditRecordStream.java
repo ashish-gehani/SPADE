@@ -19,19 +19,21 @@
  */
 package spade.reporter.audit.bpf;
 
-public class AmebaEventReader {
+import spade.reporter.audit.AuditRecord;
+
+public class AmebaToAuditRecordStream {
     
     private final AmebaToAuditConverter converter;
 
     private final AmebaOutputBuffer buffer;
 
-    public AmebaEventReader(final AmebaToAuditConverter converter, final AmebaOutputBuffer buffer) {
+    public AmebaToAuditRecordStream(final AmebaToAuditConverter converter, final AmebaOutputBuffer buffer) {
         this.converter = converter;
         this.buffer = buffer;
     }
 
-    public String readEvent() throws Exception {
-        String convertedRecord = null;
+    public AuditRecord read() throws Exception {
+        AuditRecord convertedRecord = null;
         while (true) {
             final AmebaRecord record = this.buffer.poll();
             if (record == null) {
@@ -52,8 +54,8 @@ public class AmebaEventReader {
         this.buffer.close();
     }
 
-    public static AmebaEventReader create(final AmebaConfig config) throws Exception {
-        return new AmebaEventReader(
+    public static AmebaToAuditRecordStream create(final AmebaConfig config) throws Exception {
+        return new AmebaToAuditRecordStream(
             AmebaToAuditConverter.create(),
             AmebaOutputBuffer.create(config)
         );

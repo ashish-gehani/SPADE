@@ -26,6 +26,8 @@ import java.util.ArrayList;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import spade.reporter.audit.AuditRecord;
+
 public class AmebaToAuditConverter {
 
     private final AmebaConstants amebaConstants;
@@ -134,7 +136,7 @@ public class AmebaToAuditConverter {
         return allKeyValPairs;
     }
 
-    private String getSpadeRecordNamespace(AmebaRecord rAle, AmebaRecord rNamespace) throws Exception {
+    private AuditRecord getSpadeRecordNamespace(AmebaRecord rAle, AmebaRecord rNamespace) throws Exception {
         final List<String> keyValPairs = List.of(
             getAuditRecordTypeUser(),
             getAuditRecordMsg(rAle),
@@ -151,10 +153,11 @@ public class AmebaToAuditConverter {
             "ns_inum_ipc=" + rNamespace.getNsIpc()
         );
 
-        return String.join(" ", keyValPairs);
+        final String recordStr = String.join(" ", keyValPairs);
+        return new AuditRecord(recordStr);
     }
 
-    private String getSpadeRecordNetioIntercepted(
+    private AuditRecord getSpadeRecordNetioIntercepted(
         String taskCtxId,
         double time, long eventId,
         int syscall, int exitVal, int success, int fd, int pid,
@@ -187,10 +190,11 @@ public class AmebaToAuditConverter {
             getAuditRecordMsg(eventId, time),
             "netio_intercepted=\"" + String.join(" ", netioInterceptedKeyValPairs) + "\""
         );
-        return String.join(" ", keyValPairs);
+        final String recordStr = String.join(" ", keyValPairs);
+        return new AuditRecord(recordStr);
     }
 
-    private String getSpadeRecordBind(AmebaRecord rAle, AmebaRecord rBind) throws Exception {
+    private AuditRecord getSpadeRecordBind(AmebaRecord rAle, AmebaRecord rBind) throws Exception {
         return getSpadeRecordNetioIntercepted(
             rBind.getTaskCtxId(),
             rAle.getLASTime(), rAle.getLASEventId(),
@@ -204,7 +208,7 @@ public class AmebaToAuditConverter {
         );
     }
 
-    private String buildNetIORecord(AmebaRecord rAle, AmebaRecord rNet) throws Exception {
+    private AuditRecord buildNetIORecord(AmebaRecord rAle, AmebaRecord rNet) throws Exception {
         return getSpadeRecordNetioIntercepted(
             rNet.getTaskCtxId(),
             rAle.getLASTime(), rAle.getLASEventId(),
@@ -218,19 +222,19 @@ public class AmebaToAuditConverter {
         );
     }
 
-    private String getSpadeRecordSendRecv(AmebaRecord rAle, AmebaRecord rSR) throws Exception {
+    private AuditRecord getSpadeRecordSendRecv(AmebaRecord rAle, AmebaRecord rSR) throws Exception {
         return buildNetIORecord(rAle, rSR);
     }
 
-    private String getSpadeRecordConnect(AmebaRecord rAle, AmebaRecord rConn) throws Exception {
+    private AuditRecord getSpadeRecordConnect(AmebaRecord rAle, AmebaRecord rConn) throws Exception {
         return buildNetIORecord(rAle, rConn);
     }
 
-    private String getSpadeRecordAccept(AmebaRecord rAle, AmebaRecord rAcc) throws Exception {
+    private AuditRecord getSpadeRecordAccept(AmebaRecord rAle, AmebaRecord rAcc) throws Exception {
         return buildNetIORecord(rAle, rAcc);
     }
 
-    private String getSpadeRecordKill(AmebaRecord rAle, AmebaRecord rKill) throws Exception {
+    private AuditRecord getSpadeRecordKill(AmebaRecord rAle, AmebaRecord rKill) throws Exception {
         final List<String> ubsiKeyValPairs = new ArrayList<String>();
         ubsiKeyValPairs.addAll(
             List.of(
@@ -254,17 +258,18 @@ public class AmebaToAuditConverter {
             "ubsi_intercepted=\"" + String.join(" ", ubsiKeyValPairs) + "\""
         );
 
-        return String.join(" ", keyValPairs);
+        final String recordStr = String.join(" ", keyValPairs);
+        return new AuditRecord(recordStr);
     }
 
-    public String convert(final AmebaOutputBuffer buffer, final AmebaRecord r1) throws Exception {
+    public AuditRecord convert(final AmebaOutputBuffer buffer, final AmebaRecord r1) throws Exception {
         final int r1Type = r1.getRecordType();
         final String r1TaskCtxId = r1.getTaskCtxId();
 
         int r2Index = -1;
         AmebaRecord r2 = null;
 
-        String spadeRecord = null;
+        AuditRecord spadeRecord = null;
 
         if (r1Type == amebaConstants.recordType.AUDIT_LOG_EXIT) {
             int syscall = r1.getSyscallNumber();
