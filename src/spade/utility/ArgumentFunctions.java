@@ -72,6 +72,30 @@ public class ArgumentFunctions{
 		return result.result.intValue();
 	}
 
+	public static int mustParsePositiveInteger(final String key, final Map<String, String> map) throws Exception{
+		if(map == null){
+			throw new Exception("NULL map to get the value from for key '" + key + "'");
+		}
+		final String value = map.get(key);
+		final Result<Long> result = HelperFunctions.parseLong(value, 10, 1, Integer.MAX_VALUE);
+		if(result.error){
+			throw new Exception("Failed to parse integer value for key '" + key + "'. Error: " + result.toErrorString());
+		}
+		return result.result.intValue();
+	}
+
+	public static int mustParseNonNegativeInteger(final String key, final Map<String, String> map) throws Exception{
+		if(map == null){
+			throw new Exception("NULL map to get the value from for key '" + key + "'");
+		}
+		final String value = map.get(key);
+		final Result<Long> result = HelperFunctions.parseLong(value, 10, 0, Integer.MAX_VALUE);
+		if(result.error){
+			throw new Exception("Failed to parse integer value for key '" + key + "'. Error: " + result.toErrorString());
+		}
+		return result.result.intValue();
+	}
+
 	public static double mustParseDouble(final String key, final Map<String, String> map, final double min, final double max) throws Exception{
 		if(map == null){
 			throw new Exception("NULL map to get the value from for key '" + key + "'");
