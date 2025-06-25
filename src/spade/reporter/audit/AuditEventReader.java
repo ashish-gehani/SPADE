@@ -347,7 +347,7 @@ public class AuditEventReader{
 
 			if(currentEventIdString == null){
 				// First event
-				currentEventIdString = record.id;
+				currentEventIdString = record.getIdAsString();
 				currentEventRecords.add(record);
 				continue;
 			}
@@ -361,7 +361,7 @@ public class AuditEventReader{
 
 				currentEventRecords.clear();
 				currentEventRecords.add(record);
-				currentEventIdString = record.id;
+				currentEventIdString = record.getIdAsString();
 
 				return convertAuditRecordsToEventMap(auditRecordsToFlush);
 			}
@@ -399,7 +399,7 @@ public class AuditEventReader{
 	private final Map<String, String> parseDaemonStartRecord(final AuditRecord auditRecord) throws Exception{
 		final Map<String, String> auditRecordKeyValues = new HashMap<String, String>();
 		auditRecordKeyValues.put(TIME, auditRecord.time);
-		auditRecordKeyValues.put(EVENT_ID, auditRecord.id);
+		auditRecordKeyValues.put(EVENT_ID, auditRecord.getIdAsString());
 		auditRecordKeyValues.put(RECORD_TYPE_KEY, RECORD_TYPE_DAEMON_START);
 		return auditRecordKeyValues;
 	}
@@ -454,7 +454,7 @@ public class AuditEventReader{
 		auditRecordKeyValues.putAll(processMap);
 
 		auditRecordKeyValues.put(TIME, auditRecord.time);
-		auditRecordKeyValues.put(EVENT_ID, auditRecord.id);
+		auditRecordKeyValues.put(EVENT_ID, auditRecord.getIdAsString());
 		auditRecordKeyValues.put(RECORD_TYPE_KEY, auditRecord.type);
 
 		return auditRecordKeyValues;
@@ -472,7 +472,7 @@ public class AuditEventReader{
 		final Map<String, String> auditRecordKeyValues = HelperFunctions.parseKeyValPairs(netioInterceptedSubRecord);
 		auditRecordKeyValues.put(COMM, mustParseAuditString(netioInterceptedSubRecord, COMM));
 		auditRecordKeyValues.put(TIME, auditRecord.time);
-		auditRecordKeyValues.put(EVENT_ID, auditRecord.id);
+		auditRecordKeyValues.put(EVENT_ID, auditRecord.getIdAsString());
 		auditRecordKeyValues.put(RECORD_TYPE_KEY, KMODULE_RECORD_TYPE);
 		return auditRecordKeyValues;
 	}
@@ -489,7 +489,7 @@ public class AuditEventReader{
 		final Map<String, String> auditRecordKeyValues = HelperFunctions.parseKeyValPairs(ubsiInterceptedSubRecord);
 		auditRecordKeyValues.put(COMM, mustParseAuditString(ubsiInterceptedSubRecord, COMM));
 		auditRecordKeyValues.put(TIME, auditRecord.time);
-		auditRecordKeyValues.put(EVENT_ID, auditRecord.id);
+		auditRecordKeyValues.put(EVENT_ID, auditRecord.getIdAsString());
 		auditRecordKeyValues.put(RECORD_TYPE_KEY, RECORD_TYPE_SYSCALL);
 		return auditRecordKeyValues;
 	}
@@ -526,7 +526,7 @@ public class AuditEventReader{
 		final Map<String, String> auditRecordKeyValues = new HashMap<String, String>();
 		auditRecordKeyValues.putAll(dataMap);
 		auditRecordKeyValues.put(TIME, auditRecord.time);
-		auditRecordKeyValues.put(EVENT_ID, auditRecord.id);
+		auditRecordKeyValues.put(EVENT_ID, auditRecord.getIdAsString());
 		auditRecordKeyValues.put(RECORD_TYPE_KEY, RECORD_TYPE_NETFILTER_HOOK);
 		return auditRecordKeyValues;
 	}
@@ -541,7 +541,7 @@ public class AuditEventReader{
 		final Map<String, String> auditRecordKeyValues = HelperFunctions.parseKeyValPairs(auditRecord.data);
 		auditRecordKeyValues.put(COMM, mustParseAuditString(auditRecord.data, COMM));
 		auditRecordKeyValues.put(TIME, auditRecord.time);
-		auditRecordKeyValues.put(EVENT_ID, auditRecord.id);
+		auditRecordKeyValues.put(EVENT_ID, auditRecord.getIdAsString());
 		auditRecordKeyValues.put(RECORD_TYPE_KEY, RECORD_TYPE_SYSCALL);
 		return auditRecordKeyValues;
 	}

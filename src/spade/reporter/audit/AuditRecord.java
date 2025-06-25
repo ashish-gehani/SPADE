@@ -23,7 +23,7 @@ import org.apache.commons.lang.StringUtils;
 
 public class AuditRecord{
 
-	public final String id;
+	public final Long id;
 	public final String time;
 	public final String type;
 	public final String data;
@@ -36,15 +36,20 @@ public class AuditRecord{
 		if(this.type == null){
 			throw new MalformedAuditDataException("No 'type' in the audit record", auditRecord);
 		}
-		this.id = StringUtils.substringBetween(auditRecord, ":", "):");
-		if(this.id == null){
-			throw new MalformedAuditDataException("No event id in the audit record", auditRecord);
+		try {
+			this.id = Long.parseLong(StringUtils.substringBetween(auditRecord, ":", "):"));
+		} catch (Exception e) {
+			throw new MalformedAuditDataException("Not a valid event id in the audit record", auditRecord);
 		}
 		this.time = StringUtils.substringBetween(auditRecord, "(", ":");
 		if(this.time == null){
 			throw new MalformedAuditDataException("No event time in the audit record", auditRecord);
 		}
 		this.data = StringUtils.substringAfter(auditRecord, "):").trim();
+	}
+
+	public String getIdAsString() {
+		return String.valueOf(this.id);
 	}
 
 	@Override
