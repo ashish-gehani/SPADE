@@ -27,6 +27,7 @@ import java.util.concurrent.TimeoutException;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import spade.utility.BufferTtlState;
 import spade.utility.HelperFunctions;
 
 public class AmebaOutputBuffer {
@@ -35,50 +36,30 @@ public class AmebaOutputBuffer {
     private final int bufferSize;
     private final Queue<AmebaRecord> buffer = new LinkedList<>();
 
-    private final long bufferTtlMillis;
-
     private volatile boolean eof = false;
     private volatile boolean closed = false;
 
-    private volatile long lastBufferFlushMillis;
-    private volatile boolean bufferExpired = false;
+    private final BufferTtlState bufferTtlState;
 
     public AmebaOutputBuffer(AmebaOutputReader reader, int bufferSize, long bufferTtlMillis) {
         this.reader = reader;
         this.bufferSize = bufferSize;
-        this.bufferTtlMillis = bufferTtlMillis;
-
-        resetBufferTtlState();
-    }
-
-    private void resetBufferTtlState() {
-        this.lastBufferFlushMillis = System.currentTimeMillis();
-        this.bufferExpired = false;
-    }
-
-    private void checkAndUpdateBufferTtlState() {
-        if (System.currentTimeMillis() - this.lastBufferFlushMillis >= this.bufferTtlMillis) {
-            this.bufferExpired = true;
-        }
-    }
-
-    private boolean isBufferExpired() {
-        return this.bufferExpired;
+        this.bufferTtlState = new BufferTtlState(bufferTtlMillis);
     }
 
     public AmebaRecord poll() throws Exception {
         while (true) {
-            checkAndUpdateBufferTtlState();
+            this.bufferTtlState.initOrUpdate();
             // Empty the current buffer if closed or eof.
             // Get the element from buffer if buffer size exceeded.
             if (
-                isBufferExpired() ||
+                this.bufferTtlState.isExpired() ||
                 this.closed || this.eof || buffer.size() >= bufferSize
             ) {
                 final AmebaRecord ret = buffer.poll();
-                if (isBufferExpired() && ret == null) {
+                if (this.bufferTtlState.isExpired() && ret == null) {
                     // The buffer has been emptied.
-                    resetBufferTtlState();
+                    this.bufferTtlState.reset();
                     continue; // Go back to reading normally.
                 }
                 return ret;
