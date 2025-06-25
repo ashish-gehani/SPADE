@@ -34,7 +34,9 @@ public class AmebaConfig {
         KEY_AMEBA_BIN_PATH = "ameba_bin_path",
         KEY_OUTPUT_FILE_PATH = "output_file_path",
         KEY_OUTPUT_IP = "output_ip",
-        KEY_OUTPUT_PORT = "output_port";
+        KEY_OUTPUT_PORT = "output_port",
+        KEY_OUTPUT_READER_TIMEOUT_MILLIS = "output_reader_timeout_millis",
+        KEY_OUTPUT_BUFFER_SIZE = "output_buffer_size";
 
     private boolean verbose;
     private String amebaLogPath;
@@ -43,6 +45,8 @@ public class AmebaConfig {
     private String outputIP;
     private Integer outputPort;
     private AmebaOutputType outputType;
+    private int outputReaderTimeoutMillis;
+    private int outputBufferSize;
 
     public AmebaConfig(final Map<String, String> configMap) throws Exception {
         final String strAmebaLogPath = configMap.get(AmebaConfig.KEY_AMEBA_LOG_PATH);
@@ -55,6 +59,14 @@ public class AmebaConfig {
 
         FileUtility.pathMustBeAReadableExecutableFile(strAmebaBinPath);
         this.amebaBinPath = strAmebaBinPath;
+
+        this.outputReaderTimeoutMillis = ArgumentFunctions.mustParseNonNegativeInteger(
+            AmebaConfig.KEY_OUTPUT_READER_TIMEOUT_MILLIS, configMap
+        );
+
+        this.outputBufferSize = ArgumentFunctions.mustParsePositiveInteger(
+            AmebaConfig.KEY_OUTPUT_BUFFER_SIZE, configMap
+        );
 
         // Optional
         if (strAmebaLogPath != null) {
@@ -112,6 +124,14 @@ public class AmebaConfig {
 
     public AmebaOutputType getOutputType() {
         return this.outputType;
+    }
+
+    public int getOutputReaderTimeoutMillis() {
+        return this.outputReaderTimeoutMillis;
+    }
+
+    public int getOutputBufferSize() {
+        return this.outputBufferSize;
     }
 
     public static AmebaConfig create() throws Exception {
