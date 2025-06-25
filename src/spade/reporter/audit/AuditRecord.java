@@ -21,7 +21,7 @@ package spade.reporter.audit;
 
 import org.apache.commons.lang.StringUtils;
 
-public class AuditRecord{
+public class AuditRecord implements Comparable<AuditRecord> {
 
 	public final Long id;
 	public final String time;
@@ -98,5 +98,12 @@ public class AuditRecord{
 		}else if(!type.equals(other.type))
 			return false;
 		return true;
+	}
+
+	@Override
+	public int compareTo(AuditRecord other) {
+		if (other == null)
+			throw new RuntimeException("AuditRecord:compareTo:other cannot be null");
+		return Long.compare(this.id, other.id);
 	}
 }
