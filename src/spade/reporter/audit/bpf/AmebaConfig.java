@@ -28,6 +28,8 @@ import spade.utility.HelperFunctions;
 
 public class AmebaConfig {
 
+    private final static long MIN_BUFFER_TTL = 5000;
+
     private final static String
         KEY_VERBOSE = "verbose",
         KEY_AMEBA_LOG_PATH = "ameba_log_path",
@@ -36,7 +38,8 @@ public class AmebaConfig {
         KEY_OUTPUT_IP = "output_ip",
         KEY_OUTPUT_PORT = "output_port",
         KEY_OUTPUT_READER_TIMEOUT_MILLIS = "output_reader_timeout_millis",
-        KEY_OUTPUT_BUFFER_SIZE = "output_buffer_size";
+        KEY_OUTPUT_BUFFER_SIZE = "output_buffer_size",
+        KEY_OUTPUT_BUFFER_TTL = "output_buffer_ttl";
 
     private boolean verbose;
     private String amebaLogPath;
@@ -47,6 +50,7 @@ public class AmebaConfig {
     private AmebaOutputType outputType;
     private int outputReaderTimeoutMillis;
     private int outputBufferSize;
+    private long outputBufferTtl;
 
     public AmebaConfig(final Map<String, String> configMap) throws Exception {
         final String strAmebaLogPath = configMap.get(AmebaConfig.KEY_AMEBA_LOG_PATH);
@@ -66,6 +70,10 @@ public class AmebaConfig {
 
         this.outputBufferSize = ArgumentFunctions.mustParsePositiveInteger(
             AmebaConfig.KEY_OUTPUT_BUFFER_SIZE, configMap
+        );
+
+        this.outputBufferTtl = ArgumentFunctions.mustParseLong(
+            AmebaConfig.KEY_OUTPUT_BUFFER_TTL, configMap, MIN_BUFFER_TTL
         );
 
         // Optional
@@ -132,6 +140,10 @@ public class AmebaConfig {
 
     public int getOutputBufferSize() {
         return this.outputBufferSize;
+    }
+
+    public long getOutputBufferTtl() {
+        return this.outputBufferTtl;
     }
 
     public static AmebaConfig create() throws Exception {

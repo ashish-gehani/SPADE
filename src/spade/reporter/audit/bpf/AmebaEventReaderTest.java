@@ -28,7 +28,7 @@ public class AmebaEventReaderTest {
 
         new Thread(() -> {
             try {
-                Thread.sleep(10_000);
+                Thread.sleep(30_000);
                 eventReader.close();
             } catch (Exception e) {
                 e.printStackTrace();

@@ -129,6 +129,10 @@ public class ArgumentFunctions{
 		return mustParseLongRanged(key, map, Long.MIN_VALUE, Long.MAX_VALUE);
 	}
 
+	public static long mustParseLong(final String key, final Map<String, String> map, long minVal) throws Exception{
+		return mustParseLongRanged(key, map, minVal, Long.MAX_VALUE);
+	}
+
 	public static long mustBeGreaterThanZero(final String key, final Map<String, String> map) throws Exception{
 		return mustParseLongRanged(key, map, 1L, Long.MAX_VALUE);
 	}

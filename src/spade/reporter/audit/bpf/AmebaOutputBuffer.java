@@ -27,26 +27,61 @@ import java.util.concurrent.TimeoutException;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import spade.utility.HelperFunctions;
+
 public class AmebaOutputBuffer {
 
     private final AmebaOutputReader reader;
     private final int bufferSize;
     private final Queue<AmebaRecord> buffer = new LinkedList<>();
 
+    private final long bufferTtlMillis;
+
     private volatile boolean eof = false;
     private volatile boolean closed = false;
 
-    public AmebaOutputBuffer(AmebaOutputReader reader, int bufferSize) {
+    private volatile long lastBufferFlushMillis;
+    private volatile boolean bufferExpired = false;
+
+    public AmebaOutputBuffer(AmebaOutputReader reader, int bufferSize, long bufferTtlMillis) {
         this.reader = reader;
         this.bufferSize = bufferSize;
+        this.bufferTtlMillis = bufferTtlMillis;
+
+        resetBufferTtlState();
+    }
+
+    private void resetBufferTtlState() {
+        this.lastBufferFlushMillis = System.currentTimeMillis();
+        this.bufferExpired = false;
+    }
+
+    private void checkAndUpdateBufferTtlState() {
+        if (System.currentTimeMillis() - this.lastBufferFlushMillis >= this.bufferTtlMillis) {
+            this.bufferExpired = true;
+        }
+    }
+
+    private boolean isBufferExpired() {
+        return this.bufferExpired;
     }
 
     public AmebaRecord poll() throws Exception {
         while (true) {
+            checkAndUpdateBufferTtlState();
             // Empty the current buffer if closed or eof.
             // Get the element from buffer if buffer size exceeded.
-            if (this.closed || this.eof || buffer.size() >= bufferSize) {
-                return buffer.poll();
+            if (
+                isBufferExpired() ||
+                this.closed || this.eof || buffer.size() >= bufferSize
+            ) {
+                final AmebaRecord ret = buffer.poll();
+                if (isBufferExpired() && ret == null) {
+                    // The buffer has been emptied.
+                    resetBufferTtlState();
+                    continue; // Go back to reading normally.
+                }
+                return ret;
             }
 
             // Read buffer
@@ -54,6 +89,7 @@ public class AmebaOutputBuffer {
             try {
                 record = this.reader.read();
             } catch (TimeoutException e) {
+                HelperFunctions.sleepSafe(100);
                 // ignore and re-loop
                 continue;
             }
@@ -113,7 +149,8 @@ public class AmebaOutputBuffer {
     public static AmebaOutputBuffer create(final AmebaConfig config) throws Exception {
         return new AmebaOutputBuffer(
             AmebaOutputReader.create(config),
-            config.getOutputBufferSize()
+            config.getOutputBufferSize(),
+            config.getOutputBufferTtl()
         );
     }
 }
