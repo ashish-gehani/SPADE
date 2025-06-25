@@ -30,6 +30,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 
 import org.apache.commons.io.FileUtils;
@@ -729,4 +735,37 @@ public class FileUtility{
 			throw new Exception("Readable and executable file test failed for path", e);
 		}
 	}
+
+	/**
+	 * A helper function to read line with a timeout.
+	 * 
+	 * @param reader Buffered reader to read the line from
+	 * @param timeoutMillis time to wait for reading a line
+	 * @return String or null
+	 * @throws IOException
+	 */
+	public static String readLineWithTimeout(
+		final BufferedReader reader, final long timeoutMillis
+	) throws IOException, TimeoutException, InterruptedException {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+		Future<String> future = null;
+        try {
+            future = executor.submit(reader::readLine);
+            return future.get(timeoutMillis, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+			if (future != null)
+            	future.cancel(true);
+            throw e;
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IOException)
+				throw (IOException) cause;
+            throw new RuntimeException(cause);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw e;
+        } finally {
+            executor.shutdownNow();
+        }
+    }
 }
