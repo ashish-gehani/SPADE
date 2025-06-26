@@ -19,10 +19,7 @@
  */
 package spade.reporter.audit;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -191,7 +188,7 @@ public class AuditEventReader{
 	/**
 	 *	The stream to read from by this class
 	 */
-	private BufferedReader stream;
+	private MultiStreamAuditRecordReader stream;
 
 	private long rotateAfterRecordCount = 0;
 	private String outputLogFile = null;
@@ -211,7 +208,7 @@ public class AuditEventReader{
 	 * @param streamToReadFrom The stream to read from
 	 * @throws Exception IllegalArgumentException or IOException
 	 */
-	public AuditEventReader(String streamId, InputStream streamToReadFrom) throws Exception{
+	public AuditEventReader(String streamId, MultiStreamAuditRecordReader streamToReadFrom) throws Exception{
 		if(streamId == null){
 			throw new IllegalArgumentException("Stream ID cannot be NULL");
 		}
@@ -219,7 +216,7 @@ public class AuditEventReader{
 			throw new IllegalArgumentException("The stream to read from cannot be NULL");
 		}
 
-		stream = new BufferedReader(new InputStreamReader(streamToReadFrom));
+		stream = streamToReadFrom;
 
 		setGlobalsFromConfig();
 	}
@@ -314,6 +311,16 @@ public class AuditEventReader{
 		}
 	}
 
+	public final boolean isRecordSourceAmeba (final AuditRecord r) {
+		if (r == null)
+			return false;
+		if (r.data == null)
+			return false;
+		return r.data.contains(
+			" record_source=ameba "
+		);
+	}
+
 	public final Map<String, String> readEventData() throws Exception{
 		if(reportingEnabled){
 			long currentTime = System.currentTimeMillis();
@@ -325,19 +332,16 @@ public class AuditEventReader{
 		}
 
 		while(!EOF){
-			final String line = stream.readLine();
-			if(line == null){
+			final AuditRecord record = stream.read();
+			if(record == null){
 				EOF = true;
 				break;
 			}
-			writeToOutputLog(line);
+			writeToOutputLog(record.toRawForm());
 
 			if(reportingEnabled){
 				recordCount++;
 			}
-
-			// Can throw the malformed audit data exception
-			final AuditRecord record = new AuditRecord(line);
 
 			if(record.type.equals(RECORD_TYPE_EOE)
 					|| record.type.equals(RECORD_TYPE_PROCTITLE)
@@ -352,7 +356,7 @@ public class AuditEventReader{
 				continue;
 			}
 
-			if(currentEventIdString.equals(record.id)){
+			if(currentEventIdString.equals(record.getIdAsString())){
 				currentEventRecords.add(record);
 				continue;
 			}else{
@@ -386,7 +390,13 @@ public class AuditEventReader{
 			for(final AuditRecord auditRecord : auditRecords){
 				final Map<String, String> recordMap = parseAuditRecord(auditRecord);
 				if(recordMap != null){
-					eventMap.putAll(recordMap);
+					if (isRecordSourceAmeba(auditRecord)) {
+						eventMap.clear();
+						eventMap.putAll(recordMap);
+						break;
+					} else {
+						eventMap.putAll(recordMap);
+					}
 				}
 			}
 			return eventMap;

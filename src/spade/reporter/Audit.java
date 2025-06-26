@@ -19,6 +19,9 @@
  */
 package spade.reporter;
 
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -49,6 +52,7 @@ import spade.reporter.audit.KernelModuleManager;
 import spade.reporter.audit.LinuxConstants;
 import spade.reporter.audit.LinuxPathResolver;
 import spade.reporter.audit.MalformedAuditDataException;
+import spade.reporter.audit.MultiStreamAuditRecordReader;
 import spade.reporter.audit.NetfilterHooksManager;
 import spade.reporter.audit.OPMConstants;
 import spade.reporter.audit.OutputLog;
@@ -70,7 +74,9 @@ import spade.reporter.audit.artifact.UnnamedPipeIdentifier;
 import spade.reporter.audit.artifact.UnnamedUnixSocketPairIdentifier;
 import spade.reporter.audit.bpf.AmebaArguments;
 import spade.reporter.audit.bpf.AmebaConfig;
+import spade.reporter.audit.bpf.AmebaOutputType;
 import spade.reporter.audit.bpf.AmebaProcess;
+import spade.reporter.audit.bpf.AmebaToAuditRecordStream;
 import spade.reporter.audit.process.FileDescriptor;
 import spade.reporter.audit.process.ProcessManager;
 import spade.reporter.audit.process.ProcessWithAgentManager;
@@ -451,26 +457,62 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 
+		final AmebaConfig amebaConfig;
 		try {
-			final AmebaConfig amebaConfig = AmebaConfig.create();
-			final AmebaArguments amebaArguments = AmebaArguments.create(
-				auditConfiguration, processUserSyscallFilter, amebaConfig
-			);
-			this.amebaProcess = AmebaProcess.create(
-				input.isLiveMode(),
-				amebaConfig,
-				amebaArguments,
-				auditConfiguration,
-				processUserSyscallFilter
-			);
-			this.amebaProcess.start();
+			if (input.isLiveMode()){
+				amebaConfig = AmebaConfig.create(
+					String.join(
+						" ",
+						new String[] {
+							AmebaConfig.KEY_OUTPUT_TYPE + "=" + AmebaOutputType.NET.toString()
+						}
+					)
+				);
+			} else { // offline mode
+				amebaConfig = AmebaConfig.create(
+					String.join(
+						" ",
+						new String[] {
+							AmebaConfig.KEY_OUTPUT_TYPE + "=" + AmebaOutputType.FILE.toString()
+						}
+					)
+				);
+			}
 		} catch (Exception e) {
-			logger.log(Level.SEVERE, "Failed to start AMEBA process", e);
+			logger.log(Level.SEVERE, "Failed to create ameba config", e);
 			return false;
+		}
+
+		if (input.isLiveMode()) {
+			try {
+				final AmebaArguments amebaArguments = AmebaArguments.create(
+					auditConfiguration, processUserSyscallFilter, amebaConfig
+				);
+				this.amebaProcess = AmebaProcess.create(
+					input.isLiveMode(),
+					amebaConfig,
+					amebaArguments,
+					auditConfiguration,
+					processUserSyscallFilter
+				);
+				this.amebaProcess.start();
+			} catch (Exception e) {
+				logger.log(Level.SEVERE, "Failed to start ameba process", e);
+				return false;
+			}
 		}
 		
 		try{
-			this.auditEventReader = new AuditEventReader(input.getSPADEAuditBridgeName(), spadeAuditBridgeProcess.getStdOutStream());
+			final MultiStreamAuditRecordReader recordReader = MultiStreamAuditRecordReader.create(
+				AmebaToAuditRecordStream.create(amebaConfig),
+				new BufferedReader(
+					new InputStreamReader(
+						spadeAuditBridgeProcess.getStdOutStream()
+					)
+				)
+			);
+
+			this.auditEventReader = new AuditEventReader("audit+ameba", recordReader);
 			if(this.outputLog.isEnabled()){
 				this.auditEventReader.setOutputLog(this.outputLog.getOutputLogPath(), this.outputLog.getRotateLogAfterLines());
 			}
