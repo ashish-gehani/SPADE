@@ -38,6 +38,14 @@ public class AmebaToAuditConverter {
         this.amebaConstants = amebaConstants;
     }
 
+    private String getRecordSourceKeyVal () {
+        return "record_source=ameba";
+    }
+
+    private AuditRecord newAuditRecord (final String s) throws Exception {
+        return new AuditRecord(s);
+    }
+
     private void procInfosSet(AmebaRecord r) throws Exception {
         int rType = r.getRecordType();
         int pid = r.getPid();
@@ -140,6 +148,7 @@ public class AmebaToAuditConverter {
         final List<String> keyValPairs = List.of(
             getAuditRecordTypeUser(),
             getAuditRecordMsg(rAle),
+            getRecordSourceKeyVal(),
             "ns_syscall=" + rAle.getSyscallNumber(),
             "ns_subtype=ns_namespaces",
             getSysIdAsNsOperation(rNamespace),
@@ -154,7 +163,7 @@ public class AmebaToAuditConverter {
         );
 
         final String recordStr = String.join(" ", keyValPairs);
-        return new AuditRecord(recordStr);
+        return newAuditRecord(recordStr);
     }
 
     private AuditRecord getSpadeRecordNetioIntercepted(
@@ -188,10 +197,11 @@ public class AmebaToAuditConverter {
         final List<String> keyValPairs = List.of(
             getAuditRecordTypeUser(),
             getAuditRecordMsg(eventId, time),
+            getRecordSourceKeyVal(),
             "netio_intercepted=\"" + String.join(" ", netioInterceptedKeyValPairs) + "\""
         );
         final String recordStr = String.join(" ", keyValPairs);
-        return new AuditRecord(recordStr);
+        return newAuditRecord(recordStr);
     }
 
     private AuditRecord getSpadeRecordBind(AmebaRecord rAle, AmebaRecord rBind) throws Exception {
@@ -255,11 +265,12 @@ public class AmebaToAuditConverter {
         final List<String> keyValPairs = List.of(
             getAuditRecordTypeUser(),
             getAuditRecordMsg(rAle),
+            getRecordSourceKeyVal(),
             "ubsi_intercepted=\"" + String.join(" ", ubsiKeyValPairs) + "\""
         );
 
         final String recordStr = String.join(" ", keyValPairs);
-        return new AuditRecord(recordStr);
+        return newAuditRecord(recordStr);
     }
 
     public AuditRecord convert(final AmebaOutputBuffer buffer, final AmebaRecord r1) throws Exception {
