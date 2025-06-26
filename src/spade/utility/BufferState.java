@@ -26,7 +26,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /*
- * A class to implement the functionality in advisory mode:
+ * A class to implement the functionality in advisory mode (i.e. nothing is enforced):
  * 
  * 1. The buffer is full
  * 2. The buffer elements have been buffered for N milliseconds
@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit;
  *   ^           ^            ^           ^
  *   |           |            |           |
  * READY -> INITIALIZED -> EXPIRED -> FLUSHING
- *   ^____________________________________|
+ *   ^___________|____________|___________|
  * 
  */
 public class BufferState {

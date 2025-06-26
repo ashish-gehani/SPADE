@@ -62,6 +62,10 @@ public class AmebaOutputBuffer {
                 this.bufferState.initialize();
             }
             if (this.bufferState.isExpired()) {
+                if (buffer.isEmpty()) {
+                    this.bufferState.makeReady();
+                    continue;
+                }
                 this.bufferState.initializeFlushing(buffer.size());
             }
             if (this.bufferState.isFlushing()) {
