@@ -34,6 +34,7 @@ public class AmebaConfig {
         KEY_VERBOSE = "verbose",
         KEY_AMEBA_LOG_PATH = "ameba_log_path",
         KEY_AMEBA_BIN_PATH = "ameba_bin_path",
+        KEY_OUTPUT_TYPE = "output_type",
         KEY_OUTPUT_FILE_PATH = "output_file_path",
         KEY_OUTPUT_IP = "output_ip",
         KEY_OUTPUT_PORT = "output_port",
@@ -53,14 +54,9 @@ public class AmebaConfig {
     private long outputBufferTtl;
 
     public AmebaConfig(final Map<String, String> configMap) throws Exception {
-        final String strAmebaLogPath = configMap.get(AmebaConfig.KEY_AMEBA_LOG_PATH);
-        final String strAmebaBinPath = configMap.get(AmebaConfig.KEY_AMEBA_BIN_PATH);
-        final String strOutputFilePath = configMap.get(AmebaConfig.KEY_OUTPUT_FILE_PATH);
-        final String strOutputIP = configMap.get(AmebaConfig.KEY_OUTPUT_IP);
-        final String strOutputPort = configMap.get(AmebaConfig.KEY_OUTPUT_PORT);
-
         this.verbose = ArgumentFunctions.mustParseBoolean(AmebaConfig.KEY_VERBOSE, configMap);
 
+        final String strAmebaBinPath = configMap.get(AmebaConfig.KEY_AMEBA_BIN_PATH);
         FileUtility.pathMustBeAReadableExecutableFile(strAmebaBinPath);
         this.amebaBinPath = strAmebaBinPath;
 
@@ -76,34 +72,27 @@ public class AmebaConfig {
             AmebaConfig.KEY_OUTPUT_BUFFER_TTL, configMap, MIN_BUFFER_TTL
         );
 
+        this.outputType = ArgumentFunctions.mustParseEnum(
+            AmebaOutputType.class, AmebaConfig.KEY_OUTPUT_TYPE, configMap
+        );
+
+        if (this.outputType == AmebaOutputType.NET) {
+            this.outputIP = ArgumentFunctions.mustParseHost(AmebaConfig.KEY_OUTPUT_IP, configMap);
+            this.outputPort = ArgumentFunctions.mustParsePort(AmebaConfig.KEY_OUTPUT_PORT, configMap);
+        } else if (this.outputType == AmebaOutputType.FILE) {
+            final String strOutputFilePath = configMap.get(AmebaConfig.KEY_OUTPUT_FILE_PATH);
+            FileUtility.pathMustBeAWritableFile(strOutputFilePath);
+            this.outputFilePath = strOutputFilePath;
+        } else {
+            throw new Exception("Unexpected output type: " + this.outputType);
+        }
+
         // Optional
+        final String strAmebaLogPath = configMap.get(AmebaConfig.KEY_AMEBA_LOG_PATH);
         if (strAmebaLogPath != null) {
             FileUtility.pathMustBeAWritableFile(strAmebaLogPath);
         }
         this.amebaLogPath = strAmebaLogPath;
-
-        if (
-            (strOutputIP == null && strOutputPort != null) || 
-            strOutputIP != null && strOutputPort == null
-        ){
-            throw new Exception("Must specify either 1) Both IP and port, or 2) No IP and no port.");
-        }
-
-        if (strOutputFilePath != null && strOutputIP != null) {
-            throw new Exception("Must specify either 1) Both IP and port, or 2) File path.");
-        }
-
-        if (strOutputFilePath != null) {
-            FileUtility.pathMustBeAWritableFile(strOutputFilePath);
-            this.outputFilePath = strOutputFilePath;
-            this.outputType = AmebaOutputType.FILE;
-        }
-
-        if (strOutputIP != null) {
-            this.outputIP = ArgumentFunctions.mustParseHost(AmebaConfig.KEY_OUTPUT_IP, configMap);
-            this.outputPort = ArgumentFunctions.mustParsePort(AmebaConfig.KEY_OUTPUT_PORT, configMap);
-            this.outputType = AmebaOutputType.NET;
-        }
     }
 
     public boolean isVerbose() {
