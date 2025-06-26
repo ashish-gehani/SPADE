@@ -285,4 +285,21 @@ public class ArgumentFunctions{
 			throw new Exception("Not a valid Java DateTime pattern '" + dateTimePatternString + "'", e);
 		}
 	}
+
+	public static <T extends Enum<T>> T mustParseEnum(
+		final Class<T> enumClass, final String key, final Map<String, String> map
+	) throws Exception {
+		final String value = mustParseNonEmptyString(key, map);
+        if (value == null || enumClass == null) {
+            throw new IllegalArgumentException("Value or enumClass cannot be null");
+        }
+
+        for (T constant : enumClass.getEnumConstants()) {
+            if (constant.name().equalsIgnoreCase(value)) {
+                return constant;
+            }
+        }
+
+        throw new IllegalArgumentException("No enum constant " + enumClass.getName() + "." + value);
+	}
 }
