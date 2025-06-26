@@ -25,6 +25,22 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+/*
+ * A class to implement the functionality in advisory mode:
+ * 
+ * 1. The buffer is full
+ * 2. The buffer elements have been buffered for N milliseconds
+ * 3. Flush the last M buffered elements
+ * 
+ * It does so by maintaining states:
+ * 
+ *   -------------> SHUTDOWN <-------------
+ *   ^           ^            ^           ^
+ *   |           |            |           |
+ * READY -> INITIALIZED -> EXPIRED -> FLUSHING
+ *   ^____________________________________|
+ * 
+ */
 public class BufferState {
     
     private enum State {

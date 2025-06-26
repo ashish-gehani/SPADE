@@ -28,13 +28,11 @@ import java.util.concurrent.TimeoutException;
 import org.apache.commons.lang3.tuple.Pair;
 
 import spade.utility.BufferState;
-import spade.utility.BufferTtlState;
 import spade.utility.HelperFunctions;
 
 public class AmebaOutputBuffer {
 
     private final AmebaOutputReader reader;
-    private final int bufferSize;
     private final Queue<AmebaRecord> buffer = new LinkedList<>();
 
     private volatile boolean eof = false;
@@ -44,7 +42,6 @@ public class AmebaOutputBuffer {
 
     public AmebaOutputBuffer(AmebaOutputReader reader, int bufferSize, long bufferTtlMillis) {
         this.reader = reader;
-        this.bufferSize = bufferSize;
         this.bufferState = new BufferState(bufferSize, bufferTtlMillis);
     }
 
