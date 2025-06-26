@@ -27,6 +27,7 @@ import java.util.concurrent.TimeoutException;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import spade.utility.BufferState;
 import spade.utility.BufferTtlState;
 import spade.utility.HelperFunctions;
 
@@ -39,12 +40,12 @@ public class AmebaOutputBuffer {
     private volatile boolean eof = false;
     private volatile boolean closed = false;
 
-    private final BufferTtlState bufferTtlState;
+    private final BufferState bufferState;
 
     public AmebaOutputBuffer(AmebaOutputReader reader, int bufferSize, long bufferTtlMillis) {
         this.reader = reader;
         this.bufferSize = bufferSize;
-        this.bufferTtlState = new BufferTtlState(bufferTtlMillis);
+        this.bufferState = new BufferState(bufferSize, bufferTtlMillis);
     }
 
     /*
@@ -60,19 +61,26 @@ public class AmebaOutputBuffer {
      */
     public AmebaRecord poll() throws Exception {
         while (true) {
-            this.bufferTtlState.initOrUpdate();
-            // Empty the current buffer if closed or eof.
-            // Get the element from buffer if buffer size exceeded.
-            if (
-                this.bufferTtlState.isExpired() ||
-                this.closed || this.eof || buffer.size() >= bufferSize
-            ) {
+            if (this.bufferState.isReady()) {
+                this.bufferState.initialize();
+            }
+            if (this.bufferState.isExpired()) {
+                this.bufferState.initializeFlushing(buffer.size());
+            }
+            if (this.bufferState.isFlushing()) {
                 final AmebaRecord ret = buffer.poll();
-                if (this.bufferTtlState.isExpired() && ret == null) {
-                    // The buffer has been emptied.
-                    this.bufferTtlState.reset();
-                    continue; // Go back to reading normally.
+                this.bufferState.flushItem();
+                if (this.bufferState.isFlushed() || ret == null) {
+                    this.bufferState.makeReady();
                 }
+                if (ret == null) {
+                    continue;
+                }
+                return ret;
+            }
+
+            if (this.closed || this.eof || this.bufferState.isFull(buffer.size())) {
+                final AmebaRecord ret = buffer.poll();
                 return ret;
             }
 
@@ -135,6 +143,7 @@ public class AmebaOutputBuffer {
 
     public void close() throws Exception {
         this.closed = true;
+        this.bufferState.shutdown();
         this.reader.close();
     }
 
