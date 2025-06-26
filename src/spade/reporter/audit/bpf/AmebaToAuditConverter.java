@@ -39,7 +39,7 @@ public class AmebaToAuditConverter {
     }
 
     private String getRecordSourceKeyVal () {
-        return "record_source=ameba";
+        return this.amebaConstants.record_id_key + "=" + this.amebaConstants.record_id_val;
     }
 
     private AuditRecord newAuditRecord (final String s) throws Exception {

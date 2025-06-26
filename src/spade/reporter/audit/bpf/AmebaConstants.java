@@ -23,15 +23,26 @@ package spade.reporter.audit.bpf;
 import java.util.Map;
 
 import spade.core.Settings;
+import spade.utility.ArgumentFunctions;
 import spade.utility.HelperFunctions;
 
 public class AmebaConstants {
-    
+
+    private final static String 
+        KEY_RECORD_ID_KEY = "record_id_key",
+        KEY_RECORD_ID_VAL = "record_id_val";
+
+    public final String record_id_key;
+    public final String record_id_val;
+
     public final AmebaRecordType recordType;
     public final AmebaSysNum sysNum;
     public final AmebaSysId sysId;    
 
     public AmebaConstants(final Map<String, String> map) throws Exception {
+        this.record_id_key = ArgumentFunctions.mustParseNonEmptyString(KEY_RECORD_ID_KEY, map);
+        this.record_id_val = ArgumentFunctions.mustParseNonEmptyString(KEY_RECORD_ID_VAL, map);
+
         this.recordType = new AmebaRecordType(map);
         this.sysNum = new AmebaSysNum(map);
         this.sysId = new AmebaSysId(map);
