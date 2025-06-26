@@ -136,9 +136,14 @@ public class AmebaConfig {
     }
 
     public static AmebaConfig create() throws Exception {
+        return AmebaConfig.create("");
+    }
+
+    public static AmebaConfig create(final String arguments) throws Exception {
         final AmebaConfig amebaConfig = new AmebaConfig(
             HelperFunctions.parseKeyValuePairsFrom(
-                "", new String[]{
+                arguments,
+                new String[]{
                     Settings.getDefaultConfigFilePath(
                         spade.reporter.audit.bpf.AmebaConfig.class
                     )
