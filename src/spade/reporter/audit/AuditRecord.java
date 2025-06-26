@@ -57,6 +57,13 @@ public class AuditRecord implements Comparable<AuditRecord> {
 		return "AuditRecord [id=" + id + ", time=" + time + ", type=" + type + ", data=" + data + "]";
 	}
 
+	public String toRawForm() {
+		return String.format(
+			"type=%s msg=audit(%s:%s): %s",
+			type, time, id, data
+		);
+	}
+
 	@Override
 	public int hashCode(){
 		final int prime = 31;
