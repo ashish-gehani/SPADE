@@ -47,6 +47,17 @@ public class AmebaOutputBuffer {
         this.bufferTtlState = new BufferTtlState(bufferTtlMillis);
     }
 
+    /*
+     * Read from the underlying async stream.
+     *
+     * Fill buffer upto bufferSize.
+     *
+     * If buffer full then empty buffer until buffer not full.
+     *
+     * If closed or EOF then empty the buffer.
+     *
+     * If buffer ttl expired then empty the buffer completely. Reset buffer ttl. Go back to reading more.
+     */
     public AmebaRecord poll() throws Exception {
         while (true) {
             this.bufferTtlState.initOrUpdate();
