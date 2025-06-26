@@ -30,7 +30,7 @@ public class AmebaConfig {
 
     private final static long MIN_BUFFER_TTL = 5000;
 
-    private final static String
+    public final static String
         KEY_VERBOSE = "verbose",
         KEY_AMEBA_LOG_PATH = "ameba_log_path",
         KEY_AMEBA_BIN_PATH = "ameba_bin_path",
