@@ -31,6 +31,11 @@ public class SPADEAuditBridgeProcess{
 	private static String buildArguments(
 			final Input input,
 			final boolean units, final Integer mergeUnit) throws Exception{
+
+		if (units) {
+			throw new Exception ("Units not supported");
+		}
+
 		final Input.Mode mode = input.getMode();
 		
 		String arguments = "";
@@ -53,6 +58,9 @@ public class SPADEAuditBridgeProcess{
 				arguments += " -w";
 			}
 		}
+
+		// Path-through i.e. no buffering
+		arguments += " -p";
 
 		if(units){
 			arguments += " -u";
