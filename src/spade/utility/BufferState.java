@@ -24,6 +24,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /*
  * A class to implement the functionality in advisory mode (i.e. nothing is enforced):
@@ -56,9 +58,9 @@ public class BufferState {
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     
-    private volatile Future<?> future;
-    private volatile State state;
-    private volatile int itemsLeftToFlush;
+    private AtomicInteger itemsLeftToFlush = new AtomicInteger(0);
+    private AtomicReference<State> stateRef = new AtomicReference<>();
+    private AtomicReference<Future<?>> futureRef = new AtomicReference<>(null);
 
     public BufferState (final int maxSize, final long ttlMillis) {
         this.maxSize = maxSize;
@@ -71,83 +73,104 @@ public class BufferState {
     }
 
     public boolean isFull (final int currentSize) {
+        if (isShutdown())
+            return false; // never full
         return currentSize >= this.maxSize;
     }
 
     public boolean isReady () {
-        return this.state == State.READY;
+        return stateRef.get() == State.READY;
     }
 
     public void initialize () throws InvalidStateTransitonException {
-        if (this.state != State.READY)
-            throw new InvalidStateTransitonException(this.state, State.INITIALIZED);
-        this.state = State.INITIALIZED;
-        this.future = scheduler.schedule(
-            () -> {
-                expired();
-            },
-            ttlMillis,
-            TimeUnit.MILLISECONDS
-        );
+        if (isShutdown())
+            return;
+        if (stateRef.compareAndSet(State.READY, State.INITIALIZED)) {
+            futureRef.set(
+                scheduler.schedule(
+                    () -> {
+                        expired();
+                    },
+                    ttlMillis,
+                    TimeUnit.MILLISECONDS
+                )
+            );
+        } else {
+            throw new InvalidStateTransitonException(stateRef.get(), State.INITIALIZED);
+        }
     }
 
     private void expired () {
         // Expected but not required to throw since internal func:
         // if (this.state != State.INITIALIZED)
         //     throw new InvalidStateTransitonException(this.state, State.EXPIRED);
-        if (this.state == State.SHUTDOWN)
+        if (isShutdown())
             return;
-        this.state = State.EXPIRED;
+        stateRef.set(State.EXPIRED);
     }
 
     public boolean isExpired () {
-        return this.state == State.EXPIRED;
+        return stateRef.get() == State.EXPIRED;
     }
 
     public void initializeFlushing (final int itemsToFlush) throws InvalidStateTransitonException {
-        if (this.state != State.EXPIRED)
-            throw new InvalidStateTransitonException(this.state, State.FLUSHING);
-        this.itemsLeftToFlush = Math.min(itemsToFlush, maxSize);
-        this.state = State.FLUSHING;
+        if (isShutdown())
+            return;
+        if (stateRef.compareAndSet(State.EXPIRED, State.FLUSHING)) {
+            itemsLeftToFlush.set(Math.min(itemsToFlush, maxSize));
+        } else {
+            throw new InvalidStateTransitonException(stateRef.get(), State.FLUSHING);
+        }
     }
 
     public boolean isFlushing () {
-        return this.state == State.FLUSHING;
+        return stateRef.get() == State.FLUSHING;
     }
 
     public void flushItem () throws InvalidStateTransitonException {
-        if (this.state != State.FLUSHING)
-            throw new InvalidStateTransitonException(this.state, State.FLUSHING);
-        this.itemsLeftToFlush--;
+        if (isShutdown())
+            return;
+        if (stateRef.compareAndSet(State.FLUSHING, State.FLUSHING)) {
+            itemsLeftToFlush.decrementAndGet();
+        } else {
+            throw new InvalidStateTransitonException(stateRef.get(), State.FLUSHING);
+        }
     }
 
     public boolean isFlushed () throws InvalidStateTransitonException {
-        if (this.state != State.FLUSHING)
-            throw new InvalidStateTransitonException(this.state, State.FLUSHING);
-        return this.itemsLeftToFlush <= 0;
+        if (isShutdown())
+            return true; // always flushed
+        if (stateRef.compareAndSet(State.FLUSHING, State.FLUSHING)) {
+            return itemsLeftToFlush.get() <= 0;
+        } else {
+            throw new InvalidStateTransitonException(stateRef.get(), State.FLUSHING);
+        }
     }
 
     public void makeReady () throws InvalidStateTransitonException {
-        if (this.state == State.SHUTDOWN)
-            throw new InvalidStateTransitonException(State.SHUTDOWN, this.state);
-        if (this.future != null) {
+        if (isShutdown())
+            return;
+        final Future<?> currentFuture = futureRef.getAndSet(null);
+        if (currentFuture != null) {
             try {
-                this.future.cancel(true);
+                currentFuture.cancel(true);
             } catch (Exception e) {
                 // ignore
-            } finally {
-                this.future = null;
             }
         }
-        this.state = State.READY;
-        this.itemsLeftToFlush = 0;
+        stateRef.set(State.READY);
+        itemsLeftToFlush.set(0);
     }
 
     public void shutdown () {
-        if (this.state == State.SHUTDOWN)
+        if (isShutdown())
             return;
-        this.state = State.SHUTDOWN;
+        stateRef.set(State.SHUTDOWN);
         scheduler.shutdown();
+    }
+
+    public boolean isShutdown () {
+        return stateRef.get() == State.SHUTDOWN;
     }
 
     public static class InvalidStateTransitonException extends Exception {
