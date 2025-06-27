@@ -19,11 +19,9 @@
  */
 package spade.reporter.audit;
 
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileInputStream;
 import java.io.FileWriter;
-import java.io.InputStreamReader;
 import java.util.Map;
 
 import spade.core.Settings;
@@ -41,7 +39,7 @@ public class MultiStreamAuditRecordReaderTest {
 
         BufferedWriter mergedLogWriter = null;
         AmebaToAuditRecordStream stream1 = null;
-        BufferedReader stream2 = null;
+        FileInputStream stream2 = null;
         MultiStreamAuditRecordReader mt = null;
         Thread t = null;
 
@@ -63,9 +61,7 @@ public class MultiStreamAuditRecordReaderTest {
                 )
             );
             final String auditLogPath = config.inputAuditLog;
-            stream2 = new BufferedReader(
-                new InputStreamReader(new FileInputStream(auditLogPath))
-            );
+            stream2 = new FileInputStream(auditLogPath);
 
             mt = MultiStreamAuditRecordReader.create(
                 stream1, stream2
