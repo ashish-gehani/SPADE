@@ -23,6 +23,7 @@ import java.io.BufferedReader;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -42,8 +43,10 @@ public class MultiStreamAuditRecordReader {
     private final AmebaToAuditRecordStream reader1;
     private final BufferedReader reader2;
 
-    private volatile boolean running1 = false;
-    private volatile boolean running2 = false;
+    private AtomicBoolean closed = new AtomicBoolean(false);
+
+    private AtomicBoolean running1 = new AtomicBoolean(false);
+    private AtomicBoolean running2 = new AtomicBoolean(false);
 
     private final PriorityBlockingQueue<AuditRecord> buffer;
     private BufferState bufferState;
@@ -72,9 +75,9 @@ public class MultiStreamAuditRecordReader {
 
     private void startReaderThreads() {
         executor.submit(() -> {
-            running1 = true;
+            running1.set(true);
             try {
-                while (running1) {
+                while (running1.get() == true) {
                     AuditRecord record = reader1.read();
                     if (record == null) break;
                     buffer.put(record);
@@ -82,14 +85,20 @@ public class MultiStreamAuditRecordReader {
             } catch (Exception e) {
                 readerException.compareAndSet(null, e);
             } finally {
-                running1 = false;
+                running1.set(false);
+                try {
+                    reader1.close();
+                } catch (Exception e) {
+                    // Only log any close errors
+                    logger.log(Level.WARNING, "Failed to close ameba to audit record stream", e);
+                }
             }
         });
 
         executor.submit(() -> {
-            running2 = true;
+            running2.set(true);
             try {
-                while (running2) {
+                while (running2.get() == true) {
                     String line = reader2.readLine();
                     if (line == null) break;
                     try {
@@ -102,7 +111,13 @@ public class MultiStreamAuditRecordReader {
             } catch (Exception e) {
                 readerException.compareAndSet(null, e);
             } finally {
-                running2 = false;
+                running2.set(false);
+                try {
+                    reader2.close();
+                } catch (Exception e) {
+                    // Only log any close errors
+                    logger.log(Level.WARNING, "Failed to close audit record reader", e);
+                }
             }
         });
     }
@@ -116,7 +131,10 @@ public class MultiStreamAuditRecordReader {
                 this.bufferState.initialize();
             }
 
-            if (running1 || running2) {
+            if (
+                running1.get() == true
+                || running2.get() == true
+            ) {
 
                 if (this.bufferState.isExpired()) {
                     if (buffer.isEmpty()) {
@@ -152,18 +170,23 @@ public class MultiStreamAuditRecordReader {
         }
     }
 
+    public boolean isClosed () {
+        return closed.get();
+    }
+
     public void close() throws Exception {
-        running1 = running2 = false;
+        if (closed.compareAndSet(false, true)) {
+            running1.set(false);
+            running2.set(false);
 
-        this.bufferState.shutdown();
+            this.bufferState.shutdown();
 
-        Exception ex = null;
+            Exception ex = null;
 
-        try { executor.shutdownNow(); } catch (Exception e) { ex = e; }
-        try { reader1.close(); } catch (Exception e) { if (ex == null) ex = e; }
-        try { reader2.close(); } catch (Exception e) { if (ex == null) ex = e; }
+            try { executor.shutdownNow(); } catch (Exception e) { ex = e; }
 
-        if (ex != null) throw ex;
+            if (ex != null) throw ex;
+        }
     }
 
     public static MultiStreamAuditRecordReader create(
