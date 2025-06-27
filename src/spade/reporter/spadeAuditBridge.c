@@ -249,7 +249,7 @@ int command_line_option(int argc, char **argv)
 				{NULL,				0,					NULL,	0}
 		};
 
-		while((c = getopt_long(argc, argv, "hus:F:f:d:t:m:w", long_opt, NULL)) != -1)
+		while((c = getopt_long(argc, argv, "hus:F:f:d:t:m:w:p", long_opt, NULL)) != -1)
 		{
 				switch(c)
 				{
