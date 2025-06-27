@@ -19,9 +19,6 @@
  */
 package spade.reporter;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.InputStreamReader;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -486,11 +483,7 @@ public class Audit extends AbstractReporter {
 		try{
 			final MultiStreamAuditRecordReader recordReader = MultiStreamAuditRecordReader.create(
 				AmebaToAuditRecordStream.create(amebaConfig),
-				new BufferedReader(
-					new InputStreamReader(
-						spadeAuditBridgeProcess.getStdOutStream()
-					)
-				)
+				spadeAuditBridgeProcess.getStdOutStream()
 			);
 
 			this.auditEventReader = new AuditEventReader("audit+ameba", recordReader);
@@ -1195,7 +1188,7 @@ public class Audit extends AbstractReporter {
 		String time = eventData.get(AuditEventReader.TIME);
 		String pid = eventData.get(AuditEventReader.PID);
 		String fd = eventData.get(AuditEventReader.ARG0);
-		String offsetRequested = eventData.get(AuditEventReader.ARG1);
+		// String offsetRequested = eventData.get(AuditEventReader.ARG1);
 		String whenceString = eventData.get(AuditEventReader.ARG2);
 		String offsetActual = eventData.get(AuditEventReader.EXIT);
 		
@@ -2966,7 +2959,7 @@ public class Audit extends AbstractReporter {
 			return null;
 		}
 	}
-	
+	/*
 	private static String getProtocolName(Integer protocolNumber){
 		if(protocolNumber != null){
 			if(protocolNumber == 17){
@@ -2977,7 +2970,7 @@ public class Audit extends AbstractReporter {
 		}
 		return null;
 	}
-	
+	*/
 
 	private void logInvalidSaddr(String saddr, String time, String eventId, SYSCALL syscall){
 		if(!"0100".equals(saddr)){ // if not empty path

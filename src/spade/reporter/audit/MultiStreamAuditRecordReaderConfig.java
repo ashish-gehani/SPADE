@@ -28,13 +28,16 @@ import spade.utility.HelperFunctions;
 public class MultiStreamAuditRecordReaderConfig {
 
     private final static long MIN_BUFFER_TTL = 5000;
+    private final static long MIN_IO_TIMEOUT = 5000;
 
     private final static String
         KEY_BUFFER_SIZE = "buffer_size",
-        KEY_BUFFER_TTL = "buffer_ttl";
+        KEY_BUFFER_TTL = "buffer_ttl",
+        KEY_IO_TIMEOUT = "io_timeout";
 
     private final int bufferSize;
     private final long bufferTtl;
+    private final long ioTimeout;
 
     public MultiStreamAuditRecordReaderConfig(final Map<String, String> configMap) throws Exception {
         this.bufferSize = ArgumentFunctions.mustParsePositiveInteger(
@@ -43,6 +46,10 @@ public class MultiStreamAuditRecordReaderConfig {
 
         this.bufferTtl = ArgumentFunctions.mustParseLong(
             KEY_BUFFER_TTL, configMap, MIN_BUFFER_TTL
+        );
+
+        this.ioTimeout = ArgumentFunctions.mustParseLong(
+            KEY_IO_TIMEOUT, configMap, MIN_IO_TIMEOUT
         );
     }
 
@@ -54,11 +61,16 @@ public class MultiStreamAuditRecordReaderConfig {
         return bufferTtl;
     }
 
+    public long getIOTimeout() {
+        return ioTimeout;
+    }
+
     @Override
     public String toString() {
         return "MultiStreamAuditRecordReaderConfig{" +
                 "bufferSize=" + bufferSize +
                 ", bufferTtl=" + bufferTtl +
+                ", ioTimeout=" + ioTimeout +
                 '}';
     }
 

@@ -19,10 +19,11 @@
  */
 package spade.reporter.audit;
 
-import java.io.BufferedReader;
+import java.io.InputStream;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
@@ -31,6 +32,7 @@ import java.util.logging.Logger;
 import spade.reporter.audit.bpf.AmebaToAuditRecordStream;
 import spade.utility.BufferState;
 import spade.utility.HelperFunctions;
+import spade.utility.TimeoutInputStreamLineReader;
 
 public class MultiStreamAuditRecordReader {
 
@@ -41,7 +43,7 @@ public class MultiStreamAuditRecordReader {
     private final ExecutorService executor;
 
     private final AmebaToAuditRecordStream reader1;
-    private final BufferedReader reader2;
+    private final TimeoutInputStreamLineReader reader2;
 
     private AtomicBoolean closed = new AtomicBoolean(false);
 
@@ -56,12 +58,12 @@ public class MultiStreamAuditRecordReader {
     public MultiStreamAuditRecordReader(
         final MultiStreamAuditRecordReaderConfig config,
         final AmebaToAuditRecordStream stream1,
-        final BufferedReader stream2
+        final InputStream stream2
     ) {
         this.config = config;
 
         this.reader1 = stream1;
-        this.reader2 = stream2;
+        this.reader2 = new TimeoutInputStreamLineReader(stream2, config.getIOTimeout());
 
         this.bufferState = new BufferState(
             this.config.getBufferSize(),
@@ -99,7 +101,13 @@ public class MultiStreamAuditRecordReader {
             running2.set(true);
             try {
                 while (running2.get() == true) {
-                    String line = reader2.readLine();
+                    String line = null;
+                    try {
+                        line = reader2.readLine();
+                    } catch (TimeoutException e) {
+                        // ignore
+                        HelperFunctions.sleepSafe(100);
+                    }
                     if (line == null) break;
                     try {
                         AuditRecord record = new AuditRecord(line);
@@ -191,7 +199,7 @@ public class MultiStreamAuditRecordReader {
 
     public static MultiStreamAuditRecordReader create(
         final AmebaToAuditRecordStream stream1,
-        final BufferedReader stream2
+        final InputStream stream2
     ) throws Exception {
         final MultiStreamAuditRecordReaderConfig config = MultiStreamAuditRecordReaderConfig.create();
         final MultiStreamAuditRecordReader r = new MultiStreamAuditRecordReader(
