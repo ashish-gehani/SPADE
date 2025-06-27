@@ -197,6 +197,8 @@ event_buf_t *event_buf;
 
 bool incomplete_record = false;
 
+bool pass_through = FALSE;
+
 void syscall_handler(char *buf);
 int get_max_pid();
 
@@ -220,6 +222,7 @@ void print_usage(char** argv) {
 		printf("  -d, --dir                 a directory name that contains log files\n");
 		printf("  -t, --time                timestamp. Only handle log files modified after the timestamp. \n");
 		printf("  -m, --merge-unit          merge N units into a single unit.\n");
+		printf("  -p, --pass-through        pass the records from the socket/file to stdout without any processing.\n");
 		printf("                            This option is only valid with -d option. (format: YYYY-MM-DD:HH:MM:SS,\n");
 		printf("                              e.g., 2017-1-21:07:09:20)\n");
 		printf("  -h, --help                print this help and exit\n");
@@ -241,7 +244,8 @@ int command_line_option(int argc, char **argv)
 				{"dir",				required_argument,	NULL, 'd'},
 				{"time",			required_argument,	NULL, 't'},
 				{"wait-for-end",	no_argument,		NULL, 'w'},
-				{"merge-unit",	required_argument,		NULL, 'm'},
+				{"merge-unit",		required_argument,	NULL, 'm'},
+				{"pass-through",	no_argument,		NULL, 'p'},
 				{NULL,				0,					NULL,	0}
 		};
 
@@ -288,6 +292,10 @@ int command_line_option(int argc, char **argv)
 
 						case 'u':
 								UBSIAnalysis = TRUE;
+								break;
+
+						case 'p':
+								pass_through = TRUE;
 								break;
 
 						case 'h':
@@ -1555,6 +1563,10 @@ int next_event_id = 0;
 
 int UBSI_buffer_flush()
 {
+    if (pass_through == TRUE) {
+        return 0;
+    }
+
 		struct event_buf_t *eb;
 		fprintf(stderr, "UBSI flush the log buffer: %d events\n", HASH_COUNT(event_buf));
 
@@ -1581,6 +1593,11 @@ int UBSI_buffer_flush()
 
 int UBSI_buffer(const char *buf)
 {
+    if (pass_through == TRUE) {
+        printf("%s", buf);
+        return 0;
+    }
+
 		int cursor = 0;
 		int event_start = 0;
 		long id = 0;
