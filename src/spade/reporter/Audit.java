@@ -482,25 +482,6 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Failed to create ameba config", e);
 			return false;
 		}
-
-		if (input.isLiveMode()) {
-			try {
-				final AmebaArguments amebaArguments = AmebaArguments.create(
-					auditConfiguration, processUserSyscallFilter, amebaConfig
-				);
-				this.amebaProcess = AmebaProcess.create(
-					input.isLiveMode(),
-					amebaConfig,
-					amebaArguments,
-					auditConfiguration,
-					processUserSyscallFilter
-				);
-				this.amebaProcess.start();
-			} catch (Exception e) {
-				logger.log(Level.SEVERE, "Failed to start ameba process", e);
-				return false;
-			}
-		}
 		
 		try{
 			final MultiStreamAuditRecordReader recordReader = MultiStreamAuditRecordReader.create(
@@ -529,6 +510,23 @@ public class Audit extends AbstractReporter {
 		}
 		
 		if(input.isLiveMode()){
+			try {
+				final AmebaArguments amebaArguments = AmebaArguments.create(
+					auditConfiguration, processUserSyscallFilter, amebaConfig
+				);
+				this.amebaProcess = AmebaProcess.create(
+					input.isLiveMode(),
+					amebaConfig,
+					amebaArguments,
+					auditConfiguration,
+					processUserSyscallFilter
+				);
+				this.amebaProcess.start();
+			} catch (Exception e) {
+				logger.log(Level.SEVERE, "Failed to start ameba process", e);
+				return false;
+			}
+
 			if(kernelModuleConfiguration.isLocalEndpoints()
 					|| processUserSyscallFilter.getSystemCallRuleType() == SystemCallRuleType.ALL
 					|| processUserSyscallFilter.getSystemCallRuleType() == SystemCallRuleType.DEFAULT){
@@ -685,6 +683,14 @@ public class Audit extends AbstractReporter {
 		if (amebaProcess != null) {
 			if (!amebaProcess.stop()) {
 				logger.log(Level.WARNING, "Failed to stop AMEBA process");
+			}
+		}
+
+		if (auditEventReader != null) {
+			try {
+				auditEventReader.closeStream();
+			} catch (Exception e) {
+				logger.log(Level.WARNING, "Failed to close event stream reader", e);
 			}
 		}
 
