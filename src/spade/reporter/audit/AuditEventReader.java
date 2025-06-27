@@ -290,7 +290,11 @@ public class AuditEventReader{
 				logger.log(Level.SEVERE, "Failed to close output log writer", e);
 			}
 		}
-		if(stream != null){
+		closeStream();
+	}
+
+	public void closeStream() {
+		if(stream != null && stream.isClosed() == false){
 			try{
 				stream.close();
 			}catch(Exception e){
