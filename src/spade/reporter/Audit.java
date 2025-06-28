@@ -454,10 +454,10 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 
-		final AmebaConfig amebaConfig;
-		try {
-			if (input.isLiveMode()){
-				amebaConfig = AmebaConfig.create(
+		final AmebaToAuditRecordStream amebaStream;
+		if (input.isLiveMode()){
+			try {
+				final AmebaConfig amebaConfig = AmebaConfig.create(
 					String.join(
 						" ",
 						new String[] {
@@ -465,24 +465,51 @@ public class Audit extends AbstractReporter {
 						}
 					)
 				);
-			} else { // offline mode
-				amebaConfig = AmebaConfig.create(
-					String.join(
-						" ",
-						new String[] {
-							AmebaConfig.KEY_OUTPUT_TYPE + "=" + AmebaOutputType.FILE.toString()
-						}
-					)
+				amebaStream = AmebaToAuditRecordStream.create(amebaConfig);
+
+				final AmebaArguments amebaArguments = AmebaArguments.create(
+					auditConfiguration, processUserSyscallFilter, amebaConfig
 				);
+
+				this.amebaProcess = AmebaProcess.create(
+					input.isLiveMode(),
+					amebaConfig,
+					amebaArguments,
+					auditConfiguration,
+					processUserSyscallFilter
+				);
+				this.amebaProcess.start();
+			} catch (Exception e) {
+				logger.log(Level.SEVERE, "Failed to launch ameba", e);
+				return false;
 			}
-		} catch (Exception e) {
-			logger.log(Level.SEVERE, "Failed to create ameba config", e);
-			return false;
+		} else { // Offline
+			if (input.getInputAmebaLog() == null) {
+				amebaStream = AmebaToAuditRecordStream.createNullStream();
+			} else {
+				try {
+					amebaStream = AmebaToAuditRecordStream.create(
+						AmebaConfig.create(
+							String.join(
+								" ",
+								new String[] {
+									AmebaConfig.KEY_OUTPUT_TYPE + "=" + AmebaOutputType.FILE.toString(),
+									AmebaConfig.KEY_OUTPUT_FILE_PATH + "=" + input.getInputAmebaLog()
+								}
+							)
+						)
+					);
+				} catch (Exception e) {
+					logger.log(Level.SEVERE, "Failed to create ameba input stream", e);
+					return false;
+				}
+			}
 		}
+
 		
 		try{
 			final MultiStreamAuditRecordReader recordReader = MultiStreamAuditRecordReader.create(
-				AmebaToAuditRecordStream.create(amebaConfig),
+				amebaStream,
 				spadeAuditBridgeProcess.getStdOutStream()
 			);
 
@@ -503,23 +530,6 @@ public class Audit extends AbstractReporter {
 		}
 		
 		if(input.isLiveMode()){
-			try {
-				final AmebaArguments amebaArguments = AmebaArguments.create(
-					auditConfiguration, processUserSyscallFilter, amebaConfig
-				);
-				this.amebaProcess = AmebaProcess.create(
-					input.isLiveMode(),
-					amebaConfig,
-					amebaArguments,
-					auditConfiguration,
-					processUserSyscallFilter
-				);
-				this.amebaProcess.start();
-			} catch (Exception e) {
-				logger.log(Level.SEVERE, "Failed to start ameba process", e);
-				return false;
-			}
-
 			if(kernelModuleConfiguration.isLocalEndpoints()
 					|| processUserSyscallFilter.getSystemCallRuleType() == SystemCallRuleType.ALL
 					|| processUserSyscallFilter.getSystemCallRuleType() == SystemCallRuleType.DEFAULT){
