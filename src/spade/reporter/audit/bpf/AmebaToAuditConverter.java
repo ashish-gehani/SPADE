@@ -186,7 +186,7 @@ public class AmebaToAuditConverter {
         netioInterceptedKeyValPairs.addAll(getProcInfoForSpadeRecord(pid));
         netioInterceptedKeyValPairs.addAll(
             List.of(
-                "socktype=" + sockType,
+                "sock_type=" + sockType,
                 "local_saddr=" + localSaddr,
                 "remote_saddr=" + remoteSaddr,
                 "remote_saddr_size=" + remoteSaddrSize,
