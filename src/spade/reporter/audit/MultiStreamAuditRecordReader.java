@@ -186,6 +186,7 @@ public class MultiStreamAuditRecordReader {
     public void close() throws Exception {
         if (closed.compareAndSet(false, true)) {
             running1.set(false);
+            reader1.close(); // special case
             running2.set(false);
 
             this.bufferState.shutdown();

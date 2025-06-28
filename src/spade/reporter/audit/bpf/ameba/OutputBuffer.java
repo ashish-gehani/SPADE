@@ -24,6 +24,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -35,8 +36,8 @@ public class OutputBuffer {
     private final OutputReader reader;
     private final Queue<Record> buffer = new LinkedList<>();
 
-    private volatile boolean eof = false;
-    private volatile boolean closed = false;
+    private AtomicBoolean eof = new AtomicBoolean(false);
+    private AtomicBoolean closed = new AtomicBoolean(false);
 
     private final BufferState bufferState;
 
@@ -57,7 +58,7 @@ public class OutputBuffer {
      * If buffer ttl expired then empty the buffer completely. Reset buffer ttl. Go back to reading more.
      */
     public Record poll() throws Exception {
-        while (true) {
+        while (!(closed.get() || eof.get())) {
             if (this.bufferState.isReady()) {
                 this.bufferState.initialize();
             }
@@ -80,7 +81,7 @@ public class OutputBuffer {
                 return ret;
             }
 
-            if (this.closed || this.eof || this.bufferState.isFull(buffer.size())) {
+            if (closed.get() || eof.get() || this.bufferState.isFull(buffer.size())) {
                 final Record ret = buffer.poll();
                 return ret;
             }
@@ -97,7 +98,7 @@ public class OutputBuffer {
 
             // End of file/stream.
             if (record == null) {
-                this.eof = true;
+                eof.set(true);
                 // Return if anything in the buffer
                 return buffer.poll();
             }
@@ -105,6 +106,7 @@ public class OutputBuffer {
             // Add to buffer and loop over.
             buffer.add(record);
         }
+        return buffer.poll();
     }
 
     public Pair<Integer, Record> findNext(
@@ -143,7 +145,7 @@ public class OutputBuffer {
     }
 
     public void close() throws Exception {
-        this.closed = true;
+        closed.set(true);
         this.bufferState.shutdown();
         this.reader.close();
     }
