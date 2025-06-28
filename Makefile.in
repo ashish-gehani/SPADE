@@ -15,6 +15,7 @@ AUDIT_BPF_AMEBA_DIR := src/spade/reporter/audit/bpf/ameba/source
 AUDIT_BPF_AMEBA_INSTALL_DIR := $(shell realpath ./bin)
 
 KERNEL_MODULES ?= false
+BPF_MODULES ?= true
 
 #
 # In Ubuntu, when you install llvm headers, it puts llvm and llvm-c inside version folder.
@@ -39,10 +40,6 @@ endif
 
 OS_NAME = $(shell uname)
 OS_KERNEL_RELEASE = $(shell uname -r)
-OS_KERNEL_MAJOR = $(shell uname -r | cut -d '.' -f 1)
-OS_KERNEL_MINOR = $(shell uname -r | cut -d '.' -f 2 | xargs printf "%02d")
-OS_KERNEL_NUMBER = $(OS_KERNEL_MAJOR)$(OS_KERNEL_MINOR)
-MAX_OS_KERNEL_NUMBER = 507
 
 ifeq ($(OS_NAME), Darwin)
 	OS_BUILD = build-openbsm
@@ -161,17 +158,7 @@ bin/spadeAuditBridge: src/spade/reporter/spadeAuditBridge.c
 audit-kernel-module:
 	@if [ "$(findstring Microsoft, $(OS_KERNEL_RELEASE))" = "" ]; then \
 		if [ "$(KERNEL_MODULES)" = "true" ]; then \
-			if [ -z "$(OS_KERNEL_NUMBER)" ]; then \
-				echo 'ERROR: Kernel modules build failed. Failed to get current kernel release number.'; \
-				exit 1; \
-			else \
-				if [ $(OS_KERNEL_NUMBER) -ge $(MAX_OS_KERNEL_NUMBER) ]; then \
-					echo 'Warning: Kernel version > 5.7 uses workaround from https://github.com/xcellerator/linux_kernel_hacking/issues/3#issue-782815541 by hkerma'; \
-				else \
-					echo 'Building kernel modules normally'; \
-				fi; \
-				$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE); \
-			fi \
+			$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE); \
 		else \
 			$(MAKE) --no-print-directory -f $(AUDIT_KERNEL_MODULES_MAKEFILE) clean; \
 		fi \
@@ -179,8 +166,10 @@ audit-kernel-module:
 		echo 'Skipped kernel modules. OS Kernel not supported'; \
 	fi
 audit-bpf-ameba:
-	$(MAKE) --no-print-directory -C $(AUDIT_BPF_AMEBA_DIR) -f Makefile all
-	$(MAKE) --no-print-directory -C $(AUDIT_BPF_AMEBA_DIR) -f Makefile install INSTALL_DIR=$(AUDIT_BPF_AMEBA_INSTALL_DIR)
+	@if [ "$(BPF_MODULES)" = "true" ]; then \
+		$(MAKE) --no-print-directory -C $(AUDIT_BPF_AMEBA_DIR) -f Makefile all; \
+		$(MAKE) --no-print-directory -C $(AUDIT_BPF_AMEBA_DIR) -f Makefile install INSTALL_DIR=$(AUDIT_BPF_AMEBA_INSTALL_DIR); \
+	fi
 
 # Build the LinuxFUSE reporter.
 build-linuxfuse: src/spade/reporter/spade_reporter_LinuxFUSE.h lib/libLinuxFUSE.so
