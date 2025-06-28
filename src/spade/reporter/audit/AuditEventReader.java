@@ -321,7 +321,7 @@ public class AuditEventReader{
 		if (r.data == null)
 			return false;
 		return r.data.contains(
-			" record_source=ameba "
+			"record_source=ameba"
 		);
 	}
 
@@ -395,9 +395,16 @@ public class AuditEventReader{
 				final Map<String, String> recordMap = parseAuditRecord(auditRecord);
 				if(recordMap != null){
 					if (isRecordSourceAmeba(auditRecord)) {
-						eventMap.clear();
-						eventMap.putAll(recordMap);
-						break;
+						if (
+							isNetioInterceptedRecord(auditRecord)
+							|| isUbsiInterceptedRecord(auditRecord)
+						) {
+							eventMap.clear();
+							eventMap.putAll(recordMap);
+							break;
+						} else {
+							eventMap.putAll(recordMap);
+						}
 					} else {
 						eventMap.putAll(recordMap);
 					}
@@ -632,7 +639,21 @@ public class AuditEventReader{
 		 */
 		return HelperFunctions.parseKeyValPairs(auditRecord.data);
 	}
-	
+
+	private final boolean isNetioInterceptedRecord(final AuditRecord auditRecord) {
+		if (auditRecord.type.equals(RECORD_TYPE_USER)) {
+			return StringUtils.indexOf(auditRecord.data, KMODULE_DATA_KEY + "=\"") != -1;
+		}
+		return false;
+	}
+
+	private final boolean isUbsiInterceptedRecord(final AuditRecord auditRecord) {
+		if (auditRecord.type.equals(RECORD_TYPE_USER)) {
+			return StringUtils.indexOf(auditRecord.data, UBSI_INTERCEPTED_DATA_KEY + "=\"") != -1;
+		}
+		return false;
+	}
+
 	private final Map<String, String> parseAuditRecord(final AuditRecord auditRecord) throws Exception{
 		switch(auditRecord.type){
 			case RECORD_TYPE_DAEMON_START:
@@ -642,15 +663,17 @@ public class AuditEventReader{
 			case RECORD_TYPE_UBSI_DEP:
 				return parseUBSIRecord(auditRecord);
 			case RECORD_TYPE_USER:{
-				final String netioInterceptedSubRecord = 
-						StringUtils.substringBetween(auditRecord.data, KMODULE_DATA_KEY + "=\"", "\"");
-				if(netioInterceptedSubRecord != null){
+				if (isNetioInterceptedRecord(auditRecord)) {
+					final String netioInterceptedSubRecord = StringUtils.substringBetween(
+						auditRecord.data, KMODULE_DATA_KEY + "=\"", "\""
+					);
 					return parseNetioInterceptedRecord(auditRecord, netioInterceptedSubRecord);
 				}
 				
-				final String ubsiInterceptedSubRecord = 
-						StringUtils.substringBetween(auditRecord.data, UBSI_INTERCEPTED_DATA_KEY + "=\"", "\"");
-				if(ubsiInterceptedSubRecord != null){
+				if (isUbsiInterceptedRecord(auditRecord)) {
+					final String ubsiInterceptedSubRecord = StringUtils.substringBetween(
+						auditRecord.data, UBSI_INTERCEPTED_DATA_KEY + "=\"", "\""
+					);
 					return parseUbsiInterceptedRecord(auditRecord, ubsiInterceptedSubRecord);
 				}
 				
