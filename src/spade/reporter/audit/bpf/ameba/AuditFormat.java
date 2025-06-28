@@ -28,13 +28,13 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import spade.reporter.audit.AuditRecord;
 
-public class AmebaToAuditConverter {
+public class AuditFormat {
 
-    private final AmebaConstants amebaConstants;
+    private final Constants amebaConstants;
 
-    private Map<Integer, Map<Integer, AmebaRecord>> procInfos = new HashMap<>();
+    private Map<Integer, Map<Integer, Record>> procInfos = new HashMap<>();
 
-    public AmebaToAuditConverter(final AmebaConstants amebaConstants) throws Exception {
+    public AuditFormat(final Constants amebaConstants) throws Exception {
         this.amebaConstants = amebaConstants;
     }
 
@@ -46,7 +46,7 @@ public class AmebaToAuditConverter {
         return new AuditRecord(s);
     }
 
-    private void procInfosSet(AmebaRecord r) throws Exception {
+    private void procInfosSet(Record r) throws Exception {
         int rType = r.getRecordType();
         int pid = r.getPid();
         if (procInfos.get(pid) == null)
@@ -64,7 +64,7 @@ public class AmebaToAuditConverter {
         return String.valueOf(eventId);
     }
 
-    private String getAuditRecordMsg(final AmebaRecord r) throws Exception {
+    private String getAuditRecordMsg(final Record r) throws Exception {
         final long eventId = r.getLASEventId();
         final double time = r.getLASTime();
         return getAuditRecordMsg(eventId, time);
@@ -80,7 +80,7 @@ public class AmebaToAuditConverter {
         return "type=USER";
     }
 
-    private String getSysIdAsNsOperation(final AmebaRecord r) throws Exception {
+    private String getSysIdAsNsOperation(final Record r) throws Exception {
         final int sysId = r.getSysId();
         String operation = null;
         if (sysId == amebaConstants.sysId.CLONE) {
@@ -117,9 +117,9 @@ public class AmebaToAuditConverter {
         if (!procInfos.containsKey(pid))
             return allKeyValPairs;
 
-        Map<Integer, AmebaRecord> recordMap = procInfos.get(pid);
+        Map<Integer, Record> recordMap = procInfos.get(pid);
         if (recordMap.containsKey(amebaConstants.recordType.CRED)) {
-            AmebaRecord cred = recordMap.get(amebaConstants.recordType.CRED);
+            Record cred = recordMap.get(amebaConstants.recordType.CRED);
             final List<String> credKeyValPairs = List.of(
                 "uid=" + cred.getUid(),
                 "euid=" + cred.getEuid(),
@@ -133,7 +133,7 @@ public class AmebaToAuditConverter {
             allKeyValPairs.addAll(credKeyValPairs);
         }
         if (recordMap.containsKey(amebaConstants.recordType.NEW_PROCESS)) {
-            AmebaRecord proc = recordMap.get(amebaConstants.recordType.NEW_PROCESS);
+            Record proc = recordMap.get(amebaConstants.recordType.NEW_PROCESS);
             final List<String> procKeyValPairs = List.of(
                 "ppid=" + proc.getPpid(),
                 "comm=" + convertAsciiToHex(proc.getComm())
@@ -144,7 +144,7 @@ public class AmebaToAuditConverter {
         return allKeyValPairs;
     }
 
-    private AuditRecord getSpadeRecordNamespace(AmebaRecord rAle, AmebaRecord rNamespace) throws Exception {
+    private AuditRecord getSpadeRecordNamespace(Record rAle, Record rNamespace) throws Exception {
         final List<String> keyValPairs = List.of(
             getAuditRecordTypeUser(),
             getAuditRecordMsg(rAle),
@@ -204,7 +204,7 @@ public class AmebaToAuditConverter {
         return newAuditRecord(recordStr);
     }
 
-    private AuditRecord getSpadeRecordBind(AmebaRecord rAle, AmebaRecord rBind) throws Exception {
+    private AuditRecord getSpadeRecordBind(Record rAle, Record rBind) throws Exception {
         return getSpadeRecordNetioIntercepted(
             rBind.getTaskCtxId(),
             rAle.getLASTime(), rAle.getLASEventId(),
@@ -218,7 +218,7 @@ public class AmebaToAuditConverter {
         );
     }
 
-    private AuditRecord buildNetIORecord(AmebaRecord rAle, AmebaRecord rNet) throws Exception {
+    private AuditRecord buildNetIORecord(Record rAle, Record rNet) throws Exception {
         return getSpadeRecordNetioIntercepted(
             rNet.getTaskCtxId(),
             rAle.getLASTime(), rAle.getLASEventId(),
@@ -232,19 +232,19 @@ public class AmebaToAuditConverter {
         );
     }
 
-    private AuditRecord getSpadeRecordSendRecv(AmebaRecord rAle, AmebaRecord rSR) throws Exception {
+    private AuditRecord getSpadeRecordSendRecv(Record rAle, Record rSR) throws Exception {
         return buildNetIORecord(rAle, rSR);
     }
 
-    private AuditRecord getSpadeRecordConnect(AmebaRecord rAle, AmebaRecord rConn) throws Exception {
+    private AuditRecord getSpadeRecordConnect(Record rAle, Record rConn) throws Exception {
         return buildNetIORecord(rAle, rConn);
     }
 
-    private AuditRecord getSpadeRecordAccept(AmebaRecord rAle, AmebaRecord rAcc) throws Exception {
+    private AuditRecord getSpadeRecordAccept(Record rAle, Record rAcc) throws Exception {
         return buildNetIORecord(rAle, rAcc);
     }
 
-    private AuditRecord getSpadeRecordKill(AmebaRecord rAle, AmebaRecord rKill) throws Exception {
+    private AuditRecord getSpadeRecordKill(Record rAle, Record rKill) throws Exception {
         final List<String> ubsiKeyValPairs = new ArrayList<String>();
         ubsiKeyValPairs.addAll(
             List.of(
@@ -273,12 +273,12 @@ public class AmebaToAuditConverter {
         return newAuditRecord(recordStr);
     }
 
-    public AuditRecord convert(final AmebaOutputBuffer buffer, final AmebaRecord r1) throws Exception {
+    public AuditRecord convert(final OutputBuffer buffer, final Record r1) throws Exception {
         final int r1Type = r1.getRecordType();
         final String r1TaskCtxId = r1.getTaskCtxId();
 
         int r2Index = -1;
-        AmebaRecord r2 = null;
+        Record r2 = null;
 
         AuditRecord spadeRecord = null;
 
@@ -292,7 +292,7 @@ public class AmebaToAuditConverter {
                     amebaConstants.sysNum.CLONE3
                 ).contains(syscall)
             ) {
-                final Pair<Integer, AmebaRecord> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.NAMESPACE);
+                final Pair<Integer, Record> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.NAMESPACE);
                 r2Index = result.getLeft();
                 r2 = result.getRight();
                 if (r2Index > -1)
@@ -300,7 +300,7 @@ public class AmebaToAuditConverter {
             } else if (
                 syscall == amebaConstants.sysNum.BIND
             ) {
-                final Pair<Integer, AmebaRecord> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.BIND);
+                final Pair<Integer, Record> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.BIND);
                 r2Index = result.getLeft();
                 r2 = result.getRight();
                 if (r2Index > -1)
@@ -313,13 +313,13 @@ public class AmebaToAuditConverter {
                     amebaConstants.sysNum.RECVMSG
                 ).contains(syscall)
             ) {
-                final Pair<Integer, AmebaRecord> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.SEND_RECV);
+                final Pair<Integer, Record> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.SEND_RECV);
                 r2Index = result.getLeft();
                 r2 = result.getRight();
                 if (r2Index > -1)
                     spadeRecord = getSpadeRecordSendRecv(r1, r2);
             } else if (syscall == amebaConstants.sysNum.CONNECT) {
-                final Pair<Integer, AmebaRecord> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.CONNECT);
+                final Pair<Integer, Record> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.CONNECT);
                 r2Index = result.getLeft();
                 r2 = result.getRight();
                 if (r2Index > -1)
@@ -330,20 +330,20 @@ public class AmebaToAuditConverter {
                     amebaConstants.sysNum.ACCEPT4
                 ).contains(syscall)
             ) {
-                final Pair<Integer, AmebaRecord> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.ACCEPT);
+                final Pair<Integer, Record> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.ACCEPT);
                 r2Index = result.getLeft();
                 r2 = result.getRight();
                 if (r2Index > -1)
                     spadeRecord = getSpadeRecordAccept(r1, r2);
             } else if (syscall == amebaConstants.sysNum.KILL) {
-                final Pair<Integer, AmebaRecord> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.KILL);
+                final Pair<Integer, Record> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.KILL);
                 r2Index = result.getLeft();
                 r2 = result.getRight();
                 if (r2Index > -1)
                     spadeRecord = getSpadeRecordKill(r1, r2);
             }
         } else if (r1Type == amebaConstants.recordType.NAMESPACE) {
-            final Pair<Integer, AmebaRecord> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.AUDIT_LOG_EXIT);
+            final Pair<Integer, Record> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.AUDIT_LOG_EXIT);
             r2Index = result.getLeft();
             r2 = result.getRight();
             if (r2Index > -1) {
@@ -359,7 +359,7 @@ public class AmebaToAuditConverter {
                 }
             }
         } else if (r1Type == amebaConstants.recordType.BIND) {
-            final Pair<Integer, AmebaRecord> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.AUDIT_LOG_EXIT);
+            final Pair<Integer, Record> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.AUDIT_LOG_EXIT);
             r2Index = result.getLeft();
             r2 = result.getRight();
             if (r2Index > -1) {
@@ -368,7 +368,7 @@ public class AmebaToAuditConverter {
                 }
             }
         } else if (r1Type == amebaConstants.recordType.SEND_RECV) {
-            final Pair<Integer, AmebaRecord> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.AUDIT_LOG_EXIT);
+            final Pair<Integer, Record> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.AUDIT_LOG_EXIT);
             r2Index = result.getLeft();
             r2 = result.getRight();
             if (r2Index > -1) {
@@ -384,7 +384,7 @@ public class AmebaToAuditConverter {
                 }
             }
         } else if (r1Type == amebaConstants.recordType.CONNECT) {
-            final Pair<Integer, AmebaRecord> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.AUDIT_LOG_EXIT);
+            final Pair<Integer, Record> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.AUDIT_LOG_EXIT);
             r2Index = result.getLeft();
             r2 = result.getRight();
             if (r2Index > -1) {
@@ -393,7 +393,7 @@ public class AmebaToAuditConverter {
                 }
             }
         } else if (r1Type == amebaConstants.recordType.ACCEPT) {
-            final Pair<Integer, AmebaRecord> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.AUDIT_LOG_EXIT);
+            final Pair<Integer, Record> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.AUDIT_LOG_EXIT);
             r2Index = result.getLeft();
             r2 = result.getRight();
             if (r2Index > -1) {
@@ -407,7 +407,7 @@ public class AmebaToAuditConverter {
                 }
             }
         } else if (r1Type == amebaConstants.recordType.KILL) {
-            final Pair<Integer, AmebaRecord> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.AUDIT_LOG_EXIT);
+            final Pair<Integer, Record> result = buffer.findNext(r1TaskCtxId, amebaConstants.recordType.AUDIT_LOG_EXIT);
             r2Index = result.getLeft();
             r2 = result.getRight();
             if (r2Index > -1) {
@@ -426,7 +426,7 @@ public class AmebaToAuditConverter {
         return spadeRecord;
     }
 
-    public static AmebaToAuditConverter create() throws Exception {
-        return new AmebaToAuditConverter(AmebaConstants.create());
+    public static AuditFormat create() throws Exception {
+        return new AuditFormat(Constants.create());
     }
 }

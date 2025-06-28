@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.reporter.audit.bpf.ameba.AmebaToAuditRecordStream;
+import spade.reporter.audit.bpf.ameba.AuditRecordStream;
 import spade.utility.BufferState;
 import spade.utility.HelperFunctions;
 import spade.utility.TimeoutInputStreamLineReader;
@@ -42,7 +42,7 @@ public class MultiStreamAuditRecordReader {
 
     private final ExecutorService executor;
 
-    private final AmebaToAuditRecordStream reader1;
+    private final AuditRecordStream reader1;
     private final TimeoutInputStreamLineReader reader2;
 
     private AtomicBoolean closed = new AtomicBoolean(false);
@@ -57,7 +57,7 @@ public class MultiStreamAuditRecordReader {
 
     public MultiStreamAuditRecordReader(
         final MultiStreamAuditRecordReaderConfig config,
-        final AmebaToAuditRecordStream stream1,
+        final AuditRecordStream stream1,
         final InputStream stream2
     ) {
         this.config = config;
@@ -199,7 +199,7 @@ public class MultiStreamAuditRecordReader {
     }
 
     public static MultiStreamAuditRecordReader create(
-        final AmebaToAuditRecordStream stream1,
+        final AuditRecordStream stream1,
         final InputStream stream2
     ) throws Exception {
         final MultiStreamAuditRecordReaderConfig config = MultiStreamAuditRecordReaderConfig.create();

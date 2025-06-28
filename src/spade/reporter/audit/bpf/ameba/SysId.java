@@ -23,7 +23,7 @@ import java.util.Map;
 
 import spade.utility.ArgumentFunctions;
 
-public class AmebaSysId {
+public class SysId {
 
     private static final String KEY_FORK     = "sys_id_fork";
     private static final String KEY_VFORK    = "sys_id_vfork";
@@ -49,7 +49,7 @@ public class AmebaSysId {
     public final int ACCEPT;
     public final int ACCEPT4;
 
-    public AmebaSysId(final Map<String, String> map) throws Exception {
+    public SysId(final Map<String, String> map) throws Exception {
         this.FORK     = ArgumentFunctions.mustParseInteger(KEY_FORK, map);
         this.VFORK    = ArgumentFunctions.mustParseInteger(KEY_VFORK, map);
         this.CLONE    = ArgumentFunctions.mustParseInteger(KEY_CLONE, map);

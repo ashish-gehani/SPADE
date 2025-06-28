@@ -26,7 +26,7 @@ import spade.utility.ArgumentFunctions;
 import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 
-public class AmebaConfig {
+public class Config {
 
     private final static long MIN_BUFFER_TTL = 5000;
 
@@ -48,39 +48,39 @@ public class AmebaConfig {
     private String outputFilePath;
     private String outputIP;
     private Integer outputPort;
-    private AmebaOutputType outputType;
+    private OutputType outputType;
     private int outputReaderTimeoutMillis;
     private int outputBufferSize;
     private long outputBufferTtl;
 
-    public AmebaConfig(final Map<String, String> configMap) throws Exception {
-        this.verbose = ArgumentFunctions.mustParseBoolean(AmebaConfig.KEY_VERBOSE, configMap);
+    public Config(final Map<String, String> configMap) throws Exception {
+        this.verbose = ArgumentFunctions.mustParseBoolean(Config.KEY_VERBOSE, configMap);
 
-        final String strAmebaBinPath = configMap.get(AmebaConfig.KEY_AMEBA_BIN_PATH);
+        final String strAmebaBinPath = configMap.get(Config.KEY_AMEBA_BIN_PATH);
         FileUtility.pathMustBeAReadableExecutableFile(strAmebaBinPath);
         this.amebaBinPath = strAmebaBinPath;
 
         this.outputReaderTimeoutMillis = ArgumentFunctions.mustParseNonNegativeInteger(
-            AmebaConfig.KEY_OUTPUT_READER_TIMEOUT_MILLIS, configMap
+            Config.KEY_OUTPUT_READER_TIMEOUT_MILLIS, configMap
         );
 
         this.outputBufferSize = ArgumentFunctions.mustParsePositiveInteger(
-            AmebaConfig.KEY_OUTPUT_BUFFER_SIZE, configMap
+            Config.KEY_OUTPUT_BUFFER_SIZE, configMap
         );
 
         this.outputBufferTtl = ArgumentFunctions.mustParseLong(
-            AmebaConfig.KEY_OUTPUT_BUFFER_TTL, configMap, MIN_BUFFER_TTL
+            Config.KEY_OUTPUT_BUFFER_TTL, configMap, MIN_BUFFER_TTL
         );
 
         this.outputType = ArgumentFunctions.mustParseEnum(
-            AmebaOutputType.class, AmebaConfig.KEY_OUTPUT_TYPE, configMap
+            OutputType.class, Config.KEY_OUTPUT_TYPE, configMap
         );
 
-        if (this.outputType == AmebaOutputType.NET) {
-            this.outputIP = ArgumentFunctions.mustParseHost(AmebaConfig.KEY_OUTPUT_IP, configMap);
-            this.outputPort = ArgumentFunctions.mustParsePort(AmebaConfig.KEY_OUTPUT_PORT, configMap);
-        } else if (this.outputType == AmebaOutputType.FILE) {
-            final String strOutputFilePath = configMap.get(AmebaConfig.KEY_OUTPUT_FILE_PATH);
+        if (this.outputType == OutputType.NET) {
+            this.outputIP = ArgumentFunctions.mustParseHost(Config.KEY_OUTPUT_IP, configMap);
+            this.outputPort = ArgumentFunctions.mustParsePort(Config.KEY_OUTPUT_PORT, configMap);
+        } else if (this.outputType == OutputType.FILE) {
+            final String strOutputFilePath = configMap.get(Config.KEY_OUTPUT_FILE_PATH);
             FileUtility.pathMustBeAWritableFile(strOutputFilePath);
             this.outputFilePath = strOutputFilePath;
         } else {
@@ -88,7 +88,7 @@ public class AmebaConfig {
         }
 
         // Optional
-        final String strAmebaLogPath = configMap.get(AmebaConfig.KEY_AMEBA_LOG_PATH);
+        final String strAmebaLogPath = configMap.get(Config.KEY_AMEBA_LOG_PATH);
         if (strAmebaLogPath != null) {
             FileUtility.pathMustBeAWritableFile(strAmebaLogPath);
         }
@@ -119,7 +119,7 @@ public class AmebaConfig {
         return outputPort;
     }
 
-    public AmebaOutputType getOutputType() {
+    public OutputType getOutputType() {
         return this.outputType;
     }
 
@@ -135,17 +135,17 @@ public class AmebaConfig {
         return this.outputBufferTtl;
     }
 
-    public static AmebaConfig create() throws Exception {
-        return AmebaConfig.create("");
+    public static Config create() throws Exception {
+        return Config.create("");
     }
 
-    public static AmebaConfig create(final String arguments) throws Exception {
-        final AmebaConfig amebaConfig = new AmebaConfig(
+    public static Config create(final String arguments) throws Exception {
+        final Config amebaConfig = new Config(
             HelperFunctions.parseKeyValuePairsFrom(
                 arguments,
                 new String[]{
                     Settings.getDefaultConfigFilePath(
-                        spade.reporter.audit.bpf.ameba.AmebaConfig.class
+                        spade.reporter.audit.bpf.ameba.Config.class
                     )
                 }
             )

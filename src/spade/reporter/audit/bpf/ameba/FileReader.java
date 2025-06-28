@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class AmebaFileReader implements AmebaOutputReader {
+public class FileReader implements OutputReader {
 
     private final AsynchronousFileChannel asyncChannel;
     private final ByteBuffer buffer;
@@ -45,7 +45,7 @@ public class AmebaFileReader implements AmebaOutputReader {
 
     private static final int BUFFER_SIZE = 4096;
 
-    public AmebaFileReader(Path path, long timeoutMillis) throws IOException {
+    public FileReader(Path path, long timeoutMillis) throws IOException {
         this.asyncChannel = AsynchronousFileChannel.open(path, StandardOpenOption.READ);
         this.buffer = ByteBuffer.allocate(BUFFER_SIZE);
         this.lineBuffer = new StringBuilder();
@@ -54,7 +54,7 @@ public class AmebaFileReader implements AmebaOutputReader {
     }
 
     @Override
-    public AmebaRecord read() throws InterruptedException, ExecutionException, TimeoutException, JSONException {
+    public Record read() throws InterruptedException, ExecutionException, TimeoutException, JSONException {
         while (true) {
             int bytesRead = readChunkWithTimeout();
             if (bytesRead <= 0 && lineBuffer.length() == 0) {
@@ -66,7 +66,7 @@ public class AmebaFileReader implements AmebaOutputReader {
                 String line = lineBuffer.substring(0, newlineIdx).trim();
                 lineBuffer.delete(0, newlineIdx + 1);
                 if (!line.isEmpty()) {
-                    return new AmebaRecord(new JSONObject(line));
+                    return new Record(new JSONObject(line));
                 }
             }
 
@@ -101,8 +101,8 @@ public class AmebaFileReader implements AmebaOutputReader {
         asyncChannel.close();
     }
 
-    public static AmebaOutputReader create(final AmebaConfig config) throws Exception {
-        return new AmebaFileReader(
+    public static OutputReader create(final Config config) throws Exception {
+        return new FileReader(
             Paths.get(config.getOutputFilePath()),
             config.getOutputReaderTimeoutMillis()
         );

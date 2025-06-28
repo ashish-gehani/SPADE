@@ -21,13 +21,13 @@ package spade.reporter.audit.bpf.ameba;
 
 import spade.reporter.audit.AuditRecord;
 
-public class AmebaToAuditRecordStream {
+public class AuditRecordStream {
     
-    private final AmebaToAuditConverter converter;
+    private final AuditFormat converter;
 
-    private final AmebaOutputBuffer buffer;
+    private final OutputBuffer buffer;
 
-    public AmebaToAuditRecordStream(final AmebaToAuditConverter converter, final AmebaOutputBuffer buffer) {
+    public AuditRecordStream(final AuditFormat converter, final OutputBuffer buffer) {
         this.converter = converter;
         this.buffer = buffer;
     }
@@ -35,7 +35,7 @@ public class AmebaToAuditRecordStream {
     public AuditRecord read() throws Exception {
         AuditRecord convertedRecord = null;
         while (true) {
-            final AmebaRecord record = this.buffer.poll();
+            final Record record = this.buffer.poll();
             if (record == null) {
                 return null;
             }
@@ -54,18 +54,18 @@ public class AmebaToAuditRecordStream {
         this.buffer.close();
     }
 
-    public static AmebaToAuditRecordStream create(final AmebaConfig config) throws Exception {
-        return new AmebaToAuditRecordStream(
-            AmebaToAuditConverter.create(),
-            AmebaOutputBuffer.create(config)
+    public static AuditRecordStream create(final Config config) throws Exception {
+        return new AuditRecordStream(
+            AuditFormat.create(),
+            OutputBuffer.create(config)
         );
     }
 
-    public static AmebaToAuditRecordStream createNullStream() {
+    public static AuditRecordStream createNullStream() {
         return new NULLAmebaToAuditRecordStream();
     }
 
-    private static class NULLAmebaToAuditRecordStream extends AmebaToAuditRecordStream {
+    private static class NULLAmebaToAuditRecordStream extends AuditRecordStream {
         public NULLAmebaToAuditRecordStream () { 
             super(null, null);
         }

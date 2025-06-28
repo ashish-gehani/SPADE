@@ -30,17 +30,17 @@ import org.apache.commons.lang3.tuple.Pair;
 import spade.utility.BufferState;
 import spade.utility.HelperFunctions;
 
-public class AmebaOutputBuffer {
+public class OutputBuffer {
 
-    private final AmebaOutputReader reader;
-    private final Queue<AmebaRecord> buffer = new LinkedList<>();
+    private final OutputReader reader;
+    private final Queue<Record> buffer = new LinkedList<>();
 
     private volatile boolean eof = false;
     private volatile boolean closed = false;
 
     private final BufferState bufferState;
 
-    public AmebaOutputBuffer(AmebaOutputReader reader, int bufferSize, long bufferTtlMillis) {
+    public OutputBuffer(OutputReader reader, int bufferSize, long bufferTtlMillis) {
         this.reader = reader;
         this.bufferState = new BufferState(bufferSize, bufferTtlMillis);
     }
@@ -56,7 +56,7 @@ public class AmebaOutputBuffer {
      *
      * If buffer ttl expired then empty the buffer completely. Reset buffer ttl. Go back to reading more.
      */
-    public AmebaRecord poll() throws Exception {
+    public Record poll() throws Exception {
         while (true) {
             if (this.bufferState.isReady()) {
                 this.bufferState.initialize();
@@ -69,7 +69,7 @@ public class AmebaOutputBuffer {
                 this.bufferState.initializeFlushing(buffer.size());
             }
             if (this.bufferState.isFlushing()) {
-                final AmebaRecord ret = buffer.poll();
+                final Record ret = buffer.poll();
                 this.bufferState.flushItem();
                 if (this.bufferState.isFlushed() || ret == null) {
                     this.bufferState.makeReady();
@@ -81,12 +81,12 @@ public class AmebaOutputBuffer {
             }
 
             if (this.closed || this.eof || this.bufferState.isFull(buffer.size())) {
-                final AmebaRecord ret = buffer.poll();
+                final Record ret = buffer.poll();
                 return ret;
             }
 
             // Read buffer
-            AmebaRecord record = null;
+            Record record = null;
             try {
                 record = this.reader.read();
             } catch (TimeoutException e) {
@@ -107,11 +107,11 @@ public class AmebaOutputBuffer {
         }
     }
 
-    public Pair<Integer, AmebaRecord> findNext(
+    public Pair<Integer, Record> findNext(
         final String taskCtxId, final int recordType
     ) throws Exception {
         int i = 0;
-        for (AmebaRecord r : buffer) {
+        for (Record r : buffer) {
             String rTaskCtxId = r.getTaskCtxId();
             if (rTaskCtxId.equals(taskCtxId)) {
                 int rType = r.getRecordType();
@@ -127,7 +127,7 @@ public class AmebaOutputBuffer {
 
     public void removeIndex(int i) {
         int idx = 0;
-        Iterator<AmebaRecord> iterator = buffer.iterator();
+        Iterator<Record> iterator = buffer.iterator();
         while (iterator.hasNext()) {
             iterator.next();
             if (idx == i) {
@@ -148,9 +148,9 @@ public class AmebaOutputBuffer {
         this.reader.close();
     }
 
-    public static AmebaOutputBuffer create(final AmebaConfig config) throws Exception {
-        return new AmebaOutputBuffer(
-            AmebaOutputReader.create(config),
+    public static OutputBuffer create(final Config config) throws Exception {
+        return new OutputBuffer(
+            OutputReader.create(config),
             config.getOutputBufferSize(),
             config.getOutputBufferTtl()
         );

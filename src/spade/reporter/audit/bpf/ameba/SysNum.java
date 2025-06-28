@@ -23,7 +23,7 @@ import java.util.Map;
 
 import spade.utility.ArgumentFunctions;
 
-public class AmebaSysNum {
+public class SysNum {
 
     private static final String KEY_CLONE     = "sys_num_clone";
     private static final String KEY_SETNS     = "sys_num_setns";
@@ -53,7 +53,7 @@ public class AmebaSysNum {
     public final int CONNECT;
     public final int KILL;
 
-    public AmebaSysNum(final Map<String, String> map) throws Exception {
+    public SysNum(final Map<String, String> map) throws Exception {
         this.CLONE    = ArgumentFunctions.mustParseInteger(KEY_CLONE, map);
         this.SETNS    = ArgumentFunctions.mustParseInteger(KEY_SETNS, map);
         this.UNSHARE  = ArgumentFunctions.mustParseInteger(KEY_UNSHARE, map);

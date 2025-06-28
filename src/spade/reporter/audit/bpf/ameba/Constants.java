@@ -26,7 +26,7 @@ import spade.core.Settings;
 import spade.utility.ArgumentFunctions;
 import spade.utility.HelperFunctions;
 
-public class AmebaConstants {
+public class Constants {
 
     private final static String 
         KEY_RECORD_ID_KEY = "record_id_key",
@@ -35,25 +35,25 @@ public class AmebaConstants {
     public final String record_id_key;
     public final String record_id_val;
 
-    public final AmebaRecordType recordType;
-    public final AmebaSysNum sysNum;
-    public final AmebaSysId sysId;    
+    public final RecordType recordType;
+    public final SysNum sysNum;
+    public final SysId sysId;    
 
-    public AmebaConstants(final Map<String, String> map) throws Exception {
+    public Constants(final Map<String, String> map) throws Exception {
         this.record_id_key = ArgumentFunctions.mustParseNonEmptyString(KEY_RECORD_ID_KEY, map);
         this.record_id_val = ArgumentFunctions.mustParseNonEmptyString(KEY_RECORD_ID_VAL, map);
 
-        this.recordType = new AmebaRecordType(map);
-        this.sysNum = new AmebaSysNum(map);
-        this.sysId = new AmebaSysId(map);
+        this.recordType = new RecordType(map);
+        this.sysNum = new SysNum(map);
+        this.sysId = new SysId(map);
     }
 
-    public static AmebaConstants create() throws Exception {
-        final AmebaConstants ac = new AmebaConstants(
+    public static Constants create() throws Exception {
+        final Constants ac = new Constants(
             HelperFunctions.parseKeyValuePairsFrom(
                 "", new String[]{
                     Settings.getDefaultConfigFilePath(
-                        spade.reporter.audit.bpf.ameba.AmebaConstants.class
+                        spade.reporter.audit.bpf.ameba.Constants.class
                     )
                 }
             )

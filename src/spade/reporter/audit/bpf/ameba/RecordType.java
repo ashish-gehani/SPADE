@@ -23,7 +23,7 @@ import java.util.Map;
 
 import spade.utility.ArgumentFunctions;
 
-public class AmebaRecordType {
+public class RecordType {
 
     public static final String KEY_NEW_PROCESS    = "record_type_new_process";
     public static final String KEY_CRED           = "record_type_cred";
@@ -45,7 +45,7 @@ public class AmebaRecordType {
     public final int KILL;
     public final int AUDIT_LOG_EXIT;
 
-    public AmebaRecordType(final Map<String, String> map) throws Exception {
+    public RecordType(final Map<String, String> map) throws Exception {
         this.NEW_PROCESS    = ArgumentFunctions.mustParseInteger(KEY_NEW_PROCESS, map);
         this.CRED           = ArgumentFunctions.mustParseInteger(KEY_CRED, map);
         this.NAMESPACE      = ArgumentFunctions.mustParseInteger(KEY_NAMESPACE, map);

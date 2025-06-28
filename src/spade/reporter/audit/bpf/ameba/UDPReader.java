@@ -32,14 +32,14 @@ import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.TimeoutException;
 
-public class AmebaUDPReader implements AmebaOutputReader {
+public class UDPReader implements OutputReader {
 
     private final DatagramSocket socket;
     private final byte[] buffer;
     private final StringBuilder lineBuffer;
     private final Queue<String> pendingLines;
 
-    public AmebaUDPReader(String ip, int port, int timeoutMillis) throws IOException {
+    public UDPReader(String ip, int port, int timeoutMillis) throws IOException {
         this.socket = new DatagramSocket(new InetSocketAddress(ip, port));
         this.socket.setSoTimeout(timeoutMillis);
         this.buffer = new byte[65535];
@@ -48,7 +48,7 @@ public class AmebaUDPReader implements AmebaOutputReader {
     }
 
     @Override
-    public AmebaRecord read() throws TimeoutException, JSONException, IOException {
+    public Record read() throws TimeoutException, JSONException, IOException {
         while (pendingLines.isEmpty()) {
             DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
             try {
@@ -71,7 +71,7 @@ public class AmebaUDPReader implements AmebaOutputReader {
         }
 
         String nextLine = pendingLines.poll();
-        return nextLine != null ? new AmebaRecord(new JSONObject(nextLine)) : null;
+        return nextLine != null ? new Record(new JSONObject(nextLine)) : null;
     }
 
     @Override
@@ -79,8 +79,8 @@ public class AmebaUDPReader implements AmebaOutputReader {
         socket.close();
     }
 
-    public static AmebaOutputReader create(final AmebaConfig config) throws Exception {
-        return new AmebaUDPReader(
+    public static OutputReader create(final Config config) throws Exception {
+        return new UDPReader(
             config.getOutputIP(),
             config.getOutputPort(),
             config.getOutputReaderTimeoutMillis()

@@ -25,9 +25,9 @@ import java.io.FileWriter;
 import java.util.Map;
 
 import spade.core.Settings;
-import spade.reporter.audit.bpf.ameba.AmebaConfig;
-import spade.reporter.audit.bpf.ameba.AmebaOutputType;
-import spade.reporter.audit.bpf.ameba.AmebaToAuditRecordStream;
+import spade.reporter.audit.bpf.ameba.Config;
+import spade.reporter.audit.bpf.ameba.OutputType;
+import spade.reporter.audit.bpf.ameba.AuditRecordStream;
 import spade.utility.ArgumentFunctions;
 import spade.utility.HelperFunctions;
 
@@ -38,7 +38,7 @@ public class MultiStreamAuditRecordReaderTest {
         System.out.println(config);
 
         BufferedWriter mergedLogWriter = null;
-        AmebaToAuditRecordStream stream1 = null;
+        AuditRecordStream stream1 = null;
         FileInputStream stream2 = null;
         MultiStreamAuditRecordReader mt = null;
         Thread t = null;
@@ -49,13 +49,13 @@ public class MultiStreamAuditRecordReaderTest {
             mergedLogWriter = new BufferedWriter(new FileWriter(mergedLog));
 
             final String amebaLogPath = config.inputAmebaLog;
-            stream1 = AmebaToAuditRecordStream.create(
-                AmebaConfig.create(
+            stream1 = AuditRecordStream.create(
+                spade.reporter.audit.bpf.ameba.Config.create(
                     String.join(
                         " ",
                         new String[] {
-                            AmebaConfig.KEY_OUTPUT_TYPE + "=" + AmebaOutputType.FILE.toString(),
-                            AmebaConfig.KEY_OUTPUT_FILE_PATH + "=" + amebaLogPath
+                            spade.reporter.audit.bpf.ameba.Config.KEY_OUTPUT_TYPE + "=" + OutputType.FILE.toString(),
+                            spade.reporter.audit.bpf.ameba.Config.KEY_OUTPUT_FILE_PATH + "=" + amebaLogPath
                         }
                     )
                 )

@@ -69,11 +69,10 @@ import spade.reporter.audit.artifact.UnknownIdentifier;
 import spade.reporter.audit.artifact.UnnamedNetworkSocketPairIdentifier;
 import spade.reporter.audit.artifact.UnnamedPipeIdentifier;
 import spade.reporter.audit.artifact.UnnamedUnixSocketPairIdentifier;
-import spade.reporter.audit.bpf.ameba.AmebaArguments;
-import spade.reporter.audit.bpf.ameba.AmebaConfig;
-import spade.reporter.audit.bpf.ameba.AmebaOutputType;
-import spade.reporter.audit.bpf.ameba.AmebaProcess;
-import spade.reporter.audit.bpf.ameba.AmebaToAuditRecordStream;
+import spade.reporter.audit.bpf.ameba.Arguments;
+import spade.reporter.audit.bpf.ameba.Config;
+import spade.reporter.audit.bpf.ameba.OutputType;
+import spade.reporter.audit.bpf.ameba.AuditRecordStream;
 import spade.reporter.audit.process.FileDescriptor;
 import spade.reporter.audit.process.ProcessManager;
 import spade.reporter.audit.process.ProcessWithAgentManager;
@@ -136,7 +135,7 @@ public class Audit extends AbstractReporter {
 	
 	private SPADEAuditBridgeProcess spadeAuditBridgeProcess;
 
-	private AmebaProcess amebaProcess;
+	private spade.reporter.audit.bpf.ameba.Process amebaProcess;
 	
 	private AuditEventReader auditEventReader;
 	// A flag to block on shutdown call if buffers are being emptied and events are still being read
@@ -454,24 +453,24 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 
-		final AmebaToAuditRecordStream amebaStream;
+		final AuditRecordStream amebaStream;
 		if (input.isLiveMode()){
 			try {
-				final AmebaConfig amebaConfig = AmebaConfig.create(
+				final Config amebaConfig = Config.create(
 					String.join(
 						" ",
 						new String[] {
-							AmebaConfig.KEY_OUTPUT_TYPE + "=" + AmebaOutputType.NET.toString()
+							Config.KEY_OUTPUT_TYPE + "=" + OutputType.NET.toString()
 						}
 					)
 				);
-				amebaStream = AmebaToAuditRecordStream.create(amebaConfig);
+				amebaStream = AuditRecordStream.create(amebaConfig);
 
-				final AmebaArguments amebaArguments = AmebaArguments.create(
+				final Arguments amebaArguments = Arguments.create(
 					auditConfiguration, processUserSyscallFilter, amebaConfig
 				);
 
-				this.amebaProcess = AmebaProcess.create(
+				this.amebaProcess = spade.reporter.audit.bpf.ameba.Process.create(
 					input.isLiveMode(),
 					amebaConfig,
 					amebaArguments,
@@ -485,16 +484,16 @@ public class Audit extends AbstractReporter {
 			}
 		} else { // Offline
 			if (input.getInputAmebaLog() == null) {
-				amebaStream = AmebaToAuditRecordStream.createNullStream();
+				amebaStream = AuditRecordStream.createNullStream();
 			} else {
 				try {
-					amebaStream = AmebaToAuditRecordStream.create(
-						AmebaConfig.create(
+					amebaStream = AuditRecordStream.create(
+						Config.create(
 							String.join(
 								" ",
 								new String[] {
-									AmebaConfig.KEY_OUTPUT_TYPE + "=" + AmebaOutputType.FILE.toString(),
-									AmebaConfig.KEY_OUTPUT_FILE_PATH + "=" + input.getInputAmebaLog()
+									Config.KEY_OUTPUT_TYPE + "=" + OutputType.FILE.toString(),
+									Config.KEY_OUTPUT_FILE_PATH + "=" + input.getInputAmebaLog()
 								}
 							)
 						)

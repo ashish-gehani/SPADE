@@ -25,35 +25,35 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 
-public class AmebaLogMsg {
+public class LogMsg {
     private final double time;
-    private final AmebaAppState state;
+    private final AppState state;
     private final JSONObject json;
 
-    public AmebaLogMsg(double time, AmebaAppState state, JSONObject json) {
+    public LogMsg(double time, AppState state, JSONObject json) {
         this.time = time;
         this.state = state;
         this.json = json;
     }
 
-    public static AmebaLogMsg fromJson(JSONObject input) throws JSONException {
+    public static LogMsg fromJson(JSONObject input) throws JSONException {
         double time = input.getDouble("time");
 
         String stateStr = input.getString("state_name");
-        AmebaAppState state = AmebaAppState.fromString(stateStr);
+        AppState state = AppState.fromString(stateStr);
         if (state == null) {
             throw new IllegalArgumentException("Unknown state: " + stateStr);
         }
 
         JSONObject json = input.getJSONObject("json");
-        return new AmebaLogMsg(time, state, json);
+        return new LogMsg(time, state, json);
     }
 
     public double getTime() {
         return time;
     }
 
-    public AmebaAppState getState() {
+    public AppState getState() {
         return state;
     }
 

@@ -28,7 +28,7 @@ import spade.reporter.audit.AuditConfiguration;
 import spade.reporter.audit.ProcessUserSyscallFilter;
 import spade.reporter.audit.ProcessUserSyscallFilter.UserMode;
 
-public class AmebaArguments {
+public class Arguments {
 
     private static final int MAX_ID_LIST_SIZE = 10;
 
@@ -45,11 +45,11 @@ public class AmebaArguments {
         ARG_NAME_OUTPUT_IP = "--ip",
         ARG_NAME_OUTPUT_PORT = "--port";
 
-    private final AmebaMode globalMode;
-    private final AmebaMode ppidMode;
-    private final AmebaMode pidMode;
-    private final AmebaMode uidMode;
-    private final AmebaMode netioMode;
+    private final Mode globalMode;
+    private final Mode ppidMode;
+    private final Mode pidMode;
+    private final Mode uidMode;
+    private final Mode netioMode;
 
     private final int[] ppidList;
     private final int[] pidList;
@@ -59,9 +59,9 @@ public class AmebaArguments {
     private final String outputIP;
     private final int outputPort;
 
-    private final AmebaOutputType outputType;
+    private final OutputType outputType;
 
-    private AmebaArguments(Builder builder) {
+    private Arguments(Builder builder) {
         this.globalMode = builder.globalMode;
         this.ppidMode = builder.ppidMode;
         this.pidMode = builder.pidMode;
@@ -77,11 +77,11 @@ public class AmebaArguments {
     }
 
     public static class Builder {
-        private AmebaMode globalMode;
-        private AmebaMode ppidMode;
-        private AmebaMode pidMode;
-        private AmebaMode uidMode;
-        private AmebaMode netioMode;
+        private Mode globalMode;
+        private Mode ppidMode;
+        private Mode pidMode;
+        private Mode uidMode;
+        private Mode netioMode;
 
         private int[] ppidList = new int[MAX_ID_LIST_SIZE];
         private int[] pidList = new int[MAX_ID_LIST_SIZE];
@@ -91,13 +91,13 @@ public class AmebaArguments {
         private String outputIP;
         private int outputPort;
 
-        private AmebaOutputType outputType;
+        private OutputType outputType;
 
-        public Builder setGlobalMode(AmebaMode mode) { this.globalMode = mode; return this; }
-        public Builder setPpidMode(AmebaMode mode) { this.ppidMode = mode; return this; }
-        public Builder setPidMode(AmebaMode mode) { this.pidMode = mode; return this; }
-        public Builder setUidMode(AmebaMode mode) { this.uidMode = mode; return this; }
-        public Builder setNetioMode(AmebaMode mode) { this.netioMode = mode; return this; }
+        public Builder setGlobalMode(Mode mode) { this.globalMode = mode; return this; }
+        public Builder setPpidMode(Mode mode) { this.ppidMode = mode; return this; }
+        public Builder setPidMode(Mode mode) { this.pidMode = mode; return this; }
+        public Builder setUidMode(Mode mode) { this.uidMode = mode; return this; }
+        public Builder setNetioMode(Mode mode) { this.netioMode = mode; return this; }
 
         public Builder setPpidList(int[] list) {
             validateList(list, "PPID");
@@ -120,10 +120,10 @@ public class AmebaArguments {
         public Builder setOutputFilePath(String path) { this.outputFilePath = path; return this; }
         public Builder setOutputIP(String ip) { this.outputIP = ip; return this; }
         public Builder setOutputPort(int port) { this.outputPort = port; return this; }
-        public Builder setOutputType(AmebaOutputType type) { this.outputType = type; return this; }
+        public Builder setOutputType(OutputType type) { this.outputType = type; return this; }
 
-        public AmebaArguments build() {
-            return new AmebaArguments(this);
+        public Arguments build() {
+            return new Arguments(this);
         }
 
         private void validateList(int[] list, String name) {
@@ -133,18 +133,18 @@ public class AmebaArguments {
     }
 
     // Accessors
-    public AmebaMode getGlobalMode() { return globalMode; }
-    public AmebaMode getPpidMode() { return ppidMode; }
-    public AmebaMode getPidMode() { return pidMode; }
-    public AmebaMode getUidMode() { return uidMode; }
-    public AmebaMode getNetioMode() { return netioMode; }
+    public Mode getGlobalMode() { return globalMode; }
+    public Mode getPpidMode() { return ppidMode; }
+    public Mode getPidMode() { return pidMode; }
+    public Mode getUidMode() { return uidMode; }
+    public Mode getNetioMode() { return netioMode; }
     public int[] getPpidList() { return ppidList; }
     public int[] getPidList() { return pidList; }
     public int[] getUidList() { return uidList; }
     public String getOutputFilePath() { return outputFilePath; }
     public String getOutputIP() { return outputIP; }
     public int getOutputPort() { return outputPort; }
-    public AmebaOutputType getOutputType() { return outputType; }
+    public OutputType getOutputType() { return outputType; }
 
     public List<String> buildArgumentArray() {
         List<String> args = new ArrayList<>();
@@ -185,25 +185,25 @@ public class AmebaArguments {
             .toArray();
     }
 
-    public static AmebaArguments create(
+    public static Arguments create(
         final AuditConfiguration auditConfiguration,
         final ProcessUserSyscallFilter processUserSyscallFilter,
-        final AmebaConfig amebaConfig
+        final Config amebaConfig
     ) throws Exception {
-        final AmebaArguments amebaArgs = 
-            new AmebaArguments.Builder()
-            .setGlobalMode(AmebaMode.CAPTURE)
-            .setNetioMode(auditConfiguration.isNetIO() ? AmebaMode.CAPTURE : AmebaMode.IGNORE)
+        final Arguments amebaArgs = 
+            new Arguments.Builder()
+            .setGlobalMode(Mode.CAPTURE)
+            .setNetioMode(auditConfiguration.isNetIO() ? Mode.CAPTURE : Mode.IGNORE)
             .setOutputFilePath(amebaConfig.getOutputFilePath())
             .setOutputIP(amebaConfig.getOutputIP())
             .setOutputPort(amebaConfig.getOutputPort())
             .setOutputType(amebaConfig.getOutputType())
             .setPidList(convertSetToIntArray(processUserSyscallFilter.getPidsOfProcessesToIgnore()))
-            .setPidMode(AmebaMode.IGNORE)
+            .setPidMode(Mode.IGNORE)
             .setPpidList(convertSetToIntArray(processUserSyscallFilter.getPpidsOfProcessesToIgnore()))
-            .setPpidMode(AmebaMode.IGNORE)
+            .setPpidMode(Mode.IGNORE)
             .setUidList(convertSetToIntArray(Set.of(processUserSyscallFilter.getUserId())))
-            .setUidMode(processUserSyscallFilter.getUserMode() == UserMode.CAPTURE ? AmebaMode.CAPTURE : AmebaMode.IGNORE)
+            .setUidMode(processUserSyscallFilter.getUserMode() == UserMode.CAPTURE ? Mode.CAPTURE : Mode.IGNORE)
             .build();
         return amebaArgs;
     }

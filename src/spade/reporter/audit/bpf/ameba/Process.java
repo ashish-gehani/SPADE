@@ -39,19 +39,19 @@ import spade.reporter.audit.ProcessUserSyscallFilter;
 import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 
-public class AmebaProcess {
+public class Process {
 
-	private final Logger logger = Logger.getLogger(AmebaProcess.class.getName());
+	private final Logger logger = Logger.getLogger(Process.class.getName());
 
-    private final AmebaArguments args;
+    private final Arguments args;
 
-	private final AmebaConfig config;
+	private final Config config;
 
 	private final ProcessState state = new ProcessState();
 
-	public AmebaProcess(
-		final AmebaArguments args,
-		final AmebaConfig config
+	public Process(
+		final Arguments args,
+		final Config config
 	) throws Exception {
         this.args = args;
 		this.config = config;
@@ -73,11 +73,11 @@ public class AmebaProcess {
 		}
 	}
 
-	public AmebaConfig getAmebaConfig() {
+	public Config getAmebaConfig() {
 		return this.config;
 	}
 
-	public AmebaArguments getAmebaArguments() {
+	public Arguments getAmebaArguments() {
 		return this.args;
 	}
 
@@ -136,18 +136,18 @@ public class AmebaProcess {
 					continue;
 				}
 
-				AmebaLogMsg amebaLogMsg = null;
+				LogMsg amebaLogMsg = null;
 				try {
-					amebaLogMsg = AmebaLogMsg.fromJson(jsonObj);
+					amebaLogMsg = LogMsg.fromJson(jsonObj);
 				} catch (Exception e) {
 					logger.log(Level.WARNING, "Expected structured log msg but got: " + line, e);
 					continue;
 				}
 
-				AmebaAppState appState = amebaLogMsg.getState();
+				AppState appState = amebaLogMsg.getState();
 				if (
-					appState == AmebaAppState.APP_STATE_OPERATIONAL_WITH_ERROR ||
-					appState == AmebaAppState.APP_STATE_STOPPED_WITH_ERROR
+					appState == AppState.APP_STATE_OPERATIONAL_WITH_ERROR ||
+					appState == AppState.APP_STATE_STOPPED_WITH_ERROR
 				) {
                 	logger.info(prefix + " " + line);
 				}
@@ -211,15 +211,15 @@ public class AmebaProcess {
 					continue;
 				}
 
-				AmebaLogMsg amebaLogMsg = null;
+				LogMsg amebaLogMsg = null;
 				try {
-					amebaLogMsg = AmebaLogMsg.fromJson(jsonObj);
+					amebaLogMsg = LogMsg.fromJson(jsonObj);
 				} catch (Exception e) {
 					logger.log(Level.WARNING, "Expected structured log msg but got: " + line, e);
 					continue;
 				}
 
-				AmebaAppState appState = amebaLogMsg.getState();
+				AppState appState = amebaLogMsg.getState();
 				if (appState.isStopped()) {
 					logger.log(Level.WARNING, "Process stopped unexpectedly. Message: " + amebaLogMsg.toString());
 					throw new RuntimeException("Process stopped unexpectedly");
@@ -229,7 +229,7 @@ public class AmebaProcess {
 					logger.log(Level.INFO, amebaLogMsg.toString());
 				}
 
-				if (appState == AmebaAppState.APP_STATE_OPERATIONAL_PID) {
+				if (appState == AppState.APP_STATE_OPERATIONAL_PID) {
 					try {
 						int pid = amebaLogMsg.getPid();
 						this.state.pid = pid;
@@ -296,19 +296,19 @@ public class AmebaProcess {
 	//
 
 	private class ProcessState {
-		private Process process = null;
+		private java.lang.Process process = null;
 		private int pid;
 		private ExecutorService streamReadersService;
 	}
 
-	public static AmebaProcess create(
+	public static Process create(
 		final boolean isLiveMode,
-		final AmebaConfig amebaConfig,
-		final AmebaArguments amebaArguments,
+		final Config amebaConfig,
+		final Arguments amebaArguments,
 		final AuditConfiguration auditConfig,
 		final ProcessUserSyscallFilter processUserSyscallFilter
 	) throws Exception {
-        final AmebaProcess ap = new AmebaProcess(amebaArguments, amebaConfig);
+        final Process ap = new Process(amebaArguments, amebaConfig);
         return ap;
     }
 }

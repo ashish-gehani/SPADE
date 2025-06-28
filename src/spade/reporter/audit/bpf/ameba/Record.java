@@ -21,11 +21,11 @@ package spade.reporter.audit.bpf.ameba;
 
 import org.json.JSONObject;
 
-public class AmebaRecord {
+public class Record {
 
     private final JSONObject jsonObj;
 
-    public AmebaRecord (final JSONObject jsonObj) {
+    public Record (final JSONObject jsonObj) {
         this.jsonObj = jsonObj;
     }
 

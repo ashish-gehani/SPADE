@@ -20,18 +20,14 @@
 
 package spade.reporter.audit.bpf.ameba;
 
-public enum AmebaAppState {
-    
-    APP_STATE_STARTING("APP_STATE_STARTING"),
-    APP_STATE_OPERATIONAL("APP_STATE_OPERATIONAL"),
-    APP_STATE_OPERATIONAL_PID("APP_STATE_OPERATIONAL_PID"),
-    APP_STATE_OPERATIONAL_WITH_ERROR("APP_STATE_OPERATIONAL_WITH_ERROR"),
-    APP_STATE_STOPPED_WITH_ERROR("APP_STATE_STOPPED_WITH_ERROR"),
-    APP_STATE_STOPPED_NORMALLY("APP_STATE_STOPPED_NORMALLY");
+public enum OutputType {
+
+    FILE("file"),
+    NET("net");
 
     private final String value;
 
-    AmebaAppState(String value) {
+    OutputType(String value) {
         this.value = value;
     }
 
@@ -39,24 +35,16 @@ public enum AmebaAppState {
         return value;
     }
 
-    public boolean isStopped() {
-        return (
-            this == APP_STATE_STOPPED_WITH_ERROR
-            || this == APP_STATE_STOPPED_NORMALLY
-        );
-    }
-
-    private static final java.util.Map<String, AmebaAppState> STRING_TO_ENUM =
+    private static final java.util.Map<String, OutputType> STRING_TO_ENUM =
         new java.util.HashMap<>();
 
     static {
-        for (AmebaAppState s : values()) {
+        for (OutputType s : values()) {
             STRING_TO_ENUM.put(s.value, s);
         }
     }
 
-    public static AmebaAppState fromString(String value) {
+    public static OutputType fromString(String value) {
         return STRING_TO_ENUM.get(value);
     }
-
 }

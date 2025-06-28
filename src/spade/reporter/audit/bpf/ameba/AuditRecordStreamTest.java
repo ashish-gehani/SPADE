@@ -23,10 +23,10 @@ import java.net.SocketException;
 
 import spade.reporter.audit.AuditRecord;
 
-public class AmebaToAuditRecordStreamTest {
+public class AuditRecordStreamTest {
 
     public static void main(String[] args) throws Exception {
-        final AmebaToAuditRecordStream stream = AmebaToAuditRecordStream.create(AmebaConfig.create());
+        final AuditRecordStream stream = AuditRecordStream.create(Config.create());
 
         new Thread(() -> {
             try {
