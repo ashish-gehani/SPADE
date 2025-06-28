@@ -27,14 +27,23 @@ LLVM_PATH = /var/clang+llvm-3.0-x86_64-apple-darwin11
 # LLVM_TARGET = nweb
  
 # System and architecture-specific configuration
- 
+
+ARCH := $(shell uname -m)
+ifeq ($(ARCH),x86_64)
+	TARGET_ARCH := x86
+else ifeq ($(ARCH),aarch64)
+	TARGET_ARCH := arm64
+else
+	TARGET_ARCH := $(ARCH)
+endif
+
 OS_NAME = $(shell uname)
-OS_ARCH = $(shell uname -m)
 OS_KERNEL_RELEASE = $(shell uname -r)
 OS_KERNEL_MAJOR = $(shell uname -r | cut -d '.' -f 1)
 OS_KERNEL_MINOR = $(shell uname -r | cut -d '.' -f 2 | xargs printf "%02d")
 OS_KERNEL_NUMBER = $(OS_KERNEL_MAJOR)$(OS_KERNEL_MINOR)
 MAX_OS_KERNEL_NUMBER = 507
+
 ifeq ($(OS_NAME), Darwin)
 	OS_BUILD = build-openbsm
 	NO_FUSE = $(shell pkg-config fuse; echo $$?)
@@ -45,6 +54,7 @@ ifeq ($(OS_NAME), Darwin)
 	REPLIB_OSFLAG = -D_LLVMREPORTER_MACOSX
 	LLVM_RULE = build-mac-llvm
 endif
+
 ifeq ($(OS_NAME), Linux)
 	OS_BUILD = build-linuxaudit
 	NO_FUSE = $(shell pkg-config fuse; echo $$?)
