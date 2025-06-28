@@ -28,6 +28,7 @@ import java.util.Map;
 import org.apache.commons.io.FileUtils;
 
 import spade.core.Settings;
+import spade.utility.ArgumentFunctions;
 import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 import spade.utility.Result;
@@ -39,6 +40,7 @@ public class Input{
 	}
 
 	private final static String keyInputLog = "inputLog",
+			keyInputAmebaLog = "inputAmebaLog",
 			keyInputLogRotate = "rotate",
 			keyInputDir = "inputDir",
 			keyInputDirTime = "inputTime",
@@ -53,6 +55,7 @@ public class Input{
 	private Mode mode;
 	private String linuxAuditSocketPath;
 	private String inputLog;
+	private String inputAmebaLog;
 	private boolean inputLogRotate;
 	private List<String> inputLogList;
 	private String inputLogListFile;
@@ -62,7 +65,7 @@ public class Input{
 	
 	private Input(String spadeAuditBridgePath, Mode mode, 
 			String linuxAuditSocketPath,
-			String inputLog, boolean inputLogRotate, List<String> inputLogList, String inputLogListFile, 
+			String inputLog, String inputAmebaLog, boolean inputLogRotate, List<String> inputLogList, String inputLogListFile, 
 			String inputDir, String inputDirTime, boolean waitForLog){
 		this.spadeAuditBridgePath = spadeAuditBridgePath;
 		final String spadeAuditBridgePathTokens[] = spadeAuditBridgePath.split(File.separator);
@@ -71,6 +74,7 @@ public class Input{
 		this.mode = mode;
 		this.linuxAuditSocketPath = linuxAuditSocketPath;
 		this.inputLog = inputLog;
+		this.inputAmebaLog = inputAmebaLog;
 		this.inputLogRotate = inputLogRotate;
 		this.inputLogList = inputLogList;
 		this.inputLogListFile = inputLogListFile;
@@ -97,6 +101,10 @@ public class Input{
 
 	public String getInputLog(){
 		return inputLog;
+	}
+
+	public String getInputAmebaLog() {
+		return inputAmebaLog;
 	}
 
 	public boolean isInputLogRotate(){
@@ -149,7 +157,7 @@ public class Input{
 	public String toString(){
 		return "Input [spadeAuditBridgePath=" + spadeAuditBridgePath + ", spadeAuditBridgeName=" + spadeAuditBridgeName
 				+ ", mode=" + mode + ", linuxAuditSocketPath=" + linuxAuditSocketPath
-				+ ", inputLog=" + inputLog + ", inputLogRotate=" + inputLogRotate + ", inputLogList=" + inputLogList
+				+ ", inputLog=" + inputLog + ", inputAmebaLog=" + inputAmebaLog + ", inputLogRotate=" + inputLogRotate + ", inputLogList=" + inputLogList
 				+ ", inputLogListFile=" + inputLogListFile + ", inputDir=" + inputDir + ", inputDirTime=" + inputDirTime
 				+ ", waitForLog=" + waitForLog + "]";
 	}
@@ -211,6 +219,7 @@ public class Input{
 		final Mode mode;
 		final String linuxAuditSocketPath;
 		final String inputLog;
+		final String inputAmebaLog;
 		final boolean inputLogRotate;
 		final List<String> inputLogList;
 		final String inputLogListFile;
@@ -308,7 +317,7 @@ public class Input{
 				inputDirTime = null;
 			}
 		}
-		
+
 		if(mode == Mode.FILE || mode == Mode.DIRECTORY){
 			final String valueWaitForLog = map.get(keyWaitForLog);
 			final Result<Boolean> resultWaitForLog = HelperFunctions.parseBoolean(valueWaitForLog);
@@ -319,9 +328,24 @@ public class Input{
 		}else{
 			waitForLog = false;
 		}
+
+		if (mode == Mode.LIVE) {
+			inputAmebaLog = null;
+		} else {
+			if (mode == Mode.FILE || mode == Mode.DIRECTORY) {
+				final String valInputAmebaLog = map.get(keyInputAmebaLog);
+				if (valInputAmebaLog == null) {
+					inputAmebaLog = null;
+				} else {
+					inputAmebaLog = ArgumentFunctions.mustParseReadableFilePath(keyInputAmebaLog, map);
+				}
+			} else {
+				inputAmebaLog = null;
+			}
+		}
 		
 		return new Input(spadeAuditBridgePath, mode, 
 				linuxAuditSocketPath, 
-				inputLog, inputLogRotate, inputLogList, inputLogListFile, inputDir, inputDirTime, waitForLog);
+				inputLog, inputAmebaLog, inputLogRotate, inputLogList, inputLogListFile, inputDir, inputDirTime, waitForLog);
 	}
 }
