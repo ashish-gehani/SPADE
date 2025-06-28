@@ -107,6 +107,7 @@ public class MultiStreamAuditRecordReader {
                     } catch (TimeoutException e) {
                         // ignore
                         HelperFunctions.sleepSafe(100);
+                        continue;
                     }
                     if (line == null) break;
                     try {
