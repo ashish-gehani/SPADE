@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.bpf;
+package spade.reporter.audit.bpf.ameba;
 
 import java.util.Map;
 
@@ -145,7 +145,7 @@ public class AmebaConfig {
                 arguments,
                 new String[]{
                     Settings.getDefaultConfigFilePath(
-                        spade.reporter.audit.bpf.AmebaConfig.class
+                        spade.reporter.audit.bpf.ameba.AmebaConfig.class
                     )
                 }
             )

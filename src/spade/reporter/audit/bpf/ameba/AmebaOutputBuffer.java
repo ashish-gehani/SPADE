@@ -18,7 +18,7 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.reporter.audit.bpf;
+package spade.reporter.audit.bpf.ameba;
 
 import java.util.Iterator;
 import java.util.LinkedList;

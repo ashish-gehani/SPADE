@@ -17,34 +17,20 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
+package spade.reporter.audit.bpf.ameba;
 
-package spade.reporter.audit.bpf;
+import java.io.Closeable;
 
-public enum AmebaMode {
+public interface AmebaOutputReader extends Closeable {
+    
+    public AmebaRecord read() throws Exception;
 
-    CAPTURE("capture"),
-    IGNORE("ignore");
-
-    private final String value;
-
-    AmebaMode(String value) {
-        this.value = value;
-    }
-
-    public String getValue() {
-        return value;
-    }
-
-    private static final java.util.Map<String, AmebaMode> STRING_TO_ENUM =
-        new java.util.HashMap<>();
-
-    static {
-        for (AmebaMode s : values()) {
-            STRING_TO_ENUM.put(s.value, s);
-        }
-    }
-
-    public static AmebaMode fromString(String value) {
-        return STRING_TO_ENUM.get(value);
+    public static AmebaOutputReader create(final AmebaConfig config) throws Exception {
+        final AmebaOutputType type = config.getOutputType();
+        if (type == AmebaOutputType.FILE)
+            return AmebaFileReader.create(config);
+        if (type == AmebaOutputType.NET)
+            return AmebaUDPReader.create(config);
+        throw new Exception("Unknown ameba output type: " + type);
     }
 }

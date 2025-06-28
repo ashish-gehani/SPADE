@@ -18,7 +18,7 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.reporter.audit.bpf;
+package spade.reporter.audit.bpf.ameba;
 
 public enum AmebaAppState {
     

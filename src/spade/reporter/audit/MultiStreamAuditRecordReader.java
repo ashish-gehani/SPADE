@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.reporter.audit.bpf.AmebaToAuditRecordStream;
+import spade.reporter.audit.bpf.ameba.AmebaToAuditRecordStream;
 import spade.utility.BufferState;
 import spade.utility.HelperFunctions;
 import spade.utility.TimeoutInputStreamLineReader;

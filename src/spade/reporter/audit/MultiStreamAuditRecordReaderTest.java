@@ -25,9 +25,9 @@ import java.io.FileWriter;
 import java.util.Map;
 
 import spade.core.Settings;
-import spade.reporter.audit.bpf.AmebaConfig;
-import spade.reporter.audit.bpf.AmebaOutputType;
-import spade.reporter.audit.bpf.AmebaToAuditRecordStream;
+import spade.reporter.audit.bpf.ameba.AmebaConfig;
+import spade.reporter.audit.bpf.ameba.AmebaOutputType;
+import spade.reporter.audit.bpf.ameba.AmebaToAuditRecordStream;
 import spade.utility.ArgumentFunctions;
 import spade.utility.HelperFunctions;
 

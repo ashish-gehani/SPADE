@@ -18,7 +18,7 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.reporter.audit.bpf;
+package spade.reporter.audit.bpf.ameba;
 
 import java.util.Map;
 
@@ -53,7 +53,7 @@ public class AmebaConstants {
             HelperFunctions.parseKeyValuePairsFrom(
                 "", new String[]{
                     Settings.getDefaultConfigFilePath(
-                        spade.reporter.audit.bpf.AmebaConstants.class
+                        spade.reporter.audit.bpf.ameba.AmebaConstants.class
                     )
                 }
             )

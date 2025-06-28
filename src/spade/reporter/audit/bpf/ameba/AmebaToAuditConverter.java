@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.bpf;
+package spade.reporter.audit.bpf.ameba;
 
 import java.util.Map;
 import java.util.HashMap;

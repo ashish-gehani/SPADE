@@ -18,7 +18,7 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.reporter.audit.bpf;
+package spade.reporter.audit.bpf.ameba;
 
 import java.util.HashMap;
 import java.util.Map;

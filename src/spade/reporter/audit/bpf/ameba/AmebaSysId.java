@@ -17,55 +17,49 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.bpf;
+package spade.reporter.audit.bpf.ameba;
 
 import java.util.Map;
 
 import spade.utility.ArgumentFunctions;
 
-public class AmebaSysNum {
+public class AmebaSysId {
 
-    private static final String KEY_CLONE     = "sys_num_clone";
-    private static final String KEY_SETNS     = "sys_num_setns";
-    private static final String KEY_UNSHARE   = "sys_num_unshare";
-    private static final String KEY_CLONE3    = "sys_num_clone3";
-    private static final String KEY_SENDTO    = "sys_num_sendto";
-    private static final String KEY_SENDMSG   = "sys_num_sendmsg";
-    private static final String KEY_RECVFROM  = "sys_num_recvfrom";
-    private static final String KEY_RECVMSG   = "sys_num_recvmsg";
-    private static final String KEY_ACCEPT    = "sys_num_accept";
-    private static final String KEY_ACCEPT4   = "sys_num_accept4";
-    private static final String KEY_BIND      = "sys_num_bind";
-    private static final String KEY_CONNECT   = "sys_num_connect";
-    private static final String KEY_KILL      = "sys_num_kill";
+    private static final String KEY_FORK     = "sys_id_fork";
+    private static final String KEY_VFORK    = "sys_id_vfork";
+    private static final String KEY_CLONE    = "sys_id_clone";
+    private static final String KEY_SETNS    = "sys_id_setns";
+    private static final String KEY_UNSHARE  = "sys_id_unshare";
+    private static final String KEY_SENDTO   = "sys_id_sendto";
+    private static final String KEY_SENDMSG  = "sys_id_sendmsg";
+    private static final String KEY_RECVFROM = "sys_id_recvfrom";
+    private static final String KEY_RECVMSG  = "sys_id_recvmsg";
+    private static final String KEY_ACCEPT   = "sys_id_accept";
+    private static final String KEY_ACCEPT4  = "sys_id_accept4";
 
+    public final int FORK;
+    public final int VFORK;
     public final int CLONE;
     public final int SETNS;
     public final int UNSHARE;
-    public final int CLONE3;
     public final int SENDTO;
     public final int SENDMSG;
     public final int RECVFROM;
     public final int RECVMSG;
     public final int ACCEPT;
     public final int ACCEPT4;
-    public final int BIND;
-    public final int CONNECT;
-    public final int KILL;
 
-    public AmebaSysNum(final Map<String, String> map) throws Exception {
+    public AmebaSysId(final Map<String, String> map) throws Exception {
+        this.FORK     = ArgumentFunctions.mustParseInteger(KEY_FORK, map);
+        this.VFORK    = ArgumentFunctions.mustParseInteger(KEY_VFORK, map);
         this.CLONE    = ArgumentFunctions.mustParseInteger(KEY_CLONE, map);
         this.SETNS    = ArgumentFunctions.mustParseInteger(KEY_SETNS, map);
         this.UNSHARE  = ArgumentFunctions.mustParseInteger(KEY_UNSHARE, map);
-        this.CLONE3   = ArgumentFunctions.mustParseInteger(KEY_CLONE3, map);
         this.SENDTO   = ArgumentFunctions.mustParseInteger(KEY_SENDTO, map);
         this.SENDMSG  = ArgumentFunctions.mustParseInteger(KEY_SENDMSG, map);
         this.RECVFROM = ArgumentFunctions.mustParseInteger(KEY_RECVFROM, map);
         this.RECVMSG  = ArgumentFunctions.mustParseInteger(KEY_RECVMSG, map);
         this.ACCEPT   = ArgumentFunctions.mustParseInteger(KEY_ACCEPT, map);
         this.ACCEPT4  = ArgumentFunctions.mustParseInteger(KEY_ACCEPT4, map);
-        this.BIND     = ArgumentFunctions.mustParseInteger(KEY_BIND, map);
-        this.CONNECT  = ArgumentFunctions.mustParseInteger(KEY_CONNECT, map);
-        this.KILL     = ArgumentFunctions.mustParseInteger(KEY_KILL, map);
     }
 }
