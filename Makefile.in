@@ -9,7 +9,7 @@ JAVAC_OPTIONS =$(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none
 ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@
 ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
 AUDIT_KERNEL_MODULES_MAKEFILE = src/spade/reporter/audit/kernel-modules/Makefile
-AUDIT_BPF_AMEBA_DIR = src/spade/reporter/audit/bpf/ameba
+AUDIT_BPF_AMEBA_DIR = src/spade/reporter/audit/bpf/ameba/source
 AUDIT_BPF_AMEBA_INSTALL_DIR = $(shell realpath ./bin)
 
 #
