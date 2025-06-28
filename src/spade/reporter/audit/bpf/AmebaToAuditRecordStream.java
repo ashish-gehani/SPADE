@@ -60,4 +60,26 @@ public class AmebaToAuditRecordStream {
             AmebaOutputBuffer.create(config)
         );
     }
+
+    public static AmebaToAuditRecordStream createNullStream() {
+        return new NULLAmebaToAuditRecordStream();
+    }
+
+    private static class NULLAmebaToAuditRecordStream extends AmebaToAuditRecordStream {
+        public NULLAmebaToAuditRecordStream () { 
+            super(null, null);
+        }
+        @Override
+        public AuditRecord read () throws Exception {
+            return null;
+        }
+        @Override
+        public int getBufferCurrentSize () {
+            return 0;
+        }
+        @Override
+        public void close () throws Exception {
+            return;
+        }
+    }
 }
