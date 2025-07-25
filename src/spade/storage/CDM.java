@@ -1512,6 +1512,11 @@ public class CDM extends Kafka {
 			AbstractVertex actingVertex = null;
 			AbstractEdge edgeForEvent = null;
 			EventType eventType = getEventType(edges);
+
+			if (eventType == null) {
+				logger.log(Level.SEVERE, "Missing mapping from edges to event type. Edges: " + edges);
+				return;
+			}
 			
 			if(edges.size() == 1){
 				edgeForEvent = edges.get(0);
@@ -1827,7 +1832,9 @@ public class CDM extends Kafka {
 	 * @return EventType enum value or null
 	 */
 	private EventType getEventType(List<AbstractEdge> edges){
-		return rulesToEventType.get(getTypeOperationSet(edges));
+		final Set<TypeOperation> typeOperations = getTypeOperationSet(edges);
+		final EventType eventType = rulesToEventType.get(typeOperations);
+		return eventType;
 	}
 
 	private UUID getUUID(String str){
