@@ -162,7 +162,7 @@ public class ManageAuditKernelModules {
         System.out.println(
             "ManageAuditKernelModules - load/unload Audit reporter kernel modules\n\n" +
             "USAGE:\n" +
-            "  java -cp libs/spade.jar spade.utility.ManageAuditKernelModules \\\n" +
+            "  java <classpath> spade.utility.ManageAuditKernelModules \\\n" +
             "    --controller=/path/to/controller.ko \\\n" +
             "    --main=/path/to/main.ko \\\n" +
             "    [--user=<username>] \\\n" +
@@ -187,14 +187,14 @@ public class ManageAuditKernelModules {
             "  --nfNat=true|false          netfilter: NAT tracking (default: false)\n" +
             "  --harden=true|false         enable hardening for TGIDs (default: false)\n" +
             "  --hardenTgids=CSV           process names whose TGIDs to harden\n" +
-            "  --help, -h                  show this help\n\n" +
+            "  --help=true                 show this help\n\n" +
             "EXAMPLES:\n" +
             "  Insert:\n" +
-            "    java -cp libs/spade.jar spade.utility.ManageAuditKernelModules \\\n" +
+            "    java <classpath> spade.utility.ManageAuditKernelModules \\\n" +
             "      --controller=/lib/modules/ctrl.ko --main=/lib/modules/main.ko \\\n" +
             "      --user=myuser --ignoreProcesses=sshd,bash --netIO=true\n\n" +
             "  Remove:\n" +
-            "    java -cp libs/spade.jar spade.utility.ManageAuditKernelModules --controller=/lib/modules/ctrl.ko --remove=true\n"
+            "    java <classpath> spade.utility.ManageAuditKernelModules --controller=/lib/modules/ctrl.ko --remove=true\n"
         );
     }
 }
