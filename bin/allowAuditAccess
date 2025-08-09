@@ -24,8 +24,11 @@ fi
 ###
 
 # Old Ubuntu location
-# af_unix_path="/etc/audisp/plugins.d/af_unix.conf"
-af_unix_path="/etc/audit/plugins.d/af_unix.conf"
+af_unix_path="/etc/audisp/plugins.d/af_unix.conf"
+if sudo test ! -f "${af_unix_path}"; then
+    # Location in newer Ubuntu
+    af_unix_path="/etc/audit/plugins.d/af_unix.conf"
+fi
 
 sudo chmod ug+s `which auditctl`
 sudo chmod ug+s `which iptables`
