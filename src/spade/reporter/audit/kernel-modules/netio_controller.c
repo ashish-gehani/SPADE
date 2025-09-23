@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-#include "globals.h"
+#include "args.h"
 
 module_param(nf_handle_user, int, 0000);
 MODULE_PARM_DESC(nf_handle_user, "0 for no, 1 for add");

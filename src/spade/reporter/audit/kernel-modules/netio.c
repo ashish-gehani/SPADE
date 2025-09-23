@@ -42,7 +42,7 @@
 #include <linux/inetdevice.h>
 #include <linux/ptrace.h>
 
-#include "globals.h"
+#include "args.h"
 
 #if IS_ENABLED(CONFIG_NF_CONNTRACK)
 #include <net/netfilter/nf_conntrack.h>
