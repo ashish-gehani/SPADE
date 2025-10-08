@@ -76,19 +76,19 @@ int arg_parse_pid_array(
 		if (ret)
 		{
 			util_log_warn(log_id, "Parameter (%s) value contains invalid integer/pid: %s", param_name, src_item);
-			kfree(src_copy);
-			return ret;
+			break;
 		}
 		if (arg->len >= ARG_ARRAY_MAX)
 		{
 			util_log_warn(log_id, "Parameter (%s) value exceeds max array len: %d", param_name, ARG_ARRAY_MAX);
+			ret = -EINVAL;
 			break;
 		}
 		arg->arr[arg->len++] = src_item_pid;
 	}
 
 	kfree(src_copy);
-	return 0;
+	return ret;
 }
 
 int arg_parse_uid_array(
@@ -116,19 +116,19 @@ int arg_parse_uid_array(
 		if (ret)
 		{
 			util_log_warn(log_id, "Parameter (%s) value contains invalid unsigned integer/uid: %s", param_name, src_item);
-			kfree(src_copy);
-			return ret;
+			break;
 		}
 		if (arg->len >= ARG_ARRAY_MAX)
 		{
 			util_log_warn(log_id, "Parameter (%s) value exceeds max array len: %d", param_name, ARG_ARRAY_MAX);
+			ret = -EINVAL;
 			break;
 		}
 		arg->arr[arg->len++] = src_item_uid;
 	}
 
 	kfree(src_copy);
-	return 0;
+	return ret;
 }
 
 int arg_parse_bool(
