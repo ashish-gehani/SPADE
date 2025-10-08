@@ -53,11 +53,11 @@ static int __init onload(void)
 
 	arg_print(KBUILD_MODNAME, &arg);
 
-	// if ((ret = exported_spade_audit_start(&CONFIG_GLOBAL, &arg)) != 0)
-	// {
-	// 	util_log_warn(log_id, "Failed to load module. Error in starting auditing: %d", ret);
-	// 	return -1;
-	// }
+	if ((ret = exported_spade_audit_start(&CONFIG_GLOBAL, &arg)) != 0)
+	{
+		util_log_warn(log_id, "Failed to load module. Error in starting auditing: %d", ret);
+		return -1;
+	}
 
 	return 0;
 }
