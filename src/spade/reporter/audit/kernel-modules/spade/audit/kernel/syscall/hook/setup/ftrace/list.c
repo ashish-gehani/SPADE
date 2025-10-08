@@ -30,6 +30,10 @@ void kernel_syscall_hook_ftrace_list_init(void)
     for (i = 0; i < KERNEL_SYSCALL_HOOK_LIST_LEN; i++)
     {
         const struct kernel_syscall_hook *hook = &KERNEL_SYSCALL_HOOK_LIST[i];
+        if (!hook)
+            continue;
+        if (!hook->get_name || !hook->get_hook_func || !hook->get_orig_func_ptr)
+            continue;
         KERNEL_SYSCALL_HOOK_FTRACE_LIST[i].name = hook->get_name();
         KERNEL_SYSCALL_HOOK_FTRACE_LIST[i].function = hook->get_hook_func();
         KERNEL_SYSCALL_HOOK_FTRACE_LIST[i].original = hook->get_orig_func_ptr();

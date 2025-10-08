@@ -30,6 +30,10 @@ void kernel_syscall_hook_table_list_init(void)
     for (i = 0; i < KERNEL_SYSCALL_HOOK_LIST_LEN; i++)
     {
         const struct kernel_syscall_hook *hook = &KERNEL_SYSCALL_HOOK_LIST[i];
+        if (!hook)
+            continue;
+        if (!hook->get_num || !hook->get_hook_func || !hook->get_orig_func_ptr)
+            continue;
         KERNEL_SYSCALL_HOOK_TABLE_LIST[i].num = hook->get_num();
         KERNEL_SYSCALL_HOOK_TABLE_LIST[i].hook_func = hook->get_hook_func();
         KERNEL_SYSCALL_HOOK_TABLE_LIST[i].orig_func_ptr = hook->get_orig_func_ptr();
