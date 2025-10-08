@@ -43,6 +43,6 @@ struct config
     enum config_syscall_hook_type sys_hook_type;
 };
 
-extern struct config CONFIG_GLOBAL;
+extern const struct config CONFIG_GLOBAL;
 
 #endif // SPADE_AUDIT_CONFIG_CONFIG_H

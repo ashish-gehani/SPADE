@@ -22,7 +22,7 @@
 #include "spade/config/generated.h"
 
 
-struct config CONFIG_GLOBAL = {
+const struct config CONFIG_GLOBAL = {
     .build_hash = {
         .value = GENERATED_BUILD_HASH
     },
