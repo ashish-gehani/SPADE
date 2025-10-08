@@ -29,7 +29,7 @@
 
 
 static const int global_sys_num = __NR_setns;
-static const char* global_sys_name = "sys_setns";
+static const char* global_sys_name = "setns";
 
 ////
 

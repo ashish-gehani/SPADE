@@ -29,7 +29,7 @@
 
 
 static const int global_sys_num = __NR_sendto;
-static const char* global_sys_name = "sys_sendto";
+static const char* global_sys_name = "sendto";
 
 ////
 

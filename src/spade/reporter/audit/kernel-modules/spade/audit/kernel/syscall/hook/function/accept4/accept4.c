@@ -29,7 +29,7 @@
 
 
 static const int global_sys_num = __NR_accept4;
-static const char* global_sys_name = "sys_accept4";
+static const char* global_sys_name = "accept4";
 
 ////
 

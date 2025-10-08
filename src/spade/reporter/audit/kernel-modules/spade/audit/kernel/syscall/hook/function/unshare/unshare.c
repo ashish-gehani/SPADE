@@ -29,7 +29,7 @@
 
 
 static const int global_sys_num = __NR_unshare;
-static const char* global_sys_name = "sys_unshare";
+static const char* global_sys_name = "unshare";
 
 ////
 

@@ -29,7 +29,7 @@
 
 
 static const int global_sys_num = __NR_bind;
-static const char* global_sys_name = "sys_bind";
+static const char* global_sys_name = "bind";
 
 ////
 

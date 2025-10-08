@@ -29,7 +29,7 @@
 
 
 static const int global_sys_num = __NR_vfork;
-static const char* global_sys_name = "sys_vfork";
+static const char* global_sys_name = "vfork";
 
 ////
 static void _pre(void)
