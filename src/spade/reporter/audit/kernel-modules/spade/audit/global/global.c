@@ -24,6 +24,7 @@
 #include "spade/audit/global/global.h"
 #include "spade/audit/global/syscall/syscall.h"
 #include "spade/audit/global/netfilter/netfilter.h"
+#include "spade/audit/context/print.h"
 
 
 static struct global
@@ -68,9 +69,15 @@ bool global_is_state_initialized(void)
 
 int global_context_init(struct arg *arg)
 {
+    int err;
     if (!global_is_state_initialized())
         return -EINVAL;
-    return context_init(&g.c, arg);
+    err = context_init(&g.c, arg);
+    if (err != 0)
+    {
+        context_print(&g.c);
+    }
+    return err;
 }
 
 int global_context_deinit(void)

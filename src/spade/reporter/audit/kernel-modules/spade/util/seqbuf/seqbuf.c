@@ -27,6 +27,9 @@
 
 void util_seqbuf_init(struct seqbuf *sb, char *buf, size_t size)
 {
+	if (!sb || !buf)
+		return;
+
 	sb->buf = buf;
 	sb->size = size;
 	sb->len = 0;
@@ -37,6 +40,9 @@ void util_seqbuf_init(struct seqbuf *sb, char *buf, size_t size)
 
 bool util_seqbuf_has_overflowed(const struct seqbuf *sb)
 {
+	if (!sb)
+		return false;
+
 	return sb->overflow;
 }
 
@@ -46,7 +52,7 @@ int util_seqbuf_printf(struct seqbuf *sb, const char *fmt, ...)
 	int n;
 	size_t avail;
 
-	if (!sb || !fmt)
+	if (!sb || !fmt || !sb->buf)
 		return -EINVAL;
 
 	if (sb->size == 0)

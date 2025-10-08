@@ -24,6 +24,7 @@
 #include "spade/audit/context/syscall/print.h"
 #include "spade/audit/context/netfilter/print.h"
 #include "spade/util/seqbuf/seqbuf.h"
+#include "spade/util/helper/seqbuf/seqbuf.h"
 #include "spade/util/log/log.h"
 
 
@@ -32,15 +33,10 @@ static void seqbuf_print_context_sep(struct seqbuf *b)
     util_seqbuf_printf(b, ", ");
 }
 
-static void seqbuf_print_context_bool(struct seqbuf *b, char *context_name, bool val)
-{
-    util_seqbuf_printf(b, "%s=%s", context_name, val ? "true" : "false");
-}
-
 static void seqbuf_print_context(struct seqbuf *b, const struct context *context)
 {
     util_seqbuf_printf(b, "context={");
-    seqbuf_print_context_bool(b, "initialized", context->initialized);
+    util_helper_seqbuf_print_bool(b, "initialized", context->initialized);
     seqbuf_print_context_sep(b);
     context_syscall_write_to_seqbuf(b, &context->syscall);
     seqbuf_print_context_sep(b);

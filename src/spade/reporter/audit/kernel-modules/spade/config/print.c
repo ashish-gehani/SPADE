@@ -22,17 +22,13 @@
 
 #include "spade/config/print.h"
 #include "spade/util/seqbuf/seqbuf.h"
+#include "spade/util/helper/seqbuf/seqbuf.h"
 #include "spade/util/log/log.h"
 
 
 static void seqbuf_print_config_sep(struct seqbuf *b)
 {
     util_seqbuf_printf(b, ", ");
-}
-
-static void seqbuf_print_config_bool(struct seqbuf *b, char *config_name, bool val)
-{
-    util_seqbuf_printf(b, "%s=%s", config_name, val ? "true" : "false");
 }
 
 static void seqbuf_print_config_syscall_hook_type(struct seqbuf *b, char *config_name, enum config_syscall_hook_type sys_hook_type)
@@ -65,7 +61,7 @@ static void seqbuf_print_config(struct seqbuf *b, const struct config *config)
     util_seqbuf_printf(b, "config={");
     seqbuf_print_config_build_hash(b, "build_hash", &config->build_hash);
     seqbuf_print_config_sep(b);
-    seqbuf_print_config_bool(b, "debug", config->debug);
+    util_helper_seqbuf_print_bool(b, "debug", config->debug);
     seqbuf_print_config_sep(b);
     seqbuf_print_config_syscall_hook_type(b, "sys_hook_type", config->sys_hook_type);
     util_seqbuf_printf(b, "}");
