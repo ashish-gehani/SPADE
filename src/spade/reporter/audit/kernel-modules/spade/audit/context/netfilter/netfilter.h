@@ -23,7 +23,7 @@
 
 #include <linux/init.h>
 
-#include "spade/arg/module/module.h"
+#include "spade/arg/arg.h"
 
 
 struct context_netfilter
@@ -32,11 +32,11 @@ struct context_netfilter
 
     bool use_user;
 
-    struct arg_module_user user;
+    struct arg_user user;
 
     bool include_ns_info;
 
-    enum arg_module_monitor_connections monitor_ct;
+    enum arg_monitor_connections monitor_ct;
 };
 
 /*
@@ -62,7 +62,7 @@ int context_netfilter_is_initialized(
         0       -> Success.
         -ive    -> Error code.
 */
-int context_netfilter_init(struct context_netfilter *c, struct arg_module *arg);
+int context_netfilter_init(struct context_netfilter *c, struct arg *arg);
 
 /*
     Deinitialize context.

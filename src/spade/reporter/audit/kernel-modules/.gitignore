@@ -5,3 +5,4 @@ spade/config/generated.h
 build
 *.o.cmd
 *.o
+*.o.d

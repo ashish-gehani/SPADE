@@ -45,9 +45,9 @@ obj-m := $(addsuffix .o,$(MODULE_NAMES))
 
 # netio module objects
 netio-y := \
-  spade/arg/module/default.o \
-  spade/arg/module/parse.o \
-  spade/arg/module/print.o \
+  spade/arg/default.o \
+  spade/arg/parse.o \
+  spade/arg/print.o \
   spade/audit/context/netfilter/netfilter.o \
   spade/audit/context/syscall/syscall.o \
   spade/audit/context/context.o \
@@ -105,9 +105,9 @@ netio-y := \
 
 # netio controller module objects
 netio_controller-y := \
-  spade/arg/module/default.o \
-  spade/arg/module/parse.o \
-  spade/arg/module/print.o \
+  spade/arg/default.o \
+  spade/arg/parse.o \
+  spade/arg/print.o \
   spade/config/config.o \
   spade/controller/controller.o \
   spade/controller/param.o \

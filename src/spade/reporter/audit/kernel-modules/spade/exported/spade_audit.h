@@ -21,7 +21,7 @@
 #ifndef SPADE_AUDIT_EXPORTED_SPADE_AUDIT_H
 #define SPADE_AUDIT_EXPORTED_SPADE_AUDIT_H
 
-#include "spade/arg/module/module.h"
+#include "spade/arg/arg.h"
 #include "spade/config/config.h"
 
 
@@ -36,7 +36,7 @@
         0    -> Success
         -ive -> Error code
 */
-int exported_spade_audit_start(const struct config *config, struct arg_module *arg);
+int exported_spade_audit_start(const struct config *config, struct arg *arg);
 
 /*
     Stop auditing by SPADE kernel module.

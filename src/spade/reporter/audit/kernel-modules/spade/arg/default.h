@@ -18,10 +18,10 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_ARG_MODULE_DEFAULT_H
-#define _SPADE_ARG_MODULE_DEFAULT_H
+#ifndef _SPADE_ARG_DEFAULT_H
+#define _SPADE_ARG_DEFAULT_H
 
-#include "spade/arg/module/module.h"
+#include "spade/arg/arg.h"
 
 /*
     Set given arg to default values.
@@ -30,6 +30,6 @@
         0    -> Success.
         -ive -> Error code.
 */
-int arg_module_default_set(struct arg_module *arg);
+int arg_default_set(struct arg *arg);
 
-#endif // _SPADE_ARG_MODULE_DEFAULT_H
+#endif // _SPADE_ARG_DEFAULT_H

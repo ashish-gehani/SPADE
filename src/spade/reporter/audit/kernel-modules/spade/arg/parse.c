@@ -25,12 +25,12 @@
 #include <linux/param.h>
 #include <linux/string.h>
 
-#include "spade/arg/module/parse.h"
+#include "spade/arg/parse.h"
 #include "spade/util/log/log.h"
 
-int arg_module_parse_monitor_mode(
+int arg_parse_monitor_mode(
 	const char *log_id, const char *param_name,
-	const char *src, enum arg_module_monitor_mode *dst)
+	const char *src, enum arg_monitor_mode *dst)
 {
 	int tmp, ret;
 
@@ -43,7 +43,7 @@ int arg_module_parse_monitor_mode(
 
 	if (tmp != AMM_CAPTURE && tmp != AMM_IGNORE)
 	{
-		util_log_warn("arg_module_parse_monitor_mode", "Parameter (%s) has invalid value %d (must be 0=capture, 1=ignore)", param_name, tmp);
+		util_log_warn("arg_parse_monitor_mode", "Parameter (%s) has invalid value %d (must be 0=capture, 1=ignore)", param_name, tmp);
 		return -EINVAL;
 	}
 
@@ -51,11 +51,11 @@ int arg_module_parse_monitor_mode(
 	return 0;
 }
 
-int arg_module_parse_pid_array(
+int arg_parse_pid_array(
 	const char *log_id, const char *param_name,
-	const char *src, struct arg_module_array_pid *dst)
+	const char *src, struct arg_array_pid *dst)
 {
-	struct arg_module_array_pid *arg = dst;
+	struct arg_array_pid *arg = dst;
 	char *src_copy, *src_item, *src_copy_ptr;
 	pid_t src_item_pid, ret = 0;
 
@@ -79,9 +79,9 @@ int arg_module_parse_pid_array(
 			kfree(src_copy);
 			return ret;
 		}
-		if (arg->len >= ARG_MODULE_ARRAY_MAX)
+		if (arg->len >= ARG_ARRAY_MAX)
 		{
-			util_log_warn(log_id, "Parameter (%s) value exceeds max array len: %d", param_name, ARG_MODULE_ARRAY_MAX);
+			util_log_warn(log_id, "Parameter (%s) value exceeds max array len: %d", param_name, ARG_ARRAY_MAX);
 			break;
 		}
 		arg->arr[arg->len++] = src_item_pid;
@@ -91,11 +91,11 @@ int arg_module_parse_pid_array(
 	return 0;
 }
 
-int arg_module_parse_uid_array(
+int arg_parse_uid_array(
 	const char *log_id, const char *param_name,
-	const char *src, struct arg_module_array_uid *dst)
+	const char *src, struct arg_array_uid *dst)
 {
-	struct arg_module_array_uid *arg = dst;
+	struct arg_array_uid *arg = dst;
 	char *src_copy, *src_item, *src_copy_ptr;
 	uid_t src_item_uid, ret = 0;
 
@@ -119,9 +119,9 @@ int arg_module_parse_uid_array(
 			kfree(src_copy);
 			return ret;
 		}
-		if (arg->len >= ARG_MODULE_ARRAY_MAX)
+		if (arg->len >= ARG_ARRAY_MAX)
 		{
-			util_log_warn(log_id, "Parameter (%s) value exceeds max array len: %d", param_name, ARG_MODULE_ARRAY_MAX);
+			util_log_warn(log_id, "Parameter (%s) value exceeds max array len: %d", param_name, ARG_ARRAY_MAX);
 			break;
 		}
 		arg->arr[arg->len++] = src_item_uid;
@@ -131,7 +131,7 @@ int arg_module_parse_uid_array(
 	return 0;
 }
 
-int arg_module_parse_bool(
+int arg_parse_bool(
 	const char *log_id, const char *param_name,
 	const char *src, bool *dst
 )
@@ -159,9 +159,9 @@ invalid:
 	return -EINVAL;
 }
 
-int arg_module_parse_monitor_syscalls(
+int arg_parse_monitor_syscalls(
 	const char *log_id, const char *param_name,
-	const char *src, enum arg_module_monitor_syscalls *dst)
+	const char *src, enum arg_monitor_syscalls *dst)
 {
 	int tmp, ret;
 
@@ -182,13 +182,13 @@ int arg_module_parse_monitor_syscalls(
 	return 0;
 }
 
-int arg_module_parse_monitor_connections(
+int arg_parse_monitor_connections(
 	const char *log_id, const char *param_name,
-	const char *src, enum arg_module_monitor_connections *dst
+	const char *src, enum arg_monitor_connections *dst
 )
 {
 	int tmp, ret;
-	
+
 	if (!log_id || !param_name || !src || !dst)
 		return -EINVAL;
 

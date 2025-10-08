@@ -23,7 +23,7 @@
 
 #include <linux/types.h>
 
-#include "spade/arg/module/module.h"
+#include "spade/arg/arg.h"
 
 /*
     Does pid exist in the array?
@@ -38,6 +38,6 @@ bool global_common_is_uid_in_array(const uid_t *arr, size_t len, uid_t needle);
 /*
     Does 'uid' match the criteria in 'user'.
 */
-bool global_common_is_uid_loggable(struct arg_module_user *user, uid_t uid);
+bool global_common_is_uid_loggable(struct arg_user *user, uid_t uid);
 
 #endif // _SPADE_AUDIT_GLOBAL_COMMON_H

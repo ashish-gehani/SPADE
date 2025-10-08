@@ -23,7 +23,7 @@
 
 #include <linux/netfilter.h>
 
-#include "spade/arg/module/module.h"
+#include "spade/arg/arg.h"
 #include "spade/audit/state/state.h"
 #include "spade/audit/context/context.h"
 
@@ -75,7 +75,7 @@ bool global_is_state_initialized(void);
         0       -> Success.
         -ive    -> Error code.
 */
-int global_context_init(struct arg_module *arg);
+int global_context_init(struct arg *arg);
 
 /*
     Deinitialize global context.

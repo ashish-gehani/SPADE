@@ -21,7 +21,7 @@
 #ifndef SPADE_AUDIT_CONTROLLER_PARAM_H
 #define SPADE_AUDIT_CONTROLLER_PARAM_H
 
-#include "spade/arg/module/module.h"
+#include "spade/arg/arg.h"
 #include "spade/controller/controller.h"
 
 
@@ -35,6 +35,6 @@
         0    -> Success
         -ive -> Error
 */
-int param_copy_validated_args(struct arg_module *dst);
+int param_copy_validated_args(struct arg *dst);
 
 #endif // SPADE_AUDIT_CONTROLLER_PARAM_H

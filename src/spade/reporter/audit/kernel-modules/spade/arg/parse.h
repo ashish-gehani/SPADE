@@ -18,13 +18,13 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_ARG_MODULE_PARSE_H
-#define _SPADE_ARG_MODULE_PARSE_H
+#ifndef _SPADE_ARG_PARSE_H
+#define _SPADE_ARG_PARSE_H
 
-#include "spade/arg/module/module.h"
+#include "spade/arg/arg.h"
 
 /*
-	Set kernel module param of type 'enum arg_module_monitor_mode'.
+	Set kernel module param of type 'enum arg_monitor_mode'.
 
 	Params:
 		log_id 		: Log identifier.
@@ -36,13 +36,13 @@
 		0    : Success.
 		-ive : Error code.
 */
-int arg_module_parse_monitor_mode(
+int arg_parse_monitor_mode(
 	const char *log_id, const char *param_name,
-	const char *src, enum arg_module_monitor_mode *dst
+	const char *src, enum arg_monitor_mode *dst
 );
 
 /*
-	Set kernel module param of type 'struct arg_module_array_pid'.
+	Set kernel module param of type 'struct arg_array_pid'.
 
 	Params:
 		log_id 		: Log identifier.
@@ -54,13 +54,13 @@ int arg_module_parse_monitor_mode(
 		0    : Success.
 		-ive : Error code.
 */
-int arg_module_parse_pid_array(
+int arg_parse_pid_array(
 	const char *log_id, const char *param_name,
-	const char *val, struct arg_module_array_pid *dst
+	const char *val, struct arg_array_pid *dst
 );
 
 /*
-	Set kernel module param of type 'struct arg_module_array_uid'.
+	Set kernel module param of type 'struct arg_array_uid'.
 
 	Params:
 		log_id 		: Log identifier.
@@ -72,9 +72,9 @@ int arg_module_parse_pid_array(
 		0    : Success.
 		-ive : Error code.
 */
-int arg_module_parse_uid_array(
+int arg_parse_uid_array(
 	const char *log_id, const char *param_name,
-	const char *val, struct arg_module_array_uid *dst
+	const char *val, struct arg_array_uid *dst
 );
 
 /*
@@ -90,13 +90,13 @@ int arg_module_parse_uid_array(
 		0    : Success.
 		-ive : Error code.
 */
-int arg_module_parse_bool(
+int arg_parse_bool(
 	const char *log_id, const char *param_name,
 	const char *val, bool *dst
 );
 
 /*
-	Set kernel module param of type 'enum arg_module_monitor_syscalls'.
+	Set kernel module param of type 'enum arg_monitor_syscalls'.
 
 	Params:
 		log_id 		: Log identifier.
@@ -108,13 +108,13 @@ int arg_module_parse_bool(
 		0    : Success.
 		-ive : Error code.
 */
-int arg_module_parse_monitor_syscalls(
+int arg_parse_monitor_syscalls(
 	const char *log_id, const char *param_name,
-	const char *val, enum arg_module_monitor_syscalls *dst
+	const char *val, enum arg_monitor_syscalls *dst
 );
 
 /*
-	Set kernel module param of type 'enum arg_module_monitor_connections'.
+	Set kernel module param of type 'enum arg_monitor_connections'.
 
 	Params:
 		log_id 		: Log identifier.
@@ -126,9 +126,9 @@ int arg_module_parse_monitor_syscalls(
 		0    : Success.
 		-ive : Error code.
 */
-int arg_module_parse_monitor_connections(
+int arg_parse_monitor_connections(
 	const char *log_id, const char *param_name,
-	const char *val, enum arg_module_monitor_connections *dst
+	const char *val, enum arg_monitor_connections *dst
 );
 
-#endif // _SPADE_ARG_MODULE_PARSE_H
+#endif // _SPADE_ARG_PARSE_H

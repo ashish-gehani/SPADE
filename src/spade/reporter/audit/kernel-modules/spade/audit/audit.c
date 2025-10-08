@@ -67,7 +67,7 @@ static bool ensure_global_build_hash_matches(
     return true;
 }
 
-int exported_spade_audit_start(const struct config *config, struct arg_module *arg)
+int exported_spade_audit_start(const struct config *config, struct arg *arg)
 {
     const char *log_id = "exported_spade_audit_start";
     int err = 0;

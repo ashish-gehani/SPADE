@@ -18,10 +18,10 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_ARG_MODULE_PRINT_H
-#define _SPADE_ARG_MODULE_PRINT_H
+#ifndef _SPADE_ARG_PRINT_H
+#define _SPADE_ARG_PRINT_H
 
-#include "spade/arg/module/module.h"
+#include "spade/arg/arg.h"
 
 /*
     Log module arguments using printk.
@@ -30,6 +30,6 @@
         module_name : Name of the module calling this function. Logged alongside arguments.
         module_arg  : The arguments to log.
 */
-void arg_module_print(const char *module_name, const struct arg_module *arg);
+void arg_print(const char *module_name, const struct arg *arg);
 
-#endif // _SPADE_ARG_MODULE_PRINT_H
+#endif // _SPADE_ARG_PRINT_H

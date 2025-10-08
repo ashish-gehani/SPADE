@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_ARG_MODULE_MODULE_H
-#define _SPADE_ARG_MODULE_MODULE_H
+#ifndef _SPADE_ARG_H
+#define _SPADE_ARG_H
 
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -27,18 +27,18 @@
 /*
     Maximum number of items in an argument array.
 */
-#define ARG_MODULE_ARRAY_MAX 64
+#define ARG_ARRAY_MAX 64
 
 
-struct arg_module_array_pid
+struct arg_array_pid
 {
-    pid_t arr[ARG_MODULE_ARRAY_MAX];
+    pid_t arr[ARG_ARRAY_MAX];
     size_t len;
 };
 
-struct arg_module_array_uid
+struct arg_array_uid
 {
-    uid_t arr[ARG_MODULE_ARRAY_MAX];
+    uid_t arr[ARG_ARRAY_MAX];
     size_t len;
 };
 
@@ -48,7 +48,7 @@ struct arg_module_array_uid
 
     This enum contains the possible options.
 */
-enum arg_module_monitor_mode
+enum arg_monitor_mode
 {
     AMM_CAPTURE = 0,
     AMM_IGNORE = 1
@@ -58,14 +58,14 @@ enum arg_module_monitor_mode
     An enum to describe which syscalls to trace based on their
     result.
 */
-enum arg_module_monitor_syscalls
+enum arg_monitor_syscalls
 {
     AMMS_ALL = -1,
     AMMS_ONLY_FAILED = 0,
     AMMS_ONLY_SUCCESSFUL = 1,
 };
 
-enum arg_module_monitor_connections
+enum arg_monitor_connections
 {
     // All connections.
     AMMC_ALL = -1,
@@ -74,16 +74,16 @@ enum arg_module_monitor_connections
     AMMC_ONLY_NEW = 0
 };
 
-struct arg_module_user
+struct arg_user
 {
     /*
         UID monitor mode for the list of uids.
     */
-    enum arg_module_monitor_mode uid_monitor_mode;
-    struct arg_module_array_uid uids;
+    enum arg_monitor_mode uid_monitor_mode;
+    struct arg_array_uid uids;
 };
 
-struct arg_module_netfilter
+struct arg_netfilter
 {
     /*
         Flag to enable/disable netfilter hooks.
@@ -98,10 +98,10 @@ struct arg_module_netfilter
     /*
         Monitor connections based on their type.
     */
-    enum arg_module_monitor_connections monitor_ct;
+    enum arg_monitor_connections monitor_ct;
 };
 
-struct arg_module
+struct arg
 {
     /*
         Monitor networking I/O calls like sendmsg, recvmsg, etc.
@@ -116,27 +116,27 @@ struct arg_module
     /*
         System calls to monitor.
     */
-    enum arg_module_monitor_syscalls monitor_syscalls;
+    enum arg_monitor_syscalls monitor_syscalls;
 
     /*
         List of process ids to ignore.
     */
-    struct arg_module_array_pid ignore_pids;
+    struct arg_array_pid ignore_pids;
 
     /*
         List of parent process ids to ignore.
     */
-    struct arg_module_array_pid ignore_ppids;
+    struct arg_array_pid ignore_ppids;
 
     /*
         User related args.
     */
-    struct arg_module_user user;
+    struct arg_user user;
 
     /*
         Netfilter functionality arguments.
     */
-    struct arg_module_netfilter nf;
+    struct arg_netfilter nf;
 };
 
-#endif // _SPADE_ARG_MODULE_MODULE_H
+#endif // _SPADE_ARG_H

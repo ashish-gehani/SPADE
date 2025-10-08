@@ -23,13 +23,13 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 
-#include "spade/arg/module/default.h"
+#include "spade/arg/default.h"
 
-static void _user_default_set(struct arg_module_user *u)
+static void _user_default_set(struct arg_user *u)
 {
     u->uid_monitor_mode = AMM_IGNORE;
     u->uids.len = 0;
-    memset(&(u->uids.arr[0]), 0, sizeof(uid_t) * ARG_MODULE_ARRAY_MAX);
+    memset(&(u->uids.arr[0]), 0, sizeof(uid_t) * ARG_ARRAY_MAX);
 }
 
 static void _include_ns_info_default_set(bool *dst)
@@ -37,7 +37,7 @@ static void _include_ns_info_default_set(bool *dst)
     *dst = false;
 }
 
-int arg_module_default_set(struct arg_module *arg)
+int arg_default_set(struct arg *arg)
 {
     if (!arg)
         return -EINVAL;
@@ -48,9 +48,9 @@ int arg_module_default_set(struct arg_module *arg)
     arg->monitor_syscalls = AMMS_ONLY_SUCCESSFUL;
     arg->network_io = false;
     _include_ns_info_default_set(&arg->include_ns_info);
-    memset(&(arg->ignore_pids.arr[0]), 0, sizeof(pid_t) * ARG_MODULE_ARRAY_MAX);
+    memset(&(arg->ignore_pids.arr[0]), 0, sizeof(pid_t) * ARG_ARRAY_MAX);
     arg->ignore_pids.len = 0;
-    memset(&(arg->ignore_ppids.arr[0]), 0, sizeof(pid_t) * ARG_MODULE_ARRAY_MAX);
+    memset(&(arg->ignore_ppids.arr[0]), 0, sizeof(pid_t) * ARG_ARRAY_MAX);
     arg->ignore_ppids.len = 0;
     _user_default_set(&arg->user);
 

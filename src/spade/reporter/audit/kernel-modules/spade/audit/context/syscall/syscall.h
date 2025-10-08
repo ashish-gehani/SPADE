@@ -23,7 +23,7 @@
 
 #include <linux/init.h>
 
-#include "spade/arg/module/module.h"
+#include "spade/arg/arg.h"
 
 
 struct context_syscall
@@ -34,13 +34,13 @@ struct context_syscall
 
     bool include_ns_info;
 
-    enum arg_module_monitor_syscalls monitor_syscalls;
+    enum arg_monitor_syscalls monitor_syscalls;
 
-    struct arg_module_array_pid ignore_pids;
+    struct arg_array_pid ignore_pids;
 
-    struct arg_module_array_pid ignore_ppids;
+    struct arg_array_pid ignore_ppids;
 
-    struct arg_module_user user;
+    struct arg_user user;
 };
 
 /*
@@ -66,7 +66,7 @@ int context_syscall_is_initialized(
         0       -> Success.
         -ive    -> Error code.
 */
-int context_syscall_init(struct context_syscall *c, struct arg_module *arg);
+int context_syscall_init(struct context_syscall *c, struct arg *arg);
 
 /*
     Deinitialize context.

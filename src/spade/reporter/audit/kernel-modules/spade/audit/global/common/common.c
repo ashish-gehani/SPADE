@@ -51,7 +51,7 @@ bool global_common_is_uid_in_array(const uid_t *arr, size_t len, uid_t needle)
     return false;
 }
 
-bool global_common_is_uid_loggable(struct arg_module_user *user, uid_t uid)
+bool global_common_is_uid_loggable(struct arg_user *user, uid_t uid)
 {
     bool uid_is_in_uid_array;
     if (!user)

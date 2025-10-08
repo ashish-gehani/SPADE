@@ -66,7 +66,7 @@ bool global_is_state_initialized(void)
     return inited;
 }
 
-int global_context_init(struct arg_module *arg)
+int global_context_init(struct arg *arg)
 {
     if (!global_is_state_initialized())
         return -EINVAL;

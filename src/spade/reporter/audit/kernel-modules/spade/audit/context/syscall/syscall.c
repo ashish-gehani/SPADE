@@ -42,7 +42,7 @@ int context_syscall_is_initialized(
     return 0;
 }
 
-int context_syscall_init(struct context_syscall *ctx, struct arg_module *arg)
+int context_syscall_init(struct context_syscall *ctx, struct arg *arg)
 {
     if (!ctx || !arg)
         return -EINVAL;

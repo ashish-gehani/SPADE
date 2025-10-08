@@ -25,7 +25,7 @@
 #include <linux/string.h>
 
 #include "spade/config/config.h"
-#include "spade/arg/module/print.h"
+#include "spade/arg/print.h"
 #include "spade/controller/param.h"
 #include "spade/exported/spade_audit.h"
 #include "spade/util/log/log.h"
@@ -43,7 +43,7 @@ static int __init onload(void)
 {
 	const char *log_id = "__init onload";
 	int ret;
-	struct arg_module arg;
+	struct arg arg;
 
 	if ((ret = param_copy_validated_args(&arg)) != 0)
 	{
@@ -51,7 +51,7 @@ static int __init onload(void)
 		return -1;
 	}
 
-	arg_module_print(KBUILD_MODNAME, &arg);
+	arg_print(KBUILD_MODNAME, &arg);
 
 	// if ((ret = exported_spade_audit_start(&CONFIG_GLOBAL, &arg)) != 0)
 	// {

@@ -25,7 +25,7 @@
 #include <linux/atomic.h>
 #include <linux/proc_ns.h>
 
-#include "spade/arg/module/module.h"
+#include "spade/arg/arg.h"
 #include "spade/audit/context/syscall/syscall.h"
 #include "spade/audit/context/netfilter/netfilter.h"
 
@@ -64,7 +64,7 @@ int context_is_initialized(
         0       -> Success.
         -ive    -> Error code.
 */
-int context_init(struct context *c, struct arg_module *arg);
+int context_init(struct context *c, struct arg *arg);
 
 /*
     Deinitialize context.

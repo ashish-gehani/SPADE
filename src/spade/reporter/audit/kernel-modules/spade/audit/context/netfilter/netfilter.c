@@ -42,7 +42,7 @@ int context_netfilter_is_initialized(
     return 0;
 }
 
-int context_netfilter_init(struct context_netfilter *ctx, struct arg_module *arg)
+int context_netfilter_init(struct context_netfilter *ctx, struct arg *arg)
 {
     if (!ctx || !arg)
         return -EINVAL;
