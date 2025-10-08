@@ -25,6 +25,8 @@
 #include "spade/audit/global/syscall/syscall.h"
 #include "spade/audit/global/netfilter/netfilter.h"
 #include "spade/audit/context/print.h"
+#include "spade/util/log/log.h"
+#include "spade/audit/state/print.h"
 
 
 static struct global
@@ -49,7 +51,10 @@ static bool _is_state_and_context_inited(void)
 
 int global_state_init(void)
 {
-    return state_init(&g.s);
+    int err;
+    err = state_init(&g.s);
+    state_print(&g.s);
+    return err;
 }
 
 int global_state_deinit(void)
@@ -110,6 +115,7 @@ int global_auditing_start(void)
         return -EALREADY;
 
     g.auditing_started = true;
+    util_log_info("global_auditing_start", "{started=true}");
     return 0;
 }
 
@@ -122,6 +128,7 @@ int global_auditing_stop(void)
         return -EALREADY;
 
     g.auditing_started = false;
+    util_log_info("global_auditing_start", "{started=false}");
     return 0;
 }
 

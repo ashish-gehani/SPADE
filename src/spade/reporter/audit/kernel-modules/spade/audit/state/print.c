@@ -20,66 +20,43 @@
 
 #include <linux/slab.h>
 
-#include "spade/config/print.h"
+#include "spade/audit/state/print.h"
+#include "spade/audit/state/syscall/print.h"
+#include "spade/audit/state/netfilter/print.h"
 #include "spade/util/seqbuf/seqbuf.h"
 #include "spade/util/helper/seqbuf/seqbuf.h"
 #include "spade/util/log/log.h"
 
 
-static void seqbuf_print_config_sep(struct seqbuf *b)
+static void seqbuf_print_sep(struct seqbuf *b)
 {
     util_seqbuf_printf(b, ", ");
 }
 
-static void seqbuf_print_config_syscall_hook_type(struct seqbuf *b, char *config_name, enum config_syscall_hook_type sys_hook_type)
+static void seqbuf_print_state(struct seqbuf *b, const struct state *state)
 {
-    char *str_sys_hook_type;
+    if (!b || !state)
+        return;
 
-    switch (sys_hook_type)
-    {
-    case CONFIG_SYSCALL_HOOK_TABLE:
-        str_sys_hook_type = "table";
-        break;
-    case CONFIG_SYSCALL_HOOK_FTRACE:
-        str_sys_hook_type = "ftrace";
-        break;
-    default:
-        str_sys_hook_type = "unknown";
-        break;
-    }
-
-    util_seqbuf_printf(b, "%s=%s", config_name, str_sys_hook_type);
-}
-
-static void seqbuf_print_config_build_hash(struct seqbuf *b, char *config_name, const struct config_build_hash *build_hash)
-{
-    util_seqbuf_printf(b, "%s=%s", config_name, build_hash->value);
-}
-
-static void seqbuf_print_config(struct seqbuf *b, const struct config *config)
-{
-    util_seqbuf_printf(b, "config={");
-    if (config->debug)
-    {
-        seqbuf_print_config_build_hash(b, "build_hash", &config->build_hash);
-        seqbuf_print_config_sep(b);
-    }
-    util_helper_seqbuf_print_bool(b, "debug", config->debug);
-    seqbuf_print_config_sep(b);
-    seqbuf_print_config_syscall_hook_type(b, "sys_hook_type", config->sys_hook_type);
+    util_seqbuf_printf(b, "state={");
+    util_helper_seqbuf_print_bool(b, "initialized", state->initialized);
+    seqbuf_print_sep(b);
+    state_syscall_write_to_seqbuf(b, &state->syscall);
+    seqbuf_print_sep(b);
+    state_netfilter_write_to_seqbuf(b, &state->netfilter);
     util_seqbuf_printf(b, "}");
 }
 
-void config_print(const struct config *config)
+void state_print(const struct state *state)
 {
-    const char *func_name = "config_print";
+    const char *func_name = "state_print";
     const int BUF_MAX_LEN = 1024;
     char *buf;
     struct seqbuf sb;
 
-    if (!config)
+    if (!state)
     {
-        util_log_warn(func_name, "NULL config");
+        util_log_warn(func_name, "NULL state");
         return;
     }
 
@@ -92,10 +69,10 @@ void config_print(const struct config *config)
 
     util_seqbuf_init(&sb, buf, BUF_MAX_LEN);
 
-    seqbuf_print_config(&sb, config);
+    seqbuf_print_state(&sb, state);
     if (util_seqbuf_has_overflowed(&sb))
     {
-        util_log_warn(func_name, "Truncated config value");
+        util_log_warn(func_name, "Truncated state value");
     }
     util_log_info(func_name, "%s", buf);
 

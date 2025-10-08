@@ -65,12 +65,29 @@ CONTEXT_OBJS := \
   spade/audit/context/context.o \
   spade/audit/context/print.o
 
+STATE_OBJS := \
+  spade/audit/state/netfilter/netfilter.o \
+  spade/audit/state/netfilter/print.o \
+  spade/audit/state/syscall/hook/ftrace/ftrace.o \
+  spade/audit/state/syscall/hook/ftrace/print.o \
+  spade/audit/state/syscall/hook/table/table.o \
+  spade/audit/state/syscall/hook/table/print.o \
+  spade/audit/state/syscall/hook/hook.o \
+  spade/audit/state/syscall/hook/print.o \
+  spade/audit/state/syscall/namespace/namespace.o \
+  spade/audit/state/syscall/namespace/print.o \
+  spade/audit/state/syscall/syscall.o \
+  spade/audit/state/syscall/print.o \
+  spade/audit/state/state.o \
+  spade/audit/state/print.o
+
 # netio module objects
 netio-y := \
   $(ARG_OBJS) \
   $(CONFIG_OBJS) \
   $(UTIL_OBJS) \
   $(CONTEXT_OBJS) \
+  $(STATE_OBJS) \
   spade/audit/global/common/common.o \
   spade/audit/global/netfilter/netfilter.o \
   spade/audit/global/syscall/syscall.o \
@@ -111,13 +128,6 @@ netio-y := \
   spade/audit/msg/ubsi/create.o \
   spade/audit/msg/ubsi/ops.o \
   spade/audit/msg/ops.o \
-  spade/audit/state/netfilter/netfilter.o \
-  spade/audit/state/syscall/hook/ftrace/ftrace.o \
-  spade/audit/state/syscall/hook/table/table.o \
-  spade/audit/state/syscall/hook/hook.o \
-  spade/audit/state/syscall/namespace/namespace.o \
-  spade/audit/state/syscall/syscall.o \
-  spade/audit/state/state.o \
   spade/audit/audit.o
 
 # netio controller module objects
