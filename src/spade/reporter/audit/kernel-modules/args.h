@@ -27,7 +27,7 @@
 
 MODULE_LICENSE("GPL");
 
-#define MAX_FIELDS 64
+#define ARG_ARRAY_MAX 64
 #define args_string_len 512
 
 static int nf_handle_user = 0;
@@ -37,10 +37,10 @@ static int syscall_success = -1;
 static int net_io = 0;
 static int namespaces = 0;
 static int ignore_uids = 1;
-static int pids_ignore[MAX_FIELDS];
-static int ppids_ignore[MAX_FIELDS];
-static int uids[MAX_FIELDS];
-static int harden_tgids[MAX_FIELDS];
+static int pids_ignore[ARG_ARRAY_MAX];
+static int ppids_ignore[ARG_ARRAY_MAX];
+static int uids[ARG_ARRAY_MAX];
+static int harden_tgids[ARG_ARRAY_MAX];
 
 static int pids_ignore_len = 0;
 static int ppids_ignore_len = 0;

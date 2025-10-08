@@ -49,8 +49,8 @@ static int __init onload(void){
 	char* module_name = CONTROLLER_MODULE_NAME;
 	int success = 0;
 	int total_fields = pids_ignore_len + ppids_ignore_len + uids_len;
-	if(total_fields >= MAX_FIELDS){
-		printk(KERN_EMERG "[%s] SEVERE Total pid, ppid, uid fields (%d) must be less than %d\n", module_name, total_fields, MAX_FIELDS);
+	if(total_fields >= ARG_ARRAY_MAX){
+		printk(KERN_EMERG "[%s] SEVERE Total pid, ppid, uid fields (%d) must be less than %d\n", module_name, total_fields, ARG_ARRAY_MAX);
 		success = -1;
 	}
 	if(net_io != 0 && net_io != 1){
@@ -69,20 +69,20 @@ static int __init onload(void){
 		printk(KERN_EMERG "[%s] SEVERE Invalid syscall_success value: %d (Only 0, 1 or -1 allowed)\n", module_name, syscall_success);
 		success = -1;	
 	}
-	if(pids_ignore_len >= MAX_FIELDS){
-		printk(KERN_EMERG "[%s] SEVERE pids_ignore_len (%d) should be less than %d\n", module_name, pids_ignore_len, MAX_FIELDS);
+	if(pids_ignore_len >= ARG_ARRAY_MAX){
+		printk(KERN_EMERG "[%s] SEVERE pids_ignore_len (%d) should be less than %d\n", module_name, pids_ignore_len, ARG_ARRAY_MAX);
 		success = -1;
 	}
-	if(ppids_ignore_len >= MAX_FIELDS){
-		printk(KERN_EMERG "[%s] SEVERE ppids_ignore_len (%d) should be less than %d\n", module_name, ppids_ignore_len, MAX_FIELDS);
+	if(ppids_ignore_len >= ARG_ARRAY_MAX){
+		printk(KERN_EMERG "[%s] SEVERE ppids_ignore_len (%d) should be less than %d\n", module_name, ppids_ignore_len, ARG_ARRAY_MAX);
 		success = -1;
 	}
-	if(uids_len >= MAX_FIELDS){
-		printk(KERN_EMERG "[%s] SEVERE uids_ignore_len (%d) should be less than %d\n", module_name, uids_len, MAX_FIELDS);
+	if(uids_len >= ARG_ARRAY_MAX){
+		printk(KERN_EMERG "[%s] SEVERE uids_ignore_len (%d) should be less than %d\n", module_name, uids_len, ARG_ARRAY_MAX);
 		success = -1;
 	}
-	if(harden_tgids_len >= MAX_FIELDS){
-		printk(KERN_EMERG "[%s] SEVERE harden_tgids_len (%d) should be less than %d\n", module_name, harden_tgids_len, MAX_FIELDS);
+	if(harden_tgids_len >= ARG_ARRAY_MAX){
+		printk(KERN_EMERG "[%s] SEVERE harden_tgids_len (%d) should be less than %d\n", module_name, harden_tgids_len, ARG_ARRAY_MAX);
 		success = -1;
 	}
 	if(nf_hooks != 0 && nf_hooks != 1){
