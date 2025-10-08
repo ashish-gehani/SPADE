@@ -29,8 +29,28 @@
 #include "spade/controller/param.h"
 
 
-static struct arg global_arg = {0};
-
+static struct arg global_arg = {
+	.nf = {
+		.use_user = false,
+		.hooks = false,
+		.monitor_ct = AMMC_ALL
+	},
+	.monitor_syscalls = AMMS_ONLY_SUCCESSFUL,
+	.network_io = false,
+	.include_ns_info = false,
+	.ignore_pids = {
+		.len = 0
+	},
+	.ignore_ppids = {
+		.len = 0
+	},
+	.user = {
+		.uid_monitor_mode = AMM_IGNORE,
+		.uids = {
+			.len = 0
+		}
+	}
+};
 
 // General param parsers
 
