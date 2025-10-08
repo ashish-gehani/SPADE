@@ -76,7 +76,8 @@ int fh_install_hook(struct ftrace_hook *hook)
     hook->ops.func = fh_ftrace_thunk;
     hook->ops.flags = FTRACE_OPS_FL_SAVE_REGS
             | FTRACE_OPS_FL_RECURSION_SAFE
-            | FTRACE_OPS_FL_IPMODIFY; // todo use the rcu flag
+            | FTRACE_OPS_FL_IPMODIFY
+            | FTRACE_OPS_FL_RCU;
 
     err = ftrace_set_filter_ip(&hook->ops, hook->address, 0, 0);
     if(err)

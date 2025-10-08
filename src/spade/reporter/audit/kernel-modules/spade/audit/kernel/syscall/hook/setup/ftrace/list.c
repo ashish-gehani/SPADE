@@ -18,10 +18,38 @@
  --------------------------------------------------------------------------------
  */
 
+#include <linux/slab.h>
+#include <linux/errno.h>
+
 #include "spade/audit/kernel/syscall/hook/setup/ftrace/list.h"
+#include "spade/audit/kernel/syscall/hook/setup/ftrace/ftrace_helper.h"
 
 
 struct ftrace_hook KERNEL_SYSCALL_HOOK_FTRACE_LIST[KERNEL_SYSCALL_HOOK_LIST_LEN];
+
+static char* syscall_names[KERNEL_SYSCALL_HOOK_LIST_LEN];
+
+
+static int _setup_syscall_name(int index, const char *name)
+{
+    size_t name_size = 32;
+
+    if (!name)
+        return -EINVAL;
+
+    syscall_names[index] = kmalloc(name_size, GFP_KERNEL);
+    if (!syscall_names[index])
+        return -ENOMEM;
+
+#ifdef PTREGS_SYSCALL_STUBS
+    snprintf(syscall_names[index], name_size, "__x64_sys_%s", name);
+#else
+    snprintf(syscall_names[index], name_size, "sys_%s", name);
+#endif
+
+    KERNEL_SYSCALL_HOOK_FTRACE_LIST[index].name = syscall_names[index];
+    return 0;
+}
 
 
 void kernel_syscall_hook_ftrace_list_init(void)
@@ -30,11 +58,19 @@ void kernel_syscall_hook_ftrace_list_init(void)
     for (i = 0; i < KERNEL_SYSCALL_HOOK_LIST_LEN; i++)
     {
         const struct kernel_syscall_hook *hook = &KERNEL_SYSCALL_HOOK_LIST[i];
+        const char *name;
+        int err;
+
         if (!hook)
             continue;
         if (!hook->get_name || !hook->get_hook_func || !hook->get_orig_func_ptr)
             continue;
-        KERNEL_SYSCALL_HOOK_FTRACE_LIST[i].name = hook->get_name();
+
+        name = hook->get_name();
+        err = _setup_syscall_name(i, name);
+        if (err != 0)
+            continue;
+
         KERNEL_SYSCALL_HOOK_FTRACE_LIST[i].function = hook->get_hook_func();
         KERNEL_SYSCALL_HOOK_FTRACE_LIST[i].original = hook->get_orig_func_ptr();
     }
