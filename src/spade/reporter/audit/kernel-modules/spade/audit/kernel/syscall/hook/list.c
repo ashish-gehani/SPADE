@@ -29,6 +29,7 @@
         .get_orig_func_ptr = kernel_syscall_hook_function_##sys_name##_original_ptr, \
     }
 
+// Update (KERNEL_SYSCALL_HOOK_LIST_LEN) in (spade/audit/kernel/syscall/hook/list.h) when list updated.
 const struct kernel_syscall_hook KERNEL_SYSCALL_HOOK_LIST[] = {
     K_S_H_DECL(accept),
     K_S_H_DECL(accept4),

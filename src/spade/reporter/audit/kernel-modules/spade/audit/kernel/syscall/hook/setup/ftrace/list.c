@@ -18,7 +18,6 @@
  --------------------------------------------------------------------------------
  */
 
-#include <linux/slab.h>
 #include <linux/errno.h>
 
 #include "spade/audit/kernel/syscall/hook/setup/ftrace/list.h"
@@ -27,27 +26,21 @@
 
 struct ftrace_hook KERNEL_SYSCALL_HOOK_FTRACE_LIST[KERNEL_SYSCALL_HOOK_LIST_LEN];
 
-static char* syscall_names[KERNEL_SYSCALL_HOOK_LIST_LEN];
+static char SYSCALL_NAMES[KERNEL_SYSCALL_HOOK_LIST_LEN][KERNEL_SYSCALL_HOOK_FTRACE_SYSCALL_NAME_LEN];
 
 
 static int _setup_syscall_name(int index, const char *name)
 {
-    size_t name_size = 32;
-
     if (!name)
         return -EINVAL;
 
-    syscall_names[index] = kmalloc(name_size, GFP_KERNEL);
-    if (!syscall_names[index])
-        return -ENOMEM;
-
 #ifdef PTREGS_SYSCALL_STUBS
-    snprintf(syscall_names[index], name_size, "__x64_sys_%s", name);
+    snprintf(SYSCALL_NAMES[index], KERNEL_SYSCALL_HOOK_FTRACE_SYSCALL_NAME_LEN, "__x64_sys_%s", name);
 #else
-    snprintf(syscall_names[index], name_size, "sys_%s", name);
+    snprintf(SYSCALL_NAMES[index], KERNEL_SYSCALL_HOOK_FTRACE_SYSCALL_NAME_LEN, "sys_%s", name);
 #endif
 
-    KERNEL_SYSCALL_HOOK_FTRACE_LIST[index].name = syscall_names[index];
+    KERNEL_SYSCALL_HOOK_FTRACE_LIST[index].name = SYSCALL_NAMES[index];
     return 0;
 }
 
