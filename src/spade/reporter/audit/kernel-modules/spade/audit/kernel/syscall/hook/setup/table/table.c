@@ -18,17 +18,17 @@
  --------------------------------------------------------------------------------
  */
 
+#include <linux/errno.h>
+
 #include "spade/audit/kernel/syscall/hook/list.h"
 #include "spade/audit/kernel/syscall/hook/setup/table/table.h"
 
 int kernel_syscall_hook_setup_table_install(void)
 {
-    // todo
-    return 0;
+    return -ENOTSUPP;
 }
 
 int kernel_syscall_hook_setup_table_uninstall(void)
 {
-    // todo
-    return 0;
+    return -ENOTSUPP;
 }
