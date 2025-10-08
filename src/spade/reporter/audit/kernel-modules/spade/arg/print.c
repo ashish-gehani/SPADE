@@ -188,7 +188,7 @@ void arg_print(const char *module_name, const struct arg *arg)
     {
         util_log_warn(func_name, "Truncated arg value");
     }
-    util_log_warn(func_name, "%s", buf);
+    util_log_info(func_name, "%s", buf);
 
     kfree(buf);
 }

@@ -1,8 +1,4 @@
 /*
-    THIS FILE IS AUTO-GENERATED. DO NOT MODIFY BY HAND.
-*/
-
-/*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
  Copyright (C) 2025 SRI International
@@ -22,11 +18,17 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_CONFIG_GENERATED_H
-#define SPADE_AUDIT_CONFIG_GENERATED_H
+#ifndef _SPADE_CONFIG_PRINT_H
+#define _SPADE_CONFIG_PRINT_H
 
+#include "spade/config/config.h"
 
-#define GENERATED_BUILD_HASH "@GENERATED_BUILD_HASH@"
+/*
+    Log module configuration using printk.
 
+    Params:
+        config      : The configuration to log.
+*/
+void config_print(const struct config *config);
 
-#endif // SPADE_AUDIT_CONFIG_GENERATED_H
+#endif // _SPADE_CONFIG_PRINT_H

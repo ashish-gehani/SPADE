@@ -50,7 +50,6 @@ int state_syscall_hook_init(
     struct state_syscall_hook *s
 )
 {
-    const char *log_id = "state_syscall_hook_init";
     int err;
 
     if (!s)
@@ -86,7 +85,6 @@ int state_syscall_hook_deinit(
     struct state_syscall_hook *s
 )
 {
-    const char *log_id = "state_syscall_hook_deinit";
     int err;
 
     if (!s || !s->initialized)

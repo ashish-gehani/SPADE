@@ -24,7 +24,7 @@
 #include <linux/param.h>
 #include <linux/string.h>
 
-#include "spade/config/config.h"
+#include "spade/config/print.h"
 #include "spade/audit/global/global.h"
 #include "spade/util/log/log.h"
 #include "spade/audit/helper/build_hash.h"
@@ -78,6 +78,8 @@ int exported_spade_audit_start(const struct config *config, struct arg *arg)
         return -EINVAL;
     }
 
+    config_print(config);
+
     if (!ensure_global_build_hash_matches(
         log_id, "Failed to start auditing. Invalid hash.", &config->build_hash
     ))
@@ -113,6 +115,8 @@ int exported_spade_audit_stop(const struct config *config)
         util_log_warn(log_id, "Failed to stop auditing. Invalid parameters.");
         return -EINVAL;
     }
+
+    config_print(config);
 
     if (!ensure_global_build_hash_matches(
         log_id, "Failed to stop auditing. Invalid hash.", &config->build_hash

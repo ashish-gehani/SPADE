@@ -43,10 +43,24 @@ ccflags-y += -I$(src)
 # Modules objects to build
 obj-m := $(addsuffix .o,$(MODULE_NAMES))
 
+# Common object file lists
+ARG_OBJS := \
+  spade/arg/parse.o \
+  spade/arg/print.o
+
+CONFIG_OBJS := \
+  spade/config/config.o \
+  spade/config/print.o
+
+UTIL_OBJS := \
+  spade/util/log/log.o \
+  spade/util/seqbuf/seqbuf.o
+
 # netio module objects
 netio-y := \
-  spade/arg/parse.o \
-  spade/arg/print.o \
+  $(ARG_OBJS) \
+  $(CONFIG_OBJS) \
+  $(UTIL_OBJS) \
   spade/audit/context/netfilter/netfilter.o \
   spade/audit/context/syscall/syscall.o \
   spade/audit/context/context.o \
@@ -97,20 +111,15 @@ netio-y := \
   spade/audit/state/syscall/namespace/namespace.o \
   spade/audit/state/syscall/syscall.o \
   spade/audit/state/state.o \
-  spade/audit/audit.o \
-  spade/config/config.o \
-  spade/util/log/log.o \
-  spade/util/seqbuf/seqbuf.o
+  spade/audit/audit.o
 
 # netio controller module objects
 netio_controller-y := \
-  spade/arg/parse.o \
-  spade/arg/print.o \
-  spade/config/config.o \
+  $(ARG_OBJS) \
+  $(CONFIG_OBJS) \
+  $(UTIL_OBJS) \
   spade/controller/controller.o \
-  spade/controller/param.o \
-  spade/util/log/log.o \
-  spade/util/seqbuf/seqbuf.o
+  spade/controller/param.o
 
 
 .PHONY: hash-print all clean

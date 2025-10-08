@@ -96,7 +96,6 @@ int state_init(struct state *s)
 
 int state_deinit(struct state *s)
 {
-    const char *log_id = "state_deinit";
     int nf_err;
     int sys_err;
 
