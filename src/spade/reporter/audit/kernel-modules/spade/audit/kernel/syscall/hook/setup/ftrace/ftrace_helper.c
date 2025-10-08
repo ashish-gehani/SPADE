@@ -12,6 +12,9 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 
+#include "spade/util/log/log.h"
+
+
 
 /* Ftrace needs to know the address of the original function that we
  * are going to hook. As before, we just use kallsyms_lookup_name()
@@ -19,11 +22,12 @@
  * */
 static int fh_resolve_hook_address(struct ftrace_hook *hook)
 {
+    const char *log_id = "fh_resolve_hook_address";
     hook->address = kallsyms_lookup_name(hook->name);
 
     if (!hook->address)
     {
-        printk(KERN_DEBUG "rootkit: unresolved symbol: %s\n", hook->name);
+        util_log_warn(log_id, "Unresolved symbol: %s", hook->name);
         return -ENOENT;
     }
 
@@ -57,6 +61,7 @@ static void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip, s
  * */
 int fh_install_hook(struct ftrace_hook *hook)
 {
+    const char *log_id = "fh_install_hook";
     int err;
     err = fh_resolve_hook_address(hook);
     if(err)
@@ -76,14 +81,14 @@ int fh_install_hook(struct ftrace_hook *hook)
     err = ftrace_set_filter_ip(&hook->ops, hook->address, 0, 0);
     if(err)
     {
-        printk(KERN_DEBUG "rootkit: ftrace_set_filter_ip() failed: %d\n", err);
+        util_log_warn(log_id, "ftrace_set_filter_ip() failed: %d\n", err);
         return err;
     }
 
     err = register_ftrace_function(&hook->ops);
     if(err)
     {
-        printk(KERN_DEBUG "rootkit: register_ftrace_function() failed: %d\n", err);
+        util_log_warn(log_id, "Register_ftrace_function() failed: %d\n", err);
         return err;
     }
 
@@ -96,17 +101,18 @@ int fh_install_hook(struct ftrace_hook *hook)
  * */
 void fh_remove_hook(struct ftrace_hook *hook)
 {
+    const char *log_id = "fh_remove_hook";
     int err;
     err = unregister_ftrace_function(&hook->ops);
     if(err)
     {
-        printk(KERN_DEBUG "rootkit: unregister_ftrace_function() failed: %d\n", err);
+        util_log_warn(log_id, "Unregister_ftrace_function() failed: %d\n", err);
     }
 
     err = ftrace_set_filter_ip(&hook->ops, hook->address, 1, 0);
     if(err)
     {
-        printk(KERN_DEBUG "rootkit: ftrace_set_filter_ip() failed: %d\n", err);
+        util_log_warn(log_id, "ftrace_set_filter_ip() failed: %d\n", err);
     }
 }
 
