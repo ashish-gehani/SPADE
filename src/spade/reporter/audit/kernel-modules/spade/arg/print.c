@@ -161,7 +161,7 @@ static void seqbuf_print_arg(struct seqbuf *b, const struct arg *arg)
     util_seqbuf_printf(b, "}");
 }
 
-void arg_print(const char *module_name, const struct arg *arg)
+void arg_print(const struct arg *arg)
 {
     const char *func_name = "arg_print";
     const int BUF_MAX_LEN = 1024;

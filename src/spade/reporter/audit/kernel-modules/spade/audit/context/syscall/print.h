@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2015 SRI International
+ Copyright (C) 2025 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -18,17 +18,19 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_ARG_PRINT_H
-#define _SPADE_ARG_PRINT_H
+#ifndef _SPADE_AUDIT_CONTEXT_SYSCALL_PRINT_H
+#define _SPADE_AUDIT_CONTEXT_SYSCALL_PRINT_H
 
-#include "spade/arg/arg.h"
+#include "spade/audit/context/syscall/syscall.h"
+#include "spade/util/seqbuf/seqbuf.h"
 
 /*
-    Log module arguments using printk.
+    Log context syscall to seqbuf.
 
     Params:
-        module_arg  : The arguments to log.
+        s           : Seqbuf to write to.
+        context     : The context syscall to log.
 */
-void arg_print(const struct arg *arg);
+void context_syscall_write_to_seqbuf(struct seqbuf *s, const struct context_syscall *context);
 
-#endif // _SPADE_ARG_PRINT_H
+#endif // _SPADE_AUDIT_CONTEXT_SYSCALL_PRINT_H

@@ -24,6 +24,7 @@
 #include <linux/param.h>
 #include <linux/string.h>
 
+#include "spade/arg/print.h"
 #include "spade/config/print.h"
 #include "spade/audit/global/global.h"
 #include "spade/util/log/log.h"
@@ -87,6 +88,8 @@ int exported_spade_audit_start(const struct config *config, struct arg *arg)
 
     if (!ensure_global_state_is_initialized(log_id))
         return -EINVAL;
+
+    arg_print(arg);
 
     // init context and start audit
     err = global_context_init(arg);

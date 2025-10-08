@@ -51,7 +51,7 @@ static int __init onload(void)
 		return -1;
 	}
 
-	arg_print(KBUILD_MODNAME, &arg);
+	arg_print(&arg);
 
 	if ((ret = exported_spade_audit_start(&CONFIG_GLOBAL, &arg)) != 0)
 	{

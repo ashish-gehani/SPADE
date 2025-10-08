@@ -56,14 +56,20 @@ UTIL_OBJS := \
   spade/util/log/log.o \
   spade/util/seqbuf/seqbuf.o
 
+CONTEXT_OBJS := \
+  spade/audit/context/netfilter/netfilter.o \
+  spade/audit/context/netfilter/print.o \
+  spade/audit/context/syscall/syscall.o \
+  spade/audit/context/syscall/print.o \
+  spade/audit/context/context.o \
+  spade/audit/context/print.o
+
 # netio module objects
 netio-y := \
   $(ARG_OBJS) \
   $(CONFIG_OBJS) \
   $(UTIL_OBJS) \
-  spade/audit/context/netfilter/netfilter.o \
-  spade/audit/context/syscall/syscall.o \
-  spade/audit/context/context.o \
+  $(CONTEXT_OBJS) \
   spade/audit/global/common/common.o \
   spade/audit/global/netfilter/netfilter.o \
   spade/audit/global/syscall/syscall.o \
