@@ -129,6 +129,7 @@ UTIL_OBJS := \
   spade/util/print/print.o
 
 TEST_ASSET_BIN := \
+  test/asset/bin/ns/ns \
   test/asset/bin/socket/net/client \
   test/asset/bin/socket/net/server \
   test/asset/bin/socket/unix/client \
@@ -179,7 +180,7 @@ test-y := \
 
 ###
 
-.PHONY: hash-print all clean test-assets
+.PHONY: hash-print all clean test-asset
 
 hash-print:
 	$(info $(GENERATED_BUILD_HASH))
@@ -187,7 +188,11 @@ hash-print:
 $(GEN_H_FILE): $(GEN_TMPLT_FILE)
 	@sed -e 's/@GENERATED_BUILD_HASH@/$(GENERATED_BUILD_HASH)/g' $< > $@
 
-test-assets: $(TEST_ASSET_BIN)
+test-asset: $(TEST_ASSET_BIN)
+
+test/asset/bin/ns/%: test/asset/src/ns/%.c
+	@mkdir -p $(dir $@)
+	gcc -o $@ $<
 
 test/asset/bin/socket/net/%: test/asset/src/socket/net/%.c
 	@mkdir -p $(dir $@)
@@ -197,7 +202,7 @@ test/asset/bin/socket/unix/%: test/asset/src/socket/unix/%.c
 	@mkdir -p $(dir $@)
 	gcc -o $@ $<
 
-all: $(GEN_H_FILE) test-assets
+all: $(GEN_H_FILE) test-asset
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 	@mkdir -p $(BUILD_OUTPUT)
 	@for file in $(MOD_OUT_FILES); do \
