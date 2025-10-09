@@ -18,10 +18,10 @@
  --------------------------------------------------------------------------------
  */
 
-#include "spade/util/helper/seqbuf/seqbuf.h"
+#include "spade/util/print/print.h"
 #include "spade/util/seqbuf/seqbuf.h"
 
-void util_helper_seqbuf_print_pid_array(struct seqbuf *b, char *arg_name, const pid_t *arr, size_t len)
+void util_print_pid_array(struct seqbuf *b, char *arg_name, const pid_t *arr, size_t len)
 {
     size_t i;
 
@@ -36,7 +36,7 @@ void util_helper_seqbuf_print_pid_array(struct seqbuf *b, char *arg_name, const 
     util_seqbuf_printf(b, "]");
 }
 
-void util_helper_seqbuf_print_uid_array(struct seqbuf *b, char *arg_name, const uid_t *arr, size_t len)
+void util_print_uid_array(struct seqbuf *b, char *arg_name, const uid_t *arr, size_t len)
 {
     size_t i;
 
@@ -51,7 +51,7 @@ void util_helper_seqbuf_print_uid_array(struct seqbuf *b, char *arg_name, const 
     util_seqbuf_printf(b, "]");
 }
 
-void util_helper_seqbuf_print_bool(struct seqbuf *b, char *arg_name, bool val)
+void util_print_bool(struct seqbuf *b, char *arg_name, bool val)
 {
     if (!b || !arg_name)
         return;
@@ -59,7 +59,7 @@ void util_helper_seqbuf_print_bool(struct seqbuf *b, char *arg_name, bool val)
     util_seqbuf_printf(b, "%s=%s", arg_name, val ? "true" : "false");
 }
 
-void util_helper_seqbuf_print_monitor_mode(struct seqbuf *b, char *arg_name, enum arg_monitor_mode monitor_mode)
+void util_print_monitor_mode(struct seqbuf *b, char *arg_name, enum arg_monitor_mode monitor_mode)
 {
     char *str_monitor_mode;
 
@@ -82,7 +82,7 @@ void util_helper_seqbuf_print_monitor_mode(struct seqbuf *b, char *arg_name, enu
     util_seqbuf_printf(b, "%s=%s", arg_name, str_monitor_mode);
 }
 
-void util_helper_seqbuf_print_monitor_syscalls(struct seqbuf *b, char *arg_name, enum arg_monitor_syscalls monitor_syscalls)
+void util_print_monitor_syscalls(struct seqbuf *b, char *arg_name, enum arg_monitor_syscalls monitor_syscalls)
 {
     char *str_monitor_syscalls;
 
@@ -108,7 +108,7 @@ void util_helper_seqbuf_print_monitor_syscalls(struct seqbuf *b, char *arg_name,
     util_seqbuf_printf(b, "%s=%s", arg_name, str_monitor_syscalls);
 }
 
-void util_helper_seqbuf_print_monitor_connections(struct seqbuf *b, char *arg_name, enum arg_monitor_connections monitor_ct)
+void util_print_monitor_connections(struct seqbuf *b, char *arg_name, enum arg_monitor_connections monitor_ct)
 {
     char *str_monitor_ct;
 
@@ -131,12 +131,12 @@ void util_helper_seqbuf_print_monitor_connections(struct seqbuf *b, char *arg_na
     util_seqbuf_printf(b, "%s=%s", arg_name, str_monitor_ct);
 }
 
-void util_helper_seqbuf_print_user(struct seqbuf *b, char *key_name_user_monitor_mode, char *key_name_user_arr, const struct arg_user *arg_mod_user)
+void util_print_user(struct seqbuf *b, char *key_name_user_monitor_mode, char *key_name_user_arr, const struct arg_user *arg_mod_user)
 {
     if (!b || !key_name_user_monitor_mode || !key_name_user_arr || !arg_mod_user)
         return;
 
-    util_helper_seqbuf_print_monitor_mode(b, key_name_user_monitor_mode, arg_mod_user->uid_monitor_mode);
+    util_print_monitor_mode(b, key_name_user_monitor_mode, arg_mod_user->uid_monitor_mode);
     util_seqbuf_printf(b, ", ");
-    util_helper_seqbuf_print_uid_array(b, key_name_user_arr, &(arg_mod_user->uids.arr[0]), arg_mod_user->uids.len);
+    util_print_uid_array(b, key_name_user_arr, &(arg_mod_user->uids.arr[0]), arg_mod_user->uids.len);
 }

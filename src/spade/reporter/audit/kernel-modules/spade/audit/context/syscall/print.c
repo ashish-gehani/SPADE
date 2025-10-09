@@ -20,7 +20,7 @@
 
 #include "spade/audit/context/syscall/print.h"
 #include "spade/arg/constant.h"
-#include "spade/util/helper/seqbuf/seqbuf.h"
+#include "spade/util/print/print.h"
 
 
 static void seqbuf_print_sep(struct seqbuf *b)
@@ -31,19 +31,19 @@ static void seqbuf_print_sep(struct seqbuf *b)
 void context_syscall_write_to_seqbuf(struct seqbuf *b, const struct context_syscall *context)
 {
     util_seqbuf_printf(b, "syscall={");
-    util_helper_seqbuf_print_bool(b, "initialized", context->initialized);
+    util_print_bool(b, "initialized", context->initialized);
     seqbuf_print_sep(b);
-    util_helper_seqbuf_print_bool(b, ARG_CONSTANT_NAME_NETWORK_IO_STR, context->network_io);
+    util_print_bool(b, ARG_CONSTANT_NAME_NETWORK_IO_STR, context->network_io);
     seqbuf_print_sep(b);
-    util_helper_seqbuf_print_bool(b, ARG_CONSTANT_NAME_INCLUDE_NS_INFO_STR, context->include_ns_info);
+    util_print_bool(b, ARG_CONSTANT_NAME_INCLUDE_NS_INFO_STR, context->include_ns_info);
     seqbuf_print_sep(b);
-    util_helper_seqbuf_print_monitor_syscalls(b, ARG_CONSTANT_NAME_MONITOR_SYSCALLS_STR, context->monitor_syscalls);
+    util_print_monitor_syscalls(b, ARG_CONSTANT_NAME_MONITOR_SYSCALLS_STR, context->monitor_syscalls);
     seqbuf_print_sep(b);
-    util_helper_seqbuf_print_pid_array(b, ARG_CONSTANT_NAME_IGNORE_PIDS_STR, &(context->ignore_pids.arr[0]), context->ignore_pids.len);
+    util_print_pid_array(b, ARG_CONSTANT_NAME_IGNORE_PIDS_STR, &(context->ignore_pids.arr[0]), context->ignore_pids.len);
     seqbuf_print_sep(b);
-    util_helper_seqbuf_print_pid_array(b, ARG_CONSTANT_NAME_IGNORE_PPIDS_STR, &(context->ignore_ppids.arr[0]), context->ignore_ppids.len);
+    util_print_pid_array(b, ARG_CONSTANT_NAME_IGNORE_PPIDS_STR, &(context->ignore_ppids.arr[0]), context->ignore_ppids.len);
     seqbuf_print_sep(b);
-    util_helper_seqbuf_print_user(
+    util_print_user(
         b,
         ARG_CONSTANT_NAME_UID_MONITOR_MODE_STR, ARG_CONSTANT_NAME_UIDS_STR,
         &context->user

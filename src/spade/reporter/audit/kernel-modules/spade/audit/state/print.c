@@ -24,7 +24,7 @@
 #include "spade/audit/state/syscall/print.h"
 #include "spade/audit/state/netfilter/print.h"
 #include "spade/util/seqbuf/seqbuf.h"
-#include "spade/util/helper/seqbuf/seqbuf.h"
+#include "spade/util/print/print.h"
 #include "spade/util/log/log.h"
 
 
@@ -39,7 +39,7 @@ static void seqbuf_print_state(struct seqbuf *b, const struct state *state)
         return;
 
     util_seqbuf_printf(b, "state={");
-    util_helper_seqbuf_print_bool(b, "initialized", state->initialized);
+    util_print_bool(b, "initialized", state->initialized);
     seqbuf_print_sep(b);
     state_syscall_write_to_seqbuf(b, &state->syscall);
     seqbuf_print_sep(b);

@@ -23,7 +23,7 @@
 #include "spade/audit/state/syscall/hook/print.h"
 #include "spade/audit/state/syscall/hook/table/print.h"
 #include "spade/audit/state/syscall/hook/ftrace/print.h"
-#include "spade/util/helper/seqbuf/seqbuf.h"
+#include "spade/util/print/print.h"
 #include "spade/util/log/log.h"
 
 
@@ -38,7 +38,7 @@ void state_syscall_hook_write_to_seqbuf(struct seqbuf *b, const struct state_sys
         return;
 
     util_seqbuf_printf(b, "hook={");
-    util_helper_seqbuf_print_bool(b, "initialized", state->initialized);
+    util_print_bool(b, "initialized", state->initialized);
     seqbuf_print_sep(b);
     state_syscall_hook_table_write_to_seqbuf(b, &state->table);
     seqbuf_print_sep(b);

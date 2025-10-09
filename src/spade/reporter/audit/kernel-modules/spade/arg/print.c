@@ -23,7 +23,7 @@
 #include "spade/arg/constant.h"
 #include "spade/arg/print.h"
 #include "spade/util/seqbuf/seqbuf.h"
-#include "spade/util/helper/seqbuf/seqbuf.h"
+#include "spade/util/print/print.h"
 #include "spade/util/log/log.h"
 
 
@@ -35,23 +35,23 @@ static void seqbuf_print_arg_sep(struct seqbuf *b)
 static void seqbuf_print_arg(struct seqbuf *b, const struct arg *arg)
 {
     util_seqbuf_printf(b, "arg={");
-    util_helper_seqbuf_print_bool(b, ARG_CONSTANT_NAME_NF_USE_USER_STR, arg->nf.use_user);
+    util_print_bool(b, ARG_CONSTANT_NAME_NF_USE_USER_STR, arg->nf.use_user);
     seqbuf_print_arg_sep(b);
-    util_helper_seqbuf_print_bool(b, ARG_CONSTANT_NAME_NF_HOOKS_STR, arg->nf.hooks);
+    util_print_bool(b, ARG_CONSTANT_NAME_NF_HOOKS_STR, arg->nf.hooks);
     seqbuf_print_arg_sep(b);
-    util_helper_seqbuf_print_monitor_connections(b, ARG_CONSTANT_NAME_NF_MONITOR_CT_STR, arg->nf.monitor_ct);
+    util_print_monitor_connections(b, ARG_CONSTANT_NAME_NF_MONITOR_CT_STR, arg->nf.monitor_ct);
     seqbuf_print_arg_sep(b);
-    util_helper_seqbuf_print_monitor_syscalls(b, ARG_CONSTANT_NAME_MONITOR_SYSCALLS_STR, arg->monitor_syscalls);
+    util_print_monitor_syscalls(b, ARG_CONSTANT_NAME_MONITOR_SYSCALLS_STR, arg->monitor_syscalls);
     seqbuf_print_arg_sep(b);
-    util_helper_seqbuf_print_bool(b, ARG_CONSTANT_NAME_NETWORK_IO_STR, arg->network_io);
+    util_print_bool(b, ARG_CONSTANT_NAME_NETWORK_IO_STR, arg->network_io);
     seqbuf_print_arg_sep(b);
-    util_helper_seqbuf_print_bool(b, ARG_CONSTANT_NAME_INCLUDE_NS_INFO_STR, arg->include_ns_info);
+    util_print_bool(b, ARG_CONSTANT_NAME_INCLUDE_NS_INFO_STR, arg->include_ns_info);
     seqbuf_print_arg_sep(b);
-    util_helper_seqbuf_print_pid_array(b, ARG_CONSTANT_NAME_IGNORE_PIDS_STR, &(arg->ignore_pids.arr[0]), arg->ignore_pids.len);
+    util_print_pid_array(b, ARG_CONSTANT_NAME_IGNORE_PIDS_STR, &(arg->ignore_pids.arr[0]), arg->ignore_pids.len);
     seqbuf_print_arg_sep(b);
-    util_helper_seqbuf_print_pid_array(b, ARG_CONSTANT_NAME_IGNORE_PPIDS_STR, &(arg->ignore_ppids.arr[0]), arg->ignore_ppids.len);
+    util_print_pid_array(b, ARG_CONSTANT_NAME_IGNORE_PPIDS_STR, &(arg->ignore_ppids.arr[0]), arg->ignore_ppids.len);
     seqbuf_print_arg_sep(b);
-    util_helper_seqbuf_print_user(
+    util_print_user(
         b,
         ARG_CONSTANT_NAME_UID_MONITOR_MODE_STR, ARG_CONSTANT_NAME_UIDS_STR,
         &arg->user

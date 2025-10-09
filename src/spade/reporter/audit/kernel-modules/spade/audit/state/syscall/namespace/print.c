@@ -21,7 +21,7 @@
 #include <linux/slab.h>
 
 #include "spade/audit/state/syscall/namespace/print.h"
-#include "spade/util/helper/seqbuf/seqbuf.h"
+#include "spade/util/print/print.h"
 #include "spade/util/log/log.h"
 #include "spade/config/config.h"
 
@@ -39,19 +39,19 @@ static void state_syscall_namespace_write_to_seqbuf_redacted(
         return;
 
     util_seqbuf_printf(b, "namespace={");
-    util_helper_seqbuf_print_bool(b, "initialized", state->initialized);
+    util_print_bool(b, "initialized", state->initialized);
     seqbuf_print_sep(b);
-    util_helper_seqbuf_print_bool(b, "found_ops_mnt", (state->ops_mnt != NULL));
+    util_print_bool(b, "found_ops_mnt", (state->ops_mnt != NULL));
     seqbuf_print_sep(b);
-    util_helper_seqbuf_print_bool(b, "found_ops_net", (state->ops_net != NULL));
+    util_print_bool(b, "found_ops_net", (state->ops_net != NULL));
     seqbuf_print_sep(b);
-    util_helper_seqbuf_print_bool(b, "found_ops_pid", (state->ops_pid != NULL));
+    util_print_bool(b, "found_ops_pid", (state->ops_pid != NULL));
     seqbuf_print_sep(b);
-    util_helper_seqbuf_print_bool(b, "found_ops_user", (state->ops_user != NULL));
+    util_print_bool(b, "found_ops_user", (state->ops_user != NULL));
     seqbuf_print_sep(b);
-    util_helper_seqbuf_print_bool(b, "found_ops_ipc", (state->ops_ipc != NULL));
+    util_print_bool(b, "found_ops_ipc", (state->ops_ipc != NULL));
     seqbuf_print_sep(b);
-    util_helper_seqbuf_print_bool(b, "found_ops_cgroup", (state->ops_cgroup != NULL));
+    util_print_bool(b, "found_ops_cgroup", (state->ops_cgroup != NULL));
     util_seqbuf_printf(b, "}");
 }
 
@@ -63,7 +63,7 @@ static void state_syscall_namespace_write_to_seqbuf_unredacted(
         return;
 
     util_seqbuf_printf(b, "namespace={");
-    util_helper_seqbuf_print_bool(b, "initialized", state->initialized);
+    util_print_bool(b, "initialized", state->initialized);
     seqbuf_print_sep(b);
     util_seqbuf_printf(b, "ops_mnt=%p", state->ops_mnt);
     seqbuf_print_sep(b);

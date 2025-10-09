@@ -21,7 +21,7 @@
 #include <linux/slab.h>
 
 #include "spade/audit/state/syscall/hook/ftrace/print.h"
-#include "spade/util/helper/seqbuf/seqbuf.h"
+#include "spade/util/print/print.h"
 #include "spade/util/log/log.h"
 
 
@@ -31,7 +31,7 @@ void state_syscall_hook_ftrace_write_to_seqbuf(struct seqbuf *b, const struct st
         return;
 
     util_seqbuf_printf(b, "ftrace={");
-    util_helper_seqbuf_print_bool(b, "initialized", state->initialized);
+    util_print_bool(b, "initialized", state->initialized);
     util_seqbuf_printf(b, "}");
 }
 

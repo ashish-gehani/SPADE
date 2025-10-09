@@ -20,7 +20,7 @@
 
 #include "spade/audit/context/netfilter/print.h"
 #include "spade/arg/constant.h"
-#include "spade/util/helper/seqbuf/seqbuf.h"
+#include "spade/util/print/print.h"
 
 
 static void seqbuf_print_sep(struct seqbuf *b)
@@ -31,15 +31,15 @@ static void seqbuf_print_sep(struct seqbuf *b)
 void context_netfilter_write_to_seqbuf(struct seqbuf *b, const struct context_netfilter *context)
 {
     util_seqbuf_printf(b, "netfilter={");
-    util_helper_seqbuf_print_bool(b, "initialized", context->initialized);
+    util_print_bool(b, "initialized", context->initialized);
     seqbuf_print_sep(b);
-    util_helper_seqbuf_print_bool(b, ARG_CONSTANT_NAME_NF_USE_USER_STR, context->use_user);
+    util_print_bool(b, ARG_CONSTANT_NAME_NF_USE_USER_STR, context->use_user);
     seqbuf_print_sep(b);
-    util_helper_seqbuf_print_bool(b, ARG_CONSTANT_NAME_INCLUDE_NS_INFO_STR, context->include_ns_info);
+    util_print_bool(b, ARG_CONSTANT_NAME_INCLUDE_NS_INFO_STR, context->include_ns_info);
     seqbuf_print_sep(b);
-    util_helper_seqbuf_print_monitor_connections(b, ARG_CONSTANT_NAME_NF_MONITOR_CT_STR, context->monitor_ct);
+    util_print_monitor_connections(b, ARG_CONSTANT_NAME_NF_MONITOR_CT_STR, context->monitor_ct);
     seqbuf_print_sep(b);
-    util_helper_seqbuf_print_user(
+    util_print_user(
         b,
         ARG_CONSTANT_NAME_UID_MONITOR_MODE_STR, ARG_CONSTANT_NAME_UIDS_STR,
         &context->user

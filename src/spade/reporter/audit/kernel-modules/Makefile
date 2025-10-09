@@ -126,7 +126,7 @@ STATE_OBJS := \
 UTIL_OBJS := \
   spade/util/log/log.o \
   spade/util/seqbuf/seqbuf.o \
-  spade/util/helper/seqbuf/seqbuf.o
+  spade/util/print/print.o
 
 ###
 

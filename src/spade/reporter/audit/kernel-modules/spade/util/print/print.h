@@ -18,19 +18,19 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_UTIL_HELPER_SEQBUF_SEQBUF_H
-#define SPADE_UTIL_HELPER_SEQBUF_SEQBUF_H
+#ifndef SPADE_UTIL_PRINT_PRINT_H
+#define SPADE_UTIL_PRINT_PRINT_H
 
 #include <linux/types.h>
 #include "spade/util/seqbuf/seqbuf.h"
 #include "spade/arg/arg.h"
 
-void util_helper_seqbuf_print_pid_array(struct seqbuf *b, char *arg_name, const pid_t *arr, size_t len);
-void util_helper_seqbuf_print_uid_array(struct seqbuf *b, char *arg_name, const uid_t *arr, size_t len);
-void util_helper_seqbuf_print_bool(struct seqbuf *b, char *arg_name, bool val);
-void util_helper_seqbuf_print_monitor_mode(struct seqbuf *b, char *arg_name, enum arg_monitor_mode monitor_mode);
-void util_helper_seqbuf_print_monitor_syscalls(struct seqbuf *b, char *arg_name, enum arg_monitor_syscalls monitor_syscalls);
-void util_helper_seqbuf_print_monitor_connections(struct seqbuf *b, char *arg_name, enum arg_monitor_connections monitor_ct);
-void util_helper_seqbuf_print_user(struct seqbuf *b, char *key_name_user_monitor_mode, char *key_name_user_arr, const struct arg_user *arg_mod_user);
+void util_print_pid_array(struct seqbuf *b, char *arg_name, const pid_t *arr, size_t len);
+void util_print_uid_array(struct seqbuf *b, char *arg_name, const uid_t *arr, size_t len);
+void util_print_bool(struct seqbuf *b, char *arg_name, bool val);
+void util_print_monitor_mode(struct seqbuf *b, char *arg_name, enum arg_monitor_mode monitor_mode);
+void util_print_monitor_syscalls(struct seqbuf *b, char *arg_name, enum arg_monitor_syscalls monitor_syscalls);
+void util_print_monitor_connections(struct seqbuf *b, char *arg_name, enum arg_monitor_connections monitor_ct);
+void util_print_user(struct seqbuf *b, char *key_name_user_monitor_mode, char *key_name_user_arr, const struct arg_user *arg_mod_user);
 
 #endif
