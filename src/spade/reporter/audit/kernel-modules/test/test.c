@@ -31,26 +31,33 @@
 #include "spade/arg/print.h"
 #include "test/arg.h"
 #include "test/context.h"
+#include "spade/util/log/module.h"
 
 MODULE_LICENSE("GPL");
 
-const char* SPADE_MODULE_NAME = "test";
+const char* SPADE_MODULE_NAME = "spade_audit_test";
 
 static int __init onload(void)
 {
     struct test_stats t_s_arg;
     struct test_stats t_s_context;
 
+    util_log_module_loading_started();
+
 	test_arg_all(&t_s_arg);
     test_context_all(&t_s_context);
 
     test_stats_log("test_arg", &t_s_arg);
     test_stats_log("test_context", &t_s_context);
-    return -1;
+
+    util_log_module_loading_success();
+    return 0;
 }
 
 static void __exit onunload(void)
 {
+    util_log_module_unloading_started();
+    util_log_module_unloading_success();
 }
 
 module_init(onload);

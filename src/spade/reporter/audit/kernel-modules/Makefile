@@ -2,7 +2,7 @@ KDIR ?= /lib/modules/$(shell uname -r)/build
 BUILD_OUTPUT ?= build
 
 # Module names
-MODULE_NAMES := netio netio_controller test
+MODULE_NAMES := netio netio_controller spade_audit_test
 
 # Syscall names
 SYSCALL_NAMES := accept accept4 bind clone connect fork recvfrom recvmsg sendmsg sendto setns unshare vfork
@@ -125,8 +125,9 @@ STATE_OBJS := \
 
 UTIL_OBJS := \
   spade/util/log/log.o \
-  spade/util/seqbuf/seqbuf.o \
-  spade/util/print/print.o
+  spade/util/log/module.o \
+  spade/util/print/print.o \
+  spade/util/seqbuf/seqbuf.o
 
 TEST_ASSET_BIN := \
   test/asset/bin/ns/ns \
@@ -161,7 +162,7 @@ netio_controller-y := \
   spade/controller/param.o
 
 # test module objects
-test-y := \
+spade_audit_test-y := \
   $(ARG_OBJS) \
   $(CONFIG_OBJS) \
   $(CONTEXT_OBJS) \

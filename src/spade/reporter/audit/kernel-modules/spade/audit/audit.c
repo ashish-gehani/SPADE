@@ -30,6 +30,7 @@
 #include "spade/audit/global/global.h"
 #include "spade/util/log/log.h"
 #include "spade/audit/helper/build_hash.h"
+#include "spade/util/log/module.h"
 
 
 MODULE_LICENSE("GPL");
@@ -140,23 +141,29 @@ EXPORT_SYMBOL(exported_spade_audit_stop);
 static int __init onload(void)
 {
     const char *log_id = "__init onload";
-    int err;
+    int err = 0;
+
+    util_log_module_loading_started();
 
     err = global_state_init();
     if (err != 0)
     {
         util_log_warn(log_id, "Failed to load. State failed to initialize. Err: %d", err);
+        util_log_module_loading_failure();
         return err;
     }
 
-	return 0;
+    util_log_module_loading_success();
+	return err;
 }
 
 static void __exit onunload(void)
 {
+    util_log_module_unloading_started();
     global_auditing_stop();
     global_context_deinit();
     global_state_deinit();
+    util_log_module_unloading_success();
 }
 
 module_init(onload);

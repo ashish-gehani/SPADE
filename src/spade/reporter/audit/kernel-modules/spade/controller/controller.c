@@ -30,6 +30,7 @@
 #include "spade/controller/param.h"
 #include "spade/exported/spade_audit.h"
 #include "spade/util/log/log.h"
+#include "spade/util/log/module.h"
 
 
 MODULE_LICENSE("GPL");
@@ -44,10 +45,13 @@ static int __init onload(void)
 	int ret;
 	struct arg arg;
 
+	util_log_module_loading_started();
+
 	if ((ret = param_copy_validated_args(&arg)) != 0)
 	{
 		util_log_warn(log_id, "Failed to load module. Error in copying validated arguments: %d", ret);
-		return -1;
+		util_log_module_loading_failure();
+		return ret;
 	}
 
 	arg_print(&arg);
@@ -55,20 +59,29 @@ static int __init onload(void)
 	if ((ret = exported_spade_audit_start(&CONFIG_GLOBAL, &arg)) != 0)
 	{
 		util_log_warn(log_id, "Failed to load module. Error in starting auditing: %d", ret);
-		return -1;
+		util_log_module_loading_failure();
+		return ret;
 	}
 
-	return 0;
+	util_log_module_loading_success();
+	return ret;
 }
 
 static void __exit onunload(void)
 {
 	const char *log_id = "__exit onunload";
-	int err;
+	int err = 0;
+
+	util_log_module_unloading_started();
+
 	err = exported_spade_audit_stop(&CONFIG_GLOBAL);
 	if (err != 0)
 	{
 		util_log_warn(log_id, "Failed to stop audit. Error in stopping auditing: %d", err);
+		util_log_module_unloading_failure();
+	} else
+	{
+		util_log_module_unloading_success();
 	}
 }
 
