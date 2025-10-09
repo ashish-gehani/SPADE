@@ -52,7 +52,7 @@ int kernel_syscall_action_audit_bind_handle(struct kernel_syscall_context_post *
 
     struct kernel_syscall_arg_bind *sys_arg;
 
-    if (_is_valid_sys_ctx(sys_ctx))
+    if (!_is_valid_sys_ctx(sys_ctx))
         return -EINVAL;
 
     err = msg_ops_kinit(GLOBAL_MSG_TYPE, &msg.header);

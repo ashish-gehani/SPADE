@@ -25,6 +25,7 @@
 #include "spade/audit/kernel/syscall/hook/execution/handler/handler.h"
 #include "spade/audit/global/global.h"
 #include "spade/audit/helper/task.h"
+#include "spade/util/log/log.h"
 
 
 static void _init_action_audit(
@@ -84,9 +85,12 @@ int kernel_syscall_hook_execution_handler_handle_post(
     struct kernel_syscall_result *sys_res
 )
 {
+    const char *log_id = "kernel_syscall_hook_execution_handler_handle_post";
     int err;
     struct kernel_syscall_action act_audit;
     struct kernel_syscall_context_post sys_ctx_post;
+    pid_t pid, ppid;
+    uid_t uid;
 
     if (!act_res || !sys_arg || !sys_res)
     {
@@ -96,19 +100,25 @@ int kernel_syscall_hook_execution_handler_handle_post(
     _init_action_audit(&act_audit);
     _init_sys_context_post(&sys_ctx_post, sys_num, sys_arg, sys_res);
 
+    pid = helper_task_task_view_current_pid();
+    ppid = helper_task_task_view_current_ppid();
+    uid = helper_task_host_view_current_uid();
+
     if (!global_is_auditing_started())
     {
         return 0;
     }
 
-    if (global_is_syscall_loggable(
-        sys_num, sys_res->success,
-        helper_task_task_view_current_pid(), helper_task_task_view_current_ppid(),
-        helper_task_host_view_current_uid()
-    ))
+    if (!global_is_syscall_loggable(sys_num, sys_res->success, pid, ppid, uid))
     {
         return 0;
     }
+
+    util_log_debug(
+        log_id,
+        "loggable_event={sys_num=%d, sys_exit=%ld, sys_success=%d, pid=%d, ppid=%d, uid=%u}",
+        sys_num, sys_res->ret, sys_res->success, pid, ppid, uid
+    );
 
     err = kernel_syscall_action_handle(&act_audit, &(sys_ctx_post.header));
     if (err == 0)

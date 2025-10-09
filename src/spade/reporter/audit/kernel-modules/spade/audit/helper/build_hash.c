@@ -35,7 +35,7 @@ int helper_build_build_hashes_match(
         &build_hash_a->value[0],
         &build_hash_b->value[0],
         CONFIG_GENERATED_HASH_STR_LEN
-    ) != 0;
+    ) == 0;
 
     return 0;
 }

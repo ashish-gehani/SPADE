@@ -28,6 +28,7 @@
 #include "spade/audit/msg/ops.h"
 #include "spade/audit/helper/syscall/namespace.h"
 #include "spade/audit/helper/audit_log.h"
+#include "spade/util/log/log.h"
 
 
 static const enum msg_common_type GLOBAL_MSG_TYPE = MSG_NAMESPACES;
@@ -48,19 +49,17 @@ int kernel_syscall_action_audit_clone_handle(struct kernel_syscall_context_post 
 
     struct msg_namespace msg;
 
-    if (_is_valid_sys_ctx(sys_ctx))
+    if (!_is_valid_sys_ctx(sys_ctx))
         return -EINVAL;
 
     err = msg_ops_kinit(GLOBAL_MSG_TYPE, &msg.header);
     if (err != 0)
         return err;
 
-    err = helper_syscall_namespace_populate_msg(
-        &msg, sys_ctx, NS_OP_NEW_PROCESS
-    );
+    err = helper_syscall_namespace_populate_msg(&msg, sys_ctx, NS_OP_NEW_PROCESS);
     if (err != 0)
         return err;
-
+    
     err = helper_syscall_namespace_log_msg_to_audit(&msg);
 
     return err;

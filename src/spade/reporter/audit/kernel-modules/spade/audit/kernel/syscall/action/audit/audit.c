@@ -35,12 +35,14 @@
 #include "spade/audit/kernel/syscall/action/audit/setns/setns.h"
 #include "spade/audit/kernel/syscall/action/audit/unshare/unshare.h"
 #include "spade/audit/kernel/syscall/action/audit/vfork/vfork.h"
+#include "spade/util/log/log.h"
 
 
 int kernel_syscall_action_audit_handle(
     struct kernel_syscall_context *sys_ctx
 )
 {
+    const char *log_id = "kernel_syscall_action_audit_handle";
     struct kernel_syscall_context_post *sys_ctx_post;
 
     if (!sys_ctx)
@@ -51,6 +53,12 @@ int kernel_syscall_action_audit_handle(
         return -ENOTSUPP;
 
     sys_ctx_post = (struct kernel_syscall_context_post *)sys_ctx;
+
+    util_log_debug(
+        log_id,
+        "loggable_action={sys_num=%d, sys_exit=%ld, sys_success=%d}",
+        sys_ctx_post->header.sys_num, sys_ctx_post->sys_res.ret, sys_ctx_post->sys_res.success
+    );
 
     switch (sys_ctx->sys_num)
     {

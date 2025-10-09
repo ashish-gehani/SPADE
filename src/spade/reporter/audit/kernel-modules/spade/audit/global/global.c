@@ -78,7 +78,7 @@ int global_context_init(struct arg *arg)
     if (!global_is_state_initialized())
         return -EINVAL;
     err = context_init(&g.c, arg);
-    if (err != 0)
+    if (err == 0)
     {
         context_print(&g.c);
     }
@@ -106,6 +106,11 @@ bool global_is_context_initialized(void)
     return inited;
 }
 
+static void _log_started(const char *log_id)
+{
+    util_log_info(log_id, "{started=%s}", (g.auditing_started ? "true" : "false"));
+}
+
 int global_auditing_start(void)
 {
     if (!_is_state_and_context_inited())
@@ -115,7 +120,7 @@ int global_auditing_start(void)
         return -EALREADY;
 
     g.auditing_started = true;
-    util_log_info("global_auditing_start", "{started=true}");
+    _log_started("global_auditing_start");
     return 0;
 }
 
@@ -128,7 +133,7 @@ int global_auditing_stop(void)
         return -EALREADY;
 
     g.auditing_started = false;
-    util_log_info("global_auditing_start", "{started=false}");
+    _log_started("global_auditing_stop");
     return 0;
 }
 

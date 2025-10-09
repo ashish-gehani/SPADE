@@ -95,7 +95,7 @@ int helper_syscall_namespace_populate_msg(
         return -ESRCH;
 	
     pid_task_struct = pid_task(pid_struct, PIDTYPE_PID);
-    if (pid_task_struct)
+    if (!pid_task_struct)
         return -ESRCH;
 
     host_pid = pid_nr(pid_struct);

@@ -70,7 +70,7 @@ int msg_ops_kinit(enum msg_common_type type, struct msg_common_header* msg)
     if (!msg)
         return -EINVAL;
 
-    o = msg_ops_get(msg->msg_type);
+    o = msg_ops_get(type);
 
     if (!o)
         return -ENOENT;
