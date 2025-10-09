@@ -2,7 +2,7 @@ KDIR ?= /lib/modules/$(shell uname -r)/build
 BUILD_OUTPUT ?= build
 
 # Module names
-MODULE_NAMES := netio netio_controller test_arg test_context
+MODULE_NAMES := netio netio_controller test
 
 # Syscall names
 SYSCALL_NAMES := accept accept4 bind clone connect fork recvfrom recvmsg sendmsg sendto setns unshare vfork
@@ -123,9 +123,6 @@ STATE_OBJS := \
   spade/audit/state/state.o \
   spade/audit/state/print.o
 
-TEST_COMMON_OBJS := \
-  test/common.o
-
 UTIL_OBJS := \
   spade/util/log/log.o \
   spade/util/seqbuf/seqbuf.o \
@@ -156,7 +153,7 @@ netio_controller-y := \
   spade/controller/controller.o \
   spade/controller/param.o
 
-test_arg-y := \
+test-y := \
   $(ARG_OBJS) \
   $(CONFIG_OBJS) \
   $(CONTEXT_OBJS) \
@@ -167,24 +164,11 @@ test_arg-y := \
   $(STATE_OBJS) \
   $(SYSCALL_ACTION_OBJS) \
   $(SYSCALL_HOOK_FUNC_OBJS) \
-  $(TEST_COMMON_OBJS) \
   $(UTIL_OBJS) \
-  test/arg/arg.o
-
-test_context-y := \
-  $(ARG_OBJS) \
-  $(CONFIG_OBJS) \
-  $(CONTEXT_OBJS) \
-  $(GLOBAL_OBJS) \
-  $(HELPER_OBJS) \
-  $(KERNEL_OBJS) \
-  $(MSG_OBJS) \
-  $(STATE_OBJS) \
-  $(SYSCALL_ACTION_OBJS) \
-  $(SYSCALL_HOOK_FUNC_OBJS) \
-  $(TEST_COMMON_OBJS) \
-  $(UTIL_OBJS) \
-  test/context/context.o
+  test/arg.o \
+  test/context.o \
+  test/common.o \
+  test/test.o
 
 ###
 

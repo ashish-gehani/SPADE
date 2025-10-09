@@ -18,23 +18,10 @@
  --------------------------------------------------------------------------------
  */
 
-#include <linux/init.h>
-#include <linux/module.h>
 #include <linux/kernel.h>
-#include <linux/param.h>
 #include <linux/string.h>
 
-#include "spade/config/config.h"
-#include "spade/arg/arg.h"
-#include "spade/arg/parse.h"
-#include "spade/arg/print.h"
-#include "test/common.h"
-
-MODULE_LICENSE("GPL");
-
-#ifndef KBUILD_MODNAME
-#define KBUILD_MODNAME "unknown_module"
-#endif
+#include "test/arg.h"
 
 
 static char g_too_big_array[2048];
@@ -493,32 +480,26 @@ static void test_arg_parse_uid_array(struct test_stats *stats)
 	TEST_PASS(stats, test_name);
 }
 
-static int __init onload(void)
+int test_arg_all(struct test_stats *stats)
 {
-	struct test_stats stats;
+	if (!stats)
+	{
+		return 0;
+	}
 
-	test_stats_init(&stats);
+	test_stats_init(stats);
 	util_log_info("test_arg", "Starting tests");
 
 	init_too_big_array();
 
-	test_arg_print_null(&stats);
-	test_arg_print_empty(&stats);
-	test_arg_parse_bool(&stats);
-	test_arg_parse_monitor_mode(&stats);
-	test_arg_parse_monitor_syscalls(&stats);
-	test_arg_parse_monitor_connections(&stats);
-	test_arg_parse_pid_array(&stats);
-	test_arg_parse_uid_array(&stats);
+	test_arg_print_null(stats);
+	test_arg_print_empty(stats);
+	test_arg_parse_bool(stats);
+	test_arg_parse_monitor_mode(stats);
+	test_arg_parse_monitor_syscalls(stats);
+	test_arg_parse_monitor_connections(stats);
+	test_arg_parse_pid_array(stats);
+	test_arg_parse_uid_array(stats);
 
-	test_stats_log("test_arg", &stats);
-	return -1;
+	return 0;
 }
-
-static void __exit onunload(void)
-{
-	// util_log_info("test_arg", "Unloading");
-}
-
-module_init(onload);
-module_exit(onunload);

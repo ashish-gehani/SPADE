@@ -18,25 +18,19 @@
  --------------------------------------------------------------------------------
  */
 
-#include <linux/init.h>
-#include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
+#include <linux/errno.h>
 
 #include "spade/audit/context/context.h"
 #include "spade/arg/arg.h"
 #include "spade/arg/parse.h"
 #include "test/common.h"
-
-MODULE_LICENSE("GPL");
-
-#ifndef KBUILD_MODNAME
-#define KBUILD_MODNAME "unknown_module"
-#endif
+#include "test/context.h"
 
 
-static struct arg arg;
-static struct context ctx;
+struct arg arg;
+struct context ctx;
 
 
 static void reset_arg_and_ctx(void)
@@ -45,7 +39,7 @@ static void reset_arg_and_ctx(void)
     memset(&ctx, 0, sizeof(ctx));
 }
 
-static void test_context_init_basic(struct test_stats *stats)
+void test_context_init_basic(struct test_stats *stats)
 {
     const char *test_name = "test_context_init_basic";
     int err;
@@ -145,7 +139,7 @@ static void test_context_init_basic(struct test_stats *stats)
     TEST_PASS(stats, test_name);
 }
 
-static void test_context_init_with_arrays(struct test_stats *stats)
+void test_context_init_with_arrays(struct test_stats *stats)
 {
     const char *test_name = "test_context_init_with_arrays";
     int err;
@@ -281,7 +275,7 @@ static void test_context_init_with_arrays(struct test_stats *stats)
     TEST_PASS(stats, test_name);
 }
 
-static void test_context_init_null_arg(struct test_stats *stats)
+void test_context_init_null_arg(struct test_stats *stats)
 {
     const char *test_name = "test_context_init_null_arg";
     int err;
@@ -301,7 +295,7 @@ static void test_context_init_null_arg(struct test_stats *stats)
     TEST_PASS(stats, test_name);
 }
 
-static void test_context_init_null_context(struct test_stats *stats)
+void test_context_init_null_context(struct test_stats *stats)
 {
     const char *test_name = "test_context_init_null_context";
     int err;
@@ -321,7 +315,7 @@ static void test_context_init_null_context(struct test_stats *stats)
     TEST_PASS(stats, test_name);
 }
 
-static void test_context_double_init(struct test_stats *stats)
+void test_context_double_init(struct test_stats *stats)
 {
     const char *test_name = "test_context_double_init";
     int err;
@@ -358,7 +352,7 @@ static void test_context_double_init(struct test_stats *stats)
     TEST_PASS(stats, test_name);
 }
 
-static void test_context_is_initialized(struct test_stats *stats)
+void test_context_is_initialized(struct test_stats *stats)
 {
     const char *test_name = "test_context_is_initialized";
     bool is_init;
@@ -431,28 +425,16 @@ static void test_context_is_initialized(struct test_stats *stats)
     TEST_PASS(stats, test_name);
 }
 
-static int __init onload(void)
+int test_context_all(struct test_stats *stats)
 {
-    struct test_stats stats;
-
-    test_stats_init(&stats);
+    test_stats_init(stats);
     util_log_info("test_context", "Starting tests");
 
-    test_context_init_basic(&stats);
-    test_context_init_with_arrays(&stats);
-    test_context_init_null_arg(&stats);
-    test_context_init_null_context(&stats);
-    test_context_double_init(&stats);
-    test_context_is_initialized(&stats);
-
-    test_stats_log("test_context", &stats);
-    return -1;
+    test_context_init_basic(stats);
+    test_context_init_with_arrays(stats);
+    test_context_init_null_arg(stats);
+    test_context_init_null_context(stats);
+    test_context_double_init(stats);
+    test_context_is_initialized(stats);
+    return 0;
 }
-
-static void __exit onunload(void)
-{
-    // util_log_info("test_context", "Unloading");
-}
-
-module_init(onload);
-module_exit(onunload);

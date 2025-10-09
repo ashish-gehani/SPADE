@@ -18,46 +18,19 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _TEST_COMMON_H
-#define _TEST_COMMON_H
+#ifndef _TEST_CONTEXT_H
+#define _TEST_CONTEXT_H
 
-#include "spade/util/log/log.h"
+#include <linux/kernel.h>
+#include <linux/string.h>
 
-#ifndef KBUILD_MODNAME
-#define KBUILD_MODNAME "unknown_module"
-#endif
+#include "spade/audit/context/context.h"
+#include "spade/arg/arg.h"
+#include "spade/arg/parse.h"
+#include "test/common.h"
 
-/*
-    Test statistics structure to track test execution.
-*/
-struct test_stats {
-	int total;
-	int passed;
-	int failed;
-};
 
-/*
-    Test result macros for reporting test pass/fail status.
-    These macros automatically update the test statistics.
-*/
-#define TEST_PASS(stats, test_name) do { \
-	util_log_info(test_name, "PASS"); \
-	(stats)->passed++; \
-} while (0)
+int test_context_all(struct test_stats *stats);
 
-#define TEST_FAIL(stats, test_name, fmt, ...) do { \
-	util_log_warn(test_name, "FAIL: " fmt, ##__VA_ARGS__); \
-	(stats)->failed++; \
-} while (0)
 
-/*
-    Initialize test statistics.
-*/
-void test_stats_init(struct test_stats *stats);
-
-/*
-    Log test statistics summary.
-*/
-void test_stats_log(const char *module_name, struct test_stats *stats);
-
-#endif // _TEST_COMMON_H
+#endif // _TEST_CONTEXT_H
