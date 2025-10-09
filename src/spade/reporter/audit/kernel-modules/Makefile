@@ -2,7 +2,7 @@ KDIR ?= /lib/modules/$(shell uname -r)/build
 BUILD_OUTPUT ?= build
 
 # Module names
-MODULE_NAMES := netio netio_controller
+MODULE_NAMES := netio netio_controller test_arg test_context
 
 # Syscall names
 SYSCALL_NAMES := accept accept4 bind clone connect fork recvfrom recvmsg sendmsg sendto setns unshare vfork
@@ -25,7 +25,6 @@ MOD_OUT_FILES = \
   $(foreach mod,$(MODULE_NAMES),$(mod).mod.o) \
   $(foreach mod,$(MODULE_NAMES),$(mod).o)
 
-
 ### BEGIN - Generate hash
 GEN_H_FILE := spade/config/generated.h
 GEN_TMPLT_FILE := spade/config/generated.template
@@ -43,6 +42,8 @@ ccflags-y += -I$(src)
 # Modules objects to build
 obj-m := $(addsuffix .o,$(MODULE_NAMES))
 
+###
+
 # Common object file lists
 ARG_OBJS := \
   spade/arg/parse.o \
@@ -52,11 +53,6 @@ CONFIG_OBJS := \
   spade/config/config.o \
   spade/config/print.o
 
-UTIL_OBJS := \
-  spade/util/log/log.o \
-  spade/util/seqbuf/seqbuf.o \
-  spade/util/helper/seqbuf/seqbuf.o
-
 CONTEXT_OBJS := \
   spade/audit/context/netfilter/netfilter.o \
   spade/audit/context/netfilter/print.o \
@@ -64,6 +60,52 @@ CONTEXT_OBJS := \
   spade/audit/context/syscall/print.o \
   spade/audit/context/context.o \
   spade/audit/context/print.o
+
+GLOBAL_OBJS := \
+  spade/audit/global/common/common.o \
+  spade/audit/global/netfilter/netfilter.o \
+  spade/audit/global/syscall/syscall.o \
+  spade/audit/global/global.o
+
+HELPER_OBJS := \
+  spade/audit/helper/syscall/namespace.o \
+  spade/audit/helper/syscall/network.o \
+  spade/audit/helper/audit_log.o \
+  spade/audit/helper/build_hash.o \
+  spade/audit/helper/kernel.o \
+  spade/audit/helper/sock.o \
+  spade/audit/helper/task.o
+
+KERNEL_OBJS := \
+  spade/audit/kernel/namespace/setup/setup.o \
+  spade/audit/kernel/netfilter/setup/setup.o \
+  spade/audit/kernel/netfilter/netfilter.o \
+  spade/audit/kernel/syscall/action/audit/audit.o \
+  spade/audit/kernel/syscall/action/action.o \
+  spade/audit/kernel/syscall/hook/execution/handler/handler.o \
+  spade/audit/kernel/syscall/hook/list.o \
+  spade/audit/kernel/syscall/hook/setup/ftrace/ftrace.o \
+  spade/audit/kernel/syscall/hook/setup/ftrace/ftrace_helper.o \
+  spade/audit/kernel/syscall/hook/setup/ftrace/list.o \
+  spade/audit/kernel/syscall/hook/setup/table/table.o \
+  spade/audit/kernel/syscall/hook/setup/table/list.o
+
+MSG_OBJS := \
+  spade/audit/msg/common/serialize/audit.o \
+  spade/audit/msg/common/create.o \
+  spade/audit/msg/namespace/serialize/audit.o \
+  spade/audit/msg/namespace/create.o \
+  spade/audit/msg/namespace/ops.o \
+  spade/audit/msg/netfilter/serialize/audit.o \
+  spade/audit/msg/netfilter/create.o \
+  spade/audit/msg/netfilter/ops.o \
+  spade/audit/msg/network/serialize/audit.o \
+  spade/audit/msg/network/create.o \
+  spade/audit/msg/network/ops.o \
+  spade/audit/msg/ubsi/serialize/audit.o \
+  spade/audit/msg/ubsi/create.o \
+  spade/audit/msg/ubsi/ops.o \
+  spade/audit/msg/ops.o
 
 STATE_OBJS := \
   spade/audit/state/netfilter/netfilter.o \
@@ -81,53 +123,29 @@ STATE_OBJS := \
   spade/audit/state/state.o \
   spade/audit/state/print.o
 
+TEST_COMMON_OBJS := \
+  test/common.o
+
+UTIL_OBJS := \
+  spade/util/log/log.o \
+  spade/util/seqbuf/seqbuf.o \
+  spade/util/helper/seqbuf/seqbuf.o
+
+###
+
 # netio module objects
 netio-y := \
   $(ARG_OBJS) \
   $(CONFIG_OBJS) \
-  $(UTIL_OBJS) \
   $(CONTEXT_OBJS) \
+  $(GLOBAL_OBJS) \
+  $(HELPER_OBJS) \
+  $(KERNEL_OBJS) \
+  $(MSG_OBJS) \
   $(STATE_OBJS) \
-  spade/audit/global/common/common.o \
-  spade/audit/global/netfilter/netfilter.o \
-  spade/audit/global/syscall/syscall.o \
-  spade/audit/global/global.o \
-  spade/audit/helper/syscall/namespace.o \
-  spade/audit/helper/syscall/network.o \
-  spade/audit/helper/audit_log.o \
-  spade/audit/helper/build_hash.o \
-  spade/audit/helper/kernel.o \
-  spade/audit/helper/sock.o \
-  spade/audit/helper/task.o \
-  spade/audit/kernel/namespace/setup/setup.o \
-  spade/audit/kernel/netfilter/setup/setup.o \
-  spade/audit/kernel/netfilter/netfilter.o \
   $(SYSCALL_ACTION_OBJS) \
-  spade/audit/kernel/syscall/action/audit/audit.o \
-  spade/audit/kernel/syscall/action/action.o \
-  spade/audit/kernel/syscall/hook/execution/handler/handler.o \
   $(SYSCALL_HOOK_FUNC_OBJS) \
-  spade/audit/kernel/syscall/hook/list.o \
-  spade/audit/kernel/syscall/hook/setup/ftrace/ftrace.o \
-  spade/audit/kernel/syscall/hook/setup/ftrace/ftrace_helper.o \
-  spade/audit/kernel/syscall/hook/setup/ftrace/list.o \
-  spade/audit/kernel/syscall/hook/setup/table/table.o \
-  spade/audit/kernel/syscall/hook/setup/table/list.o \
-  spade/audit/msg/common/serialize/audit.o \
-  spade/audit/msg/common/create.o \
-  spade/audit/msg/namespace/serialize/audit.o \
-  spade/audit/msg/namespace/create.o \
-  spade/audit/msg/namespace/ops.o \
-  spade/audit/msg/netfilter/serialize/audit.o \
-  spade/audit/msg/netfilter/create.o \
-  spade/audit/msg/netfilter/ops.o \
-  spade/audit/msg/network/serialize/audit.o \
-  spade/audit/msg/network/create.o \
-  spade/audit/msg/network/ops.o \
-  spade/audit/msg/ubsi/serialize/audit.o \
-  spade/audit/msg/ubsi/create.o \
-  spade/audit/msg/ubsi/ops.o \
-  spade/audit/msg/ops.o \
+  $(UTIL_OBJS) \
   spade/audit/audit.o
 
 # netio controller module objects
@@ -138,6 +156,37 @@ netio_controller-y := \
   spade/controller/controller.o \
   spade/controller/param.o
 
+test_arg-y := \
+  $(ARG_OBJS) \
+  $(CONFIG_OBJS) \
+  $(CONTEXT_OBJS) \
+  $(GLOBAL_OBJS) \
+  $(HELPER_OBJS) \
+  $(KERNEL_OBJS) \
+  $(MSG_OBJS) \
+  $(STATE_OBJS) \
+  $(SYSCALL_ACTION_OBJS) \
+  $(SYSCALL_HOOK_FUNC_OBJS) \
+  $(TEST_COMMON_OBJS) \
+  $(UTIL_OBJS) \
+  test/arg/arg.o
+
+test_context-y := \
+  $(ARG_OBJS) \
+  $(CONFIG_OBJS) \
+  $(CONTEXT_OBJS) \
+  $(GLOBAL_OBJS) \
+  $(HELPER_OBJS) \
+  $(KERNEL_OBJS) \
+  $(MSG_OBJS) \
+  $(STATE_OBJS) \
+  $(SYSCALL_ACTION_OBJS) \
+  $(SYSCALL_HOOK_FUNC_OBJS) \
+  $(TEST_COMMON_OBJS) \
+  $(UTIL_OBJS) \
+  test/context/context.o
+
+###
 
 .PHONY: hash-print all clean
 
