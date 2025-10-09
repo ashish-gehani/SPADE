@@ -24,6 +24,7 @@
 #include <linux/param.h>
 #include <linux/string.h>
 
+#include "spade/audit/audit.h"
 #include "spade/arg/print.h"
 #include "spade/config/print.h"
 #include "spade/audit/global/global.h"
@@ -32,6 +33,9 @@
 
 
 MODULE_LICENSE("GPL");
+
+
+const char *SPADE_MODULE_NAME = "netio";
 
 
 static bool ensure_global_state_is_initialized(const char *log_id)

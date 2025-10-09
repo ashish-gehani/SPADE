@@ -24,6 +24,7 @@
 #include <linux/param.h>
 #include <linux/string.h>
 
+#include "spade/controller/controller.h"
 #include "spade/config/config.h"
 #include "spade/arg/print.h"
 #include "spade/controller/param.h"
@@ -34,9 +35,7 @@
 MODULE_LICENSE("GPL");
 
 
-#ifndef KBUILD_MODNAME
-#define KBUILD_MODNAME "unknown_module"
-#endif
+const char *SPADE_MODULE_NAME = "netio_controller";
 
 
 static int __init onload(void)

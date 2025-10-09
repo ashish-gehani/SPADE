@@ -21,6 +21,6 @@
 #ifndef SPADE_AUDIT_AUDIT_H
 #define SPADE_AUDIT_AUDIT_H
 
-#define MODULE_NAME "netio"
+extern const char *SPADE_MODULE_NAME;
 
 #endif // SPADE_AUDIT_AUDIT_H

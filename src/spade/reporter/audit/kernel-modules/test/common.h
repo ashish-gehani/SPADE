@@ -23,10 +23,6 @@
 
 #include "spade/util/log/log.h"
 
-#ifndef KBUILD_MODNAME
-#define KBUILD_MODNAME "unknown_module"
-#endif
-
 /*
     Test statistics structure to track test execution.
 */

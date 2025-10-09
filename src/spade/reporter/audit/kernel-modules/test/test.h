@@ -18,40 +18,9 @@
  --------------------------------------------------------------------------------
  */
 
-#include <linux/init.h>
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/param.h>
-#include <linux/string.h>
+#ifndef TEST_TEST_H
+#define TEST_TEST_H
 
-#include "test/test.h"
-#include "spade/config/config.h"
-#include "spade/arg/arg.h"
-#include "spade/arg/parse.h"
-#include "spade/arg/print.h"
-#include "test/arg.h"
-#include "test/context.h"
+extern const char *SPADE_MODULE_NAME;
 
-MODULE_LICENSE("GPL");
-
-const char* SPADE_MODULE_NAME = "test";
-
-static int __init onload(void)
-{
-    struct test_stats t_s_arg;
-    struct test_stats t_s_context;
-
-	test_arg_all(&t_s_arg);
-    test_context_all(&t_s_context);
-
-    test_stats_log("test_arg", &t_s_arg);
-    test_stats_log("test_context", &t_s_context);
-    return -1;
-}
-
-static void __exit onunload(void)
-{
-}
-
-module_init(onload);
-module_exit(onunload);
+#endif // TEST_TEST_H
