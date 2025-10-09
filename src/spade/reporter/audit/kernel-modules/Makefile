@@ -128,6 +128,12 @@ UTIL_OBJS := \
   spade/util/seqbuf/seqbuf.o \
   spade/util/print/print.o
 
+TEST_ASSET_BIN := \
+  test/asset/bin/socket/net/client \
+  test/asset/bin/socket/net/server \
+  test/asset/bin/socket/unix/client \
+  test/asset/bin/socket/unix/server
+
 ###
 
 # netio module objects
@@ -153,6 +159,7 @@ netio_controller-y := \
   spade/controller/controller.o \
   spade/controller/param.o
 
+# test module objects
 test-y := \
   $(ARG_OBJS) \
   $(CONFIG_OBJS) \
@@ -172,7 +179,7 @@ test-y := \
 
 ###
 
-.PHONY: hash-print all clean
+.PHONY: hash-print all clean test-assets
 
 hash-print:
 	$(info $(GENERATED_BUILD_HASH))
@@ -180,7 +187,17 @@ hash-print:
 $(GEN_H_FILE): $(GEN_TMPLT_FILE)
 	@sed -e 's/@GENERATED_BUILD_HASH@/$(GENERATED_BUILD_HASH)/g' $< > $@
 
-all: $(GEN_H_FILE)
+test-assets: $(TEST_ASSET_BIN)
+
+test/asset/bin/socket/net/%: test/asset/src/socket/net/%.c
+	@mkdir -p $(dir $@)
+	gcc -o $@ $<
+
+test/asset/bin/socket/unix/%: test/asset/src/socket/unix/%.c
+	@mkdir -p $(dir $@)
+	gcc -o $@ $<
+
+all: $(GEN_H_FILE) test-assets
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 	@mkdir -p $(BUILD_OUTPUT)
 	@for file in $(MOD_OUT_FILES); do \
@@ -193,3 +210,4 @@ clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) clean
 	-rm -f $(GEN_H_FILE)
 	-rm -rf $(BUILD_OUTPUT)
+	-rm -f $(TEST_ASSET_BIN)

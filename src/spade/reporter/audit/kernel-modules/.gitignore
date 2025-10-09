@@ -6,3 +6,4 @@ build
 *.o.cmd
 *.o
 *.o.d
+test/asset/bin
