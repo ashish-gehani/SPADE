@@ -1,7 +1,5 @@
 spade/config/generated.h
 .vscode
-.spade_audit.build_hash
-.spade_controller.build_hash
 build
 *.o.cmd
 *.o

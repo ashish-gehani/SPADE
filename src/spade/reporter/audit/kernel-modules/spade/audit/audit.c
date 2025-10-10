@@ -25,6 +25,7 @@
 #include <linux/string.h>
 
 #include "spade/audit/audit.h"
+#include "spade/audit/param/param.h"
 #include "spade/arg/print.h"
 #include "spade/config/print.h"
 #include "spade/audit/global/global.h"
@@ -73,9 +74,9 @@ static bool ensure_global_build_hash_matches(
     return true;
 }
 
-int exported_spade_audit_start(const struct config *config, struct arg *arg)
+static int spade_audit_start(const struct config *config, struct arg *arg)
 {
-    const char *log_id = "exported_spade_audit_start";
+    const char *log_id = "spade_audit_start";
     int err = 0;
 
     if (!config || !arg)
@@ -113,11 +114,10 @@ int exported_spade_audit_start(const struct config *config, struct arg *arg)
 
     return 0;
 }
-EXPORT_SYMBOL(exported_spade_audit_start);
 
-int exported_spade_audit_stop(const struct config *config)
+static int spade_audit_stop(const struct config *config)
 {
-    const char *log_id = "exported_spade_audit_stop";
+    const char *log_id = "spade_audit_stop";
     if (!config)
     {
         util_log_warn(log_id, "Failed to stop auditing. Invalid parameters.");
@@ -136,12 +136,18 @@ int exported_spade_audit_stop(const struct config *config)
 
     return 0;
 }
-EXPORT_SYMBOL(exported_spade_audit_stop);
+
+static void _deinit_all(void)
+{
+    spade_audit_stop(&CONFIG_GLOBAL);
+    global_state_deinit();
+}
 
 static int __init onload(void)
 {
     const char *log_id = "__init onload";
     int err = 0;
+    struct arg arg;
 
     util_log_module_loading_started();
 
@@ -149,20 +155,43 @@ static int __init onload(void)
     if (err != 0)
     {
         util_log_warn(log_id, "Failed to load. State failed to initialize. Err: %d", err);
-        util_log_module_loading_failure();
-        return err;
+        goto exit_fail;
     }
 
+	if ((err = param_copy_validated_args(&arg)) != 0)
+	{
+		util_log_warn(log_id, "Failed to load module. Error in copying validated arguments: %d", err);
+		goto exit_fail_deinit_state;
+	}
+
+	if ((err = spade_audit_start(&CONFIG_GLOBAL, &arg)) != 0)
+	{
+		util_log_warn(log_id, "Failed to load module. Error in starting auditing: %d", err);
+		goto exit_fail_deinit_state;
+	}
+
+    goto exit_success;
+
+exit_fail_deinit_state:
+    global_state_deinit();
+    goto exit_fail;
+
+exit_fail:
+    util_log_module_loading_failure();
+    goto exit;
+
+exit_success:
     util_log_module_loading_success();
+    goto exit;
+
+exit:
 	return err;
 }
 
 static void __exit onunload(void)
 {
     util_log_module_unloading_started();
-    global_auditing_stop();
-    global_context_deinit();
-    global_state_deinit();
+    _deinit_all();
     util_log_module_unloading_success();
 }
 

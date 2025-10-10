@@ -18,9 +18,22 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_CONTROLLER_CONTROLLER_H
-#define SPADE_AUDIT_CONTROLLER_CONTROLLER_H
+#ifndef SPADE_AUDIT_PARAM_H
+#define SPADE_AUDIT_PARAM_H
 
-extern const char *SPADE_MODULE_NAME;
+#include "spade/arg/arg.h"
 
-#endif // SPADE_AUDIT_CONTROLLER_CONTROLLER_H
+
+/*
+    Copy the module local struct arg validated by kernel_param_ops.
+
+    Params:
+        dst: The destination pointer.
+
+    Returns:
+        0    -> Success
+        -ive -> Error
+*/
+int param_copy_validated_args(struct arg *dst);
+
+#endif // SPADE_AUDIT_PARAM_H

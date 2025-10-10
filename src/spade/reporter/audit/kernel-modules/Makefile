@@ -2,7 +2,7 @@ KDIR ?= /lib/modules/$(shell uname -r)/build
 BUILD_OUTPUT ?= build
 
 # Module names
-MODULE_NAMES := netio netio_controller spade_audit_test
+MODULE_NAMES := netio spade_audit_test
 
 # Syscall names
 SYSCALL_NAMES := accept accept4 bind clone connect fork recvfrom recvmsg sendmsg sendto setns unshare vfork
@@ -90,6 +90,9 @@ KERNEL_OBJS := \
   spade/audit/kernel/syscall/hook/setup/table/table.o \
   spade/audit/kernel/syscall/hook/setup/table/list.o
 
+PARAM_OBJS := \
+  spade/audit/param/param.o
+
 MSG_OBJS := \
   spade/audit/msg/common/serialize/audit.o \
   spade/audit/msg/common/create.o \
@@ -146,20 +149,13 @@ netio-y := \
   $(GLOBAL_OBJS) \
   $(HELPER_OBJS) \
   $(KERNEL_OBJS) \
+  $(PARAM_OBJS) \
   $(MSG_OBJS) \
   $(STATE_OBJS) \
   $(SYSCALL_ACTION_OBJS) \
   $(SYSCALL_HOOK_FUNC_OBJS) \
   $(UTIL_OBJS) \
   spade/audit/audit.o
-
-# netio controller module objects
-netio_controller-y := \
-  $(ARG_OBJS) \
-  $(CONFIG_OBJS) \
-  $(UTIL_OBJS) \
-  spade/controller/controller.o \
-  spade/controller/param.o
 
 # test module objects
 spade_audit_test-y := \
@@ -169,6 +165,7 @@ spade_audit_test-y := \
   $(GLOBAL_OBJS) \
   $(HELPER_OBJS) \
   $(KERNEL_OBJS) \
+  $(PARAM_OBJS) \
   $(MSG_OBJS) \
   $(STATE_OBJS) \
   $(SYSCALL_ACTION_OBJS) \
