@@ -130,7 +130,7 @@ function get_module_syslog()
 
 # Main function to manage module operations
 # Usage: manage_module <command> <module_path> [args...]
-# Commands: insmod, rmmod, checkmod, logmod
+# Commands: add, rm, check, log
 function manage_module()
 {
     local command=$1
@@ -141,7 +141,7 @@ function manage_module()
     if [ -z "$command" ]; then
         echo "Error: command is required"
         echo "Usage: manage_module <command> <module_path> [args...]"
-        echo "Commands: insmod, rmmod, checkmod, logmod"
+        echo "Commands: add, rm, check, log"
         return 1
     fi
 
@@ -151,21 +151,21 @@ function manage_module()
     fi
 
     case "$command" in
-        insmod)
+        add)
             insmod_module "$module_path" $args
             ;;
-        rmmod)
+        rm)
             rmmod_module "$module_path"
             ;;
-        checkmod)
+        check)
             is_module_loaded "$module_path"
             ;;
-        logmod)
+        log)
             get_module_syslog "$module_path" $args
             ;;
         *)
             echo "Error: unknown command '$command'"
-            echo "Valid commands: insmod, rmmod, checkmod, logmod"
+            echo "Valid commands: add, rm, check, log"
             return 1
             ;;
     esac

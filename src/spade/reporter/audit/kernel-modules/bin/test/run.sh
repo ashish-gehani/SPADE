@@ -29,7 +29,7 @@ function insert_test_module()
     fi
 
     # Use manage_module.sh to insert the module
-    bash "$BIN_DIR/manage_module.sh" insmod "$MODULE_PATH" $module_args
+    bash "$BIN_DIR/manage_module.sh" add "$MODULE_PATH" $module_args
 
     return $?
 }
@@ -40,7 +40,7 @@ function remove_test_module()
     echo "=== Removing test module ==="
 
     # Use manage_module.sh to remove the module
-    bash "$BIN_DIR/manage_module.sh" rmmod spade_audit_test
+    bash "$BIN_DIR/manage_module.sh" rm "$MODULE_PATH"
 
     return $?
 }
