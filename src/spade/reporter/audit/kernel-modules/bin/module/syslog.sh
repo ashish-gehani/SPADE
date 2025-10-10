@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script to extract module syslog messages based on instance_id
-# Usage: ./read_module_syslog.sh [module_name] [syslog_file]
+# Usage: ./module/syslog.sh [module_name] [syslog_file]
 
 MODULE_NAME=${1:-netio}
 SYSLOG_FILE=${2:-/var/log/syslog}

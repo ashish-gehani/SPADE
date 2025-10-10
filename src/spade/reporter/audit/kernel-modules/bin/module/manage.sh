@@ -116,14 +116,14 @@ function get_module_syslog()
     # Get the directory where this script is located
     script_dir=$(dirname "${BASH_SOURCE[0]}")
 
-    # Check if read_module_syslog.sh exists
-    if [ ! -f "$script_dir/read_module_syslog.sh" ]; then
-        echo "Error: read_module_syslog.sh not found in $script_dir"
+    # Check if module/syslog.sh exists
+    if [ ! -f "$script_dir/module/syslog.sh" ]; then
+        echo "Error: module/syslog.sh not found in $script_dir"
         return 1
     fi
 
-    # Call read_module_syslog.sh with module name and syslog file
-    bash "$script_dir/read_module_syslog.sh" "$module_name" "$syslog_file"
+    # Call module/syslog.sh with module name and syslog file
+    bash "$script_dir/module/syslog.sh" "$module_name" "$syslog_file"
 
     return $?
 }

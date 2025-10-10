@@ -28,8 +28,8 @@ function insert_test_module()
         fi
     fi
 
-    # Use manage_module.sh to insert the module
-    bash "$BIN_DIR/manage_module.sh" add "$MODULE_PATH" $module_args
+    # Use module/manage.sh to insert the module
+    bash "$BIN_DIR/module/manage.sh" add "$MODULE_PATH" $module_args
 
     return $?
 }
@@ -39,8 +39,8 @@ function remove_test_module()
 {
     echo "=== Removing test module ==="
 
-    # Use manage_module.sh to remove the module
-    bash "$BIN_DIR/manage_module.sh" rm "$MODULE_PATH"
+    # Use module/manage.sh to remove the module
+    bash "$BIN_DIR/module/manage.sh" rm "$MODULE_PATH"
 
     return $?
 }
@@ -50,8 +50,8 @@ function get_test_results()
 {
     echo "=== Test Results ==="
 
-    # Use read_module_syslog.sh to get module logs and filter for test result lines
-    bash "$BIN_DIR/read_module_syslog.sh" "${MOD_NAME}" | grep -E '\[spade_audit_test\].*Tests:.*total.*passed.*failed'
+    # Use module/syslog.sh to get module logs and filter for test result lines
+    bash "$BIN_DIR/module/syslog.sh" "${MOD_NAME}" | grep -E '\[spade_audit_test\].*Tests:.*total.*passed.*failed'
 
     return $?
 }
@@ -62,9 +62,9 @@ function run_activity_tests()
     echo "=== Running Activity Tests ==="
 
     local test_scripts=(
-        "$SCRIPT_DIR/activity_net.sh"
-        "$SCRIPT_DIR/activity_unix.sh"
-        "$SCRIPT_DIR/activity_ns.sh"
+        "$SCRIPT_DIR/activity/net.sh"
+        "$SCRIPT_DIR/activity/unix.sh"
+        "$SCRIPT_DIR/activity/ns.sh"
     )
 
     local failed=0
