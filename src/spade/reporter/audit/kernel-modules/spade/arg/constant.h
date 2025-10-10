@@ -49,12 +49,12 @@
 #define ARG_CONSTANT_NAME_UIDS_STR                       STRINGIFY(ARG_CONSTANT_NAME_UIDS)
 
 /* Descriptions */
-#define ARG_CONSTANT_DESC_NF_USE_USER        "In netfilter hooks, filter packet logging based on user criteria. Default: false."
-#define ARG_CONSTANT_DESC_NF_HOOKS           "Enable netfilter hooks. Default: false."
+#define ARG_CONSTANT_DESC_NF_USE_USER        "In netfilter hooks, filter packet logging based on user criteria. Default: 0. Options: 0=false, 1=true."
+#define ARG_CONSTANT_DESC_NF_HOOKS           "Enable netfilter hooks. Default: 0. Options: 0=false, 1=true."
 #define ARG_CONSTANT_DESC_NF_MONITOR_CT      "Monitor packets by connection state. Default: all. Options: -1=all, 0=only_new."
 #define ARG_CONSTANT_DESC_MONITOR_SYSCALLS   "Monitor system calls by result. Default: only_successful. Options: -1=all, 0=only_failed, 1=only_successful."
-#define ARG_CONSTANT_DESC_NETWORK_IO         "Enable network IO monitoring. Default: false."
-#define ARG_CONSTANT_DESC_INCLUDE_NS_INFO    "Include namespace information in monitoring. Default: false."
+#define ARG_CONSTANT_DESC_NETWORK_IO         "Enable network IO monitoring. Default: 0. Options: 0=false, 1=true."
+#define ARG_CONSTANT_DESC_INCLUDE_NS_INFO    "Include namespace information in monitoring. Default: 0. Options: 0=false, 1=true."
 #define ARG_CONSTANT_DESC_IGNORE_PIDS        "List of process ids to ignore. Default: []."
 #define ARG_CONSTANT_DESC_IGNORE_PPIDS       "List of parent process ids to ignore. Default: []."
 #define ARG_CONSTANT_DESC_UID_MONITOR_MODE   "Monitoring mode for the list of user ids. Default: ignore. Options: 0=capture, 1=ignore."

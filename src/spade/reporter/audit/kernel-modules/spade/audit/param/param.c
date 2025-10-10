@@ -32,7 +32,7 @@
 /*
 	Default arguments
 */
-static struct arg global_arg = {
+static struct arg default_arg = {
 	.nf = {
 		.use_user = false,
 		.hooks = false,
@@ -197,16 +197,16 @@ static const struct kernel_param_ops param_ops_uids = {
 	module_param_cb(name, param_ops, param_ptr, param_perm); \
 	MODULE_PARM_DESC(name, param_desc)
 
-DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NF_USE_USER, &param_ops_nf_use_user, &global_arg.nf.use_user, 0000, ARG_CONSTANT_DESC_NF_USE_USER);
-DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NF_HOOKS, &param_ops_nf_hooks, &global_arg.nf.hooks, 0000, ARG_CONSTANT_DESC_NF_HOOKS);
-DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NF_MONITOR_CT, &param_ops_nf_monitor_ct, &global_arg.nf.monitor_ct, 0000, ARG_CONSTANT_DESC_NF_MONITOR_CT);
-DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NETWORK_IO, &param_ops_network_io, &global_arg.network_io, 0000, ARG_CONSTANT_DESC_NETWORK_IO);
-DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_INCLUDE_NS_INFO, &param_ops_include_ns_info, &global_arg.include_ns_info, 0000, ARG_CONSTANT_DESC_INCLUDE_NS_INFO);
-DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_MONITOR_SYSCALLS, &param_ops_monitor_syscalls, &global_arg.monitor_syscalls, 0000, ARG_CONSTANT_DESC_MONITOR_SYSCALLS);
-DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_IGNORE_PIDS, &param_ops_ignore_pids, &global_arg.ignore_pids, 0000, ARG_CONSTANT_DESC_IGNORE_PIDS);
-DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_IGNORE_PPIDS, &param_ops_ignore_ppids, &global_arg.ignore_ppids, 0000, ARG_CONSTANT_DESC_IGNORE_PPIDS);
-DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_UID_MONITOR_MODE, &param_ops_uid_monitor_mode, &global_arg.user.uid_monitor_mode, 0000, ARG_CONSTANT_DESC_UID_MONITOR_MODE);
-DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_UIDS, &param_ops_uids, &global_arg.user.uids, 0000, ARG_CONSTANT_DESC_UIDS);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NF_USE_USER, &param_ops_nf_use_user, &default_arg.nf.use_user, 0000, ARG_CONSTANT_DESC_NF_USE_USER);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NF_HOOKS, &param_ops_nf_hooks, &default_arg.nf.hooks, 0000, ARG_CONSTANT_DESC_NF_HOOKS);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NF_MONITOR_CT, &param_ops_nf_monitor_ct, &default_arg.nf.monitor_ct, 0000, ARG_CONSTANT_DESC_NF_MONITOR_CT);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NETWORK_IO, &param_ops_network_io, &default_arg.network_io, 0000, ARG_CONSTANT_DESC_NETWORK_IO);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_INCLUDE_NS_INFO, &param_ops_include_ns_info, &default_arg.include_ns_info, 0000, ARG_CONSTANT_DESC_INCLUDE_NS_INFO);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_MONITOR_SYSCALLS, &param_ops_monitor_syscalls, &default_arg.monitor_syscalls, 0000, ARG_CONSTANT_DESC_MONITOR_SYSCALLS);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_IGNORE_PIDS, &param_ops_ignore_pids, &default_arg.ignore_pids, 0000, ARG_CONSTANT_DESC_IGNORE_PIDS);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_IGNORE_PPIDS, &param_ops_ignore_ppids, &default_arg.ignore_ppids, 0000, ARG_CONSTANT_DESC_IGNORE_PPIDS);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_UID_MONITOR_MODE, &param_ops_uid_monitor_mode, &default_arg.user.uid_monitor_mode, 0000, ARG_CONSTANT_DESC_UID_MONITOR_MODE);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_UIDS, &param_ops_uids, &default_arg.user.uids, 0000, ARG_CONSTANT_DESC_UIDS);
 
 
 int param_copy_validated_args(struct arg *dst)
@@ -214,6 +214,6 @@ int param_copy_validated_args(struct arg *dst)
     if (!dst)
         return -EINVAL;
 
-    memcpy(dst, &global_arg, sizeof(struct arg));
+    memcpy(dst, &default_arg, sizeof(struct arg));
     return 0;
 }
