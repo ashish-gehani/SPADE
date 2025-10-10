@@ -18,7 +18,7 @@
 #  along with this program. If not, see <http://www.gnu.org/licenses/>.
 #  --------------------------------------------------------------------------------
 
-KM_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
+KM_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../ && pwd )"
 
 BIN_DIR="${KM_ROOT}/test/asset/bin/socket/net"
 

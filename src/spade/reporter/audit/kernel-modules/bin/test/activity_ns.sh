@@ -19,7 +19,7 @@
 #  --------------------------------------------------------------------------------
 
 
-KM_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
+KM_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../ && pwd )"
 
 BIN_DIR="${KM_ROOT}/test/asset/bin/ns"
 
