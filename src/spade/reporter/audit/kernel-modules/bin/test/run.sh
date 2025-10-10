@@ -3,7 +3,8 @@
 # Get the directory where this script is located
 SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
 BIN_DIR="$SCRIPT_DIR/.."
-MODULE_PATH="$SCRIPT_DIR/../../build/spade_audit_test.ko"
+MOD_NAME=spade_audit_test
+MODULE_PATH="$SCRIPT_DIR/../../build/${MOD_NAME}.ko"
 
 # Function to insert test module
 function insert_test_module()
@@ -50,7 +51,7 @@ function get_test_results()
     echo "=== Test Results ==="
 
     # Use read_module_syslog.sh to get module logs and filter for test result lines
-    bash "$BIN_DIR/read_module_syslog.sh" | grep -E '\[spade_audit_test\].*Tests:.*total.*passed.*failed'
+    bash "$BIN_DIR/read_module_syslog.sh" "${MOD_NAME}" | grep -E '\[spade_audit_test\].*Tests:.*total.*passed.*failed'
 
     return $?
 }
