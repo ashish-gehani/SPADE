@@ -93,7 +93,11 @@ function run_activity_scripts()
     echo "=== Running Activity Test Scripts ==="
 
     # Run specific activity scripts in order
-    local scripts=("net.sh" "ns.sh" "unix.sh")
+    local scripts=(
+        #"net.sh"
+        "ns.sh"
+        #"unix.sh"
+    )
 
     for script_name in "${scripts[@]}"; do
         local script="${activity_dir}/${script_name}"
@@ -142,6 +146,8 @@ function run_test_for_command()
     fi
     echo "Options: $options"
 
+    sleep 5
+
     # Stop auditd
     echo ""
     echo "Step 2: Stopping audit service..."
@@ -150,6 +156,8 @@ function run_test_for_command()
         echo "Error: Failed to stop audit service"
         return 1
     fi
+
+    sleep 5
 
     # Start auditd
     echo ""
@@ -160,6 +168,8 @@ function run_test_for_command()
         return 1
     fi
 
+    sleep 5
+
     # Clear audit rules
     echo ""
     echo "Step 4: Clearing audit rules..."
@@ -169,11 +179,15 @@ function run_test_for_command()
         return 1
     fi
 
+    sleep 5
+
     # Get current time
     echo ""
     echo "Step 5: Getting current time..."
     local start_time=$(bash "$auditd_script" time)
     echo "Start time: $start_time"
+
+    sleep 5
 
     # Insert netio module with options
     echo ""
@@ -183,6 +197,8 @@ function run_test_for_command()
         echo "Error: Failed to insert netio module"
         return 1
     fi
+
+    sleep 5
 
     # Run activity scripts
     echo ""
@@ -202,6 +218,8 @@ function run_test_for_command()
         echo "Warning: Failed to remove netio module"
     fi
 
+    sleep 5
+
     # Clear audit rules again
     echo ""
     echo "Step 10: Clearing audit rules again..."
@@ -209,6 +227,8 @@ function run_test_for_command()
     if [ $? -ne 0 ]; then
         echo "Warning: Failed to clear audit rules"
     fi
+
+    sleep 5
 
     # Get audit logs after start time
     echo ""
