@@ -147,6 +147,13 @@ bool global_is_auditing_started(void)
 
 //
 
+void global_increment_discarded_event_count(unsigned long c)
+{
+    if (!global_is_auditing_started())
+        return;
+    g.s.netfilter.discarded_events_count += c;
+}
+
 bool global_is_netfilter_loggable_by_user(uid_t uid)
 {
     int err;

@@ -25,6 +25,7 @@
 #include <linux/netfilter_ipv4.h>
 #include <linux/net_namespace.h>
 #include <net/net_namespace.h>
+#include <linux/inetdevice.h>
 
 #if IS_ENABLED(CONFIG_NF_CONNTRACK)
 #include <net/netfilter/nf_conntrack.h>
@@ -40,16 +41,14 @@
 #include "spade/audit/helper/audit_log.h"
 
 
-
 static void _inc_discarded_event_count(void)
 {
-    // todo
+    global_increment_discarded_event_count(1);
 }
 
 static bool _is_auditing_started(void)
 {
-    // todo
-    return false;
+    return global_is_auditing_started();
 }
 
 static enum ip_conntrack_info get_conntrack_info(const struct sk_buff *skb, enum ip_conntrack_info default_ct_info)
@@ -59,14 +58,14 @@ static enum ip_conntrack_info get_conntrack_info(const struct sk_buff *skb, enum
     if (!skb)
         return default_ct_info;
 #if HELPER_KERNEL_VERSION_GTE_4_11_0
-    ct = nf_ct_get(skb, &ct_info);   // also derives ctinfo
+    ct = nf_ct_get(skb, &ct_info); // also derives ctinfo
     if (ct)
     {
         return ct_info;
     }
     return default_ct_info;
 #else
-	return default_ct_info;
+    return default_ct_info;
 #endif
 }
 
@@ -83,7 +82,8 @@ static bool packet_can_be_handled_based_on_user(const struct sk_buff *skb)
     {
         uid_t uid = from_kuid(&init_user_ns, sk->sk_socket->file->f_cred->uid);
         return global_is_netfilter_loggable_by_user(uid);
-    } else
+    }
+    else
     {
         return true;
     }
@@ -92,8 +92,7 @@ static bool packet_can_be_handled_based_on_user(const struct sk_buff *skb)
 static unsigned int get_net_ns_num_ip4(
     unsigned int hook,
     enum nf_ip_hook_priorities priority,
-    struct iphdr *iph
-)
+    struct iphdr *iph)
 {
     struct net *net = NULL;
     struct net_device *dev = NULL;
@@ -101,10 +100,13 @@ static unsigned int get_net_ns_num_ip4(
     bool can_get_ns = false;
     unsigned int net_ns_inum;
 
-    if(hook == NF_INET_LOCAL_OUT && priority == NF_IP_PRI_FIRST){
+    if (hook == NF_INET_LOCAL_OUT && priority == NF_IP_PRI_FIRST)
+    {
         selected_addr = iph->saddr;
         can_get_ns = true;
-    }else if(hook == NF_INET_LOCAL_IN && priority == NF_IP_PRI_LAST){
+    }
+    else if (hook == NF_INET_LOCAL_IN && priority == NF_IP_PRI_LAST)
+    {
         selected_addr = iph->daddr;
         can_get_ns = true;
     }
@@ -112,21 +114,16 @@ static unsigned int get_net_ns_num_ip4(
     if (!can_get_ns)
         return 0;
 
-    // TODO
-    /*
-    // __ip_dev_find not found
-    dev = NULL;
     rcu_read_lock();
-    for_each_net_rcu(net){
-        if(dev == NULL){
-            dev = __ip_dev_find(net, selected_addr, false);
-            if(dev){
-                net_ns_inum = net->ns.inum;
-            }
-        }
+    for_each_net_rcu(net)
+    {
+        dev = __ip_dev_find(net, selected_addr, false);
+        if (!dev)
+            continue;
+        net_ns_inum = net->ns.inum;
+        break;
     }
     rcu_read_unlock();
-    */
 
     return net_ns_inum;
 }
@@ -134,19 +131,20 @@ static unsigned int get_net_ns_num_ip4(
 static unsigned int get_net_ns_num_ip6(
     unsigned int hook,
     enum nf_ip_hook_priorities priority,
-    struct ipv6hdr *ipv6h
-)
+    struct ipv6hdr *ipv6h)
 {
     struct net *net = NULL;
-    struct net_device *dev = NULL;
     struct in6_addr selected_addr;
     bool can_get_ns = false;
     unsigned int net_ns_inum = 0;
 
-    if(hook == NF_INET_LOCAL_OUT && priority == NF_IP_PRI_FIRST){
+    if (hook == NF_INET_LOCAL_OUT && priority == NF_IP_PRI_FIRST)
+    {
         selected_addr = ipv6h->saddr;
         can_get_ns = true;
-    }else if(hook == NF_INET_LOCAL_IN && priority == NF_IP_PRI_LAST){
+    }
+    else if (hook == NF_INET_LOCAL_IN && priority == NF_IP_PRI_LAST)
+    {
         selected_addr = ipv6h->daddr;
         can_get_ns = true;
     }
@@ -154,15 +152,14 @@ static unsigned int get_net_ns_num_ip6(
     if (!can_get_ns)
         return 0;
 
-    dev = NULL;
     rcu_read_lock();
-    for_each_net_rcu(net){
-        if(dev == NULL){
-            int found = ipv6_chk_addr(net, &selected_addr, NULL, 0);
-            if(found){
-                net_ns_inum = net->ns.inum;
-            }
-        }
+    for_each_net_rcu(net)
+    {
+        int found = ipv6_chk_addr(net, &selected_addr, NULL, 0);
+        if (!found)
+            continue;
+        net_ns_inum = net->ns.inum;
+        break;
     }
     rcu_read_unlock();
 
@@ -173,15 +170,15 @@ static unsigned int get_net_ns_num(
     unsigned int hook,
     enum nf_ip_hook_priorities priority,
     int ip_version,
-    void *iph_generic
-)
+    void *iph_generic)
 {
     if (!global_is_netfilter_logging_ns_info())
         return 0;
     if (ip_version == AF_INET)
     {
         return get_net_ns_num_ip4(hook, priority, (struct iphdr *)iph_generic);
-    } else if (ip_version == AF_INET6)
+    }
+    else if (ip_version == AF_INET6)
     {
         return get_net_ns_num_ip6(hook, priority, (struct ipv6hdr *)iph_generic);
     }
@@ -215,9 +212,9 @@ static void nf_handle_packet(enum nf_ip_hook_priorities prio, const struct sk_bu
     {
         struct iphdr *iph;
         iph = ip_hdr(skb);
-        if(!iph)
+        if (!iph)
             goto discard_and_exit;
-        if(iph->protocol != IPPROTO_TCP && iph->protocol != IPPROTO_UDP)
+        if (iph->protocol != IPPROTO_TCP && iph->protocol != IPPROTO_UDP)
             goto discard_and_exit;
 
         msg.transport_proto = iph->protocol;
@@ -226,22 +223,24 @@ static void nf_handle_packet(enum nf_ip_hook_priorities prio, const struct sk_bu
         memcpy(&(msg.dst_addr.addr.ip4), &(iph->daddr), sizeof(struct in_addr));
 
         msg.net_ns_inum = get_net_ns_num(nf_state->hook, prio, AF_INET, iph);
-    } else if (nf_state->pf == NFPROTO_IPV6)
+    }
+    else if (nf_state->pf == NFPROTO_IPV6)
     {
         struct ipv6hdr *ipv6h;
         ipv6h = ipv6_hdr(skb);
-        if(!ipv6h)
+        if (!ipv6h)
             goto discard_and_exit;
-        if(ipv6h->nexthdr != IPPROTO_TCP && ipv6h->nexthdr != IPPROTO_UDP)
+        if (ipv6h->nexthdr != IPPROTO_TCP && ipv6h->nexthdr != IPPROTO_UDP)
             goto discard_and_exit;
-        
+
         msg.transport_proto = ipv6h->nexthdr;
 
         memcpy(&(msg.src_addr.addr.ip6), &(ipv6h->saddr), sizeof(struct in6_addr));
         memcpy(&(msg.dst_addr.addr.ip6), &(ipv6h->daddr), sizeof(struct in6_addr));
 
         msg.net_ns_inum = get_net_ns_num(nf_state->hook, prio, AF_INET6, ipv6h);
-    } else
+    }
+    else
     {
         goto discard_and_exit;
     }
@@ -250,19 +249,21 @@ static void nf_handle_packet(enum nf_ip_hook_priorities prio, const struct sk_bu
     {
         struct tcphdr *tcph;
         tcph = tcp_hdr(skb);
-        if(!tcph)
+        if (!tcph)
             goto discard_and_exit;
         msg.src_addr.port = ntohs(tcph->source);
         msg.dst_addr.port = ntohs(tcph->dest);
-    } else if (msg.transport_proto == IPPROTO_UDP)
+    }
+    else if (msg.transport_proto == IPPROTO_UDP)
     {
         struct udphdr *udph;
         udph = udp_hdr(skb);
-        if(!udph)
+        if (!udph)
             goto discard_and_exit;
         msg.src_addr.port = ntohs(udph->source);
         msg.dst_addr.port = ntohs(udph->dest);
-    } else
+    }
+    else
     {
         goto discard_and_exit;
     }
@@ -279,13 +280,13 @@ exit:
 unsigned int kernel_netfilter_hook_first(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 {
     if (_is_auditing_started())
-	    nf_handle_packet(NF_IP_PRI_FIRST, skb, state);
-	return NF_ACCEPT;
+        nf_handle_packet(NF_IP_PRI_FIRST, skb, state);
+    return NF_ACCEPT;
 }
 
 unsigned int kernel_netfilter_hook_last(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 {
     if (_is_auditing_started())
-	    nf_handle_packet(NF_IP_PRI_LAST, skb, state);
-	return NF_ACCEPT;
+        nf_handle_packet(NF_IP_PRI_LAST, skb, state);
+    return NF_ACCEPT;
 }

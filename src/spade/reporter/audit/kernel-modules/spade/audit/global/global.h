@@ -122,6 +122,8 @@ bool global_is_auditing_started(void);
 
 //
 
+void global_increment_discarded_event_count(unsigned long c);
+
 bool global_is_netfilter_loggable_by_user(uid_t uid);
 bool global_is_netfilter_loggable_by_conntrack_info(
     enum ip_conntrack_info ct_info

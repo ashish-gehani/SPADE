@@ -162,19 +162,37 @@ function get_exclude_nf_hooks_option()
     echo "nf_hooks=0"
 }
 
+# Function to get option to monitor all connection states
+# Usage: nf_monitor_ct_option=$(get_nf_monitor_ct_all_option)
+# Returns: String 'nf_hooks_log_all_ct=-1'
+function get_nf_monitor_ct_all_option()
+{
+    echo "nf_hooks_log_all_ct=-1"
+}
+
+# Function to get option to monitor only new connections
+# Usage: nf_monitor_ct_option=$(get_nf_monitor_ct_only_new_option)
+# Returns: String 'nf_hooks_log_all_ct=0'
+function get_nf_monitor_ct_only_new_option()
+{
+    echo "nf_hooks_log_all_ct=0"
+}
+
 # Function to get combined options for watching the audited user
 # Usage: options=$(get_option_for_watch_audited_user)
 # Returns: Combined string of all monitoring options separated by spaces
 function get_option_for_watch_audited_user()
 {
+    local nf_hooks=$(get_include_nf_hooks_option)
     local nf_handle_user=$(get_include_nf_handle_user_option)
+    local nf_monitor_ct=$(get_nf_monitor_ct_all_option)
     local network_io=$(get_include_network_io_option)
     local namespaces=$(get_include_namespaces_option)
     local log_syscalls=$(get_log_syscalls_option)
     local user_capture=$(get_user_capture_options)
     local ignore_processes=$(get_ignore_processes_options)
 
-    echo "$nf_handle_user $network_io $namespaces $log_syscalls $user_capture $ignore_processes"
+    echo "$nf_handle_user $network_io $namespaces $log_syscalls $user_capture $ignore_processes $nf_hooks $nf_monitor_ct"
 }
 
 # Function to get options based on a command
