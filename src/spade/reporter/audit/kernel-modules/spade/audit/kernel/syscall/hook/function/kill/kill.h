@@ -18,22 +18,29 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_MSG_UBSI_UBSI_H
-#define SPADE_AUDIT_MSG_UBSI_UBSI_H
+#ifndef SPADE_AUDIT_KERNEL_SYSCALL_HOOK_FUNCTION_KILL_H
+#define SPADE_AUDIT_KERNEL_SYSCALL_HOOK_FUNCTION_KILL_H
 
-#include <linux/sched.h>
+#include <linux/types.h>
 
-#include "spade/audit/msg/common/common.h"
+/*
+    Get syscall number.
+*/
+int kernel_syscall_hook_function_kill_num(void);
 
-struct msg_ubsi
-{
-    struct msg_common_header header;
-    int syscall_number;
-    long syscall_result;
-    bool syscall_success;
-    int target_pid;
-    int signal;
-    struct msg_common_process proc_info;
-};
+/*
+    Get syscall name.
+*/
+const char* kernel_syscall_hook_function_kill_name(void);
 
-#endif // SPADE_AUDIT_MSG_UBSI_UBSI_H
+/*
+    Get pointer to original function to update or use.
+*/
+void *kernel_syscall_hook_function_kill_original_ptr(void);
+
+/*
+    Get hook function to call.
+*/
+void *kernel_syscall_hook_function_kill_hook(void);
+
+#endif // SPADE_AUDIT_KERNEL_SYSCALL_HOOK_FUNCTION_KILL_H

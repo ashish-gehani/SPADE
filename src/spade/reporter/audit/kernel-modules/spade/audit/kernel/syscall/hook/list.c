@@ -37,6 +37,7 @@ const struct kernel_syscall_hook KERNEL_SYSCALL_HOOK_LIST[] = {
     K_S_H_DECL(clone),
     K_S_H_DECL(connect),
     K_S_H_DECL(fork),
+    K_S_H_DECL(kill),
     K_S_H_DECL(recvfrom),
     K_S_H_DECL(recvmsg),
     K_S_H_DECL(sendmsg),

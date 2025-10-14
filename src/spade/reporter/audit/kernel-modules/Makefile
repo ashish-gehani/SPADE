@@ -5,7 +5,7 @@ BUILD_OUTPUT ?= build
 MODULE_NAMES := netio spade_audit_test
 
 # Syscall names
-SYSCALL_NAMES := accept accept4 bind clone connect fork recvfrom recvmsg sendmsg sendto setns unshare vfork
+SYSCALL_NAMES := accept accept4 bind clone connect fork kill recvfrom recvmsg sendmsg sendto setns unshare vfork
 
 # Generated object file lists
 SYSCALL_ACTION_OBJS := $(foreach syscall,$(SYSCALL_NAMES),spade/audit/kernel/syscall/action/audit/$(syscall)/$(syscall).o)
@@ -137,7 +137,8 @@ TEST_ASSET_BIN := \
   test/asset/bin/socket/net/client \
   test/asset/bin/socket/net/server \
   test/asset/bin/socket/unix/client \
-  test/asset/bin/socket/unix/server
+  test/asset/bin/socket/unix/server \
+  test/asset/bin/ubsi/ubsi
 
 ###
 
@@ -197,6 +198,10 @@ test/asset/bin/socket/net/%: test/asset/src/socket/net/%.c
 	gcc -o $@ $<
 
 test/asset/bin/socket/unix/%: test/asset/src/socket/unix/%.c
+	@mkdir -p $(dir $@)
+	gcc -o $@ $<
+
+test/asset/bin/ubsi/%: test/asset/src/ubsi/%.c
 	@mkdir -p $(dir $@)
 	gcc -o $@ $<
 

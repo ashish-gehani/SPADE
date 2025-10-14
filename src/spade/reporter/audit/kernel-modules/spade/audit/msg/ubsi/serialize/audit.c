@@ -37,7 +37,7 @@ int msg_ubsi_serialize_audit_msg(
     msg_common_serialize_audit_msg_header(b, &msg->header);
 
     util_seqbuf_printf(b, "syscall=%d", msg->syscall_number);
-    util_seqbuf_printf(b, " success=%s", msg->syscall_result == 0 ? "yes" : "no");
+    util_seqbuf_printf(b, " success=%s", msg->syscall_success ? "yes" : "no");
     util_seqbuf_printf(b, " exit=%ld", msg->syscall_result);
     util_seqbuf_printf(b, " a0=%x", msg->target_pid);
     util_seqbuf_printf(b, " a1=%x", msg->signal);

@@ -28,6 +28,7 @@
 #include "spade/audit/kernel/syscall/action/audit/clone/clone.h"
 #include "spade/audit/kernel/syscall/action/audit/connect/connect.h"
 #include "spade/audit/kernel/syscall/action/audit/fork/fork.h"
+#include "spade/audit/kernel/syscall/action/audit/kill/kill.h"
 #include "spade/audit/kernel/syscall/action/audit/recvfrom/recvfrom.h"
 #include "spade/audit/kernel/syscall/action/audit/recvmsg/recvmsg.h"
 #include "spade/audit/kernel/syscall/action/audit/sendmsg/sendmsg.h"
@@ -74,6 +75,8 @@ int kernel_syscall_action_audit_handle(
             return kernel_syscall_action_audit_connect_handle(sys_ctx_post);
         case __NR_fork:
             return kernel_syscall_action_audit_fork_handle(sys_ctx_post);
+        case __NR_kill:
+            return kernel_syscall_action_audit_kill_handle(sys_ctx_post);
         case __NR_recvfrom:
             return kernel_syscall_action_audit_recvfrom_handle(sys_ctx_post);
         case __NR_recvmsg:

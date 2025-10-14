@@ -18,22 +18,12 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_MSG_UBSI_UBSI_H
-#define SPADE_AUDIT_MSG_UBSI_UBSI_H
+#ifndef SPADE_AUDIT_KERNEL_SYSCALL_ACTION_AUDIT_KILL_KILL_H
+#define SPADE_AUDIT_KERNEL_SYSCALL_ACTION_AUDIT_KILL_KILL_H
 
-#include <linux/sched.h>
+#include "spade/audit/kernel/syscall/context/post.h"
 
-#include "spade/audit/msg/common/common.h"
 
-struct msg_ubsi
-{
-    struct msg_common_header header;
-    int syscall_number;
-    long syscall_result;
-    bool syscall_success;
-    int target_pid;
-    int signal;
-    struct msg_common_process proc_info;
-};
+int kernel_syscall_action_audit_kill_handle(struct kernel_syscall_context_post *sys_ctx);
 
-#endif // SPADE_AUDIT_MSG_UBSI_UBSI_H
+#endif // SPADE_AUDIT_KERNEL_SYSCALL_ACTION_AUDIT_KILL_KILL_H

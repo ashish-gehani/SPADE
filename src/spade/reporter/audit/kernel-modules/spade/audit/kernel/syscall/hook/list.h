@@ -30,6 +30,7 @@
 #include "spade/audit/kernel/syscall/hook/function/clone/clone.h"
 #include "spade/audit/kernel/syscall/hook/function/connect/connect.h"
 #include "spade/audit/kernel/syscall/hook/function/fork/fork.h"
+#include "spade/audit/kernel/syscall/hook/function/kill/kill.h"
 #include "spade/audit/kernel/syscall/hook/function/recvfrom/recvfrom.h"
 #include "spade/audit/kernel/syscall/hook/function/recvmsg/recvmsg.h"
 #include "spade/audit/kernel/syscall/hook/function/sendmsg/sendmsg.h"
@@ -42,6 +43,6 @@
 extern const struct kernel_syscall_hook KERNEL_SYSCALL_HOOK_LIST[];
 
 
-#define KERNEL_SYSCALL_HOOK_LIST_LEN 13
+#define KERNEL_SYSCALL_HOOK_LIST_LEN 14 // todo
 
 #endif // SPADE_AUDIT_KERNEL_SYSCALL_HOOK_LIST_H
