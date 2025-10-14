@@ -127,6 +127,7 @@ bool global_is_netfilter_loggable_by_conntrack_info(
     enum ip_conntrack_info ct_info
 );
 bool global_is_netfilter_logging_ns_info(void);
+bool global_is_network_logging_ns_info(void);
 
 bool global_is_syscall_loggable(
     int sys_num, bool sys_success,

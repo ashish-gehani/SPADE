@@ -37,7 +37,7 @@ static void seqbuf_hook_num_to_string(struct seqbuf *b, unsigned int hook_num)
         case NF_INET_PRE_ROUTING: 	hook_name = "NF_INET_PRE_ROUTING"; break;
         default:                    hook_name = "UNKNOWN"; break;
     }
-    util_seqbuf_printf(b, " nf_hook=%s", hook_name);
+    util_seqbuf_printf(b, "nf_hook=%s", hook_name);
 }
 
 static void seqbuf_priority_to_string(struct seqbuf *b, enum nf_ip_hook_priorities priority)
@@ -48,7 +48,7 @@ static void seqbuf_priority_to_string(struct seqbuf *b, enum nf_ip_hook_prioriti
         case NF_IP_PRI_LAST: 	prio_name = "NF_IP_PRI_LAST"; break;
         default: 				prio_name = "UNKNOWN"; break;
     }
-    util_seqbuf_printf(b, " nf_priority=%s", prio_name);
+    util_seqbuf_printf(b, "nf_priority=%s", prio_name);
 }
 
 static void seqbuf_addr_to_string(struct seqbuf *b, char *key_prefix, int ip_proto, struct msg_netfilter_addr *addr)
@@ -68,7 +68,7 @@ static void seqbuf_addr_to_string(struct seqbuf *b, char *key_prefix, int ip_pro
         snprintf(&ip_str[0], IP_STR_LEN, "unknown");
     }
     util_seqbuf_printf(
-        b, " %s_ip=%s %s_port=%u", 
+        b, "%s_ip=%s %s_port=%u", 
         key_prefix, &ip_str[0], 
         key_prefix, addr->port
     );
@@ -82,7 +82,7 @@ static void seqbuf_transport_protocol_to_string(struct seqbuf *b, int proto)
         case IPPROTO_UDP: 	proto_name = "UDP"; break;
         default: 			proto_name = "UNKNOWN"; break;
     }
-    util_seqbuf_printf(b, " nf_protocol=%s", proto_name);
+    util_seqbuf_printf(b, "nf_protocol=%s", proto_name);
 }
 
 static void seqbuf_ip_version_to_string(struct seqbuf *b, int ip_version)
@@ -93,7 +93,7 @@ static void seqbuf_ip_version_to_string(struct seqbuf *b, int ip_version)
         case NFPROTO_IPV6: 	name = "IPV6"; break;
         default: 			name = "UNKNOWN"; break;
     }
-    util_seqbuf_printf(b, " nf_ip_version=%s", name);
+    util_seqbuf_printf(b, "nf_ip_version=%s", name);
 }
 
 int msg_netfilter_serialize_audit_msg(
@@ -105,13 +105,18 @@ int msg_netfilter_serialize_audit_msg(
 
     msg_common_serialize_audit_msg_header(b, &msg->header);
 
-    util_seqbuf_printf(b, " nf_subtype=nf_netfilter");
+    util_seqbuf_printf(b, "nf_subtype=nf_netfilter ");
     seqbuf_hook_num_to_string(b, msg->hook_num);
+    util_seqbuf_printf(b, " ");
     seqbuf_priority_to_string(b, msg->priority);
     util_seqbuf_printf(b, " nf_id=%p", msg->skb_ptr);
+    util_seqbuf_printf(b, " ");
     seqbuf_addr_to_string(b, "nf_src", msg->ip_proto, &msg->src_addr);
+    util_seqbuf_printf(b, " ");
     seqbuf_addr_to_string(b, "nf_dst", msg->ip_proto, &msg->dst_addr);
+    util_seqbuf_printf(b, " ");
     seqbuf_transport_protocol_to_string(b, msg->transport_proto);
+    util_seqbuf_printf(b, " ");
     seqbuf_ip_version_to_string(b, msg->ip_proto);
     util_seqbuf_printf(b, " nf_net_ns=%u", msg->net_ns_inum);
 

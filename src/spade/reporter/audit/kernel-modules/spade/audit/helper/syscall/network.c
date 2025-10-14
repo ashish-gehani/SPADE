@@ -176,7 +176,7 @@ int helper_syscall_network_populate_msg(
         return -EINVAL;
 
     err = helper_sock_get_saddr_info_from_fd(
-        &local_saddr_info, global_is_netfilter_logging_ns_info(), local_peer_mode, subject_sockfd
+        &local_saddr_info, global_is_network_logging_ns_info(), local_peer_mode, subject_sockfd
     );
     if (err != 0)
     {

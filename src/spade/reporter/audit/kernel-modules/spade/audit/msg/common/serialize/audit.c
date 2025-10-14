@@ -51,7 +51,7 @@ int msg_common_serialize_audit_msg_header(
     if (!b || !header)
         return -EINVAL;
 
-    msg_common_serialize_audit_msg_version(b, &header->version);
+    // msg_common_serialize_audit_msg_version(b, &header->version);
     // Don't need the msg type in audit record. TODO
 
     return 0;

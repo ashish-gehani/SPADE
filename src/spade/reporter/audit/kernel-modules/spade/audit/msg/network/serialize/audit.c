@@ -53,20 +53,21 @@ static int _msg_network_serialize_audit_msg(
 
     msg_common_serialize_audit_msg_header(b, &msg->header);
 
-    util_seqbuf_printf(b, " syscall=%d", msg->syscall_number);
+    util_seqbuf_printf(b, "syscall=%d", msg->syscall_number);
     util_seqbuf_printf(b, " exit=%ld", msg->syscall_result);
     util_seqbuf_printf(b, " success=%d", msg->syscall_success);
-    util_seqbuf_printf(b, " fd=%d", msg->fd);
+    util_seqbuf_printf(b, " fd=%d ", msg->fd);
     msg_common_serialize_audit_msg_process(b, &msg->proc_info);
     util_seqbuf_printf(b, " sock_type=%d", msg->sock_type);
     seqbuf_saddr_to_string(
-        b, "local_saddr", &msg->local_saddr, 
+        b, " local_saddr", &msg->local_saddr, 
         msg->local_saddr_size
     );
     seqbuf_saddr_to_string(
-        b, "remote_saddr", &msg->remote_saddr, 
+        b, " remote_saddr", &msg->remote_saddr, 
         msg->remote_saddr_size
     );
+    util_seqbuf_printf(b, " remote_saddr_size=%d", msg->remote_saddr_size);
     util_seqbuf_printf(b, " net_ns_inum=%u", msg->net_ns_inum);
 
     util_seqbuf_printf(b, "\"");

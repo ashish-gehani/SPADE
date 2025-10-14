@@ -190,6 +190,13 @@ bool global_is_netfilter_logging_ns_info(void)
     return g.c.netfilter.include_ns_info;
 }
 
+bool global_is_network_logging_ns_info(void)
+{
+    if (!global_is_auditing_started())
+        return false;
+    return g.c.syscall.include_ns_info;
+}
+
 bool global_is_syscall_loggable(
     int sys_num, bool sys_success,
     pid_t pid, pid_t ppid, uid_t uid

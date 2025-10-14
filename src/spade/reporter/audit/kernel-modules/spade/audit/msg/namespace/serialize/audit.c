@@ -35,7 +35,7 @@ static void seqbuf_operation_to_string(struct seqbuf *b, enum msg_namespace_oper
         case NS_OP_UNSHARE: op_str = "UNSHARE"; break;
         default: op_str = "UNKNOWN"; break;
     }
-    util_seqbuf_printf(b, " ns_operation=ns_%s", op_str);
+    util_seqbuf_printf(b, "ns_operation=ns_%s", op_str);
 }
 
 int msg_namespace_serialize_audit_msg(
@@ -48,7 +48,7 @@ int msg_namespace_serialize_audit_msg(
     msg_common_serialize_audit_msg_header(b, &msg->header);
 
     util_seqbuf_printf(b, " ns_syscall=%d", msg->syscall_number);
-    util_seqbuf_printf(b, " ns_subtype=ns_namespaces");
+    util_seqbuf_printf(b, " ns_subtype=ns_namespaces ");
     seqbuf_operation_to_string(b, &msg->op);
     util_seqbuf_printf(b, " ns_ns_pid=%d", msg->ns_pid);
     util_seqbuf_printf(b, " ns_host_pid=%d", msg->host_pid);
