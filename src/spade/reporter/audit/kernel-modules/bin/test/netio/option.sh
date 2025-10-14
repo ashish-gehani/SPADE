@@ -194,3 +194,22 @@ function get_options_for_command()
             ;;
     esac
 }
+
+# Main function
+# Usage: ./option.sh <command>
+# Example: ./option.sh watch_audited_user
+function main()
+{
+    if [ $# -eq 0 ]; then
+        echo "Error: no command provided" >&2
+        echo "Usage: $0 <command>" >&2
+        return 1
+    fi
+
+    get_options_for_command "$1"
+}
+
+# Run main function if script is executed directly
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    main "$@"
+fi

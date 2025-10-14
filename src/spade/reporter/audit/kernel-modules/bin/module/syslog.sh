@@ -44,28 +44,29 @@ if [ -n "$INSTANCE_ID" ]; then
         echo "========================================"
 
     # Step 2: Find all messages with this instance_id
-    MATCHING_LINES=$(grep -n "instance_id=$INSTANCE_ID" "$SYSLOG_FILE" | cut -d: -f1)
+    MATCHING_LINES=$(grep -a -n "instance_id=$INSTANCE_ID" "$SYSLOG_FILE" | cut -d: -f1)
 
     if [ -z "$MATCHING_LINES" ]; then
         echo "No messages found for instance_id: $INSTANCE_ID"
-        continue
+    else
+
+        # Get first and last line numbers
+        FIRST_LINE=$(echo "$MATCHING_LINES" | head -1)
+        LAST_LINE=$(echo "$MATCHING_LINES" | tail -1)
+
+        [ $DEBUG -eq 1 ] && \
+            echo "First occurrence: line $FIRST_LINE" \
+            echo "Last occurrence: line $LAST_LINE" \
+            echo ""
+
+        # Step 3: Get all messages between first and last line where module_name matches
+        [ $DEBUG -eq 1 ] && \
+            echo "--- Messages for instance_id=$INSTANCE_ID ---"
+        sed -n "${FIRST_LINE},${LAST_LINE}p" "$SYSLOG_FILE" | grep "\[$MODULE_NAME\]"
+        [ $DEBUG -eq 1 ] && \
+            echo ""
+
     fi
-
-    # Get first and last line numbers
-    FIRST_LINE=$(echo "$MATCHING_LINES" | head -1)
-    LAST_LINE=$(echo "$MATCHING_LINES" | tail -1)
-
-    [ $DEBUG -eq 1 ] && \
-        echo "First occurrence: line $FIRST_LINE" \
-        echo "Last occurrence: line $LAST_LINE" \
-        echo ""
-
-    # Step 3: Get all messages between first and last line where module_name matches
-    [ $DEBUG -eq 1 ] && \
-        echo "--- Messages for instance_id=$INSTANCE_ID ---"
-    sed -n "${FIRST_LINE},${LAST_LINE}p" "$SYSLOG_FILE" | grep "\[$MODULE_NAME\]"
-    [ $DEBUG -eq 1 ] && \
-        echo ""
 fi
 
 [ $DEBUG -eq 1 ] && \

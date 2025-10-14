@@ -94,9 +94,10 @@ function run_activity_scripts()
 
     # Run specific activity scripts in order
     local scripts=(
-        #"net.sh"
+        "net.sh"
         "ns.sh"
-        #"unix.sh"
+        "ubsi.sh"
+        "unix.sh"
     )
 
     for script_name in "${scripts[@]}"; do
@@ -139,7 +140,7 @@ function run_test_for_command()
     # Get options for the command
     echo ""
     echo "Step 1: Getting options for command..."
-    local options=$(bash "$option_script" get_options_for_command "$command")
+    local options=$(bash "$option_script" "$command")
     if [ $? -ne 0 ]; then
         echo "Error: Failed to get options for command '$command'"
         return 1
