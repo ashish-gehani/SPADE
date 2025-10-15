@@ -47,7 +47,7 @@ int msg_namespace_serialize_audit_msg(
 
     msg_common_serialize_audit_msg_header(b, &msg->header);
 
-    util_seqbuf_printf(b, " ns_syscall=%d", msg->syscall_number);
+    util_seqbuf_printf(b, "ns_syscall=%d", msg->syscall_number);
     util_seqbuf_printf(b, " ns_subtype=ns_namespaces ");
     seqbuf_operation_to_string(b, &msg->op);
     util_seqbuf_printf(b, " ns_ns_pid=%d", msg->ns_pid);

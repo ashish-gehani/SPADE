@@ -175,6 +175,7 @@ spade_audit_test-y := \
   test/arg.o \
   test/context.o \
   test/common.o \
+  test/msg.o \
   test/state.o \
   test/test.o
 
