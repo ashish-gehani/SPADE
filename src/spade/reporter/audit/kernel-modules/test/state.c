@@ -62,12 +62,13 @@ void test_state_init_basic(struct test_stats *stats)
 {
     const char *test_name = "test_state_init_basic";
     int err;
+    bool dry_run = false;
 
     ensure_state_deinit();
 
     stats->total++;
 
-    err = state_init(&state);
+    err = state_init(&state, dry_run);
     if (err)
     {
         TEST_FAIL(stats, test_name, "state_init returned %d", err);

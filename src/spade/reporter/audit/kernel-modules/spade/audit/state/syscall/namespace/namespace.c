@@ -47,7 +47,7 @@ int state_syscall_namespace_is_initialized(
 }
 
 int state_syscall_namespace_init(
-    struct state_syscall_namespace *s
+    struct state_syscall_namespace *s, bool dry_run
 )
 {
     int err;
@@ -58,11 +58,15 @@ int state_syscall_namespace_init(
     if (s->initialized)
         return -EALREADY;
 
-    err = kernel_namespace_setup_do(s);
-    if (err != 0)
-        return err;
+    if (!dry_run)
+    {
+        err = kernel_namespace_setup_do(s);
+        if (err != 0)
+            return err;
+    }
 
     s->initialized = true;
+    s->dry_run = dry_run;
 
     return 0;
 }
@@ -75,9 +79,11 @@ int state_syscall_namespace_deinit(
     if (!s || !s->initialized)
         return -EINVAL;
 
-    err = kernel_namespace_setup_undo(s);
+    if (!s->dry_run)
+        err = kernel_namespace_setup_undo(s);
 
     s->initialized = false;
+    s->dry_run = false;
 
     return err;
 }

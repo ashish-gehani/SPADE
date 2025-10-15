@@ -28,6 +28,8 @@ struct state_netfilter
 {
     bool initialized;
 
+    bool dry_run;
+
     /*
         Event discarded because of the event didn't match the filter.
     */
@@ -58,7 +60,7 @@ int state_netfilter_is_initialized(
         -ive    -> Error code.
 */
 int state_netfilter_init(
-    struct state_netfilter *s
+    struct state_netfilter *s, bool dry_run
 );
 
 /*

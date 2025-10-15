@@ -47,7 +47,7 @@ int state_syscall_hook_is_initialized(
 
 
 int state_syscall_hook_init(
-    struct state_syscall_hook *s
+    struct state_syscall_hook *s, bool dry_run
 )
 {
     int err;
@@ -61,10 +61,10 @@ int state_syscall_hook_init(
     switch (CONFIG_GLOBAL.sys_hook_type)
     {
         case CONFIG_SYSCALL_HOOK_FTRACE:
-            err = state_syscall_hook_ftrace_init(&s->ftrace);
+            err = state_syscall_hook_ftrace_init(&s->ftrace, dry_run);
             break;
         case CONFIG_SYSCALL_HOOK_TABLE:
-            err = state_syscall_hook_table_init(&s->table);
+            err = state_syscall_hook_table_init(&s->table, dry_run);
             break;
         default:
             err = -EINVAL;
@@ -77,6 +77,7 @@ int state_syscall_hook_init(
     }
 
     s->initialized = true;
+    s->dry_run = dry_run;
 
     return 0;
 }
@@ -104,6 +105,7 @@ int state_syscall_hook_deinit(
     }
 
     s->initialized = false;
+    s->dry_run = false;
 
     return err;
 }

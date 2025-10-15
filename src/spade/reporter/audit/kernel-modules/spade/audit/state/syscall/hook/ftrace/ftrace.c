@@ -48,7 +48,7 @@ int state_syscall_hook_ftrace_is_initialized(
 
 
 int state_syscall_hook_ftrace_init(
-    struct state_syscall_hook_ftrace *s
+    struct state_syscall_hook_ftrace *s, bool dry_run
 )
 {
     const char *log_id = "state_syscall_hook_ftrace_init";
@@ -60,18 +60,22 @@ int state_syscall_hook_ftrace_init(
     if (s->initialized)
         return -EALREADY;
 
-    util_log_debug(log_id, "Initing ftrace hooks");
-    err = kernel_syscall_hook_setup_ftrace_install();
-    if (err != 0)
+    if (!dry_run)
     {
-        util_log_debug(log_id, "Initing ftrace hooks. Failed. Err: %d", err);
-        return err;
-    } else
-    {
-        util_log_debug(log_id, "Initing ftrace hooks. Success");
+        util_log_debug(log_id, "Initing ftrace hooks");
+        err = kernel_syscall_hook_setup_ftrace_install();
+        if (err != 0)
+        {
+            util_log_debug(log_id, "Initing ftrace hooks. Failed. Err: %d", err);
+            return err;
+        } else
+        {
+            util_log_debug(log_id, "Initing ftrace hooks. Success");
+        }
     }
 
     s->initialized = true;
+    s->dry_run = dry_run;
 
     return 0;
 }
@@ -86,17 +90,21 @@ int state_syscall_hook_ftrace_deinit(
     if (!s || !s->initialized)
         return -EINVAL;
 
-    util_log_debug(log_id, "Deiniting ftrace hooks");
-    err = kernel_syscall_hook_setup_ftrace_uninstall();
-    s->initialized = false;
-
-    if (err != 0)
+    if (!s->dry_run)
     {
-        util_log_debug(log_id, "Deiniting ftrace hooks. Failed. Err: %d", err);
-    } else
-    {
-        util_log_debug(log_id, "Deiniting ftrace hooks. Success");
+        util_log_debug(log_id, "Deiniting ftrace hooks");
+        err = kernel_syscall_hook_setup_ftrace_uninstall();
+        if (err != 0)
+        {
+            util_log_debug(log_id, "Deiniting ftrace hooks. Failed. Err: %d", err);
+        } else
+        {
+            util_log_debug(log_id, "Deiniting ftrace hooks. Success");
+        }
     }
-    
+
+    s->initialized = false;
+    s->dry_run = false;
+
     return err;
 }

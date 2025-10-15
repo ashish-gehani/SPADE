@@ -48,7 +48,7 @@ int state_syscall_is_initialized(
 }
 
 int state_syscall_init(
-    struct state_syscall *s
+    struct state_syscall *s, bool dry_run
 )
 {
     const char *log_id = "state_syscall_init";
@@ -69,7 +69,7 @@ int state_syscall_init(
     if (!namespace_is_inited)
     {
         util_log_debug(log_id, "Initing syscall namespace state");
-        err = state_syscall_namespace_init(&s->ns);
+        err = state_syscall_namespace_init(&s->ns, dry_run);
         if (err != 0)
         {
             util_log_debug(log_id, "Initing syscall namespace state. Failed. Err: %d", err);
@@ -87,7 +87,7 @@ int state_syscall_init(
     if (!syscall_is_inited)
     {
         util_log_debug(log_id, "Initing syscall hook state");
-        err = state_syscall_hook_init(&s->hook);
+        err = state_syscall_hook_init(&s->hook, dry_run);
         if (err != 0)
         {
             util_log_debug(log_id, "Initing syscall hook state. Failed. Err: %d", err);
@@ -99,6 +99,7 @@ int state_syscall_init(
     }
 
     s->initialized = true;
+    s->dry_run = dry_run;
 
     return 0;
 }
@@ -115,6 +116,7 @@ int state_syscall_deinit(struct state_syscall *s)
     sys_err = state_syscall_hook_deinit(&s->hook);
 
     s->initialized = false;
+    s->dry_run = false;
 
     if (ns_err != 0)
         return ns_err;

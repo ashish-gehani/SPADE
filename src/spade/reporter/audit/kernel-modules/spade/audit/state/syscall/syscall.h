@@ -31,6 +31,8 @@ struct state_syscall
 {
     bool initialized;
 
+    bool dry_run;
+
     struct state_syscall_namespace ns;
 
     struct state_syscall_hook hook;
@@ -63,7 +65,7 @@ int state_syscall_is_initialized(
         -ive    -> Error code.
 */
 int state_syscall_init(
-    struct state_syscall *s
+    struct state_syscall *s, bool dry_run
 );
 
 /*

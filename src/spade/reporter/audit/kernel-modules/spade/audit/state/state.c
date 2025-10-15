@@ -47,7 +47,7 @@ int state_is_initialized(
     return 0;
 }
 
-int state_init(struct state *s)
+int state_init(struct state *s, bool dry_run)
 {
     const char *log_id = "state_init";
     int err;
@@ -67,7 +67,7 @@ int state_init(struct state *s)
     if (!syscall_is_inited)
     {
         util_log_debug(log_id, "Initing syscall state");
-        err = state_syscall_init(&s->syscall);
+        err = state_syscall_init(&s->syscall, dry_run);
         if (err != 0)
         {
             util_log_debug(log_id, "Initing syscall state. Failed. Err: %d", err);
@@ -84,12 +84,13 @@ int state_init(struct state *s)
 
     if (!netfilter_is_inited)
     {
-        err = state_netfilter_init(&s->netfilter);
+        err = state_netfilter_init(&s->netfilter, dry_run);
         if (err != 0)
             return err;
     }
 
     s->initialized = true;
+    s->dry_run = dry_run;
 
     return 0;
 }
@@ -106,6 +107,7 @@ int state_deinit(struct state *s)
     sys_err = state_syscall_deinit(&s->syscall);
 
     s->initialized = false;
+    s->dry_run = false;
 
     if (nf_err != 0)
         return nf_err;

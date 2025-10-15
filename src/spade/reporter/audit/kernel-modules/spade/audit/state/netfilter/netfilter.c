@@ -38,7 +38,7 @@ int state_netfilter_is_initialized(
 }
 
 int state_netfilter_init(
-    struct state_netfilter *s
+    struct state_netfilter *s, bool dry_run
 )
 {
     int err;
@@ -49,12 +49,16 @@ int state_netfilter_init(
     if (s->initialized)
         return -EALREADY;
 
-    err = kernel_netfilter_hook_setup_do();
-    if (err != 0)
-        return err;
+    if (!dry_run)
+    {
+        err = kernel_netfilter_hook_setup_do();
+        if (err != 0)
+            return err;
+    }
 
     s->initialized = true;
     s->discarded_events_count = 0;
+    s->dry_run = dry_run;
 
     return 0;
 }
@@ -66,9 +70,13 @@ int state_netfilter_deinit(struct state_netfilter *s)
     if (!s || !s->initialized)
         return -EINVAL;
 
-    err = kernel_netfilter_hook_setup_undo();
+    if (!s->dry_run)
+    {
+        err = kernel_netfilter_hook_setup_undo();
+    }
 
     s->initialized = false;
+    s->dry_run = false;
 
     return err;
 }

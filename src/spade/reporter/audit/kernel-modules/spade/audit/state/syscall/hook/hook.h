@@ -31,6 +31,8 @@ struct state_syscall_hook
 {
     bool initialized;
 
+    bool dry_run;
+
     struct state_syscall_hook_table table;
 
     struct state_syscall_hook_ftrace ftrace;
@@ -63,7 +65,7 @@ int state_syscall_hook_is_initialized(
         -ive    -> Error code.
 */
 int state_syscall_hook_init(
-    struct state_syscall_hook *s
+    struct state_syscall_hook *s, bool dry_run
 );
 
 /*

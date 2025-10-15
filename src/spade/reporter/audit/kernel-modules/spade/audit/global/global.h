@@ -49,7 +49,7 @@
         0       -> Success.
         -ive    -> Error code.
 */
-int global_state_init(void);
+int global_state_init(bool dry_run);
 
 /*
     Deinitialize global state.
@@ -120,22 +120,44 @@ int global_auditing_stop(void);
 */
 bool global_is_auditing_started(void);
 
-//
-
+/*
+    Increment global discarded event count by c.
+*/
 void global_increment_discarded_event_count(unsigned long c);
 
+/*
+    Check if netfilter event is loggable by uid.
+*/
 bool global_is_netfilter_loggable_by_user(uid_t uid);
+
+/*
+    Check if netfilter event is loggable by conntrack info.
+*/
 bool global_is_netfilter_loggable_by_conntrack_info(
     enum ip_conntrack_info ct_info
 );
+
+/*
+    Check if namespace info is to be included in netfilter events.
+*/
 bool global_is_netfilter_logging_ns_info(void);
+
+/*
+    Check if namespace info is to be included in network events.
+*/
 bool global_is_network_logging_ns_info(void);
 
+/*
+    Check if syscall event is loggable.
+*/
 bool global_is_syscall_loggable(
     int sys_num, bool sys_success,
     pid_t pid, pid_t ppid, uid_t uid
 );
 
+/*
+    Get namespace state.
+*/
 struct state_syscall_namespace* global_get_ref_to_syscall_ns_state(void);
 
 #endif // _SPADE_AUDIT_GLOBAL_H

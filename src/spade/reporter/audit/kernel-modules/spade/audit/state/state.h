@@ -32,6 +32,8 @@ struct state
 {
     bool initialized;
 
+    bool dry_run;
+
     // Syscall related state like pointers to kernel structs.
     struct state_syscall syscall;
 
@@ -62,7 +64,7 @@ int state_is_initialized(
         0       -> Success.
         -ive    -> Error code.
 */
-int state_init(struct state *s);
+int state_init(struct state *s, bool dry_run);
 
 /*
     Deinitialize state.

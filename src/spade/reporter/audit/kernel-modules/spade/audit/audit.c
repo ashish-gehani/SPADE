@@ -148,10 +148,11 @@ static int __init onload(void)
     const char *log_id = "__init onload";
     int err = 0;
     struct arg arg;
+    bool dry_run = false;
 
     util_log_module_loading_started();
 
-    err = global_state_init();
+    err = global_state_init(dry_run);
     if (err != 0)
     {
         util_log_warn(log_id, "Failed to load. State failed to initialize. Err: %d", err);

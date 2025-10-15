@@ -29,6 +29,7 @@
 struct state_syscall_namespace
 {
     bool initialized;
+    bool dry_run;
 
     struct proc_ns_operations* ops_mnt;
     struct proc_ns_operations* ops_net;
@@ -65,7 +66,7 @@ int state_syscall_namespace_is_initialized(
         -ive    -> Error code.
 */
 int state_syscall_namespace_init(
-    struct state_syscall_namespace *s
+    struct state_syscall_namespace *s, bool dry_run
 );
 
 /*

@@ -49,10 +49,10 @@ static bool _is_state_and_context_inited(void)
     Public functions.
 */
 
-int global_state_init(void)
+int global_state_init(bool dry_run)
 {
     int err;
-    err = state_init(&g.s);
+    err = state_init(&g.s, dry_run);
     state_print(&g.s);
     return err;
 }
