@@ -97,22 +97,45 @@ function run_activity_tests()
 # Function to run complete test suite
 function run_full_test()
 {
-    local module_args="$@"
+    local dry_run=0
+    local module_args=()
+
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --dry-run)
+                dry_run=1
+                shift
+                ;;
+            *)
+                module_args+=("$1")
+                shift
+                ;;
+        esac
+    done
 
     echo "========================================"
     echo "Running Full Test Suite"
+    if [ $dry_run -eq 1 ]; then
+        echo "(Dry run mode - skipping activity tests)"
+    fi
     echo "========================================"
 
     # Insert the module
-    insert_test_module $module_args
+    insert_test_module "${module_args[@]}"
     if [ $? -ne 0 ]; then
         echo "Error: Failed to insert test module"
         return 1
     fi
 
-    # Run activity tests
-    run_activity_tests
-    local activity_result=$?
+    # Run activity tests (skip if dry-run)
+    local activity_result=0
+    if [ $dry_run -eq 0 ]; then
+        run_activity_tests
+        activity_result=$?
+    else
+        echo "Skipping activity tests (dry-run mode)"
+    fi
 
     # Remove the module
     remove_test_module
