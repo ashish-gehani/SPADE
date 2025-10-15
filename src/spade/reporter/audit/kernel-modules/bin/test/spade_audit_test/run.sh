@@ -1,10 +1,11 @@
 #!/bin/bash
 
 # Get the directory where this script is located
-SCRIPT_DIR=$(dirname "${BASH_SOURCE[0]}")
-BIN_DIR="$SCRIPT_DIR/.."
+KM_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../../ && pwd )"
+BIN_DIR="${KM_ROOT}/bin"
+ACTIVITY_BIN_DIR="${BIN_DIR}/test/activity"
 MOD_NAME=spade_audit_test
-MODULE_PATH="$SCRIPT_DIR/../../build/${MOD_NAME}.ko"
+MODULE_PATH="${KM_ROOT}/build/${MOD_NAME}.ko"
 
 # Function to insert test module
 function insert_test_module()
@@ -51,7 +52,7 @@ function get_test_results()
     echo "=== Test Results ==="
 
     # Use module/syslog.sh to get module logs and filter for test result lines
-    bash "$BIN_DIR/module/syslog.sh" "${MOD_NAME}" | grep -E '\[spade_audit_test\].*Tests:.*total.*passed.*failed'
+    bash "$BIN_DIR/module/syslog.sh" "${MOD_NAME}" | grep -a -E '\[spade_audit_test\].*Tests:.*total.*passed.*failed'
 
     return $?
 }
@@ -62,9 +63,10 @@ function run_activity_tests()
     echo "=== Running Activity Tests ==="
 
     local test_scripts=(
-        "$SCRIPT_DIR/activity/net.sh"
-        "$SCRIPT_DIR/activity/unix.sh"
-        "$SCRIPT_DIR/activity/ns.sh"
+        "${ACTIVITY_BIN_DIR}/net.sh"
+        "${ACTIVITY_BIN_DIR}/unix.sh"
+        "${ACTIVITY_BIN_DIR}/ns.sh"
+        "${ACTIVITY_BIN_DIR}/ubsi.sh"
     )
 
     local failed=0

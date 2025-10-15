@@ -17,7 +17,7 @@ fi
     echo "=== Searching for module: $MODULE_NAME in $SYSLOG_FILE ==="
 
 # Step 1: Find messages with pattern '[<module_name>] [spade:module:state:*] : [instance_id=<arbitrary string>]'
-INSTANCE_IDS=$(grep -oP "\[$MODULE_NAME\] \[spade:module:state:[^\]]+\] : \[instance_id=\K[^\]]+" "$SYSLOG_FILE" | sort -u)
+INSTANCE_IDS=$(grep -aoP "\[$MODULE_NAME\] \[spade:module:state:[^\]]+\] : \[instance_id=\K[^\]]+" "$SYSLOG_FILE" | sort -u)
 
 if [ -z "$INSTANCE_IDS" ]; then
     echo "No instance_id found for module: $MODULE_NAME"
@@ -62,7 +62,7 @@ if [ -n "$INSTANCE_ID" ]; then
         # Step 3: Get all messages between first and last line where module_name matches
         [ $DEBUG -eq 1 ] && \
             echo "--- Messages for instance_id=$INSTANCE_ID ---"
-        sed -n "${FIRST_LINE},${LAST_LINE}p" "$SYSLOG_FILE" | grep "\[$MODULE_NAME\]"
+        sed -n "${FIRST_LINE},${LAST_LINE}p" "$SYSLOG_FILE" | grep -a "\[$MODULE_NAME\]"
         [ $DEBUG -eq 1 ] && \
             echo ""
 
