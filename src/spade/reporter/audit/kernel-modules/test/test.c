@@ -33,8 +33,9 @@
 
 #include "test/arg.h"
 #include "test/context.h"
-#include "test/state.h"
+#include "test/global.h"
 #include "test/msg.h"
+#include "test/state.h"
 
 
 MODULE_LICENSE("GPL");
@@ -45,20 +46,23 @@ static int __init onload(void)
 {
     struct test_stats t_s_arg;
     struct test_stats t_s_context;
-    struct test_stats t_s_state;
+    struct test_stats t_s_global;
     struct test_stats t_s_msg;
+    struct test_stats t_s_state;
 
     util_log_module_loading_started();
 
 	test_arg_all(&t_s_arg);
     test_context_all(&t_s_context);
-    test_state_all(&t_s_state);
+    test_global_all(&t_s_global);
     test_msg_all(&t_s_msg);
+    test_state_all(&t_s_state);
 
     test_stats_log("test_arg", &t_s_arg);
     test_stats_log("test_context", &t_s_context);
-    test_stats_log("test_state", &t_s_state);
+    test_stats_log("test_global", &t_s_global);
     test_stats_log("test_msg", &t_s_msg);
+    test_stats_log("test_state", &t_s_state);
 
     util_log_module_loading_success();
     return 0;
