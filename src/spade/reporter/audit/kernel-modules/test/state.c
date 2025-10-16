@@ -24,6 +24,7 @@
 #include <linux/errno.h>
 
 #include "spade/util/log/log.h"
+#include "spade/audit/kernel/namespace/namespace.h"
 
 #include "test/common.h"
 #include "test/state.h"
@@ -63,6 +64,7 @@ void test_state_init_basic(struct test_stats *stats)
     const char *test_name = "test_state_init_basic";
     int err;
     bool dry_run = false;
+    struct kernel_namespace_pointers *k_ptrs;
 
     ensure_state_deinit();
 
@@ -103,42 +105,50 @@ void test_state_init_basic(struct test_stats *stats)
         return;
     }
 
-    if (!state.syscall.ns.ops_cgroup)
+    k_ptrs = kernel_namespace_get_pointers();
+    if (!k_ptrs)
+    {
+        TEST_FAIL(stats, test_name, "kernel_namespace_get_pointers returned NULL");
+        ensure_state_deinit();
+        return;
+    }
+
+    if (!k_ptrs->ops_cgroup)
     {
         TEST_FAIL(stats, test_name, "state.syscall.ns.ops_cgroup not initialized");
         ensure_state_deinit();
         return;
     }
 
-    if (!state.syscall.ns.ops_ipc)
+    if (!k_ptrs->ops_ipc)
     {
         TEST_FAIL(stats, test_name, "state.syscall.ns.ops_ipc not initialized");
         ensure_state_deinit();
         return;
     }
 
-    if (!state.syscall.ns.ops_mnt)
+    if (!k_ptrs->ops_mnt)
     {
         TEST_FAIL(stats, test_name, "state.syscall.ns.ops_mnt not initialized");
         ensure_state_deinit();
         return;
     }
 
-    if (!state.syscall.ns.ops_net)
+    if (!k_ptrs->ops_net)
     {
         TEST_FAIL(stats, test_name, "state.syscall.ns.ops_net not initialized");
         ensure_state_deinit();
         return;
     }
 
-    if (!state.syscall.ns.ops_pid)
+    if (!k_ptrs->ops_pid)
     {
         TEST_FAIL(stats, test_name, "state.syscall.ns.ops_pid not initialized");
         ensure_state_deinit();
         return;
     }
 
-    if (!state.syscall.ns.ops_user)
+    if (!k_ptrs->ops_user)
     {
         TEST_FAIL(stats, test_name, "state.syscall.ns.ops_user not initialized");
         ensure_state_deinit();
