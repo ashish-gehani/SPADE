@@ -37,7 +37,7 @@ int global_netfilter_is_loggable_by_user(
         return -EINVAL;
 
     if (!ctx->use_user)
-        *dst = false;
+        *dst = true;
     else
         *dst = global_common_is_uid_loggable(&ctx->user, uid);
 

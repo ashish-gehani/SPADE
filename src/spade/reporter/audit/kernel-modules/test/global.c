@@ -157,9 +157,36 @@ struct test_config
         } \
     }
 
-#define _CREATE_SYSCALL_ARG(a_u_mode, a_u_len, a_u, a_use_u) \
+#define _CREATE_SYSCALL_ARG( \
+    a_u_mode, a_u_len, a_u, \
+    a_ign_pid_len, a_ign_pid, \
+    a_ign_ppid_len, a_ign_ppid, \
+    a_incl_ns, a_m_sys, a_n_io \
+) \
     { \
-        \
+        .ignore_pids = { \
+            .len = a_ign_pid_len, \
+            .arr = a_ign_pid \
+        }, \
+        .ignore_ppids = { \
+            .len = a_ign_ppid_len, \
+            .arr = a_ign_ppid \
+        }, \
+        .monitor_syscalls = a_m_sys, \
+        .network_io = a_n_io, \
+        .include_ns_info = a_incl_ns, \
+        .nf = { \
+            .hooks = true, \
+            .monitor_ct = AMMC_ALL, \
+            .use_user = true \
+        }, \
+        .user = { \
+            .uid_monitor_mode = a_u_mode, \
+            .uids = { \
+                .len = a_u_len, \
+                .arr = a_u \
+            } \
+        } \
     }
 
 #define _CREATE_NF_FF_LOGGABLE_BY_USER(a_id, a_uid, a_result) \
@@ -241,35 +268,78 @@ struct test_config
 
 //
 
+// Wrapper macros for netfilter loggable by user tests
 #define _CREATE_NF_LOGGABLE_BY_USER_MUST_CAPTURE(a_u_mode, a_uid) \
     _CREATE_NF_FF_LOGGABLE_BY_USER("nf_loggable_by_user_must_capture", a_uid, ((a_u_mode) == AMM_CAPTURE))
+
+#define _CREATE_NF_LOGGABLE_BY_USER_MUST_IGNORE(a_u_mode, a_uid) \
+    _CREATE_NF_FF_LOGGABLE_BY_USER("nf_loggable_by_user_must_ignore", (a_uid)+1, ((a_u_mode) == AMM_IGNORE))
+
+// Wrapper macro for netfilter logging namespace info
+#define _CREATE_NF_LOGGING_NS_INFO(a_incl_ns) \
+    _CREATE_NF_FF_LOGGING_NS_INFO("nf_logging_ns_info", ((a_incl_ns) == true))
+
+// Wrapper macros for netfilter loggable by conntrack info tests
+#define _CREATE_NF_LOGGABLE_BY_CONNTRACK_ESTABLISHED(a_m_ct) \
+    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_estblshd_match_all", IP_CT_ESTABLISHED, ((a_m_ct) == AMMC_ALL))
+
+#define _CREATE_NF_LOGGABLE_BY_CONNTRACK_RELATED(a_m_ct) \
+    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_rltd_match_all", IP_CT_RELATED, ((a_m_ct) == AMMC_ALL))
+
+#define _CREATE_NF_LOGGABLE_BY_CONNTRACK_NEW(a_m_ct) \
+    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_new_match_all_or_new", IP_CT_NEW, ((a_m_ct) == AMMC_ALL || (a_m_ct) == AMMC_ONLY_NEW))
+
+#define _CREATE_NF_LOGGABLE_BY_CONNTRACK_REPLY(a_m_ct) \
+    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_rply_match_all", IP_CT_IS_REPLY, ((a_m_ct) == AMMC_ALL))
+
+#define _CREATE_NF_LOGGABLE_BY_CONNTRACK_ESTABLISHED_REPLY(a_m_ct) \
+    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_estblshdrply_match_all", IP_CT_ESTABLISHED_REPLY, ((a_m_ct) == AMMC_ALL))
+
+#define _CREATE_NF_LOGGABLE_BY_CONNTRACK_RELATED_REPLY(a_m_ct) \
+    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_rltdrply_match_all", IP_CT_RELATED_REPLY, ((a_m_ct) == AMMC_ALL))
+
+#define _CREATE_NF_LOGGABLE_BY_CONNTRACK_NUMBER(a_m_ct) \
+    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_num_match_all", IP_CT_NUMBER, ((a_m_ct) == AMMC_ALL))
+
+#define _CREATE_NF_LOGGABLE_BY_CONNTRACK_UNTRACKED(a_m_ct) \
+    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_untrckd_match_all", IP_CT_UNTRACKED, ((a_m_ct) == AMMC_ALL))
+
+// Wrapper macro for network logging namespace info
+#define _CREATE_NETWORK_LOGGING_NS_INFO(a_incl_ns) \
+    _CREATE_NETWORK_FF_LOGGING_NS_INFO("network_logging_ns_info", ((a_incl_ns) == true))
+
+// Wrapper macros for syscall loggable tests
+#define _CREATE_SYSCALL_LOGGABLE_MUST_CAPTURE(a_pid, a_ppid, a_sys_num, a_sys_success, a_u_mode, a_uid) \
+    _CREATE_SYSCALL_FF_LOGGABLE("syscall_is_loggable_must_capture", a_pid, a_ppid, a_sys_num, a_sys_success, a_uid, ((a_u_mode) == AMM_CAPTURE))
+
+#define _CREATE_SYSCALL_LOGGABLE_MUST_IGNORE(a_pid, a_ppid, a_sys_num, a_sys_success, a_u_mode, a_uid) \
+    _CREATE_SYSCALL_FF_LOGGABLE("syscall_is_loggable_must_ignore", a_pid, a_ppid, a_sys_num, a_sys_success, (a_uid)+1, ((a_u_mode) == AMM_IGNORE))
 
 //
 
 #define _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(a_u_mode, a_uid) \
-    _CREATE_NF_LOGGABLE_BY_USER_MUST_CAPTURE(a_uid, a_uid), \
-    _CREATE_NF_FF_LOGGABLE_BY_USER("nf_loggable_by_user_must_ignore", a_uid+1, ((a_u_mode) == AMM_IGNORE)) \
+    _CREATE_NF_LOGGABLE_BY_USER_MUST_CAPTURE(a_u_mode, a_uid), \
+    _CREATE_NF_LOGGABLE_BY_USER_MUST_IGNORE(a_u_mode, a_uid)
 
 #define _CREATE_NF_FF_LIST_ITEMS_LOGGING_NS_INFO(a_incl_ns) \
-    _CREATE_NF_FF_LOGGING_NS_INFO("nf_logging_ns_info", (a_incl_ns == true))
+    _CREATE_NF_LOGGING_NS_INFO(a_incl_ns)
 
 #define _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(a_m_ct) \
-    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_estblshd_match_all", IP_CT_ESTABLISHED, (a_m_ct == AMMC_ALL)), \
-    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_rltd_match_all", IP_CT_RELATED, (a_m_ct == AMMC_ALL)), \
-    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_new_match_all_or_new", IP_CT_NEW, (a_m_ct == AMMC_ALL || a_m_ct == AMMC_ONLY_NEW)), \
-    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_rply_match_all", IP_CT_IS_REPLY, (a_m_ct == AMMC_ALL)), \
-    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_estblshdrply_match_all", IP_CT_ESTABLISHED_REPLY, (a_m_ct == AMMC_ALL)), \
-    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_rltdrply_match_all", IP_CT_RELATED_REPLY, (a_m_ct == AMMC_ALL)), \
-    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_num_match_all", IP_CT_NUMBER, (a_m_ct == AMMC_ALL)), \
-    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_untrckd_match_all", IP_CT_UNTRACKED, (a_m_ct == AMMC_ALL))
+    _CREATE_NF_LOGGABLE_BY_CONNTRACK_ESTABLISHED(a_m_ct), \
+    _CREATE_NF_LOGGABLE_BY_CONNTRACK_RELATED(a_m_ct), \
+    _CREATE_NF_LOGGABLE_BY_CONNTRACK_NEW(a_m_ct), \
+    _CREATE_NF_LOGGABLE_BY_CONNTRACK_REPLY(a_m_ct), \
+    _CREATE_NF_LOGGABLE_BY_CONNTRACK_ESTABLISHED_REPLY(a_m_ct), \
+    _CREATE_NF_LOGGABLE_BY_CONNTRACK_RELATED_REPLY(a_m_ct), \
+    _CREATE_NF_LOGGABLE_BY_CONNTRACK_NUMBER(a_m_ct), \
+    _CREATE_NF_LOGGABLE_BY_CONNTRACK_UNTRACKED(a_m_ct)
 
 #define _CREATE_NETWORK_FF_LIST_ITEMS_LOGGING_NS_INFO(a_incl_ns) \
-    _CREATE_NETWORK_FF_LOGGING_NS_INFO("network_logging_ns_info", (a_incl_ns == true))
+    _CREATE_NETWORK_LOGGING_NS_INFO(a_incl_ns)
 
-// TODO
 #define _CREATE_SYSCALL_FF_LIST_ITEMS_LOGGABLE(a_pid, a_ppid, a_sys_num, a_sys_success, a_u_mode, a_uid) \
-    _CREATE_SYSCALL_FF_LOGGABLE("syscall_is_loggable_must_capture", a_pid, a_ppid, a_sys_num, a_sys_success, a_uid, ((a_u_mode) == AMM_CAPTURE)), \
-    _CREATE_SYSCALL_FF_LOGGABLE("syscall_is_loggable_must_ignore", a_pid, a_ppid, a_sys_num, a_sys_success, a_uid+1, ((a_u_mode) == AMM_IGNORE))
+    _CREATE_SYSCALL_LOGGABLE_MUST_CAPTURE(a_pid, a_ppid, a_sys_num, a_sys_success, a_u_mode, a_uid), \
+    _CREATE_SYSCALL_LOGGABLE_MUST_IGNORE(a_pid, a_ppid, a_sys_num, a_sys_success, a_u_mode, a_uid)
 
 //
 
@@ -329,8 +399,6 @@ static const struct test_config TC_LIST[] = {
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_CAPTURE, 1001),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGING_NS_INFO(true),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(AMMC_ALL),
-                _CREATE_NETWORK_FF_LIST_ITEMS_LOGGING_NS_INFO(true),
-                _CREATE_SYSCALL_FF_LIST_ITEMS_LOGGABLE(0, 0, __NR_accept, true, AMM_CAPTURE, 1001),
                 {}
             }
         }
@@ -346,8 +414,6 @@ static const struct test_config TC_LIST[] = {
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_CAPTURE, 1001),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGING_NS_INFO(false),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(AMMC_ONLY_NEW),
-                _CREATE_NETWORK_FF_LIST_ITEMS_LOGGING_NS_INFO(false),
-                _CREATE_SYSCALL_FF_LIST_ITEMS_LOGGABLE(0, 0, __NR_accept, true, AMM_CAPTURE, 1001),
                 {}
             }
         }
@@ -363,8 +429,6 @@ static const struct test_config TC_LIST[] = {
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_IGNORE, 1001),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGING_NS_INFO(true),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(AMMC_ALL),
-                _CREATE_NETWORK_FF_LIST_ITEMS_LOGGING_NS_INFO(true),
-                _CREATE_SYSCALL_FF_LIST_ITEMS_LOGGABLE(0, 0, __NR_accept, true, AMM_IGNORE, 1001),
                 {}
             }
         }
@@ -380,23 +444,20 @@ static const struct test_config TC_LIST[] = {
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_IGNORE, 1001),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGING_NS_INFO(true),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(AMMC_ONLY_NEW),
-                _CREATE_NETWORK_FF_LIST_ITEMS_LOGGING_NS_INFO(true),
-                _CREATE_SYSCALL_FF_LIST_ITEMS_LOGGABLE(0, 0, __NR_accept, true, AMM_IGNORE, 1001),
                 {}
             }
         }
     },
     {
         .type = TCT_NF,
-        .id = "nf_capture_all_user_ct",
+        .id = "nf_capture_all_users_because_not_using_users",
         .arg = _CREATE_NF_ARG(
             AMM_IGNORE, 1, {1001}, false, true, AMMC_ALL, true
         ),
         .ff_list = {
             .list = {
-                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_CAPTURE, 1001),
-                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_CAPTURE, 2001),
-                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(AMMC_ALL),
+                _CREATE_NF_LOGGABLE_BY_USER_MUST_CAPTURE(AMM_CAPTURE, 1001),
+                _CREATE_NF_LOGGABLE_BY_USER_MUST_CAPTURE(AMM_CAPTURE, 2001),
                 {}
             }
         }
@@ -410,6 +471,22 @@ static const struct test_config TC_LIST[] = {
         .ff_list = {
             .list = {
                 _CREATE_NETWORK_FF_LIST_ITEMS_LOGGING_NS_INFO(true),
+                {}
+            }
+        }
+    },
+    {
+        .type = TCT_SYSCALL,
+        .id = "syscall_todo",
+        .arg = _CREATE_SYSCALL_ARG(
+            AMM_CAPTURE, 1, {1001}, /* uids */
+            1, {101}, /* pids */
+            1, {101}, /* ppids */
+            true /* a_incl_ns */, AMMS_ONLY_SUCCESSFUL /* a_m_sys */, true /* a_n_io */
+        ),
+        .ff_list = {
+            .list = {
+                // _CREATE_SYSCALL_FF_LIST_ITEMS_LOGGABLE()
                 {}
             }
         }
