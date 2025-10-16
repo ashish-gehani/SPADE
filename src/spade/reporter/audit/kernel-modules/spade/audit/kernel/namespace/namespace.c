@@ -18,28 +18,40 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_NAMESPACE_SETUP_SETUP_H
-#define SPADE_AUDIT_KERNEL_NAMESPACE_SETUP_SETUP_H
+#include <linux/kernel.h>
+#include <linux/types.h>
+#include <linux/errno.h>
 
-#include "spade/audit/state/syscall/namespace/namespace.h"
-
-/*
-    Setup required proc_ns_operations structs in state.
-
-    Returns:
-        0       -> Success.
-        -ive    -> Error code.
-*/
-int kernel_namespace_setup_do(void);
-
-/*
-    Undo setup.
-
-    Returns:
-        0       -> Success.
-        -ive    -> Error code.
-*/
-int kernel_namespace_setup_undo(void);
+#include "spade/audit/kernel/namespace/namespace.h"
 
 
-#endif // SPADE_AUDIT_KERNEL_NAMESPACE_SETUP_SETUP_H
+static struct kernel_namespace_pointers global = {};
+
+
+int kernel_namespace_set(struct kernel_namespace_pointers *k)
+{
+    if (!k)
+    {
+        return -EINVAL;
+    }
+
+    global.ops_cgroup = k->ops_cgroup;
+    global.ops_ipc = k->ops_ipc;
+    global.ops_mnt = k->ops_mnt;
+    global.ops_net = k->ops_net;
+    global.ops_pid = k->ops_pid;
+    global.ops_user = k->ops_user;
+    
+    return 0;
+}
+
+int kernel_namespace_unset(void)
+{
+    global.ops_cgroup = global.ops_ipc = global.ops_mnt = global.ops_net = global.ops_pid = global.ops_user = NULL;
+    return 0;
+}
+
+struct kernel_namespace_pointers* kernel_namespace_get_pointers(void)
+{
+    return &global;
+}

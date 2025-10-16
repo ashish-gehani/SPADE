@@ -21,6 +21,7 @@
 #include <linux/types.h>
 #include <linux/errno.h>
 
+#include "spade/audit/kernel/namespace/namespace.h"
 #include "spade/audit/helper/kernel.h"
 #include "spade/audit/kernel/namespace/setup/setup.h"
 #include "spade/util/log/log.h"
@@ -46,70 +47,56 @@ struct proc_ns_operations* _get_ns_ops_kernel_ptr(
     return (struct proc_ns_operations*)symbol_address;
 }
 
-static int _init_ns_ops_kernel_ptrs(kallsyms_lookup_name_t kallsyms_lookup_name, struct state_syscall_namespace *s)
+static int _init_ns_ops_kernel_ptrs(kallsyms_lookup_name_t kallsyms_lookup_name)
 {
-    if (!s || !kallsyms_lookup_name)
+    struct kernel_namespace_pointers s;
+    if (!kallsyms_lookup_name)
     {
         return -ENOENT;
     }
 
-    s->ops_mnt = _get_ns_ops_kernel_ptr(kallsyms_lookup_name, "mntns_operations", "Failed to get mnt NS ops symbol");
-    if (!s->ops_mnt)
+    s.ops_mnt = _get_ns_ops_kernel_ptr(kallsyms_lookup_name, "mntns_operations", "Failed to get mnt NS ops symbol");
+    if (!s.ops_mnt)
     {
         return -ENOENT;
     }
     
-	s->ops_net = _get_ns_ops_kernel_ptr(kallsyms_lookup_name, "netns_operations", "Failed to get net NS ops symbol");
-    if (!s->ops_net)
+	s.ops_net = _get_ns_ops_kernel_ptr(kallsyms_lookup_name, "netns_operations", "Failed to get net NS ops symbol");
+    if (!s.ops_net)
     {
         return -ENOENT;
     }
 
-	s->ops_pid = _get_ns_ops_kernel_ptr(kallsyms_lookup_name, "pidns_operations", "Failed to get pid NS ops symbol");
-    if (!s->ops_pid)
+	s.ops_pid = _get_ns_ops_kernel_ptr(kallsyms_lookup_name, "pidns_operations", "Failed to get pid NS ops symbol");
+    if (!s.ops_pid)
     {
         return -ENOENT;
     }
 
-	s->ops_user = _get_ns_ops_kernel_ptr(kallsyms_lookup_name, "userns_operations", "Failed to get user NS ops symbol");
-    if (!s->ops_user)
+	s.ops_user = _get_ns_ops_kernel_ptr(kallsyms_lookup_name, "userns_operations", "Failed to get user NS ops symbol");
+    if (!s.ops_user)
     {
         return -ENOENT;
     }
 
-	s->ops_ipc = _get_ns_ops_kernel_ptr(kallsyms_lookup_name, "ipcns_operations", "Failed to get ipc NS ops symbol");
-    if (!s->ops_ipc)
+	s.ops_ipc = _get_ns_ops_kernel_ptr(kallsyms_lookup_name, "ipcns_operations", "Failed to get ipc NS ops symbol");
+    if (!s.ops_ipc)
     {
         return -ENOENT;
     }
 
-	s->ops_cgroup = _get_ns_ops_kernel_ptr(kallsyms_lookup_name, "cgroupns_operations", "Failed to get cgroup NS ops symbol");
-    if (!s->ops_cgroup)
+	s.ops_cgroup = _get_ns_ops_kernel_ptr(kallsyms_lookup_name, "cgroupns_operations", "Failed to get cgroup NS ops symbol");
+    if (!s.ops_cgroup)
     {
         return -ENOENT;
     }
 
-	return 0;
+    return kernel_namespace_set(&s);
 }
 
-/*
-    Setup required proc_ns_operations structs in state.
-
-    Params:
-        s       : The state to setup.
-
-    Returns:
-        0       -> Success.
-        -ive    -> Error code.
-*/
-int kernel_namespace_setup_do(struct state_syscall_namespace *s)
+int kernel_namespace_setup_do(void)
 {
     kallsyms_lookup_name_t kallsyms_func;
-
-    if (!s)
-    {
-        return -EINVAL;
-    }
 
     kallsyms_func = helper_kernel_get_kallsyms_func();
     if (!kallsyms_func)
@@ -117,16 +104,10 @@ int kernel_namespace_setup_do(struct state_syscall_namespace *s)
         return -EINVAL;
     }
 
-    return _init_ns_ops_kernel_ptrs(kallsyms_func, s);
+    return _init_ns_ops_kernel_ptrs(kallsyms_func);
 }
 
-int kernel_namespace_setup_undo(struct state_syscall_namespace *s)
+int kernel_namespace_setup_undo(void)
 {
-    if (!s)
-    {
-        return 0;
-    }
-    s->ops_cgroup = s->ops_ipc = s->ops_mnt = s->ops_net = s->ops_pid = s->ops_user = NULL;
-
-    return 0;
+    return kernel_namespace_unset();
 }

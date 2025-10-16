@@ -24,6 +24,7 @@
 #include "spade/util/print/print.h"
 #include "spade/util/log/log.h"
 #include "spade/config/config.h"
+#include "spade/audit/kernel/namespace/namespace.h"
 
 
 static void seqbuf_print_sep(struct seqbuf *b)
@@ -35,23 +36,29 @@ static void state_syscall_namespace_write_to_seqbuf_redacted(
     struct seqbuf *b, const struct state_syscall_namespace *state
 )
 {
+    struct kernel_namespace_pointers *k_ptrs;
+
     if (!b || !state)
+        return;
+
+    k_ptrs = kernel_namespace_get_pointers();
+    if (!k_ptrs)
         return;
 
     util_seqbuf_printf(b, "namespace={");
     util_print_bool(b, "initialized", state->initialized);
     seqbuf_print_sep(b);
-    util_print_bool(b, "found_ops_mnt", (state->ops_mnt != NULL));
+    util_print_bool(b, "found_ops_mnt", (k_ptrs->ops_mnt != NULL));
     seqbuf_print_sep(b);
-    util_print_bool(b, "found_ops_net", (state->ops_net != NULL));
+    util_print_bool(b, "found_ops_net", (k_ptrs->ops_net != NULL));
     seqbuf_print_sep(b);
-    util_print_bool(b, "found_ops_pid", (state->ops_pid != NULL));
+    util_print_bool(b, "found_ops_pid", (k_ptrs->ops_pid != NULL));
     seqbuf_print_sep(b);
-    util_print_bool(b, "found_ops_user", (state->ops_user != NULL));
+    util_print_bool(b, "found_ops_user", (k_ptrs->ops_user != NULL));
     seqbuf_print_sep(b);
-    util_print_bool(b, "found_ops_ipc", (state->ops_ipc != NULL));
+    util_print_bool(b, "found_ops_ipc", (k_ptrs->ops_ipc != NULL));
     seqbuf_print_sep(b);
-    util_print_bool(b, "found_ops_cgroup", (state->ops_cgroup != NULL));
+    util_print_bool(b, "found_ops_cgroup", (k_ptrs->ops_cgroup != NULL));
     util_seqbuf_printf(b, "}");
 }
 
@@ -59,23 +66,29 @@ static void state_syscall_namespace_write_to_seqbuf_unredacted(
     struct seqbuf *b, const struct state_syscall_namespace *state
 )
 {
+    struct kernel_namespace_pointers *k_ptrs;
+
     if (!b || !state)
+        return;
+
+    k_ptrs = kernel_namespace_get_pointers();
+    if (!k_ptrs)
         return;
 
     util_seqbuf_printf(b, "namespace={");
     util_print_bool(b, "initialized", state->initialized);
     seqbuf_print_sep(b);
-    util_seqbuf_printf(b, "ops_mnt=%p", state->ops_mnt);
+    util_seqbuf_printf(b, "ops_mnt=%p", k_ptrs->ops_mnt);
     seqbuf_print_sep(b);
-    util_seqbuf_printf(b, "ops_net=%p", state->ops_net);
+    util_seqbuf_printf(b, "ops_net=%p", k_ptrs->ops_net);
     seqbuf_print_sep(b);
-    util_seqbuf_printf(b, "ops_pid=%p", state->ops_pid);
+    util_seqbuf_printf(b, "ops_pid=%p", k_ptrs->ops_pid);
     seqbuf_print_sep(b);
-    util_seqbuf_printf(b, "ops_user=%p", state->ops_user);
+    util_seqbuf_printf(b, "ops_user=%p", k_ptrs->ops_user);
     seqbuf_print_sep(b);
-    util_seqbuf_printf(b, "ops_ipc=%p", state->ops_ipc);
+    util_seqbuf_printf(b, "ops_ipc=%p", k_ptrs->ops_ipc);
     seqbuf_print_sep(b);
-    util_seqbuf_printf(b, "ops_cgroup=%p", state->ops_cgroup);
+    util_seqbuf_printf(b, "ops_cgroup=%p", k_ptrs->ops_cgroup);
     util_seqbuf_printf(b, "}");
 }
 

@@ -155,9 +155,5 @@ bool global_is_syscall_loggable(
     pid_t pid, pid_t ppid, uid_t uid
 );
 
-/*
-    Get namespace state.
-*/
-struct state_syscall_namespace* global_get_ref_to_syscall_ns_state(void);
 
 #endif // _SPADE_AUDIT_GLOBAL_H

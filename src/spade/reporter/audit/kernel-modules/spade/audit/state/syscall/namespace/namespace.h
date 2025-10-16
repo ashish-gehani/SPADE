@@ -30,13 +30,6 @@ struct state_syscall_namespace
 {
     bool initialized;
     bool dry_run;
-
-    struct proc_ns_operations* ops_mnt;
-    struct proc_ns_operations* ops_net;
-    struct proc_ns_operations* ops_pid;
-    struct proc_ns_operations* ops_user;
-    struct proc_ns_operations* ops_ipc;
-    struct proc_ns_operations* ops_cgroup;
 };
 
 /*

@@ -77,6 +77,7 @@ HELPER_OBJS := \
   spade/audit/helper/task.o
 
 KERNEL_OBJS := \
+  spade/audit/kernel/namespace/namespace.o \
   spade/audit/kernel/namespace/setup/setup.o \
   spade/audit/kernel/netfilter/setup/setup.o \
   spade/audit/kernel/netfilter/netfilter.o \

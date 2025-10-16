@@ -26,9 +26,9 @@
 #include "spade/audit/helper/task.h"
 #include "spade/audit/helper/audit_log.h"
 #include "spade/audit/msg/namespace/create.h"
-#include "spade/audit/global/global.h"
 #include "spade/audit/state/state.h"
 #include "spade/util/log/log.h"
+#include "spade/audit/kernel/namespace/namespace.h"
 
 
 static long _get_ns_inum(
@@ -66,13 +66,13 @@ int helper_syscall_namespace_populate_msg(
 	struct pid *pid_struct;
 	struct task_struct *pid_task_struct;
     struct pid_namespace *pid_ns;
-    struct state_syscall_namespace *k_ns_op_ptrs;
+    struct kernel_namespace_pointers *k_ns_op_ptrs;
     long host_pid;
 
     if (!msg || !s)
         return -EINVAL;
 
-    k_ns_op_ptrs = global_get_ref_to_syscall_ns_state();
+    k_ns_op_ptrs = kernel_namespace_get_pointers();
     if (
         !k_ns_op_ptrs
         || !k_ns_op_ptrs->ops_cgroup

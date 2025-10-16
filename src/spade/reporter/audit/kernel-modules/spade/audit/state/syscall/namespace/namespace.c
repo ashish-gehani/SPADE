@@ -60,7 +60,7 @@ int state_syscall_namespace_init(
 
     if (!dry_run)
     {
-        err = kernel_namespace_setup_do(s);
+        err = kernel_namespace_setup_do();
         if (err != 0)
             return err;
     }
@@ -80,7 +80,7 @@ int state_syscall_namespace_deinit(
         return -EINVAL;
 
     if (!s->dry_run)
-        err = kernel_namespace_setup_undo(s);
+        err = kernel_namespace_setup_undo();
 
     s->initialized = false;
     s->dry_run = false;

@@ -223,11 +223,3 @@ bool global_is_syscall_loggable(
 
     return res;
 }
-
-struct state_syscall_namespace* global_get_ref_to_syscall_ns_state(void)
-{
-    if (!global_is_auditing_started())
-        return NULL;
-
-    return &g.s.syscall.ns;
-}
