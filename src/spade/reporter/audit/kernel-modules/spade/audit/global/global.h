@@ -121,11 +121,6 @@ int global_auditing_stop(void);
 bool global_is_auditing_started(void);
 
 /*
-    Increment global discarded event count by c.
-*/
-void global_increment_discarded_event_count(unsigned long c);
-
-/*
     Check if netfilter event is loggable by uid.
 */
 bool global_is_netfilter_loggable_by_user(uid_t uid);

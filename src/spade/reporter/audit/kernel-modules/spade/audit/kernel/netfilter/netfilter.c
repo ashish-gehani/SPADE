@@ -41,9 +41,16 @@
 #include "spade/audit/helper/audit_log.h"
 
 
+static struct
+{
+    unsigned long discarded_events;
+} global_state = {
+    .discarded_events = 0
+};
+
 static void _inc_discarded_event_count(void)
 {
-    global_increment_discarded_event_count(1);
+    global_state.discarded_events++;
 }
 
 static bool _is_auditing_started(void)
