@@ -25,6 +25,12 @@
 
 
 static char g_too_big_array[2048];
+static struct arg arg = {0};
+
+static void _ensure_global_arg_is_reset(void)
+{
+	memset(&arg, 0, sizeof(arg));
+}
 
 static void init_too_big_array(void)
 {
@@ -50,7 +56,7 @@ static void test_arg_print_null(struct test_stats *stats)
 static void test_arg_print_empty(struct test_stats *stats)
 {
 	const char *test_name = "test_arg_print_empty";
-	struct arg arg = {0};
+	_ensure_global_arg_is_reset();
 
 	stats->total++;
 	util_log_info(test_name, "Testing arg_print with empty struct");
@@ -61,9 +67,9 @@ static void test_arg_print_empty(struct test_stats *stats)
 static void test_arg_parse_bool(struct test_stats *stats)
 {
 	const char *test_name = "test_arg_parse_bool";
-	struct arg arg = {0};
 	int err;
 	bool original_value;
+	_ensure_global_arg_is_reset();
 
 	stats->total++;
 
@@ -121,9 +127,9 @@ static void test_arg_parse_bool(struct test_stats *stats)
 static void test_arg_parse_monitor_mode(struct test_stats *stats)
 {
 	const char *test_name = "test_arg_parse_monitor_mode";
-	struct arg arg = {0};
 	int err;
 	enum arg_monitor_mode original_value;
+	_ensure_global_arg_is_reset();
 
 	stats->total++;
 
@@ -191,9 +197,9 @@ static void test_arg_parse_monitor_mode(struct test_stats *stats)
 static void test_arg_parse_monitor_syscalls(struct test_stats *stats)
 {
 	const char *test_name = "test_arg_parse_monitor_syscalls";
-	struct arg arg = {0};
 	int err;
 	enum arg_monitor_syscalls original_value;
+	_ensure_global_arg_is_reset();
 
 	stats->total++;
 
@@ -274,9 +280,9 @@ static void test_arg_parse_monitor_syscalls(struct test_stats *stats)
 static void test_arg_parse_monitor_connections(struct test_stats *stats)
 {
 	const char *test_name = "test_arg_parse_monitor_connections";
-	struct arg arg = {0};
 	int err;
 	enum arg_monitor_connections original_value;
+	_ensure_global_arg_is_reset();
 
 	stats->total++;
 
@@ -344,8 +350,8 @@ static void test_arg_parse_monitor_connections(struct test_stats *stats)
 static void test_arg_parse_pid_array(struct test_stats *stats)
 {
 	const char *test_name = "test_arg_parse_pid_array";
-	struct arg arg = {0};
 	int err;
+	_ensure_global_arg_is_reset();
 
 	stats->total++;
 
@@ -403,8 +409,8 @@ static void test_arg_parse_pid_array(struct test_stats *stats)
 static void test_arg_parse_uid_array(struct test_stats *stats)
 {
 	const char *test_name = "test_arg_parse_uid_array";
-	struct arg arg = {0};
 	int err;
+	_ensure_global_arg_is_reset();
 
 	stats->total++;
 
@@ -480,6 +486,47 @@ static void test_arg_parse_uid_array(struct test_stats *stats)
 	TEST_PASS(stats, test_name);
 }
 
+static void test_arg_config_file(struct test_stats *stats)
+{
+	const char *test_name = "test_arg_config_file";
+	const char *test_path = "/opt/spade/audit/audit.config";
+	const char *test_path_custom = "/custom/path/to/config.cfg";
+	_ensure_global_arg_is_reset();
+
+	stats->total++;
+
+	// Test setting a valid config file path
+	strncpy(arg.config_file, test_path, PATH_MAX - 1);
+	arg.config_file[PATH_MAX - 1] = '\0';
+
+	if (strcmp(arg.config_file, test_path) != 0)
+	{
+		TEST_FAIL(stats, test_name, "Config file path mismatch. Expected '%s', got '%s'", test_path, arg.config_file);
+		return;
+	}
+
+	// Test setting a custom config file path
+	strncpy(arg.config_file, test_path_custom, PATH_MAX - 1);
+	arg.config_file[PATH_MAX - 1] = '\0';
+
+	if (strcmp(arg.config_file, test_path_custom) != 0)
+	{
+		TEST_FAIL(stats, test_name, "Custom config file path mismatch. Expected '%s', got '%s'", test_path_custom, arg.config_file);
+		return;
+	}
+
+	// Test that path is properly null-terminated
+	if (strlen(arg.config_file) >= PATH_MAX)
+	{
+		TEST_FAIL(stats, test_name, "Config file path not properly bounded");
+		return;
+	}
+
+	util_log_info(test_name, "Testing config_file field");
+	arg_print(&arg);
+	TEST_PASS(stats, test_name);
+}
+
 int test_arg_all(struct test_stats *stats)
 {
 	if (!stats)
@@ -500,6 +547,7 @@ int test_arg_all(struct test_stats *stats)
 	test_arg_parse_monitor_connections(stats);
 	test_arg_parse_pid_array(stats);
 	test_arg_parse_uid_array(stats);
+	test_arg_config_file(stats);
 
 	return 0;
 }

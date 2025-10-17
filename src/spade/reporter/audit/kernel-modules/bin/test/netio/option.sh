@@ -1,5 +1,7 @@
 #!/bin/bash
 
+KM_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../../ && pwd )"
+
 # Function to get PIDs of audit and SPADE-related processes
 # Usage: pids=$(get_audit_process_pids)
 # Returns: Comma-separated string of PIDs (e.g., "1234,5678,9012")
@@ -178,6 +180,17 @@ function get_nf_monitor_ct_only_new_option()
     echo "nf_hooks_log_all_ct=0"
 }
 
+# Function to get config file option
+# Usage: config_file_option=$(get_config_file_option [path])
+# Returns: String in format 'config_file="/path/to/config"'
+# Default path is '/opt/spade/audit/audit.config' if not provided
+function get_config_file_option()
+{
+    local dev_config_file_path="${KM_ROOT}/cfg/spade_audit.config"
+    local config_path="${1:-${dev_config_file_path}}"
+    echo "config_file=\"$config_path\""
+}
+
 # Function to get combined options for watching the audited user
 # Usage: options=$(get_option_for_watch_audited_user)
 # Returns: Combined string of all monitoring options separated by spaces
@@ -191,8 +204,9 @@ function get_option_for_watch_audited_user()
     local log_syscalls=$(get_log_syscalls_option)
     local user_capture=$(get_user_capture_options)
     local ignore_processes=$(get_ignore_processes_options)
+    local config_file=$(get_config_file_option)
 
-    echo "$nf_handle_user $network_io $namespaces $log_syscalls $user_capture $ignore_processes $nf_hooks $nf_monitor_ct"
+    echo "$nf_handle_user $network_io $namespaces $log_syscalls $user_capture $ignore_processes $nf_hooks $nf_monitor_ct $config_file"
 }
 
 # Function to get options based on a command

@@ -104,6 +104,11 @@ struct arg_netfilter
 struct arg
 {
     /*
+        Config file path
+    */
+    char config_file[PATH_MAX];
+
+    /*
         Monitor networking I/O calls like sendmsg, recvmsg, etc.
     */
     bool network_io;

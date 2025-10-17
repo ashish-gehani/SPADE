@@ -34,25 +34,20 @@
 */
 static struct arg default_arg = {
 	.nf = {
-		.use_user = false,
-		.audit_hooks = false,
-		.monitor_ct = AMMC_ALL
+		.use_user = ARG_DEFAULT_NF_USE_USER,
+		.audit_hooks = ARG_DEFAULT_NF_AUDIT_HOOKS,
+		.monitor_ct = ARG_DEFAULT_NF_MONITOR_CT
 	},
-	.monitor_syscalls = AMMS_ONLY_SUCCESSFUL,
-	.network_io = false,
-	.include_ns_info = false,
-	.ignore_pids = {
-		.len = 0
-	},
-	.ignore_ppids = {
-		.len = 0
-	},
+	.monitor_syscalls = ARG_DEFAULT_MONITOR_SYSCALLS,
+	.network_io = ARG_DEFAULT_NETWORK_IO,
+	.include_ns_info = ARG_DEFAULT_INCLUDE_NS_INFO,
+	.ignore_pids = ARG_DEFAULT_IGNORE_PIDS,
+	.ignore_ppids = ARG_DEFAULT_IGNORE_PPIDS,
 	.user = {
-		.uid_monitor_mode = AMM_IGNORE,
-		.uids = {
-			.len = 0
-		}
-	}
+		.uid_monitor_mode = ARG_DEFAULT_UID_MONITOR_MODE,
+		.uids = ARG_DEFAULT_UIDS
+	},
+	.config_file = ARG_DEFAULT_CONFIG_FILE
 };
 
 // General param parsers
@@ -139,6 +134,24 @@ static int param_set_uids(const char *val, const struct kernel_param *kp)
 	return set_uid_array(ARG_CONSTANT_NAME_UIDS_STR, val, kp);
 }
 
+static int param_set_config_file(const char *val, const struct kernel_param *kp)
+{
+	char *config_file = (char *)(kp->arg);
+	size_t len;
+
+	if (!val)
+		return -EINVAL;
+
+	len = strlen(val);
+	if (len >= PATH_MAX)
+		return -E2BIG;
+
+	strncpy(config_file, val, PATH_MAX - 1);
+	config_file[PATH_MAX - 1] = '\0';
+
+	return 0;
+}
+
 // Kernel param operations
 
 static const struct kernel_param_ops param_ops_nf_use_user = {
@@ -191,6 +204,11 @@ static const struct kernel_param_ops param_ops_uids = {
 	.get = 0,
 };
 
+static const struct kernel_param_ops param_ops_config_file = {
+	.set = param_set_config_file,
+	.get = 0,
+};
+
 // Kernel module params
 
 #define DECLARE_PARAM_AND_DESC(name, param_ops, param_ptr, param_perm, param_desc) \
@@ -207,6 +225,7 @@ DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_IGNORE_PIDS, &param_ops_ignore_pids, &d
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_IGNORE_PPIDS, &param_ops_ignore_ppids, &default_arg.ignore_ppids, 0000, ARG_CONSTANT_DESC_IGNORE_PPIDS);
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_UID_MONITOR_MODE, &param_ops_uid_monitor_mode, &default_arg.user.uid_monitor_mode, 0000, ARG_CONSTANT_DESC_UID_MONITOR_MODE);
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_UIDS, &param_ops_uids, &default_arg.user.uids, 0000, ARG_CONSTANT_DESC_UIDS);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_CONFIG_FILE, &param_ops_config_file, &default_arg.config_file, 0000, ARG_CONSTANT_DESC_CONFIG_FILE);
 
 
 int param_copy_validated_args(struct arg *dst)

@@ -21,6 +21,8 @@
 #ifndef _SPADE_AUDIT_ARG_CONSTANT_H
 #define _SPADE_AUDIT_ARG_CONSTANT_H
 
+#include "spade/audit/arg/arg.h"
+
 #define __STRINGIFY(x) #x
 #define STRINGIFY(x)   __STRINGIFY(x)
 
@@ -35,6 +37,7 @@
 #define ARG_CONSTANT_NAME_IGNORE_PPIDS       ignore_ppids
 #define ARG_CONSTANT_NAME_UID_MONITOR_MODE   uid_trace_mode
 #define ARG_CONSTANT_NAME_UIDS               uids
+#define ARG_CONSTANT_NAME_CONFIG_FILE        config_file
 
 /* String forms */
 #define ARG_CONSTANT_NAME_NF_USE_USER_STR                STRINGIFY(ARG_CONSTANT_NAME_NF_USE_USER)
@@ -47,6 +50,20 @@
 #define ARG_CONSTANT_NAME_IGNORE_PPIDS_STR               STRINGIFY(ARG_CONSTANT_NAME_IGNORE_PPIDS)
 #define ARG_CONSTANT_NAME_UID_MONITOR_MODE_STR           STRINGIFY(ARG_CONSTANT_NAME_UID_MONITOR_MODE)
 #define ARG_CONSTANT_NAME_UIDS_STR                       STRINGIFY(ARG_CONSTANT_NAME_UIDS)
+#define ARG_CONSTANT_NAME_CONFIG_FILE_STR                STRINGIFY(ARG_CONSTANT_NAME_CONFIG_FILE)
+
+/* Defaults */
+#define ARG_DEFAULT_NF_USE_USER             false
+#define ARG_DEFAULT_NF_AUDIT_HOOKS          false
+#define ARG_DEFAULT_NF_MONITOR_CT           AMMC_ALL
+#define ARG_DEFAULT_MONITOR_SYSCALLS        AMMS_ONLY_SUCCESSFUL
+#define ARG_DEFAULT_NETWORK_IO              false
+#define ARG_DEFAULT_INCLUDE_NS_INFO         false
+#define ARG_DEFAULT_IGNORE_PIDS             {.len = 0}
+#define ARG_DEFAULT_IGNORE_PPIDS            {.len = 0}
+#define ARG_DEFAULT_UID_MONITOR_MODE        AMM_IGNORE
+#define ARG_DEFAULT_UIDS                    {.len = 0}
+#define ARG_DEFAULT_CONFIG_FILE             "/opt/spade/audit/audit.config"
 
 /* Descriptions */
 #define ARG_CONSTANT_DESC_NF_USE_USER        "In netfilter hooks, filter packet logging based on user criteria. Default: 0. Options: 0 (log packets for all user), 1 (log packets based on user criteria)"
@@ -59,6 +76,7 @@
 #define ARG_CONSTANT_DESC_IGNORE_PPIDS       "List of parent process ids to ignore. Default: empty list"
 #define ARG_CONSTANT_DESC_UID_MONITOR_MODE   "Monitoring mode for the list of user ids. Default: 1. Options: 0 (Capture the specified list of user ids), 1 (Ignore the specified list of user ids)"
 #define ARG_CONSTANT_DESC_UIDS               "List of user ids to ignore. Default: empty list"
+#define ARG_CONSTANT_DESC_CONFIG_FILE        "Config file path. Default: /opt/spade/audit/audit.config"
 
 #endif // _SPADE_AUDIT_ARG_CONSTANT_H
 

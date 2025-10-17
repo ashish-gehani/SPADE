@@ -39,6 +39,9 @@ MODULE_LICENSE("GPL");
 const char *SPADE_MODULE_NAME = "netio";
 
 
+static struct arg global_local_arg;
+
+
 static bool ensure_global_state_is_initialized(const char *log_id)
 {
     bool state_module_initialized;
@@ -114,7 +117,6 @@ static int __init onload(void)
 {
     const char *log_id = "__init onload";
     int err = 0;
-    struct arg arg;
     bool dry_run = false;
 
     util_log_module_loading_started();
@@ -126,13 +128,13 @@ static int __init onload(void)
         goto exit_fail;
     }
 
-	if ((err = param_copy_validated_args(&arg)) != 0)
+	if ((err = param_copy_validated_args(&global_local_arg)) != 0)
 	{
 		util_log_warn(log_id, "Failed to load module. Error in copying validated arguments: %d", err);
 		goto exit_fail_deinit_state;
 	}
 
-	if ((err = spade_audit_start(&CONFIG_GLOBAL, &arg)) != 0)
+	if ((err = spade_audit_start(&CONFIG_GLOBAL, &global_local_arg)) != 0)
 	{
 		util_log_warn(log_id, "Failed to load module. Error in starting auditing: %d", err);
 		goto exit_fail_deinit_state;

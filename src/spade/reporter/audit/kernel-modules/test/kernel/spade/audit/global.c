@@ -38,6 +38,13 @@
 #define FF_LIST_LEN 256
 #define STR_ID_LEN 64
 
+static struct arg arg = {0};
+
+static void _ensure_global_arg_is_reset(void)
+{
+	memset(&arg, 0, sizeof(arg));
+}
+
 //
 
 union filter_func_union;
@@ -826,15 +833,8 @@ static void test_global_test_init_deinit(struct test_stats *stats)
     const char *test_name = "test_global_test_init_deinit";
     int err;
     bool dry_run = true;
-    struct arg arg = {
-        .ignore_pids = {},
-        .ignore_ppids = {},
-        .include_ns_info = true,
-        .monitor_syscalls = AMMS_ALL,
-        .network_io = true,
-        .nf = {0},
-        .user = {0}
-    };
+
+    _ensure_global_arg_is_reset();
 
     _ensure_global_reset();
 
