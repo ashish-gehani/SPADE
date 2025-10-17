@@ -25,8 +25,8 @@
 #include "spade/audit/context/context.h"
 #include "spade/arg/arg.h"
 #include "spade/arg/parse.h"
-#include "test/common.h"
-#include "test/context.h"
+#include "test/kernel/common.h"
+#include "test/kernel/context.h"
 
 
 struct arg arg;

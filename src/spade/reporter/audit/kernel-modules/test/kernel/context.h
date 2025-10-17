@@ -18,29 +18,19 @@
  --------------------------------------------------------------------------------
  */
 
-#include "test/common.h"
-#include "spade/util/log/log.h"
+#ifndef _TEST_CONTEXT_H
+#define _TEST_CONTEXT_H
 
-/*
-    Initialize test statistics.
-*/
-void test_stats_init(struct test_stats *stats)
-{
-	if (stats) {
-		stats->total = 0;
-		stats->passed = 0;
-		stats->failed = 0;
-	}
-}
+#include <linux/kernel.h>
+#include <linux/string.h>
 
-/*
-    Log test statistics summary.
-*/
-void test_stats_log(const char *module_name, struct test_stats *stats)
-{
-	if (!module_name || !stats)
-		return;
+#include "spade/audit/context/context.h"
+#include "spade/arg/arg.h"
+#include "spade/arg/parse.h"
+#include "test/kernel/common.h"
 
-	util_log_info(module_name, "Tests: %d total, %d passed, %d failed",
-		stats->total, stats->passed, stats->failed);
-}
+
+int test_context_all(struct test_stats *stats);
+
+
+#endif // _TEST_CONTEXT_H

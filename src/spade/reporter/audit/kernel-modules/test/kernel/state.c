@@ -26,8 +26,8 @@
 #include "spade/util/log/log.h"
 #include "spade/audit/kernel/namespace/namespace.h"
 
-#include "test/common.h"
-#include "test/state.h"
+#include "test/kernel/common.h"
+#include "test/kernel/state.h"
 
 
 static struct state state = {};

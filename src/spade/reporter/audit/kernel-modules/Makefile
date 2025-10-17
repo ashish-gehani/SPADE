@@ -120,13 +120,13 @@ UTIL_OBJS := \
   spade/util/print/print.o \
   spade/util/seqbuf/seqbuf.o
 
-TEST_ASSET_BIN := \
-  test/asset/bin/ns/ns \
-  test/asset/bin/socket/net/client \
-  test/asset/bin/socket/net/server \
-  test/asset/bin/socket/unix/client \
-  test/asset/bin/socket/unix/server \
-  test/asset/bin/ubsi/ubsi
+TEST_USER_BIN := \
+  test/user/bin/ns/ns \
+  test/user/bin/socket/net/client \
+  test/user/bin/socket/net/server \
+  test/user/bin/socket/unix/client \
+  test/user/bin/socket/unix/server \
+  test/user/bin/ubsi/ubsi
 
 ###
 
@@ -160,37 +160,37 @@ spade_audit_test-y := \
   $(SYSCALL_ACTION_OBJS) \
   $(SYSCALL_HOOK_FUNC_OBJS) \
   $(UTIL_OBJS) \
-  test/arg.o \
-  test/context.o \
-  test/common.o \
-  test/global.o \
-  test/msg.o \
-  test/state.o \
-  test/test.o
+  test/kernel/arg.o \
+  test/kernel/context.o \
+  test/kernel/common.o \
+  test/kernel/global.o \
+  test/kernel/msg.o \
+  test/kernel/state.o \
+  test/kernel/test.o
 
 ###
 
-.PHONY: all clean test-asset
+.PHONY: all clean test-user
 
-test-asset: $(TEST_ASSET_BIN)
+test-user: $(TEST_USER_BIN)
 
-test/asset/bin/ns/%: test/asset/src/ns/%.c
+test/user/bin/ns/%: test/user/src/ns/%.c
 	@mkdir -p $(dir $@)
 	gcc -o $@ $<
 
-test/asset/bin/socket/net/%: test/asset/src/socket/net/%.c
+test/user/bin/socket/net/%: test/user/src/socket/net/%.c
 	@mkdir -p $(dir $@)
 	gcc -o $@ $<
 
-test/asset/bin/socket/unix/%: test/asset/src/socket/unix/%.c
+test/user/bin/socket/unix/%: test/user/src/socket/unix/%.c
 	@mkdir -p $(dir $@)
 	gcc -o $@ $<
 
-test/asset/bin/ubsi/%: test/asset/src/ubsi/%.c
+test/user/bin/ubsi/%: test/user/src/ubsi/%.c
 	@mkdir -p $(dir $@)
 	gcc -o $@ $<
 
-all: test-asset
+all: test-user
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 	@mkdir -p $(BUILD_OUTPUT)
 	@for file in $(MOD_OUT_FILES); do \
@@ -202,4 +202,4 @@ all: test-asset
 clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) clean
 	-rm -rf $(BUILD_OUTPUT)
-	-rm -f $(TEST_ASSET_BIN)
+	-rm -f $(TEST_USER_BIN)

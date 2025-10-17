@@ -24,18 +24,18 @@
 #include <linux/param.h>
 #include <linux/string.h>
 
-#include "test/test.h"
+#include "test/kernel/test.h"
 #include "spade/config/config.h"
 #include "spade/arg/arg.h"
 #include "spade/arg/parse.h"
 #include "spade/arg/print.h"
 #include "spade/util/log/module.h"
 
-#include "test/arg.h"
-#include "test/context.h"
-#include "test/global.h"
-#include "test/msg.h"
-#include "test/state.h"
+#include "test/kernel/arg.h"
+#include "test/kernel/context.h"
+#include "test/kernel/global.h"
+#include "test/kernel/msg.h"
+#include "test/kernel/state.h"
 
 
 MODULE_LICENSE("GPL");

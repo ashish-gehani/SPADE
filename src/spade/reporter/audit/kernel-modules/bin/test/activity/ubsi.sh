@@ -21,7 +21,7 @@
 
 KM_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../../ && pwd )"
 
-BIN_DIR="${KM_ROOT}/test/asset/bin/ubsi"
+BIN_DIR="${KM_ROOT}/test/user/bin/ubsi"
 
 RUN_AS_USER=audited-user
 

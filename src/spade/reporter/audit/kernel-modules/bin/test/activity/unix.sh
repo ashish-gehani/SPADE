@@ -21,7 +21,7 @@
 
 KM_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../../ && pwd )"
 
-BIN_DIR="${KM_ROOT}/test/asset/bin/socket/unix"
+BIN_DIR="${KM_ROOT}/test/user/bin/socket/unix"
 
 RUN_AS_USER=audited-user
 TCP_SOCK=/tmp/unix.sock.tcp

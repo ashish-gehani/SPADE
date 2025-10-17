@@ -28,8 +28,8 @@
 
 #include "spade/util/log/log.h"
 
-#include "test/common.h"
-#include "test/msg.h"
+#include "test/kernel/common.h"
+#include "test/kernel/msg.h"
 
 #include "spade/audit/msg/ops.h"
 #include "spade/audit/msg/namespace/namespace.h"

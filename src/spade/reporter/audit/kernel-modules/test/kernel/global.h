@@ -18,17 +18,16 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _TEST_STATE_H
-#define _TEST_STATE_H
+#ifndef _TEST_GLOBAL_H
+#define _TEST_GLOBAL_H
 
 #include <linux/kernel.h>
 #include <linux/string.h>
 
-#include "spade/audit/state/state.h"
-#include "test/common.h"
+#include "test/kernel/common.h"
 
 
-int test_state_all(struct test_stats *stats);
+int test_global_all(struct test_stats *stats);
 
 
-#endif // _TEST_STATE_H
+#endif // _TEST_GLOBAL_H
