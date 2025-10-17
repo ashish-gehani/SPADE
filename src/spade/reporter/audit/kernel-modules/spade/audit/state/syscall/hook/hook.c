@@ -25,6 +25,7 @@
 
 #include "spade/audit/state/syscall/hook/hook.h"
 #include "spade/config/config.h"
+#include "spade/util/log/log.h"
 
 
 int state_syscall_hook_is_initialized(
@@ -50,6 +51,7 @@ int state_syscall_hook_init(
     struct state_syscall_hook *s, bool dry_run
 )
 {
+    const char *log_id = "state_syscall_hook_init";
     int err;
 
     if (!s)
@@ -64,7 +66,14 @@ int state_syscall_hook_init(
             err = state_syscall_hook_ftrace_init(&s->ftrace, dry_run);
             break;
         case CONFIG_SYSCALL_HOOK_TABLE:
-            err = state_syscall_hook_table_init(&s->table, dry_run);
+            if (!CONFIG_GLOBAL.debug)
+            {
+                util_log_warn(log_id, "CONFIG_SYSCALL_HOOK_TABLE not supported in non-debug mode. Err: %d", -ENOTSUPP);
+                err = -ENOTSUPP;
+            } else
+            {
+                err = state_syscall_hook_table_init(&s->table, dry_run);
+            }
             break;
         default:
             err = -EINVAL;

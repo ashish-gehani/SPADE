@@ -27,5 +27,6 @@ const struct config CONFIG_GLOBAL = {
         .value = GENERATED_BUILD_HASH
     },
     .debug = true,
+    // .debug = false,
     .sys_hook_type = CONFIG_SYSCALL_HOOK_FTRACE
 };
