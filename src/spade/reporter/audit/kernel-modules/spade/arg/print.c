@@ -37,7 +37,7 @@ static void seqbuf_print_arg(struct seqbuf *b, const struct arg *arg)
     util_seqbuf_printf(b, "arg={");
     util_print_bool(b, ARG_CONSTANT_NAME_NF_USE_USER_STR, arg->nf.use_user);
     seqbuf_print_arg_sep(b);
-    util_print_bool(b, ARG_CONSTANT_NAME_NF_HOOKS_STR, arg->nf.hooks);
+    util_print_bool(b, ARG_CONSTANT_NAME_NF_AUDIT_HOOKS_STR, arg->nf.audit_hooks);
     seqbuf_print_arg_sep(b);
     util_print_monitor_connections(b, ARG_CONSTANT_NAME_NF_MONITOR_CT_STR, arg->nf.monitor_ct);
     seqbuf_print_arg_sep(b);

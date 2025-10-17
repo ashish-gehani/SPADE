@@ -53,9 +53,9 @@ static void _inc_discarded_event_count(void)
     global_state.discarded_events++;
 }
 
-static bool _is_auditing_started(void)
+static bool _is_auditing(void)
 {
-    return global_is_auditing_started();
+    return global_is_netfilter_audit_hooks_on();
 }
 
 static enum ip_conntrack_info get_conntrack_info(const struct sk_buff *skb, enum ip_conntrack_info default_ct_info)
@@ -286,14 +286,14 @@ exit:
 
 unsigned int kernel_netfilter_hook_first(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 {
-    if (_is_auditing_started())
+    if (_is_auditing())
         nf_handle_packet(NF_IP_PRI_FIRST, skb, state);
     return NF_ACCEPT;
 }
 
 unsigned int kernel_netfilter_hook_last(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 {
-    if (_is_auditing_started())
+    if (_is_auditing())
         nf_handle_packet(NF_IP_PRI_LAST, skb, state);
     return NF_ACCEPT;
 }

@@ -26,7 +26,7 @@
 
 /* Identifiers */
 #define ARG_CONSTANT_NAME_NF_USE_USER        nf_handle_user
-#define ARG_CONSTANT_NAME_NF_HOOKS           nf_hooks
+#define ARG_CONSTANT_NAME_NF_AUDIT_HOOKS     nf_hooks
 #define ARG_CONSTANT_NAME_NF_MONITOR_CT      nf_hooks_log_all_ct
 #define ARG_CONSTANT_NAME_MONITOR_SYSCALLS   log_syscalls
 #define ARG_CONSTANT_NAME_NETWORK_IO         net_io
@@ -38,7 +38,7 @@
 
 /* String forms */
 #define ARG_CONSTANT_NAME_NF_USE_USER_STR                STRINGIFY(ARG_CONSTANT_NAME_NF_USE_USER)
-#define ARG_CONSTANT_NAME_NF_HOOKS_STR                   STRINGIFY(ARG_CONSTANT_NAME_NF_HOOKS)
+#define ARG_CONSTANT_NAME_NF_AUDIT_HOOKS_STR             STRINGIFY(ARG_CONSTANT_NAME_NF_AUDIT_HOOKS)
 #define ARG_CONSTANT_NAME_NF_MONITOR_CT_STR              STRINGIFY(ARG_CONSTANT_NAME_NF_MONITOR_CT)
 #define ARG_CONSTANT_NAME_MONITOR_SYSCALLS_STR           STRINGIFY(ARG_CONSTANT_NAME_MONITOR_SYSCALLS)
 #define ARG_CONSTANT_NAME_NETWORK_IO_STR                 STRINGIFY(ARG_CONSTANT_NAME_NETWORK_IO)
@@ -50,7 +50,7 @@
 
 /* Descriptions */
 #define ARG_CONSTANT_DESC_NF_USE_USER        "In netfilter hooks, filter packet logging based on user criteria. Default: 0. Options: 0=false, 1=true."
-#define ARG_CONSTANT_DESC_NF_HOOKS           "Enable netfilter hooks. Default: 0. Options: 0=false, 1=true."
+#define ARG_CONSTANT_DESC_NF_AUDIT_HOOKS     "Audit netfilter hooks. Default: 0. Options: 0=false, 1=true."
 #define ARG_CONSTANT_DESC_NF_MONITOR_CT      "Monitor packets by connection state. Default: all. Options: -1=all, 0=only_new."
 #define ARG_CONSTANT_DESC_MONITOR_SYSCALLS   "Monitor system calls by result. Default: only_successful. Options: -1=all, 0=only_failed, 1=only_successful."
 #define ARG_CONSTANT_DESC_NETWORK_IO         "Enable network IO monitoring. Default: 0. Options: 0=false, 1=true."

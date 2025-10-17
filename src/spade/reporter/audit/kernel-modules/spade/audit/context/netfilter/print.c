@@ -33,6 +33,8 @@ void context_netfilter_write_to_seqbuf(struct seqbuf *b, const struct context_ne
     util_seqbuf_printf(b, "netfilter={");
     util_print_bool(b, "initialized", context->initialized);
     seqbuf_print_sep(b);
+    util_print_bool(b, ARG_CONSTANT_NAME_NF_AUDIT_HOOKS_STR, context->audit_hooks);
+    seqbuf_print_sep(b);
     util_print_bool(b, ARG_CONSTANT_NAME_NF_USE_USER_STR, context->use_user);
     seqbuf_print_sep(b);
     util_print_bool(b, ARG_CONSTANT_NAME_INCLUDE_NS_INFO_STR, context->include_ns_info);

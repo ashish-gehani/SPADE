@@ -30,6 +30,8 @@ struct context_netfilter
 {
     bool initialized;
 
+    bool audit_hooks;
+
     bool use_user;
 
     struct arg_user user;

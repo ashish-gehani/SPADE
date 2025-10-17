@@ -35,7 +35,7 @@
 static struct arg default_arg = {
 	.nf = {
 		.use_user = false,
-		.hooks = false,
+		.audit_hooks = false,
 		.monitor_ct = AMMC_ALL
 	},
 	.monitor_syscalls = AMMS_ONLY_SUCCESSFUL,
@@ -94,9 +94,9 @@ static int param_set_nf_use_user(const char *val, const struct kernel_param *kp)
 	return set_bool(ARG_CONSTANT_NAME_NF_USE_USER_STR, val, kp);
 }
 
-static int param_set_nf_hooks(const char *val, const struct kernel_param *kp)
+static int param_set_nf_audit_hooks(const char *val, const struct kernel_param *kp)
 {
-	return set_bool(ARG_CONSTANT_NAME_NF_HOOKS_STR, val, kp);
+	return set_bool(ARG_CONSTANT_NAME_NF_AUDIT_HOOKS_STR, val, kp);
 }
 
 static int param_set_nf_monitor_ct(const char *val, const struct kernel_param *kp)
@@ -146,8 +146,8 @@ static const struct kernel_param_ops param_ops_nf_use_user = {
 	.get = 0,
 };
 
-static const struct kernel_param_ops param_ops_nf_hooks = {
-	.set = param_set_nf_hooks,
+static const struct kernel_param_ops param_ops_nf_audit_hooks = {
+	.set = param_set_nf_audit_hooks,
 	.get = 0,
 };
 
@@ -198,7 +198,7 @@ static const struct kernel_param_ops param_ops_uids = {
 	MODULE_PARM_DESC(name, param_desc)
 
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NF_USE_USER, &param_ops_nf_use_user, &default_arg.nf.use_user, 0000, ARG_CONSTANT_DESC_NF_USE_USER);
-DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NF_HOOKS, &param_ops_nf_hooks, &default_arg.nf.hooks, 0000, ARG_CONSTANT_DESC_NF_HOOKS);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NF_AUDIT_HOOKS, &param_ops_nf_audit_hooks, &default_arg.nf.audit_hooks, 0000, ARG_CONSTANT_DESC_NF_AUDIT_HOOKS);
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NF_MONITOR_CT, &param_ops_nf_monitor_ct, &default_arg.nf.monitor_ct, 0000, ARG_CONSTANT_DESC_NF_MONITOR_CT);
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NETWORK_IO, &param_ops_network_io, &default_arg.network_io, 0000, ARG_CONSTANT_DESC_NETWORK_IO);
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_INCLUDE_NS_INFO, &param_ops_include_ns_info, &default_arg.include_ns_info, 0000, ARG_CONSTANT_DESC_INCLUDE_NS_INFO);

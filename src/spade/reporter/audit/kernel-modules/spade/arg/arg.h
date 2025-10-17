@@ -86,9 +86,9 @@ struct arg_user
 struct arg_netfilter
 {
     /*
-        Flag to enable/disable netfilter hooks.
+        Flag to audit hooks.
     */
-    bool hooks;
+    bool audit_hooks;
 
     /*
         Filter outgoing packets on netfilter hooks based on existing user criteria in arguments.

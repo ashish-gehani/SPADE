@@ -138,6 +138,11 @@ bool global_is_netfilter_loggable_by_conntrack_info(
 bool global_is_netfilter_logging_ns_info(void);
 
 /*
+    Check if netfilter hooks are being audited.
+*/
+bool global_is_netfilter_audit_hooks_on(void);
+
+/*
     Check if namespace info is to be included in network events.
 */
 bool global_is_network_logging_ns_info(void);

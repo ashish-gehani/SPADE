@@ -48,6 +48,7 @@ enum filter_func_type
     FFT_NF_LOGGABLE_BY_USER,
     FFT_NF_LOGGABLE_BY_CONNTRACK_INFO,
     FFT_NF_LOGGING_NS_INFO,
+    FFT_NF_AUDIT_HOOKS_ON,
     FFT_NETWORK_LOGGING_NS_INFO,
     FFT_SYSCALL_LOGGABLE,
     FFT_SYSCALL_LOGGABLE_BY_SYS_NUM,
@@ -84,6 +85,11 @@ struct filter_func_is_netfilter_loggable_by_conntrack_info
 };
 
 struct filter_func_is_netfilter_logging_ns_info
+{
+    bool result_expected;
+};
+
+struct filter_func_is_netfilter_audit_hooks_on
 {
     bool result_expected;
 };
@@ -138,6 +144,7 @@ union filter_func_union
     struct filter_func_is_netfilter_loggable_by_user is_netfilter_loggable_by_user;
     struct filter_func_is_netfilter_loggable_by_conntrack_info is_netfilter_loggable_by_conntrack_info;
     struct filter_func_is_netfilter_logging_ns_info is_netfilter_logging_ns_info;
+    struct filter_func_is_netfilter_audit_hooks_on is_netfilter_audit_hooks_on;
     struct filter_func_is_network_logging_ns_info is_network_logging_ns_info;
     struct filter_func_is_syscall_loggable is_syscall_loggable;
     struct filter_func_is_syscall_loggable_by_sys_num is_syscall_loggable_by_sys_num;
@@ -200,6 +207,20 @@ struct test_config
         }, \
         .ff = { \
             .is_netfilter_logging_ns_info = { \
+                .result_expected = a_result \
+            } \
+        } \
+    }
+
+#define _CREATE_NF_FF_AUDIT_HOOKS_ON(a_id, a_result) \
+    { \
+        .header = { \
+            .type = FFT_NF_AUDIT_HOOKS_ON, \
+            .id = a_id, \
+            .test = handle_filter_func_is_netfilter_audit_hooks_on, \
+        }, \
+        .ff = { \
+            .is_netfilter_audit_hooks_on = { \
                 .result_expected = a_result \
             } \
         } \
@@ -341,6 +362,10 @@ struct test_config
 #define _CREATE_NF_LOGGING_NS_INFO(a_incl_ns) \
     _CREATE_NF_FF_LOGGING_NS_INFO("nf_logging_ns_info", ((a_incl_ns) == true))
 
+// Wrapper macro for netfilter audit hooks on
+#define _CREATE_NF_AUDIT_HOOKS_ON(a_audit_hooks) \
+    _CREATE_NF_FF_AUDIT_HOOKS_ON("nf_audit_hooks_on", ((a_audit_hooks) == true))
+
 // Wrapper macros for netfilter loggable by conntrack info tests
 #define _CREATE_NF_LOGGABLE_BY_CONNTRACK_ESTABLISHED(a_m_ct) \
     _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_estblshd_match_all", IP_CT_ESTABLISHED, ((a_m_ct) == AMMC_ALL))
@@ -461,6 +486,14 @@ static bool handle_filter_func_is_netfilter_logging_ns_info(
     return f->result_expected == global_is_netfilter_logging_ns_info();
 }
 
+static bool handle_filter_func_is_netfilter_audit_hooks_on(
+    union filter_func_union *ffu
+)
+{
+    struct filter_func_is_netfilter_audit_hooks_on* f = &ffu->is_netfilter_audit_hooks_on;
+    return f->result_expected == global_is_netfilter_audit_hooks_on();
+}
+
 static bool handle_filter_func_is_network_logging_ns_info(
     union filter_func_union *ffu
 )
@@ -527,13 +560,14 @@ static const struct test_config TC_LIST[] = {
         .id = "nf_capture_all_ct_for_u_1001_with_ns",
         .arg = {
             .include_ns_info = true,
-            .nf = { .hooks = true, .monitor_ct = AMMC_ALL, .use_user = true },
+            .nf = { .audit_hooks = false, .monitor_ct = AMMC_ALL, .use_user = true },
             .user = { .uid_monitor_mode = AMM_CAPTURE, .uids = { .len = 1, .arr = {1001} } } 
         },
         .ff_list = {
             .list = {
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_CAPTURE, 1001),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGING_NS_INFO(true),
+                _CREATE_NF_AUDIT_HOOKS_ON(false),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(AMMC_ALL),
                 {}
             }
@@ -544,13 +578,14 @@ static const struct test_config TC_LIST[] = {
         .id = "nf_capture_only_new_ct_for_u_1001_without_ns",
         .arg = {
             .include_ns_info = false,
-            .nf = { .hooks = true, .monitor_ct = AMMC_ONLY_NEW, .use_user = true },
-            .user = { .uid_monitor_mode = AMM_CAPTURE, .uids = { .len = 1, .arr = {1001} } } 
+            .nf = { .audit_hooks = true, .monitor_ct = AMMC_ONLY_NEW, .use_user = true },
+            .user = { .uid_monitor_mode = AMM_CAPTURE, .uids = { .len = 1, .arr = {1001} } }
         },
         .ff_list = {
             .list = {
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_CAPTURE, 1001),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGING_NS_INFO(false),
+                _CREATE_NF_AUDIT_HOOKS_ON(true),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(AMMC_ONLY_NEW),
                 {}
             }
@@ -561,13 +596,14 @@ static const struct test_config TC_LIST[] = {
         .id = "nf_ignore_all_ct_for_u_1001_with_ns",
         .arg = {
             .include_ns_info = true,
-            .nf = { .hooks = true, .monitor_ct = AMMC_ALL, .use_user = true },
-            .user = { .uid_monitor_mode = AMM_IGNORE, .uids = { .len = 1, .arr = {1001} } } 
+            .nf = { .audit_hooks = true, .monitor_ct = AMMC_ALL, .use_user = true },
+            .user = { .uid_monitor_mode = AMM_IGNORE, .uids = { .len = 1, .arr = {1001} } }
         },
         .ff_list = {
             .list = {
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_IGNORE, 1001),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGING_NS_INFO(true),
+                _CREATE_NF_AUDIT_HOOKS_ON(true),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(AMMC_ALL),
                 {}
             }
@@ -578,13 +614,14 @@ static const struct test_config TC_LIST[] = {
         .id = "nf_ignore_only_new_ct_for_u_1001_with_ns",
         .arg = {
             .include_ns_info = true,
-            .nf = { .hooks = true, .monitor_ct = AMMC_ONLY_NEW, .use_user = true },
-            .user = { .uid_monitor_mode = AMM_IGNORE, .uids = { .len = 1, .arr = {1001} } } 
+            .nf = { .audit_hooks = true, .monitor_ct = AMMC_ONLY_NEW, .use_user = true },
+            .user = { .uid_monitor_mode = AMM_IGNORE, .uids = { .len = 1, .arr = {1001} } }
         },
         .ff_list = {
             .list = {
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_IGNORE, 1001),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGING_NS_INFO(true),
+                _CREATE_NF_AUDIT_HOOKS_ON(true),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(AMMC_ONLY_NEW),
                 {}
             }
@@ -595,7 +632,7 @@ static const struct test_config TC_LIST[] = {
         .id = "nf_capture_all_users_because_not_using_users",
         .arg = {
             .include_ns_info = true,
-            .nf = { .hooks = true, .monitor_ct = AMMC_ALL, .use_user = false },
+            .nf = { .audit_hooks = true, .monitor_ct = AMMC_ALL, .use_user = false },
             .user = { .uid_monitor_mode = AMM_IGNORE, .uids = { .len = 1, .arr = {1001} } } 
         },
         .ff_list = {
@@ -611,7 +648,7 @@ static const struct test_config TC_LIST[] = {
         .id = "network_logging_with_ns",
         .arg = {
             .include_ns_info = true,
-            .nf = { .hooks = true, .monitor_ct = AMMC_ALL, .use_user = true },
+            .nf = { .audit_hooks = true, .monitor_ct = AMMC_ALL, .use_user = true },
             .user = { .uid_monitor_mode = AMM_CAPTURE, .uids = { .len = 1, .arr = {1001} } } 
         },
         .ff_list = {

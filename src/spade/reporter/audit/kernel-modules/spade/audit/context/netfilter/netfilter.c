@@ -47,6 +47,7 @@ int context_netfilter_init(struct context_netfilter *ctx, struct arg *arg)
     if (!ctx || !arg)
         return -EINVAL;
 
+    ctx->audit_hooks = arg->nf.audit_hooks;
     ctx->include_ns_info = arg->include_ns_info;
     ctx->monitor_ct = arg->nf.monitor_ct;
     ctx->use_user = arg->nf.use_user;
