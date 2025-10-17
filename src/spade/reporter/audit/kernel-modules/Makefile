@@ -40,6 +40,7 @@ ARG_OBJS := \
 
 CONFIG_OBJS := \
   spade/config/config.o \
+  spade/config/load.o \
   spade/config/print.o
 
 CONTEXT_OBJS := \
@@ -104,8 +105,6 @@ STATE_OBJS := \
   spade/audit/state/netfilter/print.o \
   spade/audit/state/syscall/hook/ftrace/ftrace.o \
   spade/audit/state/syscall/hook/ftrace/print.o \
-  spade/audit/state/syscall/hook/table/table.o \
-  spade/audit/state/syscall/hook/table/print.o \
   spade/audit/state/syscall/hook/hook.o \
   spade/audit/state/syscall/hook/print.o \
   spade/audit/state/syscall/namespace/namespace.o \

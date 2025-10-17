@@ -25,7 +25,6 @@
 
 enum config_syscall_hook_type
 {
-    CONFIG_SYSCALL_HOOK_TABLE,
     CONFIG_SYSCALL_HOOK_FTRACE
 };
 

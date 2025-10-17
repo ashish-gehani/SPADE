@@ -49,13 +49,5 @@ typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
 */
 kallsyms_lookup_name_t helper_kernel_get_kallsyms_func(void);
 
-/*
-    Get syscall table address.
-
-    Returns:
-        Non-null    -> Success.
-        NULL        -> Error.
-*/
-unsigned long* helper_kernel_get_syscall_table_addr(void);
 
 #endif // _SPADE_AUDIT_HELPER_KERNEL_H

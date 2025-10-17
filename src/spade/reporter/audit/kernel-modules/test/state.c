@@ -162,13 +162,6 @@ void test_state_init_basic(struct test_stats *stats)
         return;
     }
 
-    if (state.syscall.hook.table.initialized)
-    {
-        TEST_FAIL(stats, test_name, "state.syscall.hook.table is marked as initialized");
-        ensure_state_deinit();
-        return;
-    }
-
     if (!state.syscall.hook.ftrace.initialized)
     {
         TEST_FAIL(stats, test_name, "state.syscall.hook.ftrace not marked as initialized");

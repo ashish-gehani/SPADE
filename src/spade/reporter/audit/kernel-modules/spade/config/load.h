@@ -18,28 +18,27 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_STATE_SYSCALL_HOOK_TABLE_PRINT_H
-#define SPADE_AUDIT_STATE_SYSCALL_HOOK_TABLE_PRINT_H
+#ifndef SPADE_AUDIT_CONFIG_LOAD_H
+#define SPADE_AUDIT_CONFIG_LOAD_H
 
-#include "spade/audit/state/syscall/hook/table/table.h"
-#include "spade/util/seqbuf/seqbuf.h"
+#include "spade/config/config.h"
 
+/**
+ * Load configuration from a text file
+ *
+ * @param filepath Path to the configuration file
+ * @param config Pointer to config structure to populate
+ * @return 0 on success, negative error code on failure
+ */
+int config_load_from_file(const char *filepath, struct config *config);
 
-/*
-    Write the state_syscall_hook_table struct to a seqbuf.
+/**
+ * Parse a configuration line
+ *
+ * @param line Line to parse (format: "key=value")
+ * @param config Pointer to config structure to update
+ * @return 0 on success, negative error code on failure
+ */
+int config_parse_line(const char *line, struct config *config);
 
-    Params:
-        b       : The seqbuf to write to.
-        state   : The state_syscall_hook_table struct to print.
-*/
-void state_syscall_hook_table_write_to_seqbuf(struct seqbuf *b, const struct state_syscall_hook_table *state);
-
-/*
-    Print the state_syscall_hook_table struct to kernel log.
-
-    Params:
-        state   : The state_syscall_hook_table struct to print.
-*/
-void state_syscall_hook_table_print(const struct state_syscall_hook_table *state);
-
-#endif // SPADE_AUDIT_STATE_SYSCALL_HOOK_TABLE_PRINT_H
+#endif // SPADE_AUDIT_CONFIG_LOAD_H

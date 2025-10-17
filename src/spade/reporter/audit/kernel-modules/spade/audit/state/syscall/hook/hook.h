@@ -23,7 +23,6 @@
 
 #include <linux/kernel.h>
 
-#include "spade/audit/state/syscall/hook/table/table.h"
 #include "spade/audit/state/syscall/hook/ftrace/ftrace.h"
 
 
@@ -32,8 +31,6 @@ struct state_syscall_hook
     bool initialized;
 
     bool dry_run;
-
-    struct state_syscall_hook_table table;
 
     struct state_syscall_hook_ftrace ftrace;
 };

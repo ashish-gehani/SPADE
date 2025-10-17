@@ -37,9 +37,6 @@ static void seqbuf_print_config_syscall_hook_type(struct seqbuf *b, char *config
 
     switch (sys_hook_type)
     {
-    case CONFIG_SYSCALL_HOOK_TABLE:
-        str_sys_hook_type = "table";
-        break;
     case CONFIG_SYSCALL_HOOK_FTRACE:
         str_sys_hook_type = "ftrace";
         break;

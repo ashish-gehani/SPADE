@@ -59,24 +59,3 @@ kallsyms_lookup_name_t helper_kernel_get_kallsyms_func(void)
 
     return kallsyms_lookup_name;
 }
-
-unsigned long* helper_kernel_get_syscall_table_addr(void)
-{
-    unsigned long symbol_address = 0;
-    kallsyms_lookup_name_t kallsyms_lookup_name;
-
-    kallsyms_lookup_name = helper_kernel_get_kallsyms_func();
-
-    if (!kallsyms_lookup_name)
-    {
-        return NULL;
-    }
-
-	symbol_address = kallsyms_lookup_name("sys_call_table");
-	if (symbol_address == 0)
-    {
-        util_log_warn("helper_kernel_get_syscall_table_addr", "Failed to get sys_call_table symbol");
-        return NULL;
-    }
-    return (unsigned long*)symbol_address;
-}
