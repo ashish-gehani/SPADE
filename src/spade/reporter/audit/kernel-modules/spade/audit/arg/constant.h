@@ -49,16 +49,16 @@
 #define ARG_CONSTANT_NAME_UIDS_STR                       STRINGIFY(ARG_CONSTANT_NAME_UIDS)
 
 /* Descriptions */
-#define ARG_CONSTANT_DESC_NF_USE_USER        "In netfilter hooks, filter packet logging based on user criteria. Default: 0. Options: 0=false, 1=true."
-#define ARG_CONSTANT_DESC_NF_AUDIT_HOOKS     "Audit netfilter hooks. Default: 0. Options: 0=false, 1=true."
-#define ARG_CONSTANT_DESC_NF_MONITOR_CT      "Monitor packets by connection state. Default: all. Options: -1=all, 0=only_new."
-#define ARG_CONSTANT_DESC_MONITOR_SYSCALLS   "Monitor system calls by result. Default: only_successful. Options: -1=all, 0=only_failed, 1=only_successful."
-#define ARG_CONSTANT_DESC_NETWORK_IO         "Enable network IO monitoring. Default: 0. Options: 0=false, 1=true."
-#define ARG_CONSTANT_DESC_INCLUDE_NS_INFO    "Include namespace information in monitoring. Default: 0. Options: 0=false, 1=true."
-#define ARG_CONSTANT_DESC_IGNORE_PIDS        "List of process ids to ignore. Default: []."
-#define ARG_CONSTANT_DESC_IGNORE_PPIDS       "List of parent process ids to ignore. Default: []."
-#define ARG_CONSTANT_DESC_UID_MONITOR_MODE   "Monitoring mode for the list of user ids. Default: ignore. Options: 0=capture, 1=ignore."
-#define ARG_CONSTANT_DESC_UIDS               "List of user ids to ignore. Default: []."
+#define ARG_CONSTANT_DESC_NF_USE_USER        "In netfilter hooks, filter packet logging based on user criteria. Default: 0. Options: 0 (log for all user), 1 (log based on user criteria)"
+#define ARG_CONSTANT_DESC_NF_AUDIT_HOOKS     "Audit netfilter hooks. Default: 0. Options: 0 (Audit hooks), 1 (Do not audit hooks)"
+#define ARG_CONSTANT_DESC_NF_MONITOR_CT      "Monitor packets by connection state. Default: all. Options: -1 (Monitor packets with all connection states), 0 (Monitor packets with only new connection states)"
+#define ARG_CONSTANT_DESC_MONITOR_SYSCALLS   "Monitor system calls by result. Default: 1. Options: -1 (Monitor syscalls with any result), 0 (Monitor failed syscalls), 1 (Monitor successful syscalls)"
+#define ARG_CONSTANT_DESC_NETWORK_IO         "Enable network IO monitoring. Default: 0. Options: 0 (Do not monitor network IO syscalls), 1 (Monitor network IO syscalls)"
+#define ARG_CONSTANT_DESC_INCLUDE_NS_INFO    "Include namespace information in monitoring. Default: 0. Options: 0 (Do not include namespace events and info in msgs), 1 (Include namespace events and info in msgs)"
+#define ARG_CONSTANT_DESC_IGNORE_PIDS        "List of process ids to ignore. Default: empty list"
+#define ARG_CONSTANT_DESC_IGNORE_PPIDS       "List of parent process ids to ignore. Default: empty list"
+#define ARG_CONSTANT_DESC_UID_MONITOR_MODE   "Monitoring mode for the list of user ids. Default: 1. Options: 0 (Capture the specified list of user ids), 1 (Ignore the specified list of user ids)"
+#define ARG_CONSTANT_DESC_UIDS               "List of user ids to ignore. Default: empty list"
 
 #endif // _SPADE_ARG_CONSTANT_H
 
