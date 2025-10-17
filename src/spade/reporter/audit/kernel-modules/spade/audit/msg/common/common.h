@@ -35,8 +35,8 @@ enum msg_common_type
 {
     MSG_NAMESPACES,
     MSG_NETFILTER,
-    MSG_NETIO_INTERCEPTED,
-    MSG_UBSI_INTERCEPTED
+    MSG_NETWORK,
+    MSG_UBSI
 };
 
 // 'msg_common_header' must be the first struct in any msg.

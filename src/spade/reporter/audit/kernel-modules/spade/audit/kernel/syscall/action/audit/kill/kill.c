@@ -31,7 +31,7 @@
 #include "spade/util/log/log.h"
 
 
-static const enum msg_common_type GLOBAL_MSG_TYPE = MSG_UBSI_INTERCEPTED;
+static const enum msg_common_type GLOBAL_MSG_TYPE = MSG_UBSI;
 
 
 static bool _is_valid_sys_ctx(struct kernel_syscall_context_post *sys_ctx)

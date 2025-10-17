@@ -31,7 +31,7 @@ static struct msg_common_version default_version = {
     .minor = 0,
     .patch = 0
 };
-static enum msg_common_type default_msg_type = MSG_NETIO_INTERCEPTED;
+static enum msg_common_type default_msg_type = MSG_NETWORK;
 
 
 int msg_network_create(

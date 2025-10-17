@@ -44,7 +44,7 @@ static int _to_audit_str(struct seqbuf *b, struct msg_common_header *msg)
     if (!b || !msg)
         return -EINVAL;
 
-    if (msg->msg_type != MSG_NETIO_INTERCEPTED)
+    if (msg->msg_type != MSG_NETWORK)
         return -EINVAL;
 
     msg_ptr = (struct msg_network *)msg;

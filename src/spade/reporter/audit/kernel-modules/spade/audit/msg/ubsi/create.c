@@ -30,7 +30,7 @@ static struct msg_common_version default_version = {
     .minor = 0,
     .patch = 0
 };
-static enum msg_common_type default_msg_type = MSG_UBSI_INTERCEPTED;
+static enum msg_common_type default_msg_type = MSG_UBSI;
 
 
 int msg_ubsi_create(

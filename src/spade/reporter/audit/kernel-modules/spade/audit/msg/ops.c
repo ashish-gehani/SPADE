@@ -35,8 +35,8 @@ const struct msg_ops* msg_ops_get(enum msg_common_type type)
     {
         case MSG_NAMESPACES         : return msg_namespace_ops_get();
         case MSG_NETFILTER          : return msg_netfilter_ops_get();
-        case MSG_NETIO_INTERCEPTED  : return msg_network_ops_get();
-        case MSG_UBSI_INTERCEPTED   : return msg_ubsi_ops_get();
+        case MSG_NETWORK  : return msg_network_ops_get();
+        case MSG_UBSI   : return msg_ubsi_ops_get();
         default                     : return NULL;
     }
 }

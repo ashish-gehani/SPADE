@@ -44,7 +44,7 @@ static int _to_audit_str(struct seqbuf *b, struct msg_common_header *msg)
     if (!b || !msg)
         return -EINVAL;
 
-    if (msg->msg_type != MSG_UBSI_INTERCEPTED)
+    if (msg->msg_type != MSG_UBSI)
         return -EINVAL;
 
     msg_ptr = (struct msg_ubsi *)msg;

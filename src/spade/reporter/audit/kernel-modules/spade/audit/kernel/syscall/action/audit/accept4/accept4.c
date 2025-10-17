@@ -30,7 +30,7 @@
 #include "spade/audit/helper/audit_log.h"
 
 
-static const enum msg_common_type GLOBAL_MSG_TYPE = MSG_NETIO_INTERCEPTED;
+static const enum msg_common_type GLOBAL_MSG_TYPE = MSG_NETWORK;
 
 
 static bool _is_valid_sys_ctx(struct kernel_syscall_context_post *sys_ctx)

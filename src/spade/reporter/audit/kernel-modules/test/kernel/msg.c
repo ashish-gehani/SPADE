@@ -429,8 +429,8 @@ static const struct msg_test_config MSG_TEST_CONFIGS[] = {
         }
     },
     {
-        .type = MSG_NETIO_INTERCEPTED,
-        .name = "MSG_NETIO_INTERCEPTED",
+        .type = MSG_NETWORK,
+        .name = "MSG_NETWORK",
         .size = sizeof(struct msg_network),
         .version = {.major = 1, .minor = 0, .patch = 0},
         .serialize_configs = {
@@ -449,8 +449,8 @@ static const struct msg_test_config MSG_TEST_CONFIGS[] = {
         }
     },
     {
-        .type = MSG_UBSI_INTERCEPTED,
-        .name = "MSG_UBSI_INTERCEPTED",
+        .type = MSG_UBSI,
+        .name = "MSG_UBSI",
         .size = sizeof(struct msg_ubsi),
         .version = {.major = 1, .minor = 0, .patch = 0},
         .serialize_configs = {
