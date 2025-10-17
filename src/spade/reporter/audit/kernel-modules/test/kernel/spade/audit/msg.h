@@ -18,19 +18,16 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _TEST_CONTEXT_H
-#define _TEST_CONTEXT_H
+#ifndef _TEST_KERNEL_SPADE_AUDIT_MSG_H
+#define _TEST_KERNEL_SPADE_AUDIT_MSG_H
 
 #include <linux/kernel.h>
 #include <linux/string.h>
 
-#include "spade/audit/context/context.h"
-#include "spade/audit/arg/arg.h"
-#include "spade/audit/arg/parse.h"
-#include "test/kernel/common.h"
+#include "test/kernel/spade/audit/common.h"
 
 
-int test_context_all(struct test_stats *stats);
+int test_msg_all(struct test_stats *stats);
 
 
-#endif // _TEST_CONTEXT_H
+#endif // _TEST_KERNEL_SPADE_AUDIT_MSG_H

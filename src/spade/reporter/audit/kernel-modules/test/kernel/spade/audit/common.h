@@ -18,29 +18,42 @@
  --------------------------------------------------------------------------------
  */
 
-#include "test/kernel/common.h"
+#ifndef _TEST_KERNEL_SPADE_AUDIT_COMMON_H
+#define _TEST_KERNEL_SPADE_AUDIT_COMMON_H
+
 #include "spade/util/log/log.h"
+
+/*
+    Test statistics structure to track test execution.
+*/
+struct test_stats {
+	int total;
+	int passed;
+	int failed;
+};
+
+/*
+    Test result macros for reporting test pass/fail status.
+    These macros automatically update the test statistics.
+*/
+#define TEST_PASS(stats, test_name) do { \
+	util_log_info(test_name, "PASS"); \
+	(stats)->passed++; \
+} while (0)
+
+#define TEST_FAIL(stats, test_name, fmt, ...) do { \
+	util_log_warn(test_name, "FAIL: " fmt, ##__VA_ARGS__); \
+	(stats)->failed++; \
+} while (0)
 
 /*
     Initialize test statistics.
 */
-void test_stats_init(struct test_stats *stats)
-{
-	if (stats) {
-		stats->total = 0;
-		stats->passed = 0;
-		stats->failed = 0;
-	}
-}
+void test_stats_init(struct test_stats *stats);
 
 /*
     Log test statistics summary.
 */
-void test_stats_log(const char *module_name, struct test_stats *stats)
-{
-	if (!module_name || !stats)
-		return;
+void test_stats_log(const char *module_name, struct test_stats *stats);
 
-	util_log_info(module_name, "Tests: %d total, %d passed, %d failed",
-		stats->total, stats->passed, stats->failed);
-}
+#endif // _TEST_KERNEL_SPADE_AUDIT_COMMON_H

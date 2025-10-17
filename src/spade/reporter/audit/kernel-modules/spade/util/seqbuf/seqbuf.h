@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_UTIL_SEQBUF_SEQBUF_H
-#define SPADE_AUDIT_UTIL_SEQBUF_SEQBUF_H
+#ifndef SPADE_UTIL_SEQBUF_SEQBUF_H
+#define SPADE_UTIL_SEQBUF_SEQBUF_H
 
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -43,4 +43,4 @@ bool util_seqbuf_has_overflowed(const struct seqbuf *sb);
 
 int __printf(2, 3) util_seqbuf_printf(struct seqbuf *sb, const char *fmt, ...);
 
-#endif // SPADE_AUDIT_UTIL_SEQBUF_SEQBUF_H
+#endif // SPADE_UTIL_SEQBUF_SEQBUF_H

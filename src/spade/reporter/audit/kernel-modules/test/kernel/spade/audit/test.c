@@ -24,18 +24,18 @@
 #include <linux/param.h>
 #include <linux/string.h>
 
-#include "test/kernel/test.h"
+#include "test/kernel/spade/audit/test.h"
 #include "spade/audit/config/config.h"
 #include "spade/audit/arg/arg.h"
 #include "spade/audit/arg/parse.h"
 #include "spade/audit/arg/print.h"
 #include "spade/util/log/module.h"
 
-#include "test/kernel/arg.h"
-#include "test/kernel/context.h"
-#include "test/kernel/global.h"
-#include "test/kernel/msg.h"
-#include "test/kernel/state.h"
+#include "test/kernel/spade/audit/arg.h"
+#include "test/kernel/spade/audit/context.h"
+#include "test/kernel/spade/audit/global.h"
+#include "test/kernel/spade/audit/msg.h"
+#include "test/kernel/spade/audit/state.h"
 
 
 MODULE_LICENSE("GPL");

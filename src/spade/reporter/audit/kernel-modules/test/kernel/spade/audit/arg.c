@@ -21,7 +21,7 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 
-#include "test/kernel/arg.h"
+#include "test/kernel/spade/audit/arg.h"
 
 
 static char g_too_big_array[2048];

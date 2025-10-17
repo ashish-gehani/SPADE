@@ -22,8 +22,8 @@
 #include <linux/kernel.h>
 
 
-#ifndef _SPADE_AUDIT_UTIL_LOG_LOG_H
-#define _SPADE_AUDIT_UTIL_LOG_LOG_H
+#ifndef _SPADE_UTIL_LOG_LOG_H
+#define _SPADE_UTIL_LOG_LOG_H
 
 /*
     Add a warning to dmesg log.
@@ -44,4 +44,4 @@ int __printf(2, 3) util_log_debug(const char *log_id, const char *fmt, ...);
 
 int __printf(3, 4) util_log_raw(const char *level, const char *log_id, const char *fmt, ...);
 
-#endif // _SPADE_AUDIT_UTIL_LOG_LOG_H
+#endif // _SPADE_UTIL_LOG_LOG_H

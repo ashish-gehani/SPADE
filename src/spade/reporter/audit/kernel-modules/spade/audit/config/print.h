@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_CONFIG_PRINT_H
-#define _SPADE_CONFIG_PRINT_H
+#ifndef _SPADE_AUDIT_CONFIG_PRINT_H
+#define _SPADE_AUDIT_CONFIG_PRINT_H
 
 #include "spade/audit/config/config.h"
 
@@ -31,4 +31,4 @@
 */
 void config_print(const struct config *config);
 
-#endif // _SPADE_CONFIG_PRINT_H
+#endif // _SPADE_AUDIT_CONFIG_PRINT_H

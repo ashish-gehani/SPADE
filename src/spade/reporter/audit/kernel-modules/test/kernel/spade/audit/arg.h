@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2025 SRI International
+ Copyright (C) 2015 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -18,17 +18,20 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _TEST_STATE_H
-#define _TEST_STATE_H
+#ifndef _TEST_KERNEL_SPADE_AUDIT_ARG_H
+#define _TEST_KERNEL_SPADE_AUDIT_ARG_H
 
 #include <linux/kernel.h>
 #include <linux/string.h>
 
-#include "spade/audit/state/state.h"
-#include "test/kernel/common.h"
+#include "spade/audit/config/config.h"
+#include "spade/audit/arg/arg.h"
+#include "spade/audit/arg/parse.h"
+#include "spade/audit/arg/print.h"
+#include "test/kernel/spade/audit/common.h"
 
 
-int test_state_all(struct test_stats *stats);
+int test_arg_all(struct test_stats *stats);
 
 
-#endif // _TEST_STATE_H
+#endif // _TEST_KERNEL_SPADE_AUDIT_ARG_H

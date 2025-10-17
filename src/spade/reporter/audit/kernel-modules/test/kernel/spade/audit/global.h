@@ -18,16 +18,16 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _TEST_MSG_H
-#define _TEST_MSG_H
+#ifndef _TEST_KERNEL_SPADE_AUDIT_GLOBAL_H
+#define _TEST_KERNEL_SPADE_AUDIT_GLOBAL_H
 
 #include <linux/kernel.h>
 #include <linux/string.h>
 
-#include "test/kernel/common.h"
+#include "test/kernel/spade/audit/common.h"
 
 
-int test_msg_all(struct test_stats *stats);
+int test_global_all(struct test_stats *stats);
 
 
-#endif // _TEST_MSG_H
+#endif // _TEST_KERNEL_SPADE_AUDIT_GLOBAL_H

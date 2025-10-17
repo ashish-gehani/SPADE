@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_ARG_CONSTANT_H
-#define _SPADE_ARG_CONSTANT_H
+#ifndef _SPADE_AUDIT_ARG_CONSTANT_H
+#define _SPADE_AUDIT_ARG_CONSTANT_H
 
 #define __STRINGIFY(x) #x
 #define STRINGIFY(x)   __STRINGIFY(x)
@@ -49,7 +49,7 @@
 #define ARG_CONSTANT_NAME_UIDS_STR                       STRINGIFY(ARG_CONSTANT_NAME_UIDS)
 
 /* Descriptions */
-#define ARG_CONSTANT_DESC_NF_USE_USER        "In netfilter hooks, filter packet logging based on user criteria. Default: 0. Options: 0 (log for all user), 1 (log based on user criteria)"
+#define ARG_CONSTANT_DESC_NF_USE_USER        "In netfilter hooks, filter packet logging based on user criteria. Default: 0. Options: 0 (log packets for all user), 1 (log packets based on user criteria)"
 #define ARG_CONSTANT_DESC_NF_AUDIT_HOOKS     "Audit netfilter hooks. Default: 0. Options: 0 (Audit hooks), 1 (Do not audit hooks)"
 #define ARG_CONSTANT_DESC_NF_MONITOR_CT      "Monitor packets by connection state. Default: all. Options: -1 (Monitor packets with all connection states), 0 (Monitor packets with only new connection states)"
 #define ARG_CONSTANT_DESC_MONITOR_SYSCALLS   "Monitor system calls by result. Default: 1. Options: -1 (Monitor syscalls with any result), 0 (Monitor failed syscalls), 1 (Monitor successful syscalls)"
@@ -60,5 +60,5 @@
 #define ARG_CONSTANT_DESC_UID_MONITOR_MODE   "Monitoring mode for the list of user ids. Default: 1. Options: 0 (Capture the specified list of user ids), 1 (Ignore the specified list of user ids)"
 #define ARG_CONSTANT_DESC_UIDS               "List of user ids to ignore. Default: empty list"
 
-#endif // _SPADE_ARG_CONSTANT_H
+#endif // _SPADE_AUDIT_ARG_CONSTANT_H
 

@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_ARG_H
-#define _SPADE_ARG_H
+#ifndef _SPADE_AUDIT_ARG_H
+#define _SPADE_AUDIT_ARG_H
 
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -139,4 +139,4 @@ struct arg
     struct arg_netfilter nf;
 };
 
-#endif // _SPADE_ARG_H
+#endif // _SPADE_AUDIT_ARG_H

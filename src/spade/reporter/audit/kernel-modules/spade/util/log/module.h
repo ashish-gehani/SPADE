@@ -21,8 +21,8 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 
-#ifndef _SPADE_AUDIT_UTIL_LOG_MODULE_H
-#define _SPADE_AUDIT_UTIL_LOG_MODULE_H
+#ifndef _SPADE_UTIL_LOG_MODULE_H
+#define _SPADE_UTIL_LOG_MODULE_H
 
 /*
     Add module loading-started marker to log.
@@ -43,4 +43,4 @@ int util_log_module_unloading_success(void);
 
 int util_log_module_unloading_failure(void);
 
-#endif // _SPADE_AUDIT_UTIL_LOG_MODULE_H
+#endif // _SPADE_UTIL_LOG_MODULE_H

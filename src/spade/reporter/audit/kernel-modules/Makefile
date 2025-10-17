@@ -160,13 +160,13 @@ spade_audit_test-y := \
   $(SYSCALL_ACTION_OBJS) \
   $(SYSCALL_HOOK_FUNC_OBJS) \
   $(UTIL_OBJS) \
-  test/kernel/arg.o \
-  test/kernel/context.o \
-  test/kernel/common.o \
-  test/kernel/global.o \
-  test/kernel/msg.o \
-  test/kernel/state.o \
-  test/kernel/test.o
+  test/kernel/spade/audit/arg.o \
+  test/kernel/spade/audit/context.o \
+  test/kernel/spade/audit/common.o \
+  test/kernel/spade/audit/global.o \
+  test/kernel/spade/audit/msg.o \
+  test/kernel/spade/audit/state.o \
+  test/kernel/spade/audit/test.o
 
 ###
 

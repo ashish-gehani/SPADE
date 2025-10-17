@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_ARG_PRINT_H
-#define _SPADE_ARG_PRINT_H
+#ifndef _SPADE_AUDIT_ARG_PRINT_H
+#define _SPADE_AUDIT_ARG_PRINT_H
 
 #include "spade/audit/arg/arg.h"
 
@@ -31,4 +31,4 @@
 */
 void arg_print(const struct arg *arg);
 
-#endif // _SPADE_ARG_PRINT_H
+#endif // _SPADE_AUDIT_ARG_PRINT_H

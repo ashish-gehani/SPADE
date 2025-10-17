@@ -30,8 +30,8 @@
 #include "spade/util/log/log.h"
 #include "spade/audit/global/global.h"
 
-#include "test/kernel/common.h"
-#include "test/kernel/global.h"
+#include "test/kernel/spade/audit/common.h"
+#include "test/kernel/spade/audit/global.h"
 
 //
 

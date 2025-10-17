@@ -18,20 +18,9 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _TEST_ARG_H
-#define _TEST_ARG_H
+#ifndef TEST_TEST_KERNEL_SPADE_AUDIT_H
+#define TEST_TEST_KERNEL_SPADE_AUDIT_H
 
-#include <linux/kernel.h>
-#include <linux/string.h>
+extern const char *SPADE_MODULE_NAME;
 
-#include "spade/audit/config/config.h"
-#include "spade/audit/arg/arg.h"
-#include "spade/audit/arg/parse.h"
-#include "spade/audit/arg/print.h"
-#include "test/kernel/common.h"
-
-
-int test_arg_all(struct test_stats *stats);
-
-
-#endif // _TEST_ARG_H
+#endif // TEST_TEST_KERNEL_SPADE_AUDIT_H

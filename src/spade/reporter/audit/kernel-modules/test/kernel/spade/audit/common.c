@@ -18,16 +18,29 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _TEST_GLOBAL_H
-#define _TEST_GLOBAL_H
+#include "test/kernel/spade/audit/common.h"
+#include "spade/util/log/log.h"
 
-#include <linux/kernel.h>
-#include <linux/string.h>
+/*
+    Initialize test statistics.
+*/
+void test_stats_init(struct test_stats *stats)
+{
+	if (stats) {
+		stats->total = 0;
+		stats->passed = 0;
+		stats->failed = 0;
+	}
+}
 
-#include "test/kernel/common.h"
+/*
+    Log test statistics summary.
+*/
+void test_stats_log(const char *module_name, struct test_stats *stats)
+{
+	if (!module_name || !stats)
+		return;
 
-
-int test_global_all(struct test_stats *stats);
-
-
-#endif // _TEST_GLOBAL_H
+	util_log_info(module_name, "Tests: %d total, %d passed, %d failed",
+		stats->total, stats->passed, stats->failed);
+}

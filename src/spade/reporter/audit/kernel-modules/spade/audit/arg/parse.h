@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_ARG_PARSE_H
-#define _SPADE_ARG_PARSE_H
+#ifndef _SPADE_AUDIT_ARG_PARSE_H
+#define _SPADE_AUDIT_ARG_PARSE_H
 
 #include "spade/audit/arg/arg.h"
 
@@ -131,4 +131,4 @@ int arg_parse_monitor_connections(
 	const char *val, enum arg_monitor_connections *dst
 );
 
-#endif // _SPADE_ARG_PARSE_H
+#endif // _SPADE_AUDIT_ARG_PARSE_H
