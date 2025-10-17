@@ -19,7 +19,7 @@
  */
 
 #include "spade/audit/context/syscall/print.h"
-#include "spade/arg/constant.h"
+#include "spade/audit/arg/constant.h"
 #include "spade/util/print/print.h"
 
 

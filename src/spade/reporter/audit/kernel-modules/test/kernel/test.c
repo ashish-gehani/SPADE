@@ -26,9 +26,9 @@
 
 #include "test/kernel/test.h"
 #include "spade/config/config.h"
-#include "spade/arg/arg.h"
-#include "spade/arg/parse.h"
-#include "spade/arg/print.h"
+#include "spade/audit/arg/arg.h"
+#include "spade/audit/arg/parse.h"
+#include "spade/audit/arg/print.h"
 #include "spade/util/log/module.h"
 
 #include "test/kernel/arg.h"

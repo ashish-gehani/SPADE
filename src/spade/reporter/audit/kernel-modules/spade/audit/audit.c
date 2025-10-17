@@ -26,7 +26,7 @@
 
 #include "spade/audit/audit.h"
 #include "spade/audit/param/param.h"
-#include "spade/arg/print.h"
+#include "spade/audit/arg/print.h"
 #include "spade/config/print.h"
 #include "spade/audit/global/global.h"
 #include "spade/util/log/log.h"

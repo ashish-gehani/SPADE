@@ -24,8 +24,8 @@
 #include <linux/string.h>
 #include <linux/moduleparam.h>
 
-#include "spade/arg/constant.h"
-#include "spade/arg/parse.h"
+#include "spade/audit/arg/constant.h"
+#include "spade/audit/arg/parse.h"
 #include "spade/audit/param/param.h"
 
 

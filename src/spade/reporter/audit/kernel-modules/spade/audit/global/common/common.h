@@ -23,7 +23,7 @@
 
 #include <linux/types.h>
 
-#include "spade/arg/arg.h"
+#include "spade/audit/arg/arg.h"
 
 /*
     Does pid exist in the array?

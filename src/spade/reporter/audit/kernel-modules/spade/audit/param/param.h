@@ -21,7 +21,7 @@
 #ifndef SPADE_AUDIT_PARAM_H
 #define SPADE_AUDIT_PARAM_H
 
-#include "spade/arg/arg.h"
+#include "spade/audit/arg/arg.h"
 
 
 /*

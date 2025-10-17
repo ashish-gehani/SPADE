@@ -25,7 +25,7 @@
 #include <linux/atomic.h>
 #include <linux/proc_ns.h>
 
-#include "spade/arg/arg.h"
+#include "spade/audit/arg/arg.h"
 #include "spade/audit/context/syscall/syscall.h"
 #include "spade/audit/context/netfilter/netfilter.h"
 

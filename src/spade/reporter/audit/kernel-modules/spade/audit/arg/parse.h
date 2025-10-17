@@ -21,7 +21,7 @@
 #ifndef _SPADE_ARG_PARSE_H
 #define _SPADE_ARG_PARSE_H
 
-#include "spade/arg/arg.h"
+#include "spade/audit/arg/arg.h"
 
 /*
 	Set kernel module param of type 'enum arg_monitor_mode'.

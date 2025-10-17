@@ -20,8 +20,8 @@
 
 #include <linux/slab.h>
 
-#include "spade/arg/constant.h"
-#include "spade/arg/print.h"
+#include "spade/audit/arg/constant.h"
+#include "spade/audit/arg/print.h"
 #include "spade/util/seqbuf/seqbuf.h"
 #include "spade/util/print/print.h"
 #include "spade/util/log/log.h"

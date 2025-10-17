@@ -21,7 +21,7 @@
 #ifndef _SPADE_ARG_PRINT_H
 #define _SPADE_ARG_PRINT_H
 
-#include "spade/arg/arg.h"
+#include "spade/audit/arg/arg.h"
 
 /*
     Log module arguments using printk.

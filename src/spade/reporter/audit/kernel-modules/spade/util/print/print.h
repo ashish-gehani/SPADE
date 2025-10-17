@@ -23,7 +23,7 @@
 
 #include <linux/types.h>
 #include "spade/util/seqbuf/seqbuf.h"
-#include "spade/arg/arg.h"
+#include "spade/audit/arg/arg.h"
 
 void util_print_pid_array(struct seqbuf *b, char *arg_name, const pid_t *arr, size_t len);
 void util_print_uid_array(struct seqbuf *b, char *arg_name, const uid_t *arr, size_t len);

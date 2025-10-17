@@ -35,8 +35,8 @@ obj-m := $(addsuffix .o,$(MODULE_NAMES))
 
 # Common object file lists
 ARG_OBJS := \
-  spade/arg/parse.o \
-  spade/arg/print.o
+  spade/audit/arg/parse.o \
+  spade/audit/arg/print.o
 
 CONFIG_OBJS := \
   spade/config/config.o \

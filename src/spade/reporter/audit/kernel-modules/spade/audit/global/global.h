@@ -23,7 +23,7 @@
 
 #include <linux/netfilter.h>
 
-#include "spade/arg/arg.h"
+#include "spade/audit/arg/arg.h"
 #include "spade/audit/state/state.h"
 #include "spade/audit/context/context.h"
 

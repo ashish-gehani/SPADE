@@ -25,7 +25,7 @@
 #include <linux/param.h>
 #include <linux/string.h>
 
-#include "spade/arg/parse.h"
+#include "spade/audit/arg/parse.h"
 #include "spade/util/log/log.h"
 
 int arg_parse_monitor_mode(

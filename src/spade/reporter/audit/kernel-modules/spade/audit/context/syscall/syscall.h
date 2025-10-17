@@ -23,7 +23,7 @@
 
 #include <linux/init.h>
 
-#include "spade/arg/arg.h"
+#include "spade/audit/arg/arg.h"
 
 
 struct context_syscall
