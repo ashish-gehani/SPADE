@@ -51,19 +51,9 @@ static void seqbuf_print_config_syscall_hook_type(struct seqbuf *b, char *config
     util_seqbuf_printf(b, "%s=%s", config_name, str_sys_hook_type);
 }
 
-static void seqbuf_print_config_build_hash(struct seqbuf *b, char *config_name, const struct config_build_hash *build_hash)
-{
-    util_seqbuf_printf(b, "%s=%s", config_name, build_hash->value);
-}
-
 static void seqbuf_print_config(struct seqbuf *b, const struct config *config)
 {
     util_seqbuf_printf(b, "config={");
-    if (config->debug)
-    {
-        seqbuf_print_config_build_hash(b, "build_hash", &config->build_hash);
-        seqbuf_print_config_sep(b);
-    }
     util_print_bool(b, "debug", config->debug);
     seqbuf_print_config_sep(b);
     seqbuf_print_config_syscall_hook_type(b, "sys_hook_type", config->sys_hook_type);

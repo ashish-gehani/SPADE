@@ -23,13 +23,6 @@
 
 #include <linux/types.h>
 
-#define CONFIG_GENERATED_HASH_STR_LEN 65
-
-struct config_build_hash
-{
-    char value[CONFIG_GENERATED_HASH_STR_LEN];
-};
-
 enum config_syscall_hook_type
 {
     CONFIG_SYSCALL_HOOK_TABLE,
@@ -38,7 +31,6 @@ enum config_syscall_hook_type
 
 struct config
 {
-    struct config_build_hash build_hash;
     bool debug;
     enum config_syscall_hook_type sys_hook_type;
 };

@@ -19,13 +19,9 @@
  */
 
 #include "spade/config/config.h"
-#include "spade/config/generated.h"
 
 
 const struct config CONFIG_GLOBAL = {
-    .build_hash = {
-        .value = GENERATED_BUILD_HASH
-    },
     .debug = true,
     // .debug = false,
     .sys_hook_type = CONFIG_SYSCALL_HOOK_FTRACE

@@ -25,17 +25,6 @@ MOD_OUT_FILES = \
   $(foreach mod,$(MODULE_NAMES),$(mod).mod.o) \
   $(foreach mod,$(MODULE_NAMES),$(mod).o)
 
-### BEGIN - Generate hash
-GEN_H_FILE := spade/config/generated.h
-GEN_TMPLT_FILE := spade/config/generated.template
-
-GENERATED_BUILD_HASH := $(shell \
-  find $(src) -type f \( -name '*.c' -o -name '*.h' \) \
-    ! -name 'generated.h' -print0 \
-  | sort -z \
-  | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
-### END - Generate hash
-
 # Include path
 ccflags-y += -I$(src)
 
@@ -71,7 +60,6 @@ HELPER_OBJS := \
   spade/audit/helper/syscall/namespace.o \
   spade/audit/helper/syscall/network.o \
   spade/audit/helper/audit_log.o \
-  spade/audit/helper/build_hash.o \
   spade/audit/helper/kernel.o \
   spade/audit/helper/sock.o \
   spade/audit/helper/task.o
@@ -183,13 +171,7 @@ spade_audit_test-y := \
 
 ###
 
-.PHONY: hash-print all clean test-asset
-
-hash-print:
-	$(info $(GENERATED_BUILD_HASH))
-
-$(GEN_H_FILE): $(GEN_TMPLT_FILE)
-	@sed -e 's/@GENERATED_BUILD_HASH@/$(GENERATED_BUILD_HASH)/g' $< > $@
+.PHONY: all clean test-asset
 
 test-asset: $(TEST_ASSET_BIN)
 
@@ -209,7 +191,7 @@ test/asset/bin/ubsi/%: test/asset/src/ubsi/%.c
 	@mkdir -p $(dir $@)
 	gcc -o $@ $<
 
-all: $(GEN_H_FILE) test-asset
+all: test-asset
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 	@mkdir -p $(BUILD_OUTPUT)
 	@for file in $(MOD_OUT_FILES); do \
@@ -220,6 +202,5 @@ all: $(GEN_H_FILE) test-asset
 
 clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) clean
-	-rm -f $(GEN_H_FILE)
 	-rm -rf $(BUILD_OUTPUT)
 	-rm -f $(TEST_ASSET_BIN)

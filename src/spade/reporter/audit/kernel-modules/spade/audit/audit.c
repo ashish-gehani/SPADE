@@ -30,7 +30,6 @@
 #include "spade/config/print.h"
 #include "spade/audit/global/global.h"
 #include "spade/util/log/log.h"
-#include "spade/audit/helper/build_hash.h"
 #include "spade/util/log/module.h"
 
 
@@ -52,28 +51,6 @@ static bool ensure_global_state_is_initialized(const char *log_id)
     return state_module_initialized;
 }
 
-static bool ensure_global_build_hash_matches(
-    const char *log_id,
-    const char *log_msg,
-    const struct config_build_hash *build_hash
-)
-{
-    bool matched = false;
-    int err = 0;
-
-    err = helper_build_build_hashes_match(
-        &matched, build_hash, &CONFIG_GLOBAL.build_hash
-    );
-
-    if (err != 0 || !matched)
-    {
-        util_log_warn(log_id, log_msg);
-        return false;
-    }
-
-    return true;
-}
-
 static int spade_audit_start(const struct config *config, struct arg *arg)
 {
     const char *log_id = "spade_audit_start";
@@ -86,11 +63,6 @@ static int spade_audit_start(const struct config *config, struct arg *arg)
     }
 
     config_print(config);
-
-    if (!ensure_global_build_hash_matches(
-        log_id, "Failed to start auditing. Invalid hash.", &config->build_hash
-    ))
-        return -EINVAL;
 
     if (!ensure_global_state_is_initialized(log_id))
         return -EINVAL;
@@ -125,11 +97,6 @@ static int spade_audit_stop(const struct config *config)
     }
 
     config_print(config);
-
-    if (!ensure_global_build_hash_matches(
-        log_id, "Failed to stop auditing. Invalid hash.", &config->build_hash
-    ))
-        return -EINVAL;
 
     global_auditing_stop();
     global_context_deinit();
