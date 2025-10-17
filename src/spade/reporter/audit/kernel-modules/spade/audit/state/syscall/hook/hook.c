@@ -24,7 +24,7 @@
 #include <linux/version.h>
 
 #include "spade/audit/state/syscall/hook/hook.h"
-#include "spade/config/config.h"
+#include "spade/audit/config/config.h"
 #include "spade/util/log/log.h"
 
 

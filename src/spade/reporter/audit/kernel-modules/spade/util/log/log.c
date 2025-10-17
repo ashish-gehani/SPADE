@@ -22,7 +22,7 @@
 #include <linux/errno.h>
 #include <linux/module.h>
 
-#include "spade/config/config.h"
+#include "spade/audit/config/config.h"
 #include "spade/util/log/log.h"
 
 

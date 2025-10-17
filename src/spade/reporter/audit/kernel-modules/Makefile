@@ -39,9 +39,9 @@ ARG_OBJS := \
   spade/audit/arg/print.o
 
 CONFIG_OBJS := \
-  spade/config/config.o \
-  spade/config/load.o \
-  spade/config/print.o
+  spade/audit/config/config.o \
+  spade/audit/config/load.o \
+  spade/audit/config/print.o
 
 CONTEXT_OBJS := \
   spade/audit/context/netfilter/netfilter.o \

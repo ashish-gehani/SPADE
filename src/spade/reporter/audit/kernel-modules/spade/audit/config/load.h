@@ -21,7 +21,7 @@
 #ifndef SPADE_AUDIT_CONFIG_LOAD_H
 #define SPADE_AUDIT_CONFIG_LOAD_H
 
-#include "spade/config/config.h"
+#include "spade/audit/config/config.h"
 
 /**
  * Load configuration from a text file

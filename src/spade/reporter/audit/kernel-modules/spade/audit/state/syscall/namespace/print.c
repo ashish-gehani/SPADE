@@ -23,7 +23,7 @@
 #include "spade/audit/state/syscall/namespace/print.h"
 #include "spade/util/print/print.h"
 #include "spade/util/log/log.h"
-#include "spade/config/config.h"
+#include "spade/audit/config/config.h"
 #include "spade/audit/kernel/namespace/namespace.h"
 
 

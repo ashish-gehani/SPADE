@@ -18,17 +18,11 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_CONFIG_PRINT_H
-#define _SPADE_CONFIG_PRINT_H
+#include "spade/audit/config/config.h"
 
-#include "spade/config/config.h"
 
-/*
-    Log module configuration using printk.
-
-    Params:
-        config      : The configuration to log.
-*/
-void config_print(const struct config *config);
-
-#endif // _SPADE_CONFIG_PRINT_H
+const struct config CONFIG_GLOBAL = {
+    .debug = true,
+    // .debug = false,
+    .sys_hook_type = CONFIG_SYSCALL_HOOK_FTRACE
+};

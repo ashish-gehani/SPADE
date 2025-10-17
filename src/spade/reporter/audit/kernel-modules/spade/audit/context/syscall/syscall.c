@@ -21,7 +21,7 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 
-#include "spade/config/config.h"
+#include "spade/audit/config/config.h"
 #include "spade/audit/context/syscall/syscall.h"
 #include "spade/util/log/log.h"
 

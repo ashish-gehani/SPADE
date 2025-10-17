@@ -20,7 +20,7 @@
 
 #include <linux/slab.h>
 
-#include "spade/config/print.h"
+#include "spade/audit/config/print.h"
 #include "spade/util/seqbuf/seqbuf.h"
 #include "spade/util/print/print.h"
 #include "spade/util/log/log.h"

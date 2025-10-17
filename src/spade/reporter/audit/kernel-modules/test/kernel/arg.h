@@ -24,7 +24,7 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 
-#include "spade/config/config.h"
+#include "spade/audit/config/config.h"
 #include "spade/audit/arg/arg.h"
 #include "spade/audit/arg/parse.h"
 #include "spade/audit/arg/print.h"
