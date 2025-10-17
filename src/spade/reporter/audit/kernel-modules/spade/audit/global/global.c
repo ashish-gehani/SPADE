@@ -216,3 +216,88 @@ bool global_is_syscall_loggable(
 
     return res;
 }
+
+bool global_is_syscall_loggable_by_sys_num(int sys_num)
+{
+    int err;
+    bool res;
+
+    if (!global_is_auditing_started())
+        return false;
+
+    err = global_syscall_is_loggable_by_sys_num(
+        &res, &g.c.syscall, sys_num
+    );
+    if (err != 0)
+        return false;
+
+    return res;
+}
+
+bool global_is_syscall_loggable_by_sys_success(bool sys_success)
+{
+    int err;
+    bool res;
+
+    if (!global_is_auditing_started())
+        return false;
+
+    err = global_syscall_is_loggable_by_sys_success(
+        &res, &g.c.syscall, sys_success
+    );
+    if (err != 0)
+        return false;
+
+    return res;
+}
+
+bool global_is_syscall_loggable_by_pid(pid_t pid)
+{
+    int err;
+    bool res;
+
+    if (!global_is_auditing_started())
+        return false;
+
+    err = global_syscall_is_loggable_by_pid(
+        &res, &g.c.syscall, pid
+    );
+    if (err != 0)
+        return false;
+
+    return res;
+}
+
+bool global_is_syscall_loggable_by_ppid(pid_t ppid)
+{
+    int err;
+    bool res;
+
+    if (!global_is_auditing_started())
+        return false;
+
+    err = global_syscall_is_loggable_by_ppid(
+        &res, &g.c.syscall, ppid
+    );
+    if (err != 0)
+        return false;
+
+    return res;
+}
+
+bool global_is_syscall_loggable_by_uid(uid_t uid)
+{
+    int err;
+    bool res;
+
+    if (!global_is_auditing_started())
+        return false;
+
+    err = global_syscall_is_loggable_by_uid(
+        &res, &g.c.syscall, uid
+    );
+    if (err != 0)
+        return false;
+
+    return res;
+}

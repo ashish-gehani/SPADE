@@ -27,15 +27,8 @@
 #include "spade/audit/global/syscall/syscall.h"
 
 
-int global_syscall_is_loggable(
-    bool *dst,
-    struct context_syscall *ctx,
-    int sys_num, bool sys_success,
-    pid_t pid, pid_t ppid, uid_t uid
-)
+int global_syscall_is_loggable_by_sys_num(bool *dst, struct context_syscall *ctx, int sys_num)
 {
-    bool uid_is_loggable, pid_is_in_pid_array, ppid_is_in_ppid_array;
-
     if (!dst || !ctx)
         return -EINVAL;
 
@@ -72,6 +65,22 @@ int global_syscall_is_loggable(
         }
     }
 
+    goto exit_true;
+
+exit_false:
+    *dst = false;
+    return 0;
+
+exit_true:
+    *dst = true;
+    return 0;
+}
+
+int global_syscall_is_loggable_by_sys_success(bool *dst, struct context_syscall *ctx, bool sys_success)
+{
+    if (!dst || !ctx)
+        return -EINVAL;
+
     if (ctx->monitor_syscalls == AMMS_ALL)
     {
         // log all. Check other filters.
@@ -91,11 +100,47 @@ int global_syscall_is_loggable(
         }
     }
 
+    goto exit_true;
+
+exit_false:
+    *dst = false;
+    return 0;
+
+exit_true:
+    *dst = true;
+    return 0;
+}
+
+int global_syscall_is_loggable_by_uid(bool *dst, struct context_syscall *ctx, uid_t uid)
+{
+    bool uid_is_loggable;
+
+    if (!dst || !ctx)
+        return -EINVAL;
+
     uid_is_loggable = global_common_is_uid_loggable(&ctx->user, uid);
     if (!uid_is_loggable)
     {
         goto exit_false;
     }
+
+    goto exit_true;
+
+exit_false:
+    *dst = false;
+    return 0;
+
+exit_true:
+    *dst = true;
+    return 0;
+}
+
+int global_syscall_is_loggable_by_pid(bool *dst, struct context_syscall *ctx, pid_t pid)
+{
+    bool pid_is_in_pid_array;
+
+    if (!dst || !ctx)
+        return -EINVAL;
 
     pid_is_in_pid_array = global_common_is_pid_in_array(
         &(ctx->ignore_pids.arr[0]), ctx->ignore_pids.len,
@@ -103,9 +148,25 @@ int global_syscall_is_loggable(
     );
 
     if (pid_is_in_pid_array)
-    {
         goto exit_false;
-    }
+
+    goto exit_true;
+
+exit_false:
+    *dst = false;
+    return 0;
+
+exit_true:
+    *dst = true;
+    return 0;
+}
+
+int global_syscall_is_loggable_by_ppid(bool *dst, struct context_syscall *ctx, pid_t ppid)
+{
+    bool ppid_is_in_ppid_array;
+
+    if (!dst || !ctx)
+        return -EINVAL;
 
     ppid_is_in_ppid_array = global_common_is_pid_in_array(
         &(ctx->ignore_ppids.arr[0]), ctx->ignore_ppids.len,
@@ -113,9 +174,50 @@ int global_syscall_is_loggable(
     );
 
     if (ppid_is_in_ppid_array)
-    {
         goto exit_false;
-    }
+
+    goto exit_true;
+
+exit_false:
+    *dst = false;
+    return 0;
+
+exit_true:
+    *dst = true;
+    return 0;
+}
+
+int global_syscall_is_loggable(
+    bool *dst,
+    struct context_syscall *ctx,
+    int sys_num, bool sys_success,
+    pid_t pid, pid_t ppid, uid_t uid
+)
+{
+    int err;
+
+    if (!dst || !ctx)
+        return -EINVAL;
+
+    err = global_syscall_is_loggable_by_sys_num(dst, ctx, sys_num);
+    if (err != 0 || !(*dst))
+        goto exit_false;
+
+    err = global_syscall_is_loggable_by_sys_success(dst, ctx, sys_success);
+    if (err != 0 || !(*dst))
+        goto exit_false;
+
+    err = global_syscall_is_loggable_by_uid(dst, ctx, uid);
+    if (err != 0 || !(*dst))
+        goto exit_false;
+
+    err = global_syscall_is_loggable_by_pid(dst, ctx, pid);
+    if (err != 0 || !(*dst))
+        goto exit_false;
+
+    err = global_syscall_is_loggable_by_ppid(dst, ctx, ppid);
+    if (err != 0 || !(*dst))
+        goto exit_false;
 
     goto exit_true;
 

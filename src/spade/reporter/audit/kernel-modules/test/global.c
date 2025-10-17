@@ -49,7 +49,12 @@ enum filter_func_type
     FFT_NF_LOGGABLE_BY_CONNTRACK_INFO,
     FFT_NF_LOGGING_NS_INFO,
     FFT_NETWORK_LOGGING_NS_INFO,
-    FFT_SYSCALL_LOGGABLE
+    FFT_SYSCALL_LOGGABLE,
+    FFT_SYSCALL_LOGGABLE_BY_SYS_NUM,
+    FFT_SYSCALL_LOGGABLE_BY_SYS_SUCCESS,
+    FFT_SYSCALL_LOGGABLE_BY_PID,
+    FFT_SYSCALL_LOGGABLE_BY_PPID,
+    FFT_SYSCALL_LOGGABLE_BY_UID
 };
 
 struct filter_func_common
@@ -98,6 +103,36 @@ struct filter_func_is_syscall_loggable
     bool result_expected;
 };
 
+struct filter_func_is_syscall_loggable_by_sys_num
+{
+    int arg_sys_num;
+    bool result_expected;
+};
+
+struct filter_func_is_syscall_loggable_by_sys_success
+{
+    bool arg_sys_success;
+    bool result_expected;
+};
+
+struct filter_func_is_syscall_loggable_by_pid
+{
+    pid_t arg_pid;
+    bool result_expected;
+};
+
+struct filter_func_is_syscall_loggable_by_ppid
+{
+    pid_t arg_ppid;
+    bool result_expected;
+};
+
+struct filter_func_is_syscall_loggable_by_uid
+{
+    uid_t arg_uid;
+    bool result_expected;
+};
+
 union filter_func_union
 {
     struct filter_func_is_netfilter_loggable_by_user is_netfilter_loggable_by_user;
@@ -105,6 +140,11 @@ union filter_func_union
     struct filter_func_is_netfilter_logging_ns_info is_netfilter_logging_ns_info;
     struct filter_func_is_network_logging_ns_info is_network_logging_ns_info;
     struct filter_func_is_syscall_loggable is_syscall_loggable;
+    struct filter_func_is_syscall_loggable_by_sys_num is_syscall_loggable_by_sys_num;
+    struct filter_func_is_syscall_loggable_by_sys_success is_syscall_loggable_by_sys_success;
+    struct filter_func_is_syscall_loggable_by_pid is_syscall_loggable_by_pid;
+    struct filter_func_is_syscall_loggable_by_ppid is_syscall_loggable_by_ppid;
+    struct filter_func_is_syscall_loggable_by_uid is_syscall_loggable_by_uid;
 };
 
 struct filter_func
@@ -135,59 +175,6 @@ struct test_config
 };
 
 //
-
-#define _CREATE_NF_ARG(a_u_mode, a_u_len, a_u, a_use_u, a_h, a_m_ct, a_incl_ns) \
-    { \
-        .ignore_pids = {}, \
-        .ignore_ppids = {}, \
-        .monitor_syscalls = AMMS_ONLY_SUCCESSFUL, \
-        .network_io = false, \
-        .include_ns_info = a_incl_ns, \
-        .nf = { \
-            .hooks = a_h, \
-            .monitor_ct = a_m_ct, \
-            .use_user = a_use_u \
-        }, \
-        .user = { \
-            .uid_monitor_mode = a_u_mode, \
-            .uids = { \
-                .len = a_u_len, \
-                .arr = a_u \
-            } \
-        } \
-    }
-
-#define _CREATE_SYSCALL_ARG( \
-    a_u_mode, a_u_len, a_u, \
-    a_ign_pid_len, a_ign_pid, \
-    a_ign_ppid_len, a_ign_ppid, \
-    a_incl_ns, a_m_sys, a_n_io \
-) \
-    { \
-        .ignore_pids = { \
-            .len = a_ign_pid_len, \
-            .arr = a_ign_pid \
-        }, \
-        .ignore_ppids = { \
-            .len = a_ign_ppid_len, \
-            .arr = a_ign_ppid \
-        }, \
-        .monitor_syscalls = a_m_sys, \
-        .network_io = a_n_io, \
-        .include_ns_info = a_incl_ns, \
-        .nf = { \
-            .hooks = true, \
-            .monitor_ct = AMMC_ALL, \
-            .use_user = true \
-        }, \
-        .user = { \
-            .uid_monitor_mode = a_u_mode, \
-            .uids = { \
-                .len = a_u_len, \
-                .arr = a_u \
-            } \
-        } \
-    }
 
 #define _CREATE_NF_FF_LOGGABLE_BY_USER(a_id, a_uid, a_result) \
     { \
@@ -266,6 +253,81 @@ struct test_config
         } \
     }
 
+#define _CREATE_SYSCALL_FF_LOGGABLE_BY_SYS_NUM(a_id, a_sys_num, a_result) \
+    { \
+        .header = { \
+            .type = FFT_SYSCALL_LOGGABLE_BY_SYS_NUM, \
+            .id = a_id, \
+            .test = handle_filter_func_is_syscall_loggable_by_sys_num, \
+        }, \
+        .ff = { \
+            .is_syscall_loggable_by_sys_num = { \
+                .arg_sys_num = a_sys_num, \
+                .result_expected = a_result \
+            } \
+        } \
+    }
+
+#define _CREATE_SYSCALL_FF_LOGGABLE_BY_SYS_SUCCESS(a_id, a_sys_success, a_result) \
+    { \
+        .header = { \
+            .type = FFT_SYSCALL_LOGGABLE_BY_SYS_SUCCESS, \
+            .id = a_id, \
+            .test = handle_filter_func_is_syscall_loggable_by_sys_success, \
+        }, \
+        .ff = { \
+            .is_syscall_loggable_by_sys_success = { \
+                .arg_sys_success = a_sys_success, \
+                .result_expected = a_result \
+            } \
+        } \
+    }
+
+#define _CREATE_SYSCALL_FF_LOGGABLE_BY_PID(a_id, a_pid, a_result) \
+    { \
+        .header = { \
+            .type = FFT_SYSCALL_LOGGABLE_BY_PID, \
+            .id = a_id, \
+            .test = handle_filter_func_is_syscall_loggable_by_pid, \
+        }, \
+        .ff = { \
+            .is_syscall_loggable_by_pid = { \
+                .arg_pid = a_pid, \
+                .result_expected = a_result \
+            } \
+        } \
+    }
+
+#define _CREATE_SYSCALL_FF_LOGGABLE_BY_PPID(a_id, a_ppid, a_result) \
+    { \
+        .header = { \
+            .type = FFT_SYSCALL_LOGGABLE_BY_PPID, \
+            .id = a_id, \
+            .test = handle_filter_func_is_syscall_loggable_by_ppid, \
+        }, \
+        .ff = { \
+            .is_syscall_loggable_by_ppid = { \
+                .arg_ppid = a_ppid, \
+                .result_expected = a_result \
+            } \
+        } \
+    }
+
+#define _CREATE_SYSCALL_FF_LOGGABLE_BY_UID(a_id, a_uid, a_result) \
+    { \
+        .header = { \
+            .type = FFT_SYSCALL_LOGGABLE_BY_UID, \
+            .id = a_id, \
+            .test = handle_filter_func_is_syscall_loggable_by_uid, \
+        }, \
+        .ff = { \
+            .is_syscall_loggable_by_uid = { \
+                .arg_uid = a_uid, \
+                .result_expected = a_result \
+            } \
+        } \
+    }
+
 //
 
 // Wrapper macros for netfilter loggable by user tests
@@ -308,12 +370,47 @@ struct test_config
 #define _CREATE_NETWORK_LOGGING_NS_INFO(a_incl_ns) \
     _CREATE_NETWORK_FF_LOGGING_NS_INFO("network_logging_ns_info", ((a_incl_ns) == true))
 
-// Wrapper macros for syscall loggable tests
-#define _CREATE_SYSCALL_LOGGABLE_MUST_CAPTURE(a_pid, a_ppid, a_sys_num, a_sys_success, a_u_mode, a_uid) \
-    _CREATE_SYSCALL_FF_LOGGABLE("syscall_is_loggable_must_capture", a_pid, a_ppid, a_sys_num, a_sys_success, a_uid, ((a_u_mode) == AMM_CAPTURE))
+// Wrapper macros for syscall loggable tests - Full parameters
+#define _CREATE_SYSCALL_LOGGABLE_MUST_CAPTURE(a_pid, a_ppid, a_sys_num, a_sys_success, a_uid) \
+    _CREATE_SYSCALL_FF_LOGGABLE("syscall_is_loggable_must_capture", a_pid, a_ppid, a_sys_num, a_sys_success, a_uid, true)
 
-#define _CREATE_SYSCALL_LOGGABLE_MUST_IGNORE(a_pid, a_ppid, a_sys_num, a_sys_success, a_u_mode, a_uid) \
-    _CREATE_SYSCALL_FF_LOGGABLE("syscall_is_loggable_must_ignore", a_pid, a_ppid, a_sys_num, a_sys_success, (a_uid)+1, ((a_u_mode) == AMM_IGNORE))
+#define _CREATE_SYSCALL_LOGGABLE_MUST_IGNORE(a_pid, a_ppid, a_sys_num, a_sys_success, a_uid) \
+    _CREATE_SYSCALL_FF_LOGGABLE("syscall_is_loggable_must_ignore", a_pid, a_ppid, a_sys_num, a_sys_success, (a_uid)+1, false)
+
+// Wrapper macros for syscall loggable tests - By syscall number
+#define _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(a_sys_num) \
+    _CREATE_SYSCALL_FF_LOGGABLE_BY_SYS_NUM("syscall_loggable_by_sys_num_must_capture", a_sys_num, true)
+
+#define _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_IGNORE(a_sys_num) \
+    _CREATE_SYSCALL_FF_LOGGABLE_BY_SYS_NUM("syscall_loggable_by_sys_num_must_ignore", a_sys_num, false)
+
+// Wrapper macros for syscall loggable tests - By success/failure
+#define _CREATE_SYSCALL_LOGGABLE_BY_SYS_SUCCESS_MUST_CAPTURE(a_sys_success) \
+    _CREATE_SYSCALL_FF_LOGGABLE_BY_SYS_SUCCESS("syscall_loggable_by_success_must_capture", a_sys_success, true)
+
+#define _CREATE_SYSCALL_LOGGABLE_BY_SYS_SUCCESS_MUST_IGNORE(a_sys_success) \
+    _CREATE_SYSCALL_FF_LOGGABLE_BY_SYS_SUCCESS("syscall_loggable_by_success_must_ignore", a_sys_success, false)
+
+// Wrapper macros for syscall loggable tests - By PID
+#define _CREATE_SYSCALL_LOGGABLE_BY_PID_MUST_CAPTURE(a_pid) \
+    _CREATE_SYSCALL_FF_LOGGABLE_BY_PID("syscall_loggable_by_pid_must_capture", a_pid, true)
+
+#define _CREATE_SYSCALL_LOGGABLE_BY_PID_MUST_IGNORE(a_pid) \
+    _CREATE_SYSCALL_FF_LOGGABLE_BY_PID("syscall_loggable_by_pid_must_ignore", a_pid, false)
+
+// Wrapper macros for syscall loggable tests - By PPID
+#define _CREATE_SYSCALL_LOGGABLE_BY_PPID_MUST_CAPTURE(a_ppid) \
+    _CREATE_SYSCALL_FF_LOGGABLE_BY_PPID("syscall_loggable_by_ppid_must_capture", a_ppid, true)
+
+#define _CREATE_SYSCALL_LOGGABLE_BY_PPID_MUST_IGNORE(a_ppid) \
+    _CREATE_SYSCALL_FF_LOGGABLE_BY_PPID("syscall_loggable_by_ppid_must_ignore", a_ppid, false)
+
+// Wrapper macros for syscall loggable tests - By UID
+#define _CREATE_SYSCALL_LOGGABLE_BY_UID_MUST_CAPTURE(a_uid) \
+    _CREATE_SYSCALL_FF_LOGGABLE_BY_UID("syscall_loggable_by_uid_must_capture", a_uid, true)
+
+#define _CREATE_SYSCALL_LOGGABLE_BY_UID_MUST_IGNORE(a_uid) \
+    _CREATE_SYSCALL_FF_LOGGABLE_BY_UID("syscall_loggable_by_uid_must_ignore", a_uid, false)
 
 //
 
@@ -337,9 +434,6 @@ struct test_config
 #define _CREATE_NETWORK_FF_LIST_ITEMS_LOGGING_NS_INFO(a_incl_ns) \
     _CREATE_NETWORK_LOGGING_NS_INFO(a_incl_ns)
 
-#define _CREATE_SYSCALL_FF_LIST_ITEMS_LOGGABLE(a_pid, a_ppid, a_sys_num, a_sys_success, a_u_mode, a_uid) \
-    _CREATE_SYSCALL_LOGGABLE_MUST_CAPTURE(a_pid, a_ppid, a_sys_num, a_sys_success, a_u_mode, a_uid), \
-    _CREATE_SYSCALL_LOGGABLE_MUST_IGNORE(a_pid, a_ppid, a_sys_num, a_sys_success, a_u_mode, a_uid)
 
 //
 
@@ -385,15 +479,57 @@ static bool handle_filter_func_is_syscall_loggable(
     );
 }
 
+static bool handle_filter_func_is_syscall_loggable_by_sys_num(
+    union filter_func_union *ffu
+)
+{
+    struct filter_func_is_syscall_loggable_by_sys_num* f = &ffu->is_syscall_loggable_by_sys_num;
+    return f->result_expected == global_is_syscall_loggable_by_sys_num(f->arg_sys_num);
+}
+
+static bool handle_filter_func_is_syscall_loggable_by_sys_success(
+    union filter_func_union *ffu
+)
+{
+    struct filter_func_is_syscall_loggable_by_sys_success* f = &ffu->is_syscall_loggable_by_sys_success;
+    return f->result_expected == global_is_syscall_loggable_by_sys_success(f->arg_sys_success);
+}
+
+static bool handle_filter_func_is_syscall_loggable_by_pid(
+    union filter_func_union *ffu
+)
+{
+    struct filter_func_is_syscall_loggable_by_pid* f = &ffu->is_syscall_loggable_by_pid;
+    return f->result_expected == global_is_syscall_loggable_by_pid(f->arg_pid);
+}
+
+static bool handle_filter_func_is_syscall_loggable_by_ppid(
+    union filter_func_union *ffu
+)
+{
+    struct filter_func_is_syscall_loggable_by_ppid* f = &ffu->is_syscall_loggable_by_ppid;
+    return f->result_expected == global_is_syscall_loggable_by_ppid(f->arg_ppid);
+}
+
+static bool handle_filter_func_is_syscall_loggable_by_uid(
+    union filter_func_union *ffu
+)
+{
+    struct filter_func_is_syscall_loggable_by_uid* f = &ffu->is_syscall_loggable_by_uid;
+    return f->result_expected == global_is_syscall_loggable_by_uid(f->arg_uid);
+}
+
 //
 
 static const struct test_config TC_LIST[] = {
     {
         .type = TCT_NF,
         .id = "nf_capture_all_ct_for_u_1001_with_ns",
-        .arg = _CREATE_NF_ARG(
-            AMM_CAPTURE, 1, {1001}, true, true, AMMC_ALL, true
-        ),
+        .arg = {
+            .include_ns_info = true,
+            .nf = { .hooks = true, .monitor_ct = AMMC_ALL, .use_user = true },
+            .user = { .uid_monitor_mode = AMM_CAPTURE, .uids = { .len = 1, .arr = {1001} } } 
+        },
         .ff_list = {
             .list = {
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_CAPTURE, 1001),
@@ -406,9 +542,11 @@ static const struct test_config TC_LIST[] = {
     {
         .type = TCT_NF,
         .id = "nf_capture_only_new_ct_for_u_1001_without_ns",
-        .arg = _CREATE_NF_ARG(
-            AMM_CAPTURE, 1, {1001}, true, true, AMMC_ONLY_NEW, false
-        ),
+        .arg = {
+            .include_ns_info = false,
+            .nf = { .hooks = true, .monitor_ct = AMMC_ONLY_NEW, .use_user = true },
+            .user = { .uid_monitor_mode = AMM_CAPTURE, .uids = { .len = 1, .arr = {1001} } } 
+        },
         .ff_list = {
             .list = {
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_CAPTURE, 1001),
@@ -421,9 +559,11 @@ static const struct test_config TC_LIST[] = {
     {
         .type = TCT_NF,
         .id = "nf_ignore_all_ct_for_u_1001_with_ns",
-        .arg = _CREATE_NF_ARG(
-            AMM_IGNORE, 1, {1001}, true, true, AMMC_ALL, true
-        ),
+        .arg = {
+            .include_ns_info = true,
+            .nf = { .hooks = true, .monitor_ct = AMMC_ALL, .use_user = true },
+            .user = { .uid_monitor_mode = AMM_IGNORE, .uids = { .len = 1, .arr = {1001} } } 
+        },
         .ff_list = {
             .list = {
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_IGNORE, 1001),
@@ -436,9 +576,11 @@ static const struct test_config TC_LIST[] = {
     {
         .type = TCT_NF,
         .id = "nf_ignore_only_new_ct_for_u_1001_with_ns",
-        .arg = _CREATE_NF_ARG(
-            AMM_IGNORE, 1, {1001}, true, true, AMMC_ONLY_NEW, true
-        ),
+        .arg = {
+            .include_ns_info = true,
+            .nf = { .hooks = true, .monitor_ct = AMMC_ONLY_NEW, .use_user = true },
+            .user = { .uid_monitor_mode = AMM_IGNORE, .uids = { .len = 1, .arr = {1001} } } 
+        },
         .ff_list = {
             .list = {
                 _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_IGNORE, 1001),
@@ -451,9 +593,11 @@ static const struct test_config TC_LIST[] = {
     {
         .type = TCT_NF,
         .id = "nf_capture_all_users_because_not_using_users",
-        .arg = _CREATE_NF_ARG(
-            AMM_IGNORE, 1, {1001}, false, true, AMMC_ALL, true
-        ),
+        .arg = {
+            .include_ns_info = true,
+            .nf = { .hooks = true, .monitor_ct = AMMC_ALL, .use_user = false },
+            .user = { .uid_monitor_mode = AMM_IGNORE, .uids = { .len = 1, .arr = {1001} } } 
+        },
         .ff_list = {
             .list = {
                 _CREATE_NF_LOGGABLE_BY_USER_MUST_CAPTURE(AMM_CAPTURE, 1001),
@@ -465,9 +609,11 @@ static const struct test_config TC_LIST[] = {
     {
         .type = TCT_NETWORK,
         .id = "network_logging_with_ns",
-        .arg = _CREATE_NF_ARG(
-            AMM_CAPTURE, 1, {1001}, true, true, AMMC_ALL, true
-        ),
+        .arg = {
+            .include_ns_info = true,
+            .nf = { .hooks = true, .monitor_ct = AMMC_ALL, .use_user = true },
+            .user = { .uid_monitor_mode = AMM_CAPTURE, .uids = { .len = 1, .arr = {1001} } } 
+        },
         .ff_list = {
             .list = {
                 _CREATE_NETWORK_FF_LIST_ITEMS_LOGGING_NS_INFO(true),
@@ -477,16 +623,145 @@ static const struct test_config TC_LIST[] = {
     },
     {
         .type = TCT_SYSCALL,
-        .id = "syscall_todo",
-        .arg = _CREATE_SYSCALL_ARG(
-            AMM_CAPTURE, 1, {1001}, /* uids */
-            1, {101}, /* pids */
-            1, {101}, /* ppids */
-            true /* a_incl_ns */, AMMS_ONLY_SUCCESSFUL /* a_m_sys */, true /* a_n_io */
-        ),
+        .id = "syscall_1",
+        .arg = {
+            .user = {
+                .uid_monitor_mode = AMM_CAPTURE,
+                .uids = {.len = 1, .arr = {1001}},
+            },
+            .ignore_pids = {.len = 1, .arr = {101}},
+            .ignore_ppids = {.len = 1, .arr = {101}},
+            .monitor_syscalls = AMMS_ONLY_SUCCESSFUL,
+            .network_io = true,
+            .include_ns_info = true,
+            .nf = {}
+        },
         .ff_list = {
             .list = {
-                // _CREATE_SYSCALL_FF_LIST_ITEMS_LOGGABLE()
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_accept),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_accept4),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_bind),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_connect),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_kill),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_recvfrom),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_recvmsg),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_sendmsg),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_sendto),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_clone),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_fork),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_setns),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_unshare),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_vfork),
+                _CREATE_SYSCALL_LOGGABLE_BY_PID_MUST_CAPTURE(201),
+                _CREATE_SYSCALL_LOGGABLE_BY_PPID_MUST_CAPTURE(201),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_SUCCESS_MUST_CAPTURE(true),
+                _CREATE_SYSCALL_LOGGABLE_BY_UID_MUST_CAPTURE(1001),
+                _CREATE_SYSCALL_LOGGABLE_MUST_CAPTURE(201, 201, __NR_accept, true, 1001),
+                _CREATE_SYSCALL_LOGGABLE_BY_PID_MUST_IGNORE(101),
+                _CREATE_SYSCALL_LOGGABLE_BY_PPID_MUST_IGNORE(101),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_SUCCESS_MUST_IGNORE(false),
+                _CREATE_SYSCALL_LOGGABLE_BY_UID_MUST_IGNORE(2001),
+                _CREATE_SYSCALL_LOGGABLE_MUST_IGNORE(101, 101, __NR_accept, false, 2001),
+                {}
+            }
+        }
+    },
+    {
+        .type = TCT_SYSCALL,
+        .id = "syscall_2",
+        /* Testing multiple-uids,multiple-pids,multiple-ppids,network-io-false,include-ns-info-false since syscall_1 */
+        .arg = {
+            .user = {
+                .uid_monitor_mode = AMM_CAPTURE,
+                .uids = {.len = 2, .arr = {1001, 1002}},
+            },
+            .ignore_pids = {.len = 2, .arr = {101, 102}},
+            .ignore_ppids = {.len = 2, .arr = {101, 102}},
+            .monitor_syscalls = AMMS_ONLY_SUCCESSFUL,
+            .network_io = false,
+            .include_ns_info = false,
+            .nf = {}
+        },
+        .ff_list = {
+            .list = {
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_accept),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_accept4),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_bind),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_connect),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_CAPTURE(__NR_kill),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_IGNORE(__NR_recvfrom),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_IGNORE(__NR_recvmsg),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_IGNORE(__NR_sendmsg),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_IGNORE(__NR_sendto),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_IGNORE(__NR_clone),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_IGNORE(__NR_fork),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_IGNORE(__NR_setns),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_IGNORE(__NR_unshare),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_NUM_MUST_IGNORE(__NR_vfork),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_SUCCESS_MUST_CAPTURE(true),
+                _CREATE_SYSCALL_LOGGABLE_BY_UID_MUST_CAPTURE(1001),
+                _CREATE_SYSCALL_LOGGABLE_BY_UID_MUST_CAPTURE(1002),
+                _CREATE_SYSCALL_LOGGABLE_MUST_CAPTURE(201, 201, __NR_accept, true, 1001),
+                _CREATE_SYSCALL_LOGGABLE_BY_PID_MUST_IGNORE(101),
+                _CREATE_SYSCALL_LOGGABLE_BY_PPID_MUST_IGNORE(101),
+                _CREATE_SYSCALL_LOGGABLE_BY_PID_MUST_IGNORE(102),
+                _CREATE_SYSCALL_LOGGABLE_BY_PPID_MUST_IGNORE(102),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_SUCCESS_MUST_IGNORE(false),
+                _CREATE_SYSCALL_LOGGABLE_MUST_IGNORE(101, 102, __NR_recvfrom, false, 2001),
+                {}
+            }
+        }
+    },
+    {
+        .type = TCT_SYSCALL,
+        .id = "syscall_3",
+        /* Testing AMMS_ALL,AMM_IGNORE since syscall_2 */
+        .arg = {
+            .user = {
+                .uid_monitor_mode = AMM_IGNORE,
+                .uids = {.len = 1, .arr = {1001}},
+            },
+            .ignore_pids = {.len = 1, .arr = {101}},
+            .ignore_ppids = {.len = 1, .arr = {101}},
+            .monitor_syscalls = AMMS_ALL,
+            .network_io = false,
+            .include_ns_info = false,
+            .nf = {}
+        },
+        .ff_list = {
+            .list = {
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_SUCCESS_MUST_CAPTURE(true),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_SUCCESS_MUST_CAPTURE(false),
+                _CREATE_SYSCALL_LOGGABLE_BY_UID_MUST_CAPTURE(2001),
+                _CREATE_SYSCALL_LOGGABLE_BY_UID_MUST_IGNORE(1001),
+                _CREATE_SYSCALL_LOGGABLE_MUST_CAPTURE(201, 201, __NR_accept, true, 2001),
+                _CREATE_SYSCALL_LOGGABLE_MUST_IGNORE(101, 101, __NR_recvfrom, false, 1001),
+                {}
+            }
+        }
+    },
+    {
+        .type = TCT_SYSCALL,
+        .id = "syscall_4",
+        /* Testing only AMMS_ONLY_FAILED since syscall_3 */
+        .arg = {
+            .user = {
+                .uid_monitor_mode = AMM_IGNORE,
+                .uids = {.len = 1, .arr = {1001}},
+            },
+            .ignore_pids = {.len = 1, .arr = {101}},
+            .ignore_ppids = {.len = 1, .arr = {101}},
+            .monitor_syscalls = AMMS_ONLY_FAILED,
+            .network_io = false,
+            .include_ns_info = false,
+            .nf = {}
+        },
+        .ff_list = {
+            .list = {
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_SUCCESS_MUST_IGNORE(true),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_SUCCESS_MUST_CAPTURE(false),
+                _CREATE_SYSCALL_LOGGABLE_MUST_CAPTURE(201, 201, __NR_accept, false, 2001),
+                _CREATE_SYSCALL_LOGGABLE_MUST_IGNORE(101, 101, __NR_recvfrom, true, 1001),
                 {}
             }
         }

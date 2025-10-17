@@ -150,5 +150,30 @@ bool global_is_syscall_loggable(
     pid_t pid, pid_t ppid, uid_t uid
 );
 
+/*
+    Check if syscall event is loggable.
+*/
+bool global_is_syscall_loggable_by_sys_num(int sys_num);
+
+/*
+    Check if syscall event is loggable.
+*/
+bool global_is_syscall_loggable_by_sys_success(bool sys_success);
+
+/*
+    Check if syscall event is loggable.
+*/
+bool global_is_syscall_loggable_by_pid(pid_t pid);
+
+/*
+    Check if syscall event is loggable.
+*/
+bool global_is_syscall_loggable_by_ppid(pid_t ppid);
+
+/*
+    Check if syscall event is loggable.
+*/
+bool global_is_syscall_loggable_by_uid(uid_t uid);
+
 
 #endif // _SPADE_AUDIT_GLOBAL_H

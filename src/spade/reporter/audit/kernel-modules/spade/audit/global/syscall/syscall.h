@@ -33,6 +33,86 @@
         dst             : The result pointer.
         ctx             : Syscall context.
         sys_num         : The syscall number.
+
+    Returns:
+        0    -> dst is successfully set.
+        -ive -> Error code and dst cannot be used.
+*/
+int global_syscall_is_loggable_by_sys_num(
+    bool *dst, struct context_syscall *ctx, int sys_num
+);
+
+/*
+    Is the syscall loggable based on the given information.
+
+    Params:
+        dst             : The result pointer.
+        ctx             : Syscall context.
+        sys_success     : Success of the syscall.
+
+    Returns:
+        0    -> dst is successfully set.
+        -ive -> Error code and dst cannot be used.
+*/
+int global_syscall_is_loggable_by_sys_success(
+    bool *dst, struct context_syscall *ctx, bool sys_success
+);
+
+/*
+    Is the syscall loggable based on the given information.
+
+    Params:
+        dst             : The result pointer.
+        ctx             : Syscall context.
+        uid             : Uid of the process which generated the event.
+
+    Returns:
+        0    -> dst is successfully set.
+        -ive -> Error code and dst cannot be used.
+*/
+int global_syscall_is_loggable_by_uid(
+    bool *dst, struct context_syscall *ctx, uid_t uid
+);
+
+/*
+    Is the syscall loggable based on the given information.
+
+    Params:
+        dst             : The result pointer.
+        ctx             : Syscall context.
+        pid             : Pid of the process which generated the event.
+
+    Returns:
+        0    -> dst is successfully set.
+        -ive -> Error code and dst cannot be used.
+*/
+int global_syscall_is_loggable_by_pid(
+    bool *dst, struct context_syscall *ctx, pid_t pid
+);
+
+/*
+    Is the syscall loggable based on the given information.
+
+    Params:
+        dst             : The result pointer.
+        ctx             : Syscall context.
+        ppid            : Ppid of the process which generated the event.
+
+    Returns:
+        0    -> dst is successfully set.
+        -ive -> Error code and dst cannot be used.
+*/
+int global_syscall_is_loggable_by_ppid(
+    bool *dst, struct context_syscall *ctx, pid_t ppid
+);
+
+/*
+    Is the syscall loggable based on the given information.
+
+    Params:
+        dst             : The result pointer.
+        ctx             : Syscall context.
+        sys_num         : The syscall number.
         sys_success     : Success of the syscall.
         pid             : Pid of the process which generated the event.
         ppid            : Ppid of the process which generated the event.
