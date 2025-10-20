@@ -40,7 +40,7 @@ function get_audit_process_pids()
 function get_ignore_pids_option()
 {
     local pids=$(get_audit_process_pids)
-    echo "ignore_pids=\"$pids\""
+    echo "pid_trace_mode=1 pids=\"$pids\""
 }
 
 # Function to get formatted ignore_ppids string
@@ -49,7 +49,7 @@ function get_ignore_pids_option()
 function get_ignore_ppids_option()
 {
     local pids=$(get_audit_process_pids)
-    echo "ignore_ppids=\"$pids\""
+    echo "ppid_trace_mode=1 ppids=\"$pids\""
 }
 
 # Function to get combined ignore_pids and ignore_ppids options
@@ -191,6 +191,11 @@ function get_config_file_option()
     echo "config_file=\"$config_path\""
 }
 
+function get_dry_run_option()
+{
+    echo "dry_run=0"
+}
+
 # Function to get combined options for watching the audited user
 # Usage: options=$(get_option_for_watch_audited_user)
 # Returns: Combined string of all monitoring options separated by spaces
@@ -205,8 +210,9 @@ function get_option_for_watch_audited_user()
     local user_capture=$(get_user_capture_options)
     local ignore_processes=$(get_ignore_processes_options)
     local config_file=$(get_config_file_option)
+    local dry_run=$(get_dry_run_option)
 
-    echo "$nf_handle_user $network_io $namespaces $log_syscalls $user_capture $ignore_processes $nf_hooks $nf_monitor_ct $config_file"
+    echo "$nf_handle_user $network_io $namespaces $log_syscalls $user_capture $ignore_processes $nf_hooks $nf_monitor_ct $config_file $dry_run"
 }
 
 # Function to get options based on a command

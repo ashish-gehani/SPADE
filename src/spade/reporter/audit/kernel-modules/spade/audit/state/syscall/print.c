@@ -23,7 +23,7 @@
 #include "spade/audit/state/syscall/print.h"
 #include "spade/audit/state/syscall/namespace/print.h"
 #include "spade/audit/state/syscall/hook/print.h"
-#include "spade/util/print/print.h"
+#include "spade/audit/type/print.h"
 #include "spade/util/log/log.h"
 
 
@@ -38,7 +38,7 @@ void state_syscall_write_to_seqbuf(struct seqbuf *b, const struct state_syscall 
         return;
 
     util_seqbuf_printf(b, "state_syscall={");
-    util_print_bool(b, "initialized", state->initialized);
+    type_print_bool(b, "initialized", state->initialized);
     seqbuf_print_sep(b);
     state_syscall_namespace_write_to_seqbuf(b, &state->ns);
     seqbuf_print_sep(b);

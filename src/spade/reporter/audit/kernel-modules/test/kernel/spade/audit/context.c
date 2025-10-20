@@ -24,7 +24,6 @@
 
 #include "spade/audit/context/context.h"
 #include "spade/audit/arg/arg.h"
-#include "spade/audit/arg/parse.h"
 #include "test/kernel/spade/audit/common.h"
 #include "test/kernel/spade/audit/context.h"
 
@@ -51,8 +50,8 @@ void test_context_init_basic(struct test_stats *stats)
     // Set up arg with known values
     arg.network_io = true;
     arg.include_ns_info = false;
-    arg.monitor_syscalls = AMMS_ALL;
-    arg.nf.monitor_ct = AMMC_ALL;
+    arg.monitor_syscalls = TMS_ALL;
+    arg.nf.monitor_ct = TMC_ALL;
     arg.nf.use_user = true;
 
     // Initialize context from arg
@@ -93,9 +92,9 @@ void test_context_init_basic(struct test_stats *stats)
         return;
     }
 
-    if (ctx.syscall.monitor_syscalls != AMMS_ALL)
+    if (ctx.syscall.monitor_syscalls != TMS_ALL)
     {
-        TEST_FAIL(stats, test_name, "syscall.monitor_syscalls: expected AMMS_ALL, got %d", ctx.syscall.monitor_syscalls);
+        TEST_FAIL(stats, test_name, "syscall.monitor_syscalls: expected TMS_ALL, got %d", ctx.syscall.monitor_syscalls);
         context_deinit(&ctx);
         return;
     }
@@ -108,9 +107,9 @@ void test_context_init_basic(struct test_stats *stats)
         return;
     }
 
-    if (ctx.netfilter.monitor_ct != AMMC_ALL)
+    if (ctx.netfilter.monitor_ct != TMC_ALL)
     {
-        TEST_FAIL(stats, test_name, "netfilter.monitor_ct: expected AMMC_ALL, got %d", ctx.netfilter.monitor_ct);
+        TEST_FAIL(stats, test_name, "netfilter.monitor_ct: expected TMC_ALL, got %d", ctx.netfilter.monitor_ct);
         context_deinit(&ctx);
         return;
     }
@@ -149,22 +148,22 @@ void test_context_init_with_arrays(struct test_stats *stats)
     stats->total++;
 
     // Set up arg with array values
-    arg.ignore_pids.arr[0] = 100;
-    arg.ignore_pids.arr[1] = 200;
-    arg.ignore_pids.arr[2] = 300;
-    arg.ignore_pids.len = 3;
+    arg.monitor_pid.pids.arr[0] = 100;
+    arg.monitor_pid.pids.arr[1] = 200;
+    arg.monitor_pid.pids.arr[2] = 300;
+    arg.monitor_pid.pids.len = 3;
 
-    arg.ignore_ppids.arr[0] = 1000;
-    arg.ignore_ppids.arr[1] = 2000;
-    arg.ignore_ppids.len = 2;
+    arg.monitor_ppid.ppids.arr[0] = 1000;
+    arg.monitor_ppid.ppids.arr[1] = 2000;
+    arg.monitor_ppid.ppids.len = 2;
 
-    arg.user.uids.arr[0] = 500;
-    arg.user.uids.arr[1] = 600;
-    arg.user.uids.len = 2;
-    arg.user.uid_monitor_mode = AMM_CAPTURE;
+    arg.monitor_user.uids.arr[0] = 500;
+    arg.monitor_user.uids.arr[1] = 600;
+    arg.monitor_user.uids.len = 2;
+    arg.monitor_user.m_mode = TMM_CAPTURE;
 
     arg.network_io = true;
-    arg.monitor_syscalls = AMMS_ONLY_SUCCESSFUL;
+    arg.monitor_syscalls = TMS_ONLY_SUCCESSFUL;
 
     // Initialize context from arg
     err = context_init(&ctx, &arg);
@@ -174,92 +173,92 @@ void test_context_init_with_arrays(struct test_stats *stats)
         return;
     }
 
-    // Verify ignore_pids array
-    if (ctx.syscall.ignore_pids.len != 3)
+    // Verify m_pids array
+    if (ctx.syscall.m_pids.pids.len != 3)
     {
-        TEST_FAIL(stats, test_name, "ignore_pids.len: expected 3, got %zu", ctx.syscall.ignore_pids.len);
+        TEST_FAIL(stats, test_name, "m_pids.pids.len: expected 3, got %zu", ctx.syscall.m_pids.pids.len);
         context_deinit(&ctx);
         return;
     }
 
-    if (ctx.syscall.ignore_pids.arr[0] != 100 ||
-        ctx.syscall.ignore_pids.arr[1] != 200 ||
-        ctx.syscall.ignore_pids.arr[2] != 300)
+    if (ctx.syscall.m_pids.pids.arr[0] != 100 ||
+        ctx.syscall.m_pids.pids.arr[1] != 200 ||
+        ctx.syscall.m_pids.pids.arr[2] != 300)
     {
-        TEST_FAIL(stats, test_name, "ignore_pids values incorrect: [%d,%d,%d]",
-                  ctx.syscall.ignore_pids.arr[0],
-                  ctx.syscall.ignore_pids.arr[1],
-                  ctx.syscall.ignore_pids.arr[2]);
+        TEST_FAIL(stats, test_name, "m_pids.pids values incorrect: [%d,%d,%d]",
+                  ctx.syscall.m_pids.pids.arr[0],
+                  ctx.syscall.m_pids.pids.arr[1],
+                  ctx.syscall.m_pids.pids.arr[2]);
         context_deinit(&ctx);
         return;
     }
 
-    // Verify ignore_ppids array
-    if (ctx.syscall.ignore_ppids.len != 2)
+    // Verify m_ppids array
+    if (ctx.syscall.m_ppids.ppids.len != 2)
     {
-        TEST_FAIL(stats, test_name, "ignore_ppids.len: expected 2, got %zu", ctx.syscall.ignore_ppids.len);
+        TEST_FAIL(stats, test_name, "m_ppids.ppids.len: expected 2, got %zu", ctx.syscall.m_ppids.ppids.len);
         context_deinit(&ctx);
         return;
     }
 
-    if (ctx.syscall.ignore_ppids.arr[0] != 1000 ||
-        ctx.syscall.ignore_ppids.arr[1] != 2000)
+    if (ctx.syscall.m_ppids.ppids.arr[0] != 1000 ||
+        ctx.syscall.m_ppids.ppids.arr[1] != 2000)
     {
-        TEST_FAIL(stats, test_name, "ignore_ppids values incorrect: [%d,%d]",
-                  ctx.syscall.ignore_ppids.arr[0],
-                  ctx.syscall.ignore_ppids.arr[1]);
+        TEST_FAIL(stats, test_name, "m_ppids.ppids values incorrect: [%d,%d]",
+                  ctx.syscall.m_ppids.ppids.arr[0],
+                  ctx.syscall.m_ppids.ppids.arr[1]);
         context_deinit(&ctx);
         return;
     }
 
     // Verify user uids array (syscall context)
-    if (ctx.syscall.user.uids.len != 2)
+    if (ctx.syscall.m_uids.uids.len != 2)
     {
-        TEST_FAIL(stats, test_name, "syscall.user.uids.len: expected 2, got %zu", ctx.syscall.user.uids.len);
+        TEST_FAIL(stats, test_name, "syscall.m_uids.uids.len: expected 2, got %zu", ctx.syscall.m_uids.uids.len);
         context_deinit(&ctx);
         return;
     }
 
-    if (ctx.syscall.user.uids.arr[0] != 500 ||
-        ctx.syscall.user.uids.arr[1] != 600)
+    if (ctx.syscall.m_uids.uids.arr[0] != 500 ||
+        ctx.syscall.m_uids.uids.arr[1] != 600)
     {
-        TEST_FAIL(stats, test_name, "syscall.user.uids values incorrect: [%u,%u]",
-                  ctx.syscall.user.uids.arr[0],
-                  ctx.syscall.user.uids.arr[1]);
+        TEST_FAIL(stats, test_name, "syscall.m_uids.uids values incorrect: [%u,%u]",
+                  ctx.syscall.m_uids.uids.arr[0],
+                  ctx.syscall.m_uids.uids.arr[1]);
         context_deinit(&ctx);
         return;
     }
 
-    if (ctx.syscall.user.uid_monitor_mode != AMM_CAPTURE)
+    if (ctx.syscall.m_uids.m_mode != TMM_CAPTURE)
     {
-        TEST_FAIL(stats, test_name, "syscall.user.uid_monitor_mode: expected AMM_CAPTURE, got %d",
-                  ctx.syscall.user.uid_monitor_mode);
+        TEST_FAIL(stats, test_name, "syscall.m_uids.m_mode: expected TMM_CAPTURE, got %d",
+                  ctx.syscall.m_uids.m_mode);
         context_deinit(&ctx);
         return;
     }
 
     // Verify user uids array (netfilter context)
-    if (ctx.netfilter.user.uids.len != 2)
+    if (ctx.netfilter.m_user.uids.len != 2)
     {
-        TEST_FAIL(stats, test_name, "netfilter.user.uids.len: expected 2, got %zu", ctx.netfilter.user.uids.len);
+        TEST_FAIL(stats, test_name, "netfilter.m_user.uids.len: expected 2, got %zu", ctx.netfilter.m_user.uids.len);
         context_deinit(&ctx);
         return;
     }
 
-    if (ctx.netfilter.user.uids.arr[0] != 500 ||
-        ctx.netfilter.user.uids.arr[1] != 600)
+    if (ctx.netfilter.m_user.uids.arr[0] != 500 ||
+        ctx.netfilter.m_user.uids.arr[1] != 600)
     {
-        TEST_FAIL(stats, test_name, "netfilter.user.uids values incorrect: [%u,%u]",
-                  ctx.netfilter.user.uids.arr[0],
-                  ctx.netfilter.user.uids.arr[1]);
+        TEST_FAIL(stats, test_name, "netfilter.m_user.uids values incorrect: [%u,%u]",
+                  ctx.netfilter.m_user.uids.arr[0],
+                  ctx.netfilter.m_user.uids.arr[1]);
         context_deinit(&ctx);
         return;
     }
 
-    if (ctx.netfilter.user.uid_monitor_mode != AMM_CAPTURE)
+    if (ctx.netfilter.m_user.m_mode != TMM_CAPTURE)
     {
-        TEST_FAIL(stats, test_name, "netfilter.user.uid_monitor_mode: expected AMM_CAPTURE, got %d",
-                  ctx.netfilter.user.uid_monitor_mode);
+        TEST_FAIL(stats, test_name, "netfilter.m_user.m_mode: expected TMM_CAPTURE, got %d",
+                  ctx.netfilter.m_user.m_mode);
         context_deinit(&ctx);
         return;
     }

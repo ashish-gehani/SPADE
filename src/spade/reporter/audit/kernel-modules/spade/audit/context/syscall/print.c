@@ -20,7 +20,7 @@
 
 #include "spade/audit/context/syscall/print.h"
 #include "spade/audit/arg/constant.h"
-#include "spade/util/print/print.h"
+#include "spade/audit/type/print.h"
 
 
 static void seqbuf_print_sep(struct seqbuf *b)
@@ -31,22 +31,30 @@ static void seqbuf_print_sep(struct seqbuf *b)
 void context_syscall_write_to_seqbuf(struct seqbuf *b, const struct context_syscall *context)
 {
     util_seqbuf_printf(b, "syscall={");
-    util_print_bool(b, "initialized", context->initialized);
+    type_print_bool(b, "initialized", context->initialized);
     seqbuf_print_sep(b);
-    util_print_bool(b, ARG_CONSTANT_NAME_NETWORK_IO_STR, context->network_io);
+    type_print_bool(b, ARG_CONSTANT_NAME_NETWORK_IO_STR, context->network_io);
     seqbuf_print_sep(b);
-    util_print_bool(b, ARG_CONSTANT_NAME_INCLUDE_NS_INFO_STR, context->include_ns_info);
+    type_print_bool(b, ARG_CONSTANT_NAME_INCLUDE_NS_INFO_STR, context->include_ns_info);
     seqbuf_print_sep(b);
-    util_print_monitor_syscalls(b, ARG_CONSTANT_NAME_MONITOR_SYSCALLS_STR, context->monitor_syscalls);
+    type_print_monitor_syscalls(b, ARG_CONSTANT_NAME_MONITOR_SYSCALLS_STR, context->monitor_syscalls);
     seqbuf_print_sep(b);
-    util_print_pid_array(b, ARG_CONSTANT_NAME_IGNORE_PIDS_STR, &(context->ignore_pids.arr[0]), context->ignore_pids.len);
+    type_print_monitor_pid(
+        b,
+        ARG_CONSTANT_NAME_PID_MONITOR_MODE_STR, ARG_CONSTANT_NAME_PIDS_STR,
+        &context->m_pids
+    );
     seqbuf_print_sep(b);
-    util_print_pid_array(b, ARG_CONSTANT_NAME_IGNORE_PPIDS_STR, &(context->ignore_ppids.arr[0]), context->ignore_ppids.len);
+    type_print_monitor_ppid(
+        b,
+        ARG_CONSTANT_NAME_PPID_MONITOR_MODE_STR, ARG_CONSTANT_NAME_PPIDS_STR,
+        &context->m_ppids
+    );
     seqbuf_print_sep(b);
-    util_print_user(
+    type_print_monitor_user(
         b,
         ARG_CONSTANT_NAME_UID_MONITOR_MODE_STR, ARG_CONSTANT_NAME_UIDS_STR,
-        &context->user
+        &context->m_uids
     );
     util_seqbuf_printf(b, "}");
 }

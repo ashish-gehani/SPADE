@@ -81,18 +81,18 @@ int global_syscall_is_loggable_by_sys_success(bool *dst, struct context_syscall 
     if (!dst || !ctx)
         return -EINVAL;
 
-    if (ctx->monitor_syscalls == AMMS_ALL)
+    if (ctx->monitor_syscalls == TMS_ALL)
     {
         // log all. Check other filters.
     }
-    else if (ctx->monitor_syscalls == AMMS_ONLY_FAILED)
+    else if (ctx->monitor_syscalls == TMS_ONLY_FAILED)
     {
         if (sys_success)
         {
             goto exit_false;
         }
     }
-    else if (ctx->monitor_syscalls == AMMS_ONLY_SUCCESSFUL)
+    else if (ctx->monitor_syscalls == TMS_ONLY_SUCCESSFUL)
     {
         if (!sys_success)
         {
@@ -118,7 +118,7 @@ int global_syscall_is_loggable_by_uid(bool *dst, struct context_syscall *ctx, ui
     if (!dst || !ctx)
         return -EINVAL;
 
-    uid_is_loggable = global_common_is_uid_loggable(&ctx->user, uid);
+    uid_is_loggable = global_common_is_uid_loggable(&ctx->m_uids, uid);
     if (!uid_is_loggable)
     {
         goto exit_false;
@@ -137,18 +137,16 @@ exit_true:
 
 int global_syscall_is_loggable_by_pid(bool *dst, struct context_syscall *ctx, pid_t pid)
 {
-    bool pid_is_in_pid_array;
+    bool pid_is_loggable;
 
     if (!dst || !ctx)
         return -EINVAL;
 
-    pid_is_in_pid_array = global_common_is_pid_in_array(
-        &(ctx->ignore_pids.arr[0]), ctx->ignore_pids.len,
-        pid
-    );
-
-    if (pid_is_in_pid_array)
+    pid_is_loggable = global_common_is_pid_loggable(&ctx->m_pids, pid);
+    if (!pid_is_loggable)
+    {
         goto exit_false;
+    }
 
     goto exit_true;
 
@@ -163,18 +161,16 @@ exit_true:
 
 int global_syscall_is_loggable_by_ppid(bool *dst, struct context_syscall *ctx, pid_t ppid)
 {
-    bool ppid_is_in_ppid_array;
+    bool ppid_is_loggable;
 
     if (!dst || !ctx)
         return -EINVAL;
 
-    ppid_is_in_ppid_array = global_common_is_pid_in_array(
-        &(ctx->ignore_ppids.arr[0]), ctx->ignore_ppids.len,
-        ppid
-    );
-
-    if (ppid_is_in_ppid_array)
+    ppid_is_loggable = global_common_is_ppid_loggable(&ctx->m_ppids, ppid);
+    if (!ppid_is_loggable)
+    {
         goto exit_false;
+    }
 
     goto exit_true;
 

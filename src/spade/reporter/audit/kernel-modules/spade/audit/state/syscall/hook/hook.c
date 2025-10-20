@@ -24,7 +24,6 @@
 #include <linux/version.h>
 
 #include "spade/audit/state/syscall/hook/hook.h"
-#include "spade/audit/config/config.h"
 #include "spade/util/log/log.h"
 
 
@@ -59,15 +58,7 @@ int state_syscall_hook_init(
     if (s->initialized)
         return -EALREADY;
 
-    switch (CONFIG_GLOBAL.sys_hook_type)
-    {
-        case CONFIG_SYSCALL_HOOK_FTRACE:
-            err = state_syscall_hook_ftrace_init(&s->ftrace, dry_run);
-            break;
-        default:
-            err = -EINVAL;
-            break;
-    }
+    err = state_syscall_hook_ftrace_init(&s->ftrace, dry_run);
 
     if (err != 0)
     {
@@ -89,15 +80,7 @@ int state_syscall_hook_deinit(
     if (!s || !s->initialized)
         return -EINVAL;
 
-    switch (CONFIG_GLOBAL.sys_hook_type)
-    {
-        case CONFIG_SYSCALL_HOOK_FTRACE:
-            err = state_syscall_hook_ftrace_deinit(&s->ftrace);
-            break;
-        default:
-            err = -EINVAL;
-            break;
-    }
+    err = state_syscall_hook_ftrace_deinit(&s->ftrace);
 
     s->initialized = false;
     s->dry_run = false;

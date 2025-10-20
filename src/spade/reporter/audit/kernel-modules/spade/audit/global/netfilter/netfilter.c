@@ -39,7 +39,7 @@ int global_netfilter_is_loggable_by_user(
     if (!ctx->use_user)
         *dst = true;
     else
-        *dst = global_common_is_uid_loggable(&ctx->user, uid);
+        *dst = global_common_is_uid_loggable(&ctx->m_user, uid);
 
     return 0;
 }
@@ -55,9 +55,9 @@ int global_netfilter_event_is_loggable_by_conntrack_info(
 
     switch (ctx->monitor_ct)
     {
-        case AMMC_ALL:
+        case TMC_ALL:
             goto return_true;
-        case AMMC_ONLY_NEW: 
+        case TMC_ONLY_NEW: 
             if (ct_info == IP_CT_NEW)
                 goto return_true;
             goto return_false;

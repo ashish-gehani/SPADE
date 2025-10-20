@@ -38,11 +38,14 @@
 #define FF_LIST_LEN 256
 #define STR_ID_LEN 64
 
-static struct arg arg = {0};
+static struct arg global_arg = {
+    .dry_run = true
+};
 
 static void _ensure_global_arg_is_reset(void)
 {
-	memset(&arg, 0, sizeof(arg));
+	memset(&global_arg, 0, sizeof(global_arg));
+    global_arg.dry_run = true;
 }
 
 //
@@ -360,10 +363,10 @@ struct test_config
 
 // Wrapper macros for netfilter loggable by user tests
 #define _CREATE_NF_LOGGABLE_BY_USER_MUST_CAPTURE(a_u_mode, a_uid) \
-    _CREATE_NF_FF_LOGGABLE_BY_USER("nf_loggable_by_user_must_capture", a_uid, ((a_u_mode) == AMM_CAPTURE))
+    _CREATE_NF_FF_LOGGABLE_BY_USER("nf_loggable_by_user_must_capture", a_uid, ((a_u_mode) == TMM_CAPTURE))
 
 #define _CREATE_NF_LOGGABLE_BY_USER_MUST_IGNORE(a_u_mode, a_uid) \
-    _CREATE_NF_FF_LOGGABLE_BY_USER("nf_loggable_by_user_must_ignore", (a_uid)+1, ((a_u_mode) == AMM_IGNORE))
+    _CREATE_NF_FF_LOGGABLE_BY_USER("nf_loggable_by_user_must_ignore", (a_uid)+1, ((a_u_mode) == TMM_IGNORE))
 
 // Wrapper macro for netfilter logging namespace info
 #define _CREATE_NF_LOGGING_NS_INFO(a_incl_ns) \
@@ -375,28 +378,28 @@ struct test_config
 
 // Wrapper macros for netfilter loggable by conntrack info tests
 #define _CREATE_NF_LOGGABLE_BY_CONNTRACK_ESTABLISHED(a_m_ct) \
-    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_estblshd_match_all", IP_CT_ESTABLISHED, ((a_m_ct) == AMMC_ALL))
+    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_estblshd_match_all", IP_CT_ESTABLISHED, ((a_m_ct) == TMC_ALL))
 
 #define _CREATE_NF_LOGGABLE_BY_CONNTRACK_RELATED(a_m_ct) \
-    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_rltd_match_all", IP_CT_RELATED, ((a_m_ct) == AMMC_ALL))
+    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_rltd_match_all", IP_CT_RELATED, ((a_m_ct) == TMC_ALL))
 
 #define _CREATE_NF_LOGGABLE_BY_CONNTRACK_NEW(a_m_ct) \
-    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_new_match_all_or_new", IP_CT_NEW, ((a_m_ct) == AMMC_ALL || (a_m_ct) == AMMC_ONLY_NEW))
+    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_new_match_all_or_new", IP_CT_NEW, ((a_m_ct) == TMC_ALL || (a_m_ct) == TMC_ONLY_NEW))
 
 #define _CREATE_NF_LOGGABLE_BY_CONNTRACK_REPLY(a_m_ct) \
-    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_rply_match_all", IP_CT_IS_REPLY, ((a_m_ct) == AMMC_ALL))
+    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_rply_match_all", IP_CT_IS_REPLY, ((a_m_ct) == TMC_ALL))
 
 #define _CREATE_NF_LOGGABLE_BY_CONNTRACK_ESTABLISHED_REPLY(a_m_ct) \
-    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_estblshdrply_match_all", IP_CT_ESTABLISHED_REPLY, ((a_m_ct) == AMMC_ALL))
+    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_estblshdrply_match_all", IP_CT_ESTABLISHED_REPLY, ((a_m_ct) == TMC_ALL))
 
 #define _CREATE_NF_LOGGABLE_BY_CONNTRACK_RELATED_REPLY(a_m_ct) \
-    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_rltdrply_match_all", IP_CT_RELATED_REPLY, ((a_m_ct) == AMMC_ALL))
+    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_rltdrply_match_all", IP_CT_RELATED_REPLY, ((a_m_ct) == TMC_ALL))
 
 #define _CREATE_NF_LOGGABLE_BY_CONNTRACK_NUMBER(a_m_ct) \
-    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_num_match_all", IP_CT_NUMBER, ((a_m_ct) == AMMC_ALL))
+    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_num_match_all", IP_CT_NUMBER, ((a_m_ct) == TMC_ALL))
 
 #define _CREATE_NF_LOGGABLE_BY_CONNTRACK_UNTRACKED(a_m_ct) \
-    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_untrckd_match_all", IP_CT_UNTRACKED, ((a_m_ct) == AMMC_ALL))
+    _CREATE_NF_FF_LOGGABLE_BY_CONNTRACK_INFO("nf_loggable_by_conntrack_untrckd_match_all", IP_CT_UNTRACKED, ((a_m_ct) == TMC_ALL))
 
 // Wrapper macro for network logging namespace info
 #define _CREATE_NETWORK_LOGGING_NS_INFO(a_incl_ns) \
@@ -567,15 +570,15 @@ static const struct test_config TC_LIST[] = {
         .id = "nf_capture_all_ct_for_u_1001_with_ns",
         .arg = {
             .include_ns_info = true,
-            .nf = { .audit_hooks = false, .monitor_ct = AMMC_ALL, .use_user = true },
-            .user = { .uid_monitor_mode = AMM_CAPTURE, .uids = { .len = 1, .arr = {1001} } } 
+            .nf = { .audit_hooks = false, .monitor_ct = TMC_ALL, .use_user = true },
+            .monitor_user = { .m_mode = TMM_CAPTURE, .uids = { .len = 1, .arr = {1001} } } 
         },
         .ff_list = {
             .list = {
-                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_CAPTURE, 1001),
+                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(TMM_CAPTURE, 1001),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGING_NS_INFO(true),
                 _CREATE_NF_AUDIT_HOOKS_ON(false),
-                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(AMMC_ALL),
+                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(TMC_ALL),
                 {}
             }
         }
@@ -585,15 +588,15 @@ static const struct test_config TC_LIST[] = {
         .id = "nf_capture_only_new_ct_for_u_1001_without_ns",
         .arg = {
             .include_ns_info = false,
-            .nf = { .audit_hooks = true, .monitor_ct = AMMC_ONLY_NEW, .use_user = true },
-            .user = { .uid_monitor_mode = AMM_CAPTURE, .uids = { .len = 1, .arr = {1001} } }
+            .nf = { .audit_hooks = true, .monitor_ct = TMC_ONLY_NEW, .use_user = true },
+            .monitor_user = { .m_mode = TMM_CAPTURE, .uids = { .len = 1, .arr = {1001} } }
         },
         .ff_list = {
             .list = {
-                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_CAPTURE, 1001),
+                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(TMM_CAPTURE, 1001),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGING_NS_INFO(false),
                 _CREATE_NF_AUDIT_HOOKS_ON(true),
-                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(AMMC_ONLY_NEW),
+                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(TMC_ONLY_NEW),
                 {}
             }
         }
@@ -603,15 +606,15 @@ static const struct test_config TC_LIST[] = {
         .id = "nf_ignore_all_ct_for_u_1001_with_ns",
         .arg = {
             .include_ns_info = true,
-            .nf = { .audit_hooks = true, .monitor_ct = AMMC_ALL, .use_user = true },
-            .user = { .uid_monitor_mode = AMM_IGNORE, .uids = { .len = 1, .arr = {1001} } }
+            .nf = { .audit_hooks = true, .monitor_ct = TMC_ALL, .use_user = true },
+            .monitor_user = { .m_mode = TMM_IGNORE, .uids = { .len = 1, .arr = {1001} } }
         },
         .ff_list = {
             .list = {
-                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_IGNORE, 1001),
+                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(TMM_IGNORE, 1001),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGING_NS_INFO(true),
                 _CREATE_NF_AUDIT_HOOKS_ON(true),
-                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(AMMC_ALL),
+                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(TMC_ALL),
                 {}
             }
         }
@@ -621,15 +624,15 @@ static const struct test_config TC_LIST[] = {
         .id = "nf_ignore_only_new_ct_for_u_1001_with_ns",
         .arg = {
             .include_ns_info = true,
-            .nf = { .audit_hooks = true, .monitor_ct = AMMC_ONLY_NEW, .use_user = true },
-            .user = { .uid_monitor_mode = AMM_IGNORE, .uids = { .len = 1, .arr = {1001} } }
+            .nf = { .audit_hooks = true, .monitor_ct = TMC_ONLY_NEW, .use_user = true },
+            .monitor_user = { .m_mode = TMM_IGNORE, .uids = { .len = 1, .arr = {1001} } }
         },
         .ff_list = {
             .list = {
-                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(AMM_IGNORE, 1001),
+                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_USER(TMM_IGNORE, 1001),
                 _CREATE_NF_FF_LIST_ITEMS_LOGGING_NS_INFO(true),
                 _CREATE_NF_AUDIT_HOOKS_ON(true),
-                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(AMMC_ONLY_NEW),
+                _CREATE_NF_FF_LIST_ITEMS_LOGGABLE_BY_CONNTRACK_INFO(TMC_ONLY_NEW),
                 {}
             }
         }
@@ -639,13 +642,13 @@ static const struct test_config TC_LIST[] = {
         .id = "nf_capture_all_users_because_not_using_users",
         .arg = {
             .include_ns_info = true,
-            .nf = { .audit_hooks = true, .monitor_ct = AMMC_ALL, .use_user = false },
-            .user = { .uid_monitor_mode = AMM_IGNORE, .uids = { .len = 1, .arr = {1001} } } 
+            .nf = { .audit_hooks = true, .monitor_ct = TMC_ALL, .use_user = false },
+            .monitor_user = { .m_mode = TMM_IGNORE, .uids = { .len = 1, .arr = {1001} } }
         },
         .ff_list = {
             .list = {
-                _CREATE_NF_LOGGABLE_BY_USER_MUST_CAPTURE(AMM_CAPTURE, 1001),
-                _CREATE_NF_LOGGABLE_BY_USER_MUST_CAPTURE(AMM_CAPTURE, 2001),
+                _CREATE_NF_LOGGABLE_BY_USER_MUST_CAPTURE(TMM_CAPTURE, 1001),
+                _CREATE_NF_LOGGABLE_BY_USER_MUST_CAPTURE(TMM_CAPTURE, 2001),
                 {}
             }
         }
@@ -655,8 +658,8 @@ static const struct test_config TC_LIST[] = {
         .id = "network_logging_with_ns",
         .arg = {
             .include_ns_info = true,
-            .nf = { .audit_hooks = true, .monitor_ct = AMMC_ALL, .use_user = true },
-            .user = { .uid_monitor_mode = AMM_CAPTURE, .uids = { .len = 1, .arr = {1001} } } 
+            .nf = { .audit_hooks = true, .monitor_ct = TMC_ALL, .use_user = true },
+            .monitor_user = { .m_mode = TMM_CAPTURE, .uids = { .len = 1, .arr = {1001} } }
         },
         .ff_list = {
             .list = {
@@ -669,13 +672,19 @@ static const struct test_config TC_LIST[] = {
         .type = TCT_SYSCALL,
         .id = "syscall_1",
         .arg = {
-            .user = {
-                .uid_monitor_mode = AMM_CAPTURE,
+            .monitor_user = {
+                .m_mode = TMM_CAPTURE,
                 .uids = {.len = 1, .arr = {1001}},
             },
-            .ignore_pids = {.len = 1, .arr = {101}},
-            .ignore_ppids = {.len = 1, .arr = {101}},
-            .monitor_syscalls = AMMS_ONLY_SUCCESSFUL,
+            .monitor_pid = {
+                .m_mode = TMM_IGNORE,
+                .pids = {.len = 1, .arr = {101}}
+            },
+            .monitor_ppid = {
+                .m_mode = TMM_IGNORE,
+                .ppids = {.len = 1, .arr = {101}}
+            },
+            .monitor_syscalls = TMS_ONLY_SUCCESSFUL,
             .network_io = true,
             .include_ns_info = true,
             .nf = {}
@@ -715,13 +724,19 @@ static const struct test_config TC_LIST[] = {
         .id = "syscall_2",
         /* Testing multiple-uids,multiple-pids,multiple-ppids,network-io-false,include-ns-info-false since syscall_1 */
         .arg = {
-            .user = {
-                .uid_monitor_mode = AMM_CAPTURE,
+            .monitor_user = {
+                .m_mode = TMM_CAPTURE,
                 .uids = {.len = 2, .arr = {1001, 1002}},
             },
-            .ignore_pids = {.len = 2, .arr = {101, 102}},
-            .ignore_ppids = {.len = 2, .arr = {101, 102}},
-            .monitor_syscalls = AMMS_ONLY_SUCCESSFUL,
+            .monitor_pid = {
+                .m_mode = TMM_IGNORE,
+                .pids = {.len = 2, .arr = {101, 102}},
+            },
+            .monitor_ppid = {
+                .m_mode = TMM_IGNORE,
+                .ppids = {.len = 2, .arr = {101, 102}},
+            },
+            .monitor_syscalls = TMS_ONLY_SUCCESSFUL,
             .network_io = false,
             .include_ns_info = false,
             .nf = {}
@@ -761,13 +776,19 @@ static const struct test_config TC_LIST[] = {
         .id = "syscall_3",
         /* Testing AMMS_ALL,AMM_IGNORE since syscall_2 */
         .arg = {
-            .user = {
-                .uid_monitor_mode = AMM_IGNORE,
+            .monitor_user = {
+                .m_mode = TMM_IGNORE,
                 .uids = {.len = 1, .arr = {1001}},
             },
-            .ignore_pids = {.len = 1, .arr = {101}},
-            .ignore_ppids = {.len = 1, .arr = {101}},
-            .monitor_syscalls = AMMS_ALL,
+            .monitor_pid = {
+                .m_mode = TMM_IGNORE,
+                .pids = {.len = 1, .arr = {101}},
+            },
+            .monitor_ppid = {
+                .m_mode = TMM_IGNORE,
+                .ppids = {.len = 1, .arr = {101}},
+            },
+            .monitor_syscalls = TMS_ALL,
             .network_io = false,
             .include_ns_info = false,
             .nf = {}
@@ -789,13 +810,19 @@ static const struct test_config TC_LIST[] = {
         .id = "syscall_4",
         /* Testing only AMMS_ONLY_FAILED since syscall_3 */
         .arg = {
-            .user = {
-                .uid_monitor_mode = AMM_IGNORE,
+            .monitor_user = {
+                .m_mode = TMM_IGNORE,
                 .uids = {.len = 1, .arr = {1001}},
             },
-            .ignore_pids = {.len = 1, .arr = {101}},
-            .ignore_ppids = {.len = 1, .arr = {101}},
-            .monitor_syscalls = AMMS_ONLY_FAILED,
+            .monitor_pid = {
+                .m_mode = TMM_IGNORE,
+                .pids = {.len = 1, .arr = {101}},
+            },
+            .monitor_ppid = {
+                .m_mode = TMM_IGNORE,
+                .ppids = {.len = 1, .arr = {101}},
+            },
+            .monitor_syscalls = TMS_ONLY_FAILED,
             .network_io = false,
             .include_ns_info = false,
             .nf = {}
@@ -806,6 +833,42 @@ static const struct test_config TC_LIST[] = {
                 _CREATE_SYSCALL_LOGGABLE_BY_SYS_SUCCESS_MUST_CAPTURE(false),
                 _CREATE_SYSCALL_LOGGABLE_MUST_CAPTURE(201, 201, __NR_accept, false, 2001),
                 _CREATE_SYSCALL_LOGGABLE_MUST_IGNORE(101, 101, __NR_recvfrom, true, 1001),
+                {}
+            }
+        }
+    },
+    {
+        .type = TCT_SYSCALL,
+        .id = "syscall_5",
+        /* Testing pid and ppid in capture mode (TMM_CAPTURE) based on syscall_4 */
+        .arg = {
+            .monitor_user = {
+                .m_mode = TMM_IGNORE,
+                .uids = {.len = 1, .arr = {1001}},
+            },
+            .monitor_pid = {
+                .m_mode = TMM_CAPTURE,
+                .pids = {.len = 1, .arr = {101}},
+            },
+            .monitor_ppid = {
+                .m_mode = TMM_CAPTURE,
+                .ppids = {.len = 1, .arr = {101}},
+            },
+            .monitor_syscalls = TMS_ONLY_FAILED,
+            .network_io = false,
+            .include_ns_info = false,
+            .nf = {}
+        },
+        .ff_list = {
+            .list = {
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_SUCCESS_MUST_IGNORE(true),
+                _CREATE_SYSCALL_LOGGABLE_BY_SYS_SUCCESS_MUST_CAPTURE(false),
+                _CREATE_SYSCALL_LOGGABLE_BY_PID_MUST_CAPTURE(101),
+                _CREATE_SYSCALL_LOGGABLE_BY_PPID_MUST_CAPTURE(101),
+                _CREATE_SYSCALL_LOGGABLE_BY_PID_MUST_IGNORE(201),
+                _CREATE_SYSCALL_LOGGABLE_BY_PPID_MUST_IGNORE(201),
+                _CREATE_SYSCALL_LOGGABLE_MUST_CAPTURE(101, 101, __NR_accept, false, 2001),
+                _CREATE_SYSCALL_LOGGABLE_MUST_IGNORE(201, 201, __NR_recvfrom, true, 1001),
                 {}
             }
         }
@@ -821,18 +884,14 @@ static void _ensure_global_reset(void)
     if (global_is_auditing_started())
         global_auditing_stop();
 
-    if (global_is_context_initialized())
-        global_context_deinit();
-
-    if (global_is_state_initialized())
-        global_state_deinit();
+    if (global_is_initialized())
+        global_deinit();
 }
 
 static void test_global_test_init_deinit(struct test_stats *stats)
 {
     const char *test_name = "test_global_test_init_deinit";
     int err;
-    bool dry_run = true;
 
     _ensure_global_arg_is_reset();
 
@@ -840,24 +899,16 @@ static void test_global_test_init_deinit(struct test_stats *stats)
 
     stats->total++;
 
-    if (global_is_state_initialized())
+    if (global_is_initialized())
     {
-        TEST_FAIL(stats, test_name, "global state marked as initialized without initialization");
+        TEST_FAIL(stats, test_name, "global marked as initialized without initialization");
         return;
     }
 
-    err = global_state_init(dry_run);
-    if (err != 0 || !global_is_state_initialized())
+    err = global_init(&global_arg);
+    if (err != 0 || !global_is_initialized())
     {
-        TEST_FAIL(stats, test_name, "global state failed to init. Err: %d", err);
-        return;
-    }
-
-    err = global_context_init(&arg);
-    if (err != 0 || !global_is_context_initialized())
-    {
-        TEST_FAIL(stats, test_name, "global context failed to init. Err: %d", err);
-        _ensure_global_reset();
+        TEST_FAIL(stats, test_name, "global failed to init. Err: %d", err);
         return;
     }
 
@@ -877,27 +928,20 @@ static void test_global_test_init_deinit(struct test_stats *stats)
         return;
     }
 
-    err = global_context_deinit();
-    if (err != 0 || global_is_context_initialized())
+    err = global_deinit();
+    if (err != 0 || global_is_initialized())
     {
         TEST_FAIL(stats, test_name, "global context failed to deinit. Err: %d", err);
         _ensure_global_reset();
         return;
     }
 
-    err = global_state_deinit();
-    if (err != 0 || global_is_state_initialized())
-    {
-        TEST_FAIL(stats, test_name, "global state failed to deinit. Err: %d", err);
-        return;
-    }
-
     TEST_PASS(stats, test_name);
 }
 
-static void test_global_test_netfilter_filter_func(struct test_stats *stats, const struct test_config *tc, struct filter_func *ff)
+static void test_global_test_event_filtering_func(struct test_stats *stats, const struct test_config *tc, struct filter_func *ff)
 {
-    const char *test_name = "test_global_test_netfilter_filter_func";
+    const char *test_name = "test_global_test_event_filtering_func";
     bool passed;
 
     stats->total++;
@@ -917,7 +961,7 @@ static void test_global_test_netfilter_filter_func(struct test_stats *stats, con
     TEST_PASS(stats, test_name);
 }
 
-static void test_global_test_netfilter_filter_func_list(struct test_stats *stats, const struct test_config *tc, struct filter_func_list *ffl)
+static void test_global_test_event_filtering_func_list(struct test_stats *stats, const struct test_config *tc, struct filter_func_list *ffl)
 {
     int i;
 
@@ -929,29 +973,20 @@ static void test_global_test_netfilter_filter_func_list(struct test_stats *stats
         if (ff->header.type == FFT_NULL)
             break;
      
-        test_global_test_netfilter_filter_func(stats, tc, ff);
+        test_global_test_event_filtering_func(stats, tc, ff);
     }
 }
 
-static void test_global_test_netfilter_test_configs(struct test_stats *stats)
+static void test_global_test_event_filtering_test_configs(struct test_stats *stats)
 {
-    const char *test_name = "test_global_test_netfilter_test_configs";
+    const char *test_name = "test_global_test_event_filtering_test_configs";
     int err, i;
-    bool dry_run = true;
 
     _ensure_global_reset();
-
-    err = global_state_init(dry_run);
-    if (err != 0 || !global_is_state_initialized())
-    {
-        TEST_FAIL(stats, test_name, "global state failed to init. Err: %d", err);
-        return;
-    }
 
     for (i = 0; i < TC_LIST_LEN; i++)
     {
         const struct test_config *tc = &TC_LIST[i];
-        struct arg *arg;
         struct filter_func_list *ff_list;
         if (!tc)
             continue;
@@ -960,13 +995,16 @@ static void test_global_test_netfilter_test_configs(struct test_stats *stats)
 
         stats->total++;
 
-        arg = (struct arg *)&tc->arg;
+        _ensure_global_arg_is_reset();
+        global_arg = tc->arg;
+        global_arg.dry_run = true; // Always dry run because only testing filtering.
+
         ff_list = (struct filter_func_list *)&tc->ff_list;
 
-        err = global_context_init(arg);
-        if (err != 0 || !global_is_context_initialized())
+        err = global_init(&global_arg);
+        if (err != 0 || !global_is_initialized())
         {
-            TEST_FAIL(stats, test_name, "global context failed to init with test config at index: %d. Err: %d", i, err);
+            TEST_FAIL(stats, test_name, "global failed to init with test config at index: %d. Err: %d", i, err);
             break;
         }
 
@@ -977,7 +1015,7 @@ static void test_global_test_netfilter_test_configs(struct test_stats *stats)
             break;
         }
 
-        test_global_test_netfilter_filter_func_list(stats, tc, ff_list);
+        test_global_test_event_filtering_func_list(stats, tc, ff_list);
 
         err = global_auditing_stop();
         if (err != 0 || global_is_auditing_started())
@@ -986,10 +1024,10 @@ static void test_global_test_netfilter_test_configs(struct test_stats *stats)
             break;
         }
 
-        err = global_context_deinit();
-        if (err != 0 || global_is_context_initialized())
+        err = global_deinit();
+        if (err != 0 || global_is_initialized())
         {
-            TEST_FAIL(stats, test_name, "global context failed to deinit with test config at index: %d. Err: %d", i, err);
+            TEST_FAIL(stats, test_name, "global failed to deinit with test config at index: %d. Err: %d", i, err);
             break;
         }
 
@@ -1003,7 +1041,7 @@ int test_global_all(struct test_stats *stats)
     util_log_info("test_global", "Starting tests");
 
     test_global_test_init_deinit(stats);
-    test_global_test_netfilter_test_configs(stats);
+    test_global_test_event_filtering_test_configs(stats);
 
     return 0;
 }

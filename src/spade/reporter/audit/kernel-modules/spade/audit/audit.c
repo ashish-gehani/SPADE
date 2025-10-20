@@ -27,7 +27,6 @@
 #include "spade/audit/audit.h"
 #include "spade/audit/param/param.h"
 #include "spade/audit/arg/print.h"
-#include "spade/audit/config/print.h"
 #include "spade/audit/global/global.h"
 #include "spade/util/log/log.h"
 #include "spade/util/log/module.h"
@@ -42,43 +41,25 @@ const char *SPADE_MODULE_NAME = "netio";
 static struct arg global_local_arg;
 
 
-static bool ensure_global_state_is_initialized(const char *log_id)
+static bool ensure_global_initialization(const char *log_id)
 {
-    bool state_module_initialized;
+    bool init;
 
-    state_module_initialized = global_is_state_initialized();
-    if (!state_module_initialized)
+    init = global_is_initialized();
+    if (!init)
     {
-        util_log_warn(log_id, "Failed to start auditing. State is not initialized.");
+        util_log_warn(log_id, "Failed to start auditing. Global not initialized.");
     }
-    return state_module_initialized;
+    return init;
 }
 
-static int spade_audit_start(const struct config *config, struct arg *arg)
+static int spade_audit_start(void)
 {
     const char *log_id = "spade_audit_start";
     int err = 0;
 
-    if (!config || !arg)
-    {
-        util_log_warn(log_id, "Failed to start auditing. Invalid parameters.");
+    if (!ensure_global_initialization(log_id))
         return -EINVAL;
-    }
-
-    config_print(config);
-
-    if (!ensure_global_state_is_initialized(log_id))
-        return -EINVAL;
-
-    arg_print(arg);
-
-    // init context and start audit
-    err = global_context_init(arg);
-    if (err != 0)
-    {
-        util_log_warn(log_id, "Failed to start auditing. Context initialization failed.");
-        return -EINVAL;
-    }
 
     err = global_auditing_start();
     if (err != 0)
@@ -90,60 +71,47 @@ static int spade_audit_start(const struct config *config, struct arg *arg)
     return 0;
 }
 
-static int spade_audit_stop(const struct config *config)
+static int spade_audit_stop(void)
 {
-    const char *log_id = "spade_audit_stop";
-    if (!config)
-    {
-        util_log_warn(log_id, "Failed to stop auditing. Invalid parameters.");
-        return -EINVAL;
-    }
-
-    config_print(config);
-
-    global_auditing_stop();
-    global_context_deinit();
-
-    return 0;
+    return global_auditing_stop();
 }
 
 static void _deinit_all(void)
 {
-    spade_audit_stop(&CONFIG_GLOBAL);
-    global_state_deinit();
+    spade_audit_stop();
+    global_deinit();
 }
 
 static int __init onload(void)
 {
     const char *log_id = "__init onload";
     int err = 0;
-    bool dry_run = false;
 
     util_log_module_loading_started();
-
-    err = global_state_init(dry_run);
-    if (err != 0)
-    {
-        util_log_warn(log_id, "Failed to load. State failed to initialize. Err: %d", err);
-        goto exit_fail;
-    }
 
 	if ((err = param_copy_validated_args(&global_local_arg)) != 0)
 	{
 		util_log_warn(log_id, "Failed to load module. Error in copying validated arguments: %d", err);
-		goto exit_fail_deinit_state;
+		goto exit_fail;
 	}
 
-	if ((err = spade_audit_start(&CONFIG_GLOBAL, &global_local_arg)) != 0)
+    err = global_init(&global_local_arg);
+    if (err != 0)
+    {
+        util_log_warn(log_id, "Failed to load. Failed to initialize. Err: %d", err);
+        goto exit_fail;
+    }
+
+	if ((err = spade_audit_start()) != 0)
 	{
 		util_log_warn(log_id, "Failed to load module. Error in starting auditing: %d", err);
-		goto exit_fail_deinit_state;
+		goto exit_fail_deinit;
 	}
 
     goto exit_success;
 
-exit_fail_deinit_state:
-    global_state_deinit();
+exit_fail_deinit:
+    global_deinit();
     goto exit_fail;
 
 exit_fail:

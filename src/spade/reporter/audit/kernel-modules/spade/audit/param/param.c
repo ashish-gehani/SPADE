@@ -25,7 +25,7 @@
 #include <linux/moduleparam.h>
 
 #include "spade/audit/arg/constant.h"
-#include "spade/audit/arg/parse.h"
+#include "spade/audit/type/parse.h"
 #include "spade/audit/param/param.h"
 
 
@@ -41,45 +41,52 @@ static struct arg default_arg = {
 	.monitor_syscalls = ARG_DEFAULT_MONITOR_SYSCALLS,
 	.network_io = ARG_DEFAULT_NETWORK_IO,
 	.include_ns_info = ARG_DEFAULT_INCLUDE_NS_INFO,
-	.ignore_pids = ARG_DEFAULT_IGNORE_PIDS,
-	.ignore_ppids = ARG_DEFAULT_IGNORE_PPIDS,
-	.user = {
-		.uid_monitor_mode = ARG_DEFAULT_UID_MONITOR_MODE,
+	.monitor_pid = {
+		.m_mode = ARG_DEFAULT_PID_MONITOR_MODE,
+		.pids = ARG_DEFAULT_PIDS
+	},
+	.monitor_ppid = {
+		.m_mode = ARG_DEFAULT_PPID_MONITOR_MODE,
+		.ppids = ARG_DEFAULT_PPIDS
+	},
+	.monitor_user = {
+		.m_mode = ARG_DEFAULT_UID_MONITOR_MODE,
 		.uids = ARG_DEFAULT_UIDS
 	},
-	.config_file = ARG_DEFAULT_CONFIG_FILE
+	.config_file = ARG_DEFAULT_CONFIG_FILE,
+	.dry_run = ARG_DEFAULT_DRY_RUN
 };
 
 // General param parsers
 
 static int set_uid_array(const char *param_name, const char *val, const struct kernel_param *kp)
 {
-	return arg_parse_uid_array("set_uid_array", param_name, val, (struct arg_array_uid *)(kp->arg));
+	return type_parse_uid_array("set_uid_array", param_name, val, (struct type_array_uid *)(kp->arg));
 }
 
 static int set_monitor_mode(const char *param_name, const char *val, const struct kernel_param *kp)
 {
-	return arg_parse_monitor_mode("set_monitor_mode", param_name, val, (enum arg_monitor_mode *)(kp->arg));
+	return type_parse_monitor_mode("set_monitor_mode", param_name, val, (enum type_monitor_mode *)(kp->arg));
 }
 
 static int set_pid_array(const char *param_name, const char *val, const struct kernel_param *kp)
 {
-	return arg_parse_pid_array("set_pid_array", param_name, val, (struct arg_array_pid *)(kp->arg));
+	return type_parse_pid_array("set_pid_array", param_name, val, (struct type_array_pid *)(kp->arg));
 }
 
 static int set_bool(const char *param_name, const char *val, const struct kernel_param *kp)
 {
-	return arg_parse_bool("set_bool", param_name, val, (bool *)(kp->arg));
+	return type_parse_bool("set_bool", param_name, val, (bool *)(kp->arg));
 }
 
 static int set_monitor_syscalls(const char *param_name, const char *val, const struct kernel_param *kp)
 {
-	return arg_parse_monitor_syscalls("set_monitor_syscalls", param_name, val, (enum arg_monitor_syscalls *)(kp->arg));
+	return type_parse_monitor_syscalls("set_monitor_syscalls", param_name, val, (enum type_monitor_syscalls *)(kp->arg));
 }
 
 static int set_monitor_ct(const char *param_name, const char *val, const struct kernel_param *kp)
 {
-	return arg_parse_monitor_connections("set_monitor_ct", param_name, val, (enum arg_monitor_connections *)(kp->arg));
+	return type_parse_monitor_connections("set_monitor_ct", param_name, val, (enum type_monitor_connections *)(kp->arg));
 }
 
 // Param setters
@@ -87,6 +94,11 @@ static int set_monitor_ct(const char *param_name, const char *val, const struct 
 static int param_set_nf_use_user(const char *val, const struct kernel_param *kp)
 {
 	return set_bool(ARG_CONSTANT_NAME_NF_USE_USER_STR, val, kp);
+}
+
+static int param_set_dry_run(const char *val, const struct kernel_param *kp)
+{
+	return set_bool(ARG_CONSTANT_NAME_DRY_RUN_STR, val, kp);
 }
 
 static int param_set_nf_audit_hooks(const char *val, const struct kernel_param *kp)
@@ -114,14 +126,24 @@ static int param_set_monitor_syscalls(const char *val, const struct kernel_param
 	return set_monitor_syscalls(ARG_CONSTANT_NAME_MONITOR_SYSCALLS_STR, val, kp);
 }
 
-static int param_set_ignore_pids(const char *val, const struct kernel_param *kp)
+static int param_set_pids(const char *val, const struct kernel_param *kp)
 {
-	return set_pid_array(ARG_CONSTANT_NAME_IGNORE_PIDS_STR, val, kp);
+	return set_pid_array(ARG_CONSTANT_NAME_PIDS_STR, val, kp);
 }
 
-static int param_set_ignore_ppids(const char *val, const struct kernel_param *kp)
+static int param_set_ppids(const char *val, const struct kernel_param *kp)
 {
-	return set_pid_array(ARG_CONSTANT_NAME_IGNORE_PPIDS_STR, val, kp);
+	return set_pid_array(ARG_CONSTANT_NAME_PPIDS_STR, val, kp);
+}
+
+static int param_set_pid_monitor_mode(const char *val, const struct kernel_param *kp)
+{
+	return set_monitor_mode(ARG_CONSTANT_NAME_PID_MONITOR_MODE_STR, val, kp);
+}
+
+static int param_set_ppid_monitor_mode(const char *val, const struct kernel_param *kp)
+{
+	return set_monitor_mode(ARG_CONSTANT_NAME_PPID_MONITOR_MODE_STR, val, kp);
 }
 
 static int param_set_uid_monitor_mode(const char *val, const struct kernel_param *kp)
@@ -159,6 +181,11 @@ static const struct kernel_param_ops param_ops_nf_use_user = {
 	.get = 0,
 };
 
+static const struct kernel_param_ops param_ops_dry_run = {
+	.set = param_set_dry_run,
+	.get = 0,
+};
+
 static const struct kernel_param_ops param_ops_nf_audit_hooks = {
 	.set = param_set_nf_audit_hooks,
 	.get = 0,
@@ -184,13 +211,23 @@ static const struct kernel_param_ops param_ops_monitor_syscalls = {
 	.get = 0,
 };
 
-static const struct kernel_param_ops param_ops_ignore_pids = {
-	.set = param_set_ignore_pids,
+static const struct kernel_param_ops param_ops_pids = {
+	.set = param_set_pids,
 	.get = 0,
 };
 
-static const struct kernel_param_ops param_ops_ignore_ppids = {
-	.set = param_set_ignore_ppids,
+static const struct kernel_param_ops param_ops_ppids = {
+	.set = param_set_ppids,
+	.get = 0,
+};
+
+static const struct kernel_param_ops param_ops_pid_monitor_mode = {
+	.set = param_set_pid_monitor_mode,
+	.get = 0,
+};
+
+static const struct kernel_param_ops param_ops_ppid_monitor_mode = {
+	.set = param_set_ppid_monitor_mode,
 	.get = 0,
 };
 
@@ -221,11 +258,14 @@ DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NF_MONITOR_CT, &param_ops_nf_monitor_ct
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NETWORK_IO, &param_ops_network_io, &default_arg.network_io, 0000, ARG_CONSTANT_DESC_NETWORK_IO);
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_INCLUDE_NS_INFO, &param_ops_include_ns_info, &default_arg.include_ns_info, 0000, ARG_CONSTANT_DESC_INCLUDE_NS_INFO);
 // DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_MONITOR_SYSCALLS, &param_ops_monitor_syscalls, &default_arg.monitor_syscalls, 0000, ARG_CONSTANT_DESC_MONITOR_SYSCALLS);
-DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_IGNORE_PIDS, &param_ops_ignore_pids, &default_arg.ignore_pids, 0000, ARG_CONSTANT_DESC_IGNORE_PIDS);
-DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_IGNORE_PPIDS, &param_ops_ignore_ppids, &default_arg.ignore_ppids, 0000, ARG_CONSTANT_DESC_IGNORE_PPIDS);
-DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_UID_MONITOR_MODE, &param_ops_uid_monitor_mode, &default_arg.user.uid_monitor_mode, 0000, ARG_CONSTANT_DESC_UID_MONITOR_MODE);
-DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_UIDS, &param_ops_uids, &default_arg.user.uids, 0000, ARG_CONSTANT_DESC_UIDS);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_PID_MONITOR_MODE, &param_ops_pid_monitor_mode, &default_arg.monitor_pid.m_mode, 0000, ARG_CONSTANT_DESC_PID_MONITOR_MODE);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_PIDS, &param_ops_pids, &default_arg.monitor_pid.pids, 0000, ARG_CONSTANT_DESC_PIDS);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_PPID_MONITOR_MODE, &param_ops_ppid_monitor_mode, &default_arg.monitor_ppid.m_mode, 0000, ARG_CONSTANT_DESC_PPID_MONITOR_MODE);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_PPIDS, &param_ops_ppids, &default_arg.monitor_ppid.ppids, 0000, ARG_CONSTANT_DESC_PPIDS);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_UID_MONITOR_MODE, &param_ops_uid_monitor_mode, &default_arg.monitor_user.m_mode, 0000, ARG_CONSTANT_DESC_UID_MONITOR_MODE);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_UIDS, &param_ops_uids, &default_arg.monitor_user.uids, 0000, ARG_CONSTANT_DESC_UIDS);
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_CONFIG_FILE, &param_ops_config_file, &default_arg.config_file, 0000, ARG_CONSTANT_DESC_CONFIG_FILE);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_DRY_RUN, &param_ops_dry_run, &default_arg.dry_run, 0000, ARG_CONSTANT_DESC_DRY_RUN);
 
 
 int param_copy_validated_args(struct arg *dst)

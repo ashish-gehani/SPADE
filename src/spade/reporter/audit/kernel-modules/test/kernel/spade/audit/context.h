@@ -26,7 +26,6 @@
 
 #include "spade/audit/context/context.h"
 #include "spade/audit/arg/arg.h"
-#include "spade/audit/arg/parse.h"
 #include "test/kernel/spade/audit/common.h"
 
 

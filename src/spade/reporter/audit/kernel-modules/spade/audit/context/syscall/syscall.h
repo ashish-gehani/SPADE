@@ -34,13 +34,13 @@ struct context_syscall
 
     bool include_ns_info;
 
-    enum arg_monitor_syscalls monitor_syscalls;
+    enum type_monitor_syscalls monitor_syscalls;
 
-    struct arg_array_pid ignore_pids;
+    struct type_monitor_pid m_pids;
 
-    struct arg_array_pid ignore_ppids;
+    struct type_monitor_ppid m_ppids;
 
-    struct arg_user user;
+    struct type_monitor_user m_uids;
 };
 
 /*

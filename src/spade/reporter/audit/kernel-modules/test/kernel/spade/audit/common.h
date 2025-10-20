@@ -37,7 +37,6 @@ struct test_stats {
     These macros automatically update the test statistics.
 */
 #define TEST_PASS(stats, test_name) do { \
-	util_log_info(test_name, "PASS"); \
 	(stats)->passed++; \
 } while (0)
 

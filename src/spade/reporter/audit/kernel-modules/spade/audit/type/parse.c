@@ -25,12 +25,12 @@
 #include <linux/param.h>
 #include <linux/string.h>
 
-#include "spade/audit/arg/parse.h"
+#include "spade/audit/type/parse.h"
 #include "spade/util/log/log.h"
 
-int arg_parse_monitor_mode(
+int type_parse_monitor_mode(
 	const char *log_id, const char *param_name,
-	const char *src, enum arg_monitor_mode *dst)
+	const char *src, enum type_monitor_mode *dst)
 {
 	int tmp, ret;
 
@@ -41,9 +41,9 @@ int arg_parse_monitor_mode(
 	if (ret)
 		return ret;
 
-	if (tmp != AMM_CAPTURE && tmp != AMM_IGNORE)
+	if (tmp != TMM_CAPTURE && tmp != TMM_IGNORE)
 	{
-		util_log_warn("arg_parse_monitor_mode", "Parameter (%s) has invalid value %d (must be 0=capture, 1=ignore)", param_name, tmp);
+		util_log_warn("type_parse_monitor_mode", "Parameter (%s) has invalid value %d (must be 0=capture, 1=ignore)", param_name, tmp);
 		return -EINVAL;
 	}
 
@@ -51,11 +51,11 @@ int arg_parse_monitor_mode(
 	return 0;
 }
 
-int arg_parse_pid_array(
+int type_parse_pid_array(
 	const char *log_id, const char *param_name,
-	const char *src, struct arg_array_pid *dst)
+	const char *src, struct type_array_pid *dst)
 {
-	struct arg_array_pid *arg = dst;
+	struct type_array_pid *type = dst;
 	char *src_copy, *src_item, *src_copy_ptr;
 	pid_t src_item_pid, ret = 0;
 
@@ -66,7 +66,7 @@ int arg_parse_pid_array(
 	if (!src_copy)
 		return -ENOMEM;
 
-	arg->len = 0;
+	type->len = 0;
 	src_copy_ptr = src_copy;
 	while ((src_item = strsep(&src_copy_ptr, ",")) != NULL)
 	{
@@ -78,24 +78,24 @@ int arg_parse_pid_array(
 			util_log_warn(log_id, "Parameter (%s) value contains invalid integer/pid: %s", param_name, src_item);
 			break;
 		}
-		if (arg->len >= ARG_ARRAY_MAX)
+		if (type->len >= TYPE_ARRAY_PID_MAX_LEN)
 		{
-			util_log_warn(log_id, "Parameter (%s) value exceeds max array len: %d", param_name, ARG_ARRAY_MAX);
+			util_log_warn(log_id, "Parameter (%s) value exceeds max array len: %d", param_name, TYPE_ARRAY_PID_MAX_LEN);
 			ret = -EINVAL;
 			break;
 		}
-		arg->arr[arg->len++] = src_item_pid;
+		type->arr[type->len++] = src_item_pid;
 	}
 
 	kfree(src_copy);
 	return ret;
 }
 
-int arg_parse_uid_array(
+int type_parse_uid_array(
 	const char *log_id, const char *param_name,
-	const char *src, struct arg_array_uid *dst)
+	const char *src, struct type_array_uid *dst)
 {
-	struct arg_array_uid *arg = dst;
+	struct type_array_uid *type = dst;
 	char *src_copy, *src_item, *src_copy_ptr;
 	uid_t src_item_uid, ret = 0;
 
@@ -106,7 +106,7 @@ int arg_parse_uid_array(
 	if (!src_copy)
 		return -ENOMEM;
 
-	arg->len = 0;
+	type->len = 0;
 	src_copy_ptr = src_copy;
 	while ((src_item = strsep(&src_copy_ptr, ",")) != NULL)
 	{
@@ -118,20 +118,20 @@ int arg_parse_uid_array(
 			util_log_warn(log_id, "Parameter (%s) value contains invalid unsigned integer/uid: %s", param_name, src_item);
 			break;
 		}
-		if (arg->len >= ARG_ARRAY_MAX)
+		if (type->len >= TYPE_ARRAY_UID_MAX_LEN)
 		{
-			util_log_warn(log_id, "Parameter (%s) value exceeds max array len: %d", param_name, ARG_ARRAY_MAX);
+			util_log_warn(log_id, "Parameter (%s) value exceeds max array len: %d", param_name, TYPE_ARRAY_UID_MAX_LEN);
 			ret = -EINVAL;
 			break;
 		}
-		arg->arr[arg->len++] = src_item_uid;
+		type->arr[type->len++] = src_item_uid;
 	}
 
 	kfree(src_copy);
 	return ret;
 }
 
-int arg_parse_bool(
+int type_parse_bool(
 	const char *log_id, const char *param_name,
 	const char *src, bool *dst
 )
@@ -159,9 +159,9 @@ invalid:
 	return -EINVAL;
 }
 
-int arg_parse_monitor_syscalls(
+int type_parse_monitor_syscalls(
 	const char *log_id, const char *param_name,
-	const char *src, enum arg_monitor_syscalls *dst)
+	const char *src, enum type_monitor_syscalls *dst)
 {
 	int tmp, ret;
 
@@ -172,7 +172,7 @@ int arg_parse_monitor_syscalls(
 	if (ret)
 		return ret;
 
-	if (tmp != AMMS_ALL && tmp != AMMS_ONLY_FAILED && tmp != AMMS_ONLY_SUCCESSFUL)
+	if (tmp != TMS_ALL && tmp != TMS_ONLY_FAILED && tmp != TMS_ONLY_SUCCESSFUL)
 	{
 		util_log_warn(log_id, "Parameter (%s) has invalid value %d (must be -1=all, 0=only_failed, 1=only_successful)", param_name, tmp);
 		return -EINVAL;
@@ -182,9 +182,9 @@ int arg_parse_monitor_syscalls(
 	return 0;
 }
 
-int arg_parse_monitor_connections(
+int type_parse_monitor_connections(
 	const char *log_id, const char *param_name,
-	const char *src, enum arg_monitor_connections *dst
+	const char *src, enum type_monitor_connections *dst
 )
 {
 	int tmp, ret;
@@ -196,7 +196,7 @@ int arg_parse_monitor_connections(
 	if (ret)
 		return ret;
 
-	if (tmp != AMMC_ALL && tmp != AMMC_ONLY_NEW)
+	if (tmp != TMC_ALL && tmp != TMC_ONLY_NEW)
 	{
 		util_log_warn(log_id, "Parameter (%s) has invalid value %d (must be -1=all, 0=only_new)", param_name, tmp);
 		return -EINVAL;

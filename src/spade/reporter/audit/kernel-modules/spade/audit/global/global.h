@@ -32,67 +32,38 @@
 
     Sequence of actions:
 
-        1.      Init state
-        2.      Init context
+        1.      Init
         ...
         N.      Perform any ops like auditing start/stop, etc.
-        N+1.    Deinit context
-        N+2.    Deinit state
+        N+1.    Deinit
 
 */
 
-
 /*
-    Initialize global state.
+    Init.
 
     Returns:
         0       -> Success.
         -ive    -> Error code.
 */
-int global_state_init(bool dry_run);
+int global_init(struct arg *arg);
 
 /*
-    Deinitialize global state.
+    Deinit.
 
     Returns:
         0       -> Success.
         -ive    -> Error code.
 */
-int global_state_deinit(void);
+int global_deinit(void);
 
 /*
-    Is global state initialized?
+    Is initialized?
 
     Returns:
         true/false.
 */
-bool global_is_state_initialized(void);
-
-/*
-    Initialize global context from arguments.
-
-    Returns:
-        0       -> Success.
-        -ive    -> Error code.
-*/
-int global_context_init(struct arg *arg);
-
-/*
-    Deinitialize global context.
-
-    Returns:
-        0       -> Success.
-        -ive    -> Error code.
-*/
-int global_context_deinit(void);
-
-/*
-    Is global context initialized?
-
-    Returns:
-        true/false.
-*/
-bool global_is_context_initialized(void);
+bool global_is_initialized(void);
 
 /*
     Start auditing.

@@ -34,11 +34,11 @@ struct context_netfilter
 
     bool use_user;
 
-    struct arg_user user;
+    struct type_monitor_user m_user;
 
     bool include_ns_info;
 
-    enum arg_monitor_connections monitor_ct;
+    enum type_monitor_connections monitor_ct;
 };
 
 /*

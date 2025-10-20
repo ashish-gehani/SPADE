@@ -21,7 +21,7 @@
 #include "spade/audit/global/common/common.h"
 
 
-bool global_common_is_pid_in_array(const pid_t *arr, size_t len, pid_t needle)
+static bool global_common_is_pid_in_array(const pid_t *arr, size_t len, pid_t needle)
 {
     size_t i;
     
@@ -36,7 +36,7 @@ bool global_common_is_pid_in_array(const pid_t *arr, size_t len, pid_t needle)
     return false;
 }
 
-bool global_common_is_uid_in_array(const uid_t *arr, size_t len, uid_t needle)
+static bool global_common_is_uid_in_array(const uid_t *arr, size_t len, uid_t needle)
 {
     size_t i;
 
@@ -51,27 +51,85 @@ bool global_common_is_uid_in_array(const uid_t *arr, size_t len, uid_t needle)
     return false;
 }
 
-bool global_common_is_uid_loggable(struct arg_user *user, uid_t uid)
+bool global_common_is_uid_loggable(struct type_monitor_user *m_user, uid_t uid)
 {
     bool uid_is_in_uid_array;
-    if (!user)
+    if (!m_user)
         return false;
 
     uid_is_in_uid_array = global_common_is_uid_in_array(
-        &(user->uids.arr[0]), user->uids.len,
+        &(m_user->uids.arr[0]), m_user->uids.len,
         uid
     );
 
-    if (user->uid_monitor_mode == AMM_IGNORE)
+    if (m_user->m_mode == TMM_IGNORE)
     {
         if (uid_is_in_uid_array)
         {
             return false;
         }
     }
-    else if (user->uid_monitor_mode == AMM_CAPTURE)
+    else if (m_user->m_mode == TMM_CAPTURE)
     {
         if (!uid_is_in_uid_array)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool global_common_is_pid_loggable(struct type_monitor_pid *m_pid, pid_t pid)
+{
+    bool pid_is_in_pid_array;
+    if (!m_pid)
+        return false;
+
+    pid_is_in_pid_array = global_common_is_pid_in_array(
+        &(m_pid->pids.arr[0]), m_pid->pids.len,
+        pid
+    );
+
+    if (m_pid->m_mode == TMM_IGNORE)
+    {
+        if (pid_is_in_pid_array)
+        {
+            return false;
+        }
+    }
+    else if (m_pid->m_mode == TMM_CAPTURE)
+    {
+        if (!pid_is_in_pid_array)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool global_common_is_ppid_loggable(struct type_monitor_ppid *m_ppid, pid_t ppid)
+{
+    bool ppid_is_in_ppid_array;
+    if (!m_ppid)
+        return false;
+
+    ppid_is_in_ppid_array = global_common_is_pid_in_array(
+        &(m_ppid->ppids.arr[0]), m_ppid->ppids.len,
+        ppid
+    );
+
+    if (m_ppid->m_mode == TMM_IGNORE)
+    {
+        if (ppid_is_in_ppid_array)
+        {
+            return false;
+        }
+    }
+    else if (m_ppid->m_mode == TMM_CAPTURE)
+    {
+        if (!ppid_is_in_ppid_array)
         {
             return false;
         }

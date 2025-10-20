@@ -51,7 +51,7 @@ int context_netfilter_init(struct context_netfilter *ctx, struct arg *arg)
     ctx->include_ns_info = arg->include_ns_info;
     ctx->monitor_ct = arg->nf.monitor_ct;
     ctx->use_user = arg->nf.use_user;
-    memcpy(&ctx->user, &arg->user, sizeof(arg->user));
+    memcpy(&ctx->m_user, &arg->monitor_user, sizeof(arg->monitor_user));
 
     ctx->initialized = true;
 

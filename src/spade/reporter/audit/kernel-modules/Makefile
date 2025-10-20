@@ -1,5 +1,7 @@
 KDIR ?= /lib/modules/$(shell uname -r)/build
 BUILD_OUTPUT ?= build
+# make MOD_DEFINES="-DDEBUG"
+MOD_DEFINES ?=
 
 # Module names
 MODULE_NAMES := netio spade_audit_test
@@ -35,13 +37,7 @@ obj-m := $(addsuffix .o,$(MODULE_NAMES))
 
 # Common object file lists
 ARG_OBJS := \
-  spade/audit/arg/parse.o \
   spade/audit/arg/print.o
-
-CONFIG_OBJS := \
-  spade/audit/config/config.o \
-  spade/audit/config/load.o \
-  spade/audit/config/print.o
 
 CONTEXT_OBJS := \
   spade/audit/context/netfilter/netfilter.o \
@@ -80,9 +76,6 @@ KERNEL_OBJS := \
   spade/audit/kernel/syscall/hook/setup/table/table.o \
   spade/audit/kernel/syscall/hook/setup/table/list.o
 
-PARAM_OBJS := \
-  spade/audit/param/param.o
-
 MSG_OBJS := \
   spade/audit/msg/common/serialize/audit.o \
   spade/audit/msg/common/create.o \
@@ -100,6 +93,9 @@ MSG_OBJS := \
   spade/audit/msg/ubsi/ops.o \
   spade/audit/msg/ops.o
 
+PARAM_OBJS := \
+  spade/audit/param/param.o
+
 STATE_OBJS := \
   spade/audit/state/netfilter/netfilter.o \
   spade/audit/state/netfilter/print.o \
@@ -114,10 +110,13 @@ STATE_OBJS := \
   spade/audit/state/state.o \
   spade/audit/state/print.o
 
+TYPE_OBJS := \
+  spade/audit/type/parse.o \
+  spade/audit/type/print.o
+
 UTIL_OBJS := \
   spade/util/log/log.o \
   spade/util/log/module.o \
-  spade/util/print/print.o \
   spade/util/seqbuf/seqbuf.o
 
 TEST_USER_BIN := \
@@ -133,14 +132,14 @@ TEST_USER_BIN := \
 # netio module objects
 netio-y := \
   $(ARG_OBJS) \
-  $(CONFIG_OBJS) \
   $(CONTEXT_OBJS) \
   $(GLOBAL_OBJS) \
   $(HELPER_OBJS) \
   $(KERNEL_OBJS) \
-  $(PARAM_OBJS) \
   $(MSG_OBJS) \
+  $(PARAM_OBJS) \
   $(STATE_OBJS) \
+  $(TYPE_OBJS) \
   $(SYSCALL_ACTION_OBJS) \
   $(SYSCALL_HOOK_FUNC_OBJS) \
   $(UTIL_OBJS) \
@@ -149,14 +148,14 @@ netio-y := \
 # test module objects
 spade_audit_test-y := \
   $(ARG_OBJS) \
-  $(CONFIG_OBJS) \
   $(CONTEXT_OBJS) \
   $(GLOBAL_OBJS) \
   $(HELPER_OBJS) \
   $(KERNEL_OBJS) \
-  $(PARAM_OBJS) \
   $(MSG_OBJS) \
+  $(PARAM_OBJS) \
   $(STATE_OBJS) \
+  $(TYPE_OBJS) \
   $(SYSCALL_ACTION_OBJS) \
   $(SYSCALL_HOOK_FUNC_OBJS) \
   $(UTIL_OBJS) \
@@ -191,7 +190,7 @@ test/user/bin/ubsi/%: test/user/src/ubsi/%.c
 	gcc -o $@ $<
 
 all: test-user
-	$(MAKE) -C $(KDIR) M=$(PWD) modules
+	$(MAKE) -C $(KDIR) M=$(PWD) EXTRA_CFLAGS="$(MOD_DEFINES) $(EXTRA_CFLAGS)" modules
 	@mkdir -p $(BUILD_OUTPUT)
 	@for file in $(MOD_OUT_FILES); do \
 		if [ -f $$file ]; then \

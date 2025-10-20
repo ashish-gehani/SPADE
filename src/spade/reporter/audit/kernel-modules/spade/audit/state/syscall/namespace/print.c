@@ -21,9 +21,8 @@
 #include <linux/slab.h>
 
 #include "spade/audit/state/syscall/namespace/print.h"
-#include "spade/util/print/print.h"
+#include "spade/audit/type/print.h"
 #include "spade/util/log/log.h"
-#include "spade/audit/config/config.h"
 #include "spade/audit/kernel/namespace/namespace.h"
 
 
@@ -32,7 +31,7 @@ static void seqbuf_print_sep(struct seqbuf *b)
     util_seqbuf_printf(b, ", ");
 }
 
-static void state_syscall_namespace_write_to_seqbuf_redacted(
+static void __maybe_unused state_syscall_namespace_write_to_seqbuf_redacted(
     struct seqbuf *b, const struct state_syscall_namespace *state
 )
 {
@@ -46,23 +45,23 @@ static void state_syscall_namespace_write_to_seqbuf_redacted(
         return;
 
     util_seqbuf_printf(b, "namespace={");
-    util_print_bool(b, "initialized", state->initialized);
+    type_print_bool(b, "initialized", state->initialized);
     seqbuf_print_sep(b);
-    util_print_bool(b, "found_ops_mnt", (k_ptrs->ops_mnt != NULL));
+    type_print_bool(b, "found_ops_mnt", (k_ptrs->ops_mnt != NULL));
     seqbuf_print_sep(b);
-    util_print_bool(b, "found_ops_net", (k_ptrs->ops_net != NULL));
+    type_print_bool(b, "found_ops_net", (k_ptrs->ops_net != NULL));
     seqbuf_print_sep(b);
-    util_print_bool(b, "found_ops_pid", (k_ptrs->ops_pid != NULL));
+    type_print_bool(b, "found_ops_pid", (k_ptrs->ops_pid != NULL));
     seqbuf_print_sep(b);
-    util_print_bool(b, "found_ops_user", (k_ptrs->ops_user != NULL));
+    type_print_bool(b, "found_ops_user", (k_ptrs->ops_user != NULL));
     seqbuf_print_sep(b);
-    util_print_bool(b, "found_ops_ipc", (k_ptrs->ops_ipc != NULL));
+    type_print_bool(b, "found_ops_ipc", (k_ptrs->ops_ipc != NULL));
     seqbuf_print_sep(b);
-    util_print_bool(b, "found_ops_cgroup", (k_ptrs->ops_cgroup != NULL));
+    type_print_bool(b, "found_ops_cgroup", (k_ptrs->ops_cgroup != NULL));
     util_seqbuf_printf(b, "}");
 }
 
-static void state_syscall_namespace_write_to_seqbuf_unredacted(
+static void __maybe_unused state_syscall_namespace_write_to_seqbuf_unredacted(
     struct seqbuf *b, const struct state_syscall_namespace *state
 )
 {
@@ -76,7 +75,7 @@ static void state_syscall_namespace_write_to_seqbuf_unredacted(
         return;
 
     util_seqbuf_printf(b, "namespace={");
-    util_print_bool(b, "initialized", state->initialized);
+    type_print_bool(b, "initialized", state->initialized);
     seqbuf_print_sep(b);
     util_seqbuf_printf(b, "ops_mnt=%p", k_ptrs->ops_mnt);
     seqbuf_print_sep(b);
@@ -97,13 +96,11 @@ void state_syscall_namespace_write_to_seqbuf(struct seqbuf *b, const struct stat
     if (!b || !state)
         return;
 
-    if (CONFIG_GLOBAL.debug)
-    {
-        state_syscall_namespace_write_to_seqbuf_unredacted(b, state);
-    } else
-    {
-        state_syscall_namespace_write_to_seqbuf_redacted(b, state);
-    }
+#ifdef DEBUG
+    state_syscall_namespace_write_to_seqbuf_unredacted(b, state);
+#else
+    state_syscall_namespace_write_to_seqbuf_redacted(b, state);
+#endif
 }
 
 void state_syscall_namespace_print(const struct state_syscall_namespace *state)

@@ -21,9 +21,7 @@
 #include <linux/errno.h>
 #include <linux/string.h>
 
-#include "spade/audit/config/config.h"
 #include "spade/audit/context/syscall/syscall.h"
-#include "spade/util/log/log.h"
 
 
 int context_syscall_is_initialized(
@@ -46,30 +44,15 @@ int context_syscall_is_initialized(
 
 int context_syscall_init(struct context_syscall *ctx, struct arg *arg)
 {
-    const char *log_id = "context_syscall_init";
-
     if (!ctx || !arg)
         return -EINVAL;
 
-    if (!CONFIG_GLOBAL.debug)
-    {
-        if (arg->monitor_syscalls != AMMS_ONLY_SUCCESSFUL)
-        {
-            util_log_warn(
-                log_id, 
-                "Monitoring of only successful syscalls is allowed in non-debug mode. Err: %d", 
-                -ENOTSUPP
-            );
-            return -ENOTSUPP;
-        }
-    }
-
-    memcpy(&ctx->ignore_pids, &arg->ignore_pids, sizeof(arg->ignore_pids));
-    memcpy(&ctx->ignore_ppids, &arg->ignore_ppids, sizeof(arg->ignore_ppids));
+    memcpy(&ctx->m_pids, &arg->monitor_pid, sizeof(arg->monitor_pid));
+    memcpy(&ctx->m_ppids, &arg->monitor_ppid, sizeof(arg->monitor_ppid));
     ctx->include_ns_info = arg->include_ns_info;
     ctx->monitor_syscalls = arg->monitor_syscalls;
     ctx->network_io = arg->network_io;
-    memcpy(&ctx->user, &arg->user, sizeof(arg->user));
+    memcpy(&ctx->m_uids, &arg->monitor_user, sizeof(arg->monitor_user));
 
     ctx->initialized = true;
 

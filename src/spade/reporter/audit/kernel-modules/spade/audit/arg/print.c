@@ -23,7 +23,7 @@
 #include "spade/audit/arg/constant.h"
 #include "spade/audit/arg/print.h"
 #include "spade/util/seqbuf/seqbuf.h"
-#include "spade/util/print/print.h"
+#include "spade/audit/type/print.h"
 #include "spade/util/log/log.h"
 
 
@@ -37,26 +37,36 @@ static void seqbuf_print_arg(struct seqbuf *b, const struct arg *arg)
     util_seqbuf_printf(b, "arg={");
     util_seqbuf_printf(b, "%s=%s", ARG_CONSTANT_NAME_CONFIG_FILE_STR, &arg->config_file[0]);
     seqbuf_print_arg_sep(b);
-    util_print_bool(b, ARG_CONSTANT_NAME_NF_USE_USER_STR, arg->nf.use_user);
+    type_print_bool(b, ARG_CONSTANT_NAME_DRY_RUN_STR, arg->dry_run);
     seqbuf_print_arg_sep(b);
-    util_print_bool(b, ARG_CONSTANT_NAME_NF_AUDIT_HOOKS_STR, arg->nf.audit_hooks);
+    type_print_bool(b, ARG_CONSTANT_NAME_NF_USE_USER_STR, arg->nf.use_user);
     seqbuf_print_arg_sep(b);
-    util_print_monitor_connections(b, ARG_CONSTANT_NAME_NF_MONITOR_CT_STR, arg->nf.monitor_ct);
+    type_print_bool(b, ARG_CONSTANT_NAME_NF_AUDIT_HOOKS_STR, arg->nf.audit_hooks);
     seqbuf_print_arg_sep(b);
-    util_print_monitor_syscalls(b, ARG_CONSTANT_NAME_MONITOR_SYSCALLS_STR, arg->monitor_syscalls);
+    type_print_monitor_connections(b, ARG_CONSTANT_NAME_NF_MONITOR_CT_STR, arg->nf.monitor_ct);
     seqbuf_print_arg_sep(b);
-    util_print_bool(b, ARG_CONSTANT_NAME_NETWORK_IO_STR, arg->network_io);
+    type_print_monitor_syscalls(b, ARG_CONSTANT_NAME_MONITOR_SYSCALLS_STR, arg->monitor_syscalls);
     seqbuf_print_arg_sep(b);
-    util_print_bool(b, ARG_CONSTANT_NAME_INCLUDE_NS_INFO_STR, arg->include_ns_info);
+    type_print_bool(b, ARG_CONSTANT_NAME_NETWORK_IO_STR, arg->network_io);
     seqbuf_print_arg_sep(b);
-    util_print_pid_array(b, ARG_CONSTANT_NAME_IGNORE_PIDS_STR, &(arg->ignore_pids.arr[0]), arg->ignore_pids.len);
+    type_print_bool(b, ARG_CONSTANT_NAME_INCLUDE_NS_INFO_STR, arg->include_ns_info);
     seqbuf_print_arg_sep(b);
-    util_print_pid_array(b, ARG_CONSTANT_NAME_IGNORE_PPIDS_STR, &(arg->ignore_ppids.arr[0]), arg->ignore_ppids.len);
+    type_print_monitor_pid(
+        b,
+        ARG_CONSTANT_NAME_PID_MONITOR_MODE_STR, ARG_CONSTANT_NAME_PIDS_STR,
+        &arg->monitor_pid
+    );
     seqbuf_print_arg_sep(b);
-    util_print_user(
+    type_print_monitor_ppid(
+        b,
+        ARG_CONSTANT_NAME_PPID_MONITOR_MODE_STR, ARG_CONSTANT_NAME_PPIDS_STR,
+        &arg->monitor_ppid
+    );
+    seqbuf_print_arg_sep(b);
+    type_print_monitor_user(
         b,
         ARG_CONSTANT_NAME_UID_MONITOR_MODE_STR, ARG_CONSTANT_NAME_UIDS_STR,
-        &arg->user
+        &arg->monitor_user
     );
     util_seqbuf_printf(b, "}");
 }

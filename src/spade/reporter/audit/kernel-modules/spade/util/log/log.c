@@ -22,7 +22,6 @@
 #include <linux/errno.h>
 #include <linux/module.h>
 
-#include "spade/audit/config/config.h"
 #include "spade/util/log/log.h"
 
 
@@ -95,20 +94,20 @@ int util_log_info(const char *log_id, const char *fmt, ...)
 
 int util_log_debug(const char *log_id, const char *fmt, ...)
 {
+	int ret = 0;
+
+#ifdef DEBUG
+
 	va_list args;
-	int ret;
 
 	if (!log_id || !fmt)
 		return -EINVAL;
 
-	if (!CONFIG_GLOBAL.debug)
-	{
-		return 0;
-	}
-
 	va_start(args, fmt);
 	ret = util_log_common_va(KERN_DEBUG, log_id, fmt, args);
 	va_end(args);
+
+#endif
 
 	return ret;
 }

@@ -24,64 +24,8 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 
-/*
-    Maximum number of items in an argument array.
-*/
-#define ARG_ARRAY_MAX 64
+#include "spade/audit/type/type.h"
 
-
-struct arg_array_pid
-{
-    pid_t arr[ARG_ARRAY_MAX];
-    size_t len;
-};
-
-struct arg_array_uid
-{
-    uid_t arr[ARG_ARRAY_MAX];
-    size_t len;
-};
-
-/*
-    When a pid or uid is being monitored, we need to know whether
-    it needs to be ignored or captured.
-
-    This enum contains the possible options.
-*/
-enum arg_monitor_mode
-{
-    AMM_CAPTURE = 0,
-    AMM_IGNORE = 1
-};
-
-/*
-    An enum to describe which syscalls to trace based on their
-    result.
-*/
-enum arg_monitor_syscalls
-{
-    AMMS_ALL = -1,
-    AMMS_ONLY_FAILED = 0,
-    AMMS_ONLY_SUCCESSFUL = 1,
-};
-
-enum arg_monitor_connections
-{
-    // All connections.
-    AMMC_ALL = -1,
-
-    // Only new connections.
-    AMMC_ONLY_NEW = 0
-};
-
-struct arg_user
-{
-    /*
-        UID monitor mode for the list of uids.
-    */
-    enum arg_monitor_mode uid_monitor_mode;
-    struct arg_array_uid uids;
-};
 
 struct arg_netfilter
 {
@@ -98,7 +42,7 @@ struct arg_netfilter
     /*
         Monitor connections based on their type.
     */
-    enum arg_monitor_connections monitor_ct;
+    enum type_monitor_connections monitor_ct;
 };
 
 struct arg
@@ -107,6 +51,8 @@ struct arg
         Config file path
     */
     char config_file[PATH_MAX];
+
+    bool dry_run;
 
     /*
         Monitor networking I/O calls like sendmsg, recvmsg, etc.
@@ -121,22 +67,22 @@ struct arg
     /*
         System calls to monitor.
     */
-    enum arg_monitor_syscalls monitor_syscalls;
+    enum type_monitor_syscalls monitor_syscalls;
 
     /*
-        List of process ids to ignore.
+        PID monitoring related args.
     */
-    struct arg_array_pid ignore_pids;
+    struct type_monitor_pid monitor_pid;
 
     /*
-        List of parent process ids to ignore.
+        PPID monitoring related args.
     */
-    struct arg_array_pid ignore_ppids;
+    struct type_monitor_ppid monitor_ppid;
 
     /*
-        User related args.
+        User monitoring related args.
     */
-    struct arg_user user;
+    struct type_monitor_user monitor_user;
 
     /*
         Netfilter functionality arguments.

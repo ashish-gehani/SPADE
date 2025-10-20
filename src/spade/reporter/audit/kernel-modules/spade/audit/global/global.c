@@ -42,68 +42,65 @@ static struct global
 
 static bool _is_state_and_context_inited(void)
 {
-    return global_is_state_initialized() && global_is_context_initialized();
+    int err = 0;
+    bool dst;
+
+    err = context_is_initialized(&dst, &g.c);
+    if (err != 0 || dst == false)
+        return false;
+
+    err = state_is_initialized(&dst, &g.s);
+    if (err != 0 || dst == false)
+        return false;
+
+    return true;
 }
 
 /*
     Public functions.
 */
 
-int global_state_init(bool dry_run)
+// todo print state and context
+int global_init(struct arg *arg)
 {
     int err;
-    err = state_init(&g.s, dry_run);
-    state_print(&g.s);
-    return err;
-}
 
-int global_state_deinit(void)
-{
-    return state_deinit(&g.s);
-}
-
-bool global_is_state_initialized(void)
-{
-    bool inited;
-    int err;
-    err = state_is_initialized(&inited, &g.s);
-    if (err != 0)
-        return false;
-    return inited;
-}
-
-int global_context_init(struct arg *arg)
-{
-    int err;
-    if (!global_is_state_initialized())
+    if (!arg)
         return -EINVAL;
+
+    err = state_init(&g.s, arg->dry_run);
+    if (err != 0)
+        return err;
+
     err = context_init(&g.c, arg);
-    if (err == 0)
+    if (err != 0)
     {
-        context_print(&g.c);
+        state_deinit(&g.s);
+        return err;
     }
+
     return err;
 }
 
-int global_context_deinit(void)
+bool global_is_initialized(void)
 {
-    if (!global_is_state_initialized())
-        return -EINVAL;
-    return context_deinit(&g.c);
+    return _is_state_and_context_inited();
 }
 
-bool global_is_context_initialized(void)
+int global_deinit(void)
 {
-    bool inited;
-    int err;
+    int err = 0;
+    bool dst;
 
-    if (!global_is_state_initialized())
-        return false;
+    err = context_is_initialized(&dst, &g.c);
+    if (err == 0 && dst == true)
+        err = context_deinit(&g.c);
 
-    err = context_is_initialized(&inited, &g.c);
-    if (err != 0)
-        return false;
-    return inited;
+    err = state_is_initialized(&dst, &g.s);
+    if (err == 0 && dst == true)
+        err = state_deinit(&g.s);
+
+    return err;
 }
 
 static void _log_started(const char *log_id)

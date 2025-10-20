@@ -21,7 +21,7 @@
 #include <linux/slab.h>
 
 #include "spade/audit/state/netfilter/print.h"
-#include "spade/util/print/print.h"
+#include "spade/audit/type/print.h"
 #include "spade/util/log/log.h"
 
 
@@ -36,7 +36,7 @@ void state_netfilter_write_to_seqbuf(struct seqbuf *b, const struct state_netfil
         return;
 
     util_seqbuf_printf(b, "state_netfilter={");
-    util_print_bool(b, "initialized", state->initialized);
+    type_print_bool(b, "initialized", state->initialized);
     seqbuf_print_sep(b);
     util_seqbuf_printf(b, "discarded_events_count=%lu", state->discarded_events_count);
     util_seqbuf_printf(b, "}");

@@ -26,18 +26,18 @@
 #include "spade/audit/arg/arg.h"
 
 /*
-    Does pid exist in the array?
+    Does 'pid' match the criteria in 'm_pid'.
 */
-bool global_common_is_pid_in_array(const pid_t *arr, size_t len, pid_t needle);
+bool global_common_is_pid_loggable(struct type_monitor_pid *m_pid, pid_t pid);
 
 /*
-    Does uid exist in the array?
+    Does 'ppid' match the criteria in 'm_ppid'.
 */
-bool global_common_is_uid_in_array(const uid_t *arr, size_t len, uid_t needle);
+bool global_common_is_ppid_loggable(struct type_monitor_ppid *m_ppid, pid_t ppid);
 
 /*
-    Does 'uid' match the criteria in 'user'.
+    Does 'uid' match the criteria in 'm_user'.
 */
-bool global_common_is_uid_loggable(struct arg_user *user, uid_t uid);
+bool global_common_is_uid_loggable(struct type_monitor_user *m_user, uid_t uid);
 
 #endif // _SPADE_AUDIT_GLOBAL_COMMON_H
