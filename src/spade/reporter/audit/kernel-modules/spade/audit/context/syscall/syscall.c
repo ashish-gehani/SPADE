@@ -64,7 +64,7 @@ int context_syscall_deinit(struct context_syscall *c)
     if (!c || !c->initialized)
         return -EINVAL;
 
-    memset(c, 0, sizeof(struct context_syscall));
+    // memset(c, 0, sizeof(struct context_syscall)); // todo uncomment after locking.
 
     c->initialized = false;
 

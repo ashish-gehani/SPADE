@@ -63,7 +63,7 @@ int context_netfilter_deinit(struct context_netfilter *c)
     if (!c || !c->initialized)
         return -EINVAL;
 
-    memset(c, 0, sizeof(struct context_netfilter));
+    // memset(c, 0, sizeof(struct context_netfilter)); // todo uncomment after locking.
 
     c->initialized = false;
 
