@@ -11,7 +11,7 @@ lib/kernel-modules/
 lib/libLinuxFUSE.so
 lib/neo4j-community-4.1.1/
 lib/spade.jar
-log/
+./log/
 spade.host
 spade.pid
 src/spade/reporter/LinuxFUSE$1.class
