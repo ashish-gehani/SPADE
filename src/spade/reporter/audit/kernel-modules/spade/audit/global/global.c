@@ -52,29 +52,17 @@ static bool _is_inited(void)
     Public functions.
 */
 
-int global_init(struct arg *arg)
+int global_init(bool dry_run)
 {
     int err;
-
-    if (!arg)
-        return -EINVAL;
 
     if (atomic_cmpxchg(&g.inited, 0, 1) == 1)
         return -EALREADY;
 
-    err = state_init(&g.s, arg->dry_run);
+    err = state_init(&g.s, dry_run);
     if (err != 0)
         goto undo_cmpxchg_and_exit;
 
-    err = context_init(&g.c, arg);
-    if (err != 0)
-    {
-        state_deinit(&g.s);
-        goto undo_cmpxchg_and_exit;
-    }
-
-    arg_print(arg);
-    context_print(&g.c);
     state_print(&g.s);
 
     goto exit; // success... so go to exit without undo.
@@ -99,10 +87,6 @@ int global_deinit(void)
     if (atomic_cmpxchg(&g.inited, 1, 0) == 0)
         return -EALREADY;
 
-    err = context_is_initialized(&dst, &g.c);
-    if (err == 0 && dst == true)
-        err = context_deinit(&g.c);
-
     err = state_is_initialized(&dst, &g.s);
     if (err == 0 && dst == true)
         err = state_deinit(&g.s);
@@ -115,28 +99,51 @@ static void _log_auditing_state(const char *log_id, bool started)
     util_log_info(log_id, "{started=%s}", (started ? "true" : "false"));
 }
 
-int global_auditing_start(void)
+int global_auditing_start(const struct arg *arg)
 {
-    if (!_is_inited())
+    int err = 0;
+
+    if (!_is_inited() || !arg)
         return -EINVAL;
 
     if (atomic_cmpxchg(&g.auditing_started, 0, 1) == 1)
         return -EALREADY;
 
+    err = context_init(&g.c, arg);
+    if (err != 0)
+        goto undo_cmpxchg_and_exit;
+
+    arg_print(arg);
+    context_print(&g.c);
     _log_auditing_state("global_auditing", true);
-    return 0;
+
+    goto exit; // success... so go to exit without undo.
+
+undo_cmpxchg_and_exit:
+    atomic_cmpxchg(&g.auditing_started, 1, 0);
+
+exit:
+    return err;
 }
 
 int global_auditing_stop(void)
 {
+    int err = 0;
+    bool dst;
+
     if (!_is_inited())
         return -EINVAL;
 
     if (atomic_cmpxchg(&g.auditing_started, 1, 0) == 0)
         return -EALREADY;
 
+    err = context_is_initialized(&dst, &g.c);
+    if (err == 0 && dst == true)
+        err = context_deinit(&g.c);
+
     _log_auditing_state("global_auditing", false);
-    return 0;
+
+    return err;
 }
 
 static bool _is_auditing_started(void)

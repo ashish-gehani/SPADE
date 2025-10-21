@@ -46,7 +46,7 @@
         0       -> Success.
         -ive    -> Error code.
 */
-int global_init(struct arg *arg);
+int global_init(bool dry_run);
 
 /*
     Deinit.
@@ -72,7 +72,7 @@ bool global_is_initialized(void);
         0       -> Success.
         -ive    -> Error code.
 */
-int global_auditing_start(void);
+int global_auditing_start(const struct arg *arg);
 
 /*
     Stop auditing.
