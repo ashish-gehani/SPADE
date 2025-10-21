@@ -52,8 +52,6 @@ struct arg
     */
     char config_file[PATH_MAX];
 
-    bool dry_run;
-
     /*
         Monitor networking I/O calls like sendmsg, recvmsg, etc.
     */

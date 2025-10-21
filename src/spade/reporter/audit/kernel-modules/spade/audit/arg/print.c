@@ -37,8 +37,6 @@ static void seqbuf_print_arg(struct seqbuf *b, const struct arg *arg)
     util_seqbuf_printf(b, "arg={");
     util_seqbuf_printf(b, "%s=%s", ARG_CONSTANT_NAME_CONFIG_FILE_STR, &arg->config_file[0]);
     seqbuf_print_arg_sep(b);
-    type_print_bool(b, ARG_CONSTANT_NAME_DRY_RUN_STR, arg->dry_run);
-    seqbuf_print_arg_sep(b);
     type_print_bool(b, ARG_CONSTANT_NAME_NF_USE_USER_STR, arg->nf.use_user);
     seqbuf_print_arg_sep(b);
     type_print_bool(b, ARG_CONSTANT_NAME_NF_AUDIT_HOOKS_STR, arg->nf.audit_hooks);
