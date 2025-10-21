@@ -77,7 +77,7 @@ int helper_syscall_network_copy_only_saddr_from_userspace(
     );
     if (err != 0)
     {
-        util_log_warn(log_id, "Failed to copy sockaddr from userspace");
+        util_log_warn(log_id, "Failed to copy sockaddr from userspace. Err: %d", err);
         return err;
     }
 
@@ -130,7 +130,7 @@ int helper_syscall_network_copy_saddr_and_size_in_msghdr_from_userspace(
     );
     if (err != 0)
     {
-        util_log_warn(log_id, "Failed to get copy saddr in msghdr from userspace");
+        util_log_warn(log_id, "Failed to get copy saddr in msghdr from userspace. Err: %d", err);
         return err;
     }
     return 0;

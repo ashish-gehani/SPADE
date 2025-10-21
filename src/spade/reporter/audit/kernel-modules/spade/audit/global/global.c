@@ -21,6 +21,7 @@
 #include <linux/errno.h>
 #include <linux/types.h>
 
+#include "spade/audit/arg/print.h"
 #include "spade/audit/global/global.h"
 #include "spade/audit/global/syscall/syscall.h"
 #include "spade/audit/global/netfilter/netfilter.h"
@@ -72,6 +73,7 @@ int global_init(struct arg *arg)
         goto undo_cmpxchg_and_exit;
     }
 
+    arg_print(arg);
     context_print(&g.c);
     state_print(&g.s);
 
