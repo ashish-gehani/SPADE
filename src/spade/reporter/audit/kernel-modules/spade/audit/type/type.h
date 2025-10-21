@@ -25,8 +25,13 @@
 #include <linux/kernel.h>
 
 
-#define TYPE_ARRAY_PID_MAX_LEN 64
-#define TYPE_ARRAY_UID_MAX_LEN 64
+#define TYPE_ARRAY_PID_MAX_LEN  64
+#define TYPE_ARRAY_UID_MAX_LEN  64
+
+#define TYPE_BUILD_HASH_LEN     65
+
+
+typedef char type_build_hash_t[TYPE_BUILD_HASH_LEN];
 
 
 struct type_array_pid
