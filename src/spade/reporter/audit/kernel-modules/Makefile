@@ -1,10 +1,15 @@
 KDIR ?= /lib/modules/$(shell uname -r)/build
-BUILD_OUTPUT ?= build
+
+BUILD_DIR ?= build
 # make MOD_DEFINES="-DDEBUG"
 MOD_DEFINES ?=
+# Install dir
+INSTALL_DIR ?= ../../../../../lib/kernel-modules
+
+MAIN_MODULE_NAME = netio
 
 # Module names
-MODULE_NAMES := netio spade_audit_test
+MODULE_NAMES := $(MAIN_MODULE_NAME) spade_audit_test
 
 # Syscall names
 SYSCALL_NAMES := accept accept4 bind clone connect fork kill recvfrom recvmsg sendmsg sendto setns unshare vfork
@@ -129,8 +134,8 @@ TEST_USER_BIN := \
 
 ###
 
-# netio module objects
-netio-y := \
+# main module objects
+$(MAIN_MODULE_NAME)-y := \
   $(ARG_OBJS) \
   $(CONTEXT_OBJS) \
   $(GLOBAL_OBJS) \
@@ -169,7 +174,7 @@ spade_audit_test-y := \
 
 ###
 
-.PHONY: all clean test-user
+.PHONY: all clean test-user install
 
 test-user: $(TEST_USER_BIN)
 
@@ -190,15 +195,25 @@ test/user/bin/ubsi/%: test/user/src/ubsi/%.c
 	gcc -o $@ $<
 
 all: test-user
-	$(MAKE) -C $(KDIR) M=$(PWD) EXTRA_CFLAGS="$(MOD_DEFINES) $(EXTRA_CFLAGS)" modules
-	@mkdir -p $(BUILD_OUTPUT)
+	$(MAKE) -C $(KDIR) M=$(CURDIR) EXTRA_CFLAGS="$(MOD_DEFINES) $(EXTRA_CFLAGS)" modules
+	@mkdir -p $(BUILD_DIR)
 	@for file in $(MOD_OUT_FILES); do \
 		if [ -f $$file ]; then \
-			mv $$file $(BUILD_OUTPUT)/; \
+			mv $$file $(BUILD_DIR)/; \
 		fi; \
 	done
 
 clean:
-	$(MAKE) -C $(KDIR) M=$(PWD) clean
-	-rm -rf $(BUILD_OUTPUT)
+	$(MAKE) -C $(KDIR) M=$(CURDIR) clean
+	-rm -rf $(BUILD_DIR)
 	-rm -f $(TEST_USER_BIN)
+	-rm -f $(INSTALL_DIR)/$(MAIN_MODULE_NAME).ko
+
+install:
+	@if [ ! -f "$(BUILD_DIR)/$(MAIN_MODULE_NAME).ko" ]; then \
+		echo "ERROR: $(MAIN_MODULE_NAME).ko not found in $(BUILD_DIR)/. Run 'make all' first."; \
+		exit 1; \
+	fi
+	@mkdir -p $(INSTALL_DIR)
+	@cp $(BUILD_DIR)/$(MAIN_MODULE_NAME).ko $(INSTALL_DIR)/
+	@echo "Successfully installed $(MAIN_MODULE_NAME).ko to $(INSTALL_DIR)"
