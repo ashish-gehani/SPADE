@@ -100,7 +100,7 @@ function get_audit_logs_after()
     fi
 
     # Build ausearch command
-    local cmd="ausearch -ts $start_time"
+    local cmd="ausearch --raw -ts $start_time"
 
     if [ -n "$end_time" ]; then
         cmd="$cmd -te $end_time"
