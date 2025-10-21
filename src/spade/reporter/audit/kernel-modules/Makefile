@@ -217,3 +217,6 @@ install:
 	@mkdir -p $(INSTALL_DIR)
 	@cp $(BUILD_DIR)/$(MAIN_MODULE_NAME).ko $(INSTALL_DIR)/
 	@echo "Successfully installed $(MAIN_MODULE_NAME).ko to $(INSTALL_DIR)"
+
+check:
+	@./bin/test/spade_audit_test/run.sh
