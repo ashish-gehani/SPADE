@@ -6,10 +6,33 @@ MOD_DEFINES ?=
 # Install dir
 INSTALL_DIR ?= ../../../../../lib/kernel-modules
 
+# Variables for prerequisite checking
+OS_KERNEL_RELEASE ?= $(shell uname -r)
+OS_KERNEL_MAJOR ?= $(shell uname -r | cut -d '.' -f 1)
+OS_KERNEL_MINOR ?= $(shell uname -r | cut -d '.' -f 2 | xargs printf "%02d")
+OS_KERNEL_NUMBER ?= $(OS_KERNEL_MAJOR)$(OS_KERNEL_MINOR)
+MIN_OS_KERNEL_NUMBER ?= 504
+MIN_OS_KERNEL_NUMBER_PRINTABLE ?= 5.4
+OS_ARCH ?= $(shell uname -m)
+
+# Prerequisite status variables (true/false)
+IS_MICROSOFT_KERNEL := $(if $(findstring Microsoft,$(OS_KERNEL_RELEASE)),true,false)
+HAS_KERNEL_NUMBER := $(if $(OS_KERNEL_NUMBER),true,false)
+IS_KERNEL_VERSION_OK := $(shell [ -n "$(OS_KERNEL_NUMBER)" ] && [ $(OS_KERNEL_NUMBER) -ge $(MIN_OS_KERNEL_NUMBER) ] && echo true || echo false)
+IS_X86_64 := $(if $(filter x86_64,$(OS_ARCH)),true,false)
+
+###
+
+# Main module name
 MAIN_MODULE_NAME = netio
+TEST_MODULE_NAME = spade_audit_test
+
+# Script name for make check
+CHECK_SCRIPT_MOD_TEST=bin/test/$(TEST_MODULE_NAME)/run.sh
+CHECK_SCRIPT_MOD_MAIN=bin/test/$(MAIN_MODULE_NAME)/run.sh
 
 # Module names
-MODULE_NAMES := $(MAIN_MODULE_NAME) spade_audit_test
+MODULE_NAMES := $(MAIN_MODULE_NAME) $(TEST_MODULE_NAME)
 
 # Syscall names
 SYSCALL_NAMES := accept accept4 bind clone connect fork kill recvfrom recvmsg sendmsg sendto setns unshare vfork
@@ -151,7 +174,7 @@ $(MAIN_MODULE_NAME)-y := \
   spade/audit/audit.o
 
 # test module objects
-spade_audit_test-y := \
+$(TEST_MODULE_NAME)-y := \
   $(ARG_OBJS) \
   $(CONTEXT_OBJS) \
   $(GLOBAL_OBJS) \
@@ -174,7 +197,7 @@ spade_audit_test-y := \
 
 ###
 
-.PHONY: all clean test-user install
+.PHONY: all all-prereq clean test-user install check-full check
 
 test-user: $(TEST_USER_BIN)
 
@@ -194,14 +217,34 @@ test/user/bin/ubsi/%: test/user/src/ubsi/%.c
 	@mkdir -p $(dir $@)
 	gcc -o $@ $<
 
-all: test-user
-	$(MAKE) -C $(KDIR) M=$(CURDIR) EXTRA_CFLAGS="$(MOD_DEFINES) $(EXTRA_CFLAGS)" modules
-	@mkdir -p $(BUILD_DIR)
-	@for file in $(MOD_OUT_FILES); do \
+all-prereq:
+	@if [ "$(IS_MICROSOFT_KERNEL)" = "true" ]; then \
+		echo 'ERROR: OS Kernel not supported (Microsoft/WSL detected)'; \
+		exit 1; \
+	fi
+	@if [ "$(IS_X86_64)" != "true" ]; then \
+		echo 'ERROR: Architecture not supported. Only x86_64 is supported. Current: $(OS_ARCH)'; \
+		exit 1; \
+	fi
+	@if [ "$(HAS_KERNEL_NUMBER)" != "true" ]; then \
+		echo 'ERROR: Kernel modules build failed. Failed to get current kernel release number.'; \
+		exit 1; \
+	fi
+	@if [ "$(IS_KERNEL_VERSION_OK)" != "true" ]; then \
+		echo 'ERROR: Kernel modules build failed. Kernel version $(shell uname -r) not greater than or equal to $(MIN_OS_KERNEL_NUMBER_PRINTABLE).'; \
+		exit 1; \
+	fi
+	@echo 'All prerequisites satisfied'
+
+all: all-prereq test-user
+	$(MAKE) -C $(KDIR) M=$(CURDIR) EXTRA_CFLAGS="$(MOD_DEFINES) $(EXTRA_CFLAGS)" modules;
+	@mkdir -p $(BUILD_DIR); \
+	for file in $(MOD_OUT_FILES); do \
 		if [ -f $$file ]; then \
 			mv $$file $(BUILD_DIR)/; \
 		fi; \
-	done
+	done; \
+	echo 'Warning: Kernel module uses workaround from https://github.com/xcellerator/linux_kernel_hacking/issues/3#issue-782815541 by hkerma';
 
 clean:
 	$(MAKE) -C $(KDIR) M=$(CURDIR) clean
@@ -218,5 +261,9 @@ install:
 	@cp $(BUILD_DIR)/$(MAIN_MODULE_NAME).ko $(INSTALL_DIR)/
 	@echo "Successfully installed $(MAIN_MODULE_NAME).ko to $(INSTALL_DIR)"
 
+check-full:
+	$(CHECK_SCRIPT_MOD_TEST)
+	$(CHECK_SCRIPT_MOD_MAIN) test watch_audited_user
+
 check:
-	@./bin/test/spade_audit_test/run.sh
+	$(CHECK_SCRIPT_MOD_TEST) --dry-run
