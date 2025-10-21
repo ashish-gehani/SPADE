@@ -53,8 +53,7 @@ static struct arg default_arg = {
 		.m_mode = ARG_DEFAULT_UID_MONITOR_MODE,
 		.uids = ARG_DEFAULT_UIDS
 	},
-	.config_file = ARG_DEFAULT_CONFIG_FILE,
-	.dry_run = ARG_DEFAULT_DRY_RUN
+	.config_file = ARG_DEFAULT_CONFIG_FILE
 };
 
 // General param parsers
@@ -94,11 +93,6 @@ static int set_monitor_ct(const char *param_name, const char *val, const struct 
 static int param_set_nf_use_user(const char *val, const struct kernel_param *kp)
 {
 	return set_bool(ARG_CONSTANT_NAME_NF_USE_USER_STR, val, kp);
-}
-
-static int param_set_dry_run(const char *val, const struct kernel_param *kp)
-{
-	return set_bool(ARG_CONSTANT_NAME_DRY_RUN_STR, val, kp);
 }
 
 static int param_set_nf_audit_hooks(const char *val, const struct kernel_param *kp)
@@ -181,11 +175,6 @@ static const struct kernel_param_ops param_ops_nf_use_user = {
 	.get = 0,
 };
 
-static const struct kernel_param_ops param_ops_dry_run = {
-	.set = param_set_dry_run,
-	.get = 0,
-};
-
 static const struct kernel_param_ops param_ops_nf_audit_hooks = {
 	.set = param_set_nf_audit_hooks,
 	.get = 0,
@@ -265,7 +254,6 @@ DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_PPIDS, &param_ops_ppids, &default_arg.m
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_UID_MONITOR_MODE, &param_ops_uid_monitor_mode, &default_arg.monitor_user.m_mode, 0000, ARG_CONSTANT_DESC_UID_MONITOR_MODE);
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_UIDS, &param_ops_uids, &default_arg.monitor_user.uids, 0000, ARG_CONSTANT_DESC_UIDS);
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_CONFIG_FILE, &param_ops_config_file, &default_arg.config_file, 0000, ARG_CONSTANT_DESC_CONFIG_FILE);
-DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_DRY_RUN, &param_ops_dry_run, &default_arg.dry_run, 0000, ARG_CONSTANT_DESC_DRY_RUN);
 
 
 int param_copy_validated_args(struct arg *dst)
