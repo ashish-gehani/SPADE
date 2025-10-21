@@ -21,3 +21,5 @@ src/spade/reporter/spade_reporter_LinuxFUSE.h
 tmp/
 .vscode
 cfg/query.history
+Module.symvers
+modules.order
