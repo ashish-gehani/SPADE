@@ -64,7 +64,7 @@ int context_netfilter_is_initialized(
         0       -> Success.
         -ive    -> Error code.
 */
-int context_netfilter_init(struct context_netfilter *c, struct arg *arg);
+int context_netfilter_init(struct context_netfilter *c, const struct arg *arg);
 
 /*
     Deinitialize context.

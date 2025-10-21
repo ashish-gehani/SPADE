@@ -46,7 +46,7 @@ int context_is_initialized(
     return 0;
 }
 
-int context_init(struct context *c, struct arg *arg)
+int context_init(struct context *c, const struct arg *arg)
 {
     int err;
     bool syscall_is_inited = false;

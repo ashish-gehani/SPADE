@@ -66,7 +66,7 @@ int context_syscall_is_initialized(
         0       -> Success.
         -ive    -> Error code.
 */
-int context_syscall_init(struct context_syscall *c, struct arg *arg);
+int context_syscall_init(struct context_syscall *c, const struct arg *arg);
 
 /*
     Deinitialize context.

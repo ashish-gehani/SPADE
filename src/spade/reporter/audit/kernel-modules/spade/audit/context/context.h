@@ -64,7 +64,7 @@ int context_is_initialized(
         0       -> Success.
         -ive    -> Error code.
 */
-int context_init(struct context *c, struct arg *arg);
+int context_init(struct context *c, const struct arg *arg);
 
 /*
     Deinitialize context.
