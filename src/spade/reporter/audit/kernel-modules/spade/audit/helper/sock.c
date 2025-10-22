@@ -214,8 +214,10 @@ int helper_sock_copy_saddr_in_msghdr_from_userspace(
     err = copy_from_user(dst, copy_src.msg_name, copy_src.msg_namelen);
     if (err < 0)
         return err;
-    else // (err > 0)
+    else if (err > 0)
         return -ENOMEM;
+
+    // Here when err == 0 i.e. no error.
 
     return 0;
 }
