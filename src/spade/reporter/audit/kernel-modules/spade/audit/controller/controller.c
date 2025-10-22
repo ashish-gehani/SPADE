@@ -24,10 +24,9 @@
 #include <linux/param.h>
 #include <linux/string.h>
 
-#include "spade/audit/audit.h"
-#include "spade/audit/arg/print.h"
 #include "spade/audit/exported/auditing.h"
-#include "spade/audit/global/global.h"
+#include "spade/audit/param/param.h"
+#include "spade/audit/arg/print.h"
 #include "spade/util/log/log.h"
 #include "spade/util/log/module.h"
 
@@ -35,23 +34,45 @@
 MODULE_LICENSE("GPL");
 
 
-const char *SPADE_MODULE_NAME = "netio";
+extern const type_build_hash_t spade_build_hash;
 
+
+const char *SPADE_MODULE_NAME = "netio_controller";
+
+
+static struct arg global_local_arg;
+
+
+static int _start(struct arg *arg)
+{
+    return exported_auditing_spade_start(spade_build_hash, arg);
+}
+
+static int _stop(void)
+{
+    return exported_auditing_spade_stop(spade_build_hash);
+}
 
 static int __init onload(void)
 {
     const char *log_id = "__init onload";
     int err = 0;
-    bool dry_run = false;
 
     util_log_module_loading_started();
 
-    err = global_init(dry_run);
-    if (err != 0)
-    {
-        util_log_warn(log_id, "Failed to load. Failed to initialize. Err: %d", err);
-        goto exit_fail;
-    }
+	if ((err = param_copy_validated_args(&global_local_arg)) != 0)
+	{
+		util_log_warn(log_id, "Failed to load module. Error in copying validated arguments: %d", err);
+		goto exit_fail;
+	}
+
+    arg_print(&global_local_arg);
+
+	if ((err = _start(&global_local_arg)) != 0)
+	{
+		util_log_warn(log_id, "Failed to load module. Error in starting auditing: %d", err);
+		goto exit_fail;
+	}
 
     goto exit_success;
 
@@ -70,7 +91,7 @@ exit:
 static void __exit onunload(void)
 {
     util_log_module_unloading_started();
-    global_deinit();
+    _stop();
     util_log_module_unloading_success();
 }
 

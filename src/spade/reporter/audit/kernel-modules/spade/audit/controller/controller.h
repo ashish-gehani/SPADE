@@ -18,9 +18,9 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_AUDIT_H
-#define SPADE_AUDIT_AUDIT_H
+#ifndef SPADE_AUDIT_CONTROLLER_CONTROLLER_H
+#define SPADE_AUDIT_CONTROLLER_CONTROLLER_H
 
 extern const char *SPADE_MODULE_NAME;
 
-#endif // SPADE_AUDIT_AUDIT_H
+#endif // SPADE_AUDIT_CONTROLLER_CONTROLLER_H

@@ -18,9 +18,37 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_AUDIT_H
-#define SPADE_AUDIT_AUDIT_H
+#ifndef _SPADE_AUDIT_EXPORTED_AUDITING_H
+#define _SPADE_AUDIT_EXPORTED_AUDITING_H
 
-extern const char *SPADE_MODULE_NAME;
+#include <linux/init.h>
+#include <linux/kernel.h>
 
-#endif // SPADE_AUDIT_AUDIT_H
+#include "spade/audit/arg/arg.h"
+
+
+/*
+    Function exported by the main kernel module to start auditing
+    with the given arguments.
+
+    The hash for the callee and the caller must match.
+
+    Returns:
+        0       -> Success.
+        -ive    -> Error code.
+*/
+int exported_auditing_spade_start(const type_build_hash_t hash, struct arg *arg);
+
+/*
+    Function exported by the main kernel module to stop auditing.
+
+    The hash for the callee and the caller must match.
+
+    Returns:
+        0       -> Success.
+        -ive    -> Error code.
+*/
+int exported_auditing_spade_stop(const type_build_hash_t hash);
+
+
+#endif // _SPADE_AUDIT_EXPORTED_AUDITING_H
