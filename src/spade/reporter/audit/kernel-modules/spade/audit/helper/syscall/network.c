@@ -30,7 +30,7 @@
 
 
 int helper_syscall_network_copy_saddr_and_size_from_userspace(
-    struct sockaddr *dst,
+    struct sockaddr_storage *dst,
     uint32_t *dst_size,
     struct sockaddr __user *src,
     uint32_t __user *src_size
@@ -58,7 +58,7 @@ int helper_syscall_network_copy_saddr_and_size_from_userspace(
 }
 
 int helper_syscall_network_copy_only_saddr_from_userspace(
-    struct sockaddr *dst,
+    struct sockaddr_storage *dst,
     uint32_t *dst_size,
     struct sockaddr __user *src,
     uint32_t src_size
@@ -87,7 +87,7 @@ int helper_syscall_network_copy_only_saddr_from_userspace(
 }
 
 int helper_syscall_network_get_peer_saddr_from_fd(
-    struct sockaddr *dst,
+    struct sockaddr_storage *dst,
     uint32_t *dst_size,
     int sockfd
 )
@@ -115,7 +115,7 @@ int helper_syscall_network_get_peer_saddr_from_fd(
 }
 
 int helper_syscall_network_copy_saddr_and_size_in_msghdr_from_userspace(
-    struct sockaddr *dst, uint32_t *dst_size,
+    struct sockaddr_storage *dst, uint32_t *dst_size,
     struct msghdr __user *src
 )
 {
@@ -161,7 +161,7 @@ int helper_syscall_network_populate_msg(
     struct msg_network *msg,
     struct kernel_syscall_context_post *sys_ctx,
     int subject_sockfd,
-    struct sockaddr *remote_saddr,
+    struct sockaddr_storage *remote_saddr,
     uint32_t remote_saddr_size
 )
 {

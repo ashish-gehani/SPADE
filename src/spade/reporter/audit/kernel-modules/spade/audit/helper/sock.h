@@ -27,7 +27,7 @@
 struct helper_sock_saddr_info
 {
     int fd;
-    struct sockaddr saddr;
+    struct sockaddr_storage saddr;
     size_t saddr_size;
     short sock_type;
     unsigned int net_ns_inum;
@@ -94,7 +94,7 @@ int helper_sock_copy_sock_len_from_userspace(
         -ive    -> Error code.
 */
 int helper_sock_copy_saddr_from_userspace(
-    struct sockaddr *dst, uint32_t avail_dst_len,
+    struct sockaddr_storage *dst, uint32_t avail_dst_len,
     const struct sockaddr __user *src, uint32_t src_len
 );
 
@@ -111,7 +111,7 @@ int helper_sock_copy_saddr_from_userspace(
         -ive    -> Error code.
 */
 int helper_sock_copy_saddr_in_msghdr_from_userspace(
-    struct sockaddr *dst, uint32_t *dst_len,
+    struct sockaddr_storage *dst, uint32_t *dst_len,
     struct msghdr __user *src
 );
 

@@ -26,11 +26,11 @@
 #include "spade/audit/msg/common/serialize/audit.h"
 #include "spade/audit/msg/network/network.h"
 
-#define SAADR_HEX_LEN 128
+#define SAADR_HEX_LEN (sizeof(struct sockaddr_storage) * 2 + 1)
 
 static void seqbuf_saddr_to_string(
     struct seqbuf *b, char *key_name,
-    struct sockaddr *saddr, int saddr_len
+    struct sockaddr_storage *saddr, int saddr_len
 )
 {
     char hex[SAADR_HEX_LEN];

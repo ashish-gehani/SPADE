@@ -35,9 +35,9 @@ struct msg_network
     int fd;
     struct msg_common_process proc_info;
     int sock_type;
-    struct sockaddr local_saddr;
+    struct sockaddr_storage local_saddr;
     int local_saddr_size;
-    struct sockaddr remote_saddr;
+    struct sockaddr_storage remote_saddr;
     int remote_saddr_size;
     unsigned int net_ns_inum;
 };

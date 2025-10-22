@@ -160,7 +160,7 @@ int helper_sock_copy_sock_len_from_userspace(
 }
 
 int helper_sock_copy_saddr_from_userspace(
-    struct sockaddr *dst, uint32_t dst_len,
+    struct sockaddr_storage *dst, uint32_t dst_len,
     const struct sockaddr __user *src, uint32_t src_len
 )
 {
@@ -169,7 +169,7 @@ int helper_sock_copy_saddr_from_userspace(
         !dst || !src
         || dst_len == 0 || src_len == 0
         || src_len > dst_len
-        || src_len > sizeof(struct sockaddr)
+        || src_len > sizeof(struct sockaddr_storage)
     )
         return -EINVAL;
 
@@ -184,7 +184,7 @@ int helper_sock_copy_saddr_from_userspace(
 }
 
 int helper_sock_copy_saddr_in_msghdr_from_userspace(
-    struct sockaddr *dst, uint32_t *dst_len,
+    struct sockaddr_storage *dst, uint32_t *dst_len,
     struct msghdr __user *src
 )
 {
@@ -206,7 +206,7 @@ int helper_sock_copy_saddr_in_msghdr_from_userspace(
     if (
         !copy_src.msg_name
         || copy_src.msg_namelen <= 0
-        || copy_src.msg_namelen > sizeof(struct sockaddr)
+        || copy_src.msg_namelen > sizeof(struct sockaddr_storage)
     )
         return -EINVAL;
 

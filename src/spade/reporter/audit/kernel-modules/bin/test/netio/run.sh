@@ -341,8 +341,8 @@ function run_test_for_command()
     echo ""
     # echo "Step 9: Press Enter to continue (this allows audit events to be written)..."
     # read -r
-    echo "Step 9: Sleeping for 30 seconds..."
-    sleep 30
+    echo "Step 9: Sleeping for 15 seconds..."
+    sleep 15
 
     # Remove controller module
     echo ""

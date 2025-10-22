@@ -47,7 +47,7 @@ int kernel_syscall_action_audit_recvfrom_handle(struct kernel_syscall_context_po
     int err;
 
     struct msg_network msg;
-    struct sockaddr remote_saddr;
+    struct sockaddr_storage remote_saddr;
     uint32_t remote_saddr_size;
     bool sockfd_is_connected;
 
