@@ -44,6 +44,7 @@ import spade.reporter.audit.AuditControlManager;
 import spade.reporter.audit.AuditEventReader;
 import spade.reporter.audit.IPCManager;
 import spade.reporter.audit.Input;
+import spade.reporter.audit.KernelModuleArgument;
 import spade.reporter.audit.KernelModuleConfiguration;
 import spade.reporter.audit.KernelModuleManager;
 import spade.reporter.audit.LinuxConstants;
@@ -224,19 +225,20 @@ public class Audit extends AbstractReporter {
 			
 			if(kernelModuleConfiguration != null && kernelModuleConfiguration.isLocalEndpoints()){
 				try{
-					KernelModuleManager.disableModule(kernelModuleConfiguration.getKernelModuleControllerPath(),
-							kernelModuleConfiguration.isHarden(),
-							new Consumer<String>(){
-								@Override
-								public void accept(String str){
-									logger.log(Level.INFO, str);
-								}
-							}, new BiConsumer<String, Throwable>(){
-								@Override
-								public void accept(String str, Throwable t){
-									logger.log(Level.WARNING, str, t);
-								}
-							});
+				KernelModuleManager.disableModule(
+					kernelModuleConfiguration.getKernelModuleControllerPath(),
+						new Consumer<String>(){
+							@Override
+							public void accept(String str){
+								logger.log(Level.INFO, str);
+							}
+						}, new BiConsumer<String, Throwable>(){
+							@Override
+							public void accept(String str, Throwable t){
+								logger.log(Level.WARNING, str, t);
+							}
+						}
+					);
 					logger.log(Level.INFO, "Successfully disabled kernel modules");
 				}catch(Exception e){
 					logger.log(Level.SEVERE, "Failed to disable kernel modules", e);
@@ -468,34 +470,41 @@ public class Audit extends AbstractReporter {
 				}
 				
 				if(kernelModuleConfiguration.isLocalEndpoints()){
-					final Set<String> tgidsToHarden = new HashSet<String>();
-					if(kernelModuleConfiguration.isHarden()){
-						try{
-							tgidsToHarden.addAll(processUserSyscallFilter.getTgidsOfProcessesToHarden(kernelModuleConfiguration.getHardenProcesses()));
-						}catch(Exception e){
-							logger.log(Level.SEVERE, "Failed to get tgids of processes to harden", e);
-							return false;
-						}
-					}
-					
 					try{
+						final boolean harden = kernelModuleConfiguration.isHarden();
+						final Set<String> tgidsToHarden = new HashSet<String>();
+						if(kernelModuleConfiguration.isHarden()){
+							try{
+								tgidsToHarden.addAll(processUserSyscallFilter.getTgidsOfProcessesToHarden(kernelModuleConfiguration.getHardenProcesses()));
+							}catch(Exception e){
+								logger.log(Level.SEVERE, "Failed to get tgids of processes to harden", e);
+								return false;
+							}
+						}
+
+						final KernelModuleArgument kmArg = KernelModuleArgument.createArgument(
+							processUserSyscallFilter.getUserId(),
+							processUserSyscallFilter.getUserMode(),
+							processUserSyscallFilter.getPidsOfProcessesToIgnore(),
+							processUserSyscallFilter.getPpidsOfProcessesToIgnore(),
+							auditConfiguration.isNetIO(),
+							auditConfiguration.isNamespaces(),
+							kernelModuleConfiguration.isNetworkAddressTranslation(),
+							kernelModuleConfiguration.isNetfilterHooksLogCT(),
+							kernelModuleConfiguration.isNetfilterHooksUser()
+						);
 						KernelModuleManager.insertModules(
-								kernelModuleConfiguration.getKernelModuleMainPath(), 
-								kernelModuleConfiguration.getKernelModuleControllerPath(),
-								processUserSyscallFilter.getUserId(), processUserSyscallFilter.getUserMode(),
-								processUserSyscallFilter.getPidsOfProcessesToIgnore(), processUserSyscallFilter.getPpidsOfProcessesToIgnore(),
-								auditConfiguration.isNetIO(),
-								auditConfiguration.isNamespaces(),
-								kernelModuleConfiguration.isNetworkAddressTranslation(),
-								kernelModuleConfiguration.isNetfilterHooksLogCT(),
-								kernelModuleConfiguration.isNetfilterHooksUser(),
-								kernelModuleConfiguration.isHarden(), tgidsToHarden,
-								new Consumer<String>(){
-									@Override
-									public void accept(final String str){
-										logger.log(Level.INFO, str);
-									}
-								});
+							kernelModuleConfiguration.getKernelModuleMainPath(),
+							kernelModuleConfiguration.getKernelModuleControllerPath(),
+							kmArg,
+							harden, tgidsToHarden,
+							new Consumer<String>(){
+								@Override
+								public void accept(final String str){
+									logger.log(Level.INFO, str);
+								}
+							}
+						);
 					}catch(Exception e){
 						logger.log(Level.SEVERE, "Failed to setup kernel modules", e);
 						return false;
@@ -571,19 +580,20 @@ public class Audit extends AbstractReporter {
 		// because it might be hardened
 		if(kernelModuleConfiguration != null && kernelModuleConfiguration.isLocalEndpoints()){
 			try{
-				KernelModuleManager.disableModule(kernelModuleConfiguration.getKernelModuleControllerPath(),
-						kernelModuleConfiguration.isHarden(),
-						new Consumer<String>(){
-							@Override
-							public void accept(String str){
-								logger.log(Level.INFO, str);
-							}
-						}, new BiConsumer<String, Throwable>(){
-							@Override
-							public void accept(String str, Throwable t){
-								logger.log(Level.WARNING, str, t);
-							}
-						});
+				KernelModuleManager.disableModule(
+					kernelModuleConfiguration.getKernelModuleControllerPath(),
+					new Consumer<String>(){
+						@Override
+						public void accept(String str){
+							logger.log(Level.INFO, str);
+						}
+					}, new BiConsumer<String, Throwable>(){
+						@Override
+						public void accept(String str, Throwable t){
+							logger.log(Level.WARNING, str, t);
+						}
+					}
+				);
 				logger.log(Level.INFO, "Successfully disabled kernel modules");
 			}catch(Exception e){
 				logger.log(Level.SEVERE, "Failed to disable kernel modules", e);

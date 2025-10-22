@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+import spade.reporter.audit.KernelModuleArgument;
 import spade.reporter.audit.KernelModuleManager;
 import spade.reporter.audit.ProcessUserSyscallFilter;
 
@@ -48,11 +49,13 @@ public class ManageAuditKernelModules {
                 printHelp();
                 return;
             }
+
             String controllerPath = requireRegularFilePath(argsMap, "controller");
             boolean harden = Boolean.parseBoolean(argsMap.getOrDefault("harden", "false"));
+            
             boolean remove = Boolean.parseBoolean(argsMap.getOrDefault("remove", "false"));
             if (remove) {
-                KernelModuleManager.disableModule(controllerPath, harden, out, err);
+                KernelModuleManager.disableModule(controllerPath, out, err);
                 out.accept("Controller module removed.");
                 return;
             }
@@ -83,9 +86,8 @@ public class ManageAuditKernelModules {
             boolean nfUser = Boolean.parseBoolean(argsMap.getOrDefault("nfUser", "false"));
             boolean nfNat = Boolean.parseBoolean(argsMap.getOrDefault("nfNat", "false"));
 
-            KernelModuleManager.insertModules(
-                mainPath,
-                controllerPath,
+            // Create kernel module argument object
+            KernelModuleArgument kmArg = KernelModuleArgument.createArgument(
                 userId,
                 userMode,
                 pidsToIgnore,
@@ -94,12 +96,11 @@ public class ManageAuditKernelModules {
                 namespaces,
                 nfNat,
                 nfCt,
-                nfUser,
-                harden,
-                tgidsToHarden,
-                out
+                nfUser
             );
-            out.accept("Controller module inserted.");
+
+            KernelModuleManager.insertModules(mainPath, controllerPath, kmArg, harden, tgidsToHarden, out);
+            out.accept("Module inserted.");
 
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
@@ -192,6 +193,7 @@ public class ManageAuditKernelModules {
             "  Insert:\n" +
             "    java <classpath> spade.utility.ManageAuditKernelModules \\\n" +
             "      --controller=/lib/modules/ctrl.ko --main=/lib/modules/main.ko \\\n" +
+            "      --main=/lib/modules/main.ko \\\n" +
             "      --user=myuser --ignoreProcesses=sshd,bash --netIO=true\n\n" +
             "  Remove:\n" +
             "    java <classpath> spade.utility.ManageAuditKernelModules --controller=/lib/modules/ctrl.ko --remove=true\n"

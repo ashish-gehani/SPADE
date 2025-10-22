@@ -24,19 +24,17 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-import spade.reporter.audit.ProcessUserSyscallFilter.UserMode;
 import spade.utility.Execute;
 import spade.utility.HelperFunctions;
 
 public class KernelModuleManager{
 	
-	public static void insertModules(final String kernelModuleMainPath, final String kernelModuleControllerPath,
-			final String userId, final UserMode userMode, 
-			final Set<String> pidsToIgnore, final Set<String> ppidsToIgnore,
-			final boolean hookSendRecv, final boolean namespaces,
-			final boolean networkAddressTranslation, final boolean netfilterHooksLogCt, final boolean netfilterHooksUser,
-			final boolean harden, final Set<String> tgidsToHarden,
-			final Consumer<String> outputConsumer) throws Exception{
+	public static void insertModules(
+		final String kernelModuleMainPath, final String kernelModuleControllerPath,
+		final KernelModuleArgument kmArg,
+		final boolean harden, final Set<String> tgidsToHarden,
+		final Consumer<String> outputConsumer
+	) throws Exception{
 
 		boolean kernelModuleControllerAdded = lsmod(kernelModuleControllerPath);
 		if(!kernelModuleControllerAdded){
@@ -45,43 +43,8 @@ public class KernelModuleManager{
 				insmod(kernelModuleMainPath, null);
 			}
 
-			// controller module arguments construction
-			String valuePidsToIgnore = "";
-			for(String pidToIgnore : pidsToIgnore){
-				valuePidsToIgnore += pidToIgnore + ",";
-			}
-			if(valuePidsToIgnore.length() > 0){
-				valuePidsToIgnore = valuePidsToIgnore.substring(0, valuePidsToIgnore.length() - 1);
-			}
+			String kernelModuleControllerArguments = kmArg.toModuleArgumentString();
 
-			String valuePpidsToIgnore = "";
-			for(String ppidToIgnore : ppidsToIgnore){
-				valuePpidsToIgnore += ppidToIgnore + ",";
-			}
-			if(valuePpidsToIgnore.length() > 0){
-				valuePpidsToIgnore = valuePpidsToIgnore.substring(0, valuePpidsToIgnore.length() - 1);
-			}
-
-			String valueIgnoreUids = null;
-			switch(userMode){
-			case CAPTURE:
-				valueIgnoreUids = "0";
-				break;
-			case IGNORE:
-				valueIgnoreUids = "1";
-				break;
-			default:
-				throw new Exception("Unexpected value for user mode: " + userMode);
-			}
-
-			String kernelModuleControllerArguments = " uids=\"" + userId + "\"" + " ignore_uids=\"" + valueIgnoreUids
-					+ "\"" + " syscall_success=\"" + 1 + "\"" + " pids_ignore=\"" + valuePidsToIgnore + "\""
-					+ " ppids_ignore=\"" + valuePpidsToIgnore + "\"" + " net_io=\"" + (hookSendRecv ? 1 : 0) + "\""
-					+ " namespaces=\"" + (namespaces ? 1 : 0) + "\"" + " nf_hooks=\""
-					+ (networkAddressTranslation ? 1 : 0) + "\"" + " nf_hooks_log_all_ct=\""
-					+ (netfilterHooksLogCt ? 1 : 0) + "\"" + " nf_handle_user=\"" + (netfilterHooksUser ? 1 : 0) + "\"";
-
-			String valueKernelModuleKey = null;
 			String valueHardenTgids = null;
 			if(harden){
 				if(tgidsToHarden != null && !tgidsToHarden.isEmpty()){
@@ -98,7 +61,6 @@ public class KernelModuleManager{
 			}
 
 			if(outputConsumer != null){
-				// Print before appending the key. NOTE!!!
 				outputConsumer.accept("Controller kernel module arguments: [" + kernelModuleControllerArguments + "]");
 			}
 
@@ -170,9 +132,10 @@ public class KernelModuleManager{
 		}
 	}
 	
-	public static void disableModule(final String kernelModuleControllerPath, 
-			final boolean harden,
-			final Consumer<String> outputConsumerReal, final BiConsumer<String, Throwable> errorConsumerReal) throws Exception{
+	public static void disableModule(
+		final String kernelModuleControllerPath,
+		final Consumer<String> outputConsumerReal, final BiConsumer<String, Throwable> errorConsumerReal
+	) throws Exception{
 		boolean kernelModuleControllerAdded = lsmod(kernelModuleControllerPath);
 		if(kernelModuleControllerAdded){
 			rmmod(kernelModuleControllerPath, outputConsumerReal);
