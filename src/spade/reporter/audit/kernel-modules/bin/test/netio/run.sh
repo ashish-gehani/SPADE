@@ -1,10 +1,14 @@
 #!/bin/bash
 
-# Function to get the netio module path
+# Global module name constants
+readonly MAIN_MOD_NAME="netio"
+readonly CONTROLLER_MOD_NAME="netio_controller"
+
+# Function to get the main module path
 # Usage: get_module_path
 function get_module_path()
 {
-    echo "./build/netio.ko"
+    echo "./build/${MAIN_MOD_NAME}.ko"
 }
 
 # Function to get the manage script path
@@ -14,7 +18,7 @@ function get_manage_script()
     echo "./bin/module/manage.sh"
 }
 
-# Function to insert netio module, removing it first if present
+# Function to insert main module, removing it first if present
 # Usage: insert_netio_module [module_args...]
 function insert_netio_module()
 {
@@ -23,22 +27,22 @@ function insert_netio_module()
 
     # Check if module is already loaded
     if bash "$manage_script" check "$module_path" > /dev/null 2>&1; then
-        echo "Removing existing module..."
+        echo "Removing existing ${MAIN_MOD_NAME} module..."
         bash "$manage_script" rm "$module_path"
         if [ $? -ne 0 ]; then
-            echo "Error: Failed to remove existing module"
+            echo "Error: Failed to remove existing ${MAIN_MOD_NAME} module"
             return 1
         fi
     fi
 
     # Insert the module with any provided arguments
-    echo "Inserting module..."
+    echo "Inserting ${MAIN_MOD_NAME} module..."
     bash "$manage_script" add "$module_path" "$@"
 
     return $?
 }
 
-# Function to check if netio module is loaded
+# Function to check if main module is loaded
 # Usage: is_netio_module_loaded
 # Returns: 0 if loaded, 1 if not loaded
 function is_netio_module_loaded()
@@ -50,7 +54,7 @@ function is_netio_module_loaded()
     return $?
 }
 
-# Function to remove netio module
+# Function to remove main module
 # Usage: remove_netio_module
 function remove_netio_module()
 {
@@ -59,28 +63,140 @@ function remove_netio_module()
 
     # Check if module is loaded
     if ! bash "$manage_script" check "$module_path" > /dev/null 2>&1; then
-        echo "Module is not loaded"
+        echo "${MAIN_MOD_NAME} module is not loaded"
         return 0
     fi
 
     # Remove the module
-    echo "Removing module..."
+    echo "Removing ${MAIN_MOD_NAME} module..."
     bash "$manage_script" rm "$module_path"
 
     return $?
 }
 
-# Function to get netio module syslog
+# Function to get main module syslog
 # Usage: get_netio_module_syslog [syslog_file]
 # Default syslog_file: /var/log/syslog
 function get_netio_module_syslog()
 {
-    local module_path=$(get_module_path)
-    local manage_script=$(get_manage_script)
     local syslog_file=${1:-/var/log/syslog}
+    local syslog_script="./bin/module/syslog.sh"
 
-    bash "$manage_script" log "$module_path" "$syslog_file"
+    bash "$syslog_script" "${MAIN_MOD_NAME}" "$syslog_file"
     return $?
+}
+
+# Function to get the controller module path
+# Usage: get_netio_controller_module_path
+function get_netio_controller_module_path()
+{
+    echo "./build/${CONTROLLER_MOD_NAME}.ko"
+}
+
+# Function to insert controller module, removing it first if present
+# Usage: insert_netio_controller_module [module_args...]
+function insert_netio_controller_module()
+{
+    local module_path=$(get_netio_controller_module_path)
+    local manage_script=$(get_manage_script)
+
+    # Check if module is already loaded
+    if bash "$manage_script" check "$module_path" > /dev/null 2>&1; then
+        echo "Removing existing ${CONTROLLER_MOD_NAME} module..."
+        bash "$manage_script" rm "$module_path"
+        if [ $? -ne 0 ]; then
+            echo "Error: Failed to remove existing ${CONTROLLER_MOD_NAME} module"
+            return 1
+        fi
+    fi
+
+    # Insert the module with any provided arguments
+    echo "Inserting ${CONTROLLER_MOD_NAME} module..."
+    bash "$manage_script" add "$module_path" "$@"
+
+    return $?
+}
+
+# Function to check if controller module is loaded
+# Usage: is_netio_controller_module_loaded
+# Returns: 0 if loaded, 1 if not loaded
+function is_netio_controller_module_loaded()
+{
+    local module_path=$(get_netio_controller_module_path)
+    local manage_script=$(get_manage_script)
+
+    bash "$manage_script" check "$module_path"
+    return $?
+}
+
+# Function to remove controller module
+# Usage: remove_netio_controller_module
+function remove_netio_controller_module()
+{
+    local module_path=$(get_netio_controller_module_path)
+    local manage_script=$(get_manage_script)
+
+    # Check if module is loaded
+    if ! bash "$manage_script" check "$module_path" > /dev/null 2>&1; then
+        echo "${CONTROLLER_MOD_NAME} module is not loaded"
+        return 0
+    fi
+
+    # Remove the module
+    echo "Removing ${CONTROLLER_MOD_NAME} module..."
+    bash "$manage_script" rm "$module_path"
+
+    return $?
+}
+
+# Function to get controller module syslog
+# Usage: get_netio_controller_module_syslog [syslog_file]
+# Default syslog_file: /var/log/syslog
+function get_netio_controller_module_syslog()
+{
+    local syslog_file=${1:-/var/log/syslog}
+    local syslog_script="./bin/module/syslog.sh"
+
+    bash "$syslog_script" "${CONTROLLER_MOD_NAME}" "$syslog_file"
+    return $?
+}
+
+# Function to get the next run number for output directory
+# Usage: get_next_run_number
+function get_next_run_number()
+{
+    local output_base_dir="./output/test/netio/run"
+
+    # Create base directory if it doesn't exist
+    mkdir -p "$output_base_dir"
+
+    # Find the highest existing run number
+    local max_num=0
+    if [ -d "$output_base_dir" ]; then
+        for dir in "$output_base_dir"/*/; do
+            if [ -d "$dir" ]; then
+                local num=$(basename "$dir")
+                if [[ "$num" =~ ^[0-9]+$ ]] && [ "$num" -gt "$max_num" ]; then
+                    max_num=$num
+                fi
+            fi
+        done
+    fi
+
+    # Return next number
+    echo $((max_num + 1))
+}
+
+# Function to create and return the run output directory
+# Usage: create_run_output_dir
+# Returns: The path to the created run directory
+function create_run_output_dir()
+{
+    local run_number=$(get_next_run_number)
+    local run_dir="./output/test/netio/run/$run_number"
+
+    mkdir -p "$run_dir"
+    echo "$run_dir"
 }
 
 # Function to run activity test scripts (net, ns, unix)
@@ -137,8 +253,12 @@ function run_test_for_command()
     echo "Running test for command: $command"
     echo "========================================"
 
-    # Get options for the command
+    # Create output directory for this run
+    local output_dir=$(create_run_output_dir)
+    echo "Output directory: $output_dir"
     echo ""
+
+    # Get options for the command
     echo "Step 1: Getting options for command..."
     local options=$(bash "$option_script" "$command")
     if [ $? -ne 0 ]; then
@@ -190,12 +310,23 @@ function run_test_for_command()
 
     sleep 5
 
-    # Insert netio module with options
+    # Insert main module
     echo ""
-    echo "Step 6: Inserting netio module with options..."
-    insert_netio_module $options
+    echo "Step 6: Inserting ${MAIN_MOD_NAME} module..."
+    insert_netio_module
     if [ $? -ne 0 ]; then
-        echo "Error: Failed to insert netio module"
+        echo "Error: Failed to insert ${MAIN_MOD_NAME} module"
+        return 1
+    fi
+
+    sleep 5
+
+    # Insert controller module with options
+    echo ""
+    echo "Step 7: Inserting ${CONTROLLER_MOD_NAME} module with options..."
+    insert_netio_controller_module $options
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to insert ${CONTROLLER_MOD_NAME} module"
         return 1
     fi
 
@@ -203,27 +334,39 @@ function run_test_for_command()
 
     # Run activity scripts
     echo ""
-    echo "Step 7: Running activity scripts..."
+    echo "Step 8: Running activity scripts..."
     run_activity_scripts
 
     # Ask user to continue
     echo ""
-    echo "Step 8: Press Enter to continue (this allows audit events to be written)..."
-    read -r
+    # echo "Step 9: Press Enter to continue (this allows audit events to be written)..."
+    # read -r
+    echo "Step 9: Sleeping for 30 seconds..."
+    sleep 30
 
-    # Remove netio module
+    # Remove controller module
     echo ""
-    echo "Step 9: Removing netio module..."
+    echo "Step 10: Removing ${CONTROLLER_MOD_NAME} module..."
+    remove_netio_controller_module
+    if [ $? -ne 0 ]; then
+        echo "Warning: Failed to remove ${CONTROLLER_MOD_NAME} module"
+    fi
+
+    sleep 5
+
+    # Remove main module
+    echo ""
+    echo "Step 11: Removing ${MAIN_MOD_NAME} module..."
     remove_netio_module
     if [ $? -ne 0 ]; then
-        echo "Warning: Failed to remove netio module"
+        echo "Warning: Failed to remove ${MAIN_MOD_NAME} module"
     fi
 
     sleep 5
 
     # Clear audit rules again
     echo ""
-    echo "Step 10: Clearing audit rules again..."
+    echo "Step 12: Clearing audit rules again..."
     bash "$auditd_script" clear
     if [ $? -ne 0 ]; then
         echo "Warning: Failed to clear audit rules"
@@ -233,12 +376,33 @@ function run_test_for_command()
 
     # Get audit logs after start time
     echo ""
-    echo "Step 11: Getting audit logs after $start_time..."
-    bash "$auditd_script" log "$start_time"
+    echo "Step 13: Getting audit logs after $start_time..."
+    local audit_log_file="$output_dir/audit.log"
+    bash "$auditd_script" log "$start_time" > "$audit_log_file"
+    echo "Audit log saved to: $audit_log_file"
+
+    sleep 2
+
+    # Get main module syslog
+    echo ""
+    echo "Step 14: Getting ${MAIN_MOD_NAME} module syslog..."
+    local netio_syslog_file="$output_dir/${MAIN_MOD_NAME}.syslog"
+    get_netio_module_syslog > "$netio_syslog_file"
+    echo "${MAIN_MOD_NAME} syslog saved to: $netio_syslog_file"
+
+    sleep 2
+
+    # Get controller module syslog
+    echo ""
+    echo "Step 15: Getting ${CONTROLLER_MOD_NAME} module syslog..."
+    local netio_controller_syslog_file="$output_dir/${CONTROLLER_MOD_NAME}.syslog"
+    get_netio_controller_module_syslog > "$netio_controller_syslog_file"
+    echo "${CONTROLLER_MOD_NAME} syslog saved to: $netio_controller_syslog_file"
 
     echo ""
     echo "========================================"
     echo "Test completed for command: $command"
+    echo "All logs saved to: $output_dir"
     echo "========================================"
 
     return 0
@@ -266,23 +430,45 @@ function main()
         log)
             get_netio_module_syslog "$@"
             ;;
+        insert-controller)
+            insert_netio_controller_module "$@"
+            ;;
+        remove-controller)
+            remove_netio_controller_module
+            ;;
+        check-controller)
+            is_netio_controller_module_loaded
+            ;;
+        log-controller)
+            get_netio_controller_module_syslog "$@"
+            ;;
         activity)
             run_activity_scripts
             ;;
         *)
-            echo "Usage: $0 {test|insert|remove|check|log|activity} [args]"
+            echo "Usage: $0 {test|insert|remove|check|log|insert-controller|remove-controller|check-controller|log-controller|activity} [args]"
+            echo ""
+            echo "Module Configuration:"
+            echo "  Main module: ${MAIN_MOD_NAME}"
+            echo "  Controller module: ${CONTROLLER_MOD_NAME}"
             echo ""
             echo "Commands:"
-            echo "  test <command>     - Run full test workflow for command (e.g., 'watch_audited_user')"
-            echo "  insert [options]   - Insert netio module with optional module parameters"
-            echo "  remove             - Remove netio module"
-            echo "  check              - Check if netio module is loaded"
-            echo "  log [syslog_file]  - Get netio module syslog (default: /var/log/syslog)"
-            echo "  activity           - Run activity test scripts"
+            echo "  test <command>              - Run full test workflow for command (e.g., 'watch_audited_user')"
+            echo "  insert [options]            - Insert ${MAIN_MOD_NAME} module (no options)"
+            echo "  remove                      - Remove ${MAIN_MOD_NAME} module"
+            echo "  check                       - Check if ${MAIN_MOD_NAME} module is loaded"
+            echo "  log [syslog_file]           - Get ${MAIN_MOD_NAME} module syslog (default: /var/log/syslog)"
+            echo "  insert-controller [options] - Insert ${CONTROLLER_MOD_NAME} module with optional module parameters"
+            echo "  remove-controller           - Remove ${CONTROLLER_MOD_NAME} module"
+            echo "  check-controller            - Check if ${CONTROLLER_MOD_NAME} module is loaded"
+            echo "  log-controller [syslog_file]- Get ${CONTROLLER_MOD_NAME} module syslog (default: /var/log/syslog)"
+            echo "  activity                    - Run activity test scripts"
             echo ""
             echo "Examples:"
             echo "  $0 test watch_audited_user"
-            echo "  $0 insert net_io=1 namespaces=1"
+            echo "  $0 insert"
+            echo "  $0 insert-controller net_io=1 namespaces=1"
+            echo "  $0 remove-controller"
             echo "  $0 remove"
             return 1
             ;;
