@@ -38,14 +38,11 @@
 #define FF_LIST_LEN 256
 #define STR_ID_LEN 64
 
-static struct arg global_arg = {
-    .dry_run = true
-};
+static struct arg global_arg = {};
 
 static void _ensure_global_arg_is_reset(void)
 {
 	memset(&global_arg, 0, sizeof(global_arg));
-    global_arg.dry_run = true;
 }
 
 //
@@ -892,6 +889,7 @@ static void test_global_test_init_deinit(struct test_stats *stats)
 {
     const char *test_name = "test_global_test_init_deinit";
     int err;
+    bool dry_run = true;
 
     _ensure_global_arg_is_reset();
 
@@ -905,14 +903,14 @@ static void test_global_test_init_deinit(struct test_stats *stats)
         return;
     }
 
-    err = global_init(&global_arg);
+    err = global_init(dry_run);
     if (err != 0 || !global_is_initialized())
     {
         TEST_FAIL(stats, test_name, "global failed to init. Err: %d", err);
         return;
     }
 
-    err = global_auditing_start();
+    err = global_auditing_start(&global_arg);
     if (err != 0 || !global_is_auditing_started())
     {
         TEST_FAIL(stats, test_name, "global auditing failed to start. Err: %d", err);
@@ -981,12 +979,23 @@ static void test_global_test_event_filtering_test_configs(struct test_stats *sta
 {
     const char *test_name = "test_global_test_event_filtering_test_configs";
     int err, i;
+    const bool dry_run = true;
 
     _ensure_global_reset();
+
+    stats->total++;
+
+    err = global_init(dry_run);
+    if (err != 0 || !global_is_initialized())
+    {
+        TEST_FAIL(stats, test_name, "global failed to init. Err: %d", err);
+        return;
+    }
 
     for (i = 0; i < TC_LIST_LEN; i++)
     {
         const struct test_config *tc = &TC_LIST[i];
+        const struct arg *arg = &tc->arg;
         struct filter_func_list *ff_list;
         if (!tc)
             continue;
@@ -995,20 +1004,9 @@ static void test_global_test_event_filtering_test_configs(struct test_stats *sta
 
         stats->total++;
 
-        _ensure_global_arg_is_reset();
-        global_arg = tc->arg;
-        global_arg.dry_run = true; // Always dry run because only testing filtering.
-
         ff_list = (struct filter_func_list *)&tc->ff_list;
 
-        err = global_init(&global_arg);
-        if (err != 0 || !global_is_initialized())
-        {
-            TEST_FAIL(stats, test_name, "global failed to init with test config at index: %d. Err: %d", i, err);
-            break;
-        }
-
-        err = global_auditing_start();
+        err = global_auditing_start(arg);
         if (err != 0 || !global_is_auditing_started())
         {
             TEST_FAIL(stats, test_name, "global auditing failed to start with test config at index: %d. Err: %d", i, err);
@@ -1024,15 +1022,17 @@ static void test_global_test_event_filtering_test_configs(struct test_stats *sta
             break;
         }
 
-        err = global_deinit();
-        if (err != 0 || global_is_initialized())
-        {
-            TEST_FAIL(stats, test_name, "global failed to deinit with test config at index: %d. Err: %d", i, err);
-            break;
-        }
-
         TEST_PASS(stats, test_name);
     }
+
+    err = global_deinit();
+    if (err != 0 || global_is_initialized())
+    {
+        TEST_FAIL(stats, test_name, "global failed to deinit. Err: %d", err);
+        return;
+    }
+
+    TEST_PASS(stats, test_name);
 }
 
 int test_global_all(struct test_stats *stats)
