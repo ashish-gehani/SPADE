@@ -59,7 +59,7 @@ static void ensure_state_deinit(void)
     }
 }
 
-void test_state_init_basic(struct test_stats *stats)
+static void test_state_init_basic(struct test_stats *stats)
 {
     const char *test_name = "test_state_init_basic";
     int err;

@@ -486,7 +486,7 @@ static bool msg_version_equal(const struct msg_common_version *a, const struct m
     return a->major == b->major && a->minor == b->minor && a->patch == b->patch;
 }
 
-void test_msg_test_ops_generic(struct test_stats *stats)
+static void test_msg_test_ops_generic(struct test_stats *stats)
 {
     const char *test_name = "test_msg_test_ops_generic";
     int i, err;

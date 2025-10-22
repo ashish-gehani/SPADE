@@ -38,7 +38,7 @@ static void reset_arg_and_ctx(void)
     memset(&ctx, 0, sizeof(ctx));
 }
 
-void test_context_init_basic(struct test_stats *stats)
+static void test_context_init_basic(struct test_stats *stats)
 {
     const char *test_name = "test_context_init_basic";
     int err;
@@ -138,7 +138,7 @@ void test_context_init_basic(struct test_stats *stats)
     TEST_PASS(stats, test_name);
 }
 
-void test_context_init_with_arrays(struct test_stats *stats)
+static void test_context_init_with_arrays(struct test_stats *stats)
 {
     const char *test_name = "test_context_init_with_arrays";
     int err;
@@ -274,7 +274,7 @@ void test_context_init_with_arrays(struct test_stats *stats)
     TEST_PASS(stats, test_name);
 }
 
-void test_context_init_null_arg(struct test_stats *stats)
+static void test_context_init_null_arg(struct test_stats *stats)
 {
     const char *test_name = "test_context_init_null_arg";
     int err;
@@ -294,7 +294,7 @@ void test_context_init_null_arg(struct test_stats *stats)
     TEST_PASS(stats, test_name);
 }
 
-void test_context_init_null_context(struct test_stats *stats)
+static void test_context_init_null_context(struct test_stats *stats)
 {
     const char *test_name = "test_context_init_null_context";
     int err;
@@ -314,7 +314,7 @@ void test_context_init_null_context(struct test_stats *stats)
     TEST_PASS(stats, test_name);
 }
 
-void test_context_double_init(struct test_stats *stats)
+static void test_context_double_init(struct test_stats *stats)
 {
     const char *test_name = "test_context_double_init";
     int err;
@@ -351,7 +351,7 @@ void test_context_double_init(struct test_stats *stats)
     TEST_PASS(stats, test_name);
 }
 
-void test_context_is_initialized(struct test_stats *stats)
+static void test_context_is_initialized(struct test_stats *stats)
 {
     const char *test_name = "test_context_is_initialized";
     bool is_init;
