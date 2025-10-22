@@ -4,3 +4,5 @@ build
 *.o
 *.o.d
 test/user/bin
+output
+spade/build_hash.c
