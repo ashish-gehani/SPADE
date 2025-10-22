@@ -23,8 +23,22 @@ IS_X86_64 := $(if $(filter x86_64,$(OS_ARCH)),true,false)
 
 ###
 
+GEN_BUILD_HASH_FILE_NAME := build_hash
+GEN_BUILD_HASH_SRC_FILE := spade/$(GEN_BUILD_HASH_FILE_NAME).c
+GEN_BUILD_HASH_OBJ_FILE := spade/$(GEN_BUILD_HASH_FILE_NAME).o
+GEN_BUILD_HASH_TEMPLATE_FILE := spade/$(GEN_BUILD_HASH_FILE_NAME).template
+GEN_BUILD_HASH_CACHE_FILE := spade/.build_hash_cache
+GEN_BUILD_HASH := $(shell \
+  find $(PWD)/spade -type f \( -name '*.c' -o -name '*.h' \) \
+    ! -name '$(GEN_BUILD_HASH_FILE_NAME).c' -print0 \
+  | sort -z \
+  | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
+
+###
+
 # Main module name
 MAIN_MODULE_NAME = netio
+CONTROLLER_MODULE_NAME = netio_controller
 TEST_MODULE_NAME = spade_audit_test
 
 # Script name for make check
@@ -32,7 +46,7 @@ CHECK_SCRIPT_MOD_TEST=bin/test/$(TEST_MODULE_NAME)/run.sh
 CHECK_SCRIPT_MOD_MAIN=bin/test/$(MAIN_MODULE_NAME)/run.sh
 
 # Module names
-MODULE_NAMES := $(MAIN_MODULE_NAME) $(TEST_MODULE_NAME)
+MODULE_NAMES := $(MAIN_MODULE_NAME) $(CONTROLLER_MODULE_NAME) $(TEST_MODULE_NAME)
 
 # Syscall names
 SYSCALL_NAMES := accept accept4 bind clone connect fork kill recvfrom recvmsg sendmsg sendto setns unshare vfork
@@ -67,6 +81,9 @@ obj-m := $(addsuffix .o,$(MODULE_NAMES))
 ARG_OBJS := \
   spade/audit/arg/print.o
 
+BUILD_HASH_OBJS := \
+  $(GEN_BUILD_HASH_OBJ_FILE)
+
 CONTEXT_OBJS := \
   spade/audit/context/netfilter/netfilter.o \
   spade/audit/context/netfilter/print.o \
@@ -74,6 +91,9 @@ CONTEXT_OBJS := \
   spade/audit/context/syscall/print.o \
   spade/audit/context/context.o \
   spade/audit/context/print.o
+
+EXPORTED_OBJS := \
+  spade/audit/exported/auditing.o
 
 GLOBAL_OBJS := \
   spade/audit/global/common/common.o \
@@ -160,12 +180,13 @@ TEST_USER_BIN := \
 # main module objects
 $(MAIN_MODULE_NAME)-y := \
   $(ARG_OBJS) \
+  $(BUILD_HASH_OBJS) \
   $(CONTEXT_OBJS) \
+  $(EXPORTED_OBJS) \
   $(GLOBAL_OBJS) \
   $(HELPER_OBJS) \
   $(KERNEL_OBJS) \
   $(MSG_OBJS) \
-  $(PARAM_OBJS) \
   $(STATE_OBJS) \
   $(TYPE_OBJS) \
   $(SYSCALL_ACTION_OBJS) \
@@ -173,9 +194,18 @@ $(MAIN_MODULE_NAME)-y := \
   $(UTIL_OBJS) \
   spade/audit/audit.o
 
+$(CONTROLLER_MODULE_NAME)-y := \
+  $(ARG_OBJS) \
+  $(BUILD_HASH_OBJS) \
+  $(PARAM_OBJS) \
+  $(TYPE_OBJS) \
+  $(UTIL_OBJS) \
+  spade/audit/controller/controller.o
+
 # test module objects
 $(TEST_MODULE_NAME)-y := \
   $(ARG_OBJS) \
+  $(BUILD_HASH_OBJS) \
   $(CONTEXT_OBJS) \
   $(GLOBAL_OBJS) \
   $(HELPER_OBJS) \
@@ -197,7 +227,17 @@ $(TEST_MODULE_NAME)-y := \
 
 ###
 
-.PHONY: all all-prereq clean test-user install check-full check
+.PHONY: all all-prereq clean test-user install check-full check hash-print hash-update
+
+hash-print:
+	$(info $(GEN_BUILD_HASH))
+
+hash-update:
+	@if [ ! -f "$(GEN_BUILD_HASH_CACHE_FILE)" ] || [ "$$(cat $(GEN_BUILD_HASH_CACHE_FILE) 2>/dev/null)" != "$(GEN_BUILD_HASH)" ]; then \
+		echo "(Re-)Generating build hash"; \
+		echo "$(GEN_BUILD_HASH)" > $(GEN_BUILD_HASH_CACHE_FILE); \
+		sed -e 's/@GENERATED_BUILD_HASH@/"$(GEN_BUILD_HASH)"/g' $(GEN_BUILD_HASH_TEMPLATE_FILE) > $(GEN_BUILD_HASH_SRC_FILE); \
+	fi
 
 test-user: $(TEST_USER_BIN)
 
@@ -217,7 +257,7 @@ test/user/bin/ubsi/%: test/user/src/ubsi/%.c
 	@mkdir -p $(dir $@)
 	gcc -o $@ $<
 
-all-prereq:
+all-prereq: hash-update
 	@if [ "$(IS_MICROSOFT_KERNEL)" = "true" ]; then \
 		echo 'ERROR: OS Kernel not supported (Microsoft/WSL detected)'; \
 		exit 1; \
@@ -248,18 +288,26 @@ all: all-prereq test-user
 
 clean:
 	$(MAKE) -C $(KDIR) M=$(CURDIR) clean
+	-rm -f $(GEN_BUILD_HASH_SRC_FILE)
+	-rm -f $(GEN_BUILD_HASH_CACHE_FILE)
 	-rm -rf $(BUILD_DIR)
 	-rm -f $(TEST_USER_BIN)
 	-rm -f $(INSTALL_DIR)/$(MAIN_MODULE_NAME).ko
+	-rm -f $(INSTALL_DIR)/$(CONTROLLER_MODULE_NAME).ko
 
 install:
 	@if [ ! -f "$(BUILD_DIR)/$(MAIN_MODULE_NAME).ko" ]; then \
 		echo "ERROR: $(MAIN_MODULE_NAME).ko not found in $(BUILD_DIR)/. Run 'make all' first."; \
 		exit 1; \
 	fi
+	@if [ ! -f "$(BUILD_DIR)/$(CONTROLLER_MODULE_NAME).ko" ]; then \
+		echo "ERROR: $(CONTROLLER_MODULE_NAME).ko not found in $(BUILD_DIR)/. Run 'make all' first."; \
+		exit 1; \
+	fi
 	@mkdir -p $(INSTALL_DIR)
 	@cp $(BUILD_DIR)/$(MAIN_MODULE_NAME).ko $(INSTALL_DIR)/
-	@echo "Successfully installed $(MAIN_MODULE_NAME).ko to $(INSTALL_DIR)"
+	@cp $(BUILD_DIR)/$(CONTROLLER_MODULE_NAME).ko $(INSTALL_DIR)/
+	@echo "Successfully installed $(MAIN_MODULE_NAME).ko & $(CONTROLLER_MODULE_NAME).ko to $(INSTALL_DIR)"
 
 check-full:
 	$(CHECK_SCRIPT_MOD_TEST)

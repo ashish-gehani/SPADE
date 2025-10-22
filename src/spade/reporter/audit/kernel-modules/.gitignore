@@ -6,3 +6,4 @@ build
 test/user/bin
 output
 spade/build_hash.c
+spade/.build_hash_cache
