@@ -22,7 +22,7 @@
 #include <linux/string.h>
 
 #include "spade/audit/msg/common/serialize/audit.h"
-#include "spade/audit/msg/namespace/namespace.h"
+#include "spade/audit/msg/namespace/serialize/audit.h"
 
 
 static void seqbuf_operation_to_string(struct seqbuf *b, enum msg_namespace_operation *o)

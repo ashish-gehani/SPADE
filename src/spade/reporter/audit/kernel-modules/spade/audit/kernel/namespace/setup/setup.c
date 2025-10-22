@@ -27,7 +27,7 @@
 #include "spade/util/log/log.h"
 
 
-struct proc_ns_operations* _get_ns_ops_kernel_ptr(
+static struct proc_ns_operations* _get_ns_ops_kernel_ptr(
     kallsyms_lookup_name_t kallsyms_lookup_name,
     const char *kernel_symbol_name,
     const char *warn_msg_on_failure

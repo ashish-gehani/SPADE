@@ -24,7 +24,10 @@
 #include <linux/ftrace.h>
 #include <linux/version.h>
 
-#if defined(CONFIG_X86_64) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
+#include "spade/audit/helper/kernel.h"
+
+// https://www.kernel.org/doc/Documentation/process/adding-syscalls.rst
+#if defined(CONFIG_X86_64) && (HELPER_KERNEL_VERSION_GTE_4_17_0)
 #define PTREGS_SYSCALL_STUBS 1
 #endif
 

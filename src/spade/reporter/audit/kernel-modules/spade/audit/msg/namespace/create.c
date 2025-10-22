@@ -22,7 +22,7 @@
 #include <linux/string.h>
 
 #include "spade/audit/msg/common/create.h"
-#include "spade/audit/msg/namespace/namespace.h"
+#include "spade/audit/msg/namespace/create.h"
 
 
 static struct msg_common_version default_version = {

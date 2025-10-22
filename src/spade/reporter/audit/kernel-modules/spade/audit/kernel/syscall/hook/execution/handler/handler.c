@@ -73,7 +73,7 @@ int kernel_syscall_hook_execution_handler_handle_pre(
     _init_action_audit(&act_audit);
     _init_sys_context_pre(&sys_ctx_pre, sys_num, sys_arg);
 
-    // todo
+    // todo... add actions ... careful of incorrect arguments since the syscall might fail later.
     act_res->result = 0;
     act_res->type = ACTION_RESULT_TYPE_SUCCESS;
     return 0;

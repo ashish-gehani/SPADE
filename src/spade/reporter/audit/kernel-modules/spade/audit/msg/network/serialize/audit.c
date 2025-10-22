@@ -24,7 +24,7 @@
 
 #include "spade/audit/msg/common/common.h"
 #include "spade/audit/msg/common/serialize/audit.h"
-#include "spade/audit/msg/network/network.h"
+#include "spade/audit/msg/network/serialize/audit.h"
 
 #define SAADR_HEX_LEN (sizeof(struct sockaddr_storage) * 2 + 1)
 

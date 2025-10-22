@@ -12,6 +12,7 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 
+#include "spade/audit/helper/kernel.h"
 #include "spade/util/log/log.h"
 
 
@@ -23,7 +24,15 @@
 static int fh_resolve_hook_address(struct ftrace_hook *hook)
 {
     const char *log_id = "fh_resolve_hook_address";
-    hook->address = kallsyms_lookup_name(hook->name);
+    kallsyms_lookup_name_t kallsyms_func;
+
+    kallsyms_func = helper_kernel_get_kallsyms_func();
+    if (!kallsyms_func)
+    {
+        return -EINVAL;
+    }
+
+    hook->address = kallsyms_func(hook->name);
 
     if (!hook->address)
     {
@@ -41,6 +50,21 @@ static int fh_resolve_hook_address(struct ftrace_hook *hook)
 }
 
 /* See comment below within fh_install_hook() */
+// https://elixir.bootlin.com/linux/v5.10.245/A/ident/ftrace_regs... find proper docs. TODO.
+#if HELPER_KERNEL_VERSION_GTE_5_11_0
+static void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip, struct ftrace_ops *ops, struct ftrace_regs *fregs)
+{
+    struct ftrace_hook *hook = container_of(ops, struct ftrace_hook, ops);
+    struct pt_regs *regs = ftrace_get_regs(fregs);
+
+#if USE_FENTRY_OFFSET
+    regs->ip = (unsigned long) hook->function;
+#else
+    if(!within_module(parent_ip, THIS_MODULE))
+        regs->ip = (unsigned long) hook->function;
+#endif
+}
+#else
 static void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip, struct ftrace_ops *ops, struct pt_regs *regs)
 {
     struct ftrace_hook *hook = container_of(ops, struct ftrace_hook, ops);
@@ -52,6 +76,7 @@ static void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip, s
         regs->ip = (unsigned long) hook->function;
 #endif
 }
+#endif
 
 /* Assuming we've already set hook->name, hook->function and hook->original, we
  * can go ahead and install the hook with ftrace. This is done by setting the
@@ -74,10 +99,17 @@ int fh_install_hook(struct ftrace_hook *hook)
      * we're modifying $rip. This is why we have to implement our own checks
      * (see USE_FENTRY_OFFSET). */
     hook->ops.func = fh_ftrace_thunk;
-    hook->ops.flags = FTRACE_OPS_FL_SAVE_REGS
-            | FTRACE_OPS_FL_RECURSION_SAFE
+
+    unsigned long hook_ops_flags = FTRACE_OPS_FL_SAVE_REGS
             | FTRACE_OPS_FL_IPMODIFY
             | FTRACE_OPS_FL_RCU;
+
+#ifdef FTRACE_OPS_FL_RECURSION_SAFE
+// We don't need recursion protection.
+    hook_ops_flags |= FTRACE_OPS_FL_RECURSION_SAFE;
+#endif
+
+    hook->ops.flags = hook_ops_flags;
 
     err = ftrace_set_filter_ip(&hook->ops, hook->address, 0, 0);
     if(err)

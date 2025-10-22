@@ -29,6 +29,7 @@
 
 
 // Kallsyms hack @hkerma
+// https://lwn.net/Articles/813350/
 #if HELPER_KERNEL_VERSION_GTE_5_7_0
 	#define KPROBE_LOOKUP 1
 	#include <linux/kprobes.h>
