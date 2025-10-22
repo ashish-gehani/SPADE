@@ -28,12 +28,14 @@ GEN_BUILD_HASH_SRC_FILE := spade/$(GEN_BUILD_HASH_FILE_NAME).c
 GEN_BUILD_HASH_OBJ_FILE := spade/$(GEN_BUILD_HASH_FILE_NAME).o
 GEN_BUILD_HASH_TEMPLATE_FILE := spade/$(GEN_BUILD_HASH_FILE_NAME).template
 GEN_BUILD_HASH_CACHE_FILE := spade/.build_hash_cache
+
+# Use M variable if set (kbuild phase), otherwise use current directory
+BUILD_HASH_DIR := $(if $(M),$(M),$(CURDIR))
 GEN_BUILD_HASH := $(shell \
-  find $(PWD)/spade -type f \( -name '*.c' -o -name '*.h' \) \
+  find $(BUILD_HASH_DIR)/spade -type f \( -name '*.c' -o -name '*.h' \) \
     ! -name '$(GEN_BUILD_HASH_FILE_NAME).c' -print0 \
   | sort -z \
   | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
-
 ###
 
 # Main module name
@@ -70,7 +72,8 @@ MOD_OUT_FILES = \
   $(foreach mod,$(MODULE_NAMES),$(mod).o)
 
 # Include path
-ccflags-y += -I$(src)
+# -Wno-attributes added because of 'mul_u64_u64_div_u64' attribute mismatch on 6.8.
+ccflags-y += -I$(src) -Wno-attributes
 
 # Modules objects to build
 obj-m := $(addsuffix .o,$(MODULE_NAMES))
