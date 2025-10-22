@@ -13,12 +13,16 @@ OS_KERNEL_MINOR ?= $(shell uname -r | cut -d '.' -f 2 | xargs printf "%02d")
 OS_KERNEL_NUMBER ?= $(OS_KERNEL_MAJOR)$(OS_KERNEL_MINOR)
 MIN_OS_KERNEL_NUMBER ?= 504
 MIN_OS_KERNEL_NUMBER_PRINTABLE ?= 5.4
+MAX_OS_KERNEL_NUMBER ?= 608
+MAX_OS_KERNEL_NUMBER_PRINTABLE ?= 6.8
 OS_ARCH ?= $(shell uname -m)
 
 # Prerequisite status variables (true/false)
 IS_MICROSOFT_KERNEL := $(if $(findstring Microsoft,$(OS_KERNEL_RELEASE)),true,false)
 HAS_KERNEL_NUMBER := $(if $(OS_KERNEL_NUMBER),true,false)
-IS_KERNEL_VERSION_OK := $(shell [ -n "$(OS_KERNEL_NUMBER)" ] && [ $(OS_KERNEL_NUMBER) -ge $(MIN_OS_KERNEL_NUMBER) ] && echo true || echo false)
+IS_KERNEL_VERSION_GTE_MIN := $(shell [ -n "$(OS_KERNEL_NUMBER)" ] && [ $(OS_KERNEL_NUMBER) -ge $(MIN_OS_KERNEL_NUMBER) ] && echo true || echo false)
+IS_KERNEL_VERSION_LTE_MAX := $(shell [ -n "$(OS_KERNEL_NUMBER)" ] && [ $(OS_KERNEL_NUMBER) -le $(MAX_OS_KERNEL_NUMBER) ] && echo true || echo false)
+IS_KERNEL_VERSION_OK := $(shell [ "$(IS_KERNEL_VERSION_GTE_MIN)" = "true" ] && [ "$(IS_KERNEL_VERSION_LTE_MAX)" = "true" ] && echo true || echo false)
 IS_X86_64 := $(if $(filter x86_64,$(OS_ARCH)),true,false)
 
 ###
@@ -274,7 +278,7 @@ all-prereq: hash-update
 		exit 1; \
 	fi
 	@if [ "$(IS_KERNEL_VERSION_OK)" != "true" ]; then \
-		echo 'ERROR: Kernel modules build failed. Kernel version $(shell uname -r) not greater than or equal to $(MIN_OS_KERNEL_NUMBER_PRINTABLE).'; \
+		echo 'ERROR: Kernel modules build failed. Kernel version $(shell uname -r) must be between $(MIN_OS_KERNEL_NUMBER_PRINTABLE) and $(MAX_OS_KERNEL_NUMBER_PRINTABLE).'; \
 		exit 1; \
 	fi
 	@echo 'All prerequisites satisfied'
