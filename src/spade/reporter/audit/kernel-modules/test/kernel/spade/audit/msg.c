@@ -282,29 +282,60 @@ static void msg_test_serialize_config_test_expected_netio_1(
 static void msg_test_serialize_config_set_expected_netio_2(struct msg_common_header *m)
 {
     struct msg_network *n = (struct msg_network *)m;
+    struct sockaddr_in6 *local_addr, *remote_addr;
+
     n->fd = 2;
     n->syscall_number = 46;
     n->syscall_result = 10;
     n->syscall_success = 0;
     n->sock_type = 1;
-    *((struct sockaddr_in6 *)&n->local_saddr) = (struct sockaddr_in6){
-        .sin6_family = AF_INET6,
-        .sin6_port = htons(9090),
-        .sin6_addr = {
-            .in6_u.u6_addr8 = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}  // ::1
-        }
-    };
+
+    // Zero out and set local address
+    local_addr = (struct sockaddr_in6 *)&n->local_saddr;
+    memset(local_addr, 0, sizeof(struct sockaddr_in6));
+    local_addr->sin6_family = AF_INET6;
+    local_addr->sin6_port = htons(9090);
+    local_addr->sin6_addr.in6_u.u6_addr8[0] = 0x00;
+    local_addr->sin6_addr.in6_u.u6_addr8[1] = 0x00;
+    local_addr->sin6_addr.in6_u.u6_addr8[2] = 0x00;
+    local_addr->sin6_addr.in6_u.u6_addr8[3] = 0x00;
+    local_addr->sin6_addr.in6_u.u6_addr8[4] = 0x00;
+    local_addr->sin6_addr.in6_u.u6_addr8[5] = 0x00;
+    local_addr->sin6_addr.in6_u.u6_addr8[6] = 0x00;
+    local_addr->sin6_addr.in6_u.u6_addr8[7] = 0x00;
+    local_addr->sin6_addr.in6_u.u6_addr8[8] = 0x00;
+    local_addr->sin6_addr.in6_u.u6_addr8[9] = 0x00;
+    local_addr->sin6_addr.in6_u.u6_addr8[10] = 0x00;
+    local_addr->sin6_addr.in6_u.u6_addr8[11] = 0x00;
+    local_addr->sin6_addr.in6_u.u6_addr8[12] = 0x00;
+    local_addr->sin6_addr.in6_u.u6_addr8[13] = 0x00;
+    local_addr->sin6_addr.in6_u.u6_addr8[14] = 0x00;
+    local_addr->sin6_addr.in6_u.u6_addr8[15] = 0x01;  // ::1
     n->local_saddr_size = sizeof(struct sockaddr_in6);
-    *((struct sockaddr_in6 *)&n->remote_saddr) = (struct sockaddr_in6){
-        .sin6_family = AF_INET6,
-        .sin6_port = htons(443),
-        .sin6_addr = {
-            .in6_u.u6_addr8 = {0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,
-                               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}  // 2001:db8::1
-        }
-    };
+
+    // Zero out and set remote address
+    remote_addr = (struct sockaddr_in6 *)&n->remote_saddr;
+    memset(remote_addr, 0, sizeof(struct sockaddr_in6));
+    remote_addr->sin6_family = AF_INET6;
+    remote_addr->sin6_port = htons(443);
+    remote_addr->sin6_addr.in6_u.u6_addr8[0] = 0x20;
+    remote_addr->sin6_addr.in6_u.u6_addr8[1] = 0x01;
+    remote_addr->sin6_addr.in6_u.u6_addr8[2] = 0x0d;
+    remote_addr->sin6_addr.in6_u.u6_addr8[3] = 0xb8;
+    remote_addr->sin6_addr.in6_u.u6_addr8[4] = 0x00;
+    remote_addr->sin6_addr.in6_u.u6_addr8[5] = 0x00;
+    remote_addr->sin6_addr.in6_u.u6_addr8[6] = 0x00;
+    remote_addr->sin6_addr.in6_u.u6_addr8[7] = 0x00;
+    remote_addr->sin6_addr.in6_u.u6_addr8[8] = 0x00;
+    remote_addr->sin6_addr.in6_u.u6_addr8[9] = 0x00;
+    remote_addr->sin6_addr.in6_u.u6_addr8[10] = 0x00;
+    remote_addr->sin6_addr.in6_u.u6_addr8[11] = 0x00;
+    remote_addr->sin6_addr.in6_u.u6_addr8[12] = 0x00;
+    remote_addr->sin6_addr.in6_u.u6_addr8[13] = 0x00;
+    remote_addr->sin6_addr.in6_u.u6_addr8[14] = 0x00;
+    remote_addr->sin6_addr.in6_u.u6_addr8[15] = 0x01;  // 2001:db8::1
     n->remote_saddr_size = sizeof(struct sockaddr_in6);
+
     n->net_ns_inum = 6;
     n->proc_info = (struct msg_common_process){
         .pid = 5678,
@@ -328,8 +359,8 @@ static void msg_test_serialize_config_test_expected_netio_2(
     const char *expected = "netio_intercepted=\"syscall=46 exit=10 success=0 fd=2 pid=5678 ppid=5000 "
                            "gid=2002 egid=2002 sgid=2002 fsgid=2002 uid=2001 euid=2001 suid=2001 fsuid=2001 "
                            "comm=697076365f7465737400000000000000 sock_type=1 "
-                           "local_saddr=0a0023820000000000000000000000001c0000000a0001bb00000000 "
-                           "remote_saddr=0a0001bb0000000020010db8000000001c0000000600000000000000 "
+                           "local_saddr=0a002382000000000000000000000000000000000000000100000000 "
+                           "remote_saddr=0a0001bb0000000020010db800000000000000000000000100000000 "
                            "remote_saddr_size=28 net_ns_inum=6\"";
     msg_test_serialize_config_common_equals_expected(
         stats, test_name, m_type, actual, expected
