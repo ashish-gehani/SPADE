@@ -22,7 +22,7 @@ function get_audit_process_pids()
     [ -n "$kauditd_pid" ] && pids+=($kauditd_pid)
 
     # Get spadeAuditBridge PID
-    local bridge_pid=$(pgrep spadeAuditBridge)
+    local bridge_pid=$(pgrep -f spadeAuditBridge)
     [ -n "$bridge_pid" ] && pids+=($bridge_pid)
 
     # Get Java process with main class spade.core.Kernel
