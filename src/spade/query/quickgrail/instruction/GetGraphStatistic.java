@@ -19,7 +19,6 @@
  */
 package spade.query.quickgrail.instruction;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 
 import spade.query.quickgrail.core.GraphRemoteCount;
@@ -50,11 +49,20 @@ public abstract class GetGraphStatistic<R extends GraphStatistic> extends Instru
 		this.precisionScale = precisionScale;
 	}
 
-	public void postExecute(final QueryInstructionExecutor executor){
-		final Serializable resultObject = getResult();
-		if(resultObject instanceof GraphStatistic){
-			((GraphStatistic)resultObject).setPrecisionScale(precisionScale);
-		}
+	public void setResultPrecisionScale(final GraphStatistic result){
+		if (result == null)
+			return;
+		result.setPrecisionScale(this.getPrecisionScale());
+	}
+
+	public abstract R executeGraphStatisticInstruction(final QueryInstructionExecutor executor);
+
+	@Override
+	public final R execute(final QueryInstructionExecutor executor){
+		final R result = executeGraphStatisticInstruction(executor);
+		setResultPrecisionScale(result);
+		return result;
+
 	}
 
 	public static class Count extends GetGraphStatistic<GraphStatistic.Count>{
@@ -78,7 +86,7 @@ public abstract class GetGraphStatistic<R extends GraphStatistic> extends Instru
 		}
 
 		@Override
-		public final GraphStatistic.Count execute(final QueryInstructionExecutor executor){
+		public final GraphStatistic.Count executeGraphStatisticInstruction(final QueryInstructionExecutor executor){
 			GraphStatistic.Count result = executor.getGraphCount(graph);
 			long remoteVertexCount = 0, remoteEdgeCount = 0;
 			final GraphRemoteCount remoteCounts = new RemoteVariableOperation.List(graph).execute(executor);
@@ -130,8 +138,9 @@ public abstract class GetGraphStatistic<R extends GraphStatistic> extends Instru
 		}
 
 		@Override
-		public final GraphStatistic.Histogram execute(final QueryInstructionExecutor executor){
-			return executor.getGraphHistogram(graph, elementType, annotationKey);
+		public final GraphStatistic.Histogram executeGraphStatisticInstruction(final QueryInstructionExecutor executor){
+			final GraphStatistic.Histogram result = executor.getGraphHistogram(graph, elementType, annotationKey);
+			return result;
 		}
 	}
 
@@ -165,8 +174,9 @@ public abstract class GetGraphStatistic<R extends GraphStatistic> extends Instru
 		}
 
 		@Override
-		public final GraphStatistic.Mean execute(final QueryInstructionExecutor executor){
-			return executor.getGraphMean(graph, elementType, annotationKey);
+		public final GraphStatistic.Mean executeGraphStatisticInstruction(final QueryInstructionExecutor executor){
+			final GraphStatistic.Mean result = executor.getGraphMean(graph, elementType, annotationKey);
+			return result;
 		}
 	}
 
@@ -200,8 +210,9 @@ public abstract class GetGraphStatistic<R extends GraphStatistic> extends Instru
 		}
 
 		@Override
-		public final GraphStatistic.StandardDeviation execute(final QueryInstructionExecutor executor){
-			return executor.getGraphStandardDeviation(graph, elementType, annotationKey);
+		public final GraphStatistic.StandardDeviation executeGraphStatisticInstruction(final QueryInstructionExecutor executor){
+			final GraphStatistic.StandardDeviation result = executor.getGraphStandardDeviation(graph, elementType, annotationKey);
+			return result;
 		}
 	}
 
@@ -240,8 +251,9 @@ public abstract class GetGraphStatistic<R extends GraphStatistic> extends Instru
 		}
 
 		@Override
-		public final GraphStatistic.Distribution execute(final QueryInstructionExecutor executor){
-			return executor.getGraphDistribution(graph, elementType, annotationKey, binCount);
+		public final GraphStatistic.Distribution executeGraphStatisticInstruction(final QueryInstructionExecutor executor){
+			final GraphStatistic.Distribution result = executor.getGraphDistribution(graph, elementType, annotationKey, binCount);
+			return result;
 		}
 	}
 }
