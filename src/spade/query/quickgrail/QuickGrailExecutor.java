@@ -86,11 +86,8 @@ public class QuickGrailExecutor{
 				for(int i = 0; i < instructionsSize; i++){
 					final Instruction<? extends Serializable> instruction = program.getInstruction(i);
 					try{
-						instruction.updateTransformerExecutionContext(instructionExecutor,
-								query.getTransformerExecutionContext());
 						final Serializable instructionResult = instruction.execute(instructionExecutor);
 						instruction.setResult(instructionResult);
-						instruction.postExecute(instructionExecutor);
 					}catch(Exception e){
 						throw e;
 					}

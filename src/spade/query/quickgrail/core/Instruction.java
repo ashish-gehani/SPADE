@@ -39,18 +39,7 @@ public abstract class Instruction<R extends Serializable>extends TreeStringSeria
 		this.result = result;
 	}
 
-	// Pre-execution
-	public void updateTransformerExecutionContext(final QueryInstructionExecutor executor,
-			final AbstractTransformer.ExecutionContext context){
-		// Nothing
-	}
-
 	// Execution
 	public abstract R execute(final QueryInstructionExecutor executor);
-
-	// Post-execution
-	public void postExecute(final QueryInstructionExecutor executor){
-		// Nothing
-	}
 
 }

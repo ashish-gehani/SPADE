@@ -81,15 +81,6 @@ public class GetLineage extends Instruction<String>{
 	}
 
 	@Override
-	public void updateTransformerExecutionContext(final QueryInstructionExecutor executor,
-			final AbstractTransformer.ExecutionContext context){
-		final spade.core.Graph sourceGraph = executor.exportGraph(startGraph, true);
-		context.setSourceGraph(sourceGraph);
-		context.setMaxDepth(depth);
-		context.setDirection(direction);
-	}
-
-	@Override
 	public String execute(final QueryInstructionExecutor executor){
 		if(executor.getGraphCount(startGraph).getVertices() <= 0){
 			return null;
