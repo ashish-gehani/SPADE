@@ -956,6 +956,11 @@ public class QuickGrailQueryResolver{
 				"Unsupported variable type " + var.getType().getName() + " at " + var.getLocationString());
 	}
 
+	public Graph resolveConstGraphVariable(ParseVariable var)
+	{
+		return resolveGraphVariable(var, null, true);
+	}
+
 	private Graph resolveGraphVariable(ParseVariable var, Graph outputGraph, boolean isConstReference){
 		if(var.getType().getTypeID() != TypeID.kGraph){
 			throw new RuntimeException("Unexpected variable type: " + var.getType().getTypeID() + ". Expected: " + TypeID.kGraph);
