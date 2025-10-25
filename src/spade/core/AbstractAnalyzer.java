@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import spade.query.execution.Context;
+import spade.query.quickgrail.core.GraphStatistic;
 import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 import spade.utility.Result;
@@ -227,32 +229,27 @@ public abstract class AbstractAnalyzer{
 			return spadeQuery;
 		}
 
-		private void privatize(final Query spadeQuery) throws Exception{
-			if(epsilon > -1){
-				if(spadeQuery.getResult() instanceof spade.query.quickgrail.core.GraphStatistic){
-					final spade.query.quickgrail.core.GraphStatistic graphStatistic =
-						(spade.query.quickgrail.core.GraphStatistic)spadeQuery.getResult();
-					try{
-						graphStatistic.privatize(epsilon);
-					}catch(Exception e){
-						throw new Exception("Failed to privatize graph statistics", e);
-					}
-				}
+		private void privatize(final spade.query.quickgrail.core.GraphStatistic result) throws Exception{
+			try{
+				result.privatize(epsilon);
+			}catch(Exception e){
+				throw new Exception("Failed to privatize graph statistics", e);
 			}
 		}
+		private final spade.query.quickgrail.core.GraphStatistic getQueryResultAsGraphStatistic(final Query spadeQuery)
+		{
+			final boolean isGraphStat = spadeQuery != null && (spadeQuery.getResult() instanceof spade.query.quickgrail.core.GraphStatistic);
+			if (!isGraphStat)
+				return null;
+			return (spade.query.quickgrail.core.GraphStatistic)spadeQuery.getResult();
+		}
 
-		private void transformGraph(final Query spadeQuery) throws Exception{
-			boolean isResultAGraph = spadeQuery != null && spadeQuery.getResult() instanceof spade.core.Graph;
-			if(isResultAGraph){
-				Graph finalGraph = (spade.core.Graph)spadeQuery.getResult();
-				if(useTransformer){
-					finalGraph = iterateTransformers(finalGraph, spadeQuery.getTransformerExecutionContext());
-				}
-				finalGraph.setHostName(Kernel.getHostName()); // Set it here because the graph might be modified by the transformers
-				finalGraph.addSignature(spadeQuery.queryNonce);
-
-				spadeQuery.updateGraphResult(finalGraph); // Update the query result with the transformed result graph
-			}
+		private final spade.core.Graph getQueryResultAsSPADEGraph(final Query spadeQuery)
+		{
+			final boolean isSPADEGraph = spadeQuery != null && (spadeQuery.getResult() instanceof spade.core.Graph);
+			if (!isSPADEGraph)
+				return null;
+			return (spade.core.Graph)spadeQuery.getResult();
 		}
 
 		private void handleSPADEQueryError(final Query spadeQuery){
@@ -340,7 +337,7 @@ public abstract class AbstractAnalyzer{
 						continue;
 					}else{
 						// Some other query
-						AbstractStorage thisStorage = getCurrentStorage();
+						final AbstractStorage thisStorage = getCurrentStorage();
 						if(thisStorage == null){
 							spadeQuery.queryFailed("No storage set for querying. Use command: '" + commandSetStorage + "'.");
 							safeWriteToClient(spadeQuery);
@@ -360,20 +357,43 @@ public abstract class AbstractAnalyzer{
 								safeWriteToClient(spadeQuery);
 							}else{
 								// Can execute query finally
+								Context execCtx = null;
 								try{
-									spadeQuery = executeQuery(spadeQuery);
-									
-									transformGraph(spadeQuery);
+									execCtx = new Context(thisStorage.getQueryInstructionExecutor());
 
-									privatize(spadeQuery);
+									spadeQuery = executeQuery(spadeQuery, execCtx);
 									
+									spade.core.Graph resultGraph = getQueryResultAsSPADEGraph(spadeQuery);
+									if (resultGraph != null)
+									{
+										if (useTransformer)
+										{
+											resultGraph = iterateTransformers(resultGraph, execCtx);
+											spadeQuery.updateGraphResult(resultGraph);
+										}
+										// Set it here because the graph might be modified by the transformers
+										resultGraph.setHostName(Kernel.getHostName());
+										resultGraph.addSignature(spadeQuery.queryNonce);
+									}
+
+									final GraphStatistic resultGraphStats = getQueryResultAsGraphStatistic(spadeQuery);
+									if (resultGraphStats != null)
+									{
+										if(epsilon > -1){
+											privatize(resultGraphStats);
+										}
+									}
+
 									handleSPADEQueryError(spadeQuery);
 									
 									safeWriteToClient(spadeQuery);
-								}catch(Exception e){
+								} catch (Exception e) {
 									logger.log(Level.SEVERE, "Failed to execute query: '" + spadeQuery.query + "'", e);
 									spadeQuery.queryFailed(new Exception("Failed to execute query: " + e.getMessage(), e));
 									safeWriteToClient(spadeQuery);
+								} finally {
+									if (execCtx != null)
+										execCtx.destroy();
 								}
 							}
 						}
@@ -405,7 +425,7 @@ public abstract class AbstractAnalyzer{
 		public abstract void doQueryingShutdownForCurrentStorage() throws Exception;
 
 		public abstract String getQueryHelpTextAsString(HelpType type) throws Exception;
-		public abstract Query executeQuery(Query query) throws Exception;
+		public abstract Query executeQuery(final Query query, final Context ctx) throws Exception;
 
 		public abstract void shutdown();
 
@@ -467,12 +487,12 @@ public abstract class AbstractAnalyzer{
 			this.currentStorage = storage;
 		}
 
-		private Graph iterateTransformers(Graph graph, final AbstractTransformer.ExecutionContext executionContext){
+		private Graph iterateTransformers(Graph graph, final Context execCtx){
 			synchronized(Kernel.transformers){
 				for(int i = 0; i < Kernel.transformers.size(); i++){
 					try{
 						AbstractTransformer transformer = Kernel.transformers.get(i);
-						final Result<Graph> executeResult = AbstractTransformer.execute(transformer, graph, executionContext);
+						final Result<Graph> executeResult = AbstractTransformer.executeWithQueryContext(transformer, graph, execCtx);
 						if(executeResult.error){
 							throw new RuntimeException(executeResult.errorMessage, executeResult.exception);
 						}

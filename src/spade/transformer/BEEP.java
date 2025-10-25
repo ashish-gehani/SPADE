@@ -21,8 +21,6 @@ package spade.transformer;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -33,6 +31,9 @@ import spade.core.AbstractTransformer;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.query.quickgrail.instruction.GetLineage;
+import spade.transformer.query.parameter.LineageDirection;
+import spade.transformer.query.parameter.MaxDepth;
+import spade.transformer.query.parameter.SourceGraph;
 import spade.utility.Result;
 
 public class BEEP extends AbstractTransformer{
@@ -41,6 +42,15 @@ public class BEEP extends AbstractTransformer{
 
 	private List<AbstractTransformer> forwardSearchTransformers = null;
 	private List<AbstractTransformer> backwardSearchTransformers = null;
+
+	private final SourceGraph sourceGraph = new SourceGraph();
+	private final MaxDepth maxDepth = new MaxDepth();
+	private final LineageDirection lineageDirectory = new LineageDirection();
+
+	public BEEP()
+	{
+		setParametersInContext(sourceGraph, maxDepth, lineageDirectory);
+	}
 
 	public List<AbstractTransformer> loadTransformersFromFile(List<String> transformersFileLines){
 		try{
@@ -81,6 +91,7 @@ public class BEEP extends AbstractTransformer{
 	}
 
 	public boolean initialize(String arguments){
+		super.initialize(arguments);
 		String configFile = Settings.getDefaultConfigFilePath(this.getClass());
 		try{
 			List<String> lines = FileUtils.readLines(new File(configFile));
@@ -127,28 +138,30 @@ public class BEEP extends AbstractTransformer{
 	}
 
 	@Override
-	public LinkedHashSet<ArgumentName> getArgumentNames(){
-		return new LinkedHashSet<ArgumentName>(
-				Arrays.asList(
-						ArgumentName.SOURCE_GRAPH
-						, ArgumentName.MAX_DEPTH
-						, ArgumentName.DIRECTION
-						)
-				);
+	public Graph transform(final Graph graph) {
+		try{
+			return _transform(
+				graph,
+				sourceGraph.getMaterializedValue(),
+				maxDepth.getMaterializedValue(),
+				lineageDirectory.getMaterializedValue()
+			);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed transformation", e);
+		}
 	}
 
-	@Override
-	public Graph transform(Graph graph, ExecutionContext context){
-
-		if(context.getDirection() == null){
-			return graph;
-		}
-
+	private Graph _transform(
+		Graph graph,  final Graph sourceGraph, final int maxDepth, final GetLineage.Direction direction
+	){
 		List<AbstractTransformer> transformers;
 
-		if(context.getDirection().equals(GetLineage.Direction.kAncestor)){
+		if (graph == null || sourceGraph == null || direction == null)
+			throw new IllegalArgumentException("NULL argument(s)");
+
+		if(direction.equals(GetLineage.Direction.kAncestor)){
 			transformers = backwardSearchTransformers;
-		}else if(context.getDirection().equals(GetLineage.Direction.kDescendant)){
+		}else if(direction.equals(GetLineage.Direction.kDescendant)){
 			transformers = forwardSearchTransformers;
 		}else{
 			return graph;
@@ -156,7 +169,9 @@ public class BEEP extends AbstractTransformer{
 
 		for(AbstractTransformer transformer : transformers){
 			if(graph != null){
-				final Result<Graph> executeResult = AbstractTransformer.execute(transformer, graph, context);
+				final Result<Graph> executeResult = AbstractTransformer.executeWithOtherContext(
+					transformer, graph, this.getContext()
+				);
 				if(executeResult.error){
 					break;
 				}

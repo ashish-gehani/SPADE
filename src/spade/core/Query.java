@@ -47,9 +47,6 @@ public class Query implements Serializable{
 
 	private List<Query> remoteSubqueries = new ArrayList<Query>();
 
-	// Only required for local transformation of queries
-	private final AbstractTransformer.ExecutionContext transformerExecutionContext = new AbstractTransformer.ExecutionContext();
-
 	public Query(String localName, String remoteName, String query, String queryNonce){
 		this.localName = localName;
 		this.remoteName = remoteName;
@@ -95,10 +92,6 @@ public class Query implements Serializable{
 		return new ArrayList<Query>(remoteSubqueries);
 	}
 
-	public AbstractTransformer.ExecutionContext getTransformerExecutionContext(){
-		return transformerExecutionContext;
-	}
-
 	@Override
 	public String toString(){
 		return "SPADEQuery ["
@@ -110,7 +103,6 @@ public class Query implements Serializable{
 				+ ", error=" + error 
 				+ ", result=" + result
 				+ ", remoteSubqueries=" + remoteSubqueries 
-//				+ ", transformerExecutionContext=" + transformerExecutionContext
 				+ "]";
 	}
 

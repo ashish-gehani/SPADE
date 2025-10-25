@@ -22,6 +22,7 @@ package spade.query.quickgrail.instruction;
 import java.io.Serializable;
 import java.util.ArrayList;
 
+import spade.query.execution.Context;
 import spade.query.quickgrail.core.EnvironmentVariable;
 import spade.query.quickgrail.core.EnvironmentVariableManager;
 import spade.query.quickgrail.core.Instruction;
@@ -57,7 +58,8 @@ public abstract class EnvironmentVariableOperation<R extends Serializable> exten
 		}
 
 		@Override
-		public final String execute(final QueryInstructionExecutor executor){
+		public final String exec(final Context ctx) {
+			final QueryInstructionExecutor executor = ctx.getExecutor();
 			final EnvironmentVariable envVar = executor.getQueryEnvironment().getEnvVarManager().get(name);
 			if(envVar == null){
 				throw new RuntimeException("No environment variable defined by name: " + name);
@@ -90,7 +92,8 @@ public abstract class EnvironmentVariableOperation<R extends Serializable> exten
 		}
 
 		@Override
-		public final String execute(final QueryInstructionExecutor executor){
+		public final String exec(final Context ctx) {
+			final QueryInstructionExecutor executor = ctx.getExecutor();
 			final EnvironmentVariable envVar = executor.getQueryEnvironment().getEnvVarManager().get(name);
 			if(envVar == null){
 				throw new RuntimeException("No environment variable defined by name: " + name);
@@ -129,7 +132,8 @@ public abstract class EnvironmentVariableOperation<R extends Serializable> exten
 		}
 
 		@Override
-		public final String execute(final QueryInstructionExecutor executor){
+		public final String exec(final Context ctx) {
+			final QueryInstructionExecutor executor = ctx.getExecutor();
 			final EnvironmentVariable envVar = executor.getQueryEnvironment().getEnvVarManager().get(name);
 			if(envVar == null){
 				throw new RuntimeException("No environment variable defined by name: " + name);
@@ -154,7 +158,8 @@ public abstract class EnvironmentVariableOperation<R extends Serializable> exten
 		}
 
 		@Override
-		public final spade.query.quickgrail.core.List.EnvironmentList execute(final QueryInstructionExecutor executor){
+		public final spade.query.quickgrail.core.List.EnvironmentList exec(final Context ctx) {
+			final QueryInstructionExecutor executor = ctx.getExecutor();
 			return executor.listEnvironment();
 		}
 	}

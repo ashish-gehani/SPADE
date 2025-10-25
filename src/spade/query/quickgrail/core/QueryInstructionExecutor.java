@@ -33,11 +33,11 @@ import java.util.logging.Logger;
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
 import spade.core.AbstractTransformer;
-import spade.core.AbstractTransformer.ArgumentName;
 import spade.core.AbstractVertex;
 import spade.core.Edge;
 import spade.core.Kernel;
 import spade.core.Vertex;
+import spade.query.execution.Context;
 import spade.query.quickgrail.core.EnvironmentVariableManager.Name;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
@@ -203,7 +203,8 @@ public abstract class QueryInstructionExecutor{
 		for(final String symbolName : symbolNames){
 			final Graph graph = environment.getGraphSymbol(symbolName);
 			try{
-				final GraphStatistic.Count count = new GetGraphStatistic.Count(graph).execute(this);
+				final Context execCtx = new Context(this);
+				final GraphStatistic.Count count = new GetGraphStatistic.Count(graph).exec(execCtx);
 				result.put(symbolName, count);
 			}catch(RuntimeException e){
 				throw new RuntimeException("Failed to stat graph: '" + symbolName + "'", e);
@@ -261,7 +262,8 @@ public abstract class QueryInstructionExecutor{
 	public final void saveGraph(final Graph targetGraph, final SaveGraph.Format format, final boolean force,
 			final String filePath){
 		final boolean verify = false;
-		final spade.core.Graph exportedGraph = new ExportGraph(targetGraph, force, verify).execute(this);
+		final Context execCtx = new Context(this);
+		final spade.core.Graph exportedGraph = new ExportGraph(targetGraph, force, verify).exec(execCtx);
 		try{
 			spade.core.Graph.exportGraphToFile(format, filePath, exportedGraph);
 		}catch(Exception e){
@@ -468,74 +470,16 @@ public abstract class QueryInstructionExecutor{
 		distinctifyGraph(targetGraph, unionResultGraph);
 	}
 
-	public final void transformGraph(final String transformerName, final String transformerInitializeArgument,
-			final Graph outputGraph, final Graph subjectGraph, final java.util.List<Object> arguments,
-			final int putGraphBatchSize){
-		final Result<AbstractTransformer> createResult = AbstractTransformer.create(transformerName);
-		if(createResult.error){
-			throw new RuntimeException(createResult.toErrorString());
-		}
-
+	public final void transformGraph(
+		final AbstractTransformer transformer,
+		final String tinitArg,
+		final Graph outputGraph,
+		final Graph subjectGraph,
+		final int putGraphBatchSize
+	){
 		boolean transformerInitialized = false;
-		final AbstractTransformer transformer = createResult.result;
-
 		try{
-			final LinkedHashSet<ArgumentName> argumentNames = transformer.getArgumentNames();
-			if(argumentNames == null){
-				throw new RuntimeException("Invalid transformer implementation. NULL argument names");
-			}
-
-			if(argumentNames.size() != arguments.size()){
-				throw new RuntimeException("Invalid # of transformer arguments. Expected: " + argumentNames);
-			}
-
-			final AbstractTransformer.ExecutionContext executionContext = new AbstractTransformer.ExecutionContext();
-
-			int i = -1;
-			for(final ArgumentName argumentName : argumentNames){
-				i++;
-				if(argumentName == null){
-					throw new RuntimeException("NULL transformer argument name at index: " + i);
-				}
-				final Object instructionArgument = arguments.get(i);
-				if(instructionArgument == null){
-					throw new RuntimeException("NULL transformer argument in instruction at index: " + i);
-				}
-				switch(argumentName){
-				case SOURCE_GRAPH:{
-					if(!instructionArgument.getClass().equals(spade.query.quickgrail.entities.Graph.class)){
-						throw new RuntimeException("Transformer argument must be a graph variable at index: " + i);
-					}else{
-						final spade.query.quickgrail.entities.Graph sourceGraphVariable = (spade.query.quickgrail.entities.Graph)instructionArgument;
-						final spade.core.Graph sourceGraph = exportGraph(sourceGraphVariable, true);
-						executionContext.setSourceGraph(sourceGraph); // Set
-					}
-					break;
-				}
-				case MAX_DEPTH:{
-					if(!instructionArgument.getClass().equals(Integer.class)){
-						throw new RuntimeException("Transformer argument must be an integer literal at index: " + i);
-					}else{
-						final Integer maxDepth = (Integer)instructionArgument;
-						executionContext.setMaxDepth(maxDepth); // Set
-					}
-					break;
-				}
-				case DIRECTION:{
-					if(!instructionArgument.getClass().equals(GetLineage.Direction.class)){
-						throw new RuntimeException("Transformer argument must be a string literal at index: " + i);
-					}else{
-						final GetLineage.Direction direction = (GetLineage.Direction)instructionArgument;
-						executionContext.setDirection(direction); // Set
-					}
-					break;
-				}
-				default:
-					throw new RuntimeException("Unhandled transformer argument name: " + argumentName);
-				}
-			}
-
-			final Result<Boolean> initResult = AbstractTransformer.init(transformer, transformerInitializeArgument);
+			final Result<Boolean> initResult = AbstractTransformer.init(transformer, tinitArg);
 			if(initResult.error){
 				throw new RuntimeException(initResult.errorMessage, initResult.exception);
 			}
@@ -545,8 +489,9 @@ public abstract class QueryInstructionExecutor{
 			transformerInitialized = true;
 
 			final spade.core.Graph subjectGraphExported = exportGraph(subjectGraph, true);
-			final Result<spade.core.Graph> executeResult = AbstractTransformer.execute(transformer, subjectGraphExported,
-					executionContext);
+			transformer.getContext().materialize(this);
+			
+			final Result<spade.core.Graph> executeResult = AbstractTransformer.execute(transformer, subjectGraphExported);
 			if(executeResult.error){
 				throw new RuntimeException(executeResult.errorMessage, executeResult.exception);
 			}
@@ -554,7 +499,9 @@ public abstract class QueryInstructionExecutor{
 			final spade.core.Graph transformedGraph = executeResult.result.copyContents();
 
 			putGraph(putGraphBatchSize, outputGraph, transformedGraph);
-		}finally{
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to transform graph", e);
+		} finally {
 			if(transformerInitialized){
 				final Result<Boolean> shutdownResult = AbstractTransformer.destroy(transformer);
 				if(shutdownResult.error){

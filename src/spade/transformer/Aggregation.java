@@ -25,7 +25,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,6 +50,7 @@ public class Aggregation extends AbstractTransformer
 	@Override
 	public boolean initialize(String arguments)
     {
+		super.initialize(arguments);
 		String filepath = Settings.getDefaultConfigFilePath(this.getClass());
 		try
         {
@@ -90,12 +90,7 @@ public class Aggregation extends AbstractTransformer
 	}
 
 	@Override
-	public LinkedHashSet<ArgumentName> getArgumentNames(){
-		return new LinkedHashSet<ArgumentName>();
-	}
-
-	@Override
-	public Graph transform(Graph graph, ExecutionContext context)
+	public Graph transform(Graph graph)
 	{
 		String[] annotationsToRemove = annotationAggregationFunction.keySet().toArray(new String[]{});
 		Map<AbstractEdge, Map<String, List<String>>> edgeAnnotationSet = new HashMap<>();

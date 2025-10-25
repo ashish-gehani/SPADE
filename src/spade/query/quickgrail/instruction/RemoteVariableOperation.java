@@ -25,6 +25,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.core.Kernel;
+import spade.query.execution.Context;
 import spade.query.quickgrail.core.GraphRemoteCount;
 import spade.query.quickgrail.core.Instruction;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
@@ -67,7 +68,8 @@ public abstract class RemoteVariableOperation<R extends Serializable> extends In
 		}
 
 		@Override
-		public final Serializable execute(final QueryInstructionExecutor executor){
+		public final Serializable exec(final Context ctx) {
+			// final QueryInstructionExecutor executor = ctx.getExecutor();
 			try(final RemoteSPADEQueryConnection connection = 
 					new RemoteSPADEQueryConnection(Kernel.getHostName(), host, port)){
 				connection.connect(Kernel.getClientSocketFactory(), 5 * 1000);
@@ -113,7 +115,8 @@ public abstract class RemoteVariableOperation<R extends Serializable> extends In
 		}
 
 		@Override
-		public final String execute(final QueryInstructionExecutor executor){
+		public final String exec(final Context ctx) {
+			final QueryInstructionExecutor executor = ctx.getExecutor();
 			executor.getQueryEnvironment().setRemoteSymbol(graph, new Graph.Remote(host, port, remoteSymbol));
 			return null;
 		}
@@ -154,7 +157,8 @@ public abstract class RemoteVariableOperation<R extends Serializable> extends In
 		}
 
 		@Override
-		public final String execute(final QueryInstructionExecutor executor){
+		public final String exec(final Context ctx) {
+			final QueryInstructionExecutor executor = ctx.getExecutor();
 			executor.getQueryEnvironment().removeRemoteSymbol(graph, new Graph.Remote(host, port, remoteSymbol));
 			return null;
 		}
@@ -182,7 +186,8 @@ public abstract class RemoteVariableOperation<R extends Serializable> extends In
 		}
 
 		@Override
-		public final GraphRemoteCount execute(final QueryInstructionExecutor executor){
+		public final GraphRemoteCount exec(final Context ctx) {
+			final QueryInstructionExecutor executor = ctx.getExecutor();
 			return executor.listRemoteVariables(graph);
 		}
 	}
@@ -209,7 +214,8 @@ public abstract class RemoteVariableOperation<R extends Serializable> extends In
 		}
 
 		@Override
-		public final String execute(final QueryInstructionExecutor executor){
+		public final String exec(final Context ctx) {
+			final QueryInstructionExecutor executor = ctx.getExecutor();
 			executor.getQueryEnvironment().removeRemoteSymbols(graph);
 			return null;
 		}
@@ -241,7 +247,8 @@ public abstract class RemoteVariableOperation<R extends Serializable> extends In
 		}
 
 		@Override
-		public final String execute(final QueryInstructionExecutor executor){
+		public final String exec(final Context ctx) {
+			final QueryInstructionExecutor executor = ctx.getExecutor();
 			executor.getQueryEnvironment().copyRemoteSymbols(dstGraph, srcGraph);
 			return null;
 		}
@@ -277,7 +284,8 @@ public abstract class RemoteVariableOperation<R extends Serializable> extends In
 		}
 
 		@Override
-		public final String execute(final QueryInstructionExecutor executor){
+		public final String exec(final Context ctx) {
+			final QueryInstructionExecutor executor = ctx.getExecutor();
 			executor.getQueryEnvironment().intersectRemoteSymbols(resultGraph, lhsGraph, rhsGraph);
 			return null;
 		}
@@ -313,7 +321,8 @@ public abstract class RemoteVariableOperation<R extends Serializable> extends In
 		}
 
 		@Override
-		public final String execute(final QueryInstructionExecutor executor){
+		public final String exec(final Context ctx) {
+			final QueryInstructionExecutor executor = ctx.getExecutor();
 			executor.getQueryEnvironment().subtractRemoteSymbols(resultGraph, lhsGraph, rhsGraph);
 			return null;
 		}
@@ -349,7 +358,8 @@ public abstract class RemoteVariableOperation<R extends Serializable> extends In
 		}
 
 		@Override
-		public final RemoteGraph execute(final QueryInstructionExecutor executor){
+		public final RemoteGraph exec(final Context ctx) {
+			final QueryInstructionExecutor executor = ctx.getExecutor();
 			final RemoteGraph result = new RemoteGraph(graph.name);
 			for(final Graph.Remote remote : graph.getRemotes()){
 				RemoteSPADEQueryConnection connection = null;

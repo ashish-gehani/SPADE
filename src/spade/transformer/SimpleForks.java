@@ -21,7 +21,6 @@ package spade.transformer;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -34,14 +33,13 @@ import spade.utility.HelperFunctions;
 
 public class SimpleForks extends AbstractTransformer
 {
-
-	@Override
-	public LinkedHashSet<ArgumentName> getArgumentNames(){
-		return new LinkedHashSet<ArgumentName>();
+	public SimpleForks()
+	{
+		setParametersInContext();
 	}
 
 	@Override
-	public Graph transform(Graph graph, ExecutionContext context)
+	public Graph transform(Graph graph)
 	{
 		Map<String, AbstractEdge> forkcloneEdges = new HashMap<>();
 		Map<String, AbstractEdge> execveEdges = new HashMap<>();

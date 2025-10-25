@@ -20,9 +20,7 @@
 
 package spade.transformer;
 
-import java.util.Arrays;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
@@ -34,6 +32,8 @@ import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.query.quickgrail.instruction.GetLineage;
 import spade.reporter.audit.OPMConstants;
+import spade.transformer.query.parameter.LineageDirection;
+import spade.transformer.query.parameter.SourceGraph;
 import spade.utility.HelperFunctions;
 
 public class TemporalTraversal extends AbstractTransformer{
@@ -42,9 +42,18 @@ public class TemporalTraversal extends AbstractTransformer{
 
 	private String annotationName;
 
+	private final SourceGraph sourceGraph = new SourceGraph();
+	private final LineageDirection lineageDirectory = new LineageDirection();
+
+	public TemporalTraversal()
+	{
+		setParametersInContext(sourceGraph, lineageDirectory);
+	}
+
 	// must specify the name of an annotation
 	@Override
 	public boolean initialize(String arguments){
+		super.initialize(arguments);
 		Map<String, String> argumentsMap = HelperFunctions.parseKeyValPairs(arguments);
 		if("timestamp".equals(argumentsMap.get("order"))){
 			annotationName = OPMConstants.EDGE_TIME;
@@ -56,18 +65,21 @@ public class TemporalTraversal extends AbstractTransformer{
 	}
 
 	@Override
-	public LinkedHashSet<ArgumentName> getArgumentNames(){
-		return new LinkedHashSet<ArgumentName>(
-				Arrays.asList(
-						ArgumentName.SOURCE_GRAPH
-						, ArgumentName.DIRECTION
-						)
-				);
+	public Graph transform(final Graph graph) {
+		try{
+			return _transform(
+				graph,
+				sourceGraph.getMaterializedValue(),
+				lineageDirectory.getMaterializedValue()
+			);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed transformation", e);
+		}
 	}
 
-	@Override
-	public Graph transform(Graph graph, ExecutionContext context){
-		GetLineage.Direction direction = context.getDirection();
+	private Graph _transform(
+		Graph graph,  final Graph sourceGraph, final GetLineage.Direction direction
+	){
 		if(direction == null){
 			logger.log(Level.SEVERE, "Direction cannot be null");
 
@@ -81,8 +93,8 @@ public class TemporalTraversal extends AbstractTransformer{
 		Graph resultGraph = new Graph();
 
 		Set<AbstractVertex> queriedVerticesToUse = new HashSet<AbstractVertex>();
-		Set<AbstractVertex> queriedVerticesFromQuery = context.getSourceGraph() == null ? new HashSet<AbstractVertex>()
-				: context.getSourceGraph().vertexSet();
+		Set<AbstractVertex> queriedVerticesFromQuery = sourceGraph == null ? new HashSet<AbstractVertex>()
+				: sourceGraph.vertexSet();
 		for(AbstractVertex queriedVertexFromQuery : queriedVerticesFromQuery){
 			queriedVerticesToUse.add(createNewWithoutAnnotations(queriedVertexFromQuery));
 		}

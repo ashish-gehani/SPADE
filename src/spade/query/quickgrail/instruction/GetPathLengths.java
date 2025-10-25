@@ -21,6 +21,7 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.execution.Context;
 import spade.query.quickgrail.core.Instruction;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
@@ -39,7 +40,8 @@ public class GetPathLengths extends Instruction<java.util.ArrayList<Integer>>{
 	}
 
 	@Override
-	public java.util.ArrayList<Integer> execute(final QueryInstructionExecutor executor){
+	public final java.util.ArrayList<Integer> exec(final Context ctx) {
+		final QueryInstructionExecutor executor = ctx.getExecutor();
 		return executor.getPathLengths(subjectGraph, startGraph, toGraph, maxDepth);
 	}
 

@@ -20,7 +20,6 @@
 
 package spade.transformer;
 
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -37,9 +36,15 @@ public class ProvTC2OPM extends Prov2OPM
 
 	private Map<String, String> provTC2OpmMapping = null;
 
+	public ProvTC2OPM()
+	{
+		setParametersInContext();
+	}
+
 	@Override
 	public boolean initialize(String arguments)
 	{
+		super.initialize(arguments);
 		String filepath = Settings.getDefaultConfigFilePath(this.getClass());
 		try
 		{
@@ -54,14 +59,9 @@ public class ProvTC2OPM extends Prov2OPM
 	}
 
 	@Override
-	public LinkedHashSet<ArgumentName> getArgumentNames(){
-		return new LinkedHashSet<ArgumentName>();
-	}
-
-	@Override
-	public Graph transform(Graph graph, ExecutionContext context)
+	public Graph transform(Graph graph)
 	{
-		graph = super.transform(graph, context);
+		graph = super.transform(graph);
 
 		Graph resultGraph = new Graph();
 

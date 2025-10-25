@@ -23,28 +23,57 @@ import static spade.core.AbstractStorage.CHILD_VERTEX_KEY;
 import static spade.core.AbstractStorage.PARENT_VERTEX_KEY;
 import static spade.core.AbstractStorage.PRIMARY_KEY;
 
-import java.io.Serializable;
 import java.lang.reflect.Constructor;
+import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
-import spade.query.quickgrail.instruction.GetLineage;
+import spade.transformer.query.Context;
+import spade.transformer.query.parameter.AbstractParameter;
 import spade.utility.Result;
 
-public abstract class AbstractTransformer{
+public abstract class AbstractTransformer {
 
-	public String arguments;
+	private final Context context = new Context();
 
-	public boolean initialize(String arguments){
+	private String initArguments;
+
+	public void setParametersInContext(AbstractParameter<?, ?>... parameters)
+	{
+		if (parameters == null)
+			throw new IllegalArgumentException("NULL parameters for transformer");
+
+		int i = -1;
+		List<AbstractParameter<?, ?>> paramList = new ArrayList<>();
+		for (AbstractParameter<?, ?> parameter : parameters) {
+			i++;
+			if (parameter == null)
+				throw new IllegalArgumentException("NULL parameter at index (" + i + ") for transformer");
+			paramList.add(parameter);
+		}
+		this.context.set(paramList);
+	}
+
+	public Context getContext()
+	{
+		return context;
+	}
+
+	public boolean initialize(String initArguments) {
+		this.initArguments = initArguments;
 		return true;
 	}
 
-	public boolean shutdown(){
+	public boolean shutdown() {
 		return true;
 	}
 
-	public abstract Graph transform(Graph graph, final ExecutionContext executionContext);
+	public final String getInitArguments() {
+		return initArguments;
+	}
+
+	public abstract Graph transform(Graph graph);
 
 	public static String getAnnotationSafe(AbstractVertex vertex, String annotation){
 		if(vertex != null){
@@ -113,56 +142,6 @@ public abstract class AbstractTransformer{
 
 	///////////////////////////////////////////
 
-	/**
-	 * Using LinkedHashSet to ensure that all elements are unique and there is a
-	 * fixed iteration order
-	 * 
-	 * Order matters for query side. Whatever the order is specified here, it must
-	 * be used in the query
-	 * 
-	 * @return The list of arguments, as available in enum
-	 *         'spade.core.AbstractTransformer.ArgumentName', (if any) that the
-	 *         transformer expects
-	 */
-	public abstract LinkedHashSet<ArgumentName> getArgumentNames();
-
-	public static void validateArguments(final AbstractTransformer transformer, final ExecutionContext context){
-		if(transformer == null){
-			throw new RuntimeException("NULL transformer to validate arguments for");
-		}
-		if(context == null){
-			throw new RuntimeException("NULL transformer execution context");
-		}
-		final LinkedHashSet<ArgumentName> argumentNames = transformer.getArgumentNames();
-		if(argumentNames == null){
-			throw new RuntimeException("NULL transformer argument names");
-		}
-		for(final ArgumentName argumentName : argumentNames){
-			if(argumentName == null){
-				throw new RuntimeException("NULL transformer argument name");
-			}
-			switch(argumentName){
-				case SOURCE_GRAPH:
-					if(context.getSourceGraph() == null){
-						throw new RuntimeException("NULL " + argumentName + " argument for transformer");
-					}
-					break;
-				case MAX_DEPTH:
-					if(context.getMaxDepth() == null){
-						throw new RuntimeException("NULL " + argumentName + " argument for transformer");
-					}
-					break;
-				case DIRECTION:
-					if(context.getDirection() == null){
-						throw new RuntimeException("NULL " + argumentName + " argument for transformer");
-					}
-					break;
-				default:
-					throw new RuntimeException("Unhandled tranformer argument name: " + argumentName);
-			}
-		}
-	}
-
 	@SuppressWarnings("unchecked")
 	public static Result<AbstractTransformer> create(final String transformerName){
 		final String qualifiedClassName = "spade.transformer." + transformerName;
@@ -209,7 +188,7 @@ public abstract class AbstractTransformer{
 		}
 
 		if(isInitialized){
-			transformer.arguments = initArguments;
+			transformer.initArguments = initArguments;
 			return Result.successful(true);
 		}else{
 			final String msg = "Failed to initialize transformer '" + transformer.getClass().getSimpleName() + "' with arguments '"
@@ -218,12 +197,43 @@ public abstract class AbstractTransformer{
 		}
 	}
 
-	public static Result<Graph> execute(final AbstractTransformer transformer, final Graph graph,
-			final ExecutionContext executionContext){
+	public static Result<Graph> executeWithQueryContext(
+		final AbstractTransformer transformer,
+		final Graph graph,
+		final spade.query.execution.Context executionCtx
+	){
 		try{
-			validateArguments(transformer, executionContext);
+			final Context queryTransformerCtx = executionCtx.getTransformerContext();
+			queryTransformerCtx.materialize(executionCtx.getExecutor());
 
-			final Graph transformedGraph = transformer.transform(graph, executionContext);
+			return AbstractTransformer.executeWithOtherContext(transformer, graph, queryTransformerCtx);
+		}catch(Exception e){
+			return Result.failed("Error in graph transformation by " + transformer.getClass().getName(), e, null);
+		}
+	}
+
+	public static Result<Graph> executeWithOtherContext(
+		final AbstractTransformer transformer,
+		final Graph graph,
+		final Context otherCtx
+	){
+		try{
+			final Context thisTransformerCtx = transformer.getContext();
+
+			thisTransformerCtx.copyValuesPresentIn(otherCtx);
+
+			return AbstractTransformer.execute(transformer, graph);
+		}catch(Exception e){
+			return Result.failed("Error in graph transformation by " + transformer.getClass().getName(), e, null);
+		}
+	}
+
+	public static Result<Graph> execute(
+		final AbstractTransformer transformer,
+		final Graph graph
+	){
+		try{
+			final Graph transformedGraph = transformer.transform(graph);
 			if(transformedGraph == null){
 				return Result.failed("NULL result for graph transformation by " + transformer.getClass().getName());
 			}else{
@@ -247,62 +257,6 @@ public abstract class AbstractTransformer{
 			}
 		}catch(Exception e){
 			return Result.failed("Failed to shutdown transformer gracefully", e, null);
-		}
-	}
-
-	/*
-	 * Adding a new field in execution context
-	 * 1) Add in the enum ArgumentName
-	 * 2) Add in the class ExecutionContext
-	 * 3) Handle the field from query-side in 'QuickGrailQueryResolver' function 'resolveTransformGraph'
-	 * 		a) Convert the data received in query to data types that are passed to the instruction execution side
-	 * 4) Handle the field in 'QuickGrailExecutor' function 'transformGraph'
-	 * 		a) Convert the data received from (3.a) to data types in the ExecutionContext
-	 * 5) Update the functions like 'getLineage' in 'QuickGrailExecutor' to populate the new field where necessary 
-	 * 6) Add validation code for the new field in 'validateArguments' in AbstractTransformer
-	 * 7) Update the list of arguments (getArgumentNames) for the transformer where necessary
-	 */
-	public static enum ArgumentName{
-		// This is the order of argument for get lineage query. 
-		SOURCE_GRAPH("The graph of vertices for a lineage query"),
-		MAX_DEPTH("The maximum depth for a lineage or path query"),
-		DIRECTION("The direction in which the lineage query was executed");
-
-		public final String description;
-		private ArgumentName(final String description){
-			this.description = description;
-		}
-	}
-
-	public static class ExecutionContext implements Serializable{
-		private static final long serialVersionUID = -5190194133392169719L;
-
-		private spade.core.Graph sourceGraph;
-		private Integer maxDepth;
-		private GetLineage.Direction direction;
-
-		public spade.core.Graph getSourceGraph(){
-			return sourceGraph;
-		}
-
-		public void setSourceGraph(spade.core.Graph sourceGraph){
-			this.sourceGraph = sourceGraph;
-		}
-
-		public Integer getMaxDepth(){
-			return maxDepth;
-		}
-
-		public void setMaxDepth(Integer maxDepth){
-			this.maxDepth = maxDepth;
-		}
-
-		public GetLineage.Direction getDirection(){
-			return direction;
-		}
-
-		public void setDirection(GetLineage.Direction direction){
-			this.direction = direction;
 		}
 	}
 }

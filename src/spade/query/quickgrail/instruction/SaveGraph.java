@@ -21,6 +21,7 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.execution.Context;
 import spade.query.quickgrail.core.Instruction;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
@@ -66,7 +67,8 @@ public class SaveGraph extends Instruction<String>{
 	}
 
 	@Override
-	public final String execute(final QueryInstructionExecutor executor){
+	public final String exec(final Context ctx) {
+		final QueryInstructionExecutor executor = ctx.getExecutor();
 		executor.saveGraph(targetGraph, format, force, filePath);
 		return null;
 	}

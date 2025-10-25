@@ -22,7 +22,7 @@ package spade.query.quickgrail.instruction;
 import java.util.ArrayList;
 import java.util.logging.Logger;
 
-import spade.core.AbstractTransformer;
+import spade.query.execution.Context;
 import spade.query.quickgrail.core.Instruction;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
@@ -81,16 +81,8 @@ public class GetLineage extends Instruction<String>{
 	}
 
 	@Override
-	public void updateTransformerExecutionContext(final QueryInstructionExecutor executor,
-			final AbstractTransformer.ExecutionContext context){
-		final spade.core.Graph sourceGraph = executor.exportGraph(startGraph, true);
-		context.setSourceGraph(sourceGraph);
-		context.setMaxDepth(depth);
-		context.setDirection(direction);
-	}
-
-	@Override
-	public String execute(final QueryInstructionExecutor executor){
+	public String exec(final Context ctx) {
+		final QueryInstructionExecutor executor = ctx.getExecutor();
 		if(executor.getGraphCount(startGraph).getVertices() <= 0){
 			return null;
 		}

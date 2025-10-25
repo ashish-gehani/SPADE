@@ -21,13 +21,13 @@ package spade.query.quickgrail.core;
 
 import java.io.Serializable;
 
-import spade.core.AbstractTransformer;
+import spade.query.execution.Context;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
  * Interface for a QuickGrail primitive instruction.
  */
-public abstract class Instruction<R extends Serializable>extends TreeStringSerializable{
+public abstract class Instruction<R extends Serializable> extends TreeStringSerializable{
 
 	private Serializable result;
 
@@ -39,18 +39,13 @@ public abstract class Instruction<R extends Serializable>extends TreeStringSeria
 		this.result = result;
 	}
 
-	// Pre-execution
-	public void updateTransformerExecutionContext(final QueryInstructionExecutor executor,
-			final AbstractTransformer.ExecutionContext context){
-		// Nothing
-	}
-
 	// Execution
-	public abstract R execute(final QueryInstructionExecutor executor);
-
-	// Post-execution
-	public void postExecute(final QueryInstructionExecutor executor){
-		// Nothing
+	public final void execute(final Context ctx)
+	{
+		final R result = this.exec(ctx);
+		setResult(result);
 	}
+
+	public abstract R exec(final Context ctx);
 
 }
