@@ -80,13 +80,6 @@ public class GetLineage extends Instruction<String>{
 		inline_field_values.add(direction.name().substring(1));
 	}
 
-	private void updateContext(final Context ctx, Graph lStartGraph, int lDepth, Direction lDirection)
-	{
-		ctx.getTransformerContext().sourceGraph.setResolvedValue(lStartGraph);
-		ctx.getTransformerContext().maxDepth.setResolvedValue(lDepth);
-		ctx.getTransformerContext().lineageDirection.setResolvedValue(lDirection);
-	}
-
 	@Override
 	public String exec(final Context ctx) {
 		final QueryInstructionExecutor executor = ctx.getExecutor();
@@ -108,8 +101,6 @@ public class GetLineage extends Instruction<String>{
 			throw new RuntimeException(
 					"Unexpected direction: '" + direction + "'. Expected: Ancestor, Descendant or Both");
 		}
-
-		updateContext(ctx, startGraph, depth, direction);
 
 		return null;
 	}

@@ -94,7 +94,7 @@ public class ParameterList {
 			}
 			names.add(p.getName());
 		}
-		return names.toString();
+		return String.join(", ", names);
 	}
 
 	public void resolveAllValues(

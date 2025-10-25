@@ -19,6 +19,7 @@
  */
 package spade.transformer.query;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import spade.query.quickgrail.core.QueryInstructionExecutor;
@@ -45,6 +46,11 @@ public class Context {
 	 */
 	public void set(List<AbstractParameter<?, ?>> paramList) {
 		this.parameterList.set(paramList);
+	}
+
+	public String getFormattedParameterNames()
+	{
+		return this.parameterList.getFormattedParameterNames();
 	}
 
 	/**
@@ -103,5 +109,170 @@ public class Context {
 	{
 		// This cast is safe because we verify the class types match in getTheSameParameterTypeAs
 		dst.copyValuesPresentIn((AbstractParameter<Q, T>) src);
+	}
+
+	/**
+	 * Returns a JSON string representation of this Context and all its parameters.
+	 *
+	 * @return JSON string representing this context
+	 */
+	public String toJsonString()
+	{
+		StringBuilder json = new StringBuilder();
+		json.append("{\n");
+		json.append("  \"contextClass\": \"").append(this.getClass().getName()).append("\",\n");
+		json.append("  \"parameterCount\": ").append(parameterList.size()).append(",\n");
+		json.append("  \"parameters\": [");
+
+		for (int i = 0; i < parameterList.size(); i++)
+		{
+			if (i > 0)
+			{
+				json.append(",");
+			}
+			json.append("\n    {\n");
+
+			AbstractParameter<?, ?> param = parameterList.getParameter(i);
+			json.append("      \"index\": ").append(i).append(",\n");
+			json.append("      \"name\": ").append(escapeJson(param.getName())).append(",\n");
+			json.append("      \"type\": \"").append(param.getClass().getName()).append("\",\n");
+			json.append("      \"resolvedValueSet\": ").append(param.isResolvedValueSet()).append(",\n");
+
+			if (param.isResolvedValueSet())
+			{
+				try
+				{
+					Object resolvedVal = param.getResolvedValue();
+					json.append("      \"resolvedValue\": ").append(valueToJson(resolvedVal)).append(",\n");
+				}
+				catch (Exception e)
+				{
+					json.append("      \"resolvedValue\": \"<error: ").append(escapeJsonString(e.getMessage())).append(">\",\n");
+				}
+			}
+			else
+			{
+				json.append("      \"resolvedValue\": null,\n");
+			}
+
+			json.append("      \"materializedValueSet\": ").append(param.isMaterializedValueSet());
+
+			if (param.isMaterializedValueSet())
+			{
+				json.append(",\n");
+				try
+				{
+					Object materializedVal = param.getMaterializedValue();
+					json.append("      \"materializedValue\": ").append(valueToJson(materializedVal)).append("\n");
+				}
+				catch (Exception e)
+				{
+					json.append("      \"materializedValue\": \"<error: ").append(escapeJsonString(e.getMessage())).append(">\"\n");
+				}
+			}
+			else
+			{
+				json.append(",\n");
+				json.append("      \"materializedValue\": null\n");
+			}
+
+			json.append("    }");
+		}
+
+		if (parameterList.size() > 0)
+		{
+			json.append("\n  ");
+		}
+		json.append("]\n");
+		json.append("}");
+
+		return json.toString();
+	}
+
+	/**
+	 * Converts a value to its JSON representation.
+	 */
+	private String valueToJson(Object value)
+	{
+		if (value == null)
+		{
+			return "null";
+		}
+		else if (value instanceof String)
+		{
+			return escapeJson((String) value);
+		}
+		else if (value instanceof Number || value instanceof Boolean)
+		{
+			return value.toString();
+		}
+		else
+		{
+			// For other objects, use toString() and escape it as a string
+			return escapeJson(value.toString());
+		}
+	}
+
+	/**
+	 * Escapes a string for JSON and wraps it in quotes.
+	 */
+	private String escapeJson(String str)
+	{
+		if (str == null)
+		{
+			return "null";
+		}
+		return "\"" + escapeJsonString(str) + "\"";
+	}
+
+	/**
+	 * Escapes special characters in a string for JSON (without adding quotes).
+	 */
+	private String escapeJsonString(String str)
+	{
+		if (str == null)
+		{
+			return "";
+		}
+		StringBuilder escaped = new StringBuilder();
+		for (int i = 0; i < str.length(); i++)
+		{
+			char c = str.charAt(i);
+			switch (c)
+			{
+				case '\"':
+					escaped.append("\\\"");
+					break;
+				case '\\':
+					escaped.append("\\\\");
+					break;
+				case '\b':
+					escaped.append("\\b");
+					break;
+				case '\f':
+					escaped.append("\\f");
+					break;
+				case '\n':
+					escaped.append("\\n");
+					break;
+				case '\r':
+					escaped.append("\\r");
+					break;
+				case '\t':
+					escaped.append("\\t");
+					break;
+				default:
+					if (c < 0x20 || c == 0x7F)
+					{
+						escaped.append(String.format("\\u%04x", (int) c));
+					}
+					else
+					{
+						escaped.append(c);
+					}
+					break;
+			}
+		}
+		return escaped.toString();
 	}
 }

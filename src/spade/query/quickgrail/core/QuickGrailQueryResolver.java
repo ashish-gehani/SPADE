@@ -66,6 +66,7 @@ import spade.query.quickgrail.instruction.PrintPredicate;
 import spade.query.quickgrail.instruction.RefineDependencies;
 import spade.query.quickgrail.instruction.RemoteVariableOperation;
 import spade.query.quickgrail.instruction.SaveGraph;
+import spade.query.quickgrail.instruction.SetParametersInQueryContext;
 import spade.query.quickgrail.instruction.SubtractGraph;
 import spade.query.quickgrail.instruction.TransformGraph;
 import spade.query.quickgrail.instruction.UnionGraph;
@@ -1181,6 +1182,7 @@ public class QuickGrailQueryResolver{
 			outputGraph = allocateEmptyGraph();
 		}
 
+		instructions.add(new SetParametersInQueryContext(startGraph, depth, direction));
 		instructions.add(new GetLineage(outputGraph, subjectGraph, startGraph, depth, direction));
 		if(!onlyLocal){
 			instructions.add(new GetRemoteLineage(outputGraph, subjectGraph, startGraph, depth, direction));
@@ -1324,7 +1326,21 @@ public class QuickGrailQueryResolver{
 		try {
 			tCtx.resolve(tQueryArgExprs, this);
 		} catch (Exception e) {
-			throw new RuntimeException("Failed to resolve query args to transformer args", e);
+			final String tCtxArgs = tCtx.getFormattedParameterNames();
+			throw new RuntimeException(
+				"Failed to resolve query args to transformer args. " +
+				"Required args: " +
+				"$1.transform(" +
+				transformerName + ", " +
+				"\"<initialization arg string>\"" +
+				(
+					(tCtxArgs == null || "".equals(tCtxArgs)) 
+					? tCtx.getFormattedParameterNames()
+					: ", " + tCtxArgs
+				) +
+				")",
+				e
+			);
 		}
 
 		if(outputGraph == null){

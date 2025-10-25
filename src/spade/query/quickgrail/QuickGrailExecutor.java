@@ -88,10 +88,12 @@ public class QuickGrailExecutor{
 						throw e;
 					}
 				}
-
-			}finally{
-				executor.getQueryEnvironment().doGarbageCollection();
+			} catch (Exception e) {
+				throw e;
 			}
+			// finally{
+			// 	executor.getQueryEnvironment().doGarbageCollection();
+			// }
 
 			Serializable result = "OK";
 			// Only here if success

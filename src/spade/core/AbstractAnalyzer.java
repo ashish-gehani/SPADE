@@ -357,8 +357,9 @@ public abstract class AbstractAnalyzer{
 								safeWriteToClient(spadeQuery);
 							}else{
 								// Can execute query finally
+								Context execCtx = null;
 								try{
-									final Context execCtx = new Context(thisStorage.getQueryInstructionExecutor());
+									execCtx = new Context(thisStorage.getQueryInstructionExecutor());
 
 									spadeQuery = executeQuery(spadeQuery, execCtx);
 									
@@ -386,10 +387,13 @@ public abstract class AbstractAnalyzer{
 									handleSPADEQueryError(spadeQuery);
 									
 									safeWriteToClient(spadeQuery);
-								}catch(Exception e){
+								} catch (Exception e) {
 									logger.log(Level.SEVERE, "Failed to execute query: '" + spadeQuery.query + "'", e);
 									spadeQuery.queryFailed(new Exception("Failed to execute query: " + e.getMessage(), e));
 									safeWriteToClient(spadeQuery);
+								} finally {
+									if (execCtx != null)
+										execCtx.destroy();
 								}
 							}
 						}

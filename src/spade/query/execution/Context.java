@@ -55,6 +55,6 @@ public class Context {
 
 	public void destroy()
 	{
-		// todo do instruction executor garbage collection... maybe?
+		this.executor.getQueryEnvironment().doGarbageCollection();
 	}
 }
