@@ -144,10 +144,11 @@ _return-type_ **method-name** ( **_argument-type_** formal-argument, ... )
 * _graph_ **edgeSample** ( **_int_** sampleSize )
   * Get the randomly sampled edge subset of size `sampleSize`
 
-* _graph_ **transform** ( **_name_** transformer[, argument]*)
+* _graph_ **transform** ( **_name_** transformer, **_string_** initializationArgument[, argument]*)
   * Use a pre-defined [_transformer_](https://github.com/ashish-gehani/SPADE/wiki/Available-transformers) to return a rewritten version of the graph.
   * Arguments can be graph variables, integers, or strings.
-    * e.g. `$2 = $1.transform(DropKeys, "keys=uid,gid")` copies the vertices and edges in `$1` to `$2`, droppping annotations with `uid` or `gid` as the key.
+    * e.g. `$2 = $1.transform(DropKeys, 'keys=uid,gid')` copies the vertices and edges in `$1` to `$2`, droppping annotations with `uid` or `gid` as the key.
+    * e.g. `$3 = $2.transform(Prune, '', $1, 10, 'both')` prunes graph `$1` from `$2` upto max depth `10` in `both` directions.
 
 ---
 #### Functions
