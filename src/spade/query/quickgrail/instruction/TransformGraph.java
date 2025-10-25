@@ -21,6 +21,8 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.core.AbstractTransformer;
+import spade.query.execution.Context;
 import spade.query.quickgrail.core.Instruction;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
@@ -29,33 +31,22 @@ import spade.query.quickgrail.utility.TreeStringSerializable;
 public class TransformGraph extends Instruction<String>{
 
 	public static final int putGraphBatchSize = 100;
-	
-	public final String transformerName;
-	public final String transformerInitializeArgument;
-	public final Graph outputGraph, subjectGraph;
-	private final java.util.List<Object> arguments = new ArrayList<Object>();
 
-	public TransformGraph(final String transformerName, final String transformerInitializeArgument,
-			final Graph outputGraph, final Graph subjectGraph){
-		this.transformerName = transformerName;
-		this.transformerInitializeArgument = transformerInitializeArgument;
+	public final String tInitArg;
+	private final AbstractTransformer transformer;
+
+	public final Graph outputGraph, subjectGraph;
+
+	public TransformGraph(
+		final AbstractTransformer transformer,
+		final String tInitArg,
+		final Graph outputGraph,
+		final Graph subjectGraph
+	){
+		this.transformer = transformer;
+		this.tInitArg = tInitArg;
 		this.outputGraph = outputGraph;
 		this.subjectGraph = subjectGraph;
-	}
-
-	public void addArgument(final Object argument){
-		if(argument == null){
-			throw new RuntimeException("NULL argument not allowed for transformers");
-		}
-		arguments.add(argument);
-	}
-
-	public int getArgumentsSize(){
-		return arguments.size();
-	}
-
-	public Object getArgument(int i){
-		return arguments.get(i);
 	}
 
 	@Override
@@ -68,25 +59,20 @@ public class TransformGraph extends Instruction<String>{
 			ArrayList<String> non_container_child_field_names,
 			ArrayList<TreeStringSerializable> non_container_child_fields, ArrayList<String> container_child_field_names,
 			ArrayList<ArrayList<? extends TreeStringSerializable>> container_child_fields){
-		inline_field_names.add("transformerName");
-		inline_field_values.add(transformerName);
-		inline_field_names.add("initializeArgument");
-		inline_field_values.add(transformerInitializeArgument);
+		inline_field_names.add("transformer.name");
+		inline_field_values.add(transformer.getClass().getSimpleName());
+		inline_field_names.add("transformer.initArg");
+		inline_field_values.add(tInitArg);
 		inline_field_names.add("outputGraph");
 		inline_field_values.add(outputGraph.name);
 		inline_field_names.add("subjectGraph");
 		inline_field_values.add(subjectGraph.name);
-		int i = 0;
-		for(final Object argument : arguments){
-			inline_field_names.add("argument<" + argument.getClass().getSimpleName() + ">[" + i + "]");
-			inline_field_values.add(argument.toString());
-			i++;
-		}
 	}
 
 	@Override
-	public final String execute(final QueryInstructionExecutor executor){
-		executor.transformGraph(transformerName, transformerInitializeArgument, outputGraph, subjectGraph, arguments, putGraphBatchSize);
+	public final String exec(final Context ctx) {
+		final QueryInstructionExecutor executor = ctx.getExecutor();
+		executor.transformGraph(transformer, tInitArg, outputGraph, subjectGraph, putGraphBatchSize);
 		return null;
 	}
 }

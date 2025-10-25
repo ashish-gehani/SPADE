@@ -760,7 +760,7 @@ public class Kernel
                     {
                         for(int transformer = 0; transformer < transformers.size(); transformer++)
                         {
-                            String arguments = transformers.get(transformer).arguments;
+                            String arguments = transformers.get(transformer).getInitArguments();
                             configWriter.write("add transformer " + transformers.get(transformer).getClass().getName().split("\\.")[2] + " position=" + (transformer + 1));
                             if(arguments != null)
                             {
@@ -1543,10 +1543,10 @@ public class Kernel
                         // Print transformer names except for the FinalTransformer.
                         transformersListString.append("\t").append((i + 1)).append(". ");
                         transformersListString.append(transformers.get(i).getClass().getName().split("\\.")[2]);
-                        if (transformers.get(i).arguments != null)
+                        if (transformers.get(i).getInitArguments() != null)
                         {
                             transformersListString.append(" (");
-                            transformersListString.append(transformers.get(i).arguments);
+                            transformersListString.append(transformers.get(i).getInitArguments());
                             transformersListString.append(")");
                         }
                         transformersListString.append("\n");

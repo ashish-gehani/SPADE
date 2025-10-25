@@ -21,7 +21,6 @@ package spade.transformer;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -33,11 +32,12 @@ import spade.reporter.audit.OPMConstants;
 
 public class NoEphemeralWrites extends AbstractTransformer
 {
-	public LinkedHashSet<ArgumentName> getArgumentNames(){
-		return new LinkedHashSet<ArgumentName>();
+	public NoEphemeralWrites()
+	{
+		setParametersInContext();
 	}
-	
-	public Graph transform(Graph graph, ExecutionContext context)
+
+	public Graph transform(Graph graph)
 	{
 		
 		Map<AbstractVertex, Set<String>> fileReadBy = new HashMap<>();

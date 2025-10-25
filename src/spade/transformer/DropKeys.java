@@ -21,7 +21,6 @@
 package spade.transformer;
 
 import java.io.File;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -41,10 +40,16 @@ public class DropKeys extends AbstractTransformer{
 
 	private String[] annotationsToRemove = null;
 
+	public DropKeys()
+	{
+		setParametersInContext();
+	}
+
 	// argument can either be a file which contains an annotation per line OR
 	// arguments can be comma separated annotation names. If neither then read the
 	// default config file
 	public boolean initialize(String arguments){
+		super.initialize(arguments);
 		try{
 			Map<String, String> argumentsMap = HelperFunctions.parseKeyValPairs(arguments);
 			boolean doDefaultAction = true;
@@ -84,12 +89,7 @@ public class DropKeys extends AbstractTransformer{
 	}
 
 	@Override
-	public LinkedHashSet<ArgumentName> getArgumentNames(){
-		return new LinkedHashSet<ArgumentName>();
-	}
-
-	@Override
-	public Graph transform(Graph graph, ExecutionContext context){
+	public Graph transform(Graph graph){
 		Graph resultGraph = new Graph();
 
 		for(AbstractVertex vertex : graph.vertexSet()){

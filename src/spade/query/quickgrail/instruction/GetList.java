@@ -21,6 +21,7 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.execution.Context;
 import spade.query.quickgrail.core.Instruction;
 import spade.query.quickgrail.core.List;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
@@ -41,7 +42,8 @@ public abstract class GetList<R extends List> extends Instruction<R>{
 			return "GetList.GetGraph";
 		}
 		@Override
-		public final List.GraphList execute(final QueryInstructionExecutor executor){
+		public final List.GraphList exec(final Context ctx) {
+			final QueryInstructionExecutor executor = ctx.getExecutor();
 			return executor.listGraphs();
 		}
 	}
@@ -52,7 +54,8 @@ public abstract class GetList<R extends List> extends Instruction<R>{
 			return "GetList.GetEnvironment";
 		}
 		@Override
-		public final List.EnvironmentList execute(final QueryInstructionExecutor executor){
+		public final List.EnvironmentList exec(final Context ctx) {
+			final QueryInstructionExecutor executor = ctx.getExecutor();
 			return executor.listEnvironment();
 		}
 	}
@@ -63,7 +66,8 @@ public abstract class GetList<R extends List> extends Instruction<R>{
 			return "GetList.GetConstraint";
 		}
 		@Override
-		public final List.ConstraintList execute(final QueryInstructionExecutor executor){
+		public final List.ConstraintList exec(final Context ctx) {
+			final QueryInstructionExecutor executor = ctx.getExecutor();
 			return executor.listConstraints();
 		}
 	}
@@ -74,7 +78,8 @@ public abstract class GetList<R extends List> extends Instruction<R>{
 			return "GetList.GetAll";
 		}
 		@Override
-		public final List.AllList execute(final QueryInstructionExecutor executor){
+		public final List.AllList exec(final Context ctx) {
+			final QueryInstructionExecutor executor = ctx.getExecutor();
 			return executor.listAll();
 		}
 	}

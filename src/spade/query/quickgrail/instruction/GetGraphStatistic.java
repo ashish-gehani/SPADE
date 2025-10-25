@@ -21,6 +21,7 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.execution.Context;
 import spade.query.quickgrail.core.GraphRemoteCount;
 import spade.query.quickgrail.core.GraphStatistic;
 import spade.query.quickgrail.core.Instruction;
@@ -55,11 +56,11 @@ public abstract class GetGraphStatistic<R extends GraphStatistic> extends Instru
 		result.setPrecisionScale(this.getPrecisionScale());
 	}
 
-	public abstract R executeGraphStatisticInstruction(final QueryInstructionExecutor executor);
+	public abstract R executeGraphStatisticInstruction(final Context ctx);
 
 	@Override
-	public final R execute(final QueryInstructionExecutor executor){
-		final R result = executeGraphStatisticInstruction(executor);
+	public final R exec(final Context ctx) {
+		final R result = executeGraphStatisticInstruction(ctx);
 		setResultPrecisionScale(result);
 		return result;
 
@@ -86,10 +87,11 @@ public abstract class GetGraphStatistic<R extends GraphStatistic> extends Instru
 		}
 
 		@Override
-		public final GraphStatistic.Count executeGraphStatisticInstruction(final QueryInstructionExecutor executor){
+		public final GraphStatistic.Count executeGraphStatisticInstruction(final Context ctx) {
+			final QueryInstructionExecutor executor = ctx.getExecutor();
 			GraphStatistic.Count result = executor.getGraphCount(graph);
 			long remoteVertexCount = 0, remoteEdgeCount = 0;
-			final GraphRemoteCount remoteCounts = new RemoteVariableOperation.List(graph).execute(executor);
+			final GraphRemoteCount remoteCounts = new RemoteVariableOperation.List(graph).exec(ctx);
 			for(final GraphStatistic.Count count : remoteCounts.get().values()){
 				if(count.getVertices() > 0){
 					remoteVertexCount += count.getVertices();
@@ -138,8 +140,8 @@ public abstract class GetGraphStatistic<R extends GraphStatistic> extends Instru
 		}
 
 		@Override
-		public final GraphStatistic.Histogram executeGraphStatisticInstruction(final QueryInstructionExecutor executor){
-			final GraphStatistic.Histogram result = executor.getGraphHistogram(graph, elementType, annotationKey);
+		public final GraphStatistic.Histogram executeGraphStatisticInstruction(final Context ctx) {
+			final GraphStatistic.Histogram result = ctx.getExecutor().getGraphHistogram(graph, elementType, annotationKey);
 			return result;
 		}
 	}
@@ -174,8 +176,8 @@ public abstract class GetGraphStatistic<R extends GraphStatistic> extends Instru
 		}
 
 		@Override
-		public final GraphStatistic.Mean executeGraphStatisticInstruction(final QueryInstructionExecutor executor){
-			final GraphStatistic.Mean result = executor.getGraphMean(graph, elementType, annotationKey);
+		public final GraphStatistic.Mean executeGraphStatisticInstruction(final Context ctx) {
+			final GraphStatistic.Mean result = ctx.getExecutor().getGraphMean(graph, elementType, annotationKey);
 			return result;
 		}
 	}
@@ -210,8 +212,8 @@ public abstract class GetGraphStatistic<R extends GraphStatistic> extends Instru
 		}
 
 		@Override
-		public final GraphStatistic.StandardDeviation executeGraphStatisticInstruction(final QueryInstructionExecutor executor){
-			final GraphStatistic.StandardDeviation result = executor.getGraphStandardDeviation(graph, elementType, annotationKey);
+		public final GraphStatistic.StandardDeviation executeGraphStatisticInstruction(final Context ctx) {
+			final GraphStatistic.StandardDeviation result = ctx.getExecutor().getGraphStandardDeviation(graph, elementType, annotationKey);
 			return result;
 		}
 	}
@@ -251,8 +253,8 @@ public abstract class GetGraphStatistic<R extends GraphStatistic> extends Instru
 		}
 
 		@Override
-		public final GraphStatistic.Distribution executeGraphStatisticInstruction(final QueryInstructionExecutor executor){
-			final GraphStatistic.Distribution result = executor.getGraphDistribution(graph, elementType, annotationKey, binCount);
+		public final GraphStatistic.Distribution executeGraphStatisticInstruction(final Context ctx) {
+			final GraphStatistic.Distribution result = ctx.getExecutor().getGraphDistribution(graph, elementType, annotationKey, binCount);
 			return result;
 		}
 	}

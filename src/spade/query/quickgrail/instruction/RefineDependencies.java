@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import spade.query.execution.Context;
 import spade.query.quickgrail.core.GraphStatistic;
 import spade.query.quickgrail.core.Instruction;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
@@ -82,7 +83,8 @@ public class RefineDependencies extends Instruction<String>{
 	}
 
 	@Override
-	public String execute(final QueryInstructionExecutor executor){
+	public final String exec(final Context ctx) {
+		final QueryInstructionExecutor executor = ctx.getExecutor();
 		try{
 			edgeToDepdendentOnEdges.putAll(readDependencyMap(this.dependencyMapPath));
 		}catch(Exception e){

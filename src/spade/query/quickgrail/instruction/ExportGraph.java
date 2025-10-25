@@ -21,6 +21,7 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.execution.Context;
 import spade.query.quickgrail.core.Instruction;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.RemoteGraph;
@@ -60,14 +61,15 @@ public class ExportGraph extends Instruction<spade.core.Graph>{
 	}
 
 	@Override
-	public final spade.core.Graph execute(final QueryInstructionExecutor executor){
+	public final spade.core.Graph exec(final Context ctx) {
+		final QueryInstructionExecutor executor = ctx.getExecutor();
 		spade.core.Graph resultGraph = executor.exportGraph(targetGraph, force);
 		if(resultGraph == null){
 			resultGraph = new spade.core.Graph();
 		}
 
 		final boolean verifyRemote = false;
-		final RemoteGraph remoteGraph = new RemoteVariableOperation.Export(targetGraph, force, verifyRemote).execute(executor);
+		final RemoteGraph remoteGraph = new RemoteVariableOperation.Export(targetGraph, force, verifyRemote).exec(ctx);
 		resultGraph.union(remoteGraph);
 
 		return resultGraph;

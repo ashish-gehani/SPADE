@@ -33,6 +33,7 @@ import spade.core.AbstractStorage;
 import spade.core.Kernel;
 import spade.core.Query;
 import spade.core.Settings;
+import spade.query.execution.Context;
 import spade.query.quickgrail.QuickGrailExecutor;
 import spade.utility.HelperFunctions;
 
@@ -222,16 +223,14 @@ public class CommandLine extends AbstractAnalyzer{
 		}
 
 		@Override
-		public Query executeQuery(Query query) throws Exception{
-			if(query != null){
-				query = quickGrailExecutor.execute(query);
-			}
+		public Query executeQuery(final Query query, final Context ctx) throws Exception{
+			quickGrailExecutor.execute(query, ctx);
 			return query;
 		}
 
 		@Override
 		public void doQueryingSetupForCurrentStorage() throws Exception{
-			quickGrailExecutor = new QuickGrailExecutor(getCurrentStorage().getQueryInstructionExecutor());
+			quickGrailExecutor = new QuickGrailExecutor();
 		}
 
 		@Override

@@ -21,6 +21,7 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 
+import spade.query.execution.Context;
 import spade.query.quickgrail.core.Instruction;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.utility.ResultTable;
@@ -51,7 +52,8 @@ public class EvaluateQuery extends Instruction<ResultTable>{
 	}
 
 	@Override
-	public final ResultTable execute(final QueryInstructionExecutor executor){
+	public final ResultTable exec(final Context ctx) {
+		final QueryInstructionExecutor executor = ctx.getExecutor();
 		ResultTable table = executor.evaluateQuery(nativeQuery);
 		if(table == null){
 			table = ResultTable.FromText("", ',');

@@ -24,7 +24,6 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -90,6 +89,7 @@ public class ABE extends AbstractTransformer
     @Override
     public boolean initialize(String arguments)
     {
+        super.initialize(arguments);
         boolean configFileStatus = readConfigFile();
         if (!configFileStatus)
         {
@@ -654,12 +654,7 @@ public class ABE extends AbstractTransformer
     }
 
     @Override
-	public LinkedHashSet<ArgumentName> getArgumentNames(){
-		return new LinkedHashSet<ArgumentName>();
-	}
-
-    @Override
-    public ABEGraph transform(Graph graph, ExecutionContext context)
+    public ABEGraph transform(Graph graph)
     {
         ABEGraph encryptedGraph = ABEGraph.copy(graph, true);
 

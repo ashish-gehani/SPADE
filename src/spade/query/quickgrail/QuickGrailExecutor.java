@@ -28,6 +28,7 @@ import java.util.logging.Logger;
 
 import spade.core.Query;
 import spade.core.Settings;
+import spade.query.execution.Context;
 import spade.query.quickgrail.core.Instruction;
 import spade.query.quickgrail.core.Program;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
@@ -47,17 +48,7 @@ public class QuickGrailExecutor{
 	private final String keyDebug = "debug";
 	private boolean debug;
 
-	private final QueryInstructionExecutor instructionExecutor;
-
-	public QuickGrailExecutor(final QueryInstructionExecutor instructionExecutor) throws Exception{
-		this.instructionExecutor = instructionExecutor;
-		if(this.instructionExecutor == null){
-			throw new IllegalArgumentException("NULL instruction executor");
-		}
-		if(this.instructionExecutor.getQueryEnvironment() == null){
-			throw new IllegalArgumentException("NULL query environment");
-		}
-
+	public QuickGrailExecutor() throws Exception {
 		final String configFile = Settings.getDefaultConfigFilePath(this.getClass());
 		try{
 			final Map<String, String> map = FileUtility.readConfigFileAsKeyValueMap(configFile, "=");
@@ -67,14 +58,20 @@ public class QuickGrailExecutor{
 		}
 	}
 
-	public Query execute(Query query){
+	public void execute(final Query query, Context ctx){
+		if (query == null)
+			throw new IllegalArgumentException("NULL query to execute");
+		if (ctx == null)
+			throw new IllegalArgumentException("NULL context to execute");
 		try{
+			final QueryInstructionExecutor executor = ctx.getExecutor();
+
 			final DSLParserWrapper parserWrapper = new DSLParserWrapper();
 
 			final ParseProgram parseProgram = parserWrapper.fromText(query.query);
 
 			final QuickGrailQueryResolver resolver = new QuickGrailQueryResolver();
-			final Program program = resolver.resolveProgram(parseProgram, instructionExecutor.getQueryEnvironment());
+			final Program program = resolver.resolveProgram(parseProgram, executor.getQueryEnvironment());
 
 			if(debug){
 				logger.log(Level.INFO, "Parse tree:\n" + parseProgram.toString());
@@ -86,15 +83,14 @@ public class QuickGrailExecutor{
 				for(int i = 0; i < instructionsSize; i++){
 					final Instruction<? extends Serializable> instruction = program.getInstruction(i);
 					try{
-						final Serializable instructionResult = instruction.execute(instructionExecutor);
-						instruction.setResult(instructionResult);
+						instruction.execute(ctx);
 					}catch(Exception e){
 						throw e;
 					}
 				}
 
 			}finally{
-				instructionExecutor.getQueryEnvironment().doGarbageCollection();
+				executor.getQueryEnvironment().doGarbageCollection();
 			}
 
 			Serializable result = "OK";
@@ -107,8 +103,6 @@ public class QuickGrailExecutor{
 				}
 			}
 			query.querySucceeded(result);
-
-			return query;
 		}catch(Exception e){
 			logger.log(Level.SEVERE, null, e);
 
@@ -120,7 +114,6 @@ public class QuickGrailExecutor{
 			pw.println("------------------------------------------------------------");
 
 			query.queryFailed(new Exception(stackTrace.toString(), e));
-			return query;
 		}
 	}
 

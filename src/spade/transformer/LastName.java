@@ -19,8 +19,6 @@
  */
 package spade.transformer;
 
-import java.util.LinkedHashSet;
-
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
@@ -28,13 +26,13 @@ import spade.reporter.audit.OPMConstants;
 
 public class LastName extends AbstractTransformer
 {
-	@Override
-	public LinkedHashSet<ArgumentName> getArgumentNames(){
-		return new LinkedHashSet<ArgumentName>();
+	public LastName()
+	{
+		setParametersInContext();
 	}
 
 	@Override
-	public Graph transform(Graph graph, ExecutionContext context)
+	public Graph transform(Graph graph)
 	{
 		Graph resultGraph = new Graph();
 		for(AbstractEdge edge : graph.edgeSet())

@@ -21,7 +21,6 @@ package spade.transformer;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -37,13 +36,13 @@ import spade.core.Graph;
 
 public class OnlyAgents extends AbstractTransformer
 {
-	@Override
-	public LinkedHashSet<ArgumentName> getArgumentNames(){
-		return new LinkedHashSet<ArgumentName>();
+	public OnlyAgents()
+	{
+		setParametersInContext();
 	}
 
 	@Override
-	public Graph transform(Graph graph, ExecutionContext context)
+	public Graph transform(Graph graph)
 	{
 		/*
 		 * Code description: 

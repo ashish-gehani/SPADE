@@ -19,53 +19,52 @@
  */
 package spade.transformer;
 
-import java.util.Arrays;
-import java.util.LinkedHashSet;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.core.AbstractTransformer;
 import spade.core.Graph;
+import spade.query.quickgrail.instruction.GetLineage;
+import spade.transformer.query.parameter.LineageDirection;
+import spade.transformer.query.parameter.MaxDepth;
+import spade.transformer.query.parameter.SourceGraph;
 
 public class Prune extends AbstractTransformer{
 
 	private static final Logger logger = Logger.getLogger(Prune.class.getName());
 
-	@Override
-	public LinkedHashSet<ArgumentName> getArgumentNames(){
-		return new LinkedHashSet<ArgumentName>(
-				Arrays.asList(
-						ArgumentName.SOURCE_GRAPH
-						, ArgumentName.MAX_DEPTH
-						, ArgumentName.DIRECTION
-						)
-				);
+	private final SourceGraph sourceGraph = new SourceGraph();
+	private final MaxDepth maxDepth = new MaxDepth();
+	private final LineageDirection lineageDirectory = new LineageDirection();
+
+	public Prune()
+	{
+		setParametersInContext(sourceGraph, maxDepth, lineageDirectory);
 	}
 
 	@Override
-	public Graph transform(Graph graph, ExecutionContext context){
+	public Graph transform(final Graph graph) {
 		try{
-			if(context.getMaxDepth() == null){
-				throw new IllegalArgumentException("Depth cannot be null");
-			}
-			if(context.getDirection() == null){
-				throw new IllegalArgumentException("Direction cannot be null");
-			}
-			if(context.getSourceGraph() == null){
-				throw new IllegalArgumentException("Source graph cannot be null");
-			}
-		}catch(Exception e){
-			logger.log(Level.WARNING, "Missing arguments for the current query", e);
-
-			return graph;
+			return _transform(
+				graph,
+				sourceGraph.getMaterializedValue(),
+				maxDepth.getMaterializedValue(),
+				lineageDirectory.getMaterializedValue()
+			);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed transformation", e);
 		}
+	}
 
+	private Graph _transform(
+		Graph graph,  final Graph sourceGraph, final int maxDepth, final GetLineage.Direction direction
+	){
 		Graph resultGraph = new Graph();
 
 		Graph toRemoveGraph = graph.getLineage(
-				context.getSourceGraph().vertexSet(),
-				context.getDirection(),
-				context.getMaxDepth());
+			sourceGraph.vertexSet(),
+			direction,
+			maxDepth
+		);
 
 		if(toRemoveGraph != null){
 			removeEdges(resultGraph, graph, toRemoveGraph);

@@ -23,10 +23,8 @@ import java.io.Serializable;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashSet;
 
 import spade.core.AbstractTransformer;
-import spade.core.AbstractTransformer.ArgumentName;
 import spade.core.Settings;
 import spade.query.quickgrail.entities.Entity;
 import spade.query.quickgrail.entities.EntityType;
@@ -1305,108 +1303,37 @@ public class QuickGrailQueryResolver{
 	}
 
 	private Graph resolveTransformGraph(final Graph subjectGraph, final ArrayList<ParseExpression> argumentExpressions, Graph outputGraph){
-		if(argumentExpressions.size() == 0){
-			throw new RuntimeException("Invalid number of arguments for transform: expected a transformer name and it's arguments");
+		if(argumentExpressions.size() < 2){
+			throw new RuntimeException("Invalid number of arguments for transform: expected a transformer name and at least it's initialization argument");
 		}
 
 		final ParseExpression transformerNameExpression = argumentExpressions.get(0);
 		final String transformerName = QueryResolverHelper.resolveNameAsString(transformerNameExpression);
+		final ParseExpression tInitArgExpr = argumentExpressions.get(1);
+		final String tInitArg = QueryResolverHelper.resolveNameAsString(tInitArgExpr);
+		final java.util.List<ParseExpression> tQueryArgExprs = argumentExpressions.subList(2, argumentExpressions.size());
+
 		final Result<AbstractTransformer> createResult = AbstractTransformer.create(transformerName);
 		if(createResult.error){
 			throw new RuntimeException(createResult.errorMessage, createResult.exception);
 		}
+
 		final AbstractTransformer transformer = createResult.result;
-		final LinkedHashSet<ArgumentName> argumentNames = transformer.getArgumentNames();
-		if(argumentNames == null){
-			throw new RuntimeException("Invalid transformer implementation. NULL argument names");
-		}
+		final spade.transformer.query.Context tCtx = transformer.getContext();
 
-		final int offset;
-		final String transformerInitializeArgument;
-		final java.util.List<ParseExpression> queryArgumentExpressions;
-		if(argumentExpressions.size() > 1
-				&& argumentExpressions.get(1).getExpressionType() == ParseExpression.ExpressionType.kName){
-			transformerInitializeArgument = QueryResolverHelper.resolveNameAsString(argumentExpressions.get(1));
-			queryArgumentExpressions = argumentExpressions.subList(2, argumentExpressions.size()); // rest are transformer arguments
-			offset = 2;
-		}else{
-			transformerInitializeArgument = "";
-			queryArgumentExpressions = argumentExpressions.subList(1, argumentExpressions.size()); // rest are transformer arguments
-			offset = 1;
-		}
-
-		if(argumentNames.size() != queryArgumentExpressions.size()){
-			throw new RuntimeException("Invalid # of transformer arguments. Expected: " + argumentNames);
-		}
-
-		final java.util.List<Object> instructionArguments = new ArrayList<Object>();
-
-		int i = -1;
-		for(final ArgumentName argumentName : argumentNames){
-			i++;
-			if(argumentName == null){
-				throw new RuntimeException("NULL transformer argument name at index: " + (i + offset));
-			}
-			final ParseExpression queryArgumentExpression = queryArgumentExpressions.get(i);
-			if(queryArgumentExpression == null){
-				throw new RuntimeException("NULL transformer argument in query at index: " + (i + offset));
-			}
-			switch(argumentName){
-				case SOURCE_GRAPH:{
-					if(queryArgumentExpression.getExpressionType() != ExpressionType.kVariable
-							|| ((ParseVariable)queryArgumentExpression).getType().getTypeID() != TypeID.kGraph){
-						throw new RuntimeException("Transformer argument in query must be a graph variable at index: " + (i + offset));
-					}else{
-						final Graph sourceGraphVariable = resolveGraphVariable(((ParseVariable)queryArgumentExpression), null, true);
-						instructionArguments.add(sourceGraphVariable);
-					}
-					break;
-				}
-				case MAX_DEPTH:{
-					if(queryArgumentExpression.getExpressionType() != ExpressionType.kLiteral
-							|| ((ParseLiteral)queryArgumentExpression).getLiteralValue().getType().getTypeID() != TypeID.kInteger){
-						throw new RuntimeException("Transformer argument in query must be an integer literal at index: " + (i + offset));
-					}else{
-						final Integer maxDepthLiteral = QueryResolverHelper.resolveInteger(queryArgumentExpression);
-						instructionArguments.add(maxDepthLiteral);
-					}
-					break;
-				}
-				case DIRECTION:{
-					if(queryArgumentExpression.getExpressionType() != ExpressionType.kLiteral
-							|| ((ParseLiteral)queryArgumentExpression).getLiteralValue().getType().getTypeID() != TypeID.kString){
-						throw new RuntimeException("Transformer argument in query must be a string literal at index: " + (i + offset));
-					}else{
-						final String directionLiteral = QueryResolverHelper.resolveString(queryArgumentExpression).toLowerCase();
-						final GetLineage.Direction direction;
-						if("ancestors".startsWith(directionLiteral)){
-							direction = GetLineage.Direction.kAncestor;
-						}else if("descendants".startsWith(directionLiteral)){
-							direction = GetLineage.Direction.kDescendant;
-						}else if("both".startsWith(directionLiteral)){
-							direction = GetLineage.Direction.kBoth;
-						}else{
-							throw new RuntimeException("Transformer " + argumentName + " argument must be one of "
-									+ "['ancestors', 'descendants', 'both'] at index: " + (i + offset));
-						}
-						instructionArguments.add(direction);
-					}
-					break;
-				}
-				default:
-					throw new RuntimeException("Unhandled transformer argument name " + argumentName + " at index: " + (i + offset));
-			}
+		try {
+			tCtx.resolve(tQueryArgExprs, this);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to resolve query args to transformer args", e);
 		}
 
 		if(outputGraph == null){
 			outputGraph = allocateEmptyGraph();
 		}
 
-		final TransformGraph instruction = new TransformGraph(transformerName, transformerInitializeArgument,
-				outputGraph, subjectGraph);
-		for(final Object instructionArgument : instructionArguments){
-			instruction.addArgument(instructionArgument);
-		}
+		final TransformGraph instruction = new TransformGraph(
+			transformer, tInitArg, outputGraph, subjectGraph
+		);
 		instructions.add(instruction);
 
 		return outputGraph;

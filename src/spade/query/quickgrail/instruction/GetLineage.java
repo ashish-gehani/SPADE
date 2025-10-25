@@ -22,7 +22,7 @@ package spade.query.quickgrail.instruction;
 import java.util.ArrayList;
 import java.util.logging.Logger;
 
-import spade.core.AbstractTransformer;
+import spade.query.execution.Context;
 import spade.query.quickgrail.core.Instruction;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.entities.Graph;
@@ -80,8 +80,16 @@ public class GetLineage extends Instruction<String>{
 		inline_field_values.add(direction.name().substring(1));
 	}
 
+	private void updateContext(final Context ctx, Graph lStartGraph, int lDepth, Direction lDirection)
+	{
+		ctx.getTransformerContext().sourceGraph.setResolvedValue(lStartGraph);
+		ctx.getTransformerContext().maxDepth.setResolvedValue(lDepth);
+		ctx.getTransformerContext().lineageDirection.setResolvedValue(lDirection);
+	}
+
 	@Override
-	public String execute(final QueryInstructionExecutor executor){
+	public String exec(final Context ctx) {
+		final QueryInstructionExecutor executor = ctx.getExecutor();
 		if(executor.getGraphCount(startGraph).getVertices() <= 0){
 			return null;
 		}
@@ -100,6 +108,8 @@ public class GetLineage extends Instruction<String>{
 			throw new RuntimeException(
 					"Unexpected direction: '" + direction + "'. Expected: Ancestor, Descendant or Both");
 		}
+
+		updateContext(ctx, startGraph, depth, direction);
 
 		return null;
 	}

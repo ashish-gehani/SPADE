@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,9 +59,15 @@ public class Sanitization extends AbstractTransformer
 	private List<String> highAnnotations = new ArrayList<>();
 	private Map<String, String> functionMap = new HashMap<>();
 
+	public Sanitization()
+	{
+		setParametersInContext();
+	}
+
 	@Override
 	public boolean initialize(String arguments)
 	{
+		super.initialize(arguments);
 		boolean configFileStatus = readConfigFile();
 		if(!configFileStatus)
 		{
@@ -404,12 +409,7 @@ public class Sanitization extends AbstractTransformer
 	}
 
 	@Override
-	public LinkedHashSet<ArgumentName> getArgumentNames(){
-		return new LinkedHashSet<ArgumentName>();
-	}
-
-	@Override
-	public Graph transform(Graph graph, ExecutionContext context)
+	public Graph transform(Graph graph)
 	{
 		final Graph resultGraph = graph.copy();
 		convertUnixTime(resultGraph.edgeSet());

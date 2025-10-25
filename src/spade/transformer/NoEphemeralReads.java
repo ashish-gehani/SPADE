@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
@@ -36,6 +37,10 @@ import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.reporter.audit.OPMConstants;
+import spade.transformer.query.parameter.LineageDirection;
+import spade.transformer.query.parameter.MaxDepth;
+import spade.transformer.query.parameter.ParameterList;
+import spade.transformer.query.parameter.SourceGraph;
 import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 
@@ -43,12 +48,20 @@ public class NoEphemeralReads extends AbstractTransformer{
 
 	private Pattern ignoreFilesPattern = null;
 
+	private final SourceGraph sourceGraph = new SourceGraph();
+
+	public NoEphemeralReads()
+	{
+		setParametersInContext(sourceGraph);
+	}
+
 	// limited = true means that only matching files in the graph should be checked
 	// for ephemeral reads.
 	// limited = false means that all files in the graph should be checked for
 	// ephemeral reads.
 	@Override
 	public boolean initialize(String arguments){
+		super.initialize(arguments);
 		Map<String, String> argumentsMap = HelperFunctions.parseKeyValPairs(arguments);
 		if("false".equals(argumentsMap.get("limited"))){
 			return true;
@@ -68,17 +81,20 @@ public class NoEphemeralReads extends AbstractTransformer{
 	}
 
 	@Override
-	public LinkedHashSet<ArgumentName> getArgumentNames(){
-		return new LinkedHashSet<ArgumentName>(
-				Arrays.asList(
-						ArgumentName.SOURCE_GRAPH
-						)
-				);
+	public Graph transform(Graph graph)
+	{
+		try{
+			return _transform(
+				graph,
+				sourceGraph.getMaterializedValue()
+			);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed transformation", e);
+		}
 	}
 
-	@Override
-	public Graph transform(Graph graph, ExecutionContext context){
-		Set<AbstractVertex> queriedVertices = context.getSourceGraph().vertexSet();
+	private Graph _transform(Graph graph, final Graph sourceGraph){
+		Set<AbstractVertex> queriedVertices = sourceGraph.vertexSet();
 
 		Map<AbstractVertex, Set<String>> fileWrittenBy = new HashMap<>();
 

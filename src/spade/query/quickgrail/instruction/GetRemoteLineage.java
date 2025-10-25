@@ -27,6 +27,7 @@ import java.util.logging.Logger;
 import spade.core.AbstractVertex;
 import spade.core.Kernel;
 import spade.core.Settings;
+import spade.query.execution.Context;
 import spade.query.quickgrail.core.GraphStatistic;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
@@ -53,7 +54,8 @@ public class GetRemoteLineage extends GetLineage{
 	}
 
 	@Override
-	public final String execute(final QueryInstructionExecutor executor){
+	public final String exec(final Context ctx) {
+		final QueryInstructionExecutor executor = ctx.getExecutor();
 		synchronized(lock){
 			if(discrepancyDetector == null){
 				try{

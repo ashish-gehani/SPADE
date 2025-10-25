@@ -19,8 +19,6 @@
  */
 package spade.transformer;
 
-import java.util.Arrays;
-import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -32,14 +30,22 @@ import spade.core.AbstractVertex;
 import spade.core.Graph;
 import spade.core.Settings;
 import spade.reporter.audit.OPMConstants;
+import spade.transformer.query.parameter.SourceGraph;
 import spade.utility.FileUtility;
 
 public class Blacklist extends AbstractTransformer{
 
 	private Pattern filesToRemovePattern = null;
 
-	public boolean initialize(String arguments){
+	private final SourceGraph sourceGraph = new SourceGraph();
 
+	public Blacklist()
+	{
+		setParametersInContext(sourceGraph);
+	}
+
+	public boolean initialize(String arguments){
+		super.initialize(arguments);
 		try{
 			String filepath = Settings.getDefaultConfigFilePath(this.getClass());
 			filesToRemovePattern = FileUtility.constructRegexFromFile(filepath);
@@ -56,19 +62,22 @@ public class Blacklist extends AbstractTransformer{
 	}
 
 	@Override
-	public LinkedHashSet<ArgumentName> getArgumentNames(){
-		return new LinkedHashSet<ArgumentName>(
-				Arrays.asList(
-						ArgumentName.SOURCE_GRAPH
-						)
-				);
+	public Graph transform(Graph graph)
+	{
+		try{
+			return _transform(
+				graph,
+				sourceGraph.getMaterializedValue()
+			);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed transformation", e);
+		}
 	}
 
-	@Override
-	public Graph transform(Graph graph, ExecutionContext context){
+	private Graph _transform(Graph graph, final Graph sourceGraph){
 		Graph resultGraph = new Graph();
 
-		Set<AbstractVertex> queriedVertices = context.getSourceGraph().vertexSet();
+		Set<AbstractVertex> queriedVertices = sourceGraph.vertexSet();
 
 		for(AbstractEdge edge : graph.edgeSet()){
 			String srcFilepath = getAnnotationSafe(edge.getChildVertex(), OPMConstants.ARTIFACT_PATH);

@@ -21,7 +21,6 @@
 package spade.transformer;
 
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -52,13 +51,13 @@ public class Prov2OPM extends AbstractTransformer
 		prov2OPMEdgeMappings.put("WasInformedBy",OPMConstants.WAS_TRIGGERED_BY);
 	}
 
-	@Override
-	public LinkedHashSet<ArgumentName> getArgumentNames(){
-		return new LinkedHashSet<ArgumentName>();
+	public Prov2OPM()
+	{
+		setParametersInContext();
 	}
 
 	@Override
-	public Graph transform(Graph graph, ExecutionContext context)
+	public Graph transform(Graph graph)
 	{
 		Graph resultGraph = new Graph();
 

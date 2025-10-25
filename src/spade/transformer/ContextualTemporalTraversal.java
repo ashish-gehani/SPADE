@@ -27,10 +27,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,10 +36,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.json.JSONObject;
+
 import spade.core.AbstractEdge;
 import spade.core.AbstractTransformer;
 import spade.core.AbstractVertex;
 import spade.core.Graph;
+import spade.transformer.query.parameter.SourceGraph;
 import spade.utility.ArgumentFunctions;
 import spade.utility.HelperFunctions;
 
@@ -58,8 +58,16 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
 
         private BufferedWriter outputWriter;
 
+        private final SourceGraph sourceGraph = new SourceGraph();
+
+	public ContextualTemporalTraversal()
+	{
+                setParametersInContext(sourceGraph);
+	}
+
         @Override
         public boolean initialize(String arguments) {
+                super.initialize(arguments);
                 try {
                         // Parse arguments with defaults from config file
                         Map<String, String> argumentsMap = HelperFunctions.parseKeyValPairs(arguments);
@@ -83,11 +91,6 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
                         logger.log(Level.SEVERE, "Failed to initialize ContextualTemporalTraversal", e);
                         return false;
                 }
-        }
-
-        @Override
-        public LinkedHashSet<ArgumentName> getArgumentNames() {
-                return new LinkedHashSet<ArgumentName>(Arrays.asList(ArgumentName.SOURCE_GRAPH));
         }
 
         /*
@@ -186,13 +189,24 @@ public class ContextualTemporalTraversal extends AbstractTransformer {
             }
 
         @Override
-        public Graph transform(Graph graph, ExecutionContext context) {
+        public Graph transform(Graph graph) {
+		try{
+			return _transform(
+				graph,
+				sourceGraph.getMaterializedValue()
+			);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed transformation", e);
+		}
+        }
+
+        public Graph _transform(Graph graph, final Graph sourceGraph) {
                 Set<AbstractVertex> currentLevel = new HashSet<>();
                 /*
                 * Pick a start vertex to begin traversal. Pass it to transform method in SPADE Query client.
                 * Example: $1 = $2.transform(ContextualTemporalTraversal, "order=timestamp", $startVertex, 'descendant')
                 */
-                List<AbstractVertex> startGraphVertexSet = new ArrayList<AbstractVertex>(context.getSourceGraph().vertexSet());
+                List<AbstractVertex> startGraphVertexSet = new ArrayList<AbstractVertex>(sourceGraph.vertexSet());
                 if (startGraphVertexSet.isEmpty()) {
                         logger.log(Level.SEVERE, "Source graph is empty. Cannot initiate traversal.");
                         return null;
