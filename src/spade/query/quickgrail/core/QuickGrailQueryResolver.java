@@ -1312,7 +1312,7 @@ public class QuickGrailQueryResolver{
 		final ParseExpression transformerNameExpression = argumentExpressions.get(0);
 		final String transformerName = QueryResolverHelper.resolveNameAsString(transformerNameExpression);
 		final ParseExpression tInitArgExpr = argumentExpressions.get(1);
-		final String tInitArg = QueryResolverHelper.resolveNameAsString(tInitArgExpr);
+		final String tInitArg = QueryResolverHelper.resolveString(tInitArgExpr);
 		final java.util.List<ParseExpression> tQueryArgExprs = argumentExpressions.subList(2, argumentExpressions.size());
 
 		final Result<AbstractTransformer> createResult = AbstractTransformer.create(transformerName);
@@ -1332,7 +1332,7 @@ public class QuickGrailQueryResolver{
 				"Required args: " +
 				"$1.transform(" +
 				transformerName + ", " +
-				"\"<initialization arg string>\"" +
+				"'<initialization arg string>'" +
 				(
 					(tCtxArgs == null || "".equals(tCtxArgs)) 
 					? tCtx.getFormattedParameterNames()
