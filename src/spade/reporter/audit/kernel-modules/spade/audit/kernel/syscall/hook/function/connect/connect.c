@@ -29,7 +29,6 @@
 
 
 static const int global_sys_num = __NR_connect;
-static const char* global_sys_name = "connect";
 
 ////
 
@@ -131,22 +130,33 @@ static void _post(long sys_res, int fd, struct sockaddr __user *addr, uint32_t a
 
 #endif
 
-int kernel_syscall_hook_function_connect_num(void)
+static int kernel_syscall_hook_function_connect_num(void)
 {
     return global_sys_num;
 }
 
-const char* kernel_syscall_hook_function_connect_name(void)
+static const char* kernel_syscall_hook_function_connect_name(void)
 {
-    return global_sys_name;
+#if HELPER_KERNEL_PTREGS_SYSCALL_STUBS
+    return "__x64_sys_connect";
+#else
+    return "sys_connect";
+#endif
 }
 
-void *kernel_syscall_hook_function_connect_original_ptr(void)
+static void *kernel_syscall_hook_function_connect_original_ptr(void)
 {
     return &_orig;
 }
 
-void *kernel_syscall_hook_function_connect_hook(void)
+static void *kernel_syscall_hook_function_connect_hook(void)
 {
     return _hook;
 }
+
+const struct kernel_syscall_hook kernel_syscall_hook_connect = {
+    .get_num = kernel_syscall_hook_function_connect_num,
+    .get_name = kernel_syscall_hook_function_connect_name,
+    .get_orig_func_ptr = kernel_syscall_hook_function_connect_original_ptr,
+    .get_hook_func = kernel_syscall_hook_function_connect_hook
+};

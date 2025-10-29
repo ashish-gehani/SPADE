@@ -22,25 +22,11 @@
 #define SPADE_AUDIT_KERNEL_SYSCALL_HOOK_FUNCTION_ACCEPT4_H
 
 #include <linux/types.h>
+#include "spade/audit/kernel/syscall/hook/hook.h"
 
 /*
-    Get syscall number.
+    Hook struct for accept4 syscall.
 */
-int kernel_syscall_hook_function_accept4_num(void);
-
-/*
-    Get syscall name.
-*/
-const char* kernel_syscall_hook_function_accept4_name(void);
-
-/*
-    Get pointer to original function to update or use.
-*/
-void *kernel_syscall_hook_function_accept4_original_ptr(void);
-
-/*
-    Get hook function to call.
-*/
-void *kernel_syscall_hook_function_accept4_hook(void);
+extern const struct kernel_syscall_hook kernel_syscall_hook_accept4;
 
 #endif // SPADE_AUDIT_KERNEL_SYSCALL_HOOK_FUNCTION_ACCEPT4_H

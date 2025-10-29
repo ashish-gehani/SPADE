@@ -29,7 +29,6 @@
 
 
 static const int global_sys_num = __NR_sendto;
-static const char* global_sys_name = "sendto";
 
 ////
 
@@ -148,22 +147,33 @@ static void _post(
 
 #endif
 
-int kernel_syscall_hook_function_sendto_num(void)
+static int kernel_syscall_hook_function_sendto_num(void)
 {
     return global_sys_num;
 }
 
-const char* kernel_syscall_hook_function_sendto_name(void)
+static const char* kernel_syscall_hook_function_sendto_name(void)
 {
-    return global_sys_name;
+#if HELPER_KERNEL_PTREGS_SYSCALL_STUBS
+    return "__x64_sys_sendto";
+#else
+    return "sys_sendto";
+#endif
 }
 
-void *kernel_syscall_hook_function_sendto_original_ptr(void)
+static void *kernel_syscall_hook_function_sendto_original_ptr(void)
 {
     return &_orig;
 }
 
-void *kernel_syscall_hook_function_sendto_hook(void)
+static void *kernel_syscall_hook_function_sendto_hook(void)
 {
     return _hook;
 }
+
+const struct kernel_syscall_hook kernel_syscall_hook_sendto = {
+    .get_num = kernel_syscall_hook_function_sendto_num,
+    .get_name = kernel_syscall_hook_function_sendto_name,
+    .get_orig_func_ptr = kernel_syscall_hook_function_sendto_original_ptr,
+    .get_hook_func = kernel_syscall_hook_function_sendto_hook
+};

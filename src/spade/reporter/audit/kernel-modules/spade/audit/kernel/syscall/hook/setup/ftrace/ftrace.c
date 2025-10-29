@@ -18,9 +18,13 @@
  --------------------------------------------------------------------------------
  */
 
-#include "spade/audit/kernel/syscall/hook/setup/ftrace/ftrace.h"
-#include "spade/audit/kernel/syscall/hook/setup/ftrace/list.h"
+#include <linux/errno.h>
 
+#include "spade/audit/kernel/syscall/hook/setup/ftrace/ftrace.h"
+#include "spade/audit/kernel/syscall/hook/setup/ftrace/ftrace_helper.h"
+
+static size_t ftrace_hooks_len;
+static struct ftrace_hook ftrace_hooks[KERNEL_SYSCALL_HOOK_LIST_LEN_MAX];
 
 static struct
 {
@@ -29,11 +33,31 @@ static struct
     .initialized = false,
 };
 
+
+static void _init_ftrace_hooks(void)
+{
+    int i;
+    for (i = 0; i < KERNEL_SYSCALL_HOOK_LIST_LEN_MAX; i++)
+    {
+        const struct kernel_syscall_hook *hook = KERNEL_SYSCALL_HOOK_LIST[i];
+
+        if (!hook)
+            break;
+        if (!hook->get_name || !hook->get_hook_func || !hook->get_orig_func_ptr)
+            continue;
+
+        ftrace_hooks[i].name = hook->get_name();
+        ftrace_hooks[i].function = hook->get_hook_func();
+        ftrace_hooks[i].original = hook->get_orig_func_ptr();
+        ftrace_hooks_len++;
+    }
+}
+
 static void _ensure_initialized(void)
 {
     if (!state.initialized)
     {
-        kernel_syscall_hook_ftrace_list_init();
+        _init_ftrace_hooks();
         state.initialized = true;
     }
 }
@@ -41,12 +65,12 @@ static void _ensure_initialized(void)
 int kernel_syscall_hook_setup_ftrace_install(void)
 {
     _ensure_initialized();
-    return fh_install_hooks(KERNEL_SYSCALL_HOOK_FTRACE_LIST, KERNEL_SYSCALL_HOOK_FTRACE_LIST_LEN);
+    return fh_install_hooks(ftrace_hooks, ftrace_hooks_len);
 }
 
 int kernel_syscall_hook_setup_ftrace_uninstall(void)
 {
     _ensure_initialized();
-    fh_remove_hooks(KERNEL_SYSCALL_HOOK_FTRACE_LIST, KERNEL_SYSCALL_HOOK_FTRACE_LIST_LEN);
+    fh_remove_hooks(ftrace_hooks, ftrace_hooks_len);
     return 0;
 }

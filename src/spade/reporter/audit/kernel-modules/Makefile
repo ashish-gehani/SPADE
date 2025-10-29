@@ -126,10 +126,7 @@ KERNEL_OBJS := \
   spade/audit/kernel/syscall/hook/execution/handler/handler.o \
   spade/audit/kernel/syscall/hook/list.o \
   spade/audit/kernel/syscall/hook/setup/ftrace/ftrace.o \
-  spade/audit/kernel/syscall/hook/setup/ftrace/ftrace_helper.o \
-  spade/audit/kernel/syscall/hook/setup/ftrace/list.o \
-  spade/audit/kernel/syscall/hook/setup/table/table.o \
-  spade/audit/kernel/syscall/hook/setup/table/list.o
+  spade/audit/kernel/syscall/hook/setup/ftrace/ftrace_helper.o
 
 MSG_OBJS := \
   spade/audit/msg/common/serialize/audit.o \

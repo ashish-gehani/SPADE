@@ -29,7 +29,6 @@
 
 
 static const int global_sys_num = __NR_bind;
-static const char* global_sys_name = "bind";
 
 ////
 
@@ -134,22 +133,33 @@ static void _post(
 
 #endif
 
-int kernel_syscall_hook_function_bind_num(void)
+static int kernel_syscall_hook_function_bind_num(void)
 {
     return global_sys_num;
 }
 
-const char* kernel_syscall_hook_function_bind_name(void)
+static const char* kernel_syscall_hook_function_bind_name(void)
 {
-    return global_sys_name;
+#if HELPER_KERNEL_PTREGS_SYSCALL_STUBS
+    return "__x64_sys_bind";
+#else
+    return "sys_bind";
+#endif
 }
 
-void *kernel_syscall_hook_function_bind_original_ptr(void)
+static void *kernel_syscall_hook_function_bind_original_ptr(void)
 {
     return &_orig;
 }
 
-void *kernel_syscall_hook_function_bind_hook(void)
+static void *kernel_syscall_hook_function_bind_hook(void)
 {
     return _hook;
 }
+
+const struct kernel_syscall_hook kernel_syscall_hook_bind = {
+    .get_num = kernel_syscall_hook_function_bind_num,
+    .get_name = kernel_syscall_hook_function_bind_name,
+    .get_orig_func_ptr = kernel_syscall_hook_function_bind_original_ptr,
+    .get_hook_func = kernel_syscall_hook_function_bind_hook
+};

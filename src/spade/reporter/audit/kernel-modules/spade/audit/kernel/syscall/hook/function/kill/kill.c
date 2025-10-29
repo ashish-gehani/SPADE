@@ -30,7 +30,6 @@
 
 
 static const int global_sys_num = __NR_kill;
-static const char* global_sys_name = "kill";
 
 ////
 
@@ -147,22 +146,33 @@ static void _post(long sys_res, pid_t pid, int sig)
 
 #endif
 
-int kernel_syscall_hook_function_kill_num(void)
+static int kernel_syscall_hook_function_kill_num(void)
 {
     return global_sys_num;
 }
 
-const char* kernel_syscall_hook_function_kill_name(void)
+static const char* kernel_syscall_hook_function_kill_name(void)
 {
-    return global_sys_name;
+#if HELPER_KERNEL_PTREGS_SYSCALL_STUBS
+    return "__x64_sys_kill";
+#else
+    return "sys_kill";
+#endif
 }
 
-void *kernel_syscall_hook_function_kill_original_ptr(void)
+static void *kernel_syscall_hook_function_kill_original_ptr(void)
 {
     return &_orig;
 }
 
-void *kernel_syscall_hook_function_kill_hook(void)
+static void *kernel_syscall_hook_function_kill_hook(void)
 {
     return _hook;
 }
+
+const struct kernel_syscall_hook kernel_syscall_hook_kill = {
+    .get_num = kernel_syscall_hook_function_kill_num,
+    .get_name = kernel_syscall_hook_function_kill_name,
+    .get_orig_func_ptr = kernel_syscall_hook_function_kill_original_ptr,
+    .get_hook_func = kernel_syscall_hook_function_kill_hook
+};

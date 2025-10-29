@@ -29,7 +29,6 @@
 
 
 static const int global_sys_num = __NR_unshare;
-static const char* global_sys_name = "unshare";
 
 ////
 
@@ -123,22 +122,33 @@ static void _post(
 
 #endif
 
-int kernel_syscall_hook_function_unshare_num(void)
+static int kernel_syscall_hook_function_unshare_num(void)
 {
     return global_sys_num;
 }
 
-const char* kernel_syscall_hook_function_unshare_name(void)
+static const char* kernel_syscall_hook_function_unshare_name(void)
 {
-    return global_sys_name;
+#if HELPER_KERNEL_PTREGS_SYSCALL_STUBS
+    return "__x64_sys_unshare";
+#else
+    return "sys_unshare";
+#endif
 }
 
-void *kernel_syscall_hook_function_unshare_original_ptr(void)
+static void *kernel_syscall_hook_function_unshare_original_ptr(void)
 {
     return &_orig;
 }
 
-void *kernel_syscall_hook_function_unshare_hook(void)
+static void *kernel_syscall_hook_function_unshare_hook(void)
 {
     return _hook;
 }
+
+const struct kernel_syscall_hook kernel_syscall_hook_unshare = {
+    .get_num = kernel_syscall_hook_function_unshare_num,
+    .get_name = kernel_syscall_hook_function_unshare_name,
+    .get_orig_func_ptr = kernel_syscall_hook_function_unshare_original_ptr,
+    .get_hook_func = kernel_syscall_hook_function_unshare_hook
+};

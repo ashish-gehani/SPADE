@@ -29,7 +29,6 @@
 
 
 static const int global_sys_num = __NR_accept;
-static const char* global_sys_name = "accept";
 
 
 static void _pre(
@@ -133,22 +132,33 @@ static void _post(
 #endif
 
 
-int kernel_syscall_hook_function_accept_num(void)
+static int kernel_syscall_hook_function_accept_num(void)
 {
     return global_sys_num;
 }
 
-const char* kernel_syscall_hook_function_accept_name(void)
+static const char* kernel_syscall_hook_function_accept_name(void)
 {
-    return global_sys_name;
+#if HELPER_KERNEL_PTREGS_SYSCALL_STUBS
+    return "__x64_sys_accept";
+#else
+    return "sys_accept";
+#endif
 }
 
-void *kernel_syscall_hook_function_accept_original_ptr(void)
+static void *kernel_syscall_hook_function_accept_original_ptr(void)
 {
     return &_orig;
 }
 
-void *kernel_syscall_hook_function_accept_hook(void)
+static void *kernel_syscall_hook_function_accept_hook(void)
 {
     return _hook;
 }
+
+const struct kernel_syscall_hook kernel_syscall_hook_accept = {
+    .get_num = kernel_syscall_hook_function_accept_num,
+    .get_name = kernel_syscall_hook_function_accept_name,
+    .get_orig_func_ptr = kernel_syscall_hook_function_accept_original_ptr,
+    .get_hook_func = kernel_syscall_hook_function_accept_hook
+};

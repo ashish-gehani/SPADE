@@ -22,25 +22,11 @@
 #define SPADE_AUDIT_KERNEL_SYSCALL_HOOK_FUNCTION_BIND_H
 
 #include <linux/types.h>
+#include "spade/audit/kernel/syscall/hook/hook.h"
 
 /*
-    Get syscall number.
+    Hook struct for bind syscall.
 */
-int kernel_syscall_hook_function_bind_num(void);
-
-/*
-    Get syscall name.
-*/
-const char* kernel_syscall_hook_function_bind_name(void);
-
-/*
-    Get pointer to original function to update or use.
-*/
-void *kernel_syscall_hook_function_bind_original_ptr(void);
-
-/*
-    Get hook function to call.
-*/
-void *kernel_syscall_hook_function_bind_hook(void);
+extern const struct kernel_syscall_hook kernel_syscall_hook_bind;
 
 #endif // SPADE_AUDIT_KERNEL_SYSCALL_HOOK_FUNCTION_BIND_H

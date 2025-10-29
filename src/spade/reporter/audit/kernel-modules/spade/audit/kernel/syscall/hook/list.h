@@ -21,28 +21,32 @@
 #ifndef SPADE_AUDIT_KERNEL_SYSCALL_HOOK_LIST_H
 #define SPADE_AUDIT_KERNEL_SYSCALL_HOOK_LIST_H
 
+
 #include <linux/types.h>
 
 #include "spade/audit/kernel/syscall/hook/hook.h"
-#include "spade/audit/kernel/syscall/hook/function/accept/accept.h"
-#include "spade/audit/kernel/syscall/hook/function/accept4/accept4.h"
-#include "spade/audit/kernel/syscall/hook/function/bind/bind.h"
-#include "spade/audit/kernel/syscall/hook/function/clone/clone.h"
-#include "spade/audit/kernel/syscall/hook/function/connect/connect.h"
-#include "spade/audit/kernel/syscall/hook/function/fork/fork.h"
-#include "spade/audit/kernel/syscall/hook/function/kill/kill.h"
-#include "spade/audit/kernel/syscall/hook/function/recvfrom/recvfrom.h"
-#include "spade/audit/kernel/syscall/hook/function/recvmsg/recvmsg.h"
-#include "spade/audit/kernel/syscall/hook/function/sendmsg/sendmsg.h"
-#include "spade/audit/kernel/syscall/hook/function/sendto/sendto.h"
-#include "spade/audit/kernel/syscall/hook/function/setns/setns.h"
-#include "spade/audit/kernel/syscall/hook/function/unshare/unshare.h"
-#include "spade/audit/kernel/syscall/hook/function/vfork/vfork.h"
 
 
-extern const struct kernel_syscall_hook KERNEL_SYSCALL_HOOK_LIST[];
+#define KERNEL_SYSCALL_HOOK_LIST_LEN_MAX 32
 
+// Extern declarations for all hook structs
+extern const struct kernel_syscall_hook kernel_syscall_hook_accept;
+extern const struct kernel_syscall_hook kernel_syscall_hook_accept4;
+extern const struct kernel_syscall_hook kernel_syscall_hook_bind;
+extern const struct kernel_syscall_hook kernel_syscall_hook_clone;
+extern const struct kernel_syscall_hook kernel_syscall_hook_connect;
+extern const struct kernel_syscall_hook kernel_syscall_hook_fork;
+extern const struct kernel_syscall_hook kernel_syscall_hook_kill;
+extern const struct kernel_syscall_hook kernel_syscall_hook_recvfrom;
+extern const struct kernel_syscall_hook kernel_syscall_hook_recvmsg;
+extern const struct kernel_syscall_hook kernel_syscall_hook_sendmsg;
+extern const struct kernel_syscall_hook kernel_syscall_hook_sendto;
+extern const struct kernel_syscall_hook kernel_syscall_hook_setns;
+extern const struct kernel_syscall_hook kernel_syscall_hook_unshare;
+extern const struct kernel_syscall_hook kernel_syscall_hook_vfork;
 
-#define KERNEL_SYSCALL_HOOK_LIST_LEN 14 // todo... use const
+// Array of all hook struct pointers where the list is null terminated.
+extern const struct kernel_syscall_hook *KERNEL_SYSCALL_HOOK_LIST[KERNEL_SYSCALL_HOOK_LIST_LEN_MAX];
+
 
 #endif // SPADE_AUDIT_KERNEL_SYSCALL_HOOK_LIST_H

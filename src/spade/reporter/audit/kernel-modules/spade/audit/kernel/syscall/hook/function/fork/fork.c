@@ -29,7 +29,6 @@
 
 
 static const int global_sys_num = __NR_fork;
-static const char* global_sys_name = "fork";
 
 ////
 
@@ -119,22 +118,33 @@ static void _post(long sys_res)
 
 #endif
 
-int kernel_syscall_hook_function_fork_num(void)
+static int kernel_syscall_hook_function_fork_num(void)
 {
     return global_sys_num;
 }
 
-const char* kernel_syscall_hook_function_fork_name(void)
+static const char* kernel_syscall_hook_function_fork_name(void)
 {
-    return global_sys_name;
+#if HELPER_KERNEL_PTREGS_SYSCALL_STUBS
+    return "__x64_sys_fork";
+#else
+    return "sys_fork";
+#endif
 }
 
-void *kernel_syscall_hook_function_fork_original_ptr(void)
+static void *kernel_syscall_hook_function_fork_original_ptr(void)
 {
     return &_orig;
 }
 
-void *kernel_syscall_hook_function_fork_hook(void)
+static void *kernel_syscall_hook_function_fork_hook(void)
 {
     return _hook;
 }
+
+const struct kernel_syscall_hook kernel_syscall_hook_fork = {
+    .get_num = kernel_syscall_hook_function_fork_num,
+    .get_name = kernel_syscall_hook_function_fork_name,
+    .get_orig_func_ptr = kernel_syscall_hook_function_fork_original_ptr,
+    .get_hook_func = kernel_syscall_hook_function_fork_hook
+};

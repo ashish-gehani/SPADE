@@ -24,7 +24,7 @@
 #include <linux/kernel.h>
 
 #include "spade/audit/kernel/syscall/hook/setup/ftrace/ftrace_helper.h"
-#include "spade/audit/kernel/syscall/hook/hook.h"
+#include "spade/audit/kernel/syscall/hook/list.h"
 
 
 /*

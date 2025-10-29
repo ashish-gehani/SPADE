@@ -62,4 +62,5 @@ struct kernel_syscall_hook
     void* (*get_orig_func_ptr)(void);
 };
 
+
 #endif // SPADE_AUDIT_KERNEL_SYSCALL_HOOK_HOOK_H
