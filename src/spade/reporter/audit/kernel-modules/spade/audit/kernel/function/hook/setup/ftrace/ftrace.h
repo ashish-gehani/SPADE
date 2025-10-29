@@ -18,47 +18,28 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_AUDIT_HELPER_SYSCALL_NAMESPACE_H
-#define _SPADE_AUDIT_HELPER_SYSCALL_NAMESPACE_H
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_HOOK_SETUP_FTRACE_FTRACE_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_HOOK_SETUP_FTRACE_FTRACE_H
 
-#include <linux/errno.h>
+#include <linux/kernel.h>
 
-#include "spade/audit/state/state.h"
-#include "spade/audit/msg/namespace/create.h"
-#include "spade/audit/kernel/function/context/post.h"
+#include "spade/audit/kernel/function/hook/setup/ftrace/ftrace_helper.h"
+#include "spade/audit/kernel/function/hook/list.h"
 
-
-/*
-    Populate msg using the context provided.
-
-    Params:
-        msg             : Message to populate.
-        s               : The syscall state.
-        op              : The operation assigned to the syscall.
-
-    Returns:
-        0       -> Success.
-        -1      -> Error code.
-*/
-int helper_syscall_namespace_populate_msg(
-    struct msg_namespace *msg,
-    struct kernel_syscall_context_post *s,
-    enum msg_namespace_operation op
-);
 
 /*
-    Log the namespaces msg to Linux Audit Subsystem.
-
-    Params:
-        msg : The msg to log.
-
     Returns:
         0       -> Success.
         -ive    -> Error code.
-
 */
-int helper_syscall_namespace_log_msg_to_audit(
-    struct msg_namespace *msg
-);
+int kernel_syscall_hook_setup_ftrace_install(void);
 
-#endif // _SPADE_AUDIT_HELPER_SYSCALL_NAMESPACE_H
+/*
+    Returns:
+        0       -> Success.
+        -ive    -> Error code.
+*/
+int kernel_syscall_hook_setup_ftrace_uninstall(void);
+
+
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_SETUP_FTRACE_FTRACE_H

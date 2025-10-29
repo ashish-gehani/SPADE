@@ -58,8 +58,8 @@ MODULE_NAMES := $(MAIN_MODULE_NAME) $(CONTROLLER_MODULE_NAME) $(TEST_MODULE_NAME
 SYSCALL_NAMES := accept accept4 bind clone connect fork kill recvfrom recvmsg sendmsg sendto setns unshare vfork
 
 # Generated object file lists
-SYSCALL_ACTION_OBJS := $(foreach syscall,$(SYSCALL_NAMES),spade/audit/kernel/syscall/action/audit/$(syscall)/$(syscall).o)
-SYSCALL_HOOK_FUNC_OBJS := $(foreach syscall,$(SYSCALL_NAMES),spade/audit/kernel/syscall/hook/function/$(syscall)/$(syscall).o)
+SYSCALL_ACTION_OBJS := $(foreach syscall,$(SYSCALL_NAMES),spade/audit/kernel/function/action/audit/$(syscall)/$(syscall).o)
+SYSCALL_HOOK_FUNC_OBJS := $(foreach syscall,$(SYSCALL_NAMES),spade/audit/kernel/function/hook/function/$(syscall)/$(syscall).o)
 
 # Module output files
 MOD_OUT_FILES = \
@@ -121,12 +121,12 @@ KERNEL_OBJS := \
   spade/audit/kernel/namespace/setup/setup.o \
   spade/audit/kernel/netfilter/setup/setup.o \
   spade/audit/kernel/netfilter/netfilter.o \
-  spade/audit/kernel/syscall/action/audit/audit.o \
-  spade/audit/kernel/syscall/action/action.o \
-  spade/audit/kernel/syscall/hook/execution/handler/handler.o \
-  spade/audit/kernel/syscall/hook/list.o \
-  spade/audit/kernel/syscall/hook/setup/ftrace/ftrace.o \
-  spade/audit/kernel/syscall/hook/setup/ftrace/ftrace_helper.o
+  spade/audit/kernel/function/action/audit/audit.o \
+  spade/audit/kernel/function/action/action.o \
+  spade/audit/kernel/function/hook/execution/handler/handler.o \
+  spade/audit/kernel/function/hook/list.o \
+  spade/audit/kernel/function/hook/setup/ftrace/ftrace.o \
+  spade/audit/kernel/function/hook/setup/ftrace/ftrace_helper.o
 
 MSG_OBJS := \
   spade/audit/msg/common/serialize/audit.o \

@@ -18,47 +18,13 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_AUDIT_HELPER_SYSCALL_NAMESPACE_H
-#define _SPADE_AUDIT_HELPER_SYSCALL_NAMESPACE_H
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_ACTION_AUDIT_CLONE_CLONE_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_ACTION_AUDIT_CLONE_CLONE_H
 
-#include <linux/errno.h>
 
-#include "spade/audit/state/state.h"
-#include "spade/audit/msg/namespace/create.h"
 #include "spade/audit/kernel/function/context/post.h"
 
 
-/*
-    Populate msg using the context provided.
+int kernel_syscall_action_audit_clone_handle(struct kernel_syscall_context_post *sys_ctx);
 
-    Params:
-        msg             : Message to populate.
-        s               : The syscall state.
-        op              : The operation assigned to the syscall.
-
-    Returns:
-        0       -> Success.
-        -1      -> Error code.
-*/
-int helper_syscall_namespace_populate_msg(
-    struct msg_namespace *msg,
-    struct kernel_syscall_context_post *s,
-    enum msg_namespace_operation op
-);
-
-/*
-    Log the namespaces msg to Linux Audit Subsystem.
-
-    Params:
-        msg : The msg to log.
-
-    Returns:
-        0       -> Success.
-        -ive    -> Error code.
-
-*/
-int helper_syscall_namespace_log_msg_to_audit(
-    struct msg_namespace *msg
-);
-
-#endif // _SPADE_AUDIT_HELPER_SYSCALL_NAMESPACE_H
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_ACTION_AUDIT_CLONE_CLONE_H

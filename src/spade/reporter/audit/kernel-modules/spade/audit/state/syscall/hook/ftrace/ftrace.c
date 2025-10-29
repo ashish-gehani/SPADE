@@ -25,7 +25,7 @@
 
 #include "spade/audit/state/syscall/hook/ftrace/ftrace.h"
 #include "spade/util/log/log.h"
-#include "spade/audit/kernel/syscall/hook/setup/ftrace/ftrace.h"
+#include "spade/audit/kernel/function/hook/setup/ftrace/ftrace.h"
 
 
 int state_syscall_hook_ftrace_is_initialized(

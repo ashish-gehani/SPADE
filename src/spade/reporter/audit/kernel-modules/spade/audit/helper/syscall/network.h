@@ -26,7 +26,7 @@
 
 #include "spade/audit/msg/network/network.h"
 #include "spade/audit/state/state.h"
-#include "spade/audit/kernel/syscall/context/post.h"
+#include "spade/audit/kernel/function/context/post.h"
 
 
 int helper_syscall_network_sockfd_is_connected(
