@@ -33,8 +33,8 @@
         0       -> Success.
         -ive    -> Error code in action handling.
 */
-int kernel_syscall_action_audit_handle(
-    struct kernel_syscall_context *sys_ctx
+int kernel_function_action_audit_handle(
+    struct kernel_function_context *sys_ctx
 );
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_ACTION_AUDIT_H

@@ -39,21 +39,21 @@
 #include "spade/util/log/log.h"
 
 
-int kernel_syscall_action_audit_handle(
-    struct kernel_syscall_context *sys_ctx
+int kernel_function_action_audit_handle(
+    struct kernel_function_context *sys_ctx
 )
 {
-    const char *log_id = "kernel_syscall_action_audit_handle";
-    struct kernel_syscall_context_post *sys_ctx_post;
+    const char *log_id = "kernel_function_action_audit_handle";
+    struct kernel_function_context_post *sys_ctx_post;
 
     if (!sys_ctx)
         return -EINVAL;
 
     // Only post supported for now.
-    if (sys_ctx->type != SYSCALL_CONTEXT_TYPE_POST)
+    if (sys_ctx->type != KERNEL_FUNCTION_CONTEXT_TYPE_POST)
         return -ENOTSUPP;
 
-    sys_ctx_post = (struct kernel_syscall_context_post *)sys_ctx;
+    sys_ctx_post = (struct kernel_function_context_post *)sys_ctx;
 
     util_log_debug(
         log_id,
@@ -64,33 +64,33 @@ int kernel_syscall_action_audit_handle(
     switch (sys_ctx->sys_num)
     {
         case __NR_accept:
-            return kernel_syscall_action_audit_accept_handle(sys_ctx_post);
+            return kernel_function_action_audit_accept_handle(sys_ctx_post);
         case __NR_accept4:
-            return kernel_syscall_action_audit_accept4_handle(sys_ctx_post);
+            return kernel_function_action_audit_accept4_handle(sys_ctx_post);
         case __NR_bind:
-            return kernel_syscall_action_audit_bind_handle(sys_ctx_post);
+            return kernel_function_action_audit_bind_handle(sys_ctx_post);
         case __NR_clone:
-            return kernel_syscall_action_audit_clone_handle(sys_ctx_post);
+            return kernel_function_action_audit_clone_handle(sys_ctx_post);
         case __NR_connect:
-            return kernel_syscall_action_audit_connect_handle(sys_ctx_post);
+            return kernel_function_action_audit_connect_handle(sys_ctx_post);
         case __NR_fork:
-            return kernel_syscall_action_audit_fork_handle(sys_ctx_post);
+            return kernel_function_action_audit_fork_handle(sys_ctx_post);
         case __NR_kill:
-            return kernel_syscall_action_audit_kill_handle(sys_ctx_post);
+            return kernel_function_action_audit_kill_handle(sys_ctx_post);
         case __NR_recvfrom:
-            return kernel_syscall_action_audit_recvfrom_handle(sys_ctx_post);
+            return kernel_function_action_audit_recvfrom_handle(sys_ctx_post);
         case __NR_recvmsg:
-            return kernel_syscall_action_audit_recvmsg_handle(sys_ctx_post);
+            return kernel_function_action_audit_recvmsg_handle(sys_ctx_post);
         case __NR_sendmsg:
-            return kernel_syscall_action_audit_sendmsg_handle(sys_ctx_post);
+            return kernel_function_action_audit_sendmsg_handle(sys_ctx_post);
         case __NR_sendto:
-            return kernel_syscall_action_audit_sendto_handle(sys_ctx_post);
+            return kernel_function_action_audit_sendto_handle(sys_ctx_post);
         case __NR_setns:
-            return kernel_syscall_action_audit_setns_handle(sys_ctx_post);
+            return kernel_function_action_audit_setns_handle(sys_ctx_post);
         case __NR_unshare:
-            return kernel_syscall_action_audit_unshare_handle(sys_ctx_post);
+            return kernel_function_action_audit_unshare_handle(sys_ctx_post);
         case __NR_vfork:
-            return kernel_syscall_action_audit_vfork_handle(sys_ctx_post);
+            return kernel_function_action_audit_vfork_handle(sys_ctx_post);
         default:
             return -ENOTSUPP;
     }

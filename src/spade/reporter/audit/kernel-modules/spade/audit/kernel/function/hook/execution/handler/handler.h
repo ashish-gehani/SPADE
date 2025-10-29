@@ -39,9 +39,9 @@
         0       -> Success.
         -ive    -> Error code.
 */
-int kernel_syscall_hook_execution_handler_handle_pre(
-    struct kernel_syscall_action_result* act_res,
-    int sys_num, struct kernel_syscall_arg *sys_arg
+int kernel_function_hook_execution_handler_handle_pre(
+    struct kernel_function_action_result* act_res,
+    int sys_num, struct kernel_function_arg *sys_arg
 );
 
 /*
@@ -57,10 +57,10 @@ int kernel_syscall_hook_execution_handler_handle_pre(
         0       -> Success.
         -ive    -> Error code.
 */
-int kernel_syscall_hook_execution_handler_handle_post(
-    struct kernel_syscall_action_result* act_res,
-    int sys_num, struct kernel_syscall_arg *sys_arg,
-    struct kernel_syscall_result *sys_res
+int kernel_function_hook_execution_handler_handle_post(
+    struct kernel_function_action_result* act_res,
+    int sys_num, struct kernel_function_arg *sys_arg,
+    struct kernel_function_result *sys_res
 );
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_EXECUTION_HANDLER_HANDLER_H

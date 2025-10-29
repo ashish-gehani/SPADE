@@ -30,23 +30,23 @@
 #define KERNEL_FUNCTION_HOOK_LIST_LEN_MAX 32
 
 // Extern declarations for all hook structs
-extern const struct kernel_syscall_hook kernel_syscall_hook_accept;
-extern const struct kernel_syscall_hook kernel_syscall_hook_accept4;
-extern const struct kernel_syscall_hook kernel_syscall_hook_bind;
-extern const struct kernel_syscall_hook kernel_syscall_hook_clone;
-extern const struct kernel_syscall_hook kernel_syscall_hook_connect;
-extern const struct kernel_syscall_hook kernel_syscall_hook_fork;
-extern const struct kernel_syscall_hook kernel_syscall_hook_kill;
-extern const struct kernel_syscall_hook kernel_syscall_hook_recvfrom;
-extern const struct kernel_syscall_hook kernel_syscall_hook_recvmsg;
-extern const struct kernel_syscall_hook kernel_syscall_hook_sendmsg;
-extern const struct kernel_syscall_hook kernel_syscall_hook_sendto;
-extern const struct kernel_syscall_hook kernel_syscall_hook_setns;
-extern const struct kernel_syscall_hook kernel_syscall_hook_unshare;
-extern const struct kernel_syscall_hook kernel_syscall_hook_vfork;
+extern const struct kernel_function_hook kernel_function_hook_accept;
+extern const struct kernel_function_hook kernel_function_hook_accept4;
+extern const struct kernel_function_hook kernel_function_hook_bind;
+extern const struct kernel_function_hook kernel_function_hook_clone;
+extern const struct kernel_function_hook kernel_function_hook_connect;
+extern const struct kernel_function_hook kernel_function_hook_fork;
+extern const struct kernel_function_hook kernel_function_hook_kill;
+extern const struct kernel_function_hook kernel_function_hook_recvfrom;
+extern const struct kernel_function_hook kernel_function_hook_recvmsg;
+extern const struct kernel_function_hook kernel_function_hook_sendmsg;
+extern const struct kernel_function_hook kernel_function_hook_sendto;
+extern const struct kernel_function_hook kernel_function_hook_setns;
+extern const struct kernel_function_hook kernel_function_hook_unshare;
+extern const struct kernel_function_hook kernel_function_hook_vfork;
 
 // Array of all hook struct pointers where the list is null terminated.
-extern const struct kernel_syscall_hook *KERNEL_FUNCTION_HOOK_LIST[KERNEL_FUNCTION_HOOK_LIST_LEN_MAX];
+extern const struct kernel_function_hook *KERNEL_FUNCTION_HOOK_LIST[KERNEL_FUNCTION_HOOK_LIST_LEN_MAX];
 
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_LIST_H

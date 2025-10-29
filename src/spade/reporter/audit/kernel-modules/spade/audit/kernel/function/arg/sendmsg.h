@@ -24,7 +24,7 @@
 #include <linux/types.h>
 #include <linux/socket.h>
 
-struct kernel_syscall_arg_sendmsg
+struct kernel_function_arg_sendmsg
 {
     int sockfd;
     struct msghdr __user *msg;

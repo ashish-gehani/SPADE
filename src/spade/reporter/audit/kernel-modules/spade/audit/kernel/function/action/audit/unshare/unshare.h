@@ -24,6 +24,6 @@
 #include "spade/audit/kernel/function/context/post.h"
 
 
-int kernel_syscall_action_audit_unshare_handle(struct kernel_syscall_context_post *sys_ctx);
+int kernel_function_action_audit_unshare_handle(struct kernel_function_context_post *sys_ctx);
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_ACTION_AUDIT_UNSHARE_UNSHARE_H

@@ -24,9 +24,9 @@
 #include "spade/audit/kernel/function/action/audit/audit.h"
 
 
-int kernel_syscall_action_handle(
-    struct kernel_syscall_action *s,
-    struct kernel_syscall_context *sys_ctx
+int kernel_function_action_handle(
+    struct kernel_function_action *s,
+    struct kernel_function_context *sys_ctx
 )
 {
     if (!s || !sys_ctx)
@@ -34,8 +34,8 @@ int kernel_syscall_action_handle(
 
     switch (s->type)
     {
-        case ACTION_TYPE_AUDIT:
-            return kernel_syscall_action_audit_handle(sys_ctx);
+        case KERNEL_FUNCTION_ACTION_TYPE_AUDIT:
+            return kernel_function_action_audit_handle(sys_ctx);
         default:
             return -ENOTSUPP;
     }

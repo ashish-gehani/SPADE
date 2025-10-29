@@ -24,7 +24,7 @@
 #include <linux/types.h>
 #include <linux/socket.h>
 
-struct kernel_syscall_arg_recvfrom
+struct kernel_function_arg_recvfrom
 {
     int sockfd;
     void __user *buf;

@@ -23,7 +23,7 @@
 
 #include <linux/types.h>
 
-struct kernel_syscall_result
+struct kernel_function_result
 {
     long ret;
     bool success;

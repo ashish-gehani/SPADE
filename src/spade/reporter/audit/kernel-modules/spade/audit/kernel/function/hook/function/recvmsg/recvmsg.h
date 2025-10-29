@@ -27,6 +27,6 @@
 /*
     Hook struct for recvmsg syscall.
 */
-extern const struct kernel_syscall_hook kernel_syscall_hook_recvmsg;
+extern const struct kernel_function_hook kernel_function_hook_recvmsg;
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_FUNCTION_RECVMSG_H

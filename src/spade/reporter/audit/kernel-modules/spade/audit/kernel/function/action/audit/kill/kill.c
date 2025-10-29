@@ -34,24 +34,24 @@
 static const enum msg_common_type GLOBAL_MSG_TYPE = MSG_UBSI;
 
 
-static bool _is_valid_sys_ctx(struct kernel_syscall_context_post *sys_ctx)
+static bool _is_valid_function_ctx(struct kernel_function_context_post *sys_ctx)
 {
     return (
-        sys_ctx && sys_ctx->header.type == SYSCALL_CONTEXT_TYPE_POST && sys_ctx->header.sys_num == __NR_kill
-        && sys_ctx->header.sys_arg.arg != NULL && sys_ctx->header.sys_arg.arg_size == sizeof(struct kernel_syscall_arg_kill)
+        sys_ctx && sys_ctx->header.type == KERNEL_FUNCTION_CONTEXT_TYPE_POST && sys_ctx->header.sys_num == __NR_kill
+        && sys_ctx->header.sys_arg.arg != NULL && sys_ctx->header.sys_arg.arg_size == sizeof(struct kernel_function_arg_kill)
         && sys_ctx->sys_res.success
     );
 }
 
-int kernel_syscall_action_audit_kill_handle(struct kernel_syscall_context_post *sys_ctx)
+int kernel_function_action_audit_kill_handle(struct kernel_function_context_post *sys_ctx)
 {
-    char *log_id = "kernel_syscall_action_audit_kill_handle";
+    char *log_id = "kernel_function_action_audit_kill_handle";
     int err;
 
     struct msg_ubsi msg;
-    struct kernel_syscall_arg_kill *sys_arg;
+    struct kernel_function_arg_kill *sys_arg;
 
-    if (!_is_valid_sys_ctx(sys_ctx))
+    if (!_is_valid_function_ctx(sys_ctx))
         return -EINVAL;
 
     err = msg_ops_kinit(GLOBAL_MSG_TYPE, &msg.header);
@@ -65,7 +65,7 @@ int kernel_syscall_action_audit_kill_handle(struct kernel_syscall_context_post *
         return err;
     }
 
-    sys_arg = (struct kernel_syscall_arg_kill*)sys_ctx->header.sys_arg.arg;
+    sys_arg = (struct kernel_function_arg_kill*)sys_ctx->header.sys_arg.arg;
 
     msg.signal = sys_arg->sig;
     msg.syscall_number = sys_ctx->header.sys_num;

@@ -63,7 +63,7 @@ int state_syscall_hook_ftrace_init(
     if (!dry_run)
     {
         util_log_debug(log_id, "Initing ftrace hooks");
-        err = kernel_syscall_hook_setup_ftrace_install();
+        err = kernel_function_hook_setup_ftrace_install();
         if (err != 0)
         {
             util_log_debug(log_id, "Initing ftrace hooks. Failed. Err: %d", err);
@@ -93,7 +93,7 @@ int state_syscall_hook_ftrace_deinit(
     if (!s->dry_run)
     {
         util_log_debug(log_id, "Deiniting ftrace hooks");
-        err = kernel_syscall_hook_setup_ftrace_uninstall();
+        err = kernel_function_hook_setup_ftrace_uninstall();
         if (err != 0)
         {
             util_log_debug(log_id, "Deiniting ftrace hooks. Failed. Err: %d", err);

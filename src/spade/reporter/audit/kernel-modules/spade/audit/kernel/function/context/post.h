@@ -24,10 +24,10 @@
 #include "spade/audit/kernel/function/context/context.h"
 #include "spade/audit/kernel/function/result/result.h"
 
-struct kernel_syscall_context_post
+struct kernel_function_context_post
 {
-    struct kernel_syscall_context header;
-    struct kernel_syscall_result sys_res;
+    struct kernel_function_context header;
+    struct kernel_function_result sys_res;
 };
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_CONTEXT_POST_H

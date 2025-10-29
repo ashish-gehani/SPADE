@@ -27,6 +27,6 @@
 /*
     Hook struct for vfork syscall.
 */
-extern const struct kernel_syscall_hook kernel_syscall_hook_vfork;
+extern const struct kernel_function_hook kernel_function_hook_vfork;
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_FUNCTION_VFORK_H

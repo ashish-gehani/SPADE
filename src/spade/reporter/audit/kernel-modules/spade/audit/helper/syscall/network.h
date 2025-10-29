@@ -111,7 +111,7 @@ int helper_syscall_network_get_peer_saddr_from_fd(
 */
 int helper_syscall_network_populate_msg(
     struct msg_network *msg,
-    struct kernel_syscall_context_post *sys_ctx,
+    struct kernel_function_context_post *sys_ctx,
     int subject_sockfd,
     struct sockaddr_storage *remote_saddr,
     uint32_t remote_saddr_size

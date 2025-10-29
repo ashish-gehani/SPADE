@@ -24,7 +24,7 @@
 #include <linux/types.h>
 #include <linux/socket.h>
 
-struct kernel_syscall_arg_sendto
+struct kernel_function_arg_sendto
 {
     int sockfd;
     void __user *buf;

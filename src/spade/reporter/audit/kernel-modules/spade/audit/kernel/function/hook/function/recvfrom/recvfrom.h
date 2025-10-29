@@ -27,6 +27,6 @@
 /*
     Hook struct for recvfrom syscall.
 */
-extern const struct kernel_syscall_hook kernel_syscall_hook_recvfrom;
+extern const struct kernel_function_hook kernel_function_hook_recvfrom;
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_FUNCTION_RECVFROM_H

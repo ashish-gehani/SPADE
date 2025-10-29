@@ -27,6 +27,6 @@
 /*
     Hook struct for kill syscall.
 */
-extern const struct kernel_syscall_hook kernel_syscall_hook_kill;
+extern const struct kernel_function_hook kernel_function_hook_kill;
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_FUNCTION_KILL_H

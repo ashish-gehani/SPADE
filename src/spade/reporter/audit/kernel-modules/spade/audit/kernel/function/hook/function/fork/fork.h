@@ -27,6 +27,6 @@
 /*
     Hook struct for fork syscall.
 */
-extern const struct kernel_syscall_hook kernel_syscall_hook_fork;
+extern const struct kernel_function_hook kernel_function_hook_fork;
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_FUNCTION_FORK_H

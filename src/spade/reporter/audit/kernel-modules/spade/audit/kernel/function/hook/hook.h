@@ -24,7 +24,7 @@
 #include <linux/types.h>
 
 
-struct kernel_syscall_hook
+struct kernel_function_hook
 {
     /*
         Get syscall number.

@@ -27,6 +27,6 @@
 /*
     Hook struct for clone syscall.
 */
-extern const struct kernel_syscall_hook kernel_syscall_hook_clone;
+extern const struct kernel_function_hook kernel_function_hook_clone;
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_FUNCTION_CLONE_H

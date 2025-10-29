@@ -32,14 +32,14 @@
         0       -> Success.
         -ive    -> Error code.
 */
-int kernel_syscall_hook_setup_ftrace_install(void);
+int kernel_function_hook_setup_ftrace_install(void);
 
 /*
     Returns:
         0       -> Success.
         -ive    -> Error code.
 */
-int kernel_syscall_hook_setup_ftrace_uninstall(void);
+int kernel_function_hook_setup_ftrace_uninstall(void);
 
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_SETUP_FTRACE_FTRACE_H

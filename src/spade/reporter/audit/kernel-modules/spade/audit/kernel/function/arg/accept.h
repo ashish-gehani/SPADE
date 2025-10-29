@@ -24,7 +24,7 @@
 #include <linux/types.h>
 #include <linux/socket.h>
 
-struct kernel_syscall_arg_accept
+struct kernel_function_arg_accept
 {
     int sockfd;
     struct sockaddr __user *addr;

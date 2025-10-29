@@ -24,7 +24,7 @@
 #include <linux/types.h>
 
 
-struct kernel_syscall_arg
+struct kernel_function_arg
 {
     void *arg;
     size_t arg_size;

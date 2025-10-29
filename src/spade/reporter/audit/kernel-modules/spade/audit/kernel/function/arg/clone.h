@@ -23,7 +23,7 @@
 
 #include <linux/types.h>
 
-struct kernel_syscall_arg_clone
+struct kernel_function_arg_clone
 {
     
 };

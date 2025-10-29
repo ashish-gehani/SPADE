@@ -25,17 +25,17 @@
 
 #include "spade/audit/kernel/function/arg/arg.h"
 
-enum kernel_syscall_hook_execution_context_type
+enum kernel_function_hook_execution_context_type
 {
     HOOK_EXECUTION_CONTEXT_TYPE_PRE,
     HOOK_EXECUTION_CONTEXT_TYPE_POST
 };
 
-struct kernel_syscall_hook_execution_context
+struct kernel_function_hook_execution_context
 {
-    enum kernel_syscall_hook_execution_context_type ctx_type;
+    enum kernel_function_hook_execution_context_type ctx_type;
     int sys_num;
-    struct kernel_syscall_arg sys_arg;
+    struct kernel_function_arg sys_arg;
 };
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_EXECUTION_CONTEXT_CONTEXT_H

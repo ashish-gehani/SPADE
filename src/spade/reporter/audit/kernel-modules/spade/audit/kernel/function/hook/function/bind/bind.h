@@ -27,6 +27,6 @@
 /*
     Hook struct for bind syscall.
 */
-extern const struct kernel_syscall_hook kernel_syscall_hook_bind;
+extern const struct kernel_function_hook kernel_function_hook_bind;
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_FUNCTION_BIND_H

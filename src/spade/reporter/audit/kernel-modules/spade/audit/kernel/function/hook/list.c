@@ -35,20 +35,20 @@
 #include "spade/audit/kernel/function/hook/function/vfork/vfork.h"
 
 
-const struct kernel_syscall_hook *KERNEL_FUNCTION_HOOK_LIST[] = {
-    &kernel_syscall_hook_accept,
-    &kernel_syscall_hook_accept4,
-    &kernel_syscall_hook_bind,
-    &kernel_syscall_hook_clone,
-    &kernel_syscall_hook_connect,
-    &kernel_syscall_hook_fork,
-    &kernel_syscall_hook_kill,
-    &kernel_syscall_hook_recvfrom,
-    &kernel_syscall_hook_recvmsg,
-    &kernel_syscall_hook_sendmsg,
-    &kernel_syscall_hook_sendto,
-    &kernel_syscall_hook_setns,
-    &kernel_syscall_hook_unshare,
-    &kernel_syscall_hook_vfork,
+const struct kernel_function_hook *KERNEL_FUNCTION_HOOK_LIST[] = {
+    &kernel_function_hook_accept,
+    &kernel_function_hook_accept4,
+    &kernel_function_hook_bind,
+    &kernel_function_hook_clone,
+    &kernel_function_hook_connect,
+    &kernel_function_hook_fork,
+    &kernel_function_hook_kill,
+    &kernel_function_hook_recvfrom,
+    &kernel_function_hook_recvmsg,
+    &kernel_function_hook_sendmsg,
+    &kernel_function_hook_sendto,
+    &kernel_function_hook_setns,
+    &kernel_function_hook_unshare,
+    &kernel_function_hook_vfork,
     0 // NULL-TERMINATED
 };

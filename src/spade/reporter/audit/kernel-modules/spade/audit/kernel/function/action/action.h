@@ -26,27 +26,27 @@
 #include "spade/audit/kernel/function/context/context.h"
 
 
-enum kernel_syscall_action_type
+enum kernel_function_action_type
 {
-    ACTION_TYPE_AUDIT
+    KERNEL_FUNCTION_ACTION_TYPE_AUDIT
 };
 
-enum kernel_syscall_action_result_type
+enum kernel_function_action_result_type
 {
-    ACTION_RESULT_TYPE_SUCCESS,
-    ACTION_RESULT_TYPE_FAILURE
+    KERNEL_FUNCTION_ACTION_RESULT_TYPE_SUCCESS,
+    KERNEL_FUNCTION_ACTION_RESULT_TYPE_FAILURE
 };
 
-struct kernel_syscall_action_result
+struct kernel_function_action_result
 {
-    enum kernel_syscall_action_result_type type;
+    enum kernel_function_action_result_type type;
     int result;
 };
 
-struct kernel_syscall_action
+struct kernel_function_action
 {
-    enum kernel_syscall_action_type type;
-    struct kernel_syscall_action_result result;
+    enum kernel_function_action_type type;
+    struct kernel_function_action_result result;
 };
 
 /*
@@ -56,9 +56,9 @@ struct kernel_syscall_action
         0       -> Success.
         -ive    -> Error code in action handling.
 */
-int kernel_syscall_action_handle(
-    struct kernel_syscall_action *a,
-    struct kernel_syscall_context *sys_ctx
+int kernel_function_action_handle(
+    struct kernel_function_action *a,
+    struct kernel_function_context *sys_ctx
 );
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_ACTION_H

@@ -41,9 +41,9 @@ static void _pre(
 
     int sys_num = global_sys_num;
 
-    struct kernel_syscall_action_result act_res = {0};
+    struct kernel_function_action_result act_res = {0};
 
-    struct kernel_syscall_arg_sendto syscall_args = {
+    struct kernel_function_arg_sendto syscall_args = {
         .sockfd = fd,
         .buf = buf,
         .len = len,
@@ -52,12 +52,12 @@ static void _pre(
         .addrlen = addrlen
     };
 
-    struct kernel_syscall_arg sys_arg = {
+    struct kernel_function_arg sys_arg = {
         .arg = &syscall_args,
         .arg_size = sizeof(syscall_args)
     };
 
-    err = kernel_syscall_hook_execution_handler_handle_pre(
+    err = kernel_function_hook_execution_handler_handle_pre(
         &act_res, sys_num, &sys_arg
     );
     if (err != 0)
@@ -76,9 +76,9 @@ static void _post(
 
     int sys_num = global_sys_num;
 
-    struct kernel_syscall_action_result act_res = {0};
+    struct kernel_function_action_result act_res = {0};
 
-    struct kernel_syscall_arg_sendto syscall_args = {
+    struct kernel_function_arg_sendto syscall_args = {
         .sockfd = fd,
         .buf = buf,
         .len = len,
@@ -87,17 +87,17 @@ static void _post(
         .addrlen = addrlen
     };
 
-    struct kernel_syscall_arg sys_arg = {
+    struct kernel_function_arg sys_arg = {
         .arg = &syscall_args,
         .arg_size = sizeof(syscall_args)
     };
 
-    struct kernel_syscall_result k_sys_res = {
+    struct kernel_function_result k_sys_res = {
         .ret = sys_res,
         .success = (sys_res >= 0)
     };
 
-    err = kernel_syscall_hook_execution_handler_handle_post(
+    err = kernel_function_hook_execution_handler_handle_post(
         &act_res, sys_num, &sys_arg, &k_sys_res
     );
     if (err != 0)
@@ -147,12 +147,12 @@ static void _post(
 
 #endif
 
-static int kernel_syscall_hook_function_sendto_num(void)
+static int kernel_function_hook_function_sendto_num(void)
 {
     return global_sys_num;
 }
 
-static const char* kernel_syscall_hook_function_sendto_name(void)
+static const char* kernel_function_hook_function_sendto_name(void)
 {
 #if HELPER_KERNEL_PTREGS_SYSCALL_STUBS
     return "__x64_sys_sendto";
@@ -161,19 +161,19 @@ static const char* kernel_syscall_hook_function_sendto_name(void)
 #endif
 }
 
-static void *kernel_syscall_hook_function_sendto_original_ptr(void)
+static void *kernel_function_hook_function_sendto_original_ptr(void)
 {
     return &_orig;
 }
 
-static void *kernel_syscall_hook_function_sendto_hook(void)
+static void *kernel_function_hook_function_sendto_hook(void)
 {
     return _hook;
 }
 
-const struct kernel_syscall_hook kernel_syscall_hook_sendto = {
-    .get_num = kernel_syscall_hook_function_sendto_num,
-    .get_name = kernel_syscall_hook_function_sendto_name,
-    .get_orig_func_ptr = kernel_syscall_hook_function_sendto_original_ptr,
-    .get_hook_func = kernel_syscall_hook_function_sendto_hook
+const struct kernel_function_hook kernel_function_hook_sendto = {
+    .get_num = kernel_function_hook_function_sendto_num,
+    .get_name = kernel_function_hook_function_sendto_name,
+    .get_orig_func_ptr = kernel_function_hook_function_sendto_original_ptr,
+    .get_hook_func = kernel_function_hook_function_sendto_hook
 };

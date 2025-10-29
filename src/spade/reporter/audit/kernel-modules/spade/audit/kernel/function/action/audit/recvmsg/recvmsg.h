@@ -24,6 +24,6 @@
 #include "spade/audit/kernel/function/context/post.h"
 
 
-int kernel_syscall_action_audit_recvmsg_handle(struct kernel_syscall_context_post *sys_ctx);
+int kernel_function_action_audit_recvmsg_handle(struct kernel_function_context_post *sys_ctx);
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_ACTION_AUDIT_RECVMSG_RECVMSG_H

@@ -27,6 +27,6 @@
 /*
     Hook struct for sendto syscall.
 */
-extern const struct kernel_syscall_hook kernel_syscall_hook_sendto;
+extern const struct kernel_function_hook kernel_function_hook_sendto;
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_FUNCTION_SENDTO_H

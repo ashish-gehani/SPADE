@@ -57,7 +57,7 @@ static long _get_ns_inum(
 
 int helper_syscall_namespace_populate_msg(
     struct msg_namespace *msg,
-    struct kernel_syscall_context_post *s,
+    struct kernel_function_context_post *s,
     enum msg_namespace_operation op
 )
 {

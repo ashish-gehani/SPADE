@@ -23,9 +23,9 @@
 
 #include "spade/audit/kernel/function/hook/execution/context/context.h"
 
-struct kernel_syscall_hook_execution_context_pre
+struct kernel_function_hook_execution_context_pre
 {
-    struct kernel_syscall_hook_execution_context header;
+    struct kernel_function_hook_execution_context header;
 };
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_EXECUTION_CONTEXT_PRE_H

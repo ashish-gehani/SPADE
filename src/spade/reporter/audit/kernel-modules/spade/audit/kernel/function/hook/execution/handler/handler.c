@@ -29,41 +29,41 @@
 
 
 static void _init_action_audit(
-    struct kernel_syscall_action *dst
+    struct kernel_function_action *dst
 )
 {
-    dst->type = ACTION_TYPE_AUDIT;
+    dst->type = KERNEL_FUNCTION_ACTION_TYPE_AUDIT;
 }
 
 static void _init_sys_context_post(
-    struct kernel_syscall_context_post *dst,
-    int sys_num, struct kernel_syscall_arg *sys_arg,
-    struct kernel_syscall_result *sys_res
+    struct kernel_function_context_post *dst,
+    int sys_num, struct kernel_function_arg *sys_arg,
+    struct kernel_function_result *sys_res
 )
 {
-    dst->header.type = SYSCALL_CONTEXT_TYPE_POST;
+    dst->header.type = KERNEL_FUNCTION_CONTEXT_TYPE_POST;
     dst->header.sys_num = sys_num;
     dst->header.sys_arg = *sys_arg;
     dst->sys_res = *sys_res;
 }
 
 static void _init_sys_context_pre(
-    struct kernel_syscall_context_pre *dst,
-    int sys_num, struct kernel_syscall_arg *sys_arg
+    struct kernel_function_context_pre *dst,
+    int sys_num, struct kernel_function_arg *sys_arg
 )
 {
-    dst->header.type = SYSCALL_CONTEXT_TYPE_PRE;
+    dst->header.type = KERNEL_FUNCTION_CONTEXT_TYPE_PRE;
     dst->header.sys_num = sys_num;
     dst->header.sys_arg = *sys_arg;
 }
 
-int kernel_syscall_hook_execution_handler_handle_pre(
-    struct kernel_syscall_action_result* act_res,
-    int sys_num, struct kernel_syscall_arg *sys_arg
+int kernel_function_hook_execution_handler_handle_pre(
+    struct kernel_function_action_result* act_res,
+    int sys_num, struct kernel_function_arg *sys_arg
 )
 {
-    struct kernel_syscall_action act_audit;
-    struct kernel_syscall_context_pre sys_ctx_pre;
+    struct kernel_function_action act_audit;
+    struct kernel_function_context_pre sys_ctx_pre;
 
     if (!act_res || !sys_arg)
     {
@@ -75,20 +75,20 @@ int kernel_syscall_hook_execution_handler_handle_pre(
 
     // todo... add actions ... careful of incorrect arguments since the syscall might fail later.
     act_res->result = 0;
-    act_res->type = ACTION_RESULT_TYPE_SUCCESS;
+    act_res->type = KERNEL_FUNCTION_ACTION_RESULT_TYPE_SUCCESS;
     return 0;
 }
 
-int kernel_syscall_hook_execution_handler_handle_post(
-    struct kernel_syscall_action_result* act_res,
-    int sys_num, struct kernel_syscall_arg *sys_arg,
-    struct kernel_syscall_result *sys_res
+int kernel_function_hook_execution_handler_handle_post(
+    struct kernel_function_action_result* act_res,
+    int sys_num, struct kernel_function_arg *sys_arg,
+    struct kernel_function_result *sys_res
 )
 {
-    const char *log_id = "kernel_syscall_hook_execution_handler_handle_post";
+    const char *log_id = "kernel_function_hook_execution_handler_handle_post";
     int err;
-    struct kernel_syscall_action act_audit;
-    struct kernel_syscall_context_post sys_ctx_post;
+    struct kernel_function_action act_audit;
+    struct kernel_function_context_post sys_ctx_post;
     pid_t pid, ppid;
     uid_t uid;
 
@@ -120,7 +120,7 @@ int kernel_syscall_hook_execution_handler_handle_post(
         sys_num, sys_res->ret, sys_res->success, pid, ppid, uid
     );
 
-    err = kernel_syscall_action_handle(&act_audit, &(sys_ctx_post.header));
+    err = kernel_function_action_handle(&act_audit, &(sys_ctx_post.header));
     if (err == 0)
     {
         act_res->result = act_audit.result.result;

@@ -23,9 +23,9 @@
 
 #include "spade/audit/kernel/function/context/context.h"
 
-struct kernel_syscall_context_pre
+struct kernel_function_context_pre
 {
-    struct kernel_syscall_context header;
+    struct kernel_function_context header;
 };
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_CONTEXT_PRE_H

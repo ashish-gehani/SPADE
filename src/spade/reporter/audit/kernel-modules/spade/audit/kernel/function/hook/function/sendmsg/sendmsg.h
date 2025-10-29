@@ -27,6 +27,6 @@
 /*
     Hook struct for sendmsg syscall.
 */
-extern const struct kernel_syscall_hook kernel_syscall_hook_sendmsg;
+extern const struct kernel_function_hook kernel_function_hook_sendmsg;
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_FUNCTION_SENDMSG_H

@@ -34,22 +34,22 @@
 static const enum msg_common_type GLOBAL_MSG_TYPE = MSG_NAMESPACES;
 
 
-static bool _is_valid_sys_ctx(struct kernel_syscall_context_post *sys_ctx)
+static bool _is_valid_function_ctx(struct kernel_function_context_post *sys_ctx)
 {
     return (
-        sys_ctx && sys_ctx->header.type == SYSCALL_CONTEXT_TYPE_POST && sys_ctx->header.sys_num == __NR_vfork
-        && sys_ctx->header.sys_arg.arg != NULL && sys_ctx->header.sys_arg.arg_size == sizeof(struct kernel_syscall_arg_vfork)
+        sys_ctx && sys_ctx->header.type == KERNEL_FUNCTION_CONTEXT_TYPE_POST && sys_ctx->header.sys_num == __NR_vfork
+        && sys_ctx->header.sys_arg.arg != NULL && sys_ctx->header.sys_arg.arg_size == sizeof(struct kernel_function_arg_vfork)
         && sys_ctx->sys_res.success
     );
 }
 
-int kernel_syscall_action_audit_vfork_handle(struct kernel_syscall_context_post *sys_ctx)
+int kernel_function_action_audit_vfork_handle(struct kernel_function_context_post *sys_ctx)
 {
     int err;
 
     struct msg_namespace msg;
 
-    if (!_is_valid_sys_ctx(sys_ctx))
+    if (!_is_valid_function_ctx(sys_ctx))
         return -EINVAL;
 
     err = msg_ops_kinit(GLOBAL_MSG_TYPE, &msg.header);

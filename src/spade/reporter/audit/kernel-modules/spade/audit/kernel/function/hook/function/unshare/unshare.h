@@ -27,6 +27,6 @@
 /*
     Hook struct for unshare syscall.
 */
-extern const struct kernel_syscall_hook kernel_syscall_hook_unshare;
+extern const struct kernel_function_hook kernel_function_hook_unshare;
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_FUNCTION_UNSHARE_H

@@ -27,6 +27,6 @@
 /*
     Hook struct for accept4 syscall.
 */
-extern const struct kernel_syscall_hook kernel_syscall_hook_accept4;
+extern const struct kernel_function_hook kernel_function_hook_accept4;
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_FUNCTION_ACCEPT4_H

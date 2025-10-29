@@ -24,7 +24,7 @@
 #include <linux/types.h>
 #include <linux/socket.h>
 
-struct kernel_syscall_arg_kill
+struct kernel_function_arg_kill
 {
     pid_t pid;
     int sig;

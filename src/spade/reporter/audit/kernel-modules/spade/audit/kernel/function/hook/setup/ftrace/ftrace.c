@@ -39,7 +39,7 @@ static void _init_ftrace_hooks(void)
     int i;
     for (i = 0; i < KERNEL_FUNCTION_HOOK_LIST_LEN_MAX; i++)
     {
-        const struct kernel_syscall_hook *hook = KERNEL_FUNCTION_HOOK_LIST[i];
+        const struct kernel_function_hook *hook = KERNEL_FUNCTION_HOOK_LIST[i];
 
         if (!hook)
             break;
@@ -62,13 +62,13 @@ static void _ensure_initialized(void)
     }
 }
 
-int kernel_syscall_hook_setup_ftrace_install(void)
+int kernel_function_hook_setup_ftrace_install(void)
 {
     _ensure_initialized();
     return fh_install_hooks(ftrace_hooks, ftrace_hooks_len);
 }
 
-int kernel_syscall_hook_setup_ftrace_uninstall(void)
+int kernel_function_hook_setup_ftrace_uninstall(void)
 {
     _ensure_initialized();
     fh_remove_hooks(ftrace_hooks, ftrace_hooks_len);

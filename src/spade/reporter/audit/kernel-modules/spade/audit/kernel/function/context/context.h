@@ -25,17 +25,17 @@
 
 #include "spade/audit/kernel/function/arg/arg.h"
 
-enum kernel_syscall_context_type
+enum kernel_function_context_type
 {
-    SYSCALL_CONTEXT_TYPE_PRE,
-    SYSCALL_CONTEXT_TYPE_POST
+    KERNEL_FUNCTION_CONTEXT_TYPE_PRE,
+    KERNEL_FUNCTION_CONTEXT_TYPE_POST
 };
 
-struct kernel_syscall_context
+struct kernel_function_context
 {
-    enum kernel_syscall_context_type type;
+    enum kernel_function_context_type type;
     int sys_num;
-    struct kernel_syscall_arg sys_arg;
+    struct kernel_function_arg sys_arg;
 };
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_CONTEXT_CONTEXT_H
