@@ -25,7 +25,7 @@
 
 #include "spade/audit/msg/common/common.h"
 
-#define HELPER_AUDIT_LOG_MSG_BUF_LEN 700
+#define HELPER_AUDIT_LOG_MSG_BUF_LEN 512
 
 /*
     Log msg using kernel function audit_log.

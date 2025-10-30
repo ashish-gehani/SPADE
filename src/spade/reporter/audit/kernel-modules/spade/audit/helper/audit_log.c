@@ -25,10 +25,12 @@
 #include "spade/audit/helper/audit_log.h"
 #include "spade/audit/msg/ops.h"
 #include "spade/util/seqbuf/seqbuf.h"
+#include "spade/util/log/log.h"
 
 
 int helper_audit_log(struct audit_context *ctx, struct msg_common_header *msg_h)
 {
+    const char *log_id = "helper_audit_log";
     int err;
     char buf_msg[HELPER_AUDIT_LOG_MSG_BUF_LEN];
     struct seqbuf sb;
@@ -40,10 +42,16 @@ int helper_audit_log(struct audit_context *ctx, struct msg_common_header *msg_h)
 
     err = msg_ops_to_audit_str(&sb, msg_h);
     if (err != 0)
+    {
+        util_log_debug(log_id, "Failed msg_ops_to_audit_str. Err: %d", err);
         return err;
+    }
 
     if (util_seqbuf_has_overflowed(&sb))
+    {
+        util_log_debug(log_id, "Buffer overflown. util_seqbuf_has_overflowed.");
         return -ENOMEM;
+    }
 
     audit_log(ctx, GFP_KERNEL, AUDIT_USER, &buf_msg[0]);
 

@@ -23,6 +23,7 @@
 #include <linux/errno.h>
 
 #include "spade/util/seqbuf/seqbuf.h"
+#include "spade/util/log/log.h"
 
 
 void util_seqbuf_init(struct seqbuf *sb, char *buf, size_t size)
@@ -48,6 +49,7 @@ bool util_seqbuf_has_overflowed(const struct seqbuf *sb)
 
 int util_seqbuf_printf(struct seqbuf *sb, const char *fmt, ...)
 {
+	const char *log_id = "util_seqbuf_printf";
 	va_list ap;
 	int n;
 	size_t avail;
@@ -74,6 +76,16 @@ int util_seqbuf_printf(struct seqbuf *sb, const char *fmt, ...)
     {
 		sb->len = sb->size - 1;
 		sb->overflow = true;
+		util_log_debug(
+			log_id,
+			"Buffer just 'overflew'. n=%d, avail=%lu, sb->size=%lu, sb->len=%lu.",
+			n, avail, sb->size, sb->len
+		);
+		util_log_debug(
+			log_id,
+			"Buffer just 'overflew'. sb->buf=%s",
+			sb->buf
+		);
 	} else
     {
 		sb->len += n;
