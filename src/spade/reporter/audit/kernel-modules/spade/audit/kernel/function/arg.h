@@ -18,12 +18,17 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_ACTION_AUDIT_ACCEPT_ACCEPT_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_ACTION_AUDIT_ACCEPT_ACCEPT_H
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_ARG_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_ARG_H
 
-#include "spade/audit/kernel/function/context/post.h"
+#include <linux/types.h>
 
 
-int kernel_function_action_audit_accept_handle(struct kernel_function_context_post *sys_ctx);
+struct kernel_function_arg
+{
+    const void *arg;
+    const size_t arg_size;
+};
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_ACTION_AUDIT_ACCEPT_ACCEPT_H
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_ARG_H
+

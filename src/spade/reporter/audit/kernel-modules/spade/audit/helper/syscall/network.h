@@ -26,7 +26,7 @@
 
 #include "spade/audit/msg/network/network.h"
 #include "spade/audit/state/state.h"
-#include "spade/audit/kernel/function/context/post.h"
+#include "spade/audit/kernel/function/number.h"
 
 
 int helper_syscall_network_sockfd_is_connected(
@@ -111,7 +111,7 @@ int helper_syscall_network_get_peer_saddr_from_fd(
 */
 int helper_syscall_network_populate_msg(
     struct msg_network *msg,
-    struct kernel_function_context_post *sys_ctx,
+    enum kernel_function_number sys_num, long sys_ret, bool sys_success,
     int subject_sockfd,
     struct sockaddr_storage *remote_saddr,
     uint32_t remote_saddr_size

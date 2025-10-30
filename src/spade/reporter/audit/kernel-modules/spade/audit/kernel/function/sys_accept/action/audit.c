@@ -22,8 +22,11 @@
 #include <linux/types.h>
 #include <asm/syscall.h>
 
-#include "spade/audit/kernel/function/action/audit/accept/accept.h"
-#include "spade/audit/kernel/function/arg/accept.h"
+#include "spade/audit/kernel/function/number.h"
+#include "spade/audit/kernel/function/hook.h"
+#include "spade/audit/kernel/function/sys_accept/action/audit.h"
+#include "spade/audit/kernel/function/sys_accept/arg.h"
+#include "spade/audit/kernel/function/sys_accept/result.h"
 #include "spade/audit/msg/network/network.h"
 #include "spade/audit/msg/ops.h"
 #include "spade/audit/helper/syscall/network.h"
@@ -33,16 +36,20 @@
 static const enum msg_common_type GLOBAL_MSG_TYPE = MSG_NETWORK;
 
 
-static bool _is_valid_function_ctx(struct kernel_function_context_post *sys_ctx)
+static bool _is_valid_accept_ctx_post(struct kernel_function_hook_context_post *ctx)
 {
     return (
-        sys_ctx && sys_ctx->header.type == KERNEL_FUNCTION_CONTEXT_TYPE_POST && sys_ctx->header.sys_num == __NR_accept
-        && sys_ctx->header.sys_arg.arg != NULL && sys_ctx->header.sys_arg.arg_size == sizeof(struct kernel_function_arg_accept)
-        && sys_ctx->sys_res.success
+        kernel_function_hook_context_post_is_valid(ctx)
+        && ctx->header->func_num == KERN_F_NUM_SYS_ACCEPT
+        && ctx->header->func_arg->arg_size == sizeof(struct kernel_function_sys_accept_arg)
+        && ctx->func_res->res_size == sizeof(struct kernel_function_sys_accept_result)
+        && ctx->func_res->success // todo
     );
 }
 
-int kernel_function_action_audit_accept_handle(struct kernel_function_context_post *sys_ctx)
+int kernel_function_sys_accept_action_audit_handle_post(
+    struct kernel_function_hook_context_post *ctx_post
+)
 {
     int err;
 
@@ -50,16 +57,18 @@ int kernel_function_action_audit_accept_handle(struct kernel_function_context_po
     struct sockaddr_storage remote_saddr;
     uint32_t remote_saddr_size;
 
-    struct kernel_function_arg_accept *sys_arg;
+    struct kernel_function_sys_accept_arg *sys_arg;
+    struct kernel_function_sys_accept_result *sys_res;
 
-    if (!_is_valid_function_ctx(sys_ctx))
+    if (!_is_valid_accept_ctx_post(ctx_post))
         return -EINVAL;
 
     err = msg_ops_kinit(GLOBAL_MSG_TYPE, &msg.header);
     if (err != 0)
         return err;
 
-    sys_arg = (struct kernel_function_arg_accept*)sys_ctx->header.sys_arg.arg;
+    sys_arg = (struct kernel_function_sys_accept_arg*)ctx_post->header->func_arg->arg;
+    sys_res = (struct kernel_function_sys_accept_result*)ctx_post->func_res->res;
 
     if (sys_arg->addr)
     {
@@ -78,7 +87,9 @@ int kernel_function_action_audit_accept_handle(struct kernel_function_context_po
     }
 
     err = helper_syscall_network_populate_msg(
-        &msg, sys_ctx, sys_arg->sockfd, &remote_saddr, remote_saddr_size
+        &msg,
+        ctx_post->header->func_num, sys_res->ret, ctx_post->func_res->success,
+        sys_arg->sockfd, &remote_saddr, remote_saddr_size
     );
     if (err != 0)
         return err;

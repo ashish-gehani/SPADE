@@ -159,7 +159,7 @@ int helper_syscall_network_sockfd_is_connected(
 
 int helper_syscall_network_populate_msg(
     struct msg_network *msg,
-    struct kernel_function_context_post *sys_ctx,
+    enum kernel_function_number sys_num, long sys_ret, bool sys_success,
     int subject_sockfd,
     struct sockaddr_storage *remote_saddr,
     uint32_t remote_saddr_size
@@ -172,7 +172,7 @@ int helper_syscall_network_populate_msg(
     struct helper_sock_saddr_info local_saddr_info = {0};
     int local_peer_mode = 0;
 
-    if (!msg || !sys_ctx || !remote_saddr)
+    if (!msg || !remote_saddr)
         return -EINVAL;
 
     err = helper_sock_get_saddr_info_from_fd(
@@ -198,9 +198,9 @@ int helper_syscall_network_populate_msg(
     msg->remote_saddr = *remote_saddr;
     msg->remote_saddr_size = remote_saddr_size;
     msg->sock_type = local_saddr_info.sock_type;
-    msg->syscall_number = sys_ctx->header.sys_num;
-    msg->syscall_result = sys_ctx->sys_res.ret;
-    msg->syscall_success = sys_ctx->sys_res.success;
+    msg->syscall_number = sys_num;
+    msg->syscall_result = sys_ret;
+    msg->syscall_success = sys_success;
 
     return 0;
 }

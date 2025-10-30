@@ -18,28 +18,15 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_HOOK_SETUP_FTRACE_FTRACE_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_HOOK_SETUP_FTRACE_FTRACE_H
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT_ACTION_AUDIT_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT_ACTION_AUDIT_H
 
-#include <linux/kernel.h>
-
-#include "spade/audit/kernel/function/hook/setup/ftrace/ftrace_helper.h"
-#include "spade/audit/kernel/function/hook/list.h"
+#include "spade/audit/kernel/function/action.h"
 
 
-/*
-    Returns:
-        0       -> Success.
-        -ive    -> Error code.
-*/
-int kernel_function_hook_setup_ftrace_install(void);
-
-/*
-    Returns:
-        0       -> Success.
-        -ive    -> Error code.
-*/
-int kernel_function_hook_setup_ftrace_uninstall(void);
+int kernel_function_sys_accept_action_audit_handle_post(
+    struct kernel_function_hook_context_post *ctx_post
+);
 
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_SETUP_FTRACE_FTRACE_H
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT_ACTION_AUDIT_H

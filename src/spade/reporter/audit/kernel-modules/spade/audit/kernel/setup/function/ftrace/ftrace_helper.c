@@ -4,7 +4,7 @@
  * License: GPL
  * */
 
-#include "spade/audit/kernel/function/hook/setup/ftrace/ftrace_helper.h"
+#include "spade/audit/kernel/setup/function/ftrace/ftrace_helper.h"
 
 #include <linux/ftrace.h>
 #include <linux/linkage.h>

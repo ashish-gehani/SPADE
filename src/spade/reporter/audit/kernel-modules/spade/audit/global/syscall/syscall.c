@@ -25,21 +25,22 @@
 
 #include "spade/audit/global/common/common.h"
 #include "spade/audit/global/syscall/syscall.h"
+#include "spade/audit/kernel/function/number.h"
 
 
-int global_syscall_is_loggable_by_sys_num(bool *dst, struct context_syscall *ctx, int sys_num)
+int global_syscall_is_loggable_by_sys_num(bool *dst, struct context_syscall *ctx, enum kernel_function_number func_num)
 {
     if (!dst || !ctx)
         return -EINVAL;
 
     if (!ctx->network_io)
     {
-        switch(sys_num)
+        switch(func_num)
         {
-            case __NR_recvfrom:
-            case __NR_recvmsg:
-            case __NR_sendmsg:
-            case __NR_sendto:
+            case KERN_F_NUM_SYS_RECVFROM:
+            case KERN_F_NUM_SYS_RECVMSG:
+            case KERN_F_NUM_SYS_SENDMSG:
+            case KERN_F_NUM_SYS_SENDTO:
             {
                 goto exit_false;
             }
@@ -50,13 +51,13 @@ int global_syscall_is_loggable_by_sys_num(bool *dst, struct context_syscall *ctx
 
     if (!ctx->include_ns_info)
     {
-        switch(sys_num)
+        switch(func_num)
         {
-            case __NR_clone:
-            case __NR_fork:
-            case __NR_setns:
-            case __NR_unshare:
-            case __NR_vfork:
+            case KERN_F_NUM_SYS_CLONE:
+            case KERN_F_NUM_SYS_FORK:
+            case KERN_F_NUM_SYS_SETNS:
+            case KERN_F_NUM_SYS_UNSHARE:
+            case KERN_F_NUM_SYS_VFORK:
             {
                 goto exit_false;
             }
@@ -186,7 +187,7 @@ exit_true:
 int global_syscall_is_loggable(
     bool *dst,
     struct context_syscall *ctx,
-    int sys_num, bool sys_success,
+    enum kernel_function_number func_num, bool sys_success,
     pid_t pid, pid_t ppid, uid_t uid
 )
 {
@@ -195,7 +196,7 @@ int global_syscall_is_loggable(
     if (!dst || !ctx)
         return -EINVAL;
 
-    err = global_syscall_is_loggable_by_sys_num(dst, ctx, sys_num);
+    err = global_syscall_is_loggable_by_sys_num(dst, ctx, func_num);
     if (err != 0 || !(*dst))
         goto exit_false;
 

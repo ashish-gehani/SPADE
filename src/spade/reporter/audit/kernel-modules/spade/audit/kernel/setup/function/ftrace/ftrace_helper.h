@@ -18,8 +18,8 @@
 #pragma GCC optimize("-fno-optimize-sibling-calls")
 #endif
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_HOOK_SETUP_FTRACE_FTRACE_HELPER_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_HOOK_SETUP_FTRACE_FTRACE_HELPER_H
+#ifndef SPADE_AUDIT_KERNEL_SETUP_FUNCTION_FTRACE_FTRACE_HELPER_H
+#define SPADE_AUDIT_KERNEL_SETUP_FUNCTION_FTRACE_FTRACE_HELPER_H
 
 #include <linux/ftrace.h>
 #include <linux/version.h>
@@ -63,4 +63,4 @@ void fh_remove_hook(struct ftrace_hook *hook);
 int fh_install_hooks(struct ftrace_hook *hooks, size_t count);
 void fh_remove_hooks(struct ftrace_hook *hooks, size_t count);
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_SETUP_FTRACE_FTRACE_HELPER_H
+#endif // SPADE_AUDIT_KERNEL_SETUP_FUNCTION_FTRACE_FTRACE_HELPER_H

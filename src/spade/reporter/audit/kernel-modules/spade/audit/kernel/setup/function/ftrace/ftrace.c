@@ -20,11 +20,13 @@
 
 #include <linux/errno.h>
 
-#include "spade/audit/kernel/function/hook/setup/ftrace/ftrace.h"
-#include "spade/audit/kernel/function/hook/setup/ftrace/ftrace_helper.h"
+#include "spade/audit/kernel/setup/function/ftrace/ftrace.h"
+#include "spade/audit/kernel/setup/function/ftrace/ftrace_helper.h"
+#include "spade/audit/kernel/function/op.h"
+
 
 static size_t ftrace_hooks_len;
-static struct ftrace_hook ftrace_hooks[KERNEL_FUNCTION_HOOK_LIST_LEN_MAX];
+static struct ftrace_hook ftrace_hooks[KERNEL_FUNCTION_OP_LIST_MAX_LEN];
 
 static struct
 {
@@ -37,13 +39,17 @@ static struct
 static void _init_ftrace_hooks(void)
 {
     int i;
-    for (i = 0; i < KERNEL_FUNCTION_HOOK_LIST_LEN_MAX; i++)
+    for (i = 0; i < KERNEL_FUNCTION_OP_LIST_LEN; i++)
     {
-        const struct kernel_function_hook *hook = KERNEL_FUNCTION_HOOK_LIST[i];
+        const struct kernel_function_op *op = KERNEL_FUNCTION_OP_LIST[i];
+        const struct kernel_function_hook *hook;
 
-        if (!hook)
+        if (!op)
             break;
-        if (!hook->get_name || !hook->get_hook_func || !hook->get_orig_func_ptr)
+
+        hook = op->hook;
+
+        if (!hook || !hook->get_name || !hook->get_hook_func || !hook->get_orig_func_ptr)
             continue;
 
         ftrace_hooks[i].name = hook->get_name();
@@ -62,13 +68,13 @@ static void _ensure_initialized(void)
     }
 }
 
-int kernel_function_hook_setup_ftrace_install(void)
+int kernel_setup_function_ftrace_install(void)
 {
     _ensure_initialized();
     return fh_install_hooks(ftrace_hooks, ftrace_hooks_len);
 }
 
-int kernel_function_hook_setup_ftrace_uninstall(void)
+int kernel_setup_function_ftrace_uninstall(void)
 {
     _ensure_initialized();
     fh_remove_hooks(ftrace_hooks, ftrace_hooks_len);

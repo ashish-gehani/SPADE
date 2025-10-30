@@ -18,14 +18,16 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_HOOK_EXECUTION_CONTEXT_PRE_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_HOOK_EXECUTION_CONTEXT_PRE_H
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_RESULT_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_RESULT_H
 
-#include "spade/audit/kernel/function/hook/execution/context/context.h"
+#include <linux/types.h>
 
-struct kernel_function_hook_execution_context_pre
+struct kernel_function_result
 {
-    struct kernel_function_hook_execution_context header;
+    const void *res;
+    const size_t res_size;
+    const bool success;
 };
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_EXECUTION_CONTEXT_PRE_H
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_RESULT_H

@@ -18,24 +18,12 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_HOOK_EXECUTION_CONTEXT_CONTEXT_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_HOOK_EXECUTION_CONTEXT_CONTEXT_H
+#include "spade/audit/kernel/function/sys_accept/op.h"
+#include "spade/audit/kernel/function/sys_accept/hook.h"
+#include "spade/audit/kernel/function/sys_accept/action.h"
 
-#include <linux/types.h>
 
-#include "spade/audit/kernel/function/arg/arg.h"
-
-enum kernel_function_hook_execution_context_type
-{
-    HOOK_EXECUTION_CONTEXT_TYPE_PRE,
-    HOOK_EXECUTION_CONTEXT_TYPE_POST
+const struct kernel_function_op KERNEL_FUNCTION_SYS_ACCEPT_OP = {
+    .hook = &KERNEL_FUNCTION_SYS_ACCEPT_HOOK,
+    .action_list = &KERNEL_FUNCTION_SYS_ACCEPT_ACTION_LIST
 };
-
-struct kernel_function_hook_execution_context
-{
-    enum kernel_function_hook_execution_context_type ctx_type;
-    int sys_num;
-    struct kernel_function_arg sys_arg;
-};
-
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_EXECUTION_CONTEXT_CONTEXT_H

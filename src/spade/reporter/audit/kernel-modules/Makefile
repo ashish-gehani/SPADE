@@ -54,12 +54,14 @@ CHECK_SCRIPT_MOD_MAIN=bin/test/$(MAIN_MODULE_NAME)/run.sh
 # Module names
 MODULE_NAMES := $(MAIN_MODULE_NAME) $(CONTROLLER_MODULE_NAME) $(TEST_MODULE_NAME)
 
-# Syscall names
-SYSCALL_NAMES := accept accept4 bind clone connect fork kill recvfrom recvmsg sendmsg sendto setns unshare vfork
-
-# Generated object file lists
-SYSCALL_ACTION_OBJS := $(foreach syscall,$(SYSCALL_NAMES),spade/audit/kernel/function/action/audit/$(syscall)/$(syscall).o)
-SYSCALL_HOOK_FUNC_OBJS := $(foreach syscall,$(SYSCALL_NAMES),spade/audit/kernel/function/hook/function/$(syscall)/$(syscall).o)
+# Function names
+# FUNCTION_NAMES := accept accept4 bind clone connect fork kill recvfrom recvmsg sendmsg sendto setns unshare vfork
+HOOKED_FUNCTION_NAMES := sys_accept
+HOOKED_FUNCTION_OBJS = \
+  $(foreach f_name,$(HOOKED_FUNCTION_NAMES),spade/audit/kernel/function/$(f_name)/action/audit.o) \
+  $(foreach f_name,$(HOOKED_FUNCTION_NAMES),spade/audit/kernel/function/$(f_name)/action.o) \
+  $(foreach f_name,$(HOOKED_FUNCTION_NAMES),spade/audit/kernel/function/$(f_name)/hook.o) \
+  $(foreach f_name,$(HOOKED_FUNCTION_NAMES),spade/audit/kernel/function/$(f_name)/op.o)
 
 # Module output files
 MOD_OUT_FILES = \
@@ -121,12 +123,12 @@ KERNEL_OBJS := \
   spade/audit/kernel/namespace/setup/setup.o \
   spade/audit/kernel/netfilter/setup/setup.o \
   spade/audit/kernel/netfilter/netfilter.o \
-  spade/audit/kernel/function/action/audit/audit.o \
-  spade/audit/kernel/function/action/action.o \
-  spade/audit/kernel/function/hook/execution/handler/handler.o \
-  spade/audit/kernel/function/hook/list.o \
-  spade/audit/kernel/function/hook/setup/ftrace/ftrace.o \
-  spade/audit/kernel/function/hook/setup/ftrace/ftrace_helper.o
+  spade/audit/kernel/function/action.o \
+  spade/audit/kernel/function/hook.o \
+  spade/audit/kernel/function/op.o \
+  spade/audit/kernel/setup/function/ftrace/ftrace.o \
+  spade/audit/kernel/setup/function/ftrace/ftrace_helper.o \
+  $(HOOKED_FUNCTION_OBJS)
 
 MSG_OBJS := \
   spade/audit/msg/common/serialize/audit.o \
@@ -193,8 +195,6 @@ $(MAIN_MODULE_NAME)-y := \
   $(MSG_OBJS) \
   $(STATE_OBJS) \
   $(TYPE_OBJS) \
-  $(SYSCALL_ACTION_OBJS) \
-  $(SYSCALL_HOOK_FUNC_OBJS) \
   $(UTIL_OBJS) \
   spade/audit/audit.o
 
@@ -218,8 +218,6 @@ $(TEST_MODULE_NAME)-y := \
   $(PARAM_OBJS) \
   $(STATE_OBJS) \
   $(TYPE_OBJS) \
-  $(SYSCALL_ACTION_OBJS) \
-  $(SYSCALL_HOOK_FUNC_OBJS) \
   $(UTIL_OBJS) \
   test/kernel/spade/audit/arg.o \
   test/kernel/spade/audit/context.o \

@@ -18,47 +18,22 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_AUDIT_HELPER_SYSCALL_NAMESPACE_H
-#define _SPADE_AUDIT_HELPER_SYSCALL_NAMESPACE_H
-
-#include <linux/errno.h>
-
-#include "spade/audit/state/state.h"
-#include "spade/audit/msg/namespace/create.h"
-#include "spade/audit/kernel/function/number.h"
-
+#ifndef SPADE_AUDIT_KERNEL_SETUP_FUNCTION_FTRACE_FTRACE_H
+#define SPADE_AUDIT_KERNEL_SETUP_FUNCTION_FTRACE_FTRACE_H
 
 /*
-    Populate msg using the context provided.
-
-    Params:
-        msg             : Message to populate.
-        s               : The syscall state.
-        op              : The operation assigned to the syscall.
-
-    Returns:
-        0       -> Success.
-        -1      -> Error code.
-*/
-int helper_syscall_namespace_populate_msg(
-    struct msg_namespace *msg,
-    enum kernel_function_number sys_num, long sys_ret, bool sys_success,
-    enum msg_namespace_operation op
-);
-
-/*
-    Log the namespaces msg to Linux Audit Subsystem.
-
-    Params:
-        msg : The msg to log.
-
     Returns:
         0       -> Success.
         -ive    -> Error code.
-
 */
-int helper_syscall_namespace_log_msg_to_audit(
-    struct msg_namespace *msg
-);
+int kernel_setup_function_ftrace_install(void);
 
-#endif // _SPADE_AUDIT_HELPER_SYSCALL_NAMESPACE_H
+/*
+    Returns:
+        0       -> Success.
+        -ive    -> Error code.
+*/
+int kernel_setup_function_ftrace_uninstall(void);
+
+
+#endif // SPADE_AUDIT_KERNEL_SETUP_FUNCTION_FTRACE_FTRACE_H

@@ -216,7 +216,7 @@ bool global_is_network_logging_ns_info(void)
 }
 
 bool global_is_syscall_loggable(
-    int sys_num, bool sys_success,
+    enum kernel_function_number func_num, bool sys_success,
     pid_t pid, pid_t ppid, uid_t uid
 )
 {
@@ -227,7 +227,7 @@ bool global_is_syscall_loggable(
         return false;
 
     err = global_syscall_is_loggable(
-        &res, &g.c.syscall, sys_num, sys_success, pid, ppid, uid
+        &res, &g.c.syscall, func_num, sys_success, pid, ppid, uid
     );
     if (err != 0)
         return false;
@@ -235,7 +235,7 @@ bool global_is_syscall_loggable(
     return res;
 }
 
-bool global_is_syscall_loggable_by_sys_num(int sys_num)
+bool global_is_syscall_loggable_by_sys_num(enum kernel_function_number func_num)
 {
     int err;
     bool res;
@@ -244,7 +244,7 @@ bool global_is_syscall_loggable_by_sys_num(int sys_num)
         return false;
 
     err = global_syscall_is_loggable_by_sys_num(
-        &res, &g.c.syscall, sys_num
+        &res, &g.c.syscall, func_num
     );
     if (err != 0)
         return false;

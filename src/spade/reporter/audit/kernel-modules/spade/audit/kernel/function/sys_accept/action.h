@@ -18,16 +18,14 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_HOOK_EXECUTION_CONTEXT_POST_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_HOOK_EXECUTION_CONTEXT_POST_H
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT_ACTION_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT_ACTION_H
 
-#include "spade/audit/kernel/function/hook/execution/context/context.h"
-#include "spade/audit/kernel/function/result/result.h"
 
-struct kernel_function_hook_execution_context_post
-{
-    struct kernel_function_hook_execution_context header;
-    struct kernel_function_result sys_result;
-};
+#include <linux/types.h>
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_EXECUTION_CONTEXT_POST_H
+#include "spade/audit/kernel/function/action.h"
+
+extern const struct kernel_function_action_list KERNEL_FUNCTION_SYS_ACCEPT_ACTION_LIST;
+
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT_ACTION_H

@@ -26,6 +26,7 @@
 #include "spade/audit/arg/arg.h"
 #include "spade/audit/state/state.h"
 #include "spade/audit/context/context.h"
+#include "spade/audit/kernel/function/number.h"
 
 
 /*
@@ -122,14 +123,14 @@ bool global_is_network_logging_ns_info(void);
     Check if syscall event is loggable.
 */
 bool global_is_syscall_loggable(
-    int sys_num, bool sys_success,
+    enum kernel_function_number func_num, bool sys_success,
     pid_t pid, pid_t ppid, uid_t uid
 );
 
 /*
     Check if syscall event is loggable.
 */
-bool global_is_syscall_loggable_by_sys_num(int sys_num);
+bool global_is_syscall_loggable_by_sys_num(enum kernel_function_number func_num);
 
 /*
     Check if syscall event is loggable.

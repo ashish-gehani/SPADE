@@ -18,15 +18,23 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_RESULT_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_RESULT_H
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_NUMBER_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_NUMBER_H
 
-#include <linux/types.h>
+#include <asm/syscall.h>
 
-struct kernel_function_result
+enum kernel_function_number
 {
-    long ret;
-    bool success;
+    KERN_F_NUM_SYS_ACCEPT       = __NR_accept,
+    KERN_F_NUM_SYS_RECVFROM     = __NR_recvfrom,
+    KERN_F_NUM_SYS_RECVMSG      = __NR_recvmsg,
+    KERN_F_NUM_SYS_SENDMSG      = __NR_sendmsg,
+    KERN_F_NUM_SYS_SENDTO       = __NR_sendto,
+    KERN_F_NUM_SYS_CLONE        = __NR_clone,
+    KERN_F_NUM_SYS_FORK         = __NR_fork,
+    KERN_F_NUM_SYS_SETNS        = __NR_setns,
+    KERN_F_NUM_SYS_UNSHARE      = __NR_unshare,
+    KERN_F_NUM_SYS_VFORK        = __NR_vfork
 };
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_RESULT_H
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_NUMBER_H

@@ -24,6 +24,7 @@
 #include <linux/types.h>
 
 #include "spade/audit/context/syscall/syscall.h"
+#include "spade/audit/kernel/function/number.h"
 
 
 /*
@@ -32,14 +33,14 @@
     Params:
         dst             : The result pointer.
         ctx             : Syscall context.
-        sys_num         : The syscall number.
+        func_num        : The function number assigned to the syscall.
 
     Returns:
         0    -> dst is successfully set.
         -ive -> Error code and dst cannot be used.
 */
 int global_syscall_is_loggable_by_sys_num(
-    bool *dst, struct context_syscall *ctx, int sys_num
+    bool *dst, struct context_syscall *ctx, enum kernel_function_number func_num
 );
 
 /*
@@ -112,7 +113,7 @@ int global_syscall_is_loggable_by_ppid(
     Params:
         dst             : The result pointer.
         ctx             : Syscall context.
-        sys_num         : The syscall number.
+        func_num        : The function number assigned to the syscall.
         sys_success     : Success of the syscall.
         pid             : Pid of the process which generated the event.
         ppid            : Ppid of the process which generated the event.
@@ -125,7 +126,7 @@ int global_syscall_is_loggable_by_ppid(
 int global_syscall_is_loggable(
     bool *dst,
     struct context_syscall *ctx,
-    int sys_num, bool sys_success,
+    enum kernel_function_number func_num, bool sys_success,
     pid_t pid, pid_t ppid, uid_t uid
 );
 

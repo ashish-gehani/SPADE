@@ -18,14 +18,14 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_CONTEXT_PRE_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_CONTEXT_PRE_H
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT_OP_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT_OP_H
 
-#include "spade/audit/kernel/function/context/context.h"
 
-struct kernel_function_context_pre
-{
-    struct kernel_function_context header;
-};
+#include "spade/audit/kernel/function/op.h"
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_CONTEXT_PRE_H
+
+extern const struct kernel_function_op KERNEL_FUNCTION_SYS_ACCEPT_OP;
+
+
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT_OP_H

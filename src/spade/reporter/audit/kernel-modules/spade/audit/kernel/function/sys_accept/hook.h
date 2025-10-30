@@ -18,17 +18,15 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_ARG_ACCEPT_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_ARG_ACCEPT_H
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT_HOOK_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT_HOOK_H
 
 #include <linux/types.h>
-#include <linux/socket.h>
+#include "spade/audit/kernel/function/hook.h"
 
-struct kernel_function_arg_accept
-{
-    int sockfd;
-    struct sockaddr __user *addr;
-    uint32_t __user *addrlen;
-};
+/*
+    Hook struct for accept syscall.
+*/
+extern const struct kernel_function_hook KERNEL_FUNCTION_SYS_ACCEPT_HOOK;
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_ARG_ACCEPT_H
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT_HOOK_H

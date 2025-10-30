@@ -57,7 +57,7 @@ static long _get_ns_inum(
 
 int helper_syscall_namespace_populate_msg(
     struct msg_namespace *msg,
-    struct kernel_function_context_post *s,
+    enum kernel_function_number sys_num, long sys_ret, bool sys_success,
     enum msg_namespace_operation op
 )
 {
@@ -69,7 +69,7 @@ int helper_syscall_namespace_populate_msg(
     struct kernel_namespace_pointers *k_ns_op_ptrs;
     long host_pid;
 
-    if (!msg || !s)
+    if (!msg)
         return -EINVAL;
 
     k_ns_op_ptrs = kernel_namespace_get_pointers();
@@ -83,7 +83,7 @@ int helper_syscall_namespace_populate_msg(
     )
         return -EINVAL;
 
-    target_pid = s->sys_res.ret;
+    target_pid = sys_ret;
 
     msg_namespace_create(msg);
 
@@ -121,7 +121,7 @@ int helper_syscall_namespace_populate_msg(
     msg->host_pid = host_pid;
     msg->ns_pid = target_pid;
     msg->op = op;
-    msg->syscall_number = s->header.sys_num;
+    msg->syscall_number = sys_num;
 
 	return 0;
 }

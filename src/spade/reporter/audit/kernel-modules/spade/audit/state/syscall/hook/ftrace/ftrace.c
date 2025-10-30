@@ -25,7 +25,7 @@
 
 #include "spade/audit/state/syscall/hook/ftrace/ftrace.h"
 #include "spade/util/log/log.h"
-#include "spade/audit/kernel/function/hook/setup/ftrace/ftrace.h"
+#include "spade/audit/kernel/setup/function/ftrace/ftrace.h"
 
 
 int state_syscall_hook_ftrace_is_initialized(
@@ -63,7 +63,7 @@ int state_syscall_hook_ftrace_init(
     if (!dry_run)
     {
         util_log_debug(log_id, "Initing ftrace hooks");
-        err = kernel_function_hook_setup_ftrace_install();
+        err = kernel_setup_function_ftrace_install();
         if (err != 0)
         {
             util_log_debug(log_id, "Initing ftrace hooks. Failed. Err: %d", err);
@@ -93,7 +93,7 @@ int state_syscall_hook_ftrace_deinit(
     if (!s->dry_run)
     {
         util_log_debug(log_id, "Deiniting ftrace hooks");
-        err = kernel_function_hook_setup_ftrace_uninstall();
+        err = kernel_setup_function_ftrace_uninstall();
         if (err != 0)
         {
             util_log_debug(log_id, "Deiniting ftrace hooks. Failed. Err: %d", err);
