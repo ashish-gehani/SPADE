@@ -27,6 +27,7 @@ enum kernel_function_number
 {
     KERN_F_NUM_SYS_ACCEPT       = __NR_accept,
     KERN_F_NUM_SYS_ACCEPT4      = __NR_accept4,
+    KERN_F_NUM_SYS_BIND         = __NR_bind,
     KERN_F_NUM_SYS_RECVFROM     = __NR_recvfrom,
     KERN_F_NUM_SYS_RECVMSG      = __NR_recvmsg,
     KERN_F_NUM_SYS_SENDMSG      = __NR_sendmsg,

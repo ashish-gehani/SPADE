@@ -18,26 +18,12 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_AUDIT_HELPER_AUDIT_LOG_H
-#define _SPADE_AUDIT_HELPER_AUDIT_LOG_H
+#include "spade/audit/kernel/function/sys_bind/op.h"
+#include "spade/audit/kernel/function/sys_bind/hook.h"
+#include "spade/audit/kernel/function/sys_bind/action.h"
 
-#include <linux/audit.h>
 
-#include "spade/audit/msg/common/common.h"
-
-#define HELPER_AUDIT_LOG_MSG_BUF_LEN 700
-
-/*
-    Log msg using kernel function audit_log.
-
-    Params:
-        ctx     : Audit context (nullable).
-        msg_h   : The msg to log. Cannot be null.
-
-    Returns:
-        0       -> Successfully logged.
-        -ive    -> Error code.
-*/
-int helper_audit_log(struct audit_context *ctx, struct msg_common_header *msg_h);
-
-#endif // _SPADE_AUDIT_HELPER_AUDIT_LOG_H
+const struct kernel_function_op KERNEL_FUNCTION_SYS_BIND_OP = {
+    .hook = &KERNEL_FUNCTION_SYS_BIND_HOOK,
+    .action_list = &KERNEL_FUNCTION_SYS_BIND_ACTION_LIST
+};
