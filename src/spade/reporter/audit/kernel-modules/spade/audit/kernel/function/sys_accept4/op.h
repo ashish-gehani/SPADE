@@ -18,24 +18,14 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_NUMBER_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_NUMBER_H
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT4_OP_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT4_OP_H
 
-#include <asm/syscall.h>
 
-enum kernel_function_number
-{
-    KERN_F_NUM_SYS_ACCEPT       = __NR_accept,
-    KERN_F_NUM_SYS_ACCEPT4      = __NR_accept4,
-    KERN_F_NUM_SYS_RECVFROM     = __NR_recvfrom,
-    KERN_F_NUM_SYS_RECVMSG      = __NR_recvmsg,
-    KERN_F_NUM_SYS_SENDMSG      = __NR_sendmsg,
-    KERN_F_NUM_SYS_SENDTO       = __NR_sendto,
-    KERN_F_NUM_SYS_CLONE        = __NR_clone,
-    KERN_F_NUM_SYS_FORK         = __NR_fork,
-    KERN_F_NUM_SYS_SETNS        = __NR_setns,
-    KERN_F_NUM_SYS_UNSHARE      = __NR_unshare,
-    KERN_F_NUM_SYS_VFORK        = __NR_vfork
-};
+#include "spade/audit/kernel/function/op.h"
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_NUMBER_H
+
+extern const struct kernel_function_op KERNEL_FUNCTION_SYS_ACCEPT4_OP;
+
+
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT4_OP_H

@@ -22,11 +22,13 @@
 
 #include "spade/audit/kernel/function/op.h"
 #include "spade/audit/kernel/function/sys_accept/op.h"
+#include "spade/audit/kernel/function/sys_accept4/op.h"
 #include "spade/util/log/log.h"
 
 
 const struct kernel_function_op* KERNEL_FUNCTION_OP_LIST[] = {
-    &KERNEL_FUNCTION_SYS_ACCEPT_OP
+    &KERNEL_FUNCTION_SYS_ACCEPT_OP,
+    &KERNEL_FUNCTION_SYS_ACCEPT4_OP
 };
 const size_t KERNEL_FUNCTION_OP_LIST_LEN = sizeof(KERNEL_FUNCTION_OP_LIST) / sizeof(KERNEL_FUNCTION_OP_LIST[0]);
 
