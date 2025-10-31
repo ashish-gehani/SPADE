@@ -35,7 +35,7 @@ bool kernel_function_hook_context_pre_is_valid(struct kernel_function_hook_conte
         && hook_ctx_pre->header
         && hook_ctx_pre->header->type == KERNEL_FUNCTION_HOOK_CONTEXT_TYPE_PRE
         && hook_ctx_pre->header->act_res
-        && hook_ctx_pre->header->func_arg && hook_ctx_pre->header->func_arg->arg && hook_ctx_pre->header->func_arg->arg_size != 0
+        && hook_ctx_pre->header->func_arg && hook_ctx_pre->header->func_arg->arg
     );
 }
 
@@ -90,8 +90,8 @@ bool kernel_function_hook_context_post_is_valid(struct kernel_function_hook_cont
         && hook_ctx_post->header
         && hook_ctx_post->header->type == KERNEL_FUNCTION_HOOK_CONTEXT_TYPE_POST
         && hook_ctx_post->header->act_res
-        && hook_ctx_post->header->func_arg && hook_ctx_post->header->func_arg->arg && hook_ctx_post->header->func_arg->arg_size != 0
-        && hook_ctx_post->func_res && hook_ctx_post->func_res->res && hook_ctx_post->func_res->res_size != 0
+        && hook_ctx_post->header->func_arg && hook_ctx_post->header->func_arg->arg
+        && hook_ctx_post->func_res && hook_ctx_post->func_res->res
     );
 }
 

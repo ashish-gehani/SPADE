@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/syscall.h>
 #include <sched.h>
 #include <signal.h>
 #include <fcntl.h>
@@ -39,12 +40,13 @@ static int child_func(void *arg) {
 }
 
 void test_fork() {
-    printf("\n=== Testing fork() ===\n");
+    printf("\n=== Testing fork() via syscall() ===\n");
 
-    pid_t pid = fork();
+    // Explicitly call fork syscall using syscall()
+    pid_t pid = syscall(SYS_fork);
 
     if (pid < 0) {
-        perror("fork failed");
+        perror("fork syscall failed");
         return;
     }
 
@@ -54,7 +56,7 @@ void test_fork() {
         exit(0);
     } else {
         // Parent process
-        printf("[FORK PARENT] Created child with PID: %d\n", pid);
+        printf("[FORK PARENT] Created child with PID: %d (via SYS_fork syscall)\n", pid);
         waitpid(pid, NULL, 0);
         printf("[FORK PARENT] Child exited\n");
     }
