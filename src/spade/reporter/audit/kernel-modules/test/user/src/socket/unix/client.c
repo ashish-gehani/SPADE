@@ -30,6 +30,9 @@
 #define DEFAULT_TCP_SOCK "/tmp/test_tcp.sock"
 #define DEFAULT_UDP_SOCK "/tmp/test_udp.sock"
 #define CLIENT_UDP_SOCK "/tmp/test_client_udp.sock"
+#define ABSTRACT_TCP_SOCK "\0test_abstract_tcp"
+#define ABSTRACT_UDP_SOCK "\0test_abstract_udp"
+#define ABSTRACT_CLIENT_UDP_SOCK "\0test_abstract_client_udp"
 
 void print_usage(const char *prog) {
     printf("Usage: %s [tcp_socket_path] [udp_socket_path]\n", prog);
@@ -210,6 +213,162 @@ int main(int argc, char *argv[]) {
     close(udp_sock);
     unlink(CLIENT_UDP_SOCK);
 
-    printf("\n=== Client completed all syscall tests ===\n");
+    printf("\n=== Filesystem socket tests completed ===\n");
+    printf("\n=== Starting Abstract Unix Socket Tests ===\n");
+    sleep(1);
+
+    // ===== Abstract Socket Tests =====
+    int abs_tcp_sock1, abs_tcp_sock2, abs_udp_sock;
+    struct sockaddr_un abs_server_tcp_addr, abs_server_udp_addr, abs_client_udp_addr, abs_from_addr;
+    socklen_t abs_addr_len;
+
+    // ===== Test 1: connect() to abstract TCP socket with accept() =====
+    abs_tcp_sock1 = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (abs_tcp_sock1 < 0) {
+        perror("Abstract TCP socket 1 creation failed");
+        return 1;
+    }
+
+    memset(&abs_server_tcp_addr, 0, sizeof(abs_server_tcp_addr));
+    abs_server_tcp_addr.sun_family = AF_UNIX;
+    memcpy(abs_server_tcp_addr.sun_path, ABSTRACT_TCP_SOCK, sizeof(ABSTRACT_TCP_SOCK) - 1);
+    abs_addr_len = offsetof(struct sockaddr_un, sun_path) + sizeof(ABSTRACT_TCP_SOCK) - 1;
+
+    printf("[Abstract TCP] Testing connect() to abstract socket...\n");
+    if (connect(abs_tcp_sock1, (struct sockaddr*)&abs_server_tcp_addr, abs_addr_len) < 0) {
+        perror("Abstract connect failed");
+        close(abs_tcp_sock1);
+        return 1;
+    }
+    printf("[Abstract TCP] connect() successful (for accept test)\n");
+
+    // Send data
+    const char *abs_msg1 = "Hello from abstract client 1";
+    send(abs_tcp_sock1, abs_msg1, strlen(abs_msg1), 0);
+
+    // Receive response
+    memset(buffer, 0, BUFFER_SIZE);
+    n = recv(abs_tcp_sock1, buffer, BUFFER_SIZE, 0);
+    if (n > 0) {
+        printf("[Abstract TCP] Received response: %s\n", buffer);
+    }
+
+    close(abs_tcp_sock1);
+    sleep(1);
+
+    // ===== Test 2: connect() to abstract TCP socket with accept4() =====
+    abs_tcp_sock2 = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (abs_tcp_sock2 < 0) {
+        perror("Abstract TCP socket 2 creation failed");
+        return 1;
+    }
+
+    printf("[Abstract TCP] Testing connect() to abstract socket...\n");
+    if (connect(abs_tcp_sock2, (struct sockaddr*)&abs_server_tcp_addr, abs_addr_len) < 0) {
+        perror("Abstract connect failed");
+        close(abs_tcp_sock2);
+        return 1;
+    }
+    printf("[Abstract TCP] connect() successful (for accept4 test)\n");
+
+    // Send data
+    const char *abs_msg2 = "Hello from abstract client 2";
+    send(abs_tcp_sock2, abs_msg2, strlen(abs_msg2), 0);
+
+    // Receive response
+    memset(buffer, 0, BUFFER_SIZE);
+    n = recv(abs_tcp_sock2, buffer, BUFFER_SIZE, 0);
+    if (n > 0) {
+        printf("[Abstract TCP] Received response: %s\n", buffer);
+    }
+
+    close(abs_tcp_sock2);
+    sleep(1);
+
+    // ===== Test 3: sendto() and recvfrom() with abstract UDP =====
+    abs_udp_sock = socket(AF_UNIX, SOCK_DGRAM, 0);
+    if (abs_udp_sock < 0) {
+        perror("Abstract UDP socket creation failed");
+        return 1;
+    }
+
+    // Bind client UDP socket so server can respond
+    memset(&abs_client_udp_addr, 0, sizeof(abs_client_udp_addr));
+    abs_client_udp_addr.sun_family = AF_UNIX;
+    memcpy(abs_client_udp_addr.sun_path, ABSTRACT_CLIENT_UDP_SOCK, sizeof(ABSTRACT_CLIENT_UDP_SOCK) - 1);
+    abs_addr_len = offsetof(struct sockaddr_un, sun_path) + sizeof(ABSTRACT_CLIENT_UDP_SOCK) - 1;
+
+    if (bind(abs_udp_sock, (struct sockaddr*)&abs_client_udp_addr, abs_addr_len) < 0) {
+        perror("Abstract UDP client bind failed");
+        close(abs_udp_sock);
+        return 1;
+    }
+
+    // Setup abstract UDP server address
+    memset(&abs_server_udp_addr, 0, sizeof(abs_server_udp_addr));
+    abs_server_udp_addr.sun_family = AF_UNIX;
+    memcpy(abs_server_udp_addr.sun_path, ABSTRACT_UDP_SOCK, sizeof(ABSTRACT_UDP_SOCK) - 1);
+    abs_addr_len = offsetof(struct sockaddr_un, sun_path) + sizeof(ABSTRACT_UDP_SOCK) - 1;
+
+    // Test sendto() syscall
+    printf("[Abstract UDP] Testing sendto() to abstract socket...\n");
+    const char *abs_udp_msg1 = "Abstract UDP message via sendto()";
+    n = sendto(abs_udp_sock, abs_udp_msg1, strlen(abs_udp_msg1), 0,
+               (struct sockaddr*)&abs_server_udp_addr, abs_addr_len);
+    if (n > 0) {
+        printf("[Abstract UDP] sendto() sent %zd bytes\n", n);
+    }
+
+    // Test recvfrom() syscall
+    memset(buffer, 0, BUFFER_SIZE);
+    socklen_t abs_from_len = sizeof(abs_from_addr);
+    n = recvfrom(abs_udp_sock, buffer, BUFFER_SIZE, 0,
+                 (struct sockaddr*)&abs_from_addr, &abs_from_len);
+    if (n > 0) {
+        printf("[Abstract UDP] recvfrom() received: %s\n", buffer);
+    }
+
+    sleep(1);
+
+    // ===== Test 4: sendmsg() and recvmsg() with abstract UDP =====
+    printf("[Abstract UDP] Testing sendmsg() to abstract socket...\n");
+    const char *abs_udp_msg2 = "Abstract UDP message via sendmsg()";
+
+    struct iovec abs_iov;
+    abs_iov.iov_base = (void*)abs_udp_msg2;
+    abs_iov.iov_len = strlen(abs_udp_msg2);
+
+    struct msghdr abs_msg;
+    memset(&abs_msg, 0, sizeof(abs_msg));
+    abs_msg.msg_name = &abs_server_udp_addr;
+    abs_msg.msg_namelen = abs_addr_len;
+    abs_msg.msg_iov = &abs_iov;
+    abs_msg.msg_iovlen = 1;
+
+    // Test sendmsg() syscall
+    n = sendmsg(abs_udp_sock, &abs_msg, 0);
+    if (n > 0) {
+        printf("[Abstract UDP] sendmsg() sent %zd bytes\n", n);
+    }
+
+    // Test recvmsg() syscall
+    memset(buffer, 0, BUFFER_SIZE);
+    abs_iov.iov_base = buffer;
+    abs_iov.iov_len = BUFFER_SIZE;
+
+    memset(&abs_msg, 0, sizeof(abs_msg));
+    abs_msg.msg_name = &abs_from_addr;
+    abs_msg.msg_namelen = sizeof(abs_from_addr);
+    abs_msg.msg_iov = &abs_iov;
+    abs_msg.msg_iovlen = 1;
+
+    n = recvmsg(abs_udp_sock, &abs_msg, 0);
+    if (n > 0) {
+        printf("[Abstract UDP] recvmsg() received: %s\n", buffer);
+    }
+
+    close(abs_udp_sock);
+
+    printf("\n=== Client completed all syscall tests (filesystem + abstract) ===\n");
     return 0;
 }

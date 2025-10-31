@@ -21,6 +21,7 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/string.h>
+#include <linux/un.h>
 
 #include "spade/audit/msg/common/common.h"
 #include "spade/audit/msg/common/serialize/audit.h"
@@ -28,18 +29,82 @@
 
 #define SAADR_HEX_LEN (sizeof(struct sockaddr_storage) * 2 + 1)
 
+/*
+ * Serialize Unix domain socket address (sockaddr_un) as hex string.
+ * Unix sockets have two types of paths in sun_path field:
+ * 1. Filesystem paths: null-terminated string (use strlen)
+ * 2. Abstract socket paths: start with '\0', not null-terminated (use full length from saddr_len)
+ * Only hexifies from start of structure to the actual path length.
+ */
+static void seqbuf_saddr_un_to_string(
+    struct seqbuf *b, char *key_name,
+    struct sockaddr_un *sun, int saddr_len
+)
+{
+    int path_offset;
+    int path_len;
+    int total_len;
+    char hex[SAADR_HEX_LEN];
+
+    /* Calculate offset to sun_path field */
+    path_offset = offsetof(struct sockaddr_un, sun_path);
+
+    /* Calculate actual path length */
+    if (saddr_len <= path_offset)
+    {
+        /* Invalid or empty path */
+        path_len = 0;
+    }
+    else if (sun->sun_path[0] == '\0')
+    {
+        /* Abstract socket: path starts with null byte, use full length from saddr_len */
+        path_len = saddr_len - path_offset;
+    }
+    else
+    {
+        /* Filesystem socket: null-terminated string, use strlen */
+        size_t str_len = strnlen(sun->sun_path, saddr_len - path_offset);
+        path_len = str_len;
+        /* Include null terminator if present */
+        if (str_len < (saddr_len - path_offset) && sun->sun_path[str_len] == '\0')
+        {
+            path_len = str_len + 1;
+        }
+    }
+
+    /* Total bytes to hexify: sa_family + actual path */
+    total_len = path_offset + path_len;
+
+    memset(&hex[0], 0, SAADR_HEX_LEN);
+
+    /* Hexify only from start (sa_family) to end of actual path */
+    bin2hex(hex, sun, total_len);
+
+    util_seqbuf_printf(b, "%s=%s", key_name, &hex[0]);
+}
+
+/*
+ * Serialize generic socket address.
+ * Detects AF_UNIX family and delegates to sockaddr_un handler.
+ */
 static void seqbuf_saddr_to_string(
     struct seqbuf *b, char *key_name,
     struct sockaddr_storage *saddr, int saddr_len
 )
 {
-    char hex[SAADR_HEX_LEN];
+    struct sockaddr *sa = (struct sockaddr *)saddr;
 
-    memset(&hex[0], 0, SAADR_HEX_LEN);
-
-    bin2hex(hex, saddr, saddr_len);
-
-    util_seqbuf_printf(b, "%s=%s", key_name, &hex[0]);
+    /* Check if this is a Unix domain socket */
+    if (sa->sa_family == AF_UNIX)
+    {
+        seqbuf_saddr_un_to_string(b, key_name, (struct sockaddr_un *)saddr, saddr_len);
+    } else
+    {
+        char hex[SAADR_HEX_LEN];
+        memset(&hex[0], 0, SAADR_HEX_LEN);
+        bin2hex(hex, saddr, saddr_len);
+        util_seqbuf_printf(b, "%s=%s", key_name, &hex[0]);
+    }
 }
 
 static int _msg_network_serialize_audit_msg(

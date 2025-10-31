@@ -1,5 +1,7 @@
 .vscode
 build
+*.mod
+*.mod.cmd
 *.o.cmd
 *.o
 *.o.d
