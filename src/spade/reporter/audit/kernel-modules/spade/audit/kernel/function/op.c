@@ -28,6 +28,7 @@
 #include "spade/audit/kernel/function/sys_connect/op.h"
 #include "spade/audit/kernel/function/sys_fork/op.h"
 #include "spade/audit/kernel/function/sys_kill/op.h"
+#include "spade/audit/kernel/function/sys_recvfrom/op.h"
 #include "spade/util/log/log.h"
 
 
@@ -38,7 +39,8 @@ const struct kernel_function_op* KERNEL_FUNCTION_OP_LIST[] = {
     &KERNEL_FUNCTION_SYS_CLONE_OP,
     &KERNEL_FUNCTION_SYS_CONNECT_OP,
     &KERNEL_FUNCTION_SYS_FORK_OP,
-    &KERNEL_FUNCTION_SYS_KILL_OP
+    &KERNEL_FUNCTION_SYS_KILL_OP,
+    &KERNEL_FUNCTION_SYS_RECVFROM_OP
 };
 const size_t KERNEL_FUNCTION_OP_LIST_LEN = sizeof(KERNEL_FUNCTION_OP_LIST) / sizeof(KERNEL_FUNCTION_OP_LIST[0]);
 
