@@ -22,7 +22,7 @@
 #include <linux/string.h>
 
 #include "spade/audit/state/netfilter/netfilter.h"
-#include "spade/audit/kernel/netfilter/setup/setup.h"
+#include "spade/audit/kernel/setup/netfilter/netfilter.h"
 
 
 int state_netfilter_is_initialized(
@@ -51,7 +51,7 @@ int state_netfilter_init(
 
     if (!dry_run)
     {
-        err = kernel_netfilter_hook_setup_do();
+        err = kernel_setup_netfilter_do();
         if (err != 0)
             return err;
     }
@@ -72,7 +72,7 @@ int state_netfilter_deinit(struct state_netfilter *s)
 
     if (!s->dry_run)
     {
-        err = kernel_netfilter_hook_setup_undo();
+        err = kernel_setup_netfilter_undo();
     }
 
     s->initialized = false;

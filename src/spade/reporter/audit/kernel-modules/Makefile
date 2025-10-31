@@ -121,7 +121,6 @@ HELPER_OBJS := \
 
 KERNEL_OBJS := \
   spade/audit/kernel/namespace/namespace.o \
-  spade/audit/kernel/netfilter/setup/setup.o \
   spade/audit/kernel/netfilter/netfilter.o \
   spade/audit/kernel/function/action.o \
   spade/audit/kernel/function/hook.o \
@@ -129,6 +128,7 @@ KERNEL_OBJS := \
   spade/audit/kernel/setup/function/ftrace/ftrace.o \
   spade/audit/kernel/setup/function/ftrace/ftrace_helper.o \
   spade/audit/kernel/setup/namespace/namespace.o \
+  spade/audit/kernel/setup/netfilter/netfilter.o \
   $(HOOKED_FUNCTION_OBJS)
 
 MSG_OBJS := \

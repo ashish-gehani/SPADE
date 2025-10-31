@@ -31,7 +31,7 @@
         0       -> Successfully hooked all.
         -ive    -> Error code.
 */
-int kernel_netfilter_hook_setup_do(void);
+int kernel_setup_netfilter_do(void);
 
 /*
     Unhook all netfilter hooks.
@@ -40,7 +40,7 @@ int kernel_netfilter_hook_setup_do(void);
         0       -> Successfully unhooked all.
         -ive    -> Error code.
 */
-int kernel_netfilter_hook_setup_undo(void);
+int kernel_setup_netfilter_undo(void);
 
 
 #endif // SPADE_AUDIT_KERNEL_NETFILTER_SETUP_SETUP_H

@@ -22,23 +22,23 @@
 #include <linux/errno.h>
 #include <net/net_namespace.h>
 
-#include "spade/audit/kernel/netfilter/setup/setup.h"
+#include "spade/audit/kernel/setup/netfilter/list.h"
+#include "spade/audit/kernel/setup/netfilter/netfilter.h"
 #include "spade/util/log/log.h"
-#include "spade/audit/kernel/netfilter/setup/list.h"
 
 
 extern const struct nf_hook_ops kernel_netfilter_setup_list_hooks[];
 extern const int kernel_netfilter_setup_list_hooks_size;
 
 
-int kernel_netfilter_hook_setup_do()
+int kernel_setup_netfilter_do()
 {
     return nf_register_net_hooks(
         &init_net, kernel_netfilter_setup_list_hooks, kernel_netfilter_setup_list_hooks_size
     );
 }
 
-int kernel_netfilter_hook_setup_undo()
+int kernel_setup_netfilter_undo()
 {
     nf_unregister_net_hooks(
         &init_net, kernel_netfilter_setup_list_hooks, kernel_netfilter_setup_list_hooks_size
