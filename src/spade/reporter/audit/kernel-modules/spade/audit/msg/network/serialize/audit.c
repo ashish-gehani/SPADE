@@ -132,7 +132,7 @@ static int _msg_network_serialize_audit_msg(
         b, " remote_saddr", &msg->remote_saddr, 
         msg->remote_saddr_size
     );
-    util_seqbuf_printf(b, " remote_saddr_size=%d", msg->remote_saddr_size); // todo... do we need this field?
+    util_seqbuf_printf(b, " remote_saddr_size=%d", msg->remote_saddr_size); // todo... do we need this field? set to 2 when 0100
     util_seqbuf_printf(b, " net_ns_inum=%u", msg->net_ns_inum);
 
     util_seqbuf_printf(b, "\"");

@@ -55,8 +55,9 @@ CHECK_SCRIPT_MOD_MAIN=bin/test/$(MAIN_MODULE_NAME)/run.sh
 MODULE_NAMES := $(MAIN_MODULE_NAME) $(CONTROLLER_MODULE_NAME) $(TEST_MODULE_NAME)
 
 # Function names
-# FUNCTION_NAMES := accept accept4 bind clone connect fork kill recvfrom recvmsg sendmsg sendto setns unshare vfork
-HOOKED_FUNCTION_NAMES := sys_accept sys_accept4 sys_bind sys_clone sys_connect sys_fork sys_kill sys_recvfrom sys_recvmsg sys_sendmsg
+HOOKED_FUNCTION_NAMES := \
+  sys_accept sys_accept4 sys_bind sys_clone sys_connect sys_fork sys_kill sys_recvfrom sys_recvmsg \
+  sys_sendmsg sys_sendto
 HOOKED_FUNCTION_OBJS = \
   $(foreach f_name,$(HOOKED_FUNCTION_NAMES),spade/audit/kernel/function/$(f_name)/action/audit.o) \
   $(foreach f_name,$(HOOKED_FUNCTION_NAMES),spade/audit/kernel/function/$(f_name)/action.o) \
