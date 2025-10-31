@@ -18,27 +18,12 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_NUMBER_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_NUMBER_H
+#include "spade/audit/kernel/function/sys_kill/op.h"
+#include "spade/audit/kernel/function/sys_kill/hook.h"
+#include "spade/audit/kernel/function/sys_kill/action.h"
 
-#include <asm/syscall.h>
 
-enum kernel_function_number
-{
-    KERN_F_NUM_SYS_ACCEPT       = __NR_accept,
-    KERN_F_NUM_SYS_ACCEPT4      = __NR_accept4,
-    KERN_F_NUM_SYS_BIND         = __NR_bind,
-    KERN_F_NUM_SYS_CONNECT      = __NR_connect,
-    KERN_F_NUM_SYS_RECVFROM     = __NR_recvfrom,
-    KERN_F_NUM_SYS_RECVMSG      = __NR_recvmsg,
-    KERN_F_NUM_SYS_SENDMSG      = __NR_sendmsg,
-    KERN_F_NUM_SYS_SENDTO       = __NR_sendto,
-    KERN_F_NUM_SYS_CLONE        = __NR_clone,
-    KERN_F_NUM_SYS_FORK         = __NR_fork,
-    KERN_F_NUM_SYS_KILL         = __NR_kill,
-    KERN_F_NUM_SYS_SETNS        = __NR_setns,
-    KERN_F_NUM_SYS_UNSHARE      = __NR_unshare,
-    KERN_F_NUM_SYS_VFORK        = __NR_vfork
+const struct kernel_function_op KERNEL_FUNCTION_SYS_KILL_OP = {
+    .hook = &KERNEL_FUNCTION_SYS_KILL_HOOK,
+    .action_list = &KERNEL_FUNCTION_SYS_KILL_ACTION_LIST
 };
-
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_NUMBER_H

@@ -18,27 +18,15 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_NUMBER_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_NUMBER_H
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_KILL_ARG_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_KILL_ARG_H
 
-#include <asm/syscall.h>
+#include <linux/types.h>
 
-enum kernel_function_number
+struct kernel_function_sys_kill_arg
 {
-    KERN_F_NUM_SYS_ACCEPT       = __NR_accept,
-    KERN_F_NUM_SYS_ACCEPT4      = __NR_accept4,
-    KERN_F_NUM_SYS_BIND         = __NR_bind,
-    KERN_F_NUM_SYS_CONNECT      = __NR_connect,
-    KERN_F_NUM_SYS_RECVFROM     = __NR_recvfrom,
-    KERN_F_NUM_SYS_RECVMSG      = __NR_recvmsg,
-    KERN_F_NUM_SYS_SENDMSG      = __NR_sendmsg,
-    KERN_F_NUM_SYS_SENDTO       = __NR_sendto,
-    KERN_F_NUM_SYS_CLONE        = __NR_clone,
-    KERN_F_NUM_SYS_FORK         = __NR_fork,
-    KERN_F_NUM_SYS_KILL         = __NR_kill,
-    KERN_F_NUM_SYS_SETNS        = __NR_setns,
-    KERN_F_NUM_SYS_UNSHARE      = __NR_unshare,
-    KERN_F_NUM_SYS_VFORK        = __NR_vfork
+    pid_t pid;
+    int sig;
 };
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_NUMBER_H
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_KILL_ARG_H
