@@ -33,6 +33,7 @@
 #include "spade/audit/kernel/function/sys_sendmsg/op.h"
 #include "spade/audit/kernel/function/sys_sendto/op.h"
 #include "spade/audit/kernel/function/sys_setns/op.h"
+#include "spade/audit/kernel/function/sys_unshare/op.h"
 #include "spade/util/log/log.h"
 
 
@@ -48,7 +49,8 @@ const struct kernel_function_op* KERNEL_FUNCTION_OP_LIST[] = {
     &KERNEL_FUNCTION_SYS_RECVMSG_OP,
     &KERNEL_FUNCTION_SYS_SENDMSG_OP,
     &KERNEL_FUNCTION_SYS_SENDTO_OP,
-    &KERNEL_FUNCTION_SYS_SETNS_OP
+    &KERNEL_FUNCTION_SYS_SETNS_OP,
+    &KERNEL_FUNCTION_SYS_UNSHARE_OP
 };
 const size_t KERNEL_FUNCTION_OP_LIST_LEN = sizeof(KERNEL_FUNCTION_OP_LIST) / sizeof(KERNEL_FUNCTION_OP_LIST[0]);
 

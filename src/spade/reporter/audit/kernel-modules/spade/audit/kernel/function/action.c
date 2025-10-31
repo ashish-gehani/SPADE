@@ -65,13 +65,24 @@ int kernel_function_action_post(struct kernel_function_hook_context_post *ctx_po
     const struct kernel_function_op *k_f_op;
     int err;
     int i;
+    enum kernel_function_number f_num;
 
     if (!kernel_function_hook_context_post_is_valid(ctx_post))
+    {
+        util_log_debug(log_id, "Invalid ctx. kernel_function_hook_context_post_is_valid.");
         return -EINVAL;
+    }
 
-    err = kernel_function_op_get_by_func_num(&k_f_op, ctx_post->header->func_num);
+    f_num = ctx_post->header->func_num;
+
+    err = kernel_function_op_get_by_func_num(&k_f_op, f_num);
     if (err != 0)
+    {
+        util_log_debug(log_id, "No func by num %d. kernel_function_op_get_by_func_num.", f_num);
         return err;
+    }
+
+    util_log_debug(log_id, "Starting action list iteration for func %d", f_num);
 
     for (i = 0; i < KERNEL_FUNCTION_ACTION_LEN_MAX; i++)
     {
@@ -79,13 +90,16 @@ int kernel_function_action_post(struct kernel_function_hook_context_post *ctx_po
         if (!act_post)
         {
             // End of list
+            util_log_debug(log_id, "End of action list for func %d", f_num);
             break;
         }
+
+        util_log_debug(log_id, "Executing action list item at index %d for func %d", i, f_num);
 
         err = act_post(ctx_post);
         if (err != 0)
         {
-            util_log_warn(log_id, "Failed to execute post action for func num %d at index: %d. Err: %d", ctx_post->header->func_num, i, err);
+            util_log_warn(log_id, "Failed to execute post action for func num %d at index: %d. Err: %d", f_num, i, err);
             break;
         }
     }

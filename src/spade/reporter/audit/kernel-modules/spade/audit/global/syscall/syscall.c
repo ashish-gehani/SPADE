@@ -26,6 +26,7 @@
 #include "spade/audit/global/common/common.h"
 #include "spade/audit/global/syscall/syscall.h"
 #include "spade/audit/kernel/function/number.h"
+#include "spade/util/log/log.h"
 
 
 int global_syscall_is_loggable_by_sys_num(bool *dst, struct context_syscall *ctx, enum kernel_function_number func_num)
@@ -198,23 +199,33 @@ int global_syscall_is_loggable(
 
     err = global_syscall_is_loggable_by_sys_num(dst, ctx, func_num);
     if (err != 0 || !(*dst))
+    {
         goto exit_false;
+    }
 
     err = global_syscall_is_loggable_by_sys_success(dst, ctx, sys_success);
     if (err != 0 || !(*dst))
+    {
         goto exit_false;
+    }
 
     err = global_syscall_is_loggable_by_uid(dst, ctx, uid);
     if (err != 0 || !(*dst))
+    {
         goto exit_false;
+    }
 
     err = global_syscall_is_loggable_by_pid(dst, ctx, pid);
     if (err != 0 || !(*dst))
+    {
         goto exit_false;
+    }
 
     err = global_syscall_is_loggable_by_ppid(dst, ctx, ppid);
     if (err != 0 || !(*dst))
+    {
         goto exit_false;
+    }
 
     goto exit_true;
 

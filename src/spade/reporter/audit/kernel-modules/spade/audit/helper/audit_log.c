@@ -53,7 +53,7 @@ int helper_audit_log(struct audit_context *ctx, struct msg_common_header *msg_h)
         return -ENOMEM;
     }
 
-    audit_log(ctx, GFP_KERNEL, AUDIT_USER, &buf_msg[0]);
+    audit_log(ctx, GFP_KERNEL, AUDIT_USER, "%s", &buf_msg[0]);
 
     return 0;
 }
