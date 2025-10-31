@@ -57,12 +57,11 @@ static long _get_ns_inum(
 
 int helper_syscall_namespace_populate_msg(
     struct msg_namespace *msg,
-    enum kernel_function_number sys_num, long sys_ret, bool sys_success,
+    enum kernel_function_number sys_num, long target_pid, bool sys_success,
     enum msg_namespace_operation op
 )
 {
     const char *log_id = "helper_syscall_namespace_populate_msg";
-    long target_pid;
 	struct pid *pid_struct;
 	struct task_struct *pid_task_struct;
     struct kernel_namespace_pointers *k_ns_op_ptrs;
@@ -83,8 +82,6 @@ int helper_syscall_namespace_populate_msg(
         || !k_ns_op_ptrs->ops_pid_children
     )
         return -EINVAL;
-
-    target_pid = sys_ret;
 
     msg_namespace_create(msg);
 
