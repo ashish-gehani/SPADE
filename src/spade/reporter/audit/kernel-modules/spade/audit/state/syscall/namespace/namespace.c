@@ -24,7 +24,7 @@
 #include <linux/version.h>
 
 #include "spade/audit/state/syscall/namespace/namespace.h"
-#include "spade/audit/kernel/namespace/setup/setup.h"
+#include "spade/audit/kernel/setup/namespace/namespace.h"
 #include "spade/util/log/log.h"
 
 
@@ -60,7 +60,7 @@ int state_syscall_namespace_init(
 
     if (!dry_run)
     {
-        err = kernel_namespace_setup_do();
+        err = kernel_setup_namespace_do();
         if (err != 0)
             return err;
     }
@@ -80,7 +80,7 @@ int state_syscall_namespace_deinit(
         return -EINVAL;
 
     if (!s->dry_run)
-        err = kernel_namespace_setup_undo();
+        err = kernel_setup_namespace_undo();
 
     s->initialized = false;
     s->dry_run = false;

@@ -23,7 +23,7 @@
 
 #include "spade/audit/kernel/namespace/namespace.h"
 #include "spade/audit/helper/kernel.h"
-#include "spade/audit/kernel/namespace/setup/setup.h"
+#include "spade/audit/kernel/setup/namespace/namespace.h"
 #include "spade/util/log/log.h"
 
 
@@ -100,7 +100,7 @@ static int _init_ns_ops_kernel_ptrs(kallsyms_lookup_name_t kallsyms_lookup_name)
     return kernel_namespace_set(&s);
 }
 
-int kernel_namespace_setup_do(void)
+int kernel_setup_namespace_do(void)
 {
     kallsyms_lookup_name_t kallsyms_func;
 
@@ -113,7 +113,7 @@ int kernel_namespace_setup_do(void)
     return _init_ns_ops_kernel_ptrs(kallsyms_func);
 }
 
-int kernel_namespace_setup_undo(void)
+int kernel_setup_namespace_undo(void)
 {
     return kernel_namespace_unset();
 }
