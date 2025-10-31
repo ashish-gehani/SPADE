@@ -28,6 +28,7 @@ struct kernel_namespace_pointers
     struct proc_ns_operations* ops_mnt;
     struct proc_ns_operations* ops_net;
     struct proc_ns_operations* ops_pid;
+    struct proc_ns_operations* ops_pid_children;
     struct proc_ns_operations* ops_user;
     struct proc_ns_operations* ops_ipc;
     struct proc_ns_operations* ops_cgroup;

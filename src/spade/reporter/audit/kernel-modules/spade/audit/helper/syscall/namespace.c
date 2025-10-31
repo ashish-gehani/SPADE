@@ -61,11 +61,10 @@ int helper_syscall_namespace_populate_msg(
     enum msg_namespace_operation op
 )
 {
-
+    const char *log_id = "helper_syscall_namespace_populate_msg";
     long target_pid;
 	struct pid *pid_struct;
 	struct task_struct *pid_task_struct;
-    struct pid_namespace *pid_ns;
     struct kernel_namespace_pointers *k_ns_op_ptrs;
     long host_pid;
 
@@ -80,6 +79,8 @@ int helper_syscall_namespace_populate_msg(
         || !k_ns_op_ptrs->ops_mnt
         || !k_ns_op_ptrs->ops_net
         || !k_ns_op_ptrs->ops_user
+        || !k_ns_op_ptrs->ops_pid
+        || !k_ns_op_ptrs->ops_pid_children
     )
         return -EINVAL;
 
@@ -92,26 +93,22 @@ int helper_syscall_namespace_populate_msg(
     rcu_read_unlock();
 
 	if (!pid_struct)
+    {
+        util_log_debug(log_id, "NULL pid_struct");
         return -ESRCH;
+    }
 	
     pid_task_struct = pid_task(pid_struct, PIDTYPE_PID);
     if (!pid_task_struct)
-        return -ESRCH;
-
-    host_pid = pid_nr(pid_struct);
-
-	pid_ns = task_active_pid_ns(pid_task_struct);
-	if (pid_ns)
-        msg->ns_inum_pid = pid_ns->ns.inum;
-
-    if (!pid_task_struct->nsproxy)
     {
+        util_log_debug(log_id, "NULL pid_task_struct");
         return -ESRCH;
     }
 
-	if (pid_task_struct->nsproxy->pid_ns_for_children)
-        msg->ns_inum_pid_children = pid_task_struct->nsproxy->pid_ns_for_children->ns.inum;
+    host_pid = pid_nr(pid_struct);
 
+    msg->ns_inum_pid = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_pid);
+    msg->ns_inum_pid_children = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_pid_children);
 	msg->ns_inum_mnt = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_mnt);
 	msg->ns_inum_net = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_net);
 	msg->ns_inum_usr = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_user);

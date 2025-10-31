@@ -53,6 +53,8 @@ static void __maybe_unused state_syscall_namespace_write_to_seqbuf_redacted(
     seqbuf_print_sep(b);
     type_print_bool(b, "found_ops_pid", (k_ptrs->ops_pid != NULL));
     seqbuf_print_sep(b);
+    type_print_bool(b, "found_ops_pid_children", (k_ptrs->ops_pid_children != NULL));
+    seqbuf_print_sep(b);
     type_print_bool(b, "found_ops_user", (k_ptrs->ops_user != NULL));
     seqbuf_print_sep(b);
     type_print_bool(b, "found_ops_ipc", (k_ptrs->ops_ipc != NULL));
@@ -82,6 +84,8 @@ static void __maybe_unused state_syscall_namespace_write_to_seqbuf_unredacted(
     util_seqbuf_printf(b, "ops_net=%p", k_ptrs->ops_net);
     seqbuf_print_sep(b);
     util_seqbuf_printf(b, "ops_pid=%p", k_ptrs->ops_pid);
+    seqbuf_print_sep(b);
+    util_seqbuf_printf(b, "ops_pid_children=%p", k_ptrs->ops_pid_children);
     seqbuf_print_sep(b);
     util_seqbuf_printf(b, "ops_user=%p", k_ptrs->ops_user);
     seqbuf_print_sep(b);

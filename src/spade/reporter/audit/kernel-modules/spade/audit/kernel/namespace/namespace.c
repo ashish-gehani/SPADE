@@ -40,6 +40,7 @@ int kernel_namespace_set(struct kernel_namespace_pointers *k)
     global.ops_mnt = k->ops_mnt;
     global.ops_net = k->ops_net;
     global.ops_pid = k->ops_pid;
+    global.ops_pid_children = k->ops_pid_children;
     global.ops_user = k->ops_user;
     
     return 0;
@@ -47,7 +48,13 @@ int kernel_namespace_set(struct kernel_namespace_pointers *k)
 
 int kernel_namespace_unset(void)
 {
-    global.ops_cgroup = global.ops_ipc = global.ops_mnt = global.ops_net = global.ops_pid = global.ops_user = NULL;
+    global.ops_cgroup = 
+        global.ops_ipc = 
+        global.ops_mnt = 
+        global.ops_net = 
+        global.ops_pid = 
+        global.ops_pid_children = 
+        global.ops_user = NULL;
     return 0;
 }
 

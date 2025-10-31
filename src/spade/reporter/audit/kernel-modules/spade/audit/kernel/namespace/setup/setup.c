@@ -73,6 +73,12 @@ static int _init_ns_ops_kernel_ptrs(kallsyms_lookup_name_t kallsyms_lookup_name)
         return -ENOENT;
     }
 
+	s.ops_pid_children = _get_ns_ops_kernel_ptr(kallsyms_lookup_name, "pidns_for_children_operations", "Failed to get pid children NS ops symbol");
+    if (!s.ops_pid)
+    {
+        return -ENOENT;
+    }
+
 	s.ops_user = _get_ns_ops_kernel_ptr(kallsyms_lookup_name, "userns_operations", "Failed to get user NS ops symbol");
     if (!s.ops_user)
     {
