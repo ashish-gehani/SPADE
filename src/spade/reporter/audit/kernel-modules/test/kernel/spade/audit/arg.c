@@ -216,70 +216,70 @@ static void test_arg_parse_monitor_mode(struct test_stats *stats)
 	TEST_PASS(stats, test_name);
 }
 
-static void test_arg_parse_monitor_syscalls(struct test_stats *stats)
+static void test_arg_parse_monitor_function_result(struct test_stats *stats)
 {
-	const char *test_name = "test_arg_parse_monitor_syscalls";
+	const char *test_name = "test_arg_parse_monitor_function_result";
 	int err;
-	enum type_monitor_syscalls original_value;
+	enum type_monitor_function_result original_value;
 	_ensure_global_arg_is_reset();
 
 	stats->total++;
 
-	// Test TMS_ALL (-1)
-	err = type_parse_monitor_syscalls(test_name, "monitor_syscalls", "-1", &arg.monitor_syscalls);
+	// Test TMFR_ALL (-1)
+	err = type_parse_monitor_function_result(test_name, "monitor_function_result", "-1", &arg.monitor_function_result);
 	if (err)
 	{
-		TEST_FAIL(stats, test_name, "parse '-1' (TMS_ALL) returned %d", err);
+		TEST_FAIL(stats, test_name, "parse '-1' (TMFR_ALL) returned %d", err);
 		return;
 	}
-	if (arg.monitor_syscalls != TMS_ALL)
+	if (arg.monitor_function_result != TMFR_ALL)
 	{
-		TEST_FAIL(stats, test_name, "Expected TMS_ALL, got %d", arg.monitor_syscalls);
+		TEST_FAIL(stats, test_name, "Expected TMFR_ALL, got %d", arg.monitor_function_result);
 		return;
 	}
 
-	// Test TMS_ONLY_FAILED (0)
-	err = type_parse_monitor_syscalls(test_name, "monitor_syscalls", "0", &arg.monitor_syscalls);
+	// Test TMFR_ONLY_FAILED (0)
+	err = type_parse_monitor_function_result(test_name, "monitor_function_result", "0", &arg.monitor_function_result);
 	if (err)
 	{
-		TEST_FAIL(stats, test_name, "parse '0' (TMS_ONLY_FAILED) returned %d", err);
+		TEST_FAIL(stats, test_name, "parse '0' (TMFR_ONLY_FAILED) returned %d", err);
 		return;
 	}
-	if (arg.monitor_syscalls != TMS_ONLY_FAILED)
+	if (arg.monitor_function_result != TMFR_ONLY_FAILED)
 	{
-		TEST_FAIL(stats, test_name, "Expected TMS_ONLY_FAILED, got %d", arg.monitor_syscalls);
+		TEST_FAIL(stats, test_name, "Expected TMFR_ONLY_FAILED, got %d", arg.monitor_function_result);
 		return;
 	}
 
-	// Test TMS_ONLY_SUCCESSFUL (1)
-	err = type_parse_monitor_syscalls(test_name, "monitor_syscalls", "1", &arg.monitor_syscalls);
+	// Test TMFR_ONLY_SUCCESSFUL (1)
+	err = type_parse_monitor_function_result(test_name, "monitor_function_result", "1", &arg.monitor_function_result);
 	if (err)
 	{
-		TEST_FAIL(stats, test_name, "parse '1' (TMS_ONLY_SUCCESSFUL) returned %d", err);
+		TEST_FAIL(stats, test_name, "parse '1' (TMFR_ONLY_SUCCESSFUL) returned %d", err);
 		return;
 	}
-	if (arg.monitor_syscalls != TMS_ONLY_SUCCESSFUL)
+	if (arg.monitor_function_result != TMFR_ONLY_SUCCESSFUL)
 	{
-		TEST_FAIL(stats, test_name, "Expected TMS_ONLY_SUCCESSFUL, got %d", arg.monitor_syscalls);
+		TEST_FAIL(stats, test_name, "Expected TMFR_ONLY_SUCCESSFUL, got %d", arg.monitor_function_result);
 		return;
 	}
 
-	// Negative test: invalid monitor syscalls
-	original_value = arg.monitor_syscalls;
-	err = type_parse_monitor_syscalls(test_name, "monitor_syscalls", "invalid", &arg.monitor_syscalls);
+	// Negative test: invalid monitor functions
+	original_value = arg.monitor_function_result;
+	err = type_parse_monitor_function_result(test_name, "monitor_function_result", "invalid", &arg.monitor_function_result);
 	if (!err)
 	{
 		TEST_FAIL(stats, test_name, "Expected parse failure for 'invalid' but succeeded");
 		return;
 	}
-	if (arg.monitor_syscalls != original_value)
+	if (arg.monitor_function_result != original_value)
 	{
 		TEST_FAIL(stats, test_name, "Value modified on failed parse");
 		return;
 	}
 
 	// Negative test: empty string
-	err = type_parse_monitor_syscalls(test_name, "monitor_syscalls", "", &arg.monitor_syscalls);
+	err = type_parse_monitor_function_result(test_name, "monitor_function_result", "", &arg.monitor_function_result);
 	if (!err)
 	{
 		TEST_FAIL(stats, test_name, "Expected parse failure for empty string but succeeded");
@@ -287,14 +287,14 @@ static void test_arg_parse_monitor_syscalls(struct test_stats *stats)
 	}
 
 	// Negative test: invalid numeric value
-	err = type_parse_monitor_syscalls(test_name, "monitor_syscalls", "999", &arg.monitor_syscalls);
+	err = type_parse_monitor_function_result(test_name, "monitor_function_result", "999", &arg.monitor_function_result);
 	if (!err)
 	{
 		TEST_FAIL(stats, test_name, "Expected parse failure for '999' but succeeded");
 		return;
 	}
 
-	util_log_info(test_name, "Testing type_parse_monitor_syscalls");
+	util_log_info(test_name, "Testing type_parse_monitor_function_result");
 	arg_print(&arg);
 	TEST_PASS(stats, test_name);
 }
@@ -565,7 +565,7 @@ int test_arg_all(struct test_stats *stats)
 	test_arg_print_empty(stats);
 	test_arg_parse_bool(stats);
 	test_arg_parse_monitor_mode(stats);
-	test_arg_parse_monitor_syscalls(stats);
+	test_arg_parse_monitor_function_result(stats);
 	test_arg_parse_monitor_connections(stats);
 	test_arg_parse_pid_array(stats);
 	test_arg_parse_uid_array(stats);

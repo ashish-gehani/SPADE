@@ -96,7 +96,7 @@ int type_parse_bool(
 );
 
 /*
-	Set kernel module param of type 'enum type_monitor_syscalls'.
+	Set kernel module param of type 'enum type_monitor_function_result'.
 
 	Params:
 		log_id 		: Log identifier.
@@ -108,9 +108,9 @@ int type_parse_bool(
 		0    : Success.
 		-ive : Error code.
 */
-int type_parse_monitor_syscalls(
+int type_parse_monitor_function_result(
 	const char *log_id, const char *param_name,
-	const char *val, enum type_monitor_syscalls *dst
+	const char *val, enum type_monitor_function_result *dst
 );
 
 /*

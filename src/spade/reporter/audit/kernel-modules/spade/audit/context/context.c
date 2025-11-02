@@ -48,61 +48,83 @@ int context_is_initialized(
 
 int context_init(struct context *c, const struct arg *arg)
 {
-    int err;
-    bool syscall_is_inited = false;
+    int err = 0;
+    bool function_is_inited = false;
     bool netfilter_is_inited = false;
 
     if (!c)
-        return -EINVAL;
+    {
+        err = -EINVAL;
+        goto exit;
+    }
 
     if (c->initialized)
-        return -EALREADY;
-
-    err = context_syscall_is_initialized(&syscall_is_inited, &c->syscall);
-    if (err != 0)
-        return err;
-
-    if (!syscall_is_inited)
     {
-        err = context_syscall_init(&c->syscall, arg);
+        err = -EALREADY;
+        goto exit;
+    }
+
+    err = context_function_is_initialized(&function_is_inited, &c->function);
+    if (err != 0)
+    {
+        goto exit;
+    }
+
+    if (!function_is_inited)
+    {
+        err = context_function_init(&c->function, arg);
         if (err != 0)
-            return err;
+        {
+            goto exit_deinit_all;
+        }
     }
 
     err = context_netfilter_is_initialized(&netfilter_is_inited, &c->netfilter);
     if (err != 0)
-        return err;
+    {
+        goto exit_deinit_all;
+    }
 
     if (!netfilter_is_inited)
     {
         err = context_netfilter_init(&c->netfilter, arg);
         if (err != 0)
-            return err;
+        {
+            goto exit_deinit_all;
+        }
     }
 
     c->initialized = true;
+    err = 0;
+    goto exit;
 
-    return 0;
+exit_deinit_all:
+    context_function_deinit(&c->function);
+    context_netfilter_deinit(&c->netfilter);
+    return err;
+
+exit:
+    return err;
 }
 
 int context_deinit(struct context *c)
 {
     int nf_err;
-    int sys_err;
+    int func_err;
 
     if (!c || !c->initialized)
         return -EINVAL;
 
     nf_err = context_netfilter_deinit(&c->netfilter);
-    sys_err = context_syscall_deinit(&c->syscall);
+    func_err = context_function_deinit(&c->function);
 
     c->initialized = false;
 
     if (nf_err != 0)
         return nf_err;
 
-    if (sys_err != 0)
-        return sys_err;
+    if (func_err != 0)
+        return func_err;
 
     return 0;
 }

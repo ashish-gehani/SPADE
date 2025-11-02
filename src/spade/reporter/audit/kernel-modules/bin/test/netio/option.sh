@@ -92,10 +92,10 @@ function get_user_ignore_options()
     echo "uids=$uid uid_trace_mode=1"
 }
 
-# Function to get syscalls monitoring option
-# Usage: syscalls_option=$(get_syscalls_option)
+# Function to get functions monitoring option
+# Usage: func_monitoring_option=$(get_function_monitoring_option)
 # Returns: String 'log_syscalls=1'
-function get_log_syscalls_option()
+function get_function_monitoring_option()
 {
     echo "log_syscalls=1"
 }
@@ -206,13 +206,13 @@ function get_option_for_watch_audited_user()
     local nf_monitor_ct=$(get_nf_monitor_ct_all_option)
     local network_io=$(get_include_network_io_option)
     local namespaces=$(get_include_namespaces_option)
-    local log_syscalls=$(get_log_syscalls_option)
+    local function_monitoring=$(get_function_monitoring_option)
     local user_capture=$(get_user_capture_options)
     local ignore_processes=$(get_ignore_processes_options)
     local config_file=$(get_config_file_option)
     local dry_run=$(get_dry_run_option)
 
-    echo "$nf_handle_user $network_io $namespaces $log_syscalls $user_capture $ignore_processes $nf_hooks $nf_monitor_ct $config_file $dry_run"
+    echo "$nf_handle_user $network_io $namespaces $function_monitoring $user_capture $ignore_processes $nf_hooks $nf_monitor_ct $config_file $dry_run"
 }
 
 # Function to get options based on a command

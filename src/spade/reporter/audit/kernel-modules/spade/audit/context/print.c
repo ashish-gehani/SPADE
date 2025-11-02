@@ -21,7 +21,7 @@
 #include <linux/slab.h>
 
 #include "spade/audit/context/print.h"
-#include "spade/audit/context/syscall/print.h"
+#include "spade/audit/context/function/print.h"
 #include "spade/audit/context/netfilter/print.h"
 #include "spade/util/seqbuf/seqbuf.h"
 #include "spade/audit/type/print.h"
@@ -38,7 +38,7 @@ static void seqbuf_print_context(struct seqbuf *b, const struct context *context
     util_seqbuf_printf(b, "context={");
     type_print_bool(b, "initialized", context->initialized);
     seqbuf_print_context_sep(b);
-    context_syscall_write_to_seqbuf(b, &context->syscall);
+    context_function_write_to_seqbuf(b, &context->function);
     seqbuf_print_context_sep(b);
     context_netfilter_write_to_seqbuf(b, &context->netfilter);
     util_seqbuf_printf(b, "}");

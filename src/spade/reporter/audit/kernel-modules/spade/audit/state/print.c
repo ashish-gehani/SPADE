@@ -21,8 +21,9 @@
 #include <linux/slab.h>
 
 #include "spade/audit/state/print.h"
-#include "spade/audit/state/syscall/print.h"
+#include "spade/audit/state/function/print.h"
 #include "spade/audit/state/netfilter/print.h"
+#include "spade/audit/state/namespace/print.h"
 #include "spade/util/seqbuf/seqbuf.h"
 #include "spade/audit/type/print.h"
 #include "spade/util/log/log.h"
@@ -41,7 +42,9 @@ static void seqbuf_print_state(struct seqbuf *b, const struct state *state)
     util_seqbuf_printf(b, "state={");
     type_print_bool(b, "initialized", state->initialized);
     seqbuf_print_sep(b);
-    state_syscall_write_to_seqbuf(b, &state->syscall);
+    state_function_write_to_seqbuf(b, &state->function);
+    seqbuf_print_sep(b);
+    state_namespace_write_to_seqbuf(b, &state->namespace);
     seqbuf_print_sep(b);
     state_netfilter_write_to_seqbuf(b, &state->netfilter);
     util_seqbuf_printf(b, "}");

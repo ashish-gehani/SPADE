@@ -29,8 +29,8 @@
 #include "spade/audit/kernel/function/sys_kill/result.h"
 #include "spade/audit/msg/ubsi/ubsi.h"
 #include "spade/audit/msg/ops.h"
-#include "spade/audit/helper/audit_log.h"
-#include "spade/audit/helper/task.h"
+#include "spade/audit/kernel/helper/audit_log.h"
+#include "spade/audit/kernel/helper/task.h"
 #include "spade/util/log/log.h"
 
 
@@ -70,7 +70,7 @@ int kernel_function_sys_kill_action_audit_handle_post(
         return err;
     }
 
-    err = helper_task_populate_process_info_from_current_task(&msg.proc_info);
+    err = kernel_helper_task_populate_process_info_from_current_task(&msg.proc_info);
     if (err != 0)
     {
         util_log_warn(log_id, "Failed to copy current process info");
@@ -86,7 +86,7 @@ int kernel_function_sys_kill_action_audit_handle_post(
     msg.syscall_success = ctx_post->func_res->success;
     msg.target_pid = sys_arg->pid;
 
-    err = helper_audit_log(NULL, &msg.header);
+    err = kernel_helper_audit_log(NULL, &msg.header);
 
     return err;
 }

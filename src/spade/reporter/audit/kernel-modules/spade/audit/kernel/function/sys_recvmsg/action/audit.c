@@ -29,8 +29,8 @@
 #include "spade/audit/kernel/function/sys_recvmsg/result.h"
 #include "spade/audit/msg/network/network.h"
 #include "spade/audit/msg/ops.h"
-#include "spade/audit/helper/syscall/network.h"
-#include "spade/audit/helper/audit_log.h"
+#include "spade/audit/kernel/helper/network.h"
+#include "spade/audit/kernel/helper/audit_log.h"
 #include "spade/util/log/log.h"
 
 
@@ -76,52 +76,52 @@ int kernel_function_sys_recvmsg_action_audit_handle_post(
     sys_arg = (struct kernel_function_sys_recvmsg_arg*)ctx_post->header->func_arg->arg;
     sys_res = (struct kernel_function_sys_recvmsg_result*)ctx_post->func_res->res;
 
-    err = helper_syscall_network_sockfd_is_connected(&sockfd_is_connected, sys_arg->sockfd);
+    err = kernel_helper_network_is_sockfd_connected(&sockfd_is_connected, sys_arg->sockfd);
     if (err != 0)
     {
-        util_log_debug(log_id, "Failed helper_syscall_network_sockfd_is_connected. Err: %d", err);
+        util_log_debug(log_id, "Failed kernel_helper_network_sockfd_is_connected. Err: %d", err);
         return err;
     }
 
     if (sockfd_is_connected)
     {
-        err = helper_syscall_network_get_peer_saddr_from_fd(
+        err = kernel_helper_network_get_peer_saddr_from_fd(
             &remote_saddr, &remote_saddr_size,
             sys_arg->sockfd
         );
         if (err != 0)
         {
-            util_log_debug(log_id, "Failed helper_syscall_network_get_peer_saddr_from_fd. Err: %d", err);
+            util_log_debug(log_id, "Failed kernel_helper_network_get_peer_saddr_from_fd. Err: %d", err);
             return err;
         }
     } else
     {
-        err = helper_syscall_network_copy_saddr_and_size_in_msghdr_from_userspace(
+        err = kernel_helper_network_copy_saddr_and_size_in_msghdr_from_userspace(
             &remote_saddr, &remote_saddr_size,
             sys_arg->msg
         );
         if (err != 0)
         {
-            util_log_debug(log_id, "Failed helper_syscall_network_copy_saddr_and_size_in_msghdr_from_userspace. Err: %d", err);
+            util_log_debug(log_id, "Failed kernel_helper_network_copy_saddr_and_size_in_msghdr_from_userspace. Err: %d", err);
             return err;
         }
     }
 
-    err = helper_syscall_network_populate_msg(
+    err = kernel_helper_network_populate_msg(
         &msg,
         ctx_post->header->func_num, sys_res->ret, ctx_post->func_res->success,
         sys_arg->sockfd, &remote_saddr, remote_saddr_size
     );
     if (err != 0)
     {
-        util_log_debug(log_id, "Failed helper_syscall_network_populate_msg. Err: %d", err);
+        util_log_debug(log_id, "Failed kernel_helper_network_populate_msg. Err: %d", err);
         return err;
     }
 
-    err = helper_audit_log(NULL, &msg.header);
+    err = kernel_helper_audit_log(NULL, &msg.header);
     if (err != 0)
     {
-        util_log_debug(log_id, "Failed helper_audit_log. Err: %d", err);
+        util_log_debug(log_id, "Failed kernel_helper_audit_log. Err: %d", err);
     }
 
     return err;

@@ -37,8 +37,9 @@
 #include "spade/audit/msg/netfilter/serialize/audit.h"
 #include "spade/audit/msg/ops.h"
 #include "spade/audit/global/global.h"
-#include "spade/audit/helper/kernel.h"
-#include "spade/audit/helper/audit_log.h"
+#include "spade/audit/kernel/helper/kernel.h"
+#include "spade/audit/kernel/helper/audit_log.h"
+#include "spade/audit/global/filter.h"
 
 
 static struct
@@ -55,7 +56,7 @@ static void _inc_discarded_event_count(void)
 
 static bool _is_auditing(void)
 {
-    return global_is_netfilter_audit_hooks_on();
+    return global_filter_netfilter_audit_hooks_on();
 }
 
 static enum ip_conntrack_info get_conntrack_info(const struct sk_buff *skb, enum ip_conntrack_info default_ct_info)
@@ -65,7 +66,7 @@ static enum ip_conntrack_info get_conntrack_info(const struct sk_buff *skb, enum
     if (!skb)
         return default_ct_info;
 // TODO
-#if HELPER_KERNEL_VERSION_GTE_4_11_0
+#if KERNEL_HELPER_KERNEL_VERSION_GTE_4_11_0
     ct = nf_ct_get(skb, &ct_info); // also derives ctinfo
     if (ct)
     {
@@ -80,7 +81,7 @@ static enum ip_conntrack_info get_conntrack_info(const struct sk_buff *skb, enum
 static bool packet_can_be_handled_based_on_conntrack_info(const struct sk_buff *skb)
 {
     enum ip_conntrack_info ct_info = get_conntrack_info(skb, IP_CT_ESTABLISHED);
-    return global_is_netfilter_loggable_by_conntrack_info(ct_info);
+    return global_filter_netfilter_conntrack_info_is_actionable(ct_info);
 }
 
 static bool packet_can_be_handled_based_on_user(const struct sk_buff *skb)
@@ -89,7 +90,7 @@ static bool packet_can_be_handled_based_on_user(const struct sk_buff *skb)
     if (sk && sk->sk_socket && sk->sk_socket->file && sk->sk_socket->file->f_cred)
     {
         uid_t uid = from_kuid(&init_user_ns, sk->sk_socket->file->f_cred->uid);
-        return global_is_netfilter_loggable_by_user(uid);
+        return global_filter_netfilter_user_is_actionable(uid);
     }
     else
     {
@@ -180,7 +181,7 @@ static unsigned int get_net_ns_num(
     int ip_version,
     void *iph_generic)
 {
-    if (!global_is_netfilter_logging_ns_info())
+    if (!global_filter_netfilter_include_ns_info())
         return 0;
     if (ip_version == AF_INET)
     {
@@ -276,7 +277,7 @@ static void nf_handle_packet(enum nf_ip_hook_priorities prio, const struct sk_bu
         goto discard_and_exit;
     }
 
-    helper_audit_log(audit_ctx, &msg.header);
+    kernel_helper_audit_log(audit_ctx, &msg.header);
 
 discard_and_exit:
     _inc_discarded_event_count();

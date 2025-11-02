@@ -26,7 +26,7 @@
 #include <linux/proc_ns.h>
 
 #include "spade/audit/arg/arg.h"
-#include "spade/audit/context/syscall/syscall.h"
+#include "spade/audit/context/function/function.h"
 #include "spade/audit/context/netfilter/netfilter.h"
 
 
@@ -34,8 +34,8 @@ struct context
 {
     bool initialized;
 
-    // Syscall related context.
-    struct context_syscall syscall;
+    // Function related context.
+    struct context_function function;
 
     // Netfilter related context.
     struct context_netfilter netfilter;

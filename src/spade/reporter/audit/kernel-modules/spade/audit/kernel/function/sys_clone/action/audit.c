@@ -29,8 +29,8 @@
 #include "spade/audit/kernel/function/sys_clone/result.h"
 #include "spade/audit/msg/namespace/namespace.h"
 #include "spade/audit/msg/ops.h"
-#include "spade/audit/helper/syscall/namespace.h"
-#include "spade/audit/helper/audit_log.h"
+#include "spade/audit/kernel/helper/namespace.h"
+#include "spade/audit/kernel/helper/audit_log.h"
 #include "spade/util/log/log.h"
 
 
@@ -73,21 +73,21 @@ int kernel_function_sys_clone_action_audit_handle_post(
     sys_arg = (struct kernel_function_sys_clone_arg*)ctx_post->header->func_arg->arg;
     sys_res = (struct kernel_function_sys_clone_result*)ctx_post->func_res->res;
 
-    err = helper_syscall_namespace_populate_msg(
+    err = kernel_helper_namespace_populate_msg(
         &msg,
         ctx_post->header->func_num, sys_res->ret, ctx_post->func_res->success,
         NS_OP_NEW_PROCESS
     );
     if (err != 0)
     {
-        util_log_debug(log_id, "Failed helper_syscall_namespace_populate_msg. Err: %d", err);
+        util_log_debug(log_id, "Failed kernel_helper_namespace_populate_msg. Err: %d", err);
         return err;
     }
 
-    err = helper_syscall_namespace_log_msg_to_audit(&msg);
+    err = kernel_helper_namespace_log_msg_to_audit(&msg);
     if (err != 0)
     {
-        util_log_debug(log_id, "Failed helper_syscall_namespace_log_msg_to_audit. Err: %d", err);
+        util_log_debug(log_id, "Failed kernel_helper_namespace_log_msg_to_audit. Err: %d", err);
     }
 
     return err;

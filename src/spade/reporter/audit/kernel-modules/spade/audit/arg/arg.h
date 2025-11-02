@@ -63,9 +63,9 @@ struct arg
     bool include_ns_info;
 
     /*
-        System calls to monitor.
+        Function call results to monitor.
     */
-    enum type_monitor_syscalls monitor_syscalls;
+    enum type_monitor_function_result monitor_function_result;
 
     /*
         PID monitoring related args.

@@ -23,30 +23,18 @@
 
 #include "spade/audit/arg/print.h"
 #include "spade/audit/global/global.h"
-#include "spade/audit/global/syscall/syscall.h"
-#include "spade/audit/global/netfilter/netfilter.h"
+#include "spade/audit/global/filter.h"
 #include "spade/audit/context/print.h"
 #include "spade/util/log/log.h"
 #include "spade/audit/state/print.h"
 
 
-static struct global
-{
-    struct state s;
-    struct context c;
-    atomic_t inited;
-    atomic_t auditing_started;
-} g = {
+struct global global_state = {
     .s = {0},
     .c = {0},
     .inited = ATOMIC_INIT(0),
     .auditing_started = ATOMIC_INIT(0)
 };
-
-static bool _is_inited(void)
-{
-    return (atomic_read(&g.inited) == 1);
-}
 
 /*
     Public functions.
@@ -56,19 +44,19 @@ int global_init(bool dry_run)
 {
     int err;
 
-    if (atomic_cmpxchg(&g.inited, 0, 1) == 1)
+    if (atomic_cmpxchg(&global_state.inited, 0, 1) == 1)
         return -EALREADY;
 
-    err = state_init(&g.s, dry_run);
+    err = state_init(&global_state.s, dry_run);
     if (err != 0)
         goto undo_cmpxchg_and_exit;
 
-    state_print(&g.s);
+    state_print(&global_state.s);
 
     goto exit; // success... so go to exit without undo.
 
 undo_cmpxchg_and_exit:
-    atomic_cmpxchg(&g.inited, 1, 0);
+    atomic_cmpxchg(&global_state.inited, 1, 0);
 
 exit:
     return err;
@@ -76,7 +64,7 @@ exit:
 
 bool global_is_initialized(void)
 {
-    return _is_inited();
+    return (atomic_read(&global_state.inited) == 1);
 }
 
 int global_deinit(void)
@@ -84,12 +72,12 @@ int global_deinit(void)
     int err = 0;
     bool dst;
 
-    if (atomic_cmpxchg(&g.inited, 1, 0) == 0)
+    if (atomic_cmpxchg(&global_state.inited, 1, 0) == 0)
         return -EALREADY;
 
-    err = state_is_initialized(&dst, &g.s);
+    err = state_is_initialized(&dst, &global_state.s);
     if (err == 0 && dst == true)
-        err = state_deinit(&g.s);
+        err = state_deinit(&global_state.s);
 
     return err;
 }
@@ -103,24 +91,24 @@ int global_auditing_start(const struct arg *arg)
 {
     int err = 0;
 
-    if (!_is_inited() || !arg)
+    if (!global_is_initialized() || !arg)
         return -EINVAL;
 
-    if (atomic_cmpxchg(&g.auditing_started, 0, 1) == 1)
+    if (atomic_cmpxchg(&global_state.auditing_started, 0, 1) == 1)
         return -EALREADY;
 
-    err = context_init(&g.c, arg);
+    err = context_init(&global_state.c, arg);
     if (err != 0)
         goto undo_cmpxchg_and_exit;
 
     arg_print(arg);
-    context_print(&g.c);
+    context_print(&global_state.c);
     _log_auditing_state("global_auditing", true);
 
     goto exit; // success... so go to exit without undo.
 
 undo_cmpxchg_and_exit:
-    atomic_cmpxchg(&g.auditing_started, 1, 0);
+    atomic_cmpxchg(&global_state.auditing_started, 1, 0);
 
 exit:
     return err;
@@ -131,191 +119,25 @@ int global_auditing_stop(void)
     int err = 0;
     bool dst;
 
-    if (!_is_inited())
+    if (!global_is_initialized())
         return -EINVAL;
 
-    if (atomic_cmpxchg(&g.auditing_started, 1, 0) == 0)
+    if (atomic_cmpxchg(&global_state.auditing_started, 1, 0) == 0)
         return -EALREADY;
 
-    err = context_is_initialized(&dst, &g.c);
+    err = context_is_initialized(&dst, &global_state.c);
     if (err == 0 && dst == true)
-        err = context_deinit(&g.c);
+        err = context_deinit(&global_state.c);
 
     _log_auditing_state("global_auditing", false);
 
     return err;
 }
 
-static bool _is_auditing_started(void)
-{
-    return (atomic_read(&g.auditing_started) == 1);
-}
-
 bool global_is_auditing_started(void)
 {
-    return _is_auditing_started();
-}
-
-//
-
-bool global_is_netfilter_loggable_by_user(uid_t uid)
-{
-    int err;
-    bool res;
-
-    if (!_is_auditing_started())
-        return false;
-
-    err = global_netfilter_is_loggable_by_user(
-        &res, &g.c.netfilter, uid
+    return (
+        global_is_initialized() 
+        && (atomic_read(&global_state.auditing_started) == 1)
     );
-    if (err != 0)
-        return false;
-
-    return res;
-}
-
-bool global_is_netfilter_loggable_by_conntrack_info(
-    enum ip_conntrack_info ct_info
-)
-{
-    int err;
-    bool res;
-
-    if (!_is_auditing_started())
-        return false;
-
-    err = global_netfilter_event_is_loggable_by_conntrack_info(
-        &res, &g.c.netfilter, ct_info
-    );
-    if (err != 0)
-        return false;
-
-    return res;
-}
-
-bool global_is_netfilter_logging_ns_info(void)
-{
-    if (!_is_auditing_started())
-        return false;
-    return g.c.netfilter.include_ns_info;
-}
-
-bool global_is_netfilter_audit_hooks_on(void)
-{
-    if (!_is_auditing_started())
-        return false;
-    return g.c.netfilter.audit_hooks;
-}
-
-bool global_is_network_logging_ns_info(void)
-{
-    if (!_is_auditing_started())
-        return false;
-    return g.c.syscall.include_ns_info;
-}
-
-bool global_is_syscall_loggable(
-    enum kernel_function_number func_num, bool sys_success,
-    pid_t pid, pid_t ppid, uid_t uid
-)
-{
-    int err;
-    bool res;
-
-    if (!_is_auditing_started())
-        return false;
-
-    err = global_syscall_is_loggable(
-        &res, &g.c.syscall, func_num, sys_success, pid, ppid, uid
-    );
-    if (err != 0)
-        return false;
-
-    return res;
-}
-
-bool global_is_syscall_loggable_by_sys_num(enum kernel_function_number func_num)
-{
-    int err;
-    bool res;
-
-    if (!_is_auditing_started())
-        return false;
-
-    err = global_syscall_is_loggable_by_sys_num(
-        &res, &g.c.syscall, func_num
-    );
-    if (err != 0)
-        return false;
-
-    return res;
-}
-
-bool global_is_syscall_loggable_by_sys_success(bool sys_success)
-{
-    int err;
-    bool res;
-
-    if (!_is_auditing_started())
-        return false;
-
-    err = global_syscall_is_loggable_by_sys_success(
-        &res, &g.c.syscall, sys_success
-    );
-    if (err != 0)
-        return false;
-
-    return res;
-}
-
-bool global_is_syscall_loggable_by_pid(pid_t pid)
-{
-    int err;
-    bool res;
-
-    if (!_is_auditing_started())
-        return false;
-
-    err = global_syscall_is_loggable_by_pid(
-        &res, &g.c.syscall, pid
-    );
-    if (err != 0)
-        return false;
-
-    return res;
-}
-
-bool global_is_syscall_loggable_by_ppid(pid_t ppid)
-{
-    int err;
-    bool res;
-
-    if (!_is_auditing_started())
-        return false;
-
-    err = global_syscall_is_loggable_by_ppid(
-        &res, &g.c.syscall, ppid
-    );
-    if (err != 0)
-        return false;
-
-    return res;
-}
-
-bool global_is_syscall_loggable_by_uid(uid_t uid)
-{
-    int err;
-    bool res;
-
-    if (!_is_auditing_started())
-        return false;
-
-    err = global_syscall_is_loggable_by_uid(
-        &res, &g.c.syscall, uid
-    );
-    if (err != 0)
-        return false;
-
-    return res;
 }

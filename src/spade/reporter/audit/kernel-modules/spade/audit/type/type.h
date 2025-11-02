@@ -59,14 +59,14 @@ enum type_monitor_mode
 };
 
 /*
-    An enum to describe which syscalls to trace based on their
+    An enum to describe which function to trace based on their
     result.
 */
-enum type_monitor_syscalls
+enum type_monitor_function_result
 {
-    TMS_ALL = -1,
-    TMS_ONLY_FAILED = 0,
-    TMS_ONLY_SUCCESSFUL = 1,
+    TMFR_ALL = -1,
+    TMFR_ONLY_FAILED = 0,
+    TMFR_ONLY_SUCCESSFUL = 1,
 };
 
 enum type_monitor_connections

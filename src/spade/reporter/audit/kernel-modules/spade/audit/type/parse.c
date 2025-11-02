@@ -159,9 +159,9 @@ invalid:
 	return -EINVAL;
 }
 
-int type_parse_monitor_syscalls(
+int type_parse_monitor_function_result(
 	const char *log_id, const char *param_name,
-	const char *src, enum type_monitor_syscalls *dst)
+	const char *src, enum type_monitor_function_result *dst)
 {
 	int tmp, ret;
 
@@ -172,7 +172,7 @@ int type_parse_monitor_syscalls(
 	if (ret)
 		return ret;
 
-	if (tmp != TMS_ALL && tmp != TMS_ONLY_FAILED && tmp != TMS_ONLY_SUCCESSFUL)
+	if (tmp != TMFR_ALL && tmp != TMFR_ONLY_FAILED && tmp != TMFR_ONLY_SUCCESSFUL)
 	{
 		util_log_warn(log_id, "Parameter (%s) has invalid value %d (must be -1=all, 0=only_failed, 1=only_successful)", param_name, tmp);
 		return -EINVAL;

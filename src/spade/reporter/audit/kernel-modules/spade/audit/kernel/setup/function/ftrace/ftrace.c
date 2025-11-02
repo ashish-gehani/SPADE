@@ -23,6 +23,7 @@
 #include "spade/audit/kernel/setup/function/ftrace/ftrace.h"
 #include "spade/audit/kernel/setup/function/ftrace/ftrace_helper.h"
 #include "spade/audit/kernel/function/op.h"
+#include "spade/util/log/log.h"
 
 
 static size_t ftrace_hooks_len;
@@ -38,6 +39,7 @@ static struct
 
 static void _init_ftrace_hooks(void)
 {
+    const char *log_id = "_init_ftrace_hooks";
     int i;
     for (i = 0; i < KERNEL_FUNCTION_OP_LIST_LEN; i++)
     {
@@ -55,6 +57,9 @@ static void _init_ftrace_hooks(void)
         ftrace_hooks[i].name = hook->get_name();
         ftrace_hooks[i].function = hook->get_hook_func();
         ftrace_hooks[i].original = hook->get_orig_func_ptr();
+
+        util_log_debug(log_id, "Inited ftrace_hook struct {name=%s} at index %d", ftrace_hooks[i].name, i);
+
         ftrace_hooks_len++;
     }
 }

@@ -43,7 +43,7 @@ static void seqbuf_print_arg(struct seqbuf *b, const struct arg *arg)
     seqbuf_print_arg_sep(b);
     type_print_monitor_connections(b, ARG_CONSTANT_NAME_NF_MONITOR_CT_STR, arg->nf.monitor_ct);
     seqbuf_print_arg_sep(b);
-    type_print_monitor_syscalls(b, ARG_CONSTANT_NAME_MONITOR_SYSCALLS_STR, arg->monitor_syscalls);
+    type_print_monitor_function_result(b, ARG_CONSTANT_NAME_MONITOR_FUNCTION_RESULT_STR, arg->monitor_function_result);
     seqbuf_print_arg_sep(b);
     type_print_bool(b, ARG_CONSTANT_NAME_NETWORK_IO_STR, arg->network_io);
     seqbuf_print_arg_sep(b);

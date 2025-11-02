@@ -49,9 +49,9 @@ int state_is_initialized(
 
 int state_init(struct state *s, bool dry_run)
 {
-    const char *log_id = "state_init";
     int err;
-    bool syscall_is_inited = false;
+    bool function_is_inited = false;
+    bool namespace_is_inited = false;
     bool netfilter_is_inited = false;
 
     if (!s)
@@ -60,22 +60,26 @@ int state_init(struct state *s, bool dry_run)
     if (s->initialized)
         return -EALREADY;
 
-    err = state_syscall_is_initialized(&syscall_is_inited, &s->syscall);
+    err = state_function_is_initialized(&function_is_inited, &s->function);
     if (err != 0)
         return err;
 
-    if (!syscall_is_inited)
+    if (!function_is_inited)
     {
-        util_log_debug(log_id, "Initing syscall state");
-        err = state_syscall_init(&s->syscall, dry_run);
+        err = state_function_init(&s->function, dry_run);
         if (err != 0)
-        {
-            util_log_debug(log_id, "Initing syscall state. Failed. Err: %d", err);
             return err;
-        } else
-        {
-            util_log_debug(log_id, "Initing syscall state. Success.");
-        }
+    }
+
+    err = state_namespace_is_initialized(&namespace_is_inited, &s->namespace);
+    if (err != 0)
+        return err;
+
+    if (!namespace_is_inited)
+    {
+        err = state_namespace_init(&s->namespace, dry_run);
+        if (err != 0)
+            return err;
     }
 
     err = state_netfilter_is_initialized(&netfilter_is_inited, &s->netfilter);
@@ -98,13 +102,15 @@ int state_init(struct state *s, bool dry_run)
 int state_deinit(struct state *s)
 {
     int nf_err;
-    int sys_err;
+    int ns_err;
+    int func_err;
 
     if (!s || !s->initialized)
         return -EINVAL;
 
     nf_err = state_netfilter_deinit(&s->netfilter);
-    sys_err = state_syscall_deinit(&s->syscall);
+    ns_err = state_namespace_deinit(&s->namespace);
+    func_err = state_function_deinit(&s->function);
 
     s->initialized = false;
     s->dry_run = false;
@@ -112,8 +118,11 @@ int state_deinit(struct state *s)
     if (nf_err != 0)
         return nf_err;
 
-    if (sys_err != 0)
-        return sys_err;
+    if (ns_err != 0)
+        return ns_err;
+
+    if (func_err != 0)
+        return func_err;
 
     return 0;
 }

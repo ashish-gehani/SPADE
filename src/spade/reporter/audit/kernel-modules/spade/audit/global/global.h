@@ -40,6 +40,14 @@
 
 */
 
+struct global
+{
+    struct state s;
+    struct context c;
+    atomic_t inited;
+    atomic_t auditing_started;
+};
+
 /*
     Init.
 
@@ -91,66 +99,6 @@ int global_auditing_stop(void);
         true/false.
 */
 bool global_is_auditing_started(void);
-
-/*
-    Check if netfilter event is loggable by uid.
-*/
-bool global_is_netfilter_loggable_by_user(uid_t uid);
-
-/*
-    Check if netfilter event is loggable by conntrack info.
-*/
-bool global_is_netfilter_loggable_by_conntrack_info(
-    enum ip_conntrack_info ct_info
-);
-
-/*
-    Check if namespace info is to be included in netfilter events.
-*/
-bool global_is_netfilter_logging_ns_info(void);
-
-/*
-    Check if netfilter hooks are being audited.
-*/
-bool global_is_netfilter_audit_hooks_on(void);
-
-/*
-    Check if namespace info is to be included in network events.
-*/
-bool global_is_network_logging_ns_info(void);
-
-/*
-    Check if syscall event is loggable.
-*/
-bool global_is_syscall_loggable(
-    enum kernel_function_number func_num, bool sys_success,
-    pid_t pid, pid_t ppid, uid_t uid
-);
-
-/*
-    Check if syscall event is loggable.
-*/
-bool global_is_syscall_loggable_by_sys_num(enum kernel_function_number func_num);
-
-/*
-    Check if syscall event is loggable.
-*/
-bool global_is_syscall_loggable_by_sys_success(bool sys_success);
-
-/*
-    Check if syscall event is loggable.
-*/
-bool global_is_syscall_loggable_by_pid(pid_t pid);
-
-/*
-    Check if syscall event is loggable.
-*/
-bool global_is_syscall_loggable_by_ppid(pid_t ppid);
-
-/*
-    Check if syscall event is loggable.
-*/
-bool global_is_syscall_loggable_by_uid(uid_t uid);
 
 
 #endif // _SPADE_AUDIT_GLOBAL_H

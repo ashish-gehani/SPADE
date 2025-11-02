@@ -12,7 +12,7 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 
-#include "spade/audit/helper/kernel.h"
+#include "spade/audit/kernel/helper/kernel.h"
 #include "spade/util/log/log.h"
 
 
@@ -26,7 +26,7 @@ static int fh_resolve_hook_address(struct ftrace_hook *hook)
     const char *log_id = "fh_resolve_hook_address";
     kallsyms_lookup_name_t kallsyms_func;
 
-    kallsyms_func = helper_kernel_get_kallsyms_func();
+    kallsyms_func = kernel_helper_kernel_get_kallsyms_func();
     if (!kallsyms_func)
     {
         return -EINVAL;
@@ -51,7 +51,7 @@ static int fh_resolve_hook_address(struct ftrace_hook *hook)
 
 /* See comment below within fh_install_hook() */
 // https://elixir.bootlin.com/linux/v5.10.245/A/ident/ftrace_regs... find proper docs. TODO.
-#if HELPER_KERNEL_VERSION_GTE_5_11_0
+#if KERNEL_HELPER_KERNEL_VERSION_GTE_5_11_0
 static void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip, struct ftrace_ops *ops, struct ftrace_regs *fregs)
 {
     struct ftrace_hook *hook = container_of(ops, struct ftrace_hook, ops);

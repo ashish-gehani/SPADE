@@ -50,7 +50,7 @@ static void test_context_init_basic(struct test_stats *stats)
     // Set up arg with known values
     arg.network_io = true;
     arg.include_ns_info = false;
-    arg.monitor_syscalls = TMS_ALL;
+    arg.monitor_function_result = TMFR_ALL;
     arg.nf.monitor_ct = TMC_ALL;
     arg.nf.use_user = true;
 
@@ -70,31 +70,31 @@ static void test_context_init_basic(struct test_stats *stats)
         return;
     }
 
-    // Verify syscall context values
-    if (!ctx.syscall.initialized)
+    // Verify function context values
+    if (!ctx.function.initialized)
     {
-        TEST_FAIL(stats, test_name, "syscall context not initialized");
+        TEST_FAIL(stats, test_name, "function context not initialized");
         context_deinit(&ctx);
         return;
     }
 
-    if (ctx.syscall.network_io != true)
+    if (ctx.function.network_io != true)
     {
-        TEST_FAIL(stats, test_name, "syscall.network_io: expected true, got %d", ctx.syscall.network_io);
+        TEST_FAIL(stats, test_name, "function.network_io: expected true, got %d", ctx.function.network_io);
         context_deinit(&ctx);
         return;
     }
 
-    if (ctx.syscall.include_ns_info != false)
+    if (ctx.function.include_ns_info != false)
     {
-        TEST_FAIL(stats, test_name, "syscall.include_ns_info: expected false, got %d", ctx.syscall.include_ns_info);
+        TEST_FAIL(stats, test_name, "function.include_ns_info: expected false, got %d", ctx.function.include_ns_info);
         context_deinit(&ctx);
         return;
     }
 
-    if (ctx.syscall.monitor_syscalls != TMS_ALL)
+    if (ctx.function.monitor_function_result != TMFR_ALL)
     {
-        TEST_FAIL(stats, test_name, "syscall.monitor_syscalls: expected TMS_ALL, got %d", ctx.syscall.monitor_syscalls);
+        TEST_FAIL(stats, test_name, "function.monitor_function_result: expected TMFR_ALL, got %d", ctx.function.monitor_function_result);
         context_deinit(&ctx);
         return;
     }
@@ -163,7 +163,7 @@ static void test_context_init_with_arrays(struct test_stats *stats)
     arg.monitor_user.m_mode = TMM_CAPTURE;
 
     arg.network_io = true;
-    arg.monitor_syscalls = TMS_ONLY_SUCCESSFUL;
+    arg.monitor_function_result = TMFR_ONLY_SUCCESSFUL;
 
     // Initialize context from arg
     err = context_init(&ctx, &arg);
@@ -174,65 +174,65 @@ static void test_context_init_with_arrays(struct test_stats *stats)
     }
 
     // Verify m_pids array
-    if (ctx.syscall.m_pids.pids.len != 3)
+    if (ctx.function.m_pids.pids.len != 3)
     {
-        TEST_FAIL(stats, test_name, "m_pids.pids.len: expected 3, got %zu", ctx.syscall.m_pids.pids.len);
+        TEST_FAIL(stats, test_name, "m_pids.pids.len: expected 3, got %zu", ctx.function.m_pids.pids.len);
         context_deinit(&ctx);
         return;
     }
 
-    if (ctx.syscall.m_pids.pids.arr[0] != 100 ||
-        ctx.syscall.m_pids.pids.arr[1] != 200 ||
-        ctx.syscall.m_pids.pids.arr[2] != 300)
+    if (ctx.function.m_pids.pids.arr[0] != 100 ||
+        ctx.function.m_pids.pids.arr[1] != 200 ||
+        ctx.function.m_pids.pids.arr[2] != 300)
     {
         TEST_FAIL(stats, test_name, "m_pids.pids values incorrect: [%d,%d,%d]",
-                  ctx.syscall.m_pids.pids.arr[0],
-                  ctx.syscall.m_pids.pids.arr[1],
-                  ctx.syscall.m_pids.pids.arr[2]);
+                  ctx.function.m_pids.pids.arr[0],
+                  ctx.function.m_pids.pids.arr[1],
+                  ctx.function.m_pids.pids.arr[2]);
         context_deinit(&ctx);
         return;
     }
 
     // Verify m_ppids array
-    if (ctx.syscall.m_ppids.ppids.len != 2)
+    if (ctx.function.m_ppids.ppids.len != 2)
     {
-        TEST_FAIL(stats, test_name, "m_ppids.ppids.len: expected 2, got %zu", ctx.syscall.m_ppids.ppids.len);
+        TEST_FAIL(stats, test_name, "m_ppids.ppids.len: expected 2, got %zu", ctx.function.m_ppids.ppids.len);
         context_deinit(&ctx);
         return;
     }
 
-    if (ctx.syscall.m_ppids.ppids.arr[0] != 1000 ||
-        ctx.syscall.m_ppids.ppids.arr[1] != 2000)
+    if (ctx.function.m_ppids.ppids.arr[0] != 1000 ||
+        ctx.function.m_ppids.ppids.arr[1] != 2000)
     {
         TEST_FAIL(stats, test_name, "m_ppids.ppids values incorrect: [%d,%d]",
-                  ctx.syscall.m_ppids.ppids.arr[0],
-                  ctx.syscall.m_ppids.ppids.arr[1]);
+                  ctx.function.m_ppids.ppids.arr[0],
+                  ctx.function.m_ppids.ppids.arr[1]);
         context_deinit(&ctx);
         return;
     }
 
-    // Verify user uids array (syscall context)
-    if (ctx.syscall.m_uids.uids.len != 2)
+    // Verify user uids array (function context)
+    if (ctx.function.m_uids.uids.len != 2)
     {
-        TEST_FAIL(stats, test_name, "syscall.m_uids.uids.len: expected 2, got %zu", ctx.syscall.m_uids.uids.len);
+        TEST_FAIL(stats, test_name, "function.m_uids.uids.len: expected 2, got %zu", ctx.function.m_uids.uids.len);
         context_deinit(&ctx);
         return;
     }
 
-    if (ctx.syscall.m_uids.uids.arr[0] != 500 ||
-        ctx.syscall.m_uids.uids.arr[1] != 600)
+    if (ctx.function.m_uids.uids.arr[0] != 500 ||
+        ctx.function.m_uids.uids.arr[1] != 600)
     {
-        TEST_FAIL(stats, test_name, "syscall.m_uids.uids values incorrect: [%u,%u]",
-                  ctx.syscall.m_uids.uids.arr[0],
-                  ctx.syscall.m_uids.uids.arr[1]);
+        TEST_FAIL(stats, test_name, "function.m_uids.uids values incorrect: [%u,%u]",
+                  ctx.function.m_uids.uids.arr[0],
+                  ctx.function.m_uids.uids.arr[1]);
         context_deinit(&ctx);
         return;
     }
 
-    if (ctx.syscall.m_uids.m_mode != TMM_CAPTURE)
+    if (ctx.function.m_uids.m_mode != TMM_CAPTURE)
     {
-        TEST_FAIL(stats, test_name, "syscall.m_uids.m_mode: expected TMM_CAPTURE, got %d",
-                  ctx.syscall.m_uids.m_mode);
+        TEST_FAIL(stats, test_name, "function.m_uids.m_mode: expected TMM_CAPTURE, got %d",
+                  ctx.function.m_uids.m_mode);
         context_deinit(&ctx);
         return;
     }

@@ -29,8 +29,8 @@
 #include "spade/audit/kernel/function/sys_accept/result.h"
 #include "spade/audit/msg/network/network.h"
 #include "spade/audit/msg/ops.h"
-#include "spade/audit/helper/syscall/network.h"
-#include "spade/audit/helper/audit_log.h"
+#include "spade/audit/kernel/helper/network.h"
+#include "spade/audit/kernel/helper/audit_log.h"
 
 
 static const enum msg_common_type GLOBAL_MSG_TYPE = MSG_NETWORK;
@@ -72,21 +72,21 @@ int kernel_function_sys_accept_action_audit_handle_post(
 
     if (sys_arg->addr)
     {
-        err = helper_syscall_network_copy_saddr_and_size_from_userspace(
+        err = kernel_helper_network_copy_saddr_and_size_from_userspace(
             &remote_saddr, &remote_saddr_size, sys_arg->addr, sys_arg->addrlen
         );
         if (err != 0)
             return err;
     } else
     {
-        err = helper_syscall_network_get_peer_saddr_from_fd(
+        err = kernel_helper_network_get_peer_saddr_from_fd(
             &remote_saddr, &remote_saddr_size, sys_arg->sockfd
         );
         if (err != 0)
             return err;
     }
 
-    err = helper_syscall_network_populate_msg(
+    err = kernel_helper_network_populate_msg(
         &msg,
         ctx_post->header->func_num, sys_res->ret, ctx_post->func_res->success,
         sys_arg->sockfd, &remote_saddr, remote_saddr_size
@@ -94,7 +94,7 @@ int kernel_function_sys_accept_action_audit_handle_post(
     if (err != 0)
         return err;
 
-    err = helper_audit_log(NULL, &msg.header);
+    err = kernel_helper_audit_log(NULL, &msg.header);
 
     return err;
 }

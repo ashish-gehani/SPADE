@@ -22,7 +22,7 @@
 #include <linux/types.h>
 #include <asm/syscall.h>
 
-#include "spade/audit/helper/kernel.h"
+#include "spade/audit/kernel/helper/kernel.h"
 #include "spade/audit/kernel/function/arg.h"
 #include "spade/audit/kernel/function/action.h"
 #include "spade/audit/kernel/function/hook.h"
@@ -42,6 +42,7 @@ static void _pre(void)
     struct kernel_function_hook_context_pre hook_ctx_pre = {
         .header = &(const struct kernel_function_hook_context){
             .type = KERNEL_FUNCTION_HOOK_CONTEXT_TYPE_PRE,
+            .proc = KERNEL_FUNCTION_HOOK_PROCESS_CONTEXT_CURRENT,
             .func_num = global_func_num,
             .func_arg = &(const struct kernel_function_arg){
                 .arg = &(const struct kernel_function_sys_vfork_arg){},
@@ -65,6 +66,7 @@ static void _post(long sys_res)
     struct kernel_function_hook_context_post hook_ctx_post = {
         .header = &(const struct kernel_function_hook_context){
             .type = KERNEL_FUNCTION_HOOK_CONTEXT_TYPE_POST,
+            .proc = KERNEL_FUNCTION_HOOK_PROCESS_CONTEXT_CURRENT,
             .func_num = global_func_num,
             .func_arg = &(const struct kernel_function_arg){
                 .arg = &(const struct kernel_function_sys_vfork_arg){},
@@ -89,7 +91,7 @@ static void _post(long sys_res)
 }
 
 
-#if HELPER_KERNEL_PTREGS_SYSCALL_STUBS
+#if KERNEL_HELPER_KERNEL_PTREGS_SYSCALL_STUBS
 
 	static asmlinkage long (*_orig)(const struct pt_regs *regs);
     static asmlinkage long _hook(const struct pt_regs *regs);
@@ -128,7 +130,7 @@ static enum kernel_function_number kernel_function_hook_function_vfork_num(void)
 
 static const char* kernel_function_hook_function_vfork_name(void)
 {
-#if HELPER_KERNEL_PTREGS_SYSCALL_STUBS
+#if KERNEL_HELPER_KERNEL_PTREGS_SYSCALL_STUBS
     return "__x64_sys_vfork";
 #else
     return "sys_vfork";

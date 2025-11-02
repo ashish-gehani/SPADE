@@ -38,7 +38,7 @@ static struct arg default_arg = {
 		.audit_hooks = ARG_DEFAULT_NF_AUDIT_HOOKS,
 		.monitor_ct = ARG_DEFAULT_NF_MONITOR_CT
 	},
-	.monitor_syscalls = ARG_DEFAULT_MONITOR_SYSCALLS,
+	.monitor_function_result = ARG_DEFAULT_MONITOR_FUNCTION_RESULT,
 	.network_io = ARG_DEFAULT_NETWORK_IO,
 	.include_ns_info = ARG_DEFAULT_INCLUDE_NS_INFO,
 	.monitor_pid = {
@@ -78,9 +78,9 @@ static int set_bool(const char *param_name, const char *val, const struct kernel
 	return type_parse_bool("set_bool", param_name, val, (bool *)(kp->arg));
 }
 
-static int set_monitor_syscalls(const char *param_name, const char *val, const struct kernel_param *kp)
+static int set_monitor_function_result(const char *param_name, const char *val, const struct kernel_param *kp)
 {
-	return type_parse_monitor_syscalls("set_monitor_syscalls", param_name, val, (enum type_monitor_syscalls *)(kp->arg));
+	return type_parse_monitor_function_result("set_monitor_function_result", param_name, val, (enum type_monitor_function_result *)(kp->arg));
 }
 
 static int set_monitor_ct(const char *param_name, const char *val, const struct kernel_param *kp)
@@ -115,9 +115,9 @@ static int param_set_include_ns_info(const char *val, const struct kernel_param 
 	return set_bool(ARG_CONSTANT_NAME_INCLUDE_NS_INFO_STR, val, kp);
 }
 
-static int param_set_monitor_syscalls(const char *val, const struct kernel_param *kp)
+static int param_set_monitor_function_result(const char *val, const struct kernel_param *kp)
 {
-	return set_monitor_syscalls(ARG_CONSTANT_NAME_MONITOR_SYSCALLS_STR, val, kp);
+	return set_monitor_function_result(ARG_CONSTANT_NAME_MONITOR_FUNCTION_RESULT_STR, val, kp);
 }
 
 static int param_set_pids(const char *val, const struct kernel_param *kp)
@@ -195,8 +195,8 @@ static const struct kernel_param_ops param_ops_include_ns_info = {
 	.get = 0,
 };
 
-static const struct kernel_param_ops param_ops_monitor_syscalls = {
-	.set = param_set_monitor_syscalls,
+static const struct kernel_param_ops param_ops_monitor_function_result = {
+	.set = param_set_monitor_function_result,
 	.get = 0,
 };
 
@@ -246,7 +246,7 @@ DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NF_AUDIT_HOOKS, &param_ops_nf_audit_hoo
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NF_MONITOR_CT, &param_ops_nf_monitor_ct, &default_arg.nf.monitor_ct, 0000, ARG_CONSTANT_DESC_NF_MONITOR_CT);
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_NETWORK_IO, &param_ops_network_io, &default_arg.network_io, 0000, ARG_CONSTANT_DESC_NETWORK_IO);
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_INCLUDE_NS_INFO, &param_ops_include_ns_info, &default_arg.include_ns_info, 0000, ARG_CONSTANT_DESC_INCLUDE_NS_INFO);
-// DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_MONITOR_SYSCALLS, &param_ops_monitor_syscalls, &default_arg.monitor_syscalls, 0000, ARG_CONSTANT_DESC_MONITOR_SYSCALLS);
+// DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_MONITOR_FUNCTION_RESULT, &param_ops_monitor_function_result, &default_arg.monitor_function_result, 0000, ARG_CONSTANT_DESC_FUNCTION_RESULT);
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_PID_MONITOR_MODE, &param_ops_pid_monitor_mode, &default_arg.monitor_pid.m_mode, 0000, ARG_CONSTANT_DESC_PID_MONITOR_MODE);
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_PIDS, &param_ops_pids, &default_arg.monitor_pid.pids, 0000, ARG_CONSTANT_DESC_PIDS);
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_PPID_MONITOR_MODE, &param_ops_ppid_monitor_mode, &default_arg.monitor_ppid.m_mode, 0000, ARG_CONSTANT_DESC_PPID_MONITOR_MODE);

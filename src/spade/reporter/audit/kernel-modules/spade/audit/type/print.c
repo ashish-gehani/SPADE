@@ -82,30 +82,32 @@ void type_print_monitor_mode(struct seqbuf *b, char *arg_name, enum type_monitor
     util_seqbuf_printf(b, "%s=%s", arg_name, str_monitor_mode);
 }
 
-void type_print_monitor_syscalls(struct seqbuf *b, char *arg_name, enum type_monitor_syscalls monitor_syscalls)
+void type_print_monitor_function_result(
+    struct seqbuf *b, char *arg_name, enum type_monitor_function_result monitor_function_result
+)
 {
-    char *str_monitor_syscalls;
+    char *str_monitor_function_result;
 
     if (!b || !arg_name)
         return;
 
-    switch (monitor_syscalls)
+    switch (monitor_function_result)
     {
-    case TMS_ALL:
-        str_monitor_syscalls = "all";
+    case TMFR_ALL:
+        str_monitor_function_result = "all";
         break;
-    case TMS_ONLY_FAILED:
-        str_monitor_syscalls = "only_failed";
+    case TMFR_ONLY_FAILED:
+        str_monitor_function_result = "only_failed";
         break;
-    case TMS_ONLY_SUCCESSFUL:
-        str_monitor_syscalls = "only_successful";
+    case TMFR_ONLY_SUCCESSFUL:
+        str_monitor_function_result = "only_successful";
         break;
     default:
-        str_monitor_syscalls = "unknown";
+        str_monitor_function_result = "unknown";
         break;
     }
 
-    util_seqbuf_printf(b, "%s=%s", arg_name, str_monitor_syscalls);
+    util_seqbuf_printf(b, "%s=%s", arg_name, str_monitor_function_result);
 }
 
 void type_print_monitor_connections(struct seqbuf *b, char *arg_name, enum type_monitor_connections monitor_ct)

@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_AUDIT_GLOBAL_NETFILTER_H
-#define _SPADE_AUDIT_GLOBAL_NETFILTER_H
+#ifndef _SPADE_AUDIT_GLOBAL_NETFILTER_NETFILTER_H
+#define _SPADE_AUDIT_GLOBAL_NETFILTER_NETFILTER_H
 
 #include <linux/types.h>
 #include <linux/netfilter.h>
@@ -28,7 +28,7 @@
 
 
 /*
-    Is netfilter event loggable based on the information.
+    Is netfilter event actionable based on the information.
 
     Params:
         dst             : The result pointer.
@@ -39,14 +39,14 @@
         0    -> dst is successfully set.
         -ive -> Error code and dst cannot be used.
 */
-int global_netfilter_is_loggable_by_user(
+int global_netfilter_uid_is_actionable(
     bool *dst,
     struct context_netfilter *ctx,
     uid_t uid
 );
 
 /*
-    Is netfilter event loggable based on the information.
+    Is netfilter event actionable based on the information.
 
     Params:
         dst             : The result pointer.
@@ -57,10 +57,10 @@ int global_netfilter_is_loggable_by_user(
         0    -> dst is successfully set.
         -ive -> Error code and dst cannot be used.
 */
-int global_netfilter_event_is_loggable_by_conntrack_info(
+int global_netfilter_conntrack_info_is_actionable(
     bool *dst,
     struct context_netfilter *ctx,
     enum ip_conntrack_info ct_info
 );
 
-#endif // _SPADE_AUDIT_GLOBAL_NETFILTER_H
+#endif // _SPADE_AUDIT_GLOBAL_NETFILTER_NETFILTER_H

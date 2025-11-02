@@ -91,16 +91,16 @@ static void test_state_init_basic(struct test_stats *stats)
         return;
     }
 
-    if (!state.syscall.initialized)
+    if (!state.function.initialized)
     {
-        TEST_FAIL(stats, test_name, "state.syscall not marked as initialized");
+        TEST_FAIL(stats, test_name, "state.function not marked as initialized");
         ensure_state_deinit();
         return;
     }
 
-    if (!state.syscall.ns.initialized)
+    if (!state.namespace.initialized)
     {
-        TEST_FAIL(stats, test_name, "state.syscall.ns not marked as initialized");
+        TEST_FAIL(stats, test_name, "state.namespace not marked as initialized");
         ensure_state_deinit();
         return;
     }
@@ -115,56 +115,56 @@ static void test_state_init_basic(struct test_stats *stats)
 
     if (!k_ptrs->ops_cgroup)
     {
-        TEST_FAIL(stats, test_name, "state.syscall.ns.ops_cgroup not initialized");
+        TEST_FAIL(stats, test_name, "k_ptrs->ops_cgroup not initialized");
         ensure_state_deinit();
         return;
     }
 
     if (!k_ptrs->ops_ipc)
     {
-        TEST_FAIL(stats, test_name, "state.syscall.ns.ops_ipc not initialized");
+        TEST_FAIL(stats, test_name, "k_ptrs->ops_ipc not initialized");
         ensure_state_deinit();
         return;
     }
 
     if (!k_ptrs->ops_mnt)
     {
-        TEST_FAIL(stats, test_name, "state.syscall.ns.ops_mnt not initialized");
+        TEST_FAIL(stats, test_name, "k_ptrs->ops_mnt not initialized");
         ensure_state_deinit();
         return;
     }
 
     if (!k_ptrs->ops_net)
     {
-        TEST_FAIL(stats, test_name, "state.syscall.ns.ops_net not initialized");
+        TEST_FAIL(stats, test_name, "k_ptrs->ops_net not initialized");
         ensure_state_deinit();
         return;
     }
 
     if (!k_ptrs->ops_pid)
     {
-        TEST_FAIL(stats, test_name, "state.syscall.ns.ops_pid not initialized");
+        TEST_FAIL(stats, test_name, "k_ptrs->ops_pid not initialized");
+        ensure_state_deinit();
+        return;
+    }
+
+    if (!k_ptrs->ops_pid_children)
+    {
+        TEST_FAIL(stats, test_name, "k_ptrs->ops_pid_children not initialized");
         ensure_state_deinit();
         return;
     }
 
     if (!k_ptrs->ops_user)
     {
-        TEST_FAIL(stats, test_name, "state.syscall.ns.ops_user not initialized");
+        TEST_FAIL(stats, test_name, "k_ptrs->ops_user not initialized");
         ensure_state_deinit();
         return;
     }
 
-    if (!state.syscall.hook.initialized)
+    if (!state.function.initialized)
     {
-        TEST_FAIL(stats, test_name, "state.syscall.hook not marked as initialized");
-        ensure_state_deinit();
-        return;
-    }
-
-    if (!state.syscall.hook.ftrace.initialized)
-    {
-        TEST_FAIL(stats, test_name, "state.syscall.hook.ftrace not marked as initialized");
+        TEST_FAIL(stats, test_name, "state.function not marked as initialized");
         ensure_state_deinit();
         return;
     }

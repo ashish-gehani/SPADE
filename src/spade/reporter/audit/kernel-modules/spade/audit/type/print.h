@@ -30,7 +30,7 @@ void type_print_array_pid(struct seqbuf *b, char *arg_name, const struct type_ar
 void type_print_array_uid(struct seqbuf *b, char *arg_name, const struct type_array_uid *arr_uid);
 void type_print_bool(struct seqbuf *b, char *arg_name, bool val);
 void type_print_monitor_mode(struct seqbuf *b, char *arg_name, enum type_monitor_mode monitor_mode);
-void type_print_monitor_syscalls(struct seqbuf *b, char *arg_name, enum type_monitor_syscalls monitor_syscalls);
+void type_print_monitor_function_result(struct seqbuf *b, char *arg_name, enum type_monitor_function_result monitor_function_result);
 void type_print_monitor_connections(struct seqbuf *b, char *arg_name, enum type_monitor_connections monitor_ct);
 void type_print_monitor_user(
     struct seqbuf *b,

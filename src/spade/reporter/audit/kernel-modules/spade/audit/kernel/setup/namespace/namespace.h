@@ -21,7 +21,7 @@
 #ifndef SPADE_AUDIT_KERNEL_NAMESPACE_SETUP_SETUP_H
 #define SPADE_AUDIT_KERNEL_NAMESPACE_SETUP_SETUP_H
 
-#include "spade/audit/state/syscall/namespace/namespace.h"
+#include "spade/audit/state/namespace/namespace.h"
 
 /*
     Setup required proc_ns_operations structs in state.

@@ -23,6 +23,7 @@
 
 #include <linux/types.h>
 
+#include "spade/audit/kernel/helper/task.h"
 #include "spade/audit/kernel/function/arg.h"
 #include "spade/audit/kernel/function/action.h"
 #include "spade/audit/kernel/function/number.h"
@@ -73,10 +74,27 @@ enum kernel_function_hook_context_type
     KERNEL_FUNCTION_HOOK_CONTEXT_TYPE_POST
 };
 
+struct kernel_function_hook_process_context
+{
+    const pid_t pid;
+    const pid_t ppid;
+    const uid_t uid;
+};
+
+#define KERNEL_FUNCTION_HOOK_PROCESS_CONTEXT_CURRENT \
+    &(const struct kernel_function_hook_process_context){ \
+        .pid = kernel_helper_task_task_view_current_pid(), \
+        .ppid = kernel_helper_task_task_view_current_ppid(), \
+        .uid = kernel_helper_task_host_view_current_uid() \
+    } \
+
 struct kernel_function_hook_context
 {
-    enum kernel_function_hook_context_type type;
-    enum kernel_function_number func_num;
+    const enum kernel_function_hook_context_type type;
+
+    const struct kernel_function_hook_process_context *proc;
+
+    const enum kernel_function_number func_num;
 
     const struct kernel_function_arg *func_arg;
 
@@ -85,12 +103,14 @@ struct kernel_function_hook_context
 
 struct kernel_function_hook_context_post
 {
+    // first member always
     const struct kernel_function_hook_context *header;
     const struct kernel_function_result *func_res;
 };
 
 struct kernel_function_hook_context_pre
 {
+    // first member always
     const struct kernel_function_hook_context *header;
 };
 
@@ -102,23 +122,22 @@ bool kernel_function_hook_context_post_is_valid(
     struct kernel_function_hook_context_post *hook_ctx_post
 );
 
-
 /*
     Function called by function hook before execution.
 
-    Params:
-        h_ctx_pre   : Hook context pre-execution.
+     Params:
+        hook_ctx_pre   : Hook context pre-execution.
 
-    Returns:
-        0       -> Success.
-        -ive    -> Error code.
+     Returns:
+         0       -> Success.
+         -ive    -> Error code.
 */
 int kernel_function_hook_pre(
     struct kernel_function_hook_context_pre *hook_ctx_pre
 );
-
+ 
 /*
-    Function called by function hook before execution.
+    Function called by function hook after execution.
 
     Params:
         h_ctx_post  : Hook context post-execution.
@@ -128,7 +147,7 @@ int kernel_function_hook_pre(
         -ive    -> Error code.
 */
 int kernel_function_hook_post(
-    struct kernel_function_hook_context_post *hook_ctx_post
+     struct kernel_function_hook_context_post *hook_ctx_post
 );
 
 

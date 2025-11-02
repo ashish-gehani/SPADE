@@ -23,11 +23,11 @@
 #include <linux/errno.h>
 #include <asm/syscall.h>
 
-#include "spade/audit/global/common/common.h"
+#include "spade/audit/global/process/process.h"
 #include "spade/audit/global/netfilter/netfilter.h"
 
 
-int global_netfilter_is_loggable_by_user(
+int global_netfilter_uid_is_actionable(
     bool *dst,
     struct context_netfilter *ctx,
     uid_t uid
@@ -39,12 +39,12 @@ int global_netfilter_is_loggable_by_user(
     if (!ctx->use_user)
         *dst = true;
     else
-        *dst = global_common_is_uid_loggable(&ctx->m_user, uid);
+        *dst = global_process_uid_is_actionable(&ctx->m_user, uid);
 
     return 0;
 }
 
-int global_netfilter_event_is_loggable_by_conntrack_info(
+int global_netfilter_conntrack_info_is_actionable(
     bool *dst,
     struct context_netfilter *ctx,
     enum ip_conntrack_info ct_info

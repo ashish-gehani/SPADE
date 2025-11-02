@@ -55,9 +55,7 @@ CHECK_SCRIPT_MOD_MAIN=bin/test/$(MAIN_MODULE_NAME)/run.sh
 MODULE_NAMES := $(MAIN_MODULE_NAME) $(CONTROLLER_MODULE_NAME) $(TEST_MODULE_NAME)
 
 # Function names
-HOOKED_FUNCTION_NAMES := \
-  sys_accept sys_accept4 sys_bind sys_clone sys_connect sys_fork sys_kill sys_recvfrom sys_recvmsg \
-  sys_sendmsg sys_sendto sys_setns sys_unshare sys_vfork
+HOOKED_FUNCTION_NAMES := sys_accept sys_accept4 sys_bind sys_clone sys_connect sys_fork sys_kill sys_recvfrom sys_recvmsg sys_sendmsg sys_sendto sys_setns sys_unshare sys_vfork
 HOOKED_FUNCTION_OBJS = \
   $(foreach f_name,$(HOOKED_FUNCTION_NAMES),spade/audit/kernel/function/$(f_name)/action/audit.o) \
   $(foreach f_name,$(HOOKED_FUNCTION_NAMES),spade/audit/kernel/function/$(f_name)/action.o) \
@@ -95,10 +93,10 @@ BUILD_HASH_OBJS := \
   $(GEN_BUILD_HASH_OBJ_FILE)
 
 CONTEXT_OBJS := \
+  spade/audit/context/function/function.o \
+  spade/audit/context/function/print.o \
   spade/audit/context/netfilter/netfilter.o \
   spade/audit/context/netfilter/print.o \
-  spade/audit/context/syscall/syscall.o \
-  spade/audit/context/syscall/print.o \
   spade/audit/context/context.o \
   spade/audit/context/print.o
 
@@ -106,18 +104,11 @@ EXPORTED_OBJS := \
   spade/audit/exported/auditing.o
 
 GLOBAL_OBJS := \
-  spade/audit/global/common/common.o \
+  spade/audit/global/function/function.o \
   spade/audit/global/netfilter/netfilter.o \
-  spade/audit/global/syscall/syscall.o \
+  spade/audit/global/process/process.o \
+  spade/audit/global/filter.o \
   spade/audit/global/global.o
-
-HELPER_OBJS := \
-  spade/audit/helper/syscall/namespace.o \
-  spade/audit/helper/syscall/network.o \
-  spade/audit/helper/audit_log.o \
-  spade/audit/helper/kernel.o \
-  spade/audit/helper/sock.o \
-  spade/audit/helper/task.o
 
 KERNEL_OBJS := \
   spade/audit/kernel/namespace/namespace.o \
@@ -125,6 +116,12 @@ KERNEL_OBJS := \
   spade/audit/kernel/function/action.o \
   spade/audit/kernel/function/hook.o \
   spade/audit/kernel/function/op.o \
+  spade/audit/kernel/helper/audit_log.o \
+  spade/audit/kernel/helper/kernel.o \
+  spade/audit/kernel/helper/namespace.o \
+  spade/audit/kernel/helper/network.o \
+  spade/audit/kernel/helper/task.o \
+  spade/audit/kernel/helper/sock.o \
   spade/audit/kernel/setup/function/ftrace/ftrace.o \
   spade/audit/kernel/setup/function/ftrace/ftrace_helper.o \
   spade/audit/kernel/setup/namespace/namespace.o \
@@ -154,14 +151,10 @@ PARAM_OBJS := \
 STATE_OBJS := \
   spade/audit/state/netfilter/netfilter.o \
   spade/audit/state/netfilter/print.o \
-  spade/audit/state/syscall/hook/ftrace/ftrace.o \
-  spade/audit/state/syscall/hook/ftrace/print.o \
-  spade/audit/state/syscall/hook/hook.o \
-  spade/audit/state/syscall/hook/print.o \
-  spade/audit/state/syscall/namespace/namespace.o \
-  spade/audit/state/syscall/namespace/print.o \
-  spade/audit/state/syscall/syscall.o \
-  spade/audit/state/syscall/print.o \
+  spade/audit/state/function/function.o \
+  spade/audit/state/function/print.o \
+  spade/audit/state/namespace/namespace.o \
+  spade/audit/state/namespace/print.o \
   spade/audit/state/state.o \
   spade/audit/state/print.o
 
@@ -191,7 +184,6 @@ $(MAIN_MODULE_NAME)-y := \
   $(CONTEXT_OBJS) \
   $(EXPORTED_OBJS) \
   $(GLOBAL_OBJS) \
-  $(HELPER_OBJS) \
   $(KERNEL_OBJS) \
   $(MSG_OBJS) \
   $(STATE_OBJS) \
@@ -213,7 +205,6 @@ $(TEST_MODULE_NAME)-y := \
   $(BUILD_HASH_OBJS) \
   $(CONTEXT_OBJS) \
   $(GLOBAL_OBJS) \
-  $(HELPER_OBJS) \
   $(KERNEL_OBJS) \
   $(MSG_OBJS) \
   $(PARAM_OBJS) \

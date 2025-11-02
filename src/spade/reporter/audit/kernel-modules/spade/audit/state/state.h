@@ -24,7 +24,8 @@
 #include <linux/init.h>
 #include <linux/proc_ns.h>
 
-#include "spade/audit/state/syscall/syscall.h"
+#include "spade/audit/state/function/function.h"
+#include "spade/audit/state/namespace/namespace.h"
 #include "spade/audit/state/netfilter/netfilter.h"
 
 
@@ -34,8 +35,10 @@ struct state
 
     bool dry_run;
 
-    // Syscall related state like pointers to kernel structs.
-    struct state_syscall syscall;
+    // Function related state like pointers to kernel structs.
+    struct state_function function;
+
+    struct state_namespace namespace;
 
     // Netfilter related state.
     struct state_netfilter netfilter;

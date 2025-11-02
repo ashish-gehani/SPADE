@@ -22,7 +22,7 @@
 #include <linux/errno.h>
 
 #include "spade/audit/kernel/namespace/namespace.h"
-#include "spade/audit/helper/kernel.h"
+#include "spade/audit/kernel/helper/kernel.h"
 #include "spade/audit/kernel/setup/namespace/namespace.h"
 #include "spade/util/log/log.h"
 
@@ -104,7 +104,7 @@ int kernel_setup_namespace_do(void)
 {
     kallsyms_lookup_name_t kallsyms_func;
 
-    kallsyms_func = helper_kernel_get_kallsyms_func();
+    kallsyms_func = kernel_helper_kernel_get_kallsyms_func();
     if (!kallsyms_func)
     {
         return -EINVAL;
