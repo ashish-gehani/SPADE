@@ -1,7 +1,7 @@
 KDIR ?= /lib/modules/$(shell uname -r)/build
 
 BUILD_DIR ?= build
-# make MOD_DEFINES="-DDEBUG"
+# make MOD_DEFINES="-DENABLE_DEBUG_LOG"
 MOD_DEFINES ?=
 # Install dir
 INSTALL_DIR ?= ../../../../../lib/kernel-modules
@@ -78,7 +78,7 @@ MOD_OUT_FILES = \
 
 # Include path
 # -Wno-attributes added because of 'mul_u64_u64_div_u64' attribute mismatch on 6.8.
-ccflags-y += -I$(src) -Wno-attributes
+ccflags-y += -I$(src) -Wno-attributes -Wno-unused-variable
 
 # Modules objects to build
 obj-m := $(addsuffix .o,$(MODULE_NAMES))

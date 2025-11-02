@@ -40,7 +40,11 @@ int __printf(2, 3) util_log_warn(const char *log_id, const char *fmt, ...);
 
 int __printf(2, 3) util_log_info(const char *log_id, const char *fmt, ...);
 
+#ifdef ENABLE_DEBUG_LOG
 int __printf(2, 3) util_log_debug(const char *log_id, const char *fmt, ...);
+#else
+#define util_log_debug(log_id, fmt, ...) do { } while(0)
+#endif
 
 int __printf(3, 4) util_log_raw(const char *level, const char *log_id, const char *fmt, ...);
 
