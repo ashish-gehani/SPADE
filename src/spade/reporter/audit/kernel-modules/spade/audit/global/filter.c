@@ -166,7 +166,7 @@ bool global_filter_function_number_is_actionable(
 }
 
 bool global_filter_function_success_is_actionable(
-    bool sys_success
+    bool func_success
 )
 {
     int err;
@@ -176,7 +176,7 @@ bool global_filter_function_success_is_actionable(
         return false;
 
     err = global_function_success_is_actionable(
-        &res, &global_state.c.function, sys_success
+        &res, &global_state.c.function, func_success
     );
     if (err != 0)
         return false;

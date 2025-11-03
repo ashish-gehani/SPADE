@@ -60,6 +60,10 @@ int kernel_function_sys_kill_action_audit_handle_post(
     struct kernel_function_sys_kill_arg *sys_arg;
     struct kernel_function_sys_kill_result *sys_res;
 
+    int sys_num;
+    enum kernel_function_number func_num = ctx_post->header->func_num;
+    bool sys_num_default_to_func_num = false;
+
     if (!_is_valid_kill_ctx_post(ctx_post))
         return -EINVAL;
 
@@ -77,11 +81,20 @@ int kernel_function_sys_kill_action_audit_handle_post(
         return err;
     }
 
+    err = kernel_function_number_to_system_call_number(
+        &sys_num, func_num, sys_num_default_to_func_num
+    );
+    if (err != 0)
+    {
+        util_log_warn(log_id, "Failed to get syscall number from function number: %d. Err: %d", func_num, err);
+        return err;
+    }
+
     sys_arg = (struct kernel_function_sys_kill_arg*)ctx_post->header->func_arg->arg;
     sys_res = (struct kernel_function_sys_kill_result*)ctx_post->func_res->res;
 
     msg.signal = sys_arg->sig;
-    msg.syscall_number = ctx_post->header->func_num;
+    msg.syscall_number = sys_num;
     msg.syscall_result = sys_res->ret;
     msg.syscall_success = ctx_post->func_res->success;
     msg.target_pid = sys_arg->pid;

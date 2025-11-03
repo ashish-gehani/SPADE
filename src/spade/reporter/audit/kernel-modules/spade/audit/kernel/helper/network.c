@@ -160,7 +160,7 @@ int kernel_helper_network_is_sockfd_connected(
 
 int kernel_helper_network_populate_msg(
     struct msg_network *msg,
-    enum kernel_function_number sys_num, long sys_ret, bool sys_success,
+    enum kernel_function_number func_num, long sys_ret, bool sys_success,
     int subject_sockfd,
     struct sockaddr_storage *remote_saddr,
     uint32_t remote_saddr_size
@@ -170,6 +170,8 @@ int kernel_helper_network_populate_msg(
     bool include_ns_info = global_filter_function_network_include_ns_info();
 
     int err;
+    int sys_num;
+    bool sys_num_default_to_func_num = false;
 
     struct kernel_helper_sock_saddr_info local_saddr_info = {0};
     int local_peer_mode = 0;
@@ -190,6 +192,15 @@ int kernel_helper_network_populate_msg(
     if (err != 0)
     {
         util_log_warn(log_id, "Failed to copy current process info");
+        return err;
+    }
+
+    err = kernel_function_number_to_system_call_number(
+        &sys_num, func_num, sys_num_default_to_func_num
+    );
+    if (err != 0)
+    {
+        util_log_warn(log_id, "Failed to get syscall number from function number: %d. Err: %d", func_num, err);
         return err;
     }
 

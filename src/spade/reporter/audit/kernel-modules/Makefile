@@ -116,6 +116,7 @@ KERNEL_OBJS := \
   spade/audit/kernel/function/action.o \
   spade/audit/kernel/function/hook.o \
   spade/audit/kernel/function/op.o \
+  spade/audit/kernel/function/number.o \
   spade/audit/kernel/helper/audit_log.o \
   spade/audit/kernel/helper/kernel.o \
   spade/audit/kernel/helper/namespace.o \

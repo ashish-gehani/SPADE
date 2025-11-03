@@ -100,7 +100,7 @@ int kernel_function_hook_post(
     enum kernel_function_number func_num;
     pid_t pid, ppid;
     uid_t uid;
-    bool sys_success;
+    bool func_success;
 
     if (!kernel_function_hook_context_post_is_valid(hook_ctx_post))
     {
@@ -111,14 +111,14 @@ int kernel_function_hook_post(
     pid = hook_ctx_post->header->proc->pid;
     ppid = hook_ctx_post->header->proc->ppid;
     uid = hook_ctx_post->header->proc->uid;
-    sys_success = hook_ctx_post->func_res->success;
+    func_success = hook_ctx_post->func_res->success;
 
     if (!global_is_auditing_started())
     {
         return 0;
     }
 
-    if (!global_filter_function_post_execution_is_actionable(func_num, sys_success, pid, ppid, uid))
+    if (!global_filter_function_post_execution_is_actionable(func_num, func_success, pid, ppid, uid))
     {
         return 0;
     }
@@ -126,7 +126,7 @@ int kernel_function_hook_post(
     util_log_debug(
         log_id,
         "actionable_function={func_num=%d, func_success=%d, pid=%d, ppid=%d, uid=%u}",
-        func_num, sys_success, pid, ppid, uid
+        func_num, func_success, pid, ppid, uid
     );
 
     return kernel_function_action_post(hook_ctx_post);

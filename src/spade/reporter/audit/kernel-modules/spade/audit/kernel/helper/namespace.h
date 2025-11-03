@@ -33,7 +33,7 @@
 
     Params:
         msg             : Message to populate.
-        sys_num         : Function number / Syscall number
+        func_num        : Function number
         target_pid      : Pid to use for getting Namespace info of
         func_success    : Success of function
         op              : The NS operation assigned to the function.
@@ -44,7 +44,7 @@
 */
 int kernel_helper_namespace_populate_msg(
     struct msg_namespace *msg,
-    enum kernel_function_number sys_num, long target_pid, bool func_success,
+    enum kernel_function_number func_num, long target_pid, bool func_success,
     enum msg_namespace_operation op
 );
 

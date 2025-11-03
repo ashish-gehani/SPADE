@@ -25,20 +25,39 @@
 
 enum kernel_function_number
 {
-    KERN_F_NUM_SYS_ACCEPT       = __NR_accept,
-    KERN_F_NUM_SYS_ACCEPT4      = __NR_accept4,
-    KERN_F_NUM_SYS_BIND         = __NR_bind,
-    KERN_F_NUM_SYS_CLONE        = __NR_clone,
-    KERN_F_NUM_SYS_CONNECT      = __NR_connect,
-    KERN_F_NUM_SYS_FORK         = __NR_fork,
-    KERN_F_NUM_SYS_KILL         = __NR_kill,
-    KERN_F_NUM_SYS_RECVFROM     = __NR_recvfrom,
-    KERN_F_NUM_SYS_RECVMSG      = __NR_recvmsg,
-    KERN_F_NUM_SYS_SENDMSG      = __NR_sendmsg,
-    KERN_F_NUM_SYS_SENDTO       = __NR_sendto,
-    KERN_F_NUM_SYS_SETNS        = __NR_setns,
-    KERN_F_NUM_SYS_UNSHARE      = __NR_unshare,
-    KERN_F_NUM_SYS_VFORK        = __NR_vfork
+    KERN_F_NUM_SYS_ACCEPT = 0,
+    KERN_F_NUM_SYS_ACCEPT4,
+    KERN_F_NUM_SYS_BIND,
+    KERN_F_NUM_SYS_CLONE,
+    KERN_F_NUM_SYS_CONNECT,
+    KERN_F_NUM_SYS_FORK,
+    KERN_F_NUM_SYS_KILL,
+    KERN_F_NUM_SYS_RECVFROM,
+    KERN_F_NUM_SYS_RECVMSG,
+    KERN_F_NUM_SYS_SENDMSG,
+    KERN_F_NUM_SYS_SENDTO,
+    KERN_F_NUM_SYS_SETNS,
+    KERN_F_NUM_SYS_UNSHARE,
+    KERN_F_NUM_SYS_VFORK
+    // Start next func num after 500+ to skip all system calls.
 };
+
+/*
+    Get system call number from the given function number.
+
+    Params:
+        dst                     : Pointer to set the result value at.
+        f_num                   : Function number.
+        default_to_func_num     : If true, when function number does not map to syscall number then return function number.
+
+    Returns:
+        0           -> dst is successfully set.
+        -ive        -> Error code.
+*/
+int kernel_function_number_to_system_call_number(
+    int *dst,
+    enum kernel_function_number f_num,
+    bool default_to_func_num
+);
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_NUMBER_H

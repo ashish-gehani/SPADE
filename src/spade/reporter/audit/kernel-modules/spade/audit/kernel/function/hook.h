@@ -32,10 +32,10 @@
 struct kernel_function_hook
 {
     /*
-        Get syscall/function number.
+        Get function number.
 
         Returns:
-            Sys number.
+            Function number.
     */
     enum kernel_function_number (*get_num)(void);
 

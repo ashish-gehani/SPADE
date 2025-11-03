@@ -81,7 +81,7 @@ bool global_filter_function_number_is_actionable(
     Check if function success is actionable.
 */
 bool global_filter_function_success_is_actionable(
-    bool sys_success
+    bool func_success
 );
 
 /*

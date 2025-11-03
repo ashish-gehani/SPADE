@@ -57,7 +57,7 @@ static long _get_ns_inum(
 
 int kernel_helper_namespace_populate_msg(
     struct msg_namespace *msg,
-    enum kernel_function_number sys_num, long target_pid, bool sys_success,
+    enum kernel_function_number func_num, long target_pid, bool sys_success,
     enum msg_namespace_operation op
 )
 {
@@ -66,6 +66,9 @@ int kernel_helper_namespace_populate_msg(
 	struct task_struct *pid_task_struct;
     struct kernel_namespace_pointers *k_ns_op_ptrs;
     long host_pid;
+    int err;
+    int sys_num;
+    bool sys_num_default_to_func_num = false;
 
     if (!msg)
         return -EINVAL;
@@ -100,6 +103,15 @@ int kernel_helper_namespace_populate_msg(
     {
         util_log_debug(log_id, "NULL pid_task_struct");
         return -ESRCH;
+    }
+
+    err = kernel_function_number_to_system_call_number(
+        &sys_num, func_num, sys_num_default_to_func_num
+    );
+    if (err != 0)
+    {
+        util_log_warn(log_id, "Failed to get syscall number from function number: %d. Err: %d", func_num, err);
+        return err;
     }
 
     host_pid = pid_nr(pid_struct);
