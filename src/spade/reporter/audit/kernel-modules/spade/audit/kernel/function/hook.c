@@ -34,8 +34,7 @@ bool kernel_function_hook_context_pre_is_valid(struct kernel_function_hook_conte
     return (
         hook_ctx_pre
         && hook_ctx_pre->header
-        && hook_ctx_pre->header->type == KERNEL_FUNCTION_HOOK_CONTEXT_TYPE_PRE
-        && hook_ctx_pre->header->proc
+        && hook_ctx_pre->proc
         && hook_ctx_pre->header->act_res
         && hook_ctx_pre->header->func_arg && hook_ctx_pre->header->func_arg->arg
     );
@@ -56,9 +55,9 @@ int kernel_function_hook_pre(
     }
 
     func_num = hook_ctx_pre->header->func_num;
-    pid = hook_ctx_pre->header->proc->pid;
-    ppid = hook_ctx_pre->header->proc->ppid;
-    uid = hook_ctx_pre->header->proc->uid;
+    pid = hook_ctx_pre->proc->pid;
+    ppid = hook_ctx_pre->proc->ppid;
+    uid = hook_ctx_pre->proc->uid;
 
     if (!global_is_auditing_started())
     {
@@ -84,8 +83,7 @@ bool kernel_function_hook_context_post_is_valid(struct kernel_function_hook_cont
     return (
         hook_ctx_post
         && hook_ctx_post->header
-        && hook_ctx_post->header->type == KERNEL_FUNCTION_HOOK_CONTEXT_TYPE_POST
-        && hook_ctx_post->header->proc
+        && hook_ctx_post->proc
         && hook_ctx_post->header->act_res
         && hook_ctx_post->header->func_arg && hook_ctx_post->header->func_arg->arg
         && hook_ctx_post->func_res && hook_ctx_post->func_res->res
@@ -108,9 +106,9 @@ int kernel_function_hook_post(
     }
 
     func_num = hook_ctx_post->header->func_num;
-    pid = hook_ctx_post->header->proc->pid;
-    ppid = hook_ctx_post->header->proc->ppid;
-    uid = hook_ctx_post->header->proc->uid;
+    pid = hook_ctx_post->proc->pid;
+    ppid = hook_ctx_post->proc->ppid;
+    uid = hook_ctx_post->proc->uid;
     func_success = hook_ctx_post->func_res->success;
 
     if (!global_is_auditing_started())

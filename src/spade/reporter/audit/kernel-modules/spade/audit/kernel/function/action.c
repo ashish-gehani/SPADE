@@ -54,6 +54,26 @@ int kernel_function_action_pre(struct kernel_function_hook_context_pre *ctx_pre)
             util_log_warn(log_id, "Failed to execute pre action for func num %d at index: %d. Err: %d", ctx_pre->header->func_num, i, err);
             break;
         }
+
+        // Check if we should skip remaining pre actions or disallow function
+        if (kernel_function_action_result_is_skip_pre_actions(ctx_pre->header->act_res->type))
+        {
+            util_log_debug(
+                log_id,
+                "Skipping remaining pre actions for func num %d at index %d due to action result type: %d",
+                ctx_pre->header->func_num, i, ctx_pre->header->act_res->type
+            );
+            break;
+        }
+        if (kernel_function_action_result_is_disallow_function(ctx_pre->header->act_res->type))
+        {
+            util_log_debug(
+                log_id,
+                "Skipping remaining pre actions for func num %d at index %d due to action result type: %d",
+                ctx_pre->header->func_num, i, ctx_pre->header->act_res->type
+            );
+            break;
+        }
     }
 
     return err;
@@ -84,6 +104,17 @@ int kernel_function_action_post(struct kernel_function_hook_context_post *ctx_po
 
     util_log_debug(log_id, "Starting action list iteration for func %d", f_num);
 
+    // Check if we should skip remaining post actions
+    if (kernel_function_action_result_is_skip_post_actions(ctx_post->header->act_res->type))
+    {
+        util_log_debug(
+            log_id,
+            "Skipping all post actions for func num %d due to action result type %d set by a pre-action",
+            f_num, ctx_post->header->act_res->type
+        );
+        return 0;
+    }
+
     for (i = 0; i < KERNEL_FUNCTION_ACTION_LEN_MAX; i++)
     {
         kernel_function_action_post_t act_post = k_f_op->action_list->post[i];
@@ -100,6 +131,17 @@ int kernel_function_action_post(struct kernel_function_hook_context_post *ctx_po
         if (err != 0)
         {
             util_log_warn(log_id, "Failed to execute post action for func num %d at index: %d. Err: %d", f_num, i, err);
+            break;
+        }
+
+        // Check if we should skip remaining post actions
+        if (kernel_function_action_result_is_skip_post_actions(ctx_post->header->act_res->type))
+        {
+            util_log_debug(
+                log_id,
+                "Skipping remaining post actions for func num %d at index %d due to action result type: %d",
+                f_num, i, ctx_post->header->act_res->type
+            );
             break;
         }
     }

@@ -67,13 +67,6 @@ struct kernel_function_hook
     void* (*get_orig_func_ptr)(void);
 };
 
-
-enum kernel_function_hook_context_type
-{
-    KERNEL_FUNCTION_HOOK_CONTEXT_TYPE_PRE,
-    KERNEL_FUNCTION_HOOK_CONTEXT_TYPE_POST
-};
-
 struct kernel_function_hook_process_context
 {
     const pid_t pid;
@@ -90,21 +83,18 @@ struct kernel_function_hook_process_context
 
 struct kernel_function_hook_context
 {
-    const enum kernel_function_hook_context_type type;
-
-    const struct kernel_function_hook_process_context *proc;
-
     const enum kernel_function_number func_num;
 
     const struct kernel_function_arg *func_arg;
 
-    struct kernel_function_action_result *act_res;
+    const struct kernel_function_action_result *act_res;
 };
 
 struct kernel_function_hook_context_post
 {
     // first member always
     const struct kernel_function_hook_context *header;
+    const struct kernel_function_hook_process_context *proc;
     const struct kernel_function_result *func_res;
 };
 
@@ -112,6 +102,7 @@ struct kernel_function_hook_context_pre
 {
     // first member always
     const struct kernel_function_hook_context *header;
+    const struct kernel_function_hook_process_context *proc;
 };
 
 bool kernel_function_hook_context_pre_is_valid(

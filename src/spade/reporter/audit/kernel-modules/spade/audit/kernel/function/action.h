@@ -35,15 +35,36 @@ struct kernel_function_hook_context_post;
 
 enum kernel_function_action_result_type
 {
-    KERNEL_FUNCTION_ACTION_RESULT_TYPE_SUCCESS,
-    KERNEL_FUNCTION_ACTION_RESULT_TYPE_FAILURE
+    KFAR_TYPE_SKIP_PRE_ACTIONS      = 0b00000001,
+    KFAR_TYPE_DISALLOW_FUNCTION     = 0b00000010,
+    KFAR_TYPE_SKIP_POST_ACTIONS     = 0b00000100,
 };
 
 struct kernel_function_action_result
 {
     enum kernel_function_action_result_type type;
-    int value;
 };
+
+static inline bool kernel_function_action_result_is_disallow_function(
+    enum kernel_function_action_result_type type
+)
+{
+    return (type & KFAR_TYPE_DISALLOW_FUNCTION) == KFAR_TYPE_DISALLOW_FUNCTION;
+}
+
+static inline bool kernel_function_action_result_is_skip_pre_actions(
+    enum kernel_function_action_result_type type
+)
+{
+    return (type & KFAR_TYPE_SKIP_PRE_ACTIONS) == KFAR_TYPE_SKIP_PRE_ACTIONS;
+}
+
+static inline bool kernel_function_action_result_is_skip_post_actions(
+    enum kernel_function_action_result_type type
+)
+{
+    return (type & KFAR_TYPE_SKIP_POST_ACTIONS) == KFAR_TYPE_SKIP_POST_ACTIONS;
+}
 
 /*
     Function called by function-hook to perform a pre-execution action.
