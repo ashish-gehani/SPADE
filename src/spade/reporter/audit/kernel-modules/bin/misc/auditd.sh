@@ -82,40 +82,154 @@ function get_current_time()
     date +%H:%M:%S
 }
 
-# Function to get audit logs after a given time
-# Usage: get_audit_logs_after "start_time" [end_time]
-# Time format: HH:MM:SS or "now", "recent", "today", "yesterday", etc.
-function get_audit_logs_after()
+# Function to get first event ID at or after a given time from a log file
+# Usage: get_first_event_id_at_time "log_file" "start_time"
+# Time format: HH:MM:SS or timestamp
+# Returns: event_id (just the number) to stdout
+function get_first_event_id_at_time()
 {
-    local start_time="$1"
-    local end_time="$2"
+    local log_file="$1"
+    local start_time="$2"
 
-    echo "=== Getting Audit Logs ==="
-
-    if [ -z "$start_time" ]; then
-        echo "Error: Start time is required"
-        echo "Usage: get_audit_logs_after <start_time> [end_time]"
-        echo "Time format: HH:MM:SS or 'now', 'recent', 'today', etc."
+    if [ -z "$log_file" ] || [ -z "$start_time" ]; then
+        echo "Error: Log file and start time are required" >&2
+        echo "Usage: get_first_event_id_at_time <log_file> <start_time>" >&2
+        echo "Time format: HH:MM:SS or timestamp" >&2
         return 1
     fi
 
-    # Build ausearch command
-    local cmd="ausearch --raw -ts $start_time"
-
-    if [ -n "$end_time" ]; then
-        cmd="$cmd -te $end_time"
+    if [ ! -f "$log_file" ]; then
+        echo "Error: Log file '$log_file' not found" >&2
+        return 1
     fi
 
-    # Execute ausearch
-    eval $cmd
-    local result=$?
-
-    if [ $result -eq 0 ]; then
-        return 0
+    # Convert time to timestamp (seconds since epoch)
+    # Handle both HH:MM:SS format and absolute timestamps
+    local target_timestamp
+    if [[ "$start_time" =~ ^[0-9]+$ ]]; then
+        # Already a timestamp
+        target_timestamp="$start_time"
     else
-        echo "No audit logs found or error occurred"
-        return $result
+        # Convert HH:MM:SS to timestamp
+        target_timestamp=$(date -d "$start_time" +%s 2>/dev/null)
+        if [ $? -ne 0 ]; then
+            echo "Error: Invalid time format '$start_time'" >&2
+            return 1
+        fi
     fi
+
+    # Extract first event ID at or after the target time
+    # Format: msg=audit(timestamp.milliseconds:event_id)
+    local event_id=$(awk -v target="$target_timestamp" '
+        match($0, /msg=audit\(([0-9]+)\.([0-9]+):([0-9]+)\)/, arr) {
+            timestamp = arr[1]
+            event_id = arr[3]
+            if (timestamp >= target) {
+                print event_id
+                exit
+            }
+        }
+    ' "$log_file")
+
+    if [ -z "$event_id" ]; then
+        echo "Error: No events found at or after time $start_time" >&2
+        return 1
+    fi
+
+    echo "$event_id"
+    return 0
+}
+
+# Function to get all events after a specific event ID from a log file
+# Usage: get_events_after_id "log_file" "event_id"
+# Outputs all matching records to stdout
+function get_events_after_id()
+{
+    local log_file="$1"
+    local start_event_id="$2"
+
+    if [ -z "$log_file" ] || [ -z "$start_event_id" ]; then
+        echo "Error: Log file and event ID are required" >&2
+        echo "Usage: get_events_after_id <log_file> <event_id>" >&2
+        return 1
+    fi
+
+    if [ ! -f "$log_file" ]; then
+        echo "Error: Log file '$log_file' not found" >&2
+        return 1
+    fi
+
+    # Extract all records with event ID >= start_event_id
+    awk -v start_id="$start_event_id" '
+        match($0, /msg=audit\([0-9]+\.[0-9]+:([0-9]+)\)/, arr) {
+            event_id = arr[1]
+            if (event_id >= start_id) {
+                print $0
+            }
+        }
+    ' "$log_file"
+
+    return 0
+}
+
+# Function to get audit logs from a file after a given time (using event ID method)
+# Usage: get_audit_logs_from_file "log_file" "start_time"
+# Time format: HH:MM:SS or timestamp
+# This is similar to get_audit_logs_after but works on log files using event IDs
+function get_audit_logs_from_file()
+{
+    local log_file="$1"
+    local start_time="$2"
+
+    if [ -z "$log_file" ] || [ -z "$start_time" ]; then
+        echo "Error: Log file and start time are required" >&2
+        echo "Usage: get_audit_logs_from_file <log_file> <start_time>" >&2
+        echo "Time format: HH:MM:SS or timestamp" >&2
+        return 1
+    fi
+
+    # Get the first event ID at or after the start time
+    local event_id=$(get_first_event_id_at_time "$log_file" "$start_time")
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+
+    # Get all events after that event ID (output goes to stdout)
+    get_events_after_id "$log_file" "$event_id"
+    return $?
+}
+
+# Function to get audit logs after a given time (using event ID-based filtering)
+# Usage: get_audit_logs_after "start_time" [log_file]
+# Time format: HH:MM:SS or timestamp
+# If log_file is not provided, uses /var/log/audit/audit.log by default
+function get_audit_logs_after()
+{
+    local start_time="$1"
+    local log_file="${2:-/var/log/audit/audit.log}"
+
+    if [ -z "$start_time" ]; then
+        echo "Error: Start time is required" >&2
+        echo "Usage: get_audit_logs_after <start_time> [log_file]" >&2
+        echo "Time format: HH:MM:SS or timestamp" >&2
+        echo "Default log_file: /var/log/audit/audit.log" >&2
+        return 1
+    fi
+
+    if [ ! -f "$log_file" ]; then
+        echo "Error: Log file '$log_file' not found" >&2
+        return 1
+    fi
+
+    # Get the first event ID at or after the start time
+    local event_id=$(get_first_event_id_at_time "$log_file" "$start_time")
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+
+    # Get all events after that event ID (output goes to stdout)
+    get_events_after_id "$log_file" "$event_id"
+    return $?
 }
 
 # Main function to handle commands
@@ -134,6 +248,15 @@ function main()
         log)
             get_audit_logs_after "$@"
             ;;
+        logfile)
+            get_audit_logs_from_file "$@"
+            ;;
+        eventid)
+            get_first_event_id_at_time "$@"
+            ;;
+        eventsafter)
+            get_events_after_id "$@"
+            ;;
         check)
             is_audit_running
             ;;
@@ -144,15 +267,18 @@ function main()
             clear_audit_rules
             ;;
         *)
-            echo "Usage: $0 {stop|start|log|check|time|clear} [args]"
+            echo "Usage: $0 {stop|start|log|logfile|eventid|eventsafter|check|time|clear} [args]"
             echo ""
             echo "Commands:"
-            echo "  stop        - Stop audit service"
-            echo "  start       - Start audit service"
-            echo "  log <time>  - Get audit logs after specified time"
-            echo "  check       - Check if audit service is running"
-            echo "  time        - Get current time in HH:MM:SS format"
-            echo "  clear       - Clear all audit rules"
+            echo "  stop                      - Stop audit service"
+            echo "  start                     - Start audit service"
+            echo "  log <time> [file]         - Get audit logs after time (default: /var/log/audit/audit.log)"
+            echo "  logfile <file> <time>     - Get audit logs from file after time (same as 'log' but explicit)"
+            echo "  eventid <file> <time>     - Get first event ID at/after specified time"
+            echo "  eventsafter <file> <id>   - Get all events after specified event ID"
+            echo "  check                     - Check if audit service is running"
+            echo "  time                      - Get current time in HH:MM:SS format"
+            echo "  clear                     - Clear all audit rules"
             return 1
             ;;
     esac
