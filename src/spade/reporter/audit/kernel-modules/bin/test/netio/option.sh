@@ -80,7 +80,7 @@ function get_harden_dummy_process_tgid()
 
     # If not running, start it
     if [ -z "$tgid" ]; then
-        "$harden_script" start >&2
+        "$harden_script" start >&2 >/dev/null
         pid=$("$harden_script" pid 2>/dev/null)
     fi
 
