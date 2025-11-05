@@ -29,4 +29,32 @@
 */
 extern const struct kernel_function_hook KERNEL_FUNCTION_SYS_ACCEPT4_HOOK;
 
+/*
+    Validate sys_accept4 pre-execution context.
+
+    Params:
+        ctx     : Hook context pre-execution.
+
+    Returns:
+        true    -> Valid context.
+        false   -> Invalid context.
+*/
+bool kernel_function_sys_accept4_hook_context_pre_is_valid(
+    const struct kernel_function_hook_context_pre *ctx
+);
+
+/*
+    Validate sys_accept4 post-execution context.
+
+    Params:
+        ctx     : Hook context post-execution.
+
+    Returns:
+        true    -> Valid context.
+        false   -> Invalid context.
+*/
+bool kernel_function_sys_accept4_hook_context_post_is_valid(
+    const struct kernel_function_hook_context_post *ctx
+);
+
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT4_HOOK_H

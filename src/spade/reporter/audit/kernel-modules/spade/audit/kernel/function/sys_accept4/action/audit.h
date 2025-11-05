@@ -25,7 +25,7 @@
 
 
 int kernel_function_sys_accept4_action_audit_handle_post(
-    struct kernel_function_hook_context_post *ctx_post
+    const struct kernel_function_hook_context_post *ctx_post
 );
 
 
