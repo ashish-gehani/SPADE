@@ -36,6 +36,11 @@ bool global_process_pid_is_actionable(struct type_monitor_pid *m_pid, pid_t pid)
 bool global_process_ppid_is_actionable(struct type_monitor_ppid *m_ppid, pid_t ppid);
 
 /*
+    Does uid exist in uid array.
+*/
+bool global_process_is_uid_in_array(const uid_t *arr, size_t len, uid_t needle);
+
+/*
     Does 'uid' match the criteria in 'm_user'.
 */
 bool global_process_uid_is_actionable(struct type_monitor_user *m_user, uid_t uid);

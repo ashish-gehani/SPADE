@@ -53,8 +53,8 @@ int context_function_init(struct context_function *ctx, const struct arg *arg)
     ctx->monitor_function_result = arg->monitor_function_result;
     ctx->network_io = arg->network_io;
     memcpy(&ctx->m_uids, &arg->monitor_user, sizeof(arg->monitor_user));
-    memcpy(&ctx->harden_pids, &arg->harden_pids, sizeof(arg->harden_pids));
-    memcpy(&ctx->harden_ppids, &arg->harden_ppids, sizeof(arg->harden_ppids));
+    memcpy(&ctx->harden.pids, &arg->harden.pids, sizeof(arg->harden.pids));
+    memcpy(&ctx->harden.authorized_uids, &arg->harden.authorized_uids, sizeof(arg->harden.authorized_uids));
 
     ctx->initialized = true;
 

@@ -100,16 +100,28 @@ bool global_filter_function_ppid_is_actionable(pid_t ppid);
 bool global_filter_function_uid_is_actionable(uid_t uid);
 
 /*
-    Check if current task is hardened based on process context.
+    Check if the pid is hardened.
 
     Params:
         pid     : Process ID.
 
     Returns:
-        true    -> Task is hardened.
-        false   -> Task is not hardened.
+        true    -> Process is hardened.
+        false   -> Process is not hardened.
 */
 bool global_filter_function_pid_is_hardened(pid_t pid);
+
+/*
+    Check if the uid is authorized.
+
+    Params:
+        uid     : User ID.
+
+    Returns:
+        true    -> User is hardened.
+        false   -> User is not hardened.
+*/
+bool global_filter_function_uid_is_authorized(uid_t uid);
 
 
 #endif // _SPADE_AUDIT_GLOBAL_FILTER_H

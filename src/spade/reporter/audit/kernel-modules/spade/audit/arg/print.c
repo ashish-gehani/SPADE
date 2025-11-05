@@ -67,9 +67,9 @@ static void seqbuf_print_arg(struct seqbuf *b, const struct arg *arg)
         &arg->monitor_user
     );
     seqbuf_print_arg_sep(b);
-    type_print_array_pid(b, ARG_CONSTANT_NAME_HARDEN_PIDS_STR, &arg->harden_pids);
+    type_print_array_pid(b, ARG_CONSTANT_NAME_HARDEN_PIDS_STR, &arg->harden.pids);
     seqbuf_print_arg_sep(b);
-    type_print_array_pid(b, ARG_CONSTANT_NAME_HARDEN_PPIDS_STR, &arg->harden_ppids);
+    type_print_array_uid(b, ARG_CONSTANT_NAME_AUTHORIZED_UIDS_STR, &arg->harden.authorized_uids);
     util_seqbuf_printf(b, "}");
 }
 

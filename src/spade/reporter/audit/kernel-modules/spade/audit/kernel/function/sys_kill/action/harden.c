@@ -26,6 +26,7 @@
 #include "spade/audit/kernel/function/sys_kill/action/harden.h"
 #include "spade/audit/kernel/function/sys_kill/hook.h"
 #include "spade/audit/kernel/function/sys_kill/arg.h"
+#include "spade/audit/kernel/helper/task.h"
 #include "spade/audit/global/filter.h"
 #include "spade/util/log/log.h"
 
@@ -35,8 +36,9 @@ int kernel_function_sys_kill_action_harden_handle_pre(
 )
 {
     const char *log_id = "kernel_function_sys_kill_action_harden_handle_pre";
-    pid_t pid;
     struct kernel_function_sys_kill_arg *sys_arg;
+    uid_t current_euid;
+    pid_t pid;
 
     if (!kernel_function_sys_kill_hook_context_pre_is_valid(ctx_pre))
     {
@@ -46,16 +48,20 @@ int kernel_function_sys_kill_action_harden_handle_pre(
 
     sys_arg = (struct kernel_function_sys_kill_arg*)ctx_pre->header->func_arg->arg;
     pid = sys_arg->pid;
+    current_euid = kernel_helper_task_host_view_current_euid();
 
-    if (global_filter_function_pid_is_hardened(sys_arg->pid))
-    {
-        util_log_debug(
-            log_id,
-            "Task is hardened, setting DISALLOW_FUNCTION flag for pid=%d to disallow kill",
-            pid
-        );
-        kernel_function_action_result_set_disallow_function(ctx_pre->header->act_res);
-    }
+    if (!global_filter_function_pid_is_hardened(sys_arg->pid))
+        return 0;
+
+    if (global_filter_function_uid_is_authorized(current_euid))
+        return 0;
+
+    util_log_debug(
+        log_id,
+        "Task is hardened, setting DISALLOW_FUNCTION flag for pid=%d to disallow kill",
+        pid
+    );
+    kernel_function_action_result_set_disallow_function(ctx_pre->header->act_res);
 
     return 0;
 }

@@ -96,22 +96,12 @@ function get_harden_pids_option()
     echo "harden_pids=\"$pid\""
 }
 
-# Function to get harden_ppids option
-# Usage: harden_ppids_option=$(get_harden_ppids_option)
-# Returns: String in format 'harden_ppids="1234"'
-function get_harden_ppids_option()
-{
-    local pid=$(get_harden_dummy_process_pid)
-    echo "harden_ppids=\"$pid\""
-}
-
 # Function to get combined harden_pids and harden_ppids options
 # Usage: harden_string=$(get_harden_processes_options)
-# Returns: String in format 'harden_pids="1234" harden_ppids="1234"'
+# Returns: String in format 'harden_pids="1234"'
 function get_harden_processes_options()
 {
     local pids_option=$(get_harden_pids_option)
-    local ppids_option=$(get_harden_ppids_option)
     echo "$pids_option $ppids_option"
 }
 
@@ -143,6 +133,15 @@ function get_user_ignore_options()
     local uid=$(id -u)
 
     echo "uids=$uid uid_trace_mode=1"
+}
+
+# Function to get authorized users
+# Usage: authorized_users=$(get_authorized_users)
+# Returns: String 'authorized_uids="0"'
+function get_authorized_users_options()
+{
+    local authorized_uids="0"
+    echo "authorized_uids=\"$authorized_uids\""
 }
 
 # Function to get functions monitoring option
@@ -265,8 +264,9 @@ function get_option_for_watch_audited_user()
     local config_file=$(get_config_file_option)
     local dry_run=$(get_dry_run_option)
     local harden_processes=$(get_harden_processes_options)
+    local authorized_users=$(get_authorized_users_options)
 
-    echo "$nf_handle_user $network_io $namespaces $function_monitoring $user_capture $ignore_processes $nf_hooks $nf_monitor_ct $config_file $dry_run $harden_processes"
+    echo "$nf_handle_user $network_io $namespaces $function_monitoring $user_capture $ignore_processes $nf_hooks $nf_monitor_ct $config_file $dry_run $harden_processes $authorized_users"
 }
 
 # Function to get options based on a command

@@ -36,7 +36,7 @@ bool global_process_is_pid_in_array(const pid_t *arr, size_t len, pid_t needle)
     return false;
 }
 
-static bool global_process_is_uid_in_array(const uid_t *arr, size_t len, uid_t needle)
+bool global_process_is_uid_in_array(const uid_t *arr, size_t len, uid_t needle)
 {
     size_t i;
 

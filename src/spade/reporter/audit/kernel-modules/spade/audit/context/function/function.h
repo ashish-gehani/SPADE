@@ -26,6 +26,13 @@
 #include "spade/audit/arg/arg.h"
 
 
+struct context_function_harden
+{
+    struct type_array_pid pids;
+
+    struct type_array_uid authorized_uids;
+};
+
 struct context_function
 {
     bool initialized;
@@ -42,9 +49,7 @@ struct context_function
 
     struct type_monitor_user m_uids;
 
-    struct type_array_pid harden_pids;
-
-    struct type_array_pid harden_ppids;
+    struct context_function_harden harden;
 };
 
 /*

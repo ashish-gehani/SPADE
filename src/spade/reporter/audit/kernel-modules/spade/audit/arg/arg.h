@@ -45,6 +45,19 @@ struct arg_netfilter
     enum type_monitor_connections monitor_ct;
 };
 
+struct arg_harden
+{
+    /*
+        List of process ids to prevent from being killed except by the authorized user.
+    */
+    struct type_array_pid pids;
+
+    /*
+        The user(s) authorized to perform hardened activities like killing harden processes.
+    */
+    struct type_array_uid authorized_uids;
+};
+
 struct arg
 {
     /*
@@ -87,8 +100,8 @@ struct arg
     */
     struct arg_netfilter nf;
 
-    struct type_array_pid harden_pids;
-    struct type_array_pid harden_ppids;
+    struct arg_harden harden;
+
 };
 
 #endif // _SPADE_AUDIT_ARG_H

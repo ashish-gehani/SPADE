@@ -57,8 +57,8 @@ void context_function_write_to_seqbuf(struct seqbuf *b, const struct context_fun
         &context->m_uids
     );
     seqbuf_print_sep(b);
-    type_print_array_pid(b, ARG_CONSTANT_NAME_HARDEN_PIDS_STR, &context->harden_pids);
+    type_print_array_pid(b, ARG_CONSTANT_NAME_HARDEN_PIDS_STR, &context->harden.pids);
     seqbuf_print_sep(b);
-    type_print_array_pid(b, ARG_CONSTANT_NAME_HARDEN_PPIDS_STR, &context->harden_ppids);
+    type_print_array_uid(b, ARG_CONSTANT_NAME_AUTHORIZED_UIDS_STR, &context->harden.authorized_uids);
     util_seqbuf_printf(b, "}");
 }

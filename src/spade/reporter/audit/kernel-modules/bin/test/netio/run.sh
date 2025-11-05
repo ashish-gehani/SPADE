@@ -205,7 +205,6 @@ function run_activity_scripts()
 {
     local script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
     local activity_dir="${script_dir}/../activity"
-    local harden_dummy_script="${script_dir}/dummy_process_for_hardening.sh"
 
     echo "=== Running Activity Test Scripts ==="
 
@@ -215,6 +214,7 @@ function run_activity_scripts()
         "ns.sh"
         "ubsi.sh"
         "unix.sh"
+        "kill_harden.sh"
     )
 
     for script_name in "${scripts[@]}"; do
@@ -229,18 +229,6 @@ function run_activity_scripts()
             echo "Warning: Script $script not found"
         fi
     done
-
-    # Kill the harden dummy process to generate kill activity
-    echo ""
-    echo "Killing harden dummy process to generate activity..."
-    if [ -f "$harden_dummy_script" ]; then
-        bash "$harden_dummy_script" kill
-        if [ $? -ne 0 ]; then
-            echo "Warning: Failed to kill harden dummy process"
-        fi
-    else
-        echo "Warning: Harden dummy process script not found"
-    fi
 
     echo "Activity scripts completed"
 }

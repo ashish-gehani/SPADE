@@ -211,23 +211,29 @@ bool global_filter_function_uid_is_actionable(uid_t uid)
 bool global_filter_function_pid_is_hardened(pid_t pid)
 {
     bool pid_is_in_harden_pid_array;
-    bool ppid_is_in_harden_ppid_array;
 
     if (!global_is_auditing_started())
         return false;
 
     pid_is_in_harden_pid_array = global_process_is_pid_in_array(
-        &(global_state.c.function.harden_pids.arr[0]), global_state.c.function.harden_pids.len,
+        &(global_state.c.function.harden.pids.arr[0]), global_state.c.function.harden.pids.len,
         pid
     );
 
-    if (pid_is_in_harden_pid_array)
-        return true;
+    return pid_is_in_harden_pid_array;
+}
 
-    ppid_is_in_harden_ppid_array = global_process_is_pid_in_array(
-        &(global_state.c.function.harden_ppids.arr[0]), global_state.c.function.harden_ppids.len,
-        pid
+bool global_filter_function_uid_is_authorized(uid_t uid)
+{
+    bool uid_is_in_authorized_uid_array;
+
+    if (!global_is_auditing_started())
+        return false;
+
+    uid_is_in_authorized_uid_array = global_process_is_uid_in_array(
+        &(global_state.c.function.harden.authorized_uids.arr[0]), global_state.c.function.harden.authorized_uids.len,
+        uid
     );
 
-    return ppid_is_in_harden_ppid_array;
+    return uid_is_in_authorized_uid_array;
 }
