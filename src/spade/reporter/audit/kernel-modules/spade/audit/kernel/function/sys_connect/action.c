@@ -24,9 +24,11 @@
 
 const struct kernel_function_action_list KERNEL_FUNCTION_SYS_CONNECT_ACTION_LIST = {
     .pre = {
+        kernel_function_action_pre_is_actionable,
         0
     },
     .post = {
+        kernel_function_action_post_is_actionable,
         kernel_function_sys_connect_action_audit_handle_post,
         0
     }
