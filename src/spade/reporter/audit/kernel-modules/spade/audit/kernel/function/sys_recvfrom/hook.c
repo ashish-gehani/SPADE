@@ -30,34 +30,74 @@
 #include "spade/audit/kernel/function/sys_recvfrom/arg.h"
 #include "spade/audit/kernel/function/sys_recvfrom/hook.h"
 #include "spade/audit/kernel/function/sys_recvfrom/result.h"
+#include "spade/util/log/log.h"
 
 
 static const enum kernel_function_number global_func_num = KERN_F_NUM_SYS_RECVFROM;
 
+#define BUILD_HOOK_CONTEXT(_sockfd, _buf, _len, _flags, _src_addr, _addrlen) \
+    ((const struct kernel_function_hook_context){ \
+        .func_num = global_func_num, \
+        .func_arg = &(const struct kernel_function_arg){ \
+            .arg = &(const struct kernel_function_sys_recvfrom_arg){ \
+                .sockfd = (_sockfd), \
+                .buf = (_buf), \
+                .len = (_len), \
+                .flags = (_flags), \
+                .src_addr = (_src_addr), \
+                .addrlen = (_addrlen) \
+            }, \
+            .arg_size = sizeof(struct kernel_function_sys_recvfrom_arg) \
+        }, \
+        .act_res = &(struct kernel_function_action_result){0} \
+    })
 
-static void _pre(int sockfd, void __user *buf, size_t len, int flags, struct sockaddr __user *src_addr, uint32_t __user *addrlen)
+#define BUILD_HOOK_CONTEXT_PRE(_h_ctx) \
+    ((struct kernel_function_hook_context_pre){ \
+        .header = (_h_ctx), \
+        .proc = KERNEL_FUNCTION_HOOK_PROCESS_CONTEXT_CURRENT \
+    })
+
+#define BUILD_HOOK_CONTEXT_POST(_h_ctx, _sys_res) \
+    ((struct kernel_function_hook_context_post){ \
+        .header = (_h_ctx), \
+        .proc = KERNEL_FUNCTION_HOOK_PROCESS_CONTEXT_CURRENT, \
+        .func_res = &(const struct kernel_function_result){ \
+            .res = &(const struct kernel_function_sys_recvfrom_result){ \
+                .ret = (_sys_res) \
+            }, \
+            .res_size = sizeof(struct kernel_function_sys_recvfrom_result), \
+            .success = ((_sys_res) >= 0) \
+        } \
+    })
+
+bool kernel_function_sys_recvfrom_hook_context_pre_is_valid(const struct kernel_function_hook_context_pre *ctx)
+{
+    return (
+        kernel_function_hook_context_pre_is_valid(ctx)
+        && ctx->header->func_num == global_func_num
+        && ctx->header->func_arg->arg_size == sizeof(struct kernel_function_sys_recvfrom_arg)
+    );
+}
+
+bool kernel_function_sys_recvfrom_hook_context_post_is_valid(const struct kernel_function_hook_context_post *ctx)
+{
+    return (
+        kernel_function_hook_context_post_is_valid(ctx)
+        && ctx->header->func_num == global_func_num
+        && ctx->header->func_arg->arg_size == sizeof(struct kernel_function_sys_recvfrom_arg)
+        && ctx->func_res->res_size == sizeof(struct kernel_function_sys_recvfrom_result)
+        && ctx->func_res->success // todo
+    );
+}
+
+static void _pre(
+    const struct kernel_function_hook_context *h_ctx
+)
 {
     int err;
 
-    struct kernel_function_hook_context_pre hook_ctx_pre = {
-        .header = &(const struct kernel_function_hook_context){
-            .type = KERNEL_FUNCTION_HOOK_CONTEXT_TYPE_PRE,
-            .proc = KERNEL_FUNCTION_HOOK_PROCESS_CONTEXT_CURRENT,
-            .func_num = global_func_num,
-            .func_arg = &(const struct kernel_function_arg){
-                .arg = &(const struct kernel_function_sys_recvfrom_arg){
-                    .sockfd = sockfd,
-                    .buf = buf,
-                    .len = len,
-                    .flags = flags,
-                    .src_addr = src_addr,
-                    .addrlen = addrlen
-                },
-                .arg_size = sizeof(struct kernel_function_sys_recvfrom_arg)
-            },
-            .act_res = &(struct kernel_function_action_result){0}
-        }
-    };
+    const struct kernel_function_hook_context_pre hook_ctx_pre = BUILD_HOOK_CONTEXT_PRE(h_ctx);
 
     err = kernel_function_hook_pre(&hook_ctx_pre);
     if (err != 0)
@@ -66,36 +106,14 @@ static void _pre(int sockfd, void __user *buf, size_t len, int flags, struct soc
     return;
 }
 
-static void _post(long sys_res, int sockfd, void __user *buf, size_t len, int flags, struct sockaddr __user *src_addr, uint32_t __user *addrlen)
+static void _post(
+    const struct kernel_function_hook_context *h_ctx,
+    long sys_res
+)
 {
     int err;
 
-    struct kernel_function_hook_context_post hook_ctx_post = {
-        .header = &(const struct kernel_function_hook_context){
-            .type = KERNEL_FUNCTION_HOOK_CONTEXT_TYPE_POST,
-            .proc = KERNEL_FUNCTION_HOOK_PROCESS_CONTEXT_CURRENT,
-            .func_num = global_func_num,
-            .func_arg = &(const struct kernel_function_arg){
-                .arg = &(const struct kernel_function_sys_recvfrom_arg){
-                    .sockfd = sockfd,
-                    .buf = buf,
-                    .len = len,
-                    .flags = flags,
-                    .src_addr = src_addr,
-                    .addrlen = addrlen
-                },
-                .arg_size = sizeof(struct kernel_function_sys_recvfrom_arg)
-            },
-            .act_res = &(struct kernel_function_action_result){0}
-        },
-        .func_res = &(const struct kernel_function_result){
-            .res = &(const struct kernel_function_sys_recvfrom_result){
-                .ret = sys_res
-            },
-            .res_size = sizeof(struct kernel_function_sys_recvfrom_result),
-            .success = (sys_res >= 0)
-        }
-    };
+    const struct kernel_function_hook_context_post hook_ctx_post = BUILD_HOOK_CONTEXT_POST(h_ctx, sys_res);
 
     err = kernel_function_hook_post(&hook_ctx_post);
     if (err != 0)
@@ -112,6 +130,7 @@ static void _post(long sys_res, int sockfd, void __user *buf, size_t len, int fl
 
 	static asmlinkage long _hook(const struct pt_regs *regs)
     {
+		const char *log_id = "sys_recvfrom::_hook";
 		long res;
         int sockfd = (int)(regs->di);
         void __user *buf = (void __user *)(regs->si);
@@ -120,9 +139,18 @@ static void _post(long sys_res, int sockfd, void __user *buf, size_t len, int fl
         struct sockaddr __user *src_addr = (struct sockaddr __user *)(regs->r8);
         uint32_t __user *addrlen = (uint32_t __user *)(regs->r9);
 
-        _pre(sockfd, buf, len, flags, src_addr, addrlen);
-		res = _orig(regs);
-		_post(res, sockfd, buf, len, flags, src_addr, addrlen);
+		const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(sockfd, buf, len, flags, src_addr, addrlen);
+
+        _pre(&h_ctx);
+		if (kernel_function_action_result_is_disallow_function(h_ctx.act_res->type))
+		{
+			util_log_debug(log_id, "Disallowing function execution due to action result type: %d", h_ctx.act_res->type);
+			res = -EACCES;
+		} else
+		{
+			res = _orig(regs);
+		}
+		_post(&h_ctx, res);
 		return res;
 	}
 
@@ -133,10 +161,21 @@ static void _post(long sys_res, int sockfd, void __user *buf, size_t len, int fl
 
     static asmlinkage long _hook(int sockfd, void __user *buf, size_t len, int flags, struct sockaddr __user *src_addr, uint32_t __user *addrlen)
     {
+		const char *log_id = "sys_recvfrom::_hook";
 		long res;
-        _pre(sockfd, buf, len, flags, src_addr, addrlen);
-		res = _orig(sockfd, buf, len, flags, src_addr, addrlen);
-		_post(res, sockfd, buf, len, flags, src_addr, addrlen);
+
+		const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(sockfd, buf, len, flags, src_addr, addrlen);
+
+        _pre(&h_ctx);
+		if (kernel_function_action_result_is_disallow_function(h_ctx.act_res->type))
+		{
+			util_log_debug(log_id, "Disallowing function execution due to action result type: %d", h_ctx.act_res->type);
+			res = -EACCES;
+		} else
+		{
+			res = _orig(sockfd, buf, len, flags, src_addr, addrlen);
+		}
+		_post(&h_ctx, res);
 		return res;
 	}
 
