@@ -47,7 +47,7 @@ static const enum kernel_function_number global_func_num = KERN_F_NUM_SYS_ACCEPT
             }, \
             .arg_size = sizeof(struct kernel_function_sys_accept_arg) \
         }, \
-        .act_res = &(const struct kernel_function_action_result){0} \
+        .act_res = &(struct kernel_function_action_result){0} \
     })
 
 #define BUILD_HOOK_CONTEXT_PRE(_h_ctx) \
@@ -69,13 +69,33 @@ static const enum kernel_function_number global_func_num = KERN_F_NUM_SYS_ACCEPT
         } \
     })
 
+bool kernel_function_sys_accept_hook_context_pre_is_valid(const struct kernel_function_hook_context_pre *ctx)
+{
+    return (
+        kernel_function_hook_context_pre_is_valid(ctx)
+        && ctx->header->func_num == global_func_num
+        && ctx->header->func_arg->arg_size == sizeof(struct kernel_function_sys_accept_arg)
+    );
+}
+
+bool kernel_function_sys_accept_hook_context_post_is_valid(const struct kernel_function_hook_context_post *ctx)
+{
+    return (
+        kernel_function_hook_context_post_is_valid(ctx)
+        && ctx->header->func_num == global_func_num
+        && ctx->header->func_arg->arg_size == sizeof(struct kernel_function_sys_accept_arg)
+        && ctx->func_res->res_size == sizeof(struct kernel_function_sys_accept_result)
+        && ctx->func_res->success // todo
+    );
+}
+
 static void _pre(
     const struct kernel_function_hook_context *h_ctx
 )
 {
     int err;
 
-    struct kernel_function_hook_context_pre hook_ctx_pre = BUILD_HOOK_CONTEXT_PRE(h_ctx);
+    const struct kernel_function_hook_context_pre hook_ctx_pre = BUILD_HOOK_CONTEXT_PRE(h_ctx);
 
     err = kernel_function_hook_pre(&hook_ctx_pre);
     if (err != 0)
@@ -91,7 +111,7 @@ static void _post(
 {
     int err;
 
-    struct kernel_function_hook_context_post hook_ctx_post = BUILD_HOOK_CONTEXT_POST(h_ctx, sys_res);
+    const struct kernel_function_hook_context_post hook_ctx_post = BUILD_HOOK_CONTEXT_POST(h_ctx, sys_res);
 
     err = kernel_function_hook_post(&hook_ctx_post);
     if (err != 0)
@@ -136,6 +156,7 @@ static void _post(
 
     static asmlinkage long _hook(int fd, struct sockaddr __user *addr, uint32_t __user *addr_size)
     {
+        const char *log_id = "sys_accept::_hook";
 		long res;
 
         const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(fd, addr, addr_size);

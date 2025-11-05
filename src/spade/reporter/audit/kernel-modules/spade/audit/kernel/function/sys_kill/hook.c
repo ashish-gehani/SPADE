@@ -92,7 +92,7 @@ bool kernel_function_sys_kill_hook_context_pre_is_valid(const struct kernel_func
 {
     return (
         kernel_function_hook_context_pre_is_valid(ctx)
-        && ctx->header->func_num == KERN_F_NUM_SYS_KILL
+        && ctx->header->func_num == global_func_num
         && ctx->header->func_arg->arg_size == sizeof(struct kernel_function_sys_kill_arg)
     );
 }
@@ -101,10 +101,10 @@ bool kernel_function_sys_kill_hook_context_post_is_valid(const struct kernel_fun
 {
     return (
         kernel_function_hook_context_post_is_valid(ctx)
-        && ctx->header->func_num == KERN_F_NUM_SYS_KILL
+        && ctx->header->func_num == global_func_num
         && ctx->header->func_arg->arg_size == sizeof(struct kernel_function_sys_kill_arg)
         && ctx->func_res->res_size == sizeof(struct kernel_function_sys_kill_result)
-        && ctx->func_res->success
+        && ctx->func_res->success // todo
     );
 }
 
