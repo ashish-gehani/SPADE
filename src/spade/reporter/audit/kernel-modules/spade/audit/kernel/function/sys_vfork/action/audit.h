@@ -24,7 +24,7 @@
 #include "spade/audit/kernel/function/hook.h"
 
 int kernel_function_sys_vfork_action_audit_handle_post(
-    struct kernel_function_hook_context_post *ctx_post
+    const struct kernel_function_hook_context_post *ctx_post
 );
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_VFORK_ACTION_AUDIT_H
