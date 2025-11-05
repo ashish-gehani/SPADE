@@ -56,5 +56,9 @@ void context_function_write_to_seqbuf(struct seqbuf *b, const struct context_fun
         ARG_CONSTANT_NAME_UID_MONITOR_MODE_STR, ARG_CONSTANT_NAME_UIDS_STR,
         &context->m_uids
     );
+    seqbuf_print_sep(b);
+    type_print_array_pid(b, ARG_CONSTANT_NAME_HARDEN_PIDS_STR, &context->harden_pids);
+    seqbuf_print_sep(b);
+    type_print_array_pid(b, ARG_CONSTANT_NAME_HARDEN_PPIDS_STR, &context->harden_ppids);
     util_seqbuf_printf(b, "}");
 }

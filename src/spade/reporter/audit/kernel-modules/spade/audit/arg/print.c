@@ -66,6 +66,10 @@ static void seqbuf_print_arg(struct seqbuf *b, const struct arg *arg)
         ARG_CONSTANT_NAME_UID_MONITOR_MODE_STR, ARG_CONSTANT_NAME_UIDS_STR,
         &arg->monitor_user
     );
+    seqbuf_print_arg_sep(b);
+    type_print_array_pid(b, ARG_CONSTANT_NAME_HARDEN_PIDS_STR, &arg->harden_pids);
+    seqbuf_print_arg_sep(b);
+    type_print_array_pid(b, ARG_CONSTANT_NAME_HARDEN_PPIDS_STR, &arg->harden_ppids);
     util_seqbuf_printf(b, "}");
 }
 

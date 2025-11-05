@@ -40,4 +40,9 @@ bool global_process_ppid_is_actionable(struct type_monitor_ppid *m_ppid, pid_t p
 */
 bool global_process_uid_is_actionable(struct type_monitor_user *m_user, uid_t uid);
 
+/*
+    Does pid exist in pid array.
+*/
+bool global_process_is_pid_in_array(const pid_t *arr, size_t len, pid_t needle);
+
 #endif // _SPADE_AUDIT_GLOBAL_PROCESS_PROCESS_H

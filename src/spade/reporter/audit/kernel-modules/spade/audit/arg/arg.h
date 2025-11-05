@@ -86,6 +86,9 @@ struct arg
         Netfilter functionality arguments.
     */
     struct arg_netfilter nf;
+
+    struct type_array_pid harden_pids;
+    struct type_array_pid harden_ppids;
 };
 
 #endif // _SPADE_AUDIT_ARG_H

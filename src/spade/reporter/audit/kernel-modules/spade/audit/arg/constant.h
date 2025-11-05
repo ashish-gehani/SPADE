@@ -40,6 +40,8 @@
 #define ARG_CONSTANT_NAME_UID_MONITOR_MODE          uid_trace_mode
 #define ARG_CONSTANT_NAME_UIDS                      uids
 #define ARG_CONSTANT_NAME_CONFIG_FILE               config_file
+#define ARG_CONSTANT_NAME_HARDEN_PIDS               harden_pids
+#define ARG_CONSTANT_NAME_HARDEN_PPIDS              harden_ppids
 
 /* String forms */
 #define ARG_CONSTANT_NAME_NF_USE_USER_STR                STRINGIFY(ARG_CONSTANT_NAME_NF_USE_USER)
@@ -55,6 +57,8 @@
 #define ARG_CONSTANT_NAME_UID_MONITOR_MODE_STR           STRINGIFY(ARG_CONSTANT_NAME_UID_MONITOR_MODE)
 #define ARG_CONSTANT_NAME_UIDS_STR                       STRINGIFY(ARG_CONSTANT_NAME_UIDS)
 #define ARG_CONSTANT_NAME_CONFIG_FILE_STR                STRINGIFY(ARG_CONSTANT_NAME_CONFIG_FILE)
+#define ARG_CONSTANT_NAME_HARDEN_PIDS_STR                STRINGIFY(ARG_CONSTANT_NAME_HARDEN_PIDS)
+#define ARG_CONSTANT_NAME_HARDEN_PPIDS_STR               STRINGIFY(ARG_CONSTANT_NAME_HARDEN_PPIDS)
 
 /* Defaults */
 #define ARG_DEFAULT_NF_USE_USER             false
@@ -70,6 +74,8 @@
 #define ARG_DEFAULT_UID_MONITOR_MODE        TMM_IGNORE
 #define ARG_DEFAULT_UIDS                    {.len = 0}
 #define ARG_DEFAULT_CONFIG_FILE             "/opt/spade/audit/audit.config"
+#define ARG_DEFAULT_HARDEN_PIDS             {.len = 0}
+#define ARG_DEFAULT_HARDEN_PPIDS            {.len = 0}
 
 /* Descriptions */
 #define ARG_CONSTANT_DESC_NF_USE_USER               "In netfilter hooks, filter packet logging based on user criteria. Default: 0. Options: 0 (log packets for all user), 1 (log packets based on user criteria)"
@@ -85,6 +91,8 @@
 #define ARG_CONSTANT_DESC_UID_MONITOR_MODE          "Monitoring mode for the list of user ids. Default: 1. Options: 0 (Capture the specified list of user ids), 1 (Ignore the specified list of user ids)"
 #define ARG_CONSTANT_DESC_UIDS                      "List of user ids to ignore. Default: empty list"
 #define ARG_CONSTANT_DESC_CONFIG_FILE               "Config file path. Default: /opt/spade/audit/audit.config"
+#define ARG_CONSTANT_DESC_HARDEN_PIDS               "List of process ids to harden. Default: empty list"
+#define ARG_CONSTANT_DESC_HARDEN_PPIDS              "List of process ids to harden. Default: empty list"
 
 #endif // _SPADE_AUDIT_ARG_CONSTANT_H
 

@@ -248,6 +248,7 @@ function run_test_for_command()
     local script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
     local option_script="${script_dir}/option.sh"
     local auditd_script="${script_dir}/../../misc/auditd.sh"
+    local harden_dummy_script="${script_dir}/dummy_process_for_hardening.sh"
 
     echo "========================================"
     echo "Running test for command: $command"
@@ -258,7 +259,21 @@ function run_test_for_command()
     echo "Output directory: $output_dir"
     echo ""
 
+    # Start harden dummy process
+    echo "Step 0.5: Starting harden dummy process..."
+    if [ -f "$harden_dummy_script" ]; then
+        bash "$harden_dummy_script" start
+        if [ $? -ne 0 ]; then
+            echo "Warning: Failed to start harden dummy process"
+        fi
+    else
+        echo "Warning: Harden dummy process script not found at $harden_dummy_script"
+    fi
+
+    sleep 2
+
     # Get options for the command
+    echo ""
     echo "Step 1: Getting options for command..."
     local options=$(bash "$option_script" "$command")
     if [ $? -ne 0 ]; then
@@ -398,6 +413,16 @@ function run_test_for_command()
     local netio_controller_syslog_file="$output_dir/${CONTROLLER_MOD_NAME}.syslog"
     get_netio_controller_module_syslog > "$netio_controller_syslog_file"
     echo "${CONTROLLER_MOD_NAME} syslog saved to: $netio_controller_syslog_file"
+
+    # Kill harden dummy process
+    echo ""
+    echo "Step 16: Killing harden dummy process..."
+    if [ -f "$harden_dummy_script" ]; then
+        bash "$harden_dummy_script" kill
+        if [ $? -ne 0 ]; then
+            echo "Warning: Failed to kill harden dummy process"
+        fi
+    fi
 
     echo ""
     echo "========================================"

@@ -207,3 +207,27 @@ bool global_filter_function_uid_is_actionable(uid_t uid)
 
     return global_process_uid_is_actionable(&global_state.c.function.m_uids, uid);
 }
+
+bool global_filter_function_pid_is_hardened(pid_t pid)
+{
+    bool pid_is_in_harden_pid_array;
+    bool ppid_is_in_harden_ppid_array;
+
+    if (!global_is_auditing_started())
+        return false;
+
+    pid_is_in_harden_pid_array = global_process_is_pid_in_array(
+        &(global_state.c.function.harden_pids.arr[0]), global_state.c.function.harden_pids.len,
+        pid
+    );
+
+    if (pid_is_in_harden_pid_array)
+        return true;
+
+    ppid_is_in_harden_ppid_array = global_process_is_pid_in_array(
+        &(global_state.c.function.harden_ppids.arr[0]), global_state.c.function.harden_ppids.len,
+        pid
+    );
+
+    return ppid_is_in_harden_ppid_array;
+}

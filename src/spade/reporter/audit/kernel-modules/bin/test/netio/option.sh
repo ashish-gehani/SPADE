@@ -62,6 +62,59 @@ function get_ignore_processes_options()
     echo "$pids_option $ppids_option"
 }
 
+# Function to get harden dummy process PID
+# Usage: pid=$(get_harden_dummy_process_pid)
+# Returns: PID of the harden dummy process or empty string if not found
+function get_harden_dummy_process_pid()
+{
+    local harden_script="${KM_ROOT}/bin/test/netio/dummy_process_for_hardening.sh"
+
+    # Check if script exists
+    if [ ! -f "$harden_script" ]; then
+        echo "Error: harden dummy process script not found at $harden_script" >&2
+        return 1
+    fi
+
+    # Get PID using the script
+    local pid=$("$harden_script" pid 2>/dev/null)
+
+    # If not running, start it
+    if [ -z "$pid" ]; then
+        "$harden_script" start >&2
+        pid=$("$harden_script" pid 2>/dev/null)
+    fi
+
+    echo "$pid"
+}
+
+# Function to get harden_pids option
+# Usage: harden_pids_option=$(get_harden_pids_option)
+# Returns: String in format 'harden_pids="1234"'
+function get_harden_pids_option()
+{
+    local pid=$(get_harden_dummy_process_pid)
+    echo "harden_pids=\"$pid\""
+}
+
+# Function to get harden_ppids option
+# Usage: harden_ppids_option=$(get_harden_ppids_option)
+# Returns: String in format 'harden_ppids="1234"'
+function get_harden_ppids_option()
+{
+    local pid=$(get_harden_dummy_process_pid)
+    echo "harden_ppids=\"$pid\""
+}
+
+# Function to get combined harden_pids and harden_ppids options
+# Usage: harden_string=$(get_harden_processes_options)
+# Returns: String in format 'harden_pids="1234" harden_ppids="1234"'
+function get_harden_processes_options()
+{
+    local pids_option=$(get_harden_pids_option)
+    local ppids_option=$(get_harden_ppids_option)
+    echo "$pids_option $ppids_option"
+}
+
 # Function to get options to capture a given user by name
 # Usage: user_options=$(get_user_capture_options [username])
 # Returns: String in format 'uids=1000 uid_trace_mode=0' or empty string if user not found
@@ -211,8 +264,9 @@ function get_option_for_watch_audited_user()
     local ignore_processes=$(get_ignore_processes_options)
     local config_file=$(get_config_file_option)
     local dry_run=$(get_dry_run_option)
+    local harden_processes=$(get_harden_processes_options)
 
-    echo "$nf_handle_user $network_io $namespaces $function_monitoring $user_capture $ignore_processes $nf_hooks $nf_monitor_ct $config_file $dry_run"
+    echo "$nf_handle_user $network_io $namespaces $function_monitoring $user_capture $ignore_processes $nf_hooks $nf_monitor_ct $config_file $dry_run $harden_processes"
 }
 
 # Function to get options based on a command

@@ -41,6 +41,10 @@ struct context_function
     struct type_monitor_ppid m_ppids;
 
     struct type_monitor_user m_uids;
+
+    struct type_array_pid harden_pids;
+
+    struct type_array_pid harden_ppids;
 };
 
 /*

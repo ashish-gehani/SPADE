@@ -21,7 +21,7 @@
 #include "spade/audit/global/process/process.h"
 
 
-static bool global_process_is_pid_in_array(const pid_t *arr, size_t len, pid_t needle)
+bool global_process_is_pid_in_array(const pid_t *arr, size_t len, pid_t needle)
 {
     size_t i;
     
