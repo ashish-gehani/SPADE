@@ -70,9 +70,33 @@ HOOKED_FUNCTION_NAMES := \
   sys_setns \
   sys_unshare \
   sys_vfork
+HOOKED_FUNCTION_ACTION_AUDIT_NAMES := \
+  sys_accept \
+  sys_accept4 \
+  sys_bind \
+  sys_clone \
+  sys_connect \
+  sys_fork \
+  sys_kill \
+  sys_recvfrom \
+  sys_recvmsg \
+  sys_sendmsg \
+  sys_sendto \
+  sys_setns \
+  sys_unshare \
+  sys_vfork
+HOOKED_FUNCTION_ACTION_HARDEN_NAMES := \
+  sys_kill
+
+HOOKED_FUNCTION_ACTION_AUDIT_OBJS = \
+  $(foreach f_name,$(HOOKED_FUNCTION_ACTION_AUDIT_NAMES),spade/audit/kernel/function/$(f_name)/action/audit.o)
+
+HOOKED_FUNCTION_ACTION_HARDEN_OBJS = \
+  $(foreach f_name,$(HOOKED_FUNCTION_ACTION_HARDEN_NAMES),spade/audit/kernel/function/$(f_name)/action/harden.o)
 
 HOOKED_FUNCTION_OBJS = \
-  $(foreach f_name,$(HOOKED_FUNCTION_NAMES),spade/audit/kernel/function/$(f_name)/action/audit.o) \
+  $(HOOKED_FUNCTION_ACTION_AUDIT_OBJS) \
+  $(HOOKED_FUNCTION_ACTION_HARDEN_OBJS) \
   $(foreach f_name,$(HOOKED_FUNCTION_NAMES),spade/audit/kernel/function/$(f_name)/action.o) \
   $(foreach f_name,$(HOOKED_FUNCTION_NAMES),spade/audit/kernel/function/$(f_name)/hook.o) \
   $(foreach f_name,$(HOOKED_FUNCTION_NAMES),spade/audit/kernel/function/$(f_name)/op.o)
