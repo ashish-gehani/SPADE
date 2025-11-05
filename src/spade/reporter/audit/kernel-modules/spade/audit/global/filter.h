@@ -100,16 +100,16 @@ bool global_filter_function_ppid_is_actionable(pid_t ppid);
 bool global_filter_function_uid_is_actionable(uid_t uid);
 
 /*
-    Check if the pid is hardened.
+    Check if the tgid is hardened.
 
     Params:
-        pid     : Process ID.
+        tgid     : Thread group ID.
 
     Returns:
         true    -> Process is hardened.
         false   -> Process is not hardened.
 */
-bool global_filter_function_pid_is_hardened(pid_t pid);
+bool global_filter_function_tgid_is_hardened(pid_t tgid);
 
 /*
     Check if the uid is authorized.

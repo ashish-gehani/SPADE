@@ -28,7 +28,7 @@
 
 struct context_function_harden
 {
-    struct type_array_pid pids;
+    struct type_array_pid tgids;
 
     struct type_array_uid authorized_uids;
 };

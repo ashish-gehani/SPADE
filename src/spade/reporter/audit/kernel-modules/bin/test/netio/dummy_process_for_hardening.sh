@@ -14,6 +14,21 @@ function get_pid()
     pgrep -f "^${PROCESS_NAME} "
 }
 
+# Function to get the TGID (thread group ID) of the running process
+# Usage: tgid=$(get_tgid)
+# Returns: TGID of the process or empty string if not found
+function get_tgid()
+{
+    local pid=$(get_pid)
+    if [ -z "$pid" ]; then
+        return
+    fi
+
+    # TGID is the same as PID for the main thread
+    # Read from /proc/[pid]/status
+    grep '^Tgid:' /proc/$pid/status 2>/dev/null | awk '{print $2}'
+}
+
 # Function to start the dummy process
 # Usage: start
 function start()
@@ -35,10 +50,11 @@ function start()
 
     sleep 1
 
-    # Get and display the PID
+    # Get and display the PID and TGID
     local new_pid=$(get_pid)
     if [ -n "$new_pid" ]; then
-        echo "${PROCESS_NAME} started with PID: $new_pid"
+        local new_tgid=$(get_tgid)
+        echo "${PROCESS_NAME} started with PID: $new_pid, TGID: $new_tgid"
     else
         echo "Error: Failed to start ${PROCESS_NAME}" >&2
         return 1
@@ -71,11 +87,11 @@ function kill_process()
 
 # Main function
 # Usage: ./dummy_process_for_hardening.sh <command>
-# Commands: start, kill, pid
+# Commands: start, kill, pid, tgid
 function main()
 {
     if [ $# -eq 0 ]; then
-        echo "Usage: $0 {start|kill|pid}" >&2
+        echo "Usage: $0 {start|kill|pid|tgid}" >&2
         return 1
     fi
 
@@ -97,9 +113,18 @@ function main()
                 return 1
             fi
             ;;
+        tgid)
+            local tgid=$(get_tgid)
+            if [ -n "$tgid" ]; then
+                echo "$tgid"
+            else
+                echo "Error: ${PROCESS_NAME} is not running" >&2
+                return 1
+            fi
+            ;;
         *)
             echo "Error: unknown command '$command'" >&2
-            echo "Usage: $0 {start|kill|pid}" >&2
+            echo "Usage: $0 {start|kill|pid|tgid}" >&2
             return 1
             ;;
     esac

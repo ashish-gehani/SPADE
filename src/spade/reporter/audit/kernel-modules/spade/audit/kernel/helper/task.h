@@ -93,6 +93,15 @@ gid_t kernel_helper_task_host_view_current_sgid(void);
 gid_t kernel_helper_task_host_view_current_fsgid(void);
 
 /*
+    Get TGID of the given pid from the task's namespace view.
+
+    Returns:
+        >=0        -> Success.
+        -ive        -> Error code.
+*/
+pid_t kernel_helper_task_task_view_get_tgid(pid_t pid);
+
+/*
     Get PPID of the current task from the current task namespace view.
 
     Returns:

@@ -38,7 +38,7 @@ int kernel_function_sys_kill_action_harden_handle_pre(
     const char *log_id = "kernel_function_sys_kill_action_harden_handle_pre";
     struct kernel_function_sys_kill_arg *sys_arg;
     uid_t current_euid;
-    pid_t pid;
+    pid_t pid, tgid;
 
     if (!kernel_function_sys_kill_hook_context_pre_is_valid(ctx_pre))
     {
@@ -50,7 +50,14 @@ int kernel_function_sys_kill_action_harden_handle_pre(
     pid = sys_arg->pid;
     current_euid = kernel_helper_task_host_view_current_euid();
 
-    if (!global_filter_function_pid_is_hardened(sys_arg->pid))
+    tgid = kernel_helper_task_task_view_get_tgid(pid);
+    if (tgid < 0)
+    {
+        util_log_debug(log_id, "Failed to get tgid for pid: %d. Err: %d", pid, tgid);
+        return (int)tgid;
+    }
+
+    if (!global_filter_function_tgid_is_hardened(tgid))
         return 0;
 
     if (global_filter_function_uid_is_authorized(current_euid))

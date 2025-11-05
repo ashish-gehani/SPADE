@@ -22,8 +22,10 @@
 #include <linux/cred.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
+#include <linux/pid_namespace.h>
 
 #include "spade/audit/kernel/helper/task.h"
+#include "spade/util/log/log.h"
 
 uid_t kernel_helper_task_host_view_current_uid()
 {
@@ -63,6 +65,36 @@ gid_t kernel_helper_task_host_view_current_sgid()
 gid_t kernel_helper_task_host_view_current_fsgid()
 {
     return from_kgid(&init_user_ns, current_cred()->fsgid);
+}
+
+pid_t kernel_helper_task_task_view_get_tgid(pid_t pid)
+{
+    pid_t tgid;
+    const char *log_id = "kernel_helper_task_task_view_get_tgid";
+	struct pid *pid_struct;
+	struct task_struct *pid_task_struct;
+
+	rcu_read_lock();
+	pid_struct = find_vpid(pid);
+	if (!pid_struct)
+    {
+        rcu_read_unlock();
+        util_log_debug(log_id, "NULL pid_struct");
+        return -ESRCH;
+    }
+
+    pid_task_struct = pid_task(pid_struct, PIDTYPE_PID);
+    if (!pid_task_struct)
+    {
+        rcu_read_unlock();
+        util_log_debug(log_id, "NULL pid_task_struct");
+        return -ESRCH;
+    }
+
+    tgid = pid_task_struct->tgid;
+    rcu_read_unlock();
+
+    return tgid;
 }
 
 pid_t kernel_helper_task_task_view_current_ppid()

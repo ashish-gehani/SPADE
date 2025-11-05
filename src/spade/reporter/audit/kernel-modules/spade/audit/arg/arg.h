@@ -48,9 +48,9 @@ struct arg_netfilter
 struct arg_harden
 {
     /*
-        List of process ids to prevent from being killed except by the authorized user.
+        List of thread group ids to prevent from being killed except by the authorized user.
     */
-    struct type_array_pid pids;
+    struct type_array_pid tgids;
 
     /*
         The user(s) authorized to perform hardened activities like killing harden processes.

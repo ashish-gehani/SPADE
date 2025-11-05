@@ -62,10 +62,10 @@ function get_ignore_processes_options()
     echo "$pids_option $ppids_option"
 }
 
-# Function to get harden dummy process PID
-# Usage: pid=$(get_harden_dummy_process_pid)
-# Returns: PID of the harden dummy process or empty string if not found
-function get_harden_dummy_process_pid()
+# Function to get harden dummy process TGID
+# Usage: tgid=$(get_harden_dummy_process_tgid)
+# Returns: TGID of the harden dummy process or empty string if not found
+function get_harden_dummy_process_tgid()
 {
     local harden_script="${KM_ROOT}/bin/test/netio/dummy_process_for_hardening.sh"
 
@@ -75,33 +75,33 @@ function get_harden_dummy_process_pid()
         return 1
     fi
 
-    # Get PID using the script
-    local pid=$("$harden_script" pid 2>/dev/null)
+    # Get TGID using the script
+    local tgid=$("$harden_script" tgid 2>/dev/null)
 
     # If not running, start it
-    if [ -z "$pid" ]; then
+    if [ -z "$tgid" ]; then
         "$harden_script" start >&2
         pid=$("$harden_script" pid 2>/dev/null)
     fi
 
-    echo "$pid"
+    echo "$tgid"
 }
 
-# Function to get harden_pids option
-# Usage: harden_pids_option=$(get_harden_pids_option)
-# Returns: String in format 'harden_pids="1234"'
-function get_harden_pids_option()
+# Function to get harden_tgids option
+# Usage: harden_tgids_option=$(get_harden_tgids_option)
+# Returns: String in format 'harden_tgids="1234"'
+function get_harden_tgids_option()
 {
-    local pid=$(get_harden_dummy_process_pid)
-    echo "harden_pids=\"$pid\""
+    local tgid=$(get_harden_dummy_process_tgid)
+    echo "harden_tgids=\"$tgid\""
 }
 
-# Function to get combined harden_pids and harden_ppids options
+# Function to get combined harden_tgids options
 # Usage: harden_string=$(get_harden_processes_options)
-# Returns: String in format 'harden_pids="1234"'
+# Returns: String in format 'harden_tgids="1234"'
 function get_harden_processes_options()
 {
-    local pids_option=$(get_harden_pids_option)
+    local pids_option=$(get_harden_tgids_option)
     echo "$pids_option $ppids_option"
 }
 

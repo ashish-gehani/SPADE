@@ -55,7 +55,7 @@ static struct arg default_arg = {
 	},
 	.config_file = ARG_DEFAULT_CONFIG_FILE,
 	.harden = {
-		.pids = ARG_DEFAULT_HARDEN_PIDS,
+		.tgids = ARG_DEFAULT_HARDEN_TGIDS,
 		.authorized_uids = ARG_DEFAULT_AUTHORIZED_UIDS
 	}
 };
@@ -172,9 +172,9 @@ static int param_set_config_file(const char *val, const struct kernel_param *kp)
 	return 0;
 }
 
-static int param_set_harden_pids(const char *val, const struct kernel_param *kp)
+static int param_set_harden_tgids(const char *val, const struct kernel_param *kp)
 {
-	return set_pid_array(ARG_CONSTANT_NAME_HARDEN_PIDS_STR, val, kp);
+	return set_pid_array(ARG_CONSTANT_NAME_HARDEN_TGIDS_STR, val, kp);
 }
 
 static int param_set_authorized_uids(const char *val, const struct kernel_param *kp)
@@ -249,8 +249,8 @@ static const struct kernel_param_ops param_ops_config_file = {
 	.get = 0,
 };
 
-static const struct kernel_param_ops param_ops_harden_pids = {
-	.set = param_set_harden_pids,
+static const struct kernel_param_ops param_ops_harden_tgids = {
+	.set = param_set_harden_tgids,
 	.get = 0,
 };
 
@@ -278,7 +278,7 @@ DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_PPIDS, &param_ops_ppids, &default_arg.m
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_UID_MONITOR_MODE, &param_ops_uid_monitor_mode, &default_arg.monitor_user.m_mode, 0000, ARG_CONSTANT_DESC_UID_MONITOR_MODE);
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_UIDS, &param_ops_uids, &default_arg.monitor_user.uids, 0000, ARG_CONSTANT_DESC_UIDS);
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_CONFIG_FILE, &param_ops_config_file, &default_arg.config_file, 0000, ARG_CONSTANT_DESC_CONFIG_FILE);
-DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_HARDEN_PIDS, &param_ops_harden_pids, &default_arg.harden.pids, 0000, ARG_CONSTANT_DESC_HARDEN_PIDS);
+DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_HARDEN_TGIDS, &param_ops_harden_tgids, &default_arg.harden.tgids, 0000, ARG_CONSTANT_DESC_HARDEN_TGIDS);
 DECLARE_PARAM_AND_DESC(ARG_CONSTANT_NAME_AUTHORIZED_UIDS, &param_ops_authorized_uids, &default_arg.harden.authorized_uids, 0000, ARG_CONSTANT_DESC_AUTHORIZED_UIDS);
 
 
