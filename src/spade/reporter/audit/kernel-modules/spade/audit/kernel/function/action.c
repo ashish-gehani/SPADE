@@ -21,13 +21,15 @@
 #include <linux/types.h>
 
 #include "spade/audit/kernel/function/action.h"
+#include "spade/audit/kernel/function/hook.h"
 #include "spade/audit/kernel/function/op.h"
+#include "spade/audit/global/filter.h"
 #include "spade/util/log/log.h"
 
 
-int kernel_function_action_pre(struct kernel_function_hook_context_pre *ctx_pre)
+int kernel_function_action_pre_iterate_all(const struct kernel_function_hook_context_pre *ctx_pre)
 {
-    const char *log_id = "kernel_function_action_pre";
+    const char *log_id = "kernel_function_action_pre_iterate_all";
     const struct kernel_function_op *k_f_op;
     int err;
     int i;
@@ -65,23 +67,14 @@ int kernel_function_action_pre(struct kernel_function_hook_context_pre *ctx_pre)
             );
             break;
         }
-        if (kernel_function_action_result_is_disallow_function(ctx_pre->header->act_res->type))
-        {
-            util_log_debug(
-                log_id,
-                "Skipping remaining pre actions for func num %d at index %d due to action result type: %d",
-                ctx_pre->header->func_num, i, ctx_pre->header->act_res->type
-            );
-            break;
-        }
     }
 
     return err;
 }
 
-int kernel_function_action_post(struct kernel_function_hook_context_post *ctx_post)
+int kernel_function_action_post_iterate_all(const struct kernel_function_hook_context_post *ctx_post)
 {
-    const char *log_id = "kernel_function_action_post";
+    const char *log_id = "kernel_function_action_post_iterate_all";
     const struct kernel_function_op *k_f_op;
     int err;
     int i;
@@ -104,7 +97,7 @@ int kernel_function_action_post(struct kernel_function_hook_context_post *ctx_po
 
     util_log_debug(log_id, "Starting action list iteration for func %d", f_num);
 
-    // Check if we should skip remaining post actions
+    // Check if we should skip post actions because pre set to skip post actions.
     if (kernel_function_action_result_is_skip_post_actions(ctx_post->header->act_res->type))
     {
         util_log_debug(
@@ -147,5 +140,134 @@ int kernel_function_action_post(struct kernel_function_hook_context_post *ctx_po
     }
 
     return err;
+}
+
+int kernel_function_action_pre_is_actionable(
+    const struct kernel_function_hook_context_pre *ctx_pre
+)
+{
+    const char *log_id = "kernel_function_action_pre_is_actionable";
+    bool is_actionable;
+    enum kernel_function_number func_num;
+    pid_t pid, ppid;
+    uid_t uid;
+
+    if (!kernel_function_hook_context_pre_is_valid(ctx_pre))
+        return -EINVAL;
+
+    func_num = ctx_pre->header->func_num;
+    pid = ctx_pre->proc->pid;
+    ppid = ctx_pre->proc->ppid;
+    uid = ctx_pre->proc->uid;
+
+    is_actionable = global_filter_function_pre_execution_is_actionable(
+        func_num, pid, ppid, uid
+    );
+
+    if (!is_actionable)
+    {
+        kernel_function_action_result_set_skip_pre_actions(ctx_pre->header->act_res);
+    }
+
+    if (is_actionable)
+        util_log_debug(
+            log_id,
+            "function={is_actionable=%d, func_num=%d, pid=%d, ppid=%d, uid=%u}",
+            is_actionable, func_num, pid, ppid, uid
+        );
+
+    return 0;
+}
+
+int kernel_function_action_post_is_actionable(
+    const struct kernel_function_hook_context_post *ctx_post
+)
+{
+    const char *log_id = "kernel_function_action_post_is_actionable";
+    bool func_success;
+    bool is_actionable;
+    enum kernel_function_number func_num;
+    pid_t pid, ppid;
+    uid_t uid;
+
+    if (!kernel_function_hook_context_post_is_valid(ctx_post))
+        return -EINVAL;
+
+    func_success = ctx_post->func_res->success;
+    func_num = ctx_post->header->func_num;
+    pid = ctx_post->proc->pid;
+    ppid = ctx_post->proc->ppid;
+    uid = ctx_post->proc->uid;
+
+    is_actionable = global_filter_function_post_execution_is_actionable(
+        func_num, func_success, pid, ppid, uid
+    );
+
+    if (!is_actionable)
+    {
+        kernel_function_action_result_set_skip_post_actions(ctx_post->header->act_res);
+    }
+
+    if (is_actionable)
+        util_log_debug(
+            log_id,
+            "function={is_actionable=%d, func_num=%d, func_success=%d, pid=%d, ppid=%d, uid=%u}",
+            is_actionable, func_num, func_success, pid, ppid, uid
+        );
+
+    return 0;
+}
+
+bool kernel_function_action_result_is_disallow_function(
+    enum kernel_function_action_result_type type
+)
+{
+    return (type & KFAR_TYPE_DISALLOW_FUNCTION) == KFAR_TYPE_DISALLOW_FUNCTION;
+}
+
+bool kernel_function_action_result_is_skip_pre_actions(
+    enum kernel_function_action_result_type type
+)
+{
+    return (type & KFAR_TYPE_SKIP_PRE_ACTIONS) == KFAR_TYPE_SKIP_PRE_ACTIONS;
+}
+
+bool kernel_function_action_result_is_skip_post_actions(
+    enum kernel_function_action_result_type type
+)
+{
+    return (type & KFAR_TYPE_SKIP_POST_ACTIONS) == KFAR_TYPE_SKIP_POST_ACTIONS;
+}
+
+void kernel_function_action_result_set_skip_pre_actions(
+    struct kernel_function_action_result *act_res
+)
+{
+    if (act_res)
+        act_res->type |= KFAR_TYPE_SKIP_PRE_ACTIONS;
+}
+
+void kernel_function_action_result_set_disallow_function(
+    struct kernel_function_action_result *act_res
+)
+{
+    if (act_res)
+        act_res->type |= KFAR_TYPE_DISALLOW_FUNCTION;
+}
+
+void kernel_function_action_result_set_skip_post_actions(
+    struct kernel_function_action_result *act_res
+)
+{
+    if (act_res)
+        act_res->type |= KFAR_TYPE_SKIP_POST_ACTIONS;
+}
+
+void kernel_function_action_result_set_skip_all_actions(
+    struct kernel_function_action_result *act_res
+)
+{
+    if (act_res)
+        act_res->type |= KFAR_TYPE_SKIP_ALL_ACTIONS;
 }
 

@@ -29,7 +29,7 @@
 #include "spade/util/log/log.h"
 
 
-bool kernel_function_hook_context_pre_is_valid(struct kernel_function_hook_context_pre *hook_ctx_pre)
+bool kernel_function_hook_context_pre_is_valid(const struct kernel_function_hook_context_pre *hook_ctx_pre)
 {
     return (
         hook_ctx_pre
@@ -40,11 +40,22 @@ bool kernel_function_hook_context_pre_is_valid(struct kernel_function_hook_conte
     );
 }
 
+bool kernel_function_hook_context_post_is_valid(const struct kernel_function_hook_context_post *hook_ctx_post)
+{
+    return (
+        hook_ctx_post
+        && hook_ctx_post->header
+        && hook_ctx_post->proc
+        && hook_ctx_post->header->act_res
+        && hook_ctx_post->header->func_arg && hook_ctx_post->header->func_arg->arg
+        && hook_ctx_post->func_res && hook_ctx_post->func_res->res
+    );
+}
+
 int kernel_function_hook_pre(
-    struct kernel_function_hook_context_pre *hook_ctx_pre
+    const struct kernel_function_hook_context_pre *hook_ctx_pre
 )
 {
-    const char *log_id = "kernel_function_hook_pre";
     enum kernel_function_number func_num;
     pid_t pid, ppid;
     uid_t uid;
@@ -64,37 +75,13 @@ int kernel_function_hook_pre(
         return 0;
     }
 
-    if (!global_filter_function_pre_execution_is_actionable(func_num, pid, ppid, uid))
-    {
-        return 0;
-    }
-
-    util_log_debug(
-        log_id,
-        "actionable_function={func_num=%d, pid=%d, ppid=%d, uid=%u}",
-        func_num, pid, ppid, uid
-    );
-
-    return kernel_function_action_pre(hook_ctx_pre);
-}
-
-bool kernel_function_hook_context_post_is_valid(struct kernel_function_hook_context_post *hook_ctx_post)
-{
-    return (
-        hook_ctx_post
-        && hook_ctx_post->header
-        && hook_ctx_post->proc
-        && hook_ctx_post->header->act_res
-        && hook_ctx_post->header->func_arg && hook_ctx_post->header->func_arg->arg
-        && hook_ctx_post->func_res && hook_ctx_post->func_res->res
-    );
+    return kernel_function_action_pre_iterate_all(hook_ctx_pre);
 }
 
 int kernel_function_hook_post(
-    struct kernel_function_hook_context_post *hook_ctx_post
+    const struct kernel_function_hook_context_post *hook_ctx_post
 )
 {
-    const char *log_id = "kernel_function_hook_post";
     enum kernel_function_number func_num;
     pid_t pid, ppid;
     uid_t uid;
@@ -116,16 +103,5 @@ int kernel_function_hook_post(
         return 0;
     }
 
-    if (!global_filter_function_post_execution_is_actionable(func_num, func_success, pid, ppid, uid))
-    {
-        return 0;
-    }
-
-    util_log_debug(
-        log_id,
-        "actionable_function={func_num=%d, func_success=%d, pid=%d, ppid=%d, uid=%u}",
-        func_num, func_success, pid, ppid, uid
-    );
-
-    return kernel_function_action_post(hook_ctx_post);
+    return kernel_function_action_post_iterate_all(hook_ctx_post);
 }

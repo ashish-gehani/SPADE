@@ -87,7 +87,7 @@ struct kernel_function_hook_context
 
     const struct kernel_function_arg *func_arg;
 
-    const struct kernel_function_action_result *act_res;
+    struct kernel_function_action_result * const act_res;
 };
 
 struct kernel_function_hook_context_post
@@ -106,11 +106,11 @@ struct kernel_function_hook_context_pre
 };
 
 bool kernel_function_hook_context_pre_is_valid(
-    struct kernel_function_hook_context_pre *hook_ctx_pre
+    const struct kernel_function_hook_context_pre *hook_ctx_pre
 );
 
 bool kernel_function_hook_context_post_is_valid(
-    struct kernel_function_hook_context_post *hook_ctx_post
+    const struct kernel_function_hook_context_post *hook_ctx_post
 );
 
 /*
@@ -124,7 +124,7 @@ bool kernel_function_hook_context_post_is_valid(
          -ive    -> Error code.
 */
 int kernel_function_hook_pre(
-    struct kernel_function_hook_context_pre *hook_ctx_pre
+    const struct kernel_function_hook_context_pre *hook_ctx_pre
 );
  
 /*
@@ -138,7 +138,7 @@ int kernel_function_hook_pre(
         -ive    -> Error code.
 */
 int kernel_function_hook_post(
-     struct kernel_function_hook_context_post *hook_ctx_post
+     const struct kernel_function_hook_context_post *hook_ctx_post
 );
 
 
