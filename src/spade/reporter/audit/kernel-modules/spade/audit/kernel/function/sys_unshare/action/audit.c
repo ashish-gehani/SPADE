@@ -25,6 +25,7 @@
 #include "spade/audit/kernel/function/number.h"
 #include "spade/audit/kernel/function/hook.h"
 #include "spade/audit/kernel/function/sys_unshare/action/audit.h"
+#include "spade/audit/kernel/function/sys_unshare/hook.h"
 #include "spade/audit/kernel/function/sys_unshare/arg.h"
 #include "spade/audit/kernel/function/sys_unshare/result.h"
 #include "spade/audit/msg/namespace/namespace.h"
@@ -38,19 +39,8 @@
 static const enum msg_common_type GLOBAL_MSG_TYPE = MSG_NAMESPACES;
 
 
-static bool _is_valid_unshare_ctx_post(struct kernel_function_hook_context_post *ctx)
-{
-    return (
-        kernel_function_hook_context_post_is_valid(ctx)
-        && ctx->header->func_num == KERN_F_NUM_SYS_UNSHARE
-        && ctx->header->func_arg->arg_size == sizeof(struct kernel_function_sys_unshare_arg)
-        && ctx->func_res->res_size == sizeof(struct kernel_function_sys_unshare_result)
-        && ctx->func_res->success
-    );
-}
-
 int kernel_function_sys_unshare_action_audit_handle_post(
-    struct kernel_function_hook_context_post *ctx_post
+    const struct kernel_function_hook_context_post *ctx_post
 )
 {
     const char *log_id = "kernel_function_sys_unshare_action_audit_handle_post";
@@ -64,9 +54,9 @@ int kernel_function_sys_unshare_action_audit_handle_post(
 
     util_log_debug(log_id, "Executing kernel_function_sys_unshare_action_audit_handle_post");
 
-    if (!_is_valid_unshare_ctx_post(ctx_post))
+    if (!kernel_function_sys_unshare_hook_context_post_is_valid(ctx_post))
     {
-        util_log_debug(log_id, "Invalid ctx. _is_valid_unshare_ctx_post");
+        util_log_debug(log_id, "Invalid ctx. kernel_function_sys_unshare_hook_context_post_is_valid");
         return -EINVAL;
     }
 

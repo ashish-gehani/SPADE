@@ -18,15 +18,18 @@
  --------------------------------------------------------------------------------
  */
 
+#include "spade/audit/kernel/function/action.h"
 #include "spade/audit/kernel/function/sys_unshare/action.h"
 #include "spade/audit/kernel/function/sys_unshare/action/audit.h"
 
 
 const struct kernel_function_action_list KERNEL_FUNCTION_SYS_UNSHARE_ACTION_LIST = {
     .pre = {
+        kernel_function_action_pre_is_actionable,
         0
     },
     .post = {
+        kernel_function_action_post_is_actionable,
         kernel_function_sys_unshare_action_audit_handle_post,
         0
     }
