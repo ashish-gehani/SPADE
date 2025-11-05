@@ -30,74 +30,85 @@
 #include "spade/audit/kernel/function/sys_clone/arg.h"
 #include "spade/audit/kernel/function/sys_clone/hook.h"
 #include "spade/audit/kernel/function/sys_clone/result.h"
+#include "spade/util/log/log.h"
 
 
 static const enum kernel_function_number global_func_num = KERN_F_NUM_SYS_CLONE;
 
+#define BUILD_HOOK_CONTEXT(_flags) \
+    ((const struct kernel_function_hook_context){ \
+        .func_num = global_func_num, \
+        .func_arg = &(const struct kernel_function_arg){ \
+            .arg = &(const struct kernel_function_sys_clone_arg){ \
+                .flags = (_flags) \
+            }, \
+            .arg_size = sizeof(struct kernel_function_sys_clone_arg) \
+        }, \
+        .act_res = &(struct kernel_function_action_result){0} \
+    })
+
+#define BUILD_HOOK_CONTEXT_PRE(_h_ctx) \
+    ((struct kernel_function_hook_context_pre){ \
+        .header = (_h_ctx), \
+        .proc = KERNEL_FUNCTION_HOOK_PROCESS_CONTEXT_CURRENT \
+    })
+
+#define BUILD_HOOK_CONTEXT_POST(_h_ctx, _sys_res) \
+    ((struct kernel_function_hook_context_post){ \
+        .header = (_h_ctx), \
+        .proc = KERNEL_FUNCTION_HOOK_PROCESS_CONTEXT_CURRENT, \
+        .func_res = &(const struct kernel_function_result){ \
+            .res = &(const struct kernel_function_sys_clone_result){ \
+                .ret = (_sys_res) \
+            }, \
+            .res_size = sizeof(struct kernel_function_sys_clone_result), \
+            .success = ((_sys_res) >= 0) \
+        } \
+    })
+
+bool kernel_function_sys_clone_hook_context_pre_is_valid(const struct kernel_function_hook_context_pre *ctx)
+{
+    return (
+        kernel_function_hook_context_pre_is_valid(ctx)
+        && ctx->header->func_num == global_func_num
+        && ctx->header->func_arg->arg_size == sizeof(struct kernel_function_sys_clone_arg)
+    );
+}
+
+bool kernel_function_sys_clone_hook_context_post_is_valid(const struct kernel_function_hook_context_post *ctx)
+{
+    return (
+        kernel_function_hook_context_post_is_valid(ctx)
+        && ctx->header->func_num == global_func_num
+        && ctx->header->func_arg->arg_size == sizeof(struct kernel_function_sys_clone_arg)
+        && ctx->func_res->res_size == sizeof(struct kernel_function_sys_clone_result)
+        && ctx->func_res->success // todo
+    );
+}
 
 static void _pre(
-    unsigned long flags
+    const struct kernel_function_hook_context *h_ctx
 )
 {
     int err;
 
-    struct kernel_function_hook_context_pre hook_ctx_pre = {
-        .header = &(const struct kernel_function_hook_context){
-            .type = KERNEL_FUNCTION_HOOK_CONTEXT_TYPE_PRE,
-            .proc = KERNEL_FUNCTION_HOOK_PROCESS_CONTEXT_CURRENT,
-            .func_num = global_func_num,
-            .func_arg = &(const struct kernel_function_arg){
-                .arg = &(const struct kernel_function_sys_clone_arg){
-                    .flags = flags
-                },
-                .arg_size = sizeof(struct kernel_function_sys_clone_arg)
-            },
-            .act_res = &(struct kernel_function_action_result){0}
-        }
-    };
+    const struct kernel_function_hook_context_pre hook_ctx_pre = BUILD_HOOK_CONTEXT_PRE(h_ctx);
 
     err = kernel_function_hook_pre(&hook_ctx_pre);
     if (err != 0)
         return;
 
-    // todo
-    // switch (hook_ctx_pre.header->act_res->type)
-    // {
-    //     case KERNEL_FUNCTION_ACTION_RESULT_TYPE_SUCCESS: break;
-    //     case KERNEL_FUNCTION_ACTION_RESULT_TYPE_FAILURE: break;
-    //     default: break;
-    // }
-
     return;
 }
 
 static void _post(
-    long sys_res, unsigned long flags
+    const struct kernel_function_hook_context *h_ctx,
+    long sys_res
 )
 {
     int err;
 
-    struct kernel_function_hook_context_post hook_ctx_post = {
-        .header = &(const struct kernel_function_hook_context){
-            .type = KERNEL_FUNCTION_HOOK_CONTEXT_TYPE_POST,
-            .proc = KERNEL_FUNCTION_HOOK_PROCESS_CONTEXT_CURRENT,
-            .func_num = global_func_num,
-            .func_arg = &(const struct kernel_function_arg){
-                .arg = &(const struct kernel_function_sys_clone_arg){
-                    .flags = flags
-                },
-                .arg_size = sizeof(struct kernel_function_sys_clone_arg)
-            },
-            .act_res = &(struct kernel_function_action_result){0}
-        },
-        .func_res = &(const struct kernel_function_result){
-            .res = &(const struct kernel_function_sys_clone_result){
-                .ret = sys_res
-            },
-            .res_size = sizeof(struct kernel_function_sys_clone_result),
-            .success = (sys_res != -1)
-        }
-    };
+    const struct kernel_function_hook_context_post hook_ctx_post = BUILD_HOOK_CONTEXT_POST(h_ctx, sys_res);
 
     err = kernel_function_hook_post(&hook_ctx_post);
     if (err != 0)
@@ -114,12 +125,22 @@ static void _post(
 
 	static asmlinkage long _hook(const struct pt_regs *regs)
     {
+		const char *log_id = "sys_clone::_hook";
 		long res;
         unsigned long flags = (unsigned long)(regs->di);
 
-        _pre(flags);
-		res = _orig(regs);
-		_post(res, flags);
+		const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(flags);
+
+        _pre(&h_ctx);
+		if (kernel_function_action_result_is_disallow_function(h_ctx.act_res->type))
+		{
+			util_log_debug(log_id, "Disallowing function execution due to action result type: %d", h_ctx.act_res->type);
+			res = -EACCES;
+		} else
+		{
+			res = _orig(regs);
+		}
+		_post(&h_ctx, res);
 		return res;
 	}
 
@@ -130,10 +151,21 @@ static void _post(
 
     static asmlinkage long _hook(unsigned long flags, void *child_stack, int *ptid, int *ctid, unsigned long newtls)
     {
+		const char *log_id = "sys_clone::_hook";
 		long res;
-        _pre(flags);
-		res = _orig(flags, child_stack, ptid, ctid, newtls);
-        _post(res, flags);
+
+		const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(flags);
+
+        _pre(&h_ctx);
+		if (kernel_function_action_result_is_disallow_function(h_ctx.act_res->type))
+		{
+			util_log_debug(log_id, "Disallowing function execution due to action result type: %d", h_ctx.act_res->type);
+			res = -EACCES;
+		} else
+		{
+			res = _orig(flags, child_stack, ptid, ctid, newtls);
+		}
+        _post(&h_ctx, res);
 		return res;
 	}
 
