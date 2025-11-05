@@ -24,6 +24,7 @@
 
 #include "spade/audit/kernel/function/number.h"
 #include "spade/audit/kernel/function/hook.h"
+#include "spade/audit/kernel/function/sys_bind/hook.h"
 #include "spade/audit/kernel/function/sys_bind/action/audit.h"
 #include "spade/audit/kernel/function/sys_bind/arg.h"
 #include "spade/audit/kernel/function/sys_bind/result.h"
@@ -37,19 +38,8 @@
 static const enum msg_common_type GLOBAL_MSG_TYPE = MSG_NETWORK;
 
 
-static bool _is_valid_bind_ctx_post(struct kernel_function_hook_context_post *ctx)
-{
-    return (
-        kernel_function_hook_context_post_is_valid(ctx)
-        && ctx->header->func_num == KERN_F_NUM_SYS_BIND
-        && ctx->header->func_arg->arg_size == sizeof(struct kernel_function_sys_bind_arg)
-        && ctx->func_res->res_size == sizeof(struct kernel_function_sys_bind_result)
-        && ctx->func_res->success // todo
-    );
-}
-
 int kernel_function_sys_bind_action_audit_handle_post(
-    struct kernel_function_hook_context_post *ctx_post
+    const struct kernel_function_hook_context_post *ctx_post
 )
 {
     const char *log_id = "kernel_function_sys_bind_action_audit_handle_post";
@@ -62,7 +52,7 @@ int kernel_function_sys_bind_action_audit_handle_post(
     struct kernel_function_sys_bind_arg *sys_arg;
     struct kernel_function_sys_bind_result *sys_res;
 
-    if (!_is_valid_bind_ctx_post(ctx_post))
+    if (!kernel_function_sys_bind_hook_context_post_is_valid(ctx_post))
         return -EINVAL;
 
     err = msg_ops_kinit(GLOBAL_MSG_TYPE, &msg.header);
