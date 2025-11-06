@@ -473,11 +473,27 @@ public class Audit extends AbstractReporter {
 					try{
 						final boolean harden = kernelModuleConfiguration.isHarden();
 						final Set<String> tgidsToHarden = new HashSet<String>();
+						final Set<String> authorizedUids = new HashSet<String>();
 						if(kernelModuleConfiguration.isHarden()){
 							try{
-								tgidsToHarden.addAll(processUserSyscallFilter.getTgidsOfProcessesToHarden(kernelModuleConfiguration.getHardenProcesses()));
+								tgidsToHarden.addAll(
+									processUserSyscallFilter.getTgidsOfProcessesToHarden(
+										kernelModuleConfiguration.getHardenProcesses()
+									)
+								);
 							}catch(Exception e){
 								logger.log(Level.SEVERE, "Failed to get tgids of processes to harden", e);
+								return false;
+							}
+
+							try{
+								authorizedUids.addAll(
+									processUserSyscallFilter.getUidsOfAuthorizedUsers(
+										kernelModuleConfiguration.getAuthorizedUsers()
+									)
+								);
+							}catch(Exception e){
+								logger.log(Level.SEVERE, "Failed to get uids of authorized users", e);
 								return false;
 							}
 						}
@@ -491,13 +507,14 @@ public class Audit extends AbstractReporter {
 							auditConfiguration.isNamespaces(),
 							kernelModuleConfiguration.isNetworkAddressTranslation(),
 							kernelModuleConfiguration.isNetfilterHooksLogCT(),
-							kernelModuleConfiguration.isNetfilterHooksUser()
+							kernelModuleConfiguration.isNetfilterHooksUser(),
+							tgidsToHarden,
+							authorizedUids
 						);
 						KernelModuleManager.insertModules(
 							kernelModuleConfiguration.getKernelModuleMainPath(),
 							kernelModuleConfiguration.getKernelModuleControllerPath(),
 							kmArg,
-							harden, tgidsToHarden,
 							new Consumer<String>(){
 								@Override
 								public void accept(final String str){

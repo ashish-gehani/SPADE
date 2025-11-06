@@ -45,6 +45,8 @@ public class KernelModuleArgument{
 	public static final String PARAM_UID_TRACE_MODE = "uid_trace_mode";
 	public static final String PARAM_UIDS = "uids";
 	public static final String PARAM_CONFIG_FILE = "config_file";
+	public static final String PARAM_HARDEN_TGIDS = "harden_tgids";
+	public static final String PARAM_AUTHORIZED_UIDS = "authorized_uids";
 
 	// Default values
 	public static final boolean DEFAULT_NF_HANDLE_USER = false;
@@ -160,6 +162,10 @@ public class KernelModuleArgument{
 	// Configuration
 	private String configFile;
 
+	// Hardening
+	private List<Integer> hardenTgids;
+	private List<Integer> authorizedUids;
+
 	/**
 	 * Constructor with default values
 	 */
@@ -177,6 +183,8 @@ public class KernelModuleArgument{
 		this.uidTraceMode = DEFAULT_UID_TRACE_MODE;
 		this.uids = new ArrayList<>();
 		this.configFile = DEFAULT_CONFIG_FILE;
+		this.hardenTgids = new ArrayList<>();
+		this.authorizedUids = new ArrayList<>();
 	}
 
 	// Create instance from raw argument
@@ -184,7 +192,8 @@ public class KernelModuleArgument{
 		final String userId, final UserMode userMode,
 		final Set<String> pidsToIgnore, final Set<String> ppidsToIgnore,
 		final boolean hookSendRecv, final boolean namespaces,
-		final boolean networkAddressTranslation, final boolean netfilterHooksLogCt, final boolean netfilterHooksUser
+		final boolean networkAddressTranslation, final boolean netfilterHooksLogCt, final boolean netfilterHooksUser,
+		final Set<String> hardenTgids, final Set<String> authorizedUids
 	){
 		final KernelModuleArgument k = new KernelModuleArgument();
 
@@ -257,6 +266,36 @@ public class KernelModuleArgument{
 
 		// Set netfilter user-space handling
 		k.setNfHandleUser(netfilterHooksUser);
+
+		// Set harden TGIDs
+		if(hardenTgids != null && !hardenTgids.isEmpty()){
+			List<Integer> hardenTgidList = new ArrayList<>();
+			for(String tgidStr : hardenTgids){
+				try{
+					hardenTgidList.add(Integer.parseInt(tgidStr));
+				}catch(NumberFormatException e){
+					throw new IllegalArgumentException("Invalid harden tgid", e);
+				}
+			}
+			if(!hardenTgidList.isEmpty()){
+				k.setHardenTgids(hardenTgidList);
+			}
+		}
+
+		// Set authorized UIDs
+		if(authorizedUids != null && !authorizedUids.isEmpty()){
+			List<Integer> authorizedUidList = new ArrayList<>();
+			for(String uidStr : authorizedUids){
+				try{
+					authorizedUidList.add(Integer.parseInt(uidStr));
+				}catch(NumberFormatException e){
+					throw new IllegalArgumentException("Invalid authorized uid", e);
+				}
+			}
+			if(!authorizedUidList.isEmpty()){
+				k.setAuthorizedUids(authorizedUidList);
+			}
+		}
 
 		return k;
 	}
@@ -376,6 +415,28 @@ public class KernelModuleArgument{
 		this.configFile = configFile;
 	}
 
+	public List<Integer> getHardenTgids(){
+		return hardenTgids;
+	}
+
+	public void setHardenTgids(List<Integer> hardenTgids){
+		if(hardenTgids.size() > MAX_PID_ARRAY_LENGTH){
+			throw new IllegalArgumentException("Harden TGIDs array length exceeds maximum of " + MAX_PID_ARRAY_LENGTH);
+		}
+		this.hardenTgids = hardenTgids;
+	}
+
+	public List<Integer> getAuthorizedUids(){
+		return authorizedUids;
+	}
+
+	public void setAuthorizedUids(List<Integer> authorizedUids){
+		if(authorizedUids.size() > MAX_UID_ARRAY_LENGTH){
+			throw new IllegalArgumentException("Authorized UIDs array length exceeds maximum of " + MAX_UID_ARRAY_LENGTH);
+		}
+		this.authorizedUids = authorizedUids;
+	}
+
 	/**
 	 * Builds a kernel module argument string suitable for insmod
 	 *
@@ -426,6 +487,26 @@ public class KernelModuleArgument{
 		// Configuration file
 		args.append(" ").append(PARAM_CONFIG_FILE).append("=\"").append(configFile).append("\"");
 
+		// Harden PIDs
+		if(!hardenTgids.isEmpty()){
+			args.append(" ").append(PARAM_HARDEN_TGIDS).append("=\"");
+			for(int i = 0; i < hardenTgids.size(); i++){
+				if(i > 0) args.append(",");
+				args.append(hardenTgids.get(i));
+			}
+			args.append("\"");
+		}
+
+		// Authorized UIDs
+		if(!authorizedUids.isEmpty()){
+			args.append(" ").append(PARAM_AUTHORIZED_UIDS).append("=\"");
+			for(int i = 0; i < authorizedUids.size(); i++){
+				if(i > 0) args.append(",");
+				args.append(authorizedUids.get(i));
+			}
+			args.append("\"");
+		}
+
 		return args.toString();
 	}
 
@@ -445,6 +526,8 @@ public class KernelModuleArgument{
 				", uidTraceMode=" + uidTraceMode +
 				", uids=" + uids +
 				", configFile='" + configFile + '\'' +
+				", hardenTgids=" + hardenTgids +
+				", authorizedUids=" + authorizedUids +
 				'}';
 	}
 }

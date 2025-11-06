@@ -20,7 +20,6 @@
 package spade.reporter.audit;
 
 import java.util.List;
-import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -32,7 +31,6 @@ public class KernelModuleManager{
 	public static void insertModules(
 		final String kernelModuleMainPath, final String kernelModuleControllerPath,
 		final KernelModuleArgument kmArg,
-		final boolean harden, final Set<String> tgidsToHarden,
 		final Consumer<String> outputConsumer
 	) throws Exception{
 
@@ -44,21 +42,6 @@ public class KernelModuleManager{
 			}
 
 			String kernelModuleControllerArguments = kmArg.toModuleArgumentString();
-
-			String valueHardenTgids = null;
-			if(harden){
-				if(tgidsToHarden != null && !tgidsToHarden.isEmpty()){
-					valueHardenTgids = "";
-					for(String tgidToHarden : tgidsToHarden){
-						tgidToHarden = tgidToHarden.trim();
-						valueHardenTgids += tgidToHarden + ",";
-					}
-					if(valueHardenTgids.length() > 0){
-						valueHardenTgids = valueHardenTgids.substring(0, valueHardenTgids.length() - 1);
-						kernelModuleControllerArguments += " harden_tgids=\"" + valueHardenTgids + "\"";
-					}
-				}
-			}
 
 			if(outputConsumer != null){
 				outputConsumer.accept("Controller kernel module arguments: [" + kernelModuleControllerArguments + "]");

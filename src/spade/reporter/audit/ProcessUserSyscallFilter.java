@@ -50,6 +50,7 @@ public class ProcessUserSyscallFilter{
 	private String spadeAuditBridgeProcessName;
 	
 	private Set<String> pidsToIgnore = null, ppidsToIgnore = null, tgidsToHarden = null;
+	private Set<String> authorizedUids = null;
 
 	public ProcessUserSyscallFilter(SystemCallRuleType systemCallRuleType, 
 			String userName, String userId, UserMode userMode, 
@@ -115,6 +116,20 @@ public class ProcessUserSyscallFilter{
 			tgidsToHarden = tgids;
 		}
 		return new HashSet<String>(tgidsToHarden);
+	}
+
+	public synchronized Set<String> getUidsOfAuthorizedUsers(final Set<String> authorizedUsers) throws Exception {
+		if (authorizedUids == null)
+		{
+			final Set<String> userIds = new HashSet<String>();
+			for(final String userName : authorizedUsers){
+				userIds.add(HelperFunctions.nixUidOfUsername(userName));
+			}
+			userIds.add(HelperFunctions.nixUidOfSelf());
+			
+			authorizedUids = userIds;
+		}
+		return new HashSet<String>(authorizedUids);
 	}
 	
 	public boolean isProcessNameInIgnoreProcessSet(final String processName){

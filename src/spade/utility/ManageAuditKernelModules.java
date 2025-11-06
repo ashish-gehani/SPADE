@@ -78,7 +78,8 @@ public class ManageAuditKernelModules {
             pidsToIgnore.add(HelperFunctions.nixPidOfSelf());
             Set<String> ppidsToIgnore = getIdsFromCsvProcessNames(argsMap.getOrDefault("ignoreParentProcesses", ""));
             ppidsToIgnore.add(HelperFunctions.nixPidOfSelf());
-            Set<String> tgidsToHarden = new HashSet<>();
+            Set<String> tgidsToHarden = getTgidsFromCsvProcessNames(argsMap.getOrDefault("hardenTgids", ""));
+            Set<String> authorizedUids = getUidsFromCsvUsernames(argsMap.getOrDefault("authorizedUsers", ""));
 
             boolean hookSendRecv = Boolean.parseBoolean(argsMap.getOrDefault("netIO", "false"));
             boolean namespaces = Boolean.parseBoolean(argsMap.getOrDefault("namespaces", "false"));
@@ -96,10 +97,12 @@ public class ManageAuditKernelModules {
                 namespaces,
                 nfNat,
                 nfCt,
-                nfUser
+                nfUser,
+                tgidsToHarden,
+                authorizedUids
             );
 
-            KernelModuleManager.insertModules(mainPath, controllerPath, kmArg, harden, tgidsToHarden, out);
+            KernelModuleManager.insertModules(mainPath, controllerPath, kmArg, out);
             out.accept("Module inserted.");
 
         } catch (Exception e) {
@@ -155,6 +158,34 @@ public class ManageAuditKernelModules {
         return ids;
     }
 
+    private static Set<String> getTgidsFromCsvProcessNames(String csvNames) throws Exception {
+        Set<String> ids = new HashSet<>();
+        if (csvNames != null && !csvNames.trim().isEmpty()) {
+            for (String name : csvNames.split(",")) {
+                String trimmed = name.trim();
+                if (!trimmed.isEmpty()) {
+                    ids.addAll(HelperFunctions.nixTgidsOfProcessesWithName(trimmed));
+                }
+            }
+        }
+        return ids;
+    }
+
+    private static Set<String> getUidsFromCsvUsernames(String csvUsernames) throws Exception {
+        Set<String> uids = new HashSet<>();
+        if (csvUsernames != null && !csvUsernames.trim().isEmpty()) {
+            for (String username : csvUsernames.split(",")) {
+                String trimmed = username.trim();
+                if (!trimmed.isEmpty()) {
+                    uids.add(HelperFunctions.nixUidOfUsername(trimmed));
+                }
+            }
+        }
+        // Always add current user's UID for safety
+        uids.add(HelperFunctions.nixUidOfSelf());
+        return uids;
+    }
+
     private static boolean wantsHelp(Map<String, String> config) {
         return Boolean.parseBoolean(config.getOrDefault("help", "false"));
     }
@@ -172,6 +203,7 @@ public class ManageAuditKernelModules {
             "    [--netIO=true|false] [--namespaces=true|false] \\\n" +
             "    [--nfCt=true|false] [--nfUser=true|false] [--nfNat=true|false] \\\n" +
             "    [--harden=true|false] [--hardenTgids=name1,name2] \\\n" +
+            "    [--authorizedUsers=user1,user2] \\\n" +
             "    [--remove=true|false] \\\n" +
             "    [--help=true]\n\n" +
             "OPTIONS:\n" +
@@ -188,13 +220,18 @@ public class ManageAuditKernelModules {
             "  --nfNat=true|false          netfilter: NAT tracking (default: false)\n" +
             "  --harden=true|false         enable hardening for TGIDs (default: false)\n" +
             "  --hardenTgids=CSV           process names whose TGIDs to harden\n" +
+            "  --authorizedUsers=CSV       usernames authorized to kill hardened processes\n" +
             "  --help=true                 show this help\n\n" +
             "EXAMPLES:\n" +
             "  Insert:\n" +
             "    java <classpath> spade.utility.ManageAuditKernelModules \\\n" +
             "      --controller=/lib/modules/ctrl.ko --main=/lib/modules/main.ko \\\n" +
-            "      --main=/lib/modules/main.ko \\\n" +
             "      --user=myuser --ignoreProcesses=sshd,bash --netIO=true\n\n" +
+            "  Insert with hardening:\n" +
+            "    java <classpath> spade.utility.ManageAuditKernelModules \\\n" +
+            "      --controller=/lib/modules/ctrl.ko --main=/lib/modules/main.ko \\\n" +
+            "      --harden=true --hardenTgids=spade,important-app \\\n" +
+            "      --authorizedUsers=root,admin\n\n" +
             "  Remove:\n" +
             "    java <classpath> spade.utility.ManageAuditKernelModules --controller=/lib/modules/ctrl.ko --remove=true\n"
         );

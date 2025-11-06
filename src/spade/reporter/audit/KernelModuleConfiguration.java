@@ -31,13 +31,14 @@ import spade.utility.HelperFunctions;
 
 public class KernelModuleConfiguration{
 
-	public static final String 
+	public static final String
 			keyKernelModuleMainPath = "kernelModuleMain",
 			keyKernelModuleControllerPath = "kernelModuleController",
 			keyHarden = "harden",
-			keyLocalEndpoints = "localEndpoints", 
+			keyLocalEndpoints = "localEndpoints",
 			keyHandleLocalEndpoints = "handleLocalEndpoints",
 			keyHardenProcesses = "hardenProcesses",
+			keyAuthorizedUsers = "authorizedUsers",
 			keyNetworkAddressTranslation = "networkAddressTranslation",
 			keyNetfilterHooksLogCT = "netfilterHooksLogCT",
 			keyNetfilterHooksUser = "netfilterHooksUser",
@@ -47,6 +48,7 @@ public class KernelModuleConfiguration{
 	private boolean harden, localEndpoints;
 	private Boolean handleLocalEndpoints;
 	private Set<String> hardenProcesses = new HashSet<String>();
+	private Set<String> authorizedUsers = new HashSet<String>();
 	private boolean networkAddressTranslation;
 	private boolean netfilterHooksLogCT;
 	private boolean netfilterHooksUser;
@@ -55,7 +57,8 @@ public class KernelModuleConfiguration{
 	private KernelModuleConfiguration(final String kernelModuleMainPath, final String kernelModuleControllerPath,
 			final boolean harden, final boolean localEndpoints,
 			final Boolean handleLocalEndpoints, final Set<String> hardenProcesses,
-			final boolean networkAddressTranslation, final boolean netfilterHooksLogCT, 
+			final Set<String> authorizedUsers,
+			final boolean networkAddressTranslation, final boolean netfilterHooksLogCT,
 			final boolean netfilterHooksUser, final boolean handleNetworkAddressTranslation){
 		this.kernelModuleMainPath = kernelModuleMainPath;
 		this.kernelModuleControllerPath = kernelModuleControllerPath;
@@ -63,6 +66,7 @@ public class KernelModuleConfiguration{
 		this.localEndpoints = localEndpoints;
 		this.handleLocalEndpoints = handleLocalEndpoints;
 		this.hardenProcesses.addAll(hardenProcesses);
+		this.authorizedUsers.addAll(authorizedUsers);
 		this.networkAddressTranslation = networkAddressTranslation;
 		this.netfilterHooksLogCT = netfilterHooksLogCT;
 		this.netfilterHooksUser = netfilterHooksUser;
@@ -91,6 +95,7 @@ public class KernelModuleConfiguration{
 		final boolean harden;
 		final Boolean handleLocalEndpoints;
 		final Set<String> hardenProcesses = new HashSet<String>();
+		final Set<String> authorizedUsers = new HashSet<String>();
 		final boolean networkAddressTranslation;
 		final boolean netfilterHooksLogCT;
 		final boolean netfilterHooksUser;
@@ -183,6 +188,17 @@ public class KernelModuleConfiguration{
 						}
 					}
 				}
+
+				final String valueAuthorizedUsers = map.get(keyAuthorizedUsers);
+				if(!HelperFunctions.isNullOrEmpty(valueAuthorizedUsers)){
+					authorizedUsers.addAll(ArgumentFunctions.mustParseCommaSeparatedValues(keyAuthorizedUsers, map));
+					for(final String authorizedUser : authorizedUsers){
+						if(authorizedUser.trim().isEmpty()){
+							throw new Exception("User authorized for hardened activities by the kernel module"
+									+ " using the key '" + keyAuthorizedUsers + "' must not be empty");
+						}
+					}
+				}
 			}
 
 			/*
@@ -231,7 +247,7 @@ public class KernelModuleConfiguration{
 		}
 
 		return new KernelModuleConfiguration(kernelModuleMainPath, kernelModuleControllerPath,
-				harden, localEndpoints, handleLocalEndpoints, hardenProcesses,
+				harden, localEndpoints, handleLocalEndpoints, hardenProcesses, authorizedUsers,
 				networkAddressTranslation, netfilterHooksLogCT, netfilterHooksUser, handleNetworkAddressTranslation);
 	}
 
@@ -288,7 +304,11 @@ public class KernelModuleConfiguration{
 	public Set<String> getHardenProcesses(){
 		return hardenProcesses;
 	}
-	
+
+	public Set<String> getAuthorizedUsers(){
+		return authorizedUsers;
+	}
+
 	public boolean isNetworkAddressTranslation(){
 		return networkAddressTranslation;
 	}
@@ -314,6 +334,7 @@ public class KernelModuleConfiguration{
 				+ ", " + keyLocalEndpoints + "=" + localEndpoints
 				+ ", " + keyHandleLocalEndpoints + "=" + handleLocalEndpoints
 				+ ", " + keyHardenProcesses + "=" + hardenProcesses
+				+ ", " + keyAuthorizedUsers + "=" + authorizedUsers
 				+ ", " + keyNetworkAddressTranslation + "=" + networkAddressTranslation
 				+ ", " + keyHandleNetworkAddressTranslation + "=" + handleNetworkAddressTranslation
 				+ ", " + keyNetfilterHooksLogCT + "=" + netfilterHooksLogCT
