@@ -33,13 +33,31 @@ static int util_log_common_va(const char *level, const char *log_id, const char 
 	const char *mod_name;
 	char buf[512];
 	int len = 0;
+	const char *level_name;
 
 	mod_name = SPADE_MODULE_NAME ? SPADE_MODULE_NAME : "unknown";
 
 	if (!level || !log_id)
 		return -EINVAL;
 
-	len = scnprintf(buf, sizeof(buf), "[%s] [%s] : ", mod_name, log_id);
+	/* Convert kernel log level to readable name */
+	if (level[0] == KERN_SOH[0]) {
+		switch (level[1]) {
+		case '0': level_name = "EMERG"; break;
+		case '1': level_name = "ALERT"; break;
+		case '2': level_name = "CRIT"; break;
+		case '3': level_name = "ERR"; break;
+		case '4': level_name = "WARNING"; break;
+		case '5': level_name = "NOTICE"; break;
+		case '6': level_name = "INFO"; break;
+		case '7': level_name = "DEBUG"; break;
+		default: level_name = "UNKNOWN"; break;
+		}
+	} else {
+		level_name = "UNKNOWN";
+	}
+
+	len = scnprintf(buf, sizeof(buf), "[%s] [%s] [%s] : ", mod_name, level_name, log_id);
 	len += vsnprintf(buf + len, sizeof(buf) - len, fmt, args);
 
 	printk("%s%s\n", level, buf);

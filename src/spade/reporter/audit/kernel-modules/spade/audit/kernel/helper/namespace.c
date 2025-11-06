@@ -110,7 +110,7 @@ int kernel_helper_namespace_populate_msg(
     );
     if (err != 0)
     {
-        util_log_warn(log_id, "Failed to get syscall number from function number: %d. Err: %d", func_num, err);
+        util_log_debug(log_id, "Failed to get syscall number from function number: %d. Err: %d", func_num, err);
         return err;
     }
 
@@ -136,6 +136,7 @@ int kernel_helper_namespace_log_msg_to_audit(
     struct msg_namespace *msg
 )
 {
+    const char *log_id = "kernel_helper_namespace_log_msg_to_audit";
     int err;
     struct audit_context *audit_ctx;
 
@@ -147,7 +148,7 @@ int kernel_helper_namespace_log_msg_to_audit(
 	audit_ctx = kernel_helper_task_current_audit_context();
     if (!audit_ctx)
     {
-        util_log_warn("kernel_helper_namespace_log_msg_to_audit", "NULL audit context");
+        util_log_debug(log_id, "NULL audit context");
     }
     err = kernel_helper_audit_log(
         audit_ctx,

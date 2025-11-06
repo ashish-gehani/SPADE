@@ -46,21 +46,21 @@ static void seqbuf_print_context(struct seqbuf *b, const struct context *context
 
 void context_print(const struct context *context)
 {
-    const char *func_name = "context_print";
+    const char *log_id = "context_print";
     const int BUF_MAX_LEN = 1024;
     char *buf;
     struct seqbuf sb;
 
     if (!context)
     {
-        util_log_warn(func_name, "NULL context");
+        util_log_warn(log_id, "NULL context");
         return;
     }
 
     buf = kzalloc(BUF_MAX_LEN, GFP_KERNEL);
     if (!buf)
     {
-        util_log_warn(func_name, "OOM allocating %d bytes", BUF_MAX_LEN);
+        util_log_warn(log_id, "OOM allocating %d bytes", BUF_MAX_LEN);
         return;
     }
 
@@ -69,9 +69,9 @@ void context_print(const struct context *context)
     seqbuf_print_context(&sb, context);
     if (util_seqbuf_has_overflowed(&sb))
     {
-        util_log_warn(func_name, "Truncated context value");
+        util_log_warn(log_id, "Truncated context value");
     }
-    util_log_warn(func_name, "%s", buf);
+    util_log_info(log_id, "%s", buf);
 
     kfree(buf);
 }

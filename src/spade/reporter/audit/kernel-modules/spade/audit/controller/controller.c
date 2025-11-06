@@ -53,6 +53,14 @@ static int _stop(void)
     return exported_auditing_spade_stop(spade_build_hash);
 }
 
+static void _log_build_hash_mismatch_error(const char *log_id)
+{
+    util_log_warn(
+        log_id,
+        "Build hash of controller module does not match that of the loaded main module. Reboot & rebuild to ensure proper usage."
+    );
+}
+
 static int __init onload(void)
 {
     const char *log_id = "__init onload";
@@ -71,6 +79,8 @@ static int __init onload(void)
 	if ((err = _start(&global_local_arg)) != 0)
 	{
 		util_log_warn(log_id, "Failed to load module. Error in starting auditing: %d", err);
+        if (err == -EPERM)
+            _log_build_hash_mismatch_error(log_id);
 		goto exit_fail;
 	}
 
@@ -79,6 +89,7 @@ static int __init onload(void)
 exit_fail:
     util_log_module_loading_failure();
     goto exit;
+
 
 exit_success:
     util_log_module_loading_success();
@@ -90,8 +101,19 @@ exit:
 
 static void __exit onunload(void)
 {
+    const char *log_id = "__exit onunload";
+    int err;
+
     util_log_module_unloading_started();
-    _stop();
+
+    err = _stop();
+    if (err != 0)
+    {
+        util_log_warn(log_id, "Failed to unload module. Error in stopping auditing: %d", err);
+        if (err == -EPERM)
+            _log_build_hash_mismatch_error(log_id);
+    }
+
     util_log_module_unloading_success();
 }
 

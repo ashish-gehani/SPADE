@@ -47,7 +47,7 @@ int kernel_helper_network_copy_saddr_and_size_from_userspace(
     err = kernel_helper_sock_copy_sock_len_from_userspace(dst_size, src_size);
     if (err != 0)
     {
-        util_log_warn(log_id, "Failed to copy sockaddr len from userspace");
+        util_log_debug(log_id, "Failed to copy sockaddr len from userspace");
         return err;
     }
 
@@ -78,7 +78,7 @@ int kernel_helper_network_copy_only_saddr_from_userspace(
     );
     if (err != 0)
     {
-        util_log_warn(log_id, "Failed to copy sockaddr from userspace. Err: %d", err);
+        util_log_debug(log_id, "Failed to copy sockaddr from userspace. Err: %d", err);
         return err;
     }
 
@@ -107,7 +107,7 @@ int kernel_helper_network_get_peer_saddr_from_fd(
     );
     if (err != 0)
     {
-        util_log_warn(log_id, "Failed to get remote fd saddr info");
+        util_log_debug(log_id, "Failed to get remote fd saddr info");
         return err;
     }
     memcpy(dst, &(saddr_info.saddr), saddr_info.saddr_size);
@@ -131,7 +131,7 @@ int kernel_helper_network_copy_saddr_and_size_in_msghdr_from_userspace(
     );
     if (err != 0)
     {
-        util_log_warn(log_id, "Failed to get copy saddr in msghdr from userspace. Err: %d", err);
+        util_log_debug(log_id, "Failed to get copy saddr in msghdr from userspace. Err: %d", err);
         return err;
     }
     return 0;
@@ -151,7 +151,7 @@ int kernel_helper_network_is_sockfd_connected(
     err = kernel_helper_sock_is_sockfd_in_connected_state(dst, sockfd);
     if (err != 0)
     {
-        util_log_warn(log_id, "Failed to check if sockfd state");
+        util_log_debug(log_id, "Failed to check if sockfd state");
         return err;
     }
 
@@ -184,14 +184,14 @@ int kernel_helper_network_populate_msg(
     );
     if (err != 0)
     {
-        util_log_warn(log_id, "Failed to get local fd saddr info");
+        util_log_debug(log_id, "Failed to get local fd saddr info");
         return err;
     }
 
     err = kernel_helper_task_populate_process_info_from_current_task(&msg->proc_info);
     if (err != 0)
     {
-        util_log_warn(log_id, "Failed to copy current process info");
+        util_log_debug(log_id, "Failed to copy current process info");
         return err;
     }
 
@@ -200,7 +200,7 @@ int kernel_helper_network_populate_msg(
     );
     if (err != 0)
     {
-        util_log_warn(log_id, "Failed to get syscall number from function number: %d. Err: %d", func_num, err);
+        util_log_debug(log_id, "Failed to get syscall number from function number: %d. Err: %d", func_num, err);
         return err;
     }
 

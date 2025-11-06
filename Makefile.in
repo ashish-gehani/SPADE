@@ -10,8 +10,14 @@ ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@
 ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
 
 KERNEL_MODULES ?= false
-AUDIT_KERNEL_MODULES_SRC = src/spade/reporter/audit/kernel-modules/
-AUDIT_KERNEL_MODULES_INSTALL = $(PWD)/lib/kernel-modules
+AUDIT_KERNEL_MODULES_SRC ?= src/spade/reporter/audit/kernel-modules/
+AUDIT_KERNEL_MODULES_INSTALL ?= $(PWD)/lib/kernel-modules
+KERNEL_MODULES_DEBUG ?= false
+ifeq ($(KERNEL_MODULES_DEBUG),true)
+    KERNEL_MODULES_BUILD_TARGET = debug
+else
+    KERNEL_MODULES_BUILD_TARGET = release
+endif
 
 OS_NAME = $(shell uname)
 
@@ -141,8 +147,7 @@ bin/spadeAuditBridge: src/spade/reporter/spadeAuditBridge.c
 	gcc -o bin/spadeAuditBridge src/spade/reporter/spadeAuditBridge.c
 audit-kernel-module:
 	@if [ "$(KERNEL_MODULES)" = "true" ]; then \
-		$(MAKE) --no-print-directory -C $(AUDIT_KERNEL_MODULES_SRC) all; \
-		$(MAKE) --no-print-directory -C $(AUDIT_KERNEL_MODULES_SRC) INSTALL_DIR=$(AUDIT_KERNEL_MODULES_INSTALL) install; \
+		$(MAKE) --no-print-directory -C $(AUDIT_KERNEL_MODULES_SRC) INSTALL_DIR=$(AUDIT_KERNEL_MODULES_INSTALL) $(KERNEL_MODULES_BUILD_TARGET) install; \
 	else \
 		echo 'Skipping kernel modules build. KERNEL_MODULES is not set to true'; \
 	fi

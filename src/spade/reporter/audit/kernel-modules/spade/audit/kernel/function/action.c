@@ -53,7 +53,7 @@ int kernel_function_action_pre_iterate_all(const struct kernel_function_hook_con
         err = act_pre(ctx_pre);
         if (err != 0)
         {
-            util_log_warn(log_id, "Failed to execute pre action for func num %d at index: %d. Err: %d", ctx_pre->header->func_num, i, err);
+            util_log_debug(log_id, "Failed to execute pre action for func num %d at index: %d. Err: %d", ctx_pre->header->func_num, i, err);
             break;
         }
 
@@ -123,7 +123,7 @@ int kernel_function_action_post_iterate_all(const struct kernel_function_hook_co
         err = act_post(ctx_post);
         if (err != 0)
         {
-            util_log_warn(log_id, "Failed to execute post action for func num %d at index: %d. Err: %d", f_num, i, err);
+            util_log_debug(log_id, "Failed to execute post action for func num %d at index: %d. Err: %d", f_num, i, err);
             break;
         }
 

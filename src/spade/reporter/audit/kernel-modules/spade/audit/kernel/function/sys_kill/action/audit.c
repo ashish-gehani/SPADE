@@ -67,7 +67,7 @@ int kernel_function_sys_kill_action_audit_handle_post(
     err = kernel_helper_task_populate_process_info_from_current_task(&msg.proc_info);
     if (err != 0)
     {
-        util_log_warn(log_id, "Failed to copy current process info");
+        util_log_debug(log_id, "Failed to copy current process info");
         return err;
     }
 
@@ -76,7 +76,7 @@ int kernel_function_sys_kill_action_audit_handle_post(
     );
     if (err != 0)
     {
-        util_log_warn(log_id, "Failed to get syscall number from function number: %d. Err: %d", func_num, err);
+        util_log_debug(log_id, "Failed to get syscall number from function number: %d. Err: %d", func_num, err);
         return err;
     }
 

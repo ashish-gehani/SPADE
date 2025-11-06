@@ -43,7 +43,7 @@ int type_parse_monitor_mode(
 
 	if (tmp != TMM_CAPTURE && tmp != TMM_IGNORE)
 	{
-		util_log_warn("type_parse_monitor_mode", "Parameter (%s) has invalid value %d (must be 0=capture, 1=ignore)", param_name, tmp);
+		util_log_warn(log_id, "Parameter (%s) has invalid value %d (must be 0=capture, 1=ignore)", param_name, tmp);
 		return -EINVAL;
 	}
 

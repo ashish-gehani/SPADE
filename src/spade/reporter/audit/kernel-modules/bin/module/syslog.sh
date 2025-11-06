@@ -17,7 +17,7 @@ fi
     echo "=== Searching for module: $MODULE_NAME in $SYSLOG_FILE ==="
 
 # Step 1: Find messages with pattern '[<module_name>] [spade:module:state:*] : [instance_id=<arbitrary string>]'
-INSTANCE_IDS=$(grep -aoP "\[$MODULE_NAME\] \[spade:module:state:[^\]]+\] : \[instance_id=\K[^\]]+" "$SYSLOG_FILE" | sort -u)
+INSTANCE_IDS=$(grep -aoP "\[$MODULE_NAME\] \[INFO\] \[spade:module:state:[^\]]+\] : \[instance_id=\K[^\]]+" "$SYSLOG_FILE" | sort -u)
 
 if [ -z "$INSTANCE_IDS" ]; then
     echo "No instance_id found for module: $MODULE_NAME"

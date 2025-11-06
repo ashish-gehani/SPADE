@@ -1,10 +1,12 @@
 KDIR ?= /lib/modules/$(shell uname -r)/build
 
+
 BUILD_DIR ?= build
-# make MOD_DEFINES="-DENABLE_DEBUG_LOG"
-MOD_DEFINES ?=
 # Install dir
 INSTALL_DIR ?= ../../../../../lib/kernel-modules
+MOD_DEFINES ?=
+CFLAGS ?=
+
 
 # Variables for prerequisite checking
 OS_KERNEL_RELEASE ?= $(shell uname -r)
@@ -261,7 +263,34 @@ $(TEST_MODULE_NAME)-y := \
 
 ###
 
-.PHONY: all all-prereq clean test-user install check-full check hash-print hash-update
+.PHONY: help debug release all all-prereq clean test-user install check-full check hash-print hash-update
+
+help:
+	@echo "Kernel Module Build System"
+	@echo ""
+	@echo "Targets:"
+	@echo "  all          - Build kernel modules and test binaries (default)"
+	@echo "  debug        - Build with debug symbols and logging enabled"
+	@echo "  release      - Build optimized release version"
+	@echo "  test-user    - Build only user-space test binaries"
+	@echo "  install      - Install kernel modules to $(INSTALL_DIR)"
+	@echo "  clean        - Remove all build artifacts"
+	@echo "  check        - Run basic tests (dry-run)"
+	@echo "  check-full   - Run full test suite"
+	@echo "  hash-print   - Print current build hash"
+	@echo ""
+	@echo "Configuration Variables:"
+	@echo "  KDIR=<path>          - Kernel build directory (default: /lib/modules/\$$(uname -r)/build)"
+	@echo "  BUILD_DIR=<path>     - Build output directory (default: build)"
+	@echo "  INSTALL_DIR=<path>   - Installation directory (default: ../../../../../lib/kernel-modules)"
+	@echo "  MOD_DEFINES=<flags>  - Additional preprocessor defines for modules"
+	@echo "  CFLAGS=<flags>       - C compiler flags for user-space binaries"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make                 - Normal build"
+	@echo "  make debug           - Debug build with -g and -DENABLE_DEBUG_LOG"
+	@echo "  make clean all       - Clean rebuild"
+	@echo "  make KDIR=/usr/src/linux-headers-5.15.0 all"
 
 hash-print:
 	$(info $(GEN_BUILD_HASH))
@@ -277,19 +306,19 @@ test-user: $(TEST_USER_BIN)
 
 test/user/bin/ns/%: test/user/src/ns/%.c
 	@mkdir -p $(dir $@)
-	gcc -o $@ $<
+	gcc $(CFLAGS) -o $@ $<
 
 test/user/bin/socket/net/%: test/user/src/socket/net/%.c
 	@mkdir -p $(dir $@)
-	gcc -o $@ $<
+	gcc $(CFLAGS) -o $@ $<
 
 test/user/bin/socket/unix/%: test/user/src/socket/unix/%.c
 	@mkdir -p $(dir $@)
-	gcc -o $@ $<
+	gcc $(CFLAGS) -o $@ $<
 
 test/user/bin/ubsi/%: test/user/src/ubsi/%.c
 	@mkdir -p $(dir $@)
-	gcc -o $@ $<
+	gcc $(CFLAGS) -o $@ $<
 
 all-prereq: hash-update
 	@if [ "$(IS_MICROSOFT_KERNEL)" = "true" ]; then \
@@ -319,6 +348,13 @@ all: all-prereq test-user
 		fi; \
 	done; \
 	echo 'Warning: Kernel module uses workaround from https://github.com/xcellerator/linux_kernel_hacking/issues/3#issue-782815541 by hkerma';
+
+debug: MOD_DEFINES += -DENABLE_DEBUG_LOG
+debug: ccflags-y += -g
+debug: CFLAGS += -g
+debug: all
+
+release: all
 
 clean:
 	$(MAKE) -C $(KDIR) M=$(CURDIR) clean
