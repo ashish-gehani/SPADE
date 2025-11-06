@@ -143,14 +143,14 @@ exit:
 }
 
 int kernel_helper_sock_copy_sock_len_from_userspace(
-    uint32_t *dst_len, uint32_t __user *src_len
+    uint32_t *dst_len, int __user *src_len
 )
 {
     int err;
     if (!dst_len || !src_len)
         return -EINVAL;
 
-    err = copy_from_user(dst_len, src_len, sizeof(uint32_t));
+    err = copy_from_user(dst_len, src_len, sizeof(int));
 
     if (err == 0)
         return 0;
@@ -161,8 +161,8 @@ int kernel_helper_sock_copy_sock_len_from_userspace(
 }
 
 int kernel_helper_sock_copy_saddr_from_userspace(
-    struct sockaddr_storage *dst, uint32_t dst_len,
-    const struct sockaddr __user *src, uint32_t src_len
+    struct sockaddr_storage *dst, int dst_len,
+    const struct sockaddr __user *src, int src_len
 )
 {
     int err;
@@ -185,7 +185,7 @@ int kernel_helper_sock_copy_saddr_from_userspace(
 }
 
 int kernel_helper_sock_copy_saddr_in_msghdr_from_userspace(
-    struct sockaddr_storage *dst, uint32_t *dst_len,
+    struct sockaddr_storage *dst, int *dst_len,
     struct msghdr __user *src
 )
 {

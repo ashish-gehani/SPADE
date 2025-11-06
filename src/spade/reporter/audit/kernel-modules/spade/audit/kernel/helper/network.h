@@ -48,9 +48,9 @@ int kernel_helper_network_is_sockfd_connected(
 */
 int kernel_helper_network_copy_saddr_and_size_from_userspace(
     struct sockaddr_storage *dst,
-    uint32_t *dst_size,
+    int *dst_size,
     struct sockaddr __user *src,
-    uint32_t __user *src_size
+    int __user *src_size
 );
 
 /*
@@ -70,9 +70,9 @@ int kernel_helper_network_copy_saddr_and_size_from_userspace(
 */
 int kernel_helper_network_copy_only_saddr_from_userspace(
     struct sockaddr_storage *dst,
-    uint32_t *dst_size,
+    int *dst_size,
     struct sockaddr __user *src,
-    uint32_t src_size
+    int src_size
 );
 
 /*
@@ -89,7 +89,7 @@ int kernel_helper_network_copy_only_saddr_from_userspace(
 */
 int kernel_helper_network_get_peer_saddr_from_fd(
     struct sockaddr_storage *dst,
-    uint32_t *dst_size,
+    int *dst_size,
     int sockfd
 );
 
@@ -116,7 +116,7 @@ int kernel_helper_network_populate_msg(
     enum kernel_function_number func_num, long func_result, bool func_success,
     int subject_sockfd,
     struct sockaddr_storage *remote_saddr,
-    uint32_t remote_saddr_size
+    int remote_saddr_size
 );
 
 /*
@@ -127,7 +127,7 @@ int kernel_helper_network_populate_msg(
         -ive    -> Error code.
 */
 int kernel_helper_network_copy_saddr_and_size_in_msghdr_from_userspace(
-    struct sockaddr_storage *dst, uint32_t *dst_size,
+    struct sockaddr_storage *dst, int *dst_size,
     struct msghdr __user *src
 );
 

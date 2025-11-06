@@ -47,7 +47,7 @@ int kernel_function_sys_bind_action_audit_handle_post(
 
     struct msg_network msg;
     struct sockaddr_storage remote_saddr;
-    uint32_t remote_saddr_size;
+    int remote_saddr_size;
 
     struct kernel_function_sys_bind_arg *sys_arg;
     struct kernel_function_sys_bind_result *sys_res;
