@@ -36,6 +36,7 @@ struct msg_network
     struct msg_common_process proc_info;
     int sock_type;
     struct sockaddr_storage local_saddr;
+    // https://yarchive.net/comp/linux/socklen_t.html
     int local_saddr_size;
     struct sockaddr_storage remote_saddr;
     int remote_saddr_size;

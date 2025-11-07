@@ -1,4 +1,4 @@
-.vscode
+/.vscode
 build
 *.mod
 *.mod.cmd

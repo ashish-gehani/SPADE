@@ -107,6 +107,8 @@ HOOKED_FUNCTION_OBJS = \
 MOD_OUT_FILES = \
   Module.symvers \
   modules.order \
+  .Module.symvers.cmd \
+  .modules.order.cmd \
   $(foreach mod,$(MODULE_NAMES),.$(mod).ko.cmd) \
   $(foreach mod,$(MODULE_NAMES),.$(mod).mod.cmd) \
   $(foreach mod,$(MODULE_NAMES),.$(mod).mod.o.cmd) \
