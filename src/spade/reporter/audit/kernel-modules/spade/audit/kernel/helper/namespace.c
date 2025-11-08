@@ -27,7 +27,7 @@
 #include "spade/audit/kernel/helper/audit_log.h"
 #include "spade/audit/msg/namespace/create.h"
 #include "spade/audit/state/state.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 #include "spade/audit/kernel/namespace/namespace.h"
 
 

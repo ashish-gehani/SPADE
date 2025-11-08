@@ -22,7 +22,7 @@
 #include <linux/errno.h>
 #include <linux/module.h>
 
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 extern const char *SPADE_MODULE_NAME;

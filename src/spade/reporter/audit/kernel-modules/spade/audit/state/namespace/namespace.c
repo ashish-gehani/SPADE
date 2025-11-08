@@ -25,7 +25,7 @@
 
 #include "spade/audit/state/namespace/namespace.h"
 #include "spade/audit/kernel/setup/namespace/namespace.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 int state_namespace_is_initialized(

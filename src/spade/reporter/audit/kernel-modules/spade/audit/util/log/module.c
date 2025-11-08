@@ -25,8 +25,8 @@
 #include <linux/time.h>
 #include <linux/timekeeping.h>
 
-#include "spade/util/log/log.h"
-#include "spade/util/log/module.h"
+#include "spade/audit/util/log/log.h"
+#include "spade/audit/util/log/module.h"
 
 
 #define TIME_BUF_LEN 32

@@ -26,7 +26,7 @@
 #include "spade/audit/global/global.h"
 #include "spade/audit/global/filter.h"
 #include "spade/audit/kernel/helper/task.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 bool kernel_function_hook_context_pre_is_valid(const struct kernel_function_hook_context_pre *hook_ctx_pre)

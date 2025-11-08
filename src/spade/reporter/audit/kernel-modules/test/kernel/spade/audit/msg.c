@@ -26,7 +26,7 @@
 #include <linux/netfilter_ipv4.h>
 #include <linux/in.h>
 
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 #include "test/kernel/spade/audit/common.h"
 #include "test/kernel/spade/audit/msg.h"
@@ -36,7 +36,7 @@
 #include "spade/audit/msg/netfilter/netfilter.h"
 #include "spade/audit/msg/network/network.h"
 #include "spade/audit/msg/ubsi/ubsi.h"
-#include "spade/util/seqbuf/seqbuf.h"
+#include "spade/audit/util/seqbuf/seqbuf.h"
 
 
 #define MSG_TEST_SERIALIZE_CONFIG_LEN 3

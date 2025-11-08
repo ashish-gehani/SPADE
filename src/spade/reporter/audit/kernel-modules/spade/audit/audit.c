@@ -28,8 +28,8 @@
 #include "spade/audit/arg/print.h"
 #include "spade/audit/exported/auditing.h"
 #include "spade/audit/global/global.h"
-#include "spade/util/log/log.h"
-#include "spade/util/log/module.h"
+#include "spade/audit/util/log/log.h"
+#include "spade/audit/util/log/module.h"
 
 
 MODULE_LICENSE("GPL");

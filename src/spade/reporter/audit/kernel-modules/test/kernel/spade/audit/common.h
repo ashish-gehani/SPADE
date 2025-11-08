@@ -21,7 +21,7 @@
 #ifndef _TEST_KERNEL_SPADE_AUDIT_COMMON_H
 #define _TEST_KERNEL_SPADE_AUDIT_COMMON_H
 
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 /*
     Test statistics structure to track test execution.

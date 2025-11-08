@@ -24,7 +24,7 @@
 #include <linux/string.h>
 
 #include "spade/audit/msg/common/serialize/audit.h"
-#include "spade/util/seqbuf/seqbuf.h"
+#include "spade/audit/util/seqbuf/seqbuf.h"
 
 
 int msg_common_serialize_audit_msg_version(

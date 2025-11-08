@@ -26,7 +26,7 @@
 #include <linux/string.h>
 
 #include "spade/audit/type/parse.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 int type_parse_monitor_mode(
 	const char *log_id, const char *param_name,

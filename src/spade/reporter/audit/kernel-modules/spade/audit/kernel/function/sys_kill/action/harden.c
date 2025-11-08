@@ -28,7 +28,7 @@
 #include "spade/audit/kernel/function/sys_kill/arg.h"
 #include "spade/audit/kernel/helper/task.h"
 #include "spade/audit/global/filter.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 int kernel_function_sys_kill_action_harden_handle_pre(

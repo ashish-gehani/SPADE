@@ -19,7 +19,7 @@
  */
 
 #include "spade/audit/type/print.h"
-#include "spade/util/seqbuf/seqbuf.h"
+#include "spade/audit/util/seqbuf/seqbuf.h"
 
 void type_print_array_pid(struct seqbuf *b, char *arg_name, const struct type_array_pid *arr_pid)
 {

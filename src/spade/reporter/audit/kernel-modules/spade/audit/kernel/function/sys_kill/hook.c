@@ -31,7 +31,7 @@
 #include "spade/audit/kernel/function/sys_kill/hook.h"
 #include "spade/audit/kernel/function/sys_kill/result.h"
 #include "spade/audit/kernel/function/sys_kill/ubsi.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 static const enum kernel_function_number global_func_num = KERN_F_NUM_SYS_KILL;

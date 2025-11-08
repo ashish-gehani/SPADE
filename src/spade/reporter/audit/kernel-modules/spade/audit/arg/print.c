@@ -22,9 +22,9 @@
 
 #include "spade/audit/arg/constant.h"
 #include "spade/audit/arg/print.h"
-#include "spade/util/seqbuf/seqbuf.h"
+#include "spade/audit/util/seqbuf/seqbuf.h"
 #include "spade/audit/type/print.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 static void seqbuf_print_arg_sep(struct seqbuf *b)

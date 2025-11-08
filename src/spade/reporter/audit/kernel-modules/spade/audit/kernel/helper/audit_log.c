@@ -24,8 +24,8 @@
 
 #include "spade/audit/kernel/helper/audit_log.h"
 #include "spade/audit/msg/ops.h"
-#include "spade/util/seqbuf/seqbuf.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/seqbuf/seqbuf.h"
+#include "spade/audit/util/log/log.h"
 
 
 int kernel_helper_audit_log(struct audit_context *ctx, struct msg_common_header *msg_h)

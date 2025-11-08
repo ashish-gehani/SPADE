@@ -23,7 +23,7 @@
 #include "spade/audit/kernel/setup/function/ftrace/ftrace.h"
 #include "spade/audit/kernel/setup/function/ftrace/ftrace_helper.h"
 #include "spade/audit/kernel/function/op.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 static size_t ftrace_hooks_len;

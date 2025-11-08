@@ -26,7 +26,7 @@
 #include "spade/audit/msg/namespace/create.h"
 #include "spade/audit/msg/namespace/namespace.h"
 #include "spade/audit/msg/namespace/serialize/audit.h"
-#include "spade/util/seqbuf/seqbuf.h"
+#include "spade/audit/util/seqbuf/seqbuf.h"
 
 
 static struct msg_common_header* _kalloc(void)

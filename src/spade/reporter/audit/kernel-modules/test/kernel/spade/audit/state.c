@@ -23,7 +23,7 @@
 #include <linux/string.h>
 #include <linux/errno.h>
 
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 #include "spade/audit/kernel/namespace/namespace.h"
 
 #include "test/kernel/spade/audit/common.h"

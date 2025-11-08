@@ -22,7 +22,7 @@
 #define _SPADE_AUDIT_CONTEXT_FUNCTION_PRINT_H
 
 #include "spade/audit/context/function/function.h"
-#include "spade/util/seqbuf/seqbuf.h"
+#include "spade/audit/util/seqbuf/seqbuf.h"
 
 /*
     Log context to seqbuf.

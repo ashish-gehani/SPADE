@@ -22,8 +22,8 @@
 #include <linux/string.h>
 #include <linux/errno.h>
 
-#include "spade/util/seqbuf/seqbuf.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/seqbuf/seqbuf.h"
+#include "spade/audit/util/log/log.h"
 
 
 void util_seqbuf_init(struct seqbuf *sb, char *buf, size_t size)

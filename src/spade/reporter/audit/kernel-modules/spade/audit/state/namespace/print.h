@@ -22,7 +22,7 @@
 #define SPADE_AUDIT_STATE_NAMESPACE_PRINT_H
 
 #include "spade/audit/state/namespace/namespace.h"
-#include "spade/util/seqbuf/seqbuf.h"
+#include "spade/audit/util/seqbuf/seqbuf.h"
 
 
 /*

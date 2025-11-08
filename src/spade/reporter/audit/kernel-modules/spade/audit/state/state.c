@@ -26,7 +26,7 @@
 #include <linux/string.h>
 
 #include "spade/audit/state/state.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 int state_is_initialized(

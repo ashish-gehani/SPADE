@@ -22,7 +22,7 @@
 #define SPADE_AUDIT_STATE_FUNCTION_PRINT_H
 
 #include "spade/audit/state/function/function.h"
-#include "spade/util/seqbuf/seqbuf.h"
+#include "spade/audit/util/seqbuf/seqbuf.h"
 
 
 /*

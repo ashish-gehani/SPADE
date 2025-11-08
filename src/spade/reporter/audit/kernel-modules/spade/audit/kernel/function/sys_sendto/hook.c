@@ -30,7 +30,7 @@
 #include "spade/audit/kernel/function/sys_sendto/arg.h"
 #include "spade/audit/kernel/function/sys_sendto/hook.h"
 #include "spade/audit/kernel/function/sys_sendto/result.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 static const enum kernel_function_number global_func_num = KERN_F_NUM_SYS_SENDTO;

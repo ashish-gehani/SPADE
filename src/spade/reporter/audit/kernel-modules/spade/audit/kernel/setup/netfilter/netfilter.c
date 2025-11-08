@@ -24,7 +24,7 @@
 
 #include "spade/audit/kernel/setup/netfilter/list.h"
 #include "spade/audit/kernel/setup/netfilter/netfilter.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 extern const struct nf_hook_ops kernel_netfilter_setup_list_hooks[];

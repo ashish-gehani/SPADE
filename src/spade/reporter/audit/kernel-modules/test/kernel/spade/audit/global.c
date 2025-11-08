@@ -27,7 +27,7 @@
 #include <linux/in.h>
 #include <asm/syscall.h>
 
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 #include "spade/audit/global/global.h"
 #include "spade/audit/global/filter.h"
 #include "spade/audit/kernel/function/number.h"

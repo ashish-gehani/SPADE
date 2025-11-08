@@ -25,7 +25,7 @@
 #include <linux/version.h>
 
 #include "spade/audit/kernel/helper/kernel.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 // Kallsyms hack @hkerma

@@ -27,7 +27,7 @@
 #include "spade/audit/msg/network/create.h"
 #include "spade/audit/global/global.h"
 #include "spade/audit/global/filter.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 int kernel_helper_network_copy_saddr_and_size_from_userspace(

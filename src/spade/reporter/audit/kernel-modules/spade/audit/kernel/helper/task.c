@@ -25,7 +25,7 @@
 #include <linux/pid_namespace.h>
 
 #include "spade/audit/kernel/helper/task.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 uid_t kernel_helper_task_host_view_current_uid()
 {

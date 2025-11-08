@@ -26,7 +26,7 @@
 #include "spade/audit/msg/netfilter/ops.h"
 #include "spade/audit/msg/network/ops.h"
 #include "spade/audit/msg/ubsi/ops.h"
-#include "spade/util/seqbuf/seqbuf.h"
+#include "spade/audit/util/seqbuf/seqbuf.h"
 
 
 const struct msg_ops* msg_ops_get(enum msg_common_type type)

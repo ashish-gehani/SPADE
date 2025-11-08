@@ -23,9 +23,9 @@
 #include "spade/audit/context/print.h"
 #include "spade/audit/context/function/print.h"
 #include "spade/audit/context/netfilter/print.h"
-#include "spade/util/seqbuf/seqbuf.h"
+#include "spade/audit/util/seqbuf/seqbuf.h"
 #include "spade/audit/type/print.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 static void seqbuf_print_context_sep(struct seqbuf *b)

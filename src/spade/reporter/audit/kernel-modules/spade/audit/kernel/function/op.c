@@ -35,7 +35,7 @@
 #include "spade/audit/kernel/function/sys_setns/op.h"
 #include "spade/audit/kernel/function/sys_unshare/op.h"
 #include "spade/audit/kernel/function/sys_vfork/op.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 const struct kernel_function_op* KERNEL_FUNCTION_OP_LIST[] = {

@@ -32,7 +32,7 @@
 #include "spade/audit/msg/ops.h"
 #include "spade/audit/kernel/helper/network.h"
 #include "spade/audit/kernel/helper/audit_log.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 static const enum msg_common_type GLOBAL_MSG_TYPE = MSG_NETWORK;

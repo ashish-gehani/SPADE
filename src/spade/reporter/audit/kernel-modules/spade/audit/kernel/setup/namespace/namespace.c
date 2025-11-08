@@ -24,7 +24,7 @@
 #include "spade/audit/kernel/namespace/namespace.h"
 #include "spade/audit/kernel/helper/kernel.h"
 #include "spade/audit/kernel/setup/namespace/namespace.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 static struct proc_ns_operations* _get_ns_ops_kernel_ptr(

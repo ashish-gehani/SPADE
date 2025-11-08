@@ -25,7 +25,7 @@
 #include <linux/string.h>
 
 #include "spade/audit/context/context.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 int context_is_initialized(

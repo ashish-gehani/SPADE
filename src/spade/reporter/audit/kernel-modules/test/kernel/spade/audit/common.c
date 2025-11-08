@@ -19,7 +19,7 @@
  */
 
 #include "test/kernel/spade/audit/common.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 /*
     Initialize test statistics.

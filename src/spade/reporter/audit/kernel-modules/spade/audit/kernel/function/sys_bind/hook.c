@@ -30,7 +30,7 @@
 #include "spade/audit/kernel/function/sys_bind/arg.h"
 #include "spade/audit/kernel/function/sys_bind/hook.h"
 #include "spade/audit/kernel/function/sys_bind/result.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 static const enum kernel_function_number global_func_num = KERN_F_NUM_SYS_BIND;

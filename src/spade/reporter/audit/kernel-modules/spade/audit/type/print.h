@@ -22,7 +22,7 @@
 #define SPADE_TYPE_PRINT_H
 
 #include <linux/types.h>
-#include "spade/util/seqbuf/seqbuf.h"
+#include "spade/audit/util/seqbuf/seqbuf.h"
 #include "spade/audit/type/type.h"
 
 

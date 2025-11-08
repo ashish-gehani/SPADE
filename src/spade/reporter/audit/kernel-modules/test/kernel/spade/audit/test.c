@@ -27,7 +27,7 @@
 #include "test/kernel/spade/audit/test.h"
 #include "spade/audit/arg/arg.h"
 #include "spade/audit/arg/print.h"
-#include "spade/util/log/module.h"
+#include "spade/audit/util/log/module.h"
 
 #include "test/kernel/spade/audit/arg.h"
 #include "test/kernel/spade/audit/context.h"

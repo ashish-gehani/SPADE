@@ -25,7 +25,7 @@
 
 #include "spade/audit/kernel/setup/function/ftrace/ftrace.h"
 #include "spade/audit/state/function/function.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 int state_function_is_initialized(

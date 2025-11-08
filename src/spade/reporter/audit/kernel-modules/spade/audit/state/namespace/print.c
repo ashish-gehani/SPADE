@@ -22,7 +22,7 @@
 
 #include "spade/audit/state/namespace/print.h"
 #include "spade/audit/type/print.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 #include "spade/audit/kernel/namespace/namespace.h"
 
 

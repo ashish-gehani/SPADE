@@ -21,7 +21,7 @@
 #ifndef SPADE_AUDIT_MSG_UBSI_SERIALIZE_AUDIT_H
 #define SPADE_AUDIT_MSG_UBSI_SERIALIZE_AUDIT_H
 
-#include "spade/util/seqbuf/seqbuf.h"
+#include "spade/audit/util/seqbuf/seqbuf.h"
 
 #include "spade/audit/msg/ubsi/ubsi.h"
 

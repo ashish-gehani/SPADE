@@ -23,7 +23,7 @@
 #include <linux/errno.h>
 
 #include "spade/audit/global/function/function.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 int global_function_number_is_actionable(bool *dst, struct context_function *ctx, enum kernel_function_number func_num)

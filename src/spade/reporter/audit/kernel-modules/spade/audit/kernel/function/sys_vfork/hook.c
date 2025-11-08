@@ -30,7 +30,7 @@
 #include "spade/audit/kernel/function/sys_vfork/arg.h"
 #include "spade/audit/kernel/function/sys_vfork/hook.h"
 #include "spade/audit/kernel/function/sys_vfork/result.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 static const enum kernel_function_number global_func_num = KERN_F_NUM_SYS_VFORK;

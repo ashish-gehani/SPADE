@@ -24,7 +24,7 @@
 #include "spade/audit/kernel/function/hook.h"
 #include "spade/audit/kernel/function/op.h"
 #include "spade/audit/global/filter.h"
-#include "spade/util/log/log.h"
+#include "spade/audit/util/log/log.h"
 
 
 int kernel_function_action_pre_iterate_all(const struct kernel_function_hook_context_pre *ctx_pre)
