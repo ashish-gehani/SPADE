@@ -30,15 +30,15 @@ IS_X86_64 := $(if $(filter x86_64,$(OS_ARCH)),true,false)
 ###
 
 GEN_BUILD_HASH_FILE_NAME := build_hash
-GEN_BUILD_HASH_SRC_FILE := spade/$(GEN_BUILD_HASH_FILE_NAME).c
-GEN_BUILD_HASH_OBJ_FILE := spade/$(GEN_BUILD_HASH_FILE_NAME).o
-GEN_BUILD_HASH_TEMPLATE_FILE := spade/$(GEN_BUILD_HASH_FILE_NAME).template
-GEN_BUILD_HASH_CACHE_FILE := spade/.build_hash_cache
+GEN_BUILD_HASH_SRC_FILE := audit/$(GEN_BUILD_HASH_FILE_NAME).c
+GEN_BUILD_HASH_OBJ_FILE := audit/$(GEN_BUILD_HASH_FILE_NAME).o
+GEN_BUILD_HASH_TEMPLATE_FILE := audit/$(GEN_BUILD_HASH_FILE_NAME).template
+GEN_BUILD_HASH_CACHE_FILE := audit/.build_hash_cache
 
 # Use M variable if set (kbuild phase), otherwise use current directory
 BUILD_HASH_DIR := $(if $(M),$(M),$(CURDIR))
 GEN_BUILD_HASH := $(shell \
-  find $(BUILD_HASH_DIR)/spade -type f \( -name '*.c' -o -name '*.h' \) \
+  find $(BUILD_HASH_DIR)/audit -type f \( -name '*.c' -o -name '*.h' \) \
     ! -name '$(GEN_BUILD_HASH_FILE_NAME).c' -print0 \
   | sort -z \
   | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
@@ -91,17 +91,17 @@ HOOKED_FUNCTION_ACTION_HARDEN_NAMES := \
   sys_kill
 
 HOOKED_FUNCTION_ACTION_AUDIT_OBJS = \
-  $(foreach f_name,$(HOOKED_FUNCTION_ACTION_AUDIT_NAMES),spade/audit/kernel/function/$(f_name)/action/audit.o)
+  $(foreach f_name,$(HOOKED_FUNCTION_ACTION_AUDIT_NAMES),audit/kernel/function/$(f_name)/action/audit.o)
 
 HOOKED_FUNCTION_ACTION_HARDEN_OBJS = \
-  $(foreach f_name,$(HOOKED_FUNCTION_ACTION_HARDEN_NAMES),spade/audit/kernel/function/$(f_name)/action/harden.o)
+  $(foreach f_name,$(HOOKED_FUNCTION_ACTION_HARDEN_NAMES),audit/kernel/function/$(f_name)/action/harden.o)
 
 HOOKED_FUNCTION_OBJS = \
   $(HOOKED_FUNCTION_ACTION_AUDIT_OBJS) \
   $(HOOKED_FUNCTION_ACTION_HARDEN_OBJS) \
-  $(foreach f_name,$(HOOKED_FUNCTION_NAMES),spade/audit/kernel/function/$(f_name)/action.o) \
-  $(foreach f_name,$(HOOKED_FUNCTION_NAMES),spade/audit/kernel/function/$(f_name)/hook.o) \
-  $(foreach f_name,$(HOOKED_FUNCTION_NAMES),spade/audit/kernel/function/$(f_name)/op.o)
+  $(foreach f_name,$(HOOKED_FUNCTION_NAMES),audit/kernel/function/$(f_name)/action.o) \
+  $(foreach f_name,$(HOOKED_FUNCTION_NAMES),audit/kernel/function/$(f_name)/hook.o) \
+  $(foreach f_name,$(HOOKED_FUNCTION_NAMES),audit/kernel/function/$(f_name)/op.o)
 
 # Module output files
 MOD_OUT_FILES = \
@@ -130,86 +130,86 @@ obj-m := $(addsuffix .o,$(MODULE_NAMES))
 
 # Common object file lists
 ARG_OBJS := \
-  spade/audit/arg/print.o
+  audit/arg/print.o
 
 BUILD_HASH_OBJS := \
   $(GEN_BUILD_HASH_OBJ_FILE)
 
 CONTEXT_OBJS := \
-  spade/audit/context/function/function.o \
-  spade/audit/context/function/print.o \
-  spade/audit/context/netfilter/netfilter.o \
-  spade/audit/context/netfilter/print.o \
-  spade/audit/context/context.o \
-  spade/audit/context/print.o
+  audit/context/function/function.o \
+  audit/context/function/print.o \
+  audit/context/netfilter/netfilter.o \
+  audit/context/netfilter/print.o \
+  audit/context/context.o \
+  audit/context/print.o
 
 EXPORTED_OBJS := \
-  spade/audit/exported/auditing.o
+  audit/exported/auditing.o
 
 GLOBAL_OBJS := \
-  spade/audit/global/function/function.o \
-  spade/audit/global/netfilter/netfilter.o \
-  spade/audit/global/process/process.o \
-  spade/audit/global/filter.o \
-  spade/audit/global/global.o
+  audit/global/function/function.o \
+  audit/global/netfilter/netfilter.o \
+  audit/global/process/process.o \
+  audit/global/filter.o \
+  audit/global/global.o
 
 KERNEL_OBJS := \
-  spade/audit/kernel/namespace/namespace.o \
-  spade/audit/kernel/netfilter/netfilter.o \
-  spade/audit/kernel/function/action.o \
-  spade/audit/kernel/function/hook.o \
-  spade/audit/kernel/function/op.o \
-  spade/audit/kernel/function/number.o \
-  spade/audit/kernel/helper/audit_log.o \
-  spade/audit/kernel/helper/kernel.o \
-  spade/audit/kernel/helper/namespace.o \
-  spade/audit/kernel/helper/network.o \
-  spade/audit/kernel/helper/task.o \
-  spade/audit/kernel/helper/sock.o \
-  spade/audit/kernel/setup/function/ftrace/ftrace.o \
-  spade/audit/kernel/setup/function/ftrace/ftrace_helper.o \
-  spade/audit/kernel/setup/namespace/namespace.o \
-  spade/audit/kernel/setup/netfilter/netfilter.o \
+  audit/kernel/namespace/namespace.o \
+  audit/kernel/netfilter/netfilter.o \
+  audit/kernel/function/action.o \
+  audit/kernel/function/hook.o \
+  audit/kernel/function/op.o \
+  audit/kernel/function/number.o \
+  audit/kernel/helper/audit_log.o \
+  audit/kernel/helper/kernel.o \
+  audit/kernel/helper/namespace.o \
+  audit/kernel/helper/network.o \
+  audit/kernel/helper/task.o \
+  audit/kernel/helper/sock.o \
+  audit/kernel/setup/function/ftrace/ftrace.o \
+  audit/kernel/setup/function/ftrace/ftrace_helper.o \
+  audit/kernel/setup/namespace/namespace.o \
+  audit/kernel/setup/netfilter/netfilter.o \
   $(HOOKED_FUNCTION_OBJS)
 
 MSG_OBJS := \
-  spade/audit/msg/common/serialize/audit.o \
-  spade/audit/msg/common/create.o \
-  spade/audit/msg/namespace/serialize/audit.o \
-  spade/audit/msg/namespace/create.o \
-  spade/audit/msg/namespace/ops.o \
-  spade/audit/msg/netfilter/serialize/audit.o \
-  spade/audit/msg/netfilter/create.o \
-  spade/audit/msg/netfilter/ops.o \
-  spade/audit/msg/network/serialize/audit.o \
-  spade/audit/msg/network/create.o \
-  spade/audit/msg/network/ops.o \
-  spade/audit/msg/ubsi/serialize/audit.o \
-  spade/audit/msg/ubsi/create.o \
-  spade/audit/msg/ubsi/ops.o \
-  spade/audit/msg/ops.o
+  audit/msg/common/serialize/audit.o \
+  audit/msg/common/create.o \
+  audit/msg/namespace/serialize/audit.o \
+  audit/msg/namespace/create.o \
+  audit/msg/namespace/ops.o \
+  audit/msg/netfilter/serialize/audit.o \
+  audit/msg/netfilter/create.o \
+  audit/msg/netfilter/ops.o \
+  audit/msg/network/serialize/audit.o \
+  audit/msg/network/create.o \
+  audit/msg/network/ops.o \
+  audit/msg/ubsi/serialize/audit.o \
+  audit/msg/ubsi/create.o \
+  audit/msg/ubsi/ops.o \
+  audit/msg/ops.o
 
 PARAM_OBJS := \
-  spade/audit/param/param.o
+  audit/param/param.o
 
 STATE_OBJS := \
-  spade/audit/state/netfilter/netfilter.o \
-  spade/audit/state/netfilter/print.o \
-  spade/audit/state/function/function.o \
-  spade/audit/state/function/print.o \
-  spade/audit/state/namespace/namespace.o \
-  spade/audit/state/namespace/print.o \
-  spade/audit/state/state.o \
-  spade/audit/state/print.o
+  audit/state/netfilter/netfilter.o \
+  audit/state/netfilter/print.o \
+  audit/state/function/function.o \
+  audit/state/function/print.o \
+  audit/state/namespace/namespace.o \
+  audit/state/namespace/print.o \
+  audit/state/state.o \
+  audit/state/print.o
 
 TYPE_OBJS := \
-  spade/audit/type/parse.o \
-  spade/audit/type/print.o
+  audit/type/parse.o \
+  audit/type/print.o
 
 UTIL_OBJS := \
-  spade/util/log/log.o \
-  spade/util/log/module.o \
-  spade/util/seqbuf/seqbuf.o
+  audit/util/log/log.o \
+  audit/util/log/module.o \
+  audit/util/seqbuf/seqbuf.o
 
 TEST_USER_BIN := \
   test/user/bin/ns/ns \
@@ -233,7 +233,7 @@ $(MAIN_MODULE_NAME)-y := \
   $(STATE_OBJS) \
   $(TYPE_OBJS) \
   $(UTIL_OBJS) \
-  spade/audit/audit.o
+  audit/audit.o
 
 $(CONTROLLER_MODULE_NAME)-y := \
   $(ARG_OBJS) \
@@ -241,7 +241,7 @@ $(CONTROLLER_MODULE_NAME)-y := \
   $(PARAM_OBJS) \
   $(TYPE_OBJS) \
   $(UTIL_OBJS) \
-  spade/audit/controller/controller.o
+  audit/controller/controller.o
 
 # test module objects
 $(TEST_MODULE_NAME)-y := \
@@ -255,13 +255,13 @@ $(TEST_MODULE_NAME)-y := \
   $(STATE_OBJS) \
   $(TYPE_OBJS) \
   $(UTIL_OBJS) \
-  test/kernel/spade/audit/arg.o \
-  test/kernel/spade/audit/context.o \
-  test/kernel/spade/audit/common.o \
-  test/kernel/spade/audit/global.o \
-  test/kernel/spade/audit/msg.o \
-  test/kernel/spade/audit/state.o \
-  test/kernel/spade/audit/test.o
+  test/kernel/audit/arg.o \
+  test/kernel/audit/context.o \
+  test/kernel/audit/common.o \
+  test/kernel/audit/global.o \
+  test/kernel/audit/msg.o \
+  test/kernel/audit/state.o \
+  test/kernel/audit/test.o
 
 ###
 

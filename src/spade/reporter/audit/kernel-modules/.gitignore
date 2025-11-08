@@ -7,7 +7,7 @@ build
 *.o.d
 test/user/bin
 output
-spade/build_hash.c
-spade/.build_hash_cache
+audit/build_hash.c
+audit/.build_hash_cache
 .Module.symvers.cmd
 .modules.order.cmd
