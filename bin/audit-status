@@ -57,7 +57,7 @@ echo ""
 echo -e `get_lines_in_file cfg/spade.client.Control.config "^.*$"`
 echo ""
 
-lsmod_output=`lsmod | grep netio`
+lsmod_output=`lsmod | grep spade_audit`
 if [ -z "$lsmod_output" ]
 then
 	lsmod_output="NONE"
