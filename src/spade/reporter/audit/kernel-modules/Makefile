@@ -45,8 +45,8 @@ GEN_BUILD_HASH := $(shell \
 ###
 
 # Main module name
-MAIN_MODULE_NAME = netio
-CONTROLLER_MODULE_NAME = netio_controller
+MAIN_MODULE_NAME = spade_audit
+CONTROLLER_MODULE_NAME = spade_audit_controller
 TEST_MODULE_NAME = spade_audit_test
 
 # Script name for make check

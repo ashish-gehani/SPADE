@@ -23,7 +23,7 @@
 KM_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../../ && pwd )"
 
 # Path to the harden dummy process script
-HARDEN_DUMMY_SCRIPT="${KM_ROOT}/bin/test/netio/dummy_process_for_hardening.sh"
+HARDEN_DUMMY_SCRIPT="${KM_ROOT}/bin/test/spade_audit/dummy_process_for_hardening.sh"
 
 # Function to kill the harden dummy process as a specific user
 # Usage: kill_as_user <uid>

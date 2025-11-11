@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Global module name constants
-readonly MAIN_MOD_NAME="netio"
-readonly CONTROLLER_MOD_NAME="netio_controller"
+readonly MAIN_MOD_NAME="spade_audit"
+readonly CONTROLLER_MOD_NAME="spade_audit_controller"
 
 # Function to get the main module path
 # Usage: get_module_path
@@ -19,8 +19,8 @@ function get_manage_script()
 }
 
 # Function to insert main module, removing it first if present
-# Usage: insert_netio_module [module_args...]
-function insert_netio_module()
+# Usage: insert_spade_audit_module [module_args...]
+function insert_spade_audit_module()
 {
     local module_path=$(get_module_path)
     local manage_script=$(get_manage_script)
@@ -43,9 +43,9 @@ function insert_netio_module()
 }
 
 # Function to check if main module is loaded
-# Usage: is_netio_module_loaded
+# Usage: is_spade_audit_module_loaded
 # Returns: 0 if loaded, 1 if not loaded
-function is_netio_module_loaded()
+function is_spade_audit_module_loaded()
 {
     local module_path=$(get_module_path)
     local manage_script=$(get_manage_script)
@@ -55,8 +55,8 @@ function is_netio_module_loaded()
 }
 
 # Function to remove main module
-# Usage: remove_netio_module
-function remove_netio_module()
+# Usage: remove_spade_audit_module
+function remove_spade_audit_module()
 {
     local module_path=$(get_module_path)
     local manage_script=$(get_manage_script)
@@ -75,9 +75,9 @@ function remove_netio_module()
 }
 
 # Function to get main module syslog
-# Usage: get_netio_module_syslog [syslog_file]
+# Usage: get_spade_audit_module_syslog [syslog_file]
 # Default syslog_file: /var/log/syslog
-function get_netio_module_syslog()
+function get_spade_audit_module_syslog()
 {
     local syslog_file=${1:-/var/log/syslog}
     local syslog_script="./bin/module/syslog.sh"
@@ -87,17 +87,17 @@ function get_netio_module_syslog()
 }
 
 # Function to get the controller module path
-# Usage: get_netio_controller_module_path
-function get_netio_controller_module_path()
+# Usage: get_spade_audit_controller_module_path
+function get_spade_audit_controller_module_path()
 {
     echo "./build/${CONTROLLER_MOD_NAME}.ko"
 }
 
 # Function to insert controller module, removing it first if present
-# Usage: insert_netio_controller_module [module_args...]
-function insert_netio_controller_module()
+# Usage: insert_spade_audit_controller_module [module_args...]
+function insert_spade_audit_controller_module()
 {
-    local module_path=$(get_netio_controller_module_path)
+    local module_path=$(get_spade_audit_controller_module_path)
     local manage_script=$(get_manage_script)
 
     # Check if module is already loaded
@@ -118,11 +118,11 @@ function insert_netio_controller_module()
 }
 
 # Function to check if controller module is loaded
-# Usage: is_netio_controller_module_loaded
+# Usage: is_spade_audit_controller_module_loaded
 # Returns: 0 if loaded, 1 if not loaded
-function is_netio_controller_module_loaded()
+function is_spade_audit_controller_module_loaded()
 {
-    local module_path=$(get_netio_controller_module_path)
+    local module_path=$(get_spade_audit_controller_module_path)
     local manage_script=$(get_manage_script)
 
     bash "$manage_script" check "$module_path"
@@ -130,10 +130,10 @@ function is_netio_controller_module_loaded()
 }
 
 # Function to remove controller module
-# Usage: remove_netio_controller_module
-function remove_netio_controller_module()
+# Usage: remove_spade_audit_controller_module
+function remove_spade_audit_controller_module()
 {
-    local module_path=$(get_netio_controller_module_path)
+    local module_path=$(get_spade_audit_controller_module_path)
     local manage_script=$(get_manage_script)
 
     # Check if module is loaded
@@ -150,9 +150,9 @@ function remove_netio_controller_module()
 }
 
 # Function to get controller module syslog
-# Usage: get_netio_controller_module_syslog [syslog_file]
+# Usage: get_spade_audit_controller_module_syslog [syslog_file]
 # Default syslog_file: /var/log/syslog
-function get_netio_controller_module_syslog()
+function get_spade_audit_controller_module_syslog()
 {
     local syslog_file=${1:-/var/log/syslog}
     local syslog_script="./bin/module/syslog.sh"
@@ -165,7 +165,7 @@ function get_netio_controller_module_syslog()
 # Usage: get_next_run_number
 function get_next_run_number()
 {
-    local output_base_dir="./output/test/netio/run"
+    local output_base_dir="./output/test/spade_audit/run"
 
     # Create base directory if it doesn't exist
     mkdir -p "$output_base_dir"
@@ -193,7 +193,7 @@ function get_next_run_number()
 function create_run_output_dir()
 {
     local run_number=$(get_next_run_number)
-    local run_dir="./output/test/netio/run/$run_number"
+    local run_dir="./output/test/spade_audit/run/$run_number"
 
     mkdir -p "$run_dir"
     echo "$run_dir"
@@ -329,7 +329,7 @@ function run_test_for_command()
     # Insert main module
     echo ""
     echo "Step 6: Inserting ${MAIN_MOD_NAME} module..."
-    insert_netio_module
+    insert_spade_audit_module
     if [ $? -ne 0 ]; then
         echo "Error: Failed to insert ${MAIN_MOD_NAME} module"
         return 1
@@ -340,7 +340,7 @@ function run_test_for_command()
     # Insert controller module with options
     echo ""
     echo "Step 7: Inserting ${CONTROLLER_MOD_NAME} module with options..."
-    insert_netio_controller_module $options
+    insert_spade_audit_controller_module $options
     if [ $? -ne 0 ]; then
         echo "Error: Failed to insert ${CONTROLLER_MOD_NAME} module"
         return 1
@@ -363,7 +363,7 @@ function run_test_for_command()
     # Remove controller module
     echo ""
     echo "Step 10: Removing ${CONTROLLER_MOD_NAME} module..."
-    remove_netio_controller_module
+    remove_spade_audit_controller_module
     if [ $? -ne 0 ]; then
         echo "Warning: Failed to remove ${CONTROLLER_MOD_NAME} module"
     fi
@@ -373,7 +373,7 @@ function run_test_for_command()
     # Remove main module
     echo ""
     echo "Step 11: Removing ${MAIN_MOD_NAME} module..."
-    remove_netio_module
+    remove_spade_audit_module
     if [ $? -ne 0 ]; then
         echo "Warning: Failed to remove ${MAIN_MOD_NAME} module"
     fi
@@ -402,18 +402,18 @@ function run_test_for_command()
     # Get main module syslog
     echo ""
     echo "Step 14: Getting ${MAIN_MOD_NAME} module syslog..."
-    local netio_syslog_file="$output_dir/${MAIN_MOD_NAME}.syslog"
-    get_netio_module_syslog > "$netio_syslog_file"
-    echo "${MAIN_MOD_NAME} syslog saved to: $netio_syslog_file"
+    local spade_audit_syslog_file="$output_dir/${MAIN_MOD_NAME}.syslog"
+    get_spade_audit_module_syslog > "$spade_audit_syslog_file"
+    echo "${MAIN_MOD_NAME} syslog saved to: $spade_audit_syslog_file"
 
     sleep 2
 
     # Get controller module syslog
     echo ""
     echo "Step 15: Getting ${CONTROLLER_MOD_NAME} module syslog..."
-    local netio_controller_syslog_file="$output_dir/${CONTROLLER_MOD_NAME}.syslog"
-    get_netio_controller_module_syslog > "$netio_controller_syslog_file"
-    echo "${CONTROLLER_MOD_NAME} syslog saved to: $netio_controller_syslog_file"
+    local spade_audit_controller_syslog_file="$output_dir/${CONTROLLER_MOD_NAME}.syslog"
+    get_spade_audit_controller_module_syslog > "$spade_audit_controller_syslog_file"
+    echo "${CONTROLLER_MOD_NAME} syslog saved to: $spade_audit_controller_syslog_file"
 
     # Kill harden dummy process
     echo ""
@@ -445,28 +445,28 @@ function main()
             run_test_for_command "$@"
             ;;
         insert)
-            insert_netio_module "$@"
+            insert_spade_audit_module "$@"
             ;;
         remove)
-            remove_netio_module
+            remove_spade_audit_module
             ;;
         check)
-            is_netio_module_loaded
+            is_spade_audit_module_loaded
             ;;
         log)
-            get_netio_module_syslog "$@"
+            get_spade_audit_module_syslog "$@"
             ;;
         insert-controller)
-            insert_netio_controller_module "$@"
+            insert_spade_audit_controller_module "$@"
             ;;
         remove-controller)
-            remove_netio_controller_module
+            remove_spade_audit_controller_module
             ;;
         check-controller)
-            is_netio_controller_module_loaded
+            is_spade_audit_controller_module_loaded
             ;;
         log-controller)
-            get_netio_controller_module_syslog "$@"
+            get_spade_audit_controller_module_syslog "$@"
             ;;
         activity)
             run_activity_scripts

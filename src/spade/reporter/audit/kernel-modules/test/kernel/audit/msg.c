@@ -98,7 +98,7 @@ static void msg_test_serialize_config_test_expected_dummy_nf(
     );
 }
 
-static void msg_test_serialize_config_test_expected_dummy_netio(
+static void msg_test_serialize_config_test_expected_dummy_network(
     struct test_stats *stats, const char *test_name, enum msg_common_type m_type, const char *actual
 )
 {
@@ -226,7 +226,7 @@ static void msg_test_serialize_config_test_expected_nf_2(
     );
 }
 
-static void msg_test_serialize_config_set_expected_netio_1(struct msg_common_header *m)
+static void msg_test_serialize_config_set_expected_network_1(struct msg_common_header *m)
 {
     struct msg_network *n = (struct msg_network *)m;
     n->fd = 1;
@@ -266,7 +266,7 @@ static void msg_test_serialize_config_set_expected_netio_1(struct msg_common_hea
     n->syscall_success = 1;
 }
 
-static void msg_test_serialize_config_test_expected_netio_1(
+static void msg_test_serialize_config_test_expected_network_1(
     struct test_stats *stats, const char *test_name, enum msg_common_type m_type, const char *actual
 )
 {
@@ -279,7 +279,7 @@ static void msg_test_serialize_config_test_expected_netio_1(
     );
 }
 
-static void msg_test_serialize_config_set_expected_netio_2(struct msg_common_header *m)
+static void msg_test_serialize_config_set_expected_network_2(struct msg_common_header *m)
 {
     struct msg_network *n = (struct msg_network *)m;
     struct sockaddr_in6 *local_addr, *remote_addr;
@@ -352,7 +352,7 @@ static void msg_test_serialize_config_set_expected_netio_2(struct msg_common_hea
     };
 }
 
-static void msg_test_serialize_config_test_expected_netio_2(
+static void msg_test_serialize_config_test_expected_network_2(
     struct test_stats *stats, const char *test_name, enum msg_common_type m_type, const char *actual
 )
 {
@@ -467,15 +467,15 @@ static const struct msg_test_config MSG_TEST_CONFIGS[] = {
         .serialize_configs = {
             {
                 .set_expected = msg_test_serialize_config_set_expected_dummy,
-                .test_expected = msg_test_serialize_config_test_expected_dummy_netio
+                .test_expected = msg_test_serialize_config_test_expected_dummy_network
             },
             {
-                .set_expected = msg_test_serialize_config_set_expected_netio_1,
-                .test_expected = msg_test_serialize_config_test_expected_netio_1
+                .set_expected = msg_test_serialize_config_set_expected_network_1,
+                .test_expected = msg_test_serialize_config_test_expected_network_1
             },
             {
-                .set_expected = msg_test_serialize_config_set_expected_netio_2,
-                .test_expected = msg_test_serialize_config_test_expected_netio_2
+                .set_expected = msg_test_serialize_config_set_expected_network_2,
+                .test_expected = msg_test_serialize_config_test_expected_network_2
             }
         }
     },

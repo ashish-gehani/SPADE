@@ -67,7 +67,7 @@ function get_ignore_processes_options()
 # Returns: TGID of the harden dummy process or empty string if not found
 function get_harden_dummy_process_tgid()
 {
-    local harden_script="${KM_ROOT}/bin/test/netio/dummy_process_for_hardening.sh"
+    local harden_script="${KM_ROOT}/bin/test/spade_audit/dummy_process_for_hardening.sh"
 
     # Check if script exists
     if [ ! -f "$harden_script" ]; then

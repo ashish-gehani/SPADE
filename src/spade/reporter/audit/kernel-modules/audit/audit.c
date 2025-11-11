@@ -35,7 +35,7 @@
 MODULE_LICENSE("GPL");
 
 
-const char *SPADE_MODULE_NAME = "netio";
+const char *SPADE_MODULE_NAME = "spade_audit";
 
 
 static int __init onload(void)

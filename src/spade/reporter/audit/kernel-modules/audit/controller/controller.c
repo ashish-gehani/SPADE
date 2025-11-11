@@ -37,7 +37,7 @@ MODULE_LICENSE("GPL");
 extern const type_build_hash_t spade_build_hash;
 
 
-const char *SPADE_MODULE_NAME = "netio_controller";
+const char *SPADE_MODULE_NAME = "spade_audit_controller";
 
 
 static struct arg global_local_arg;

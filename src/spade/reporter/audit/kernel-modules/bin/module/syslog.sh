@@ -3,7 +3,7 @@
 # Script to extract module syslog messages based on instance_id
 # Usage: ./module/syslog.sh [module_name] [syslog_file]
 
-MODULE_NAME=${1:-netio}
+MODULE_NAME=${1:-spade_audit}
 SYSLOG_FILE=${2:-/var/log/syslog}
 
 DEBUG=0
