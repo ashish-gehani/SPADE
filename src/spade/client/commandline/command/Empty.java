@@ -26,17 +26,17 @@ import spade.client.commandline.command.exception.IllegalCommandResult;
 */
 public class Empty extends AbstractCommand {
 
-    public Empty(final Type type, final String raw)
+    public Empty(final Source source, final Type type, final String raw)
         throws IllegalArgumentException {
-        super(type, raw);
+        super(source, type, raw);
     }
 
-    public static Empty create(final String raw)
+    public static Empty create(final Source source, final String raw)
         throws IllegalArgumentException {
         if (raw == null) {
             throw new IllegalArgumentException("Raw query command cannot be null");
         }
-        final Empty instance = new Empty(Type.EMPTY, raw);
+        final Empty instance = new Empty(source, Type.EMPTY, raw);
         return instance;
     }
 

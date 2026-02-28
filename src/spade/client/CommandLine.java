@@ -27,6 +27,7 @@ import spade.client.commandline.ServerQueryEnvironmentState;
 import spade.client.commandline.UserArguments;
 import spade.client.commandline.UserArgumentsParser;
 import spade.client.commandline.command.Factory;
+import spade.client.commandline.command.Source;
 import spade.client.commandline.command.exception.IllegalCommand;
 import spade.client.commandline.output.OutputStreamFactory;
 import spade.core.Settings;
@@ -49,7 +50,7 @@ public class CommandLine{
 		throws IllegalCommand, IllegalArgumentException {
 		final String configFilePath = getDefaultConfigFilePath();
         final String cmdStr = "load " + configFilePath;
-		execCtx.pushCommand(cmdStr);
+		execCtx.pushCommand(Source.CONSOLE, cmdStr);
 	}
 	
 	private void run(String args[]) throws Exception {

@@ -33,17 +33,17 @@ import spade.query.quickgrail.utility.ResultTable;
 */
 public class Server extends AbstractCommand {
 
-    public Server(final Type type, final String raw)
+    public Server(final Source source, final Type type, final String raw)
         throws IllegalArgumentException {
-        super(type, raw);
+        super(source, type, raw);
     }
 
-    public static Server create(final String raw)
+    public static Server create(final Source source, final String raw)
         throws IllegalArgumentException, IllegalCommand {
         if (raw == null) {
             throw new IllegalArgumentException("Raw query command cannot be null");
         }
-        final Server instance = new Server(Type.SERVER, raw);
+        final Server instance = new Server(source, Type.SERVER, raw);
         return instance;
     }
 

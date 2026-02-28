@@ -24,7 +24,7 @@ import spade.client.commandline.command.exception.IllegalCommand;
 */
 public class Factory {
 
-    public AbstractCommand createCommand(final String raw)
+    public AbstractCommand createCommand(final Source source, final String raw)
         throws IllegalArgumentException, IllegalCommand {
         if (raw == null) {
             throw new IllegalArgumentException("Raw query command cannot be null");
@@ -34,16 +34,16 @@ public class Factory {
         final String firstToken = tokens[0];
         switch (firstToken) {
             case "":
-                return Empty.create(raw);
+                return Empty.create(source, raw);
             case "load":
-                return Load.create(raw);
+                return Load.create(source, raw);
             case "export":
-                return Export.create(raw);
+                return Export.create(source, raw);
             case "exit":
             case "quit":
-                return Exit.create(raw);
+                return Exit.create(source, raw);
             default:
-                return Server.create(raw);
+                return Server.create(source, raw);
         }
     }
 

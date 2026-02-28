@@ -21,6 +21,7 @@ import java.util.LinkedList;
 
 import spade.client.commandline.command.AbstractCommand;
 import spade.client.commandline.command.Factory;
+import spade.client.commandline.command.Source;
 import spade.client.commandline.command.exception.IllegalCommand;
 
 /*
@@ -86,15 +87,15 @@ public class ExecutionContext {
         this.userOutput = userOutput;
     }
 
-    public void pushCommand(final String raw)
+    public void pushCommand(final Source source, final String raw)
         throws IllegalCommand, IllegalArgumentException {
-        final AbstractCommand cmd = createCommand(raw);
+        final AbstractCommand cmd = createCommand(source, raw);
         cmds.addLast(cmd);
     }
 
-    public AbstractCommand createCommand(final String raw)
+    public AbstractCommand createCommand(final Source source, final String raw)
         throws IllegalCommand, IllegalArgumentException {
-        return cmdFactory.createCommand(raw);
+        return cmdFactory.createCommand(source, raw);
     }
 
     public void prependCommands(final LinkedList<AbstractCommand> commands) throws IllegalArgumentException {

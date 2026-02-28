@@ -29,9 +29,9 @@ public class Export extends AbstractCommand {
 
     private final String outputFilePath;
 
-    public Export(final Type type, final String raw, final String outputFilePath)
+    public Export(final Source source, final Type type, final String raw, final String outputFilePath)
         throws IllegalArgumentException {
-        super(type, raw);
+        super(source, type, raw);
         this.outputFilePath = outputFilePath;
     }
 
@@ -39,7 +39,7 @@ public class Export extends AbstractCommand {
         return outputFilePath;
     }
 
-    public static Export create(final String raw)
+    public static Export create(final Source source, final String raw)
         throws IllegalArgumentException, IllegalCommand {
         if (raw == null) {
             throw new IllegalArgumentException("Raw query command cannot be null");
@@ -57,7 +57,7 @@ public class Export extends AbstractCommand {
             );
         }
         final String outputFilePath = toks[2];
-        final Export instance = new Export(Type.EXPORT, raw, outputFilePath);
+        final Export instance = new Export(source, Type.EXPORT, raw, outputFilePath);
         return instance;
     }
 
@@ -67,7 +67,7 @@ public class Export extends AbstractCommand {
             throw new IllegalArgumentException("Execution context cannot be null");
         }
         final spade.client.commandline.output.User userOutput = ctx.getUserOutput();
-        userOutput.openFile(outputFilePath);
+        userOutput.openFile(getOutputFilePath());
         return null;
     }
 
@@ -75,7 +75,6 @@ public class Export extends AbstractCommand {
     protected synchronized void writeExecutionResultInternal(
         final spade.client.commandline.output.User userOutput
     ) throws IllegalArgumentException, CommandExecutionNotComplete, IllegalCommandResult {
-        // no-op
     }
 
 }

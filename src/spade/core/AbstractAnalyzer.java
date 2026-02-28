@@ -311,7 +311,7 @@ public abstract class AbstractAnalyzer{
 							&& queryTokens[1].toLowerCase().equals("storage")){
 						AbstractStorage currentStorage = getCurrentStorage();
 						if(currentStorage == null){
-							spadeQuery.querySucceeded("No current storage set");
+							spadeQuery.queryFailed("No current storage set");
 						}else{
 							spadeQuery.querySucceeded(currentStorage.getClass().getSimpleName());
 						}

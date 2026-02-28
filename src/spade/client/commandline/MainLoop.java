@@ -20,6 +20,7 @@ package spade.client.commandline;
 import java.io.IOException;
 
 import spade.client.commandline.command.AbstractCommand;
+import spade.client.commandline.command.Source;
 import spade.client.commandline.command.exception.CommandExecutionNotComplete;
 import spade.client.commandline.command.exception.IllegalCommand;
 import spade.client.commandline.command.exception.IllegalCommandResult;
@@ -49,15 +50,27 @@ public class MainLoop {
 		
 		while (!execCtx.isShutdown()) {
 			final AbstractCommand cmd = execCtx.getNextCommand();
-			if (cmd == null) {
-				continue;
+			if (cmd != null) {
+
+                if (cmd.getSource() == Source.LOAD) {
+                    userInput.writeCommand(cmd.getRaw());
+                }
+
+				cmd.execute(execCtx);
+			    cmd.writeExecutionResult(userOutput);
+                if (execCtx.isShutdown()) {
+                    break;
+                } else {
+                    continue;
+                }
 			}
 
-			cmd.execute(execCtx);
-			cmd.writeExecutionResult(userOutput);
-
 			final String rawCmdStr = userInput.readCommand();
-			execCtx.pushCommand(rawCmdStr);
+            if (rawCmdStr == null) {
+                execCtx.shutdown();
+                continue;
+            }
+			execCtx.pushCommand(Source.CONSOLE, rawCmdStr);
 		}
     }
 

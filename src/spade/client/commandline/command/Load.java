@@ -35,9 +35,9 @@ public class Load extends AbstractCommand {
 
     private final String queriesFilePath;
 
-    public Load(final Type type, final String raw, final String queriesFilePath) 
+    public Load(final Source source, final Type type, final String raw, final String queriesFilePath) 
         throws IllegalArgumentException {
-        super(type, raw);
+        super(source, type, raw);
         this.queriesFilePath = queriesFilePath;
     }
 
@@ -45,7 +45,7 @@ public class Load extends AbstractCommand {
         return queriesFilePath;
     }
 
-    public static Load create(final String raw)
+    public static Load create(final Source source, final String raw)
         throws IllegalArgumentException, IllegalCommand {
         if (raw == null) {
             throw new IllegalArgumentException("Raw query command cannot be null");
@@ -58,7 +58,7 @@ public class Load extends AbstractCommand {
             );
         }
         final String queriesFilePath = toks[1];
-        final Load instance = new Load(Type.LOAD, raw, queriesFilePath);
+        final Load instance = new Load(source, Type.LOAD, raw, queriesFilePath);
         return instance;
     }
 
@@ -95,7 +95,7 @@ public class Load extends AbstractCommand {
                     continue;
                 }
 
-                final AbstractCommand cmd = ctx.createCommand(trimmedLine);
+                final AbstractCommand cmd = ctx.createCommand(Source.LOAD, trimmedLine);
                 commands.add(cmd);
             }
         } catch (IOException e) {

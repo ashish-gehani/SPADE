@@ -77,6 +77,15 @@ public class UserConsole implements User {
                     // Ignore. If we cannot even write to stderr then we cannot do anything.
                 }
             }
+            try {
+                this.standardOutputStream.writeString(
+                    "Output exported to file: "
+                    + this.fileOutputStream.getFilepath()
+                    + System.lineSeparator()
+                );
+            } catch (Exception e) {
+                // Ignore
+            }
         }
         this.fileOutputStream = null;
     }

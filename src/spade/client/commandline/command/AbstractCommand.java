@@ -26,22 +26,31 @@ import spade.client.commandline.command.exception.IllegalCommandResult;
 */
 public abstract class AbstractCommand {
 
+    private final Source source;
     private final Type type;
     private final String raw;
 
     private boolean isExecutionComplete = false;
     private Object executionResult;
 
-    public AbstractCommand(final Type type, final String raw) 
+    public AbstractCommand(final Source source, final Type type, final String raw) 
         throws IllegalArgumentException {
+        if (source == null) {
+            throw new IllegalArgumentException("The source cannot be null");
+        }
         if (type == null) {
-            throw new IllegalArgumentException("The type command cannot be null");
+            throw new IllegalArgumentException("The type cannot be null");
         }
         if (raw == null) {
             throw new IllegalArgumentException("The raw command cannot be null");
         }
+        this.source = source;
         this.type = type;
         this.raw = raw;
+    }
+
+    public final Source getSource() {
+        return this.source;
     }
 
     public final Type getType() {

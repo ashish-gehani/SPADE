@@ -27,12 +27,12 @@ import spade.client.commandline.command.exception.IllegalCommand;
 */
 public class Exit extends AbstractCommand {
 
-    public Exit(final Type type, final String raw)
+    public Exit(final Source source, final Type type, final String raw)
         throws IllegalArgumentException {
-        super(type, raw);
+        super(source, type, raw);
     }
 
-    public static Exit create(final String raw)
+    public static Exit create(final Source source, final String raw)
         throws IllegalArgumentException, IllegalCommand {
         if (raw == null) {
             throw new IllegalArgumentException("Raw query command cannot be null");
@@ -44,7 +44,7 @@ public class Exit extends AbstractCommand {
                 "Invalid 'exit' syntax", expectedSyntax, raw
             );
         }
-        final Exit instance = new Exit(Type.EXIT, raw);
+        final Exit instance = new Exit(source, Type.EXIT, raw);
         return instance;
     }
 

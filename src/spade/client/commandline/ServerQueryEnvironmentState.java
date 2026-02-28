@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import spade.client.commandline.command.Server;
+import spade.client.commandline.command.Source;
 import spade.query.quickgrail.core.EnvironmentVariableManager;
 import spade.utility.FileUtility;
 
@@ -52,7 +53,7 @@ public class ServerQueryEnvironmentState {
     private final void fetchCurrentStorageNameBestEffort(final ExecutionContext ctx) {
         try {
             final boolean mustBeSuccessful = true;
-            final Server cmd = Server.create("print storage");
+            final Server cmd = Server.create(Source.LOAD, "print storage");
             executeCmdBestEffort(ctx, cmd);
             final String res = cmd.getExecutionResultAsString(mustBeSuccessful);
             if (res != null) {
@@ -68,7 +69,7 @@ public class ServerQueryEnvironmentState {
     ) {
         try {
             final boolean mustBeSuccessful = true;
-            final Server cmd = Server.create("env print " + envVarName);
+            final Server cmd = Server.create(Source.LOAD, "env print " + envVarName);
             executeCmdBestEffort(ctx, cmd);
             final String res = cmd.getExecutionResultAsString(mustBeSuccessful);
             if (res != null) {

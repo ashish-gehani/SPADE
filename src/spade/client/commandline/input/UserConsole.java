@@ -47,7 +47,14 @@ public class UserConsole implements User {
 
     @Override
     public String readCommand() throws IOException {
+        System.out.println();
         return this.commandReader.readLine(COMMAND_PROMPT);
+    }
+
+    @Override
+    public void writeCommand(final String cmd) throws IOException {
+        System.out.println();
+        System.out.println(COMMAND_PROMPT + cmd);
     }
 
     @Override

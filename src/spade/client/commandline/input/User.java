@@ -41,6 +41,13 @@ public interface User extends AutoCloseable {
     String readCommand() throws IOException;
 
     /**
+     * Writes the next command to user input for loaded commands.
+     *
+     * @throws IOException if an I/O error occurs
+     */
+    void writeCommand(final String cmd) throws IOException;
+
+    /**
      * Closes the input source and releases associated resources.
      */
     @Override
