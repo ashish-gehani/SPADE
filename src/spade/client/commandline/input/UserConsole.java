@@ -34,10 +34,13 @@ public class UserConsole implements User {
 
     private final ConsoleReader commandReader;
 
-    public UserConsole(final String commandHistoryFile) throws IOException {
+    private final boolean batchMode;
+
+    public UserConsole(final String commandHistoryFile, final boolean batchMode) throws IOException {
         this.commandHistoryFile = commandHistoryFile;
         this.commandReader = new ConsoleReader();
         commandReader.getHistory().setHistoryFile(new File(commandHistoryFile));
+        this.batchMode = batchMode;
     }
 
     @Override
@@ -47,12 +50,19 @@ public class UserConsole implements User {
 
     @Override
     public String readCommand() throws IOException {
+        if (batchMode) {
+            final Character mask = '\0';
+            return this.commandReader.readLine(mask);
+        }
         System.out.println();
         return this.commandReader.readLine(COMMAND_PROMPT);
     }
 
     @Override
     public void writeCommand(final String cmd) throws IOException {
+        if (batchMode) {
+            return;
+        }
         System.out.println();
         System.out.println(COMMAND_PROMPT + cmd);
     }

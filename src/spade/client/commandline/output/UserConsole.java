@@ -30,10 +30,12 @@ public class UserConsole implements User {
     private final OutputStream standardOutputStream;
     private final BufferedWriter stdErrWriter;
     private FileOutputStream fileOutputStream;
+    private final boolean isBatchMode;
 
     public UserConsole(
         final OutputStream standardOutputStream,
-        final BufferedWriter stdErrWriter
+        final BufferedWriter stdErrWriter,
+        final boolean isBatchMode
     ) throws IllegalArgumentException {
         if (standardOutputStream == null) {
             throw new IllegalArgumentException("Null standard output stream");
@@ -44,6 +46,7 @@ public class UserConsole implements User {
         this.standardOutputStream = standardOutputStream;
         this.stdErrWriter = stdErrWriter;
         this.fileOutputStream = null;
+        this.isBatchMode = isBatchMode;
     }
 
     @Override
@@ -98,8 +101,10 @@ public class UserConsole implements User {
     }
 
     public void writeProgramHeader(final String localHostName) {
-        writeStringLn("");
-		writeStringLn("Host '" + localHostName + "': SPADE Query Client");
+        if (!this.isBatchMode) {
+            writeStringLn("");
+            writeStringLn("Host '" + localHostName + "': SPADE Query Client");
+        }
     }
 
     @Override

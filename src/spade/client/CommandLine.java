@@ -69,23 +69,22 @@ public class CommandLine{
 			scc.connect();
 			try (
 				spade.client.commandline.input.User userInput =
-					new spade.client.commandline.input.UserConsole(userArgs.getCommandHistoryFile())
+					new spade.client.commandline.input.UserConsole(
+						userArgs.getCommandHistoryFile(), userArgs.isBatchMode()
+					)
 				) {
 				try (
 					spade.client.commandline.output.UserConsole userOutput =
 						new spade.client.commandline.output.UserConsole(
 							OutputStreamFactory.createStandardOutputStream(),
-        					new BufferedWriter(new OutputStreamWriter(System.err))
+        					new BufferedWriter(new OutputStreamWriter(System.err)),
+							userArgs.isBatchMode()
 						)
 					) {
 					execCtx = new ExecutionContext(userArgs, new Factory(), scc, userOutput);
 
 					setupShutdownThread(execCtx);
 					addInitialLoadCommand(execCtx);
-
-					if (!userArgs.isBatchMode()) {
-						userOutput.writeProgramHeader(localHostName);
-					}
 
 					try{
 						new MainLoop().start(execCtx, userInput, userOutput);

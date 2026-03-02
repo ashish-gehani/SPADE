@@ -30,7 +30,7 @@ public class MainLoop {
     public void start(
         final ExecutionContext execCtx,
         final spade.client.commandline.input.User userInput,
-        final spade.client.commandline.output.User userOutput
+        final spade.client.commandline.output.UserConsole userOutput
     ) throws 
         IllegalArgumentException, 
         IllegalCommand,
@@ -47,6 +47,8 @@ public class MainLoop {
         if (userOutput == null) {
             throw new IllegalArgumentException("NULL user output");
         }
+
+        userOutput.writeProgramHeader(execCtx.getServerClientChannel().getLocalHostName());
 		
 		while (!execCtx.isShutdown()) {
 			final AbstractCommand cmd = execCtx.getNextCommand();
