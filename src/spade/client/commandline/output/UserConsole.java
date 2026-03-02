@@ -97,6 +97,11 @@ public class UserConsole implements User {
         return this.standardOutputStream;
     }
 
+    public void writeProgramHeader(final String localHostName) {
+        writeStringLn("");
+		writeStringLn("Host '" + localHostName + "': SPADE Query Client");
+    }
+
     @Override
     public synchronized void writeString(final String str) {
         try {

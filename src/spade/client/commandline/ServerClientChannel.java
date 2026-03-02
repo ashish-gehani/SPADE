@@ -86,7 +86,7 @@ public interface ServerClientChannel extends AutoCloseable {
      * @throws ClassNotFoundException if the class of the received object cannot be found
      * @throws IllegalStateException if the channel is not connected
      */
-    Object readFromServer() throws IOException, ClassNotFoundException, IllegalStateException;
+    Object recvFromServer() throws IOException, ClassNotFoundException, IllegalStateException;
 
     /**
      * Closes the channel and releases all associated resources.

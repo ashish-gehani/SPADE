@@ -61,7 +61,7 @@ public class Server extends AbstractCommand {
     ) throws Exception {
         channel.sendToServer(request);
 
-        final Object resultObject = channel.readFromServer();
+        final Object resultObject = channel.recvFromServer();
         if (resultObject == null) {
             // EOF
             throw new Exception("Server closed the connection");

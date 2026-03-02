@@ -37,16 +37,11 @@ import spade.core.Settings;
  */
 public class CommandLine{
 
-	private void printHeader(final String localHostName) {
-		System.out.println("");
-		System.out.println("Host '" + localHostName + "': SPADE Query Client");
-	}
-
 	private String getDefaultConfigFilePath() {
 		return Settings.getDefaultConfigFilePath(this.getClass());
 	}
 
-	private void addInitialLoadCommand(final ExecutionContext execCtx) 
+	private void addInitialLoadCommand(final ExecutionContext execCtx)
 		throws IllegalCommand, IllegalArgumentException {
 		final String configFilePath = getDefaultConfigFilePath();
         final String cmdStr = "load " + configFilePath;
@@ -77,7 +72,7 @@ public class CommandLine{
 					new spade.client.commandline.input.UserConsole(userArgs.getCommandHistoryFile())
 				) {
 				try (
-					spade.client.commandline.output.User userOutput =
+					spade.client.commandline.output.UserConsole userOutput =
 						new spade.client.commandline.output.UserConsole(
 							OutputStreamFactory.createStandardOutputStream(),
         					new BufferedWriter(new OutputStreamWriter(System.err))
@@ -89,7 +84,7 @@ public class CommandLine{
 					addInitialLoadCommand(execCtx);
 
 					if (!userArgs.isBatchMode()) {
-						printHeader(localHostName);
+						userOutput.writeProgramHeader(localHostName);
 					}
 
 					try{

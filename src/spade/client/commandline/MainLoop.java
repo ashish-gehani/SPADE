@@ -52,6 +52,9 @@ public class MainLoop {
 			final AbstractCommand cmd = execCtx.getNextCommand();
 			if (cmd != null) {
 
+                // We are executing a loaded command. We need to show the user
+                // the command that is being executing rather than silently 
+                // executing it.
                 if (cmd.getSource() == Source.LOAD) {
                     userInput.writeCommand(cmd.getRaw());
                 }
@@ -64,6 +67,8 @@ public class MainLoop {
                     continue;
                 }
 			}
+
+            // If command was null, just read the next command from user.
 
 			final String rawCmdStr = userInput.readCommand();
             if (rawCmdStr == null) {

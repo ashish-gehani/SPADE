@@ -134,7 +134,7 @@ public class ServerClientTestChannel implements ServerClientChannel {
     }
 
     @Override
-    public Object readFromServer() throws IOException, ClassNotFoundException, IllegalStateException {
+    public Object recvFromServer() throws IOException, ClassNotFoundException, IllegalStateException {
         if (!isConnected()) {
             throw new IllegalStateException("Not connected to server");
         }
