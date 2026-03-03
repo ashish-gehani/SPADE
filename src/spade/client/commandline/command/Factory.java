@@ -42,6 +42,8 @@ public class Factory {
             case "exit":
             case "quit":
                 return Exit.create(source, raw);
+            case "help":
+                return Help.create(source, raw);
             default:
                 return Server.create(source, raw);
         }

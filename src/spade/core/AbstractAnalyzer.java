@@ -34,8 +34,6 @@ import spade.utility.Result;
  * @author raza
  */
 public abstract class AbstractAnalyzer{
-
-	public static enum HelpType{ ALL, CONTROL, CONSTRAINT, GRAPH, ENV, REMOTE }
 	
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 	
@@ -317,24 +315,6 @@ public abstract class AbstractAnalyzer{
 						}
 						safeWriteToClient(spadeQuery);
 						continue;
-					}else if(queryTokens[0].toLowerCase().equals("help")){
-						try{
-							HelpType helpType = null;
-							if(queryTokens.length > 1){
-								if(queryTokens.length > 2){
-									throw new RuntimeException("Unexpected number of arguments to help command. Expected only one");
-								}
-								helpType = HelpType.valueOf(queryTokens[1].toUpperCase());
-							}else{
-								helpType = HelpType.ALL;
-							}
-							String result = getQueryHelpTextAsString(helpType);
-							spadeQuery.querySucceeded(result);
-						}catch(Exception e){
-							spadeQuery.queryFailed(new RuntimeException("Failed to execute help command: " + e.getMessage()));
-						}
-						safeWriteToClient(spadeQuery);
-						continue;
 					}else{
 						// Some other query
 						final AbstractStorage thisStorage = getCurrentStorage();
@@ -424,7 +404,6 @@ public abstract class AbstractAnalyzer{
 
 		public abstract void doQueryingShutdownForCurrentStorage() throws Exception;
 
-		public abstract String getQueryHelpTextAsString(HelpType type) throws Exception;
 		public abstract Query executeQuery(final Query query, final Context ctx) throws Exception;
 
 		public abstract void shutdown();

@@ -46,5 +46,10 @@ public enum Type {
     /*
         All other types are assumed to be server commands. The server will return an error if invalid.
     */
-    SERVER
+    SERVER,
+
+    /*
+        Help command.
+    */
+    HELP,
 }
