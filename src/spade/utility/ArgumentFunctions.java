@@ -59,6 +59,17 @@ public class ArgumentFunctions{
 		}
 		return result.result;
 	}
+
+	public static Boolean optParseBoolean(final String key, final Map<String, String> map) throws Exception{
+		if(map == null){
+			throw new Exception("NULL map to get the value from for key '" + key + "'");
+		}
+		final String value = map.get(key);
+		if (value == null) {
+			return null;
+		}
+		return mustParseBoolean(key, map);
+	}
 	
 	public static int mustParseInteger(final String key, final Map<String, String> map) throws Exception{
 		if(map == null){
@@ -82,6 +93,17 @@ public class ArgumentFunctions{
 			throw new Exception("Failed to parse double value for key '" + key + "'. Error: " + result.toErrorString());
 		}
 		return result.result;
+	}
+
+	public static Double optParseDouble(final String key, final Map<String, String> map) throws Exception{
+		if(map == null){
+			throw new Exception("NULL map to get the value from for key '" + key + "'");
+		}
+		final String value = map.get(key);
+		if (value == null) {
+			return null;
+		}
+		return mustParseDouble(key, map);
 	}
 
 	public static double mustParseDouble(final String key, final Map<String, String> map) throws Exception{
