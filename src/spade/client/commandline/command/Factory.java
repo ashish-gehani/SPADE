@@ -17,7 +17,7 @@
 
 package spade.client.commandline.command;
 
-import spade.client.commandline.command.exception.IllegalCommand;
+import spade.utility.exception.IllegalCommand;
 
 /*
     Query command factory to return an instance of the query command.

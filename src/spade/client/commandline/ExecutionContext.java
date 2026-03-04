@@ -22,7 +22,7 @@ import java.util.LinkedList;
 import spade.client.commandline.command.AbstractCommand;
 import spade.client.commandline.command.Factory;
 import spade.client.commandline.command.Source;
-import spade.client.commandline.command.exception.IllegalCommand;
+import spade.utility.exception.IllegalCommand;
 
 /*
     The query command execution context.

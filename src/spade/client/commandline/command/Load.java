@@ -24,9 +24,9 @@ import java.util.LinkedList;
 
 import spade.client.commandline.ExecutionContext;
 import spade.client.commandline.UserArguments;
-import spade.client.commandline.command.exception.IllegalCommandResult;
-import spade.client.commandline.command.exception.CommandExecutionNotComplete;
-import spade.client.commandline.command.exception.IllegalCommand;
+import spade.utility.exception.CommandExecutionNotComplete;
+import spade.utility.exception.IllegalCommand;
+import spade.utility.exception.IllegalCommandResult;
 
 /*
     Load queries from a file.

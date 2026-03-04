@@ -21,9 +21,9 @@ import java.util.Arrays;
 import java.util.List;
 
 import spade.client.commandline.ExecutionContext;
-import spade.client.commandline.command.exception.CommandExecutionNotComplete;
-import spade.client.commandline.command.exception.IllegalCommand;
-import spade.client.commandline.command.exception.IllegalCommandResult;
+import spade.utility.exception.CommandExecutionNotComplete;
+import spade.utility.exception.IllegalCommand;
+import spade.utility.exception.IllegalCommandResult;
 
 
 public class Help extends AbstractCommand {

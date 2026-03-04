@@ -21,9 +21,9 @@ import java.io.IOException;
 
 import spade.client.commandline.command.AbstractCommand;
 import spade.client.commandline.command.Source;
-import spade.client.commandline.command.exception.CommandExecutionNotComplete;
-import spade.client.commandline.command.exception.IllegalCommand;
-import spade.client.commandline.command.exception.IllegalCommandResult;
+import spade.utility.exception.CommandExecutionNotComplete;
+import spade.utility.exception.IllegalCommand;
+import spade.utility.exception.IllegalCommandResult;
 
 public class MainLoop {
     

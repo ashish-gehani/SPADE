@@ -28,9 +28,9 @@ import spade.client.commandline.UserArguments;
 import spade.client.commandline.UserArgumentsParser;
 import spade.client.commandline.command.Factory;
 import spade.client.commandline.command.Source;
-import spade.client.commandline.command.exception.IllegalCommand;
 import spade.client.commandline.output.OutputStreamFactory;
 import spade.core.Settings;
+import spade.utility.exception.IllegalCommand;
 
 /**
  * @author raza

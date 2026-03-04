@@ -19,14 +19,14 @@ package spade.client.commandline.command;
 
 import spade.client.commandline.ExecutionContext;
 import spade.client.commandline.ServerClientChannel;
-import spade.client.commandline.command.exception.IllegalCommandResult;
-import spade.client.commandline.command.exception.CommandExecutionNotComplete;
-import spade.client.commandline.command.exception.CommandResultNotSuccessful;
-import spade.client.commandline.command.exception.IllegalCommand;
 import spade.core.Graph;
 import spade.core.Query;
 import spade.query.quickgrail.instruction.SaveGraph;
 import spade.query.quickgrail.utility.ResultTable;
+import spade.utility.exception.CommandExecutionNotComplete;
+import spade.utility.exception.CommandResultNotSuccessful;
+import spade.utility.exception.IllegalCommand;
+import spade.utility.exception.IllegalCommandResult;
 
 /*
     Generic server command.

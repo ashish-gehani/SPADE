@@ -18,8 +18,8 @@
 package spade.client.commandline.command;
 
 import spade.client.commandline.ExecutionContext;
-import spade.client.commandline.command.exception.CommandExecutionNotComplete;
-import spade.client.commandline.command.exception.IllegalCommandResult;
+import spade.utility.exception.CommandExecutionNotComplete;
+import spade.utility.exception.IllegalCommandResult;
 
 /*
     Empty query command (whitespace or empty string).

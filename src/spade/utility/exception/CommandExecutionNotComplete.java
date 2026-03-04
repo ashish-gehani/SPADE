@@ -15,7 +15,7 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.client.commandline.command.exception;
+package spade.utility.exception;
 
 public class CommandExecutionNotComplete extends Exception {
 
