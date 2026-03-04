@@ -106,6 +106,12 @@ public class Connection implements Runnable {
         }
     }
 
+    /*
+        This function prepares the execution context needed by query command execution.
+
+        Preparation involves passing along values from client (this class) context to
+        the command execution context.
+    */
     private Context prepareCommandExecutionContext () throws ServerFailure {
         try {
             final Context cmdExecCtx = new Context(this.requiredConfig);
@@ -116,6 +122,12 @@ public class Connection implements Runnable {
         }
     }
 
+    /*
+        This function consumes the execution context updated by query command execution.
+
+        Consumption involves retrieving values from query command execution, and updating the
+        client (this class) context.
+    */
     private void consumeCommandExecutionContext (final Context cmdExecCtx) {
         if (cmdExecCtx == null) {
             return;
@@ -177,7 +189,7 @@ public class Connection implements Runnable {
             error. Any underlying error exposes too much irrelevant info 
             to the user. It is too much effort to recheck all exceptions.
             Thus, doing it this way.
-            
+
             For logging to SPADE log, the whole stack trace is logged.
 
             Downside: Might miss something that would be helpful for the
