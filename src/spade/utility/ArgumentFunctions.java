@@ -95,7 +95,7 @@ public class ArgumentFunctions{
 		return result.result;
 	}
 
-	public static Double optParseDouble(final String key, final Map<String, String> map) throws Exception{
+	public static Double optParseEpsilon(final String key, final Map<String, String> map) throws Exception{
 		if(map == null){
 			throw new Exception("NULL map to get the value from for key '" + key + "'");
 		}
@@ -103,7 +103,7 @@ public class ArgumentFunctions{
 		if (value == null) {
 			return null;
 		}
-		return mustParseDouble(key, map);
+		return mustParseDouble(key, map, -1, 1);
 	}
 
 	public static double mustParseDouble(final String key, final Map<String, String> map) throws Exception{

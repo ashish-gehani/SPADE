@@ -16,475 +16,70 @@
  */
 package spade.core;
 
-import java.io.ByteArrayOutputStream;
-import java.io.EOFException;
-import java.io.File;
-import java.io.ObjectOutputStream;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import spade.query.execution.Context;
-import spade.query.quickgrail.core.GraphStatistic;
-import spade.utility.FileUtility;
-import spade.utility.HelperFunctions;
-import spade.utility.Result;
+import spade.core.analyzer.RequiredConfig;
+import spade.utility.exception.MissingConfigValue;
 
 /**
  * @author raza
  */
-public abstract class AbstractAnalyzer{
-	
-	private final Logger logger = Logger.getLogger(this.getClass().getName());
-	
-	private static final String configKeyNameUseScaffold = "use_scaffold";
-	private static final String configKeyNameUseTransformer = "use_transformer";
-	private static final String configKeyNameEpsilon = "epsilon";
-
-	private Boolean useScaffold = null;
-	private Boolean useTransformer = null;
+public abstract class AbstractAnalyzer {
 
 	private String arguments;
 
-	public void setArguments(final String arguments){
+	public void setArguments(final String arguments) {
 		this.arguments = arguments;
 	}
 
-	public String getArguments(){
+	public String getArguments() {
 		return arguments;
 	}
-	
-	private Double epsilon = null;
 
-	// true return means can continue. false return means that cannot continue.
-	private final boolean readGlobalConfigFromConfigFile(Class<? extends AbstractAnalyzer> clazz){
-		if(useScaffold == null || useTransformer == null){
-			String configFilePath = Settings.getDefaultConfigFilePath(clazz);
-			if(configFilePath == null){
-				logger.log(Level.SEVERE, "NULL config file path for class: " + clazz);
-				return false;
-			}else{
-				try{
-					File configFile = new File(configFilePath);
-					if(configFile.exists()){
-						if(configFile.isFile()){
-							try{
-								Map<String, String> configMap = FileUtility.readConfigFileAsKeyValueMap(configFilePath, "=");
-								if(useScaffold == null){
-									if(!setGlobalConfigUseScaffold("config file '"+configFilePath+"'", 
-											configMap.get(configKeyNameUseScaffold))){
-										return false;
-									}
-								}
-								
-								if(useTransformer == null){
-									if(!setGlobalConfigUseTransformer("config file '"+configFilePath+"'", 
-											configMap.get(configKeyNameUseTransformer))){
-										return false;
-									}
-								}
-								
-								if(epsilon == null){
-									if(!setGlobalConfigEpsilon("config file '"+configFilePath+"'", 
-										configMap.get(configKeyNameEpsilon))){
-										return false;
-									}
-								}
-							}catch(Exception e){
-								logger.log(Level.SEVERE, "Failed to read config file at path: " + configFilePath, e);
-								return false;
-							}
-						}else{
-							logger.log(Level.SEVERE, "Config file exists but is not a file: " + configFilePath);
-							return false;
-						}
-					}
-				}catch(Exception e){
-					logger.log(Level.SEVERE, "Failed to check config file at path: " + configFilePath, e);
-					return false;
-				}
-			}
-		}
-		return true;
-	}
-	
-	// true return means can continue. false return means that cannot continue.
-	private final boolean setGlobalConfigUseScaffold(String valueSource, String value){
-		if(value == null){
-			return true;
-		}else{
-			Result<Boolean> result = HelperFunctions.parseBoolean(value);
-			if(result.error){
-				logger.log(Level.SEVERE, "Invalid boolean value for '"+configKeyNameUseScaffold + "' in " + valueSource);
-				logger.log(Level.SEVERE, result.toErrorString());
-				return false;
-			}else{
-				this.useScaffold = result.result.booleanValue();
-				return true;
-			}
-		}
-	}
-	
-	// true return means can continue. false return means that cannot continue.
-	private final boolean setGlobalConfigUseTransformer(String valueSource, String value){
-		if(value == null){
-			return true;
-		}else{
-			Result<Boolean> result = HelperFunctions.parseBoolean(value);
-			if(result.error){
-				logger.log(Level.SEVERE, "Invalid boolean value for '"+configKeyNameUseTransformer + "' in " + valueSource);
-				logger.log(Level.SEVERE, result.toErrorString());
-				return false;
-			}else{
-				this.useTransformer = result.result.booleanValue();
-				return true;
-			}
-		}
-	}
-	
-	// true return means can continue. false return means that cannot continue.
-	private final boolean setGlobalConfigEpsilon(String valueSource, String value){
-		if(value == null){
-			return true;
-		}else{
-			Result<Double> result = HelperFunctions.parseDouble(value, -1, Double.POSITIVE_INFINITY);
-			if(result.error){
-				logger.log(Level.SEVERE, "Invalid boolean value for '"+configKeyNameEpsilon + "' in " + valueSource);
-				logger.log(Level.SEVERE, result.toErrorString());
-				return false;
-			}else{
-				this.epsilon = result.result;
-				return true;
-			}
-		}
+	/*
+		The analyzer config can be specified in multilpe places. If a  
+		key-value pair is defined in multiple places then there is an order
+		of precedence. That order decides which value for the key is picked.
+
+		This function takes care of loading the config according to the order.
+
+		The order is defined below in general terms:
+
+		1. Arguments (highest precedence).
+		2. Config of concrete subclass of AbstractAnalyzer.
+		3. Config of AbstractAnalyzer.
+
+		Example: If 'use_transformer' is defined in all three locations then
+		the value of 'use_transformer' in arguments overrides all other locations.
+
+		In addition to the above, the returned objects contains the required 
+		analyzer config. If the concrete subclass of analyzer has additional
+		config then the subclass should handle that separately.
+	*/
+	protected final RequiredConfig loadRequiredConfig(String arguments) 
+		throws Exception, MissingConfigValue {
+		arguments = arguments == null ? "" : arguments;
+		final RequiredConfig config = new RequiredConfig();
+		config.load(arguments, new String[] {
+			// The subclass of analyzer is first so that it takes
+			// higher precedence.
+			Settings.getDefaultConfigFilePath(this.getClass()),
+			Settings.getDefaultConfigFilePath(AbstractAnalyzer.class)
+		});
+		return config;
 	}
 
-	public final boolean initialize(String arguments){
-		Map<String, String> argsMap = HelperFunctions.parseKeyValPairs(arguments);
-		
-		if(!setGlobalConfigUseScaffold("Arguments", argsMap.get(configKeyNameUseScaffold))){
-			return false;
-		}
-		
-		if(!setGlobalConfigUseTransformer("Arguments", argsMap.get(configKeyNameUseTransformer))){
-			return false;
-		}
-		
-		if(!setGlobalConfigEpsilon("Arguments", argsMap.get(configKeyNameEpsilon))){
-			return false;
-		}
-		
-		if(!readGlobalConfigFromConfigFile(this.getClass())){
-			return false;
-		}
-		
-		if(!readGlobalConfigFromConfigFile(AbstractAnalyzer.class)){
-			return false;
-		}
-		
-		if(useScaffold == null){
-			logger.log(Level.SEVERE, "NULL '"+configKeyNameUseScaffold+"' value. Must specify in arguments or config files");
-			return false;
-		}
-		
-		if(useTransformer == null){
-			logger.log(Level.SEVERE, "NULL '"+configKeyNameUseTransformer+"' value. Must specify in arguments or config files");
-			return false;
-		}
-		
-		if(epsilon == null){
-			logger.log(Level.SEVERE, "NULL '"+configKeyNameEpsilon+"' value. Must specify in arguments or config files");
-			return false;
-		}
-		
-		logger.log(Level.INFO, "Arguments: {0}={1}, {2}={3}, {4}={5}",
-				new Object[]{
-						configKeyNameUseScaffold, useScaffold,
-						configKeyNameUseTransformer, useTransformer,
-						configKeyNameEpsilon, epsilon
-				});
-		
-		// Only here if success
-		
-		return this.initializeConcreteAnalyzer(arguments);
-	}
-	
-	public abstract boolean initializeConcreteAnalyzer(String arguments);
+	/*
+		Initialize and start the analyzer.
+	*/
+	public abstract boolean initialize(final String arguments);
 
+	/*
+		Shutdown the analyzer.
+	*/
 	public abstract void shutdown();
 
-	public abstract class QueryConnection implements Runnable{
-
-		private static final String commandSetStorage = "set storage <storage_name>";
-
-		protected final Logger logger = Logger.getLogger(this.getClass().getName());
-
-		private AbstractStorage currentStorage;
-
-		private Query getErrorSPADEQuery(){
-			Query spadeQuery = new Query("<NULL>", "<NULL>", "<NULL>", "<NULL>");
-			spadeQuery.queryFailed("Exiting!");
-			return spadeQuery;
-		}
-
-		private void privatize(final spade.query.quickgrail.core.GraphStatistic result) throws Exception{
-			try{
-				result.privatize(epsilon);
-			}catch(Exception e){
-				throw new Exception("Failed to privatize graph statistics", e);
-			}
-		}
-		private final spade.query.quickgrail.core.GraphStatistic getQueryResultAsGraphStatistic(final Query spadeQuery)
-		{
-			final boolean isGraphStat = spadeQuery != null && (spadeQuery.getResult() instanceof spade.query.quickgrail.core.GraphStatistic);
-			if (!isGraphStat)
-				return null;
-			return (spade.query.quickgrail.core.GraphStatistic)spadeQuery.getResult();
-		}
-
-		private final spade.core.Graph getQueryResultAsSPADEGraph(final Query spadeQuery)
-		{
-			final boolean isSPADEGraph = spadeQuery != null && (spadeQuery.getResult() instanceof spade.core.Graph);
-			if (!isSPADEGraph)
-				return null;
-			return (spade.core.Graph)spadeQuery.getResult();
-		}
-
-		private void handleSPADEQueryError(final Query spadeQuery){
-			if(spadeQuery.getError() != null){
-				// Check if exception is serializable
-				try(final ObjectOutputStream oos = new ObjectOutputStream(new ByteArrayOutputStream())){
-					oos.writeObject(spadeQuery.getError());
-				}catch(Throwable t){
-					// The exception is not serializable
-					final String queryErrorString;
-					logger.log(Level.SEVERE, "Non-serializable query-error", t);
-					if(spadeQuery.getError() instanceof Throwable){
-						queryErrorString = ((Throwable)spadeQuery.getError()).getMessage();
-						logger.log(Level.SEVERE, "Query-error!", (Throwable)spadeQuery.getError());
-					}else{
-						queryErrorString = String.valueOf(spadeQuery.getError());
-						logger.log(Level.SEVERE, "Query-error! " + spadeQuery.getError());
-					}
-					spadeQuery.queryFailed(new Exception("Query error: " + queryErrorString));
-				}
-			}
-		}
-		
-		@Override
-		public final void run(){
-			while(!this.isShutdown()){
-				Query spadeQuery = null;
-				try{
-					spadeQuery = readLineFromClient(); // overwrite existing
-				}catch(EOFException eofe){
-					break;
-				}catch(Exception e){
-					if(this.isShutdown()){
-						// here because of shutdown. No error.
-					}else{
-						logger.log(Level.SEVERE, "Failed to read query from client", e);
-					}
-					safeWriteToClient(getErrorSPADEQuery());
-					break;
-				}
-				if(spadeQuery == null){ // End of stream
-					// safeWriteToClient(getErrorSPADEQuery()); // connection closed so cannot write
-					break; // exit while loop
-				}
-
-				if(spadeQuery.query.trim().toLowerCase().equals("exit") || spadeQuery.query.trim().toLowerCase().equals("quit")){
-					spadeQuery.querySucceeded("Exiting!");
-					// safeWriteToClient(spadeQuery); // connection closed so cannot write
-					break;
-				}else{
-					final String trimmedQuery = spadeQuery.query.trim();
-					String queryTokens[] = trimmedQuery.split("\\s+", 3);
-					if(queryTokens.length >= 2 && queryTokens[0].toLowerCase().equals("set")
-							&& queryTokens[1].toLowerCase().equals("storage")){
-						final String storageName = queryTokens.length == 3 ? queryTokens[2] : null;
-						safeWriteToClient(setStorage(storageName, spadeQuery));
-						continue;
-					}else if(queryTokens.length == 2 && queryTokens[0].toLowerCase().equals("print")
-							&& queryTokens[1].toLowerCase().equals("storage")){
-						AbstractStorage currentStorage = getCurrentStorage();
-						if(currentStorage == null){
-							spadeQuery.queryFailed("No current storage set");
-						}else{
-							spadeQuery.querySucceeded(currentStorage.getClass().getSimpleName());
-						}
-						safeWriteToClient(spadeQuery);
-						continue;
-					}else{
-						// Some other query
-						final AbstractStorage thisStorage = getCurrentStorage();
-						if(thisStorage == null){
-							spadeQuery.queryFailed("No storage set for querying. Use command: '" + commandSetStorage + "'.");
-							safeWriteToClient(spadeQuery);
-						}else{
-							if(!Kernel.isStoragePresent(thisStorage)){
-								try{
-									doQueryingShutdownForCurrentStorage();
-								}catch(Exception e){
-									logger.log(Level.SEVERE,
-											"Failed to successfully shutdown querying for the removed storage: " + "'"
-													+ thisStorage.getClass().getSimpleName() + "'.",
-													e);
-								}
-								setCurrentStorage(null);
-								spadeQuery.queryFailed("Previously set storage '" + thisStorage.getClass().getSimpleName()
-										+ "' has been " + "removed. Use command: '" + commandSetStorage + "'.");
-								safeWriteToClient(spadeQuery);
-							}else{
-								// Can execute query finally
-								Context execCtx = null;
-								try{
-									execCtx = new Context(thisStorage.getQueryInstructionExecutor());
-
-									spadeQuery = executeQuery(spadeQuery, execCtx);
-									
-									spade.core.Graph resultGraph = getQueryResultAsSPADEGraph(spadeQuery);
-									if (resultGraph != null)
-									{
-										if (useTransformer)
-										{
-											resultGraph = iterateTransformers(resultGraph, execCtx);
-											spadeQuery.updateGraphResult(resultGraph);
-										}
-										// Set it here because the graph might be modified by the transformers
-										resultGraph.setHostName(Kernel.getHostName());
-										resultGraph.addSignature(spadeQuery.queryNonce);
-									}
-
-									final GraphStatistic resultGraphStats = getQueryResultAsGraphStatistic(spadeQuery);
-									if (resultGraphStats != null)
-									{
-										if(epsilon > -1){
-											privatize(resultGraphStats);
-										}
-									}
-
-									handleSPADEQueryError(spadeQuery);
-									
-									safeWriteToClient(spadeQuery);
-								} catch (Exception e) {
-									logger.log(Level.SEVERE, "Failed to execute query: '" + spadeQuery.query + "'", e);
-									spadeQuery.queryFailed(new Exception("Failed to execute query: " + e.getMessage(), e));
-									safeWriteToClient(spadeQuery);
-								} finally {
-									if (execCtx != null)
-										execCtx.destroy();
-								}
-							}
-						}
-					}
-				}
-			}
-
-			this.shutdown();
-
-			// Exited the main loop
-			AbstractStorage thisStorage = getCurrentStorage();
-			if(thisStorage != null){
-				try{
-					doQueryingShutdownForCurrentStorage();
-				}catch(Exception e){
-					logger.log(Level.SEVERE, "Failed to successfully shutdown querying for the removed storage: " + "'"
-							+ thisStorage.getClass().getSimpleName() + "'.", e);
-				}
-				setCurrentStorage(null);
-			}
-		}
-
-		public abstract Query readLineFromClient() throws Exception;
-
-		public abstract void writeToClient(Query query) throws Exception;
-
-		public abstract void doQueryingSetupForCurrentStorage() throws Exception;
-
-		public abstract void doQueryingShutdownForCurrentStorage() throws Exception;
-
-		public abstract Query executeQuery(final Query query, final Context ctx) throws Exception;
-
-		public abstract void shutdown();
-
-		public abstract boolean isShutdown();
-
-		private final void safeWriteToClient(Query data){
-			try{
-				writeToClient(data);
-			}catch(Exception e){
-				logger.log(Level.WARNING, "Failed to write to query client: '" + data + "'", e);
-			}
-		}
-
-		private final Query setStorage(String storageName, Query spadeQuery){
-			if(storageName == null){
-				spadeQuery.queryFailed("Missing storage_name in command: '" + commandSetStorage + "'.");
-				return spadeQuery;
-			}else if(storageName.trim().isEmpty()){
-				spadeQuery.queryFailed("Empty storage_name in command: '" + commandSetStorage + "'.");
-				return spadeQuery;
-			}else{
-				AbstractStorage storage = Kernel.getStorage(storageName);
-				if(storage == null){
-					spadeQuery.queryFailed("Storage '" + storageName + "' not found.");
-					return spadeQuery;
-				}else{
-					if(getCurrentStorage() != null){
-						try{
-							doQueryingShutdownForCurrentStorage();
-						}catch(Exception e){
-							logger.log(Level.SEVERE, "Failed to successfully shutdown querying for storage: " + "'"
-									+ getCurrentStorage().getClass().getSimpleName() + "'.", e);
-						}
-						setCurrentStorage(null);
-					}
-					try{
-						setCurrentStorage(storage);
-						// Current storage set before calling the code below
-						doQueryingSetupForCurrentStorage();
-						spadeQuery.querySucceeded("Storage '" + storageName + "' successfully set for querying.");
-						return spadeQuery;
-					}catch(Exception e){
-						logger.log(Level.SEVERE,
-								"Failed to set storage: " + "'" + storage.getClass().getSimpleName() + "'", e);
-						setCurrentStorage(null); // Undo the set storage in case of an error
-						spadeQuery.queryFailed("Failed to set storage '" + storage.getClass().getSimpleName() + "'. Use command: '"
-						+ commandSetStorage + "'. Error: " + e.getMessage());
-						return spadeQuery;
-					}
-				}
-			}
-		}
-
-		public synchronized final AbstractStorage getCurrentStorage(){
-			return currentStorage;
-		}
-
-		public synchronized final void setCurrentStorage(AbstractStorage storage){
-			this.currentStorage = storage;
-		}
-
-		private Graph iterateTransformers(Graph graph, final Context execCtx){
-			synchronized(Kernel.transformers){
-				for(int i = 0; i < Kernel.transformers.size(); i++){
-					try{
-						AbstractTransformer transformer = Kernel.transformers.get(i);
-						final Result<Graph> executeResult = AbstractTransformer.executeWithQueryContext(transformer, graph, execCtx);
-						if(executeResult.error){
-							throw new RuntimeException(executeResult.errorMessage, executeResult.exception);
-						}
-						graph = executeResult.result;
-					}catch(Exception e){
-						throw new RuntimeException("Failed to apply transformer '"
-								+Kernel.transformers.get(i) == null ? "<NULL transformer>" : Kernel.transformers.get(i).getClass().getSimpleName()
-								+"'", e);
-					}
-				}
-			}
-			return graph;
-		}
-	}
+	/*
+		Has the analyzer shutdown?
+	*/
+	public abstract boolean isShutdown();
 
 }

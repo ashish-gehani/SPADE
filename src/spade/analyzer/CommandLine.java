@@ -16,251 +16,87 @@
  */
 package spade.analyzer;
 
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.OutputStream;
 import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import spade.analyzer.commandline.server.Connection;
+import spade.analyzer.commandline.server.State;
 import spade.core.AbstractAnalyzer;
-import spade.core.AbstractStorage;
 import spade.core.Kernel;
-import spade.core.Query;
 import spade.core.Settings;
-import spade.query.execution.Context;
-import spade.query.quickgrail.QuickGrailExecutor;
-import spade.utility.HelperFunctions;
+import spade.core.analyzer.RequiredConfig;
 
 /**
  * @author raza
  */
 public class CommandLine extends AbstractAnalyzer{
 
-	private static final Logger logger = Logger.getLogger(CommandLine.class.getName());
-	private static final long millisWaitSocketClose = 100;
+	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
-	// Current state of the CommandLine analyzer
-	private volatile boolean shutdown = false;
+	private Connection serverConn = null;
 
-	// Globals
-	private ServerSocket queryServerListenerSocket = null;
-	private final List<QueryConnection> queryClientConnections = new ArrayList<QueryConnection>();
+	@Override
+	public final boolean initialize(final String arguments) {
+		int queryServerPort;
+		RequiredConfig requiredConfig = null;
+		ServerSocket serverSocket = null;
 
-	private void addQueryClientConnection(QueryConnection queryConnection){
-		synchronized(queryClientConnections){
-			if(queryConnection == null){
-				return;
-			}else{
-				for(QueryConnection existingQueryConnection : queryClientConnections){
-					if(existingQueryConnection == queryConnection){
-						return;
-					}
-				}
-				// Here only if it doesn't already exists
-				queryClientConnections.add(queryConnection);
-			}
+		try {
+			requiredConfig = loadRequiredConfig(arguments);
+		} catch (Exception e) {
+			logger.log(Level.SEVERE, "Failed to load required config", e);
+			return false;
 		}
-	}
 
-	private void removeQueryClientConnection(QueryConnection queryConnection){
-		synchronized(queryClientConnections){
-			int index = -1;
-			for(int a = 0; a < queryClientConnections.size(); a++){
-				if(queryClientConnections.get(a) == queryConnection){
-					index = a;
-				}
-			}
-			if(index > -1){
-				queryClientConnections.remove(index);
-			}
-		}
-	}
-
-	private void closeClientSocket(Socket socket){
-		try{
-			socket.close();
+		try {
+			queryServerPort = Settings.getCommandLineQueryPort();
+			serverSocket = Kernel.createServerSocket(queryServerPort);
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to close query client socket", e);
+			logger.log(Level.SEVERE, "Failed to create query server socket", e);
+			return false;
 		}
+
+		try {
+			this.serverConn = new Connection(
+				serverSocket, new State(), requiredConfig
+			);
+			final Thread serverThread = new Thread(
+				this.serverConn,
+				this.getClass().getSimpleName() + "AnalyzerServer-Thread"
+			);
+			serverThread.start();
+		} catch (Exception e) {
+			logger.log(Level.SEVERE, "Failed to start server connection thread", e);
+			if (serverSocket != null) {
+				try {
+					serverSocket.close();
+				} catch (Exception eInner) {
+
+				}
+			}
+			return false;
+		}
+
+		logger.log(Level.INFO, "Query server listening on port: " + queryServerPort);
+		return true;
 	}
 
-	private void closeServerSocket(ServerSocket socket){
-		try{
-			socket.close();
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to close query server socket", e);
+	@Override
+	public void shutdown() {
+		if (this.serverConn != null) {
+			serverConn.stop();
 		}
 	}
 
 	@Override
-	public final boolean initializeConcreteAnalyzer(String arguments){
-		final int queryServerPort = Settings.getCommandLineQueryPort();
-		try{
-			this.queryServerListenerSocket = Kernel.createServerSocket(queryServerPort);
-			try{
-				Thread mainThread = new Thread(queryServerListenerRunnable,
-						this.getClass().getSimpleName() + "AnalyzerServer-Thread");
-				mainThread.start(); // Start
-				logger.log(Level.INFO, "Query server listening on port: " + queryServerPort);
-				return true;
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to start query server thread", e);
-				try{
-					this.queryServerListenerSocket.close();
-				}catch(Exception e1){
-					logger.log(Level.SEVERE, "Failed to close socket 'Query server socket'", e1);
-				}
-			}
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to create query server socket", e);
+	public boolean isShutdown() {
+		if (this.serverConn != null) {
+			return !serverConn.isRunning();
 		}
-		return false;
+		return true;
 	}
 
-	private final Runnable queryServerListenerRunnable = new Runnable(){
-		@Override
-		public void run(){
-			while(!shutdown){
-				try{
-					Socket queryClientSocket = queryServerListenerSocket.accept();
-					try{
-						QueryConnection thisConnection = new QueryConnection(queryClientSocket, Kernel.getDefaultQueryStorage());
-						Thread connectionThread = new Thread(thisConnection);
-						connectionThread.start(); // Start
-						// Add to the list at the end
-						addQueryClientConnection(thisConnection);
-					}catch(Exception e){
-						logger.log(Level.SEVERE, "Failed setup for accepted query client socket", e);
-						closeClientSocket(queryClientSocket);
-					}
-
-				}catch(Exception e){
-					if(shutdown){
-						// here because the server socket was closed because of a shutdown
-					}else{
-						logger.log(Level.SEVERE, "Unexpected exception on query server socket", e);
-						closeServerSocket(queryServerListenerSocket); // Close the server socket since we are stopping
-					}
-					break;
-				}
-			}
-
-			shutdown();
-		}
-	};
-
-	public synchronized final void shutdown(){
-		if(!shutdown){
-			shutdown = true;
-			HelperFunctions.sleepSafe(millisWaitSocketClose);
-			// Stop listening for any more client connections
-			closeServerSocket(this.queryServerListenerSocket);
-			HelperFunctions.sleepSafe(millisWaitSocketClose);
-			// Close all the clients
-			synchronized(queryClientConnections){
-				for(QueryConnection queryConnection : new ArrayList<QueryConnection>(queryClientConnections)){
-					queryConnection.shutdown();
-				}
-			}
-		}
-	}
-
-	private class QueryConnection extends AbstractAnalyzer.QueryConnection{
-		private final Socket clientSocket;
-		private final ObjectOutputStream queryOutputWriter;
-		private final ObjectInputStream queryInputReader;
-
-		private volatile boolean queryClientShutdown = false;
-		
-		private QuickGrailExecutor quickGrailExecutor = null;
-
-		private QueryConnection(Socket socket, AbstractStorage defaultStorageInKernel){
-			if(socket == null){
-				throw new IllegalArgumentException("NULL query client socket");
-			}else{
-				try{
-					OutputStream outStream = socket.getOutputStream();
-					InputStream inStream = socket.getInputStream();
-					this.queryOutputWriter = new ObjectOutputStream(outStream);
-					this.queryInputReader = new ObjectInputStream(inStream);
-					this.clientSocket = socket;
-				}catch(Exception e){
-					throw new IllegalArgumentException("Failed to create query IO streams", e);
-				}
-			}
-
-			if(defaultStorageInKernel != null){
-				try{
-					setCurrentStorage(defaultStorageInKernel);
-					doQueryingSetupForCurrentStorage();
-				}catch(Throwable t){
-					logger.log(Level.SEVERE, "Failed to do storage query setup", t);
-					try{
-						doQueryingShutdownForCurrentStorage();
-					}catch(Throwable t2){
-						logger.log(Level.SEVERE, "Failed to do storage query shutdown", t);
-					}
-					setCurrentStorage(null);
-				}
-			}
-		}
-
-		@Override
-		public Query readLineFromClient() throws Exception{
-			return (Query)queryInputReader.readObject();
-		}
-
-		@Override
-		public void writeToClient(Query query) throws Exception{
-			queryOutputWriter.writeObject(query);
-			queryOutputWriter.flush();
-		}
-
-		@Override
-		public Query executeQuery(final Query query, final Context ctx) throws Exception{
-			quickGrailExecutor.execute(query, ctx);
-			return query;
-		}
-
-		@Override
-		public void doQueryingSetupForCurrentStorage() throws Exception{
-			quickGrailExecutor = new QuickGrailExecutor();
-		}
-
-		@Override
-		public void doQueryingShutdownForCurrentStorage() throws Exception{
-			quickGrailExecutor = null;
-		}
-
-		@Override
-		public synchronized void shutdown(){
-			if(!queryClientShutdown){
-				queryClientShutdown = true;
-				try{
-					queryOutputWriter.close();
-				}catch(Exception e){
-					logger.log(Level.SEVERE, "Failed to close query output stream", e);
-				}
-				try{
-					queryInputReader.close();
-				}catch(Exception e){
-					logger.log(Level.SEVERE, "Failed to close query input stream", e);
-				}
-				closeClientSocket(this.clientSocket);
-				removeQueryClientConnection(this);
-			}
-		}
-
-		@Override
-		public boolean isShutdown(){
-			return queryClientShutdown;
-		}
-	}
 }
 
 /*

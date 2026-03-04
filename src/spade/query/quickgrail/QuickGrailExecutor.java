@@ -19,16 +19,17 @@
  */
 package spade.query.quickgrail;
 
-import java.io.PrintWriter;
 import java.io.Serializable;
-import java.io.StringWriter;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.core.Query;
 import spade.core.Settings;
+import spade.core.analyzer.command.exception.CommandFailure;
+import spade.core.analyzer.command.exception.ServerFailure;
+import spade.core.analyzer.command.exception.UnexpectedFailure;
 import spade.query.execution.Context;
+import spade.query.quickgrail.core.AbstractQueryEnvironment;
 import spade.query.quickgrail.core.Instruction;
 import spade.query.quickgrail.core.Program;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
@@ -46,76 +47,145 @@ public class QuickGrailExecutor{
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
 	private final String keyDebug = "debug";
+
 	private boolean debug;
 
-	public QuickGrailExecutor() throws Exception {
+	public QuickGrailExecutor() throws UnexpectedFailure {
 		final String configFile = Settings.getDefaultConfigFilePath(this.getClass());
 		try{
 			final Map<String, String> map = FileUtility.readConfigFileAsKeyValueMap(configFile, "=");
-			debug = ArgumentFunctions.mustParseBoolean(keyDebug, map);
+			this.debug = ArgumentFunctions.mustParseBoolean(keyDebug, map);
 		}catch(Exception e){
-			throw new Exception("Failed to parse configuration file: '" + configFile + "'", e);
+			throw new UnexpectedFailure(
+				"Failed to parse configuration file: '" + configFile + "'", e
+			);
 		}
 	}
 
-	public void execute(final Query query, Context ctx){
-		if (query == null)
-			throw new IllegalArgumentException("NULL query to execute");
-		if (ctx == null)
-			throw new IllegalArgumentException("NULL context to execute");
-		try{
-			final QueryInstructionExecutor executor = ctx.getExecutor();
+	private ParseProgram parseProgram(final String query) 
+		throws ServerFailure, CommandFailure {
+		if (query == null) {
+			throw new ServerFailure("NULL query to execute");
+		}
 
+		try {
 			final DSLParserWrapper parserWrapper = new DSLParserWrapper();
-
-			final ParseProgram parseProgram = parserWrapper.fromText(query.query);
-
-			final QuickGrailQueryResolver resolver = new QuickGrailQueryResolver();
-			final Program program = resolver.resolveProgram(parseProgram, executor.getQueryEnvironment());
-
-			if(debug){
+			final ParseProgram parseProgram = parserWrapper.fromText(query);
+			if (debug) {
 				logger.log(Level.INFO, "Parse tree:\n" + parseProgram.toString());
+			}
+			return parseProgram;
+		} catch (Exception e) {
+			throw new CommandFailure("Failed to parse query", e);
+		}
+	}
+
+	private Program resolveProgram(
+		final QueryInstructionExecutor executor,
+		final ParseProgram parseProgram
+	) throws ServerFailure, UnexpectedFailure {
+		if (executor == null) {
+			throw new ServerFailure("NULL query instruction executor for resolution");
+		}
+		if (parseProgram == null) {
+			throw new ServerFailure("NULL parsed program to resolve");
+		}
+
+		final QuickGrailQueryResolver resolver = new QuickGrailQueryResolver();
+		final AbstractQueryEnvironment environment = executor.getQueryEnvironment();
+		if (environment == null) {
+			throw new ServerFailure("NULL query environment for resolution");
+		}
+
+		try {
+			final Program program = resolver.resolveProgram(
+				parseProgram, environment
+			);
+			if (debug) {
 				logger.log(Level.INFO, "Execution plan:\n" + program.toString());
 			}
+			return program;
+		} catch (Exception e) {
+			throw new UnexpectedFailure("Failed to resolve query", e);
+		}
+	}
 
+	private void executeProgram(
+		final Context ctx,
+		final Program program
+	) throws ServerFailure, UnexpectedFailure {
+		if (ctx == null) {
+			throw new ServerFailure("NULL context for execution");
+		}
+		if (program == null) {
+			throw new ServerFailure("NULL program for execution");
+		}
+
+		final int instructionsSize = program.getInstructionsSize();
+		for(int i = 0; i < instructionsSize; i++){
+			final Instruction<? extends Serializable> instruction = 
+				program.getInstruction(i);
+			if (instruction == null) {
+				throw new ServerFailure("NULL instruction found in program");
+			}
 			try{
-				final int instructionsSize = program.getInstructionsSize();
-				for(int i = 0; i < instructionsSize; i++){
-					final Instruction<? extends Serializable> instruction = program.getInstruction(i);
-					try{
-						instruction.execute(ctx);
-					}catch(Exception e){
-						throw e;
-					}
-				}
-			} catch (Exception e) {
-				throw e;
+				instruction.execute(ctx);
+			}catch(Exception e){
+				throw new UnexpectedFailure("Failed to execute instruction", e);
 			}
-			// finally{
-			// 	executor.getQueryEnvironment().doGarbageCollection();
-			// }
+		}
+	}
 
-			Serializable result = "OK";
-			// Only here if success
-			if(program.getInstructionsSize() > 0){
-				final Serializable lastInstructionResult = program.getInstruction(program.getInstructionsSize() - 1)
-						.getResult();
-				if(lastInstructionResult != null){
-					result = lastInstructionResult;
-				}
-			}
-			query.querySucceeded(result);
-		}catch(Exception e){
-			logger.log(Level.SEVERE, null, e);
+	private Serializable getExecutionResult(
+		final Program program
+	) throws ServerFailure {
+		if (program == null) {
+			throw new ServerFailure("NULL program for execution");
+		}
 
-			final StringWriter stackTrace = new StringWriter();
-			final PrintWriter pw = new PrintWriter(stackTrace);
-			pw.println("Error evaluating QuickGrail command:");
-			pw.println("------------------------------------------------------------");
-			pw.println(e.getMessage());
-			pw.println("------------------------------------------------------------");
+		final int instrSize = program.getInstructionsSize();
+		if (instrSize == 0) {
+			return "OK";
+		}
 
-			query.queryFailed(new Exception(stackTrace.toString(), e));
+		final Instruction<? extends Serializable> lastInstr = 
+			program.getInstruction(instrSize - 1);
+		if (lastInstr == null) {
+			throw new ServerFailure("NULL instruction in program");
+		}
+
+		final Serializable lastInstrResult = lastInstr.getResult();
+		if(lastInstrResult == null){
+			return "OK";
+		}
+
+		return lastInstrResult;
+	}
+
+	public Serializable execute(final String query, final Context ctx)
+		throws ServerFailure, CommandFailure, UnexpectedFailure {
+		if (query == null) {
+			throw new ServerFailure("NULL query to execute");
+		}
+		if (ctx == null) {
+			throw new ServerFailure("NULL context to execute");
+		}
+
+		try {
+			final ParseProgram parseProgram = parseProgram(query);
+			final Program program = resolveProgram(
+				ctx.getExecutor(),
+				parseProgram
+			);
+			executeProgram(ctx, program);
+			final Serializable result = getExecutionResult(program);
+			return result;
+		} catch (ServerFailure | CommandFailure | UnexpectedFailure e) {
+			logger.log(Level.SEVERE, "Failed to execute query", e);
+			throw e;
+		} catch (RuntimeException e) {
+			logger.log(Level.SEVERE, "Failed to execute query", e);
+			throw new UnexpectedFailure("Runtime error in query execution", e);
 		}
 	}
 

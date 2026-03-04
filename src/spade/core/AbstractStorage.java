@@ -26,6 +26,7 @@ import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import spade.core.exception.StorageNotQueryable;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.query.scaffold.Scaffold;
 import spade.query.scaffold.ScaffoldFactory;
@@ -323,8 +324,9 @@ public abstract class AbstractStorage
 
     public abstract Object executeQuery(String query);
     
-    public QueryInstructionExecutor getQueryInstructionExecutor(){
-    	throw new RuntimeException("Storage does not support querying!");
+    public QueryInstructionExecutor getQueryInstructionExecutor()
+        throws StorageNotQueryable {
+    	throw new StorageNotQueryable("Storage does not support querying!");
     }
     
 }
