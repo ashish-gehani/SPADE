@@ -29,6 +29,10 @@ import spade.utility.ValueResolutionException;
  * Abstract base class for query parameters in transformers.
  * Defines the contract for parameter name, type, and value resolution.
  * 
+ * A parameter must have a name.
+ * The parameter's resolved value refers to the value resolved by QuickGrail Query Resolver.
+ * The parameter's materialized value refers to the value materialized by QuickGrail Instruction Executor.
+ * 
  * @param <Q> the type of the resolved value
  * @param <T> the type of the materialized value
  */
