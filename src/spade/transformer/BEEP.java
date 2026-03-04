@@ -169,7 +169,7 @@ public class BEEP extends AbstractTransformer{
 
 		for(AbstractTransformer transformer : transformers){
 			if(graph != null){
-				final Result<Graph> executeResult = AbstractTransformer.executeWithOtherContext(
+				final Result<Graph> executeResult = AbstractTransformer.executeWithRequiredContext(
 					transformer, graph, this.getContext()
 				);
 				if(executeResult.error){

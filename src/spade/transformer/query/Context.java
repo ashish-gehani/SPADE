@@ -53,6 +53,26 @@ public class Context {
 		return this.parameterList.getFormattedParameterNames();
 	}
 
+	/*
+		Create a new context. In the new context, only keep the parameters
+		of 'this' context which match the names of parameters in the 'other' context.
+	*/
+	public Context filterBy(final Context other) {
+		final List<AbstractParameter<?,?>> newAPList = new ArrayList<>();
+		for (int i = 0; i < other.parameterList.size(); i++)
+		{
+			final AbstractParameter<?,?> otherP = other.parameterList.getParameter(i);
+			final AbstractParameter<?,?> thisP = getTheSameParameterTypeAs(otherP);
+			if (thisP == null)
+				continue;
+			// Safe cast: getTheSameParameterTypeAs ensures both parameters are of the same class type
+			newAPList.add(thisP);
+		}
+		final Context newCtx = new Context();
+		newCtx.set(newAPList);
+		return newCtx;
+	}
+
 	/**
 	 * Resolves all parameters in this context using the provided expressions and resolver.
 	 *

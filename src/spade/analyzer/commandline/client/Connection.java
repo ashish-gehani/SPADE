@@ -151,13 +151,56 @@ public class Connection implements Runnable {
                 query.query,
                 query.queryNonce
             );
-            queryResult.queryFailed(e.getMessage());
+            final String errMsg = createErrorMessageFromException(e);
+            queryResult.queryFailed(errMsg);
             return queryResult;
         } finally {
             if (cmdExecCtx != null) {
                 consumeCommandExecutionContext(cmdExecCtx);
             }
         }
+    }
+
+    private final String createErrorMessageFromException(Throwable t) {
+        if (t == null) {
+            return "NULL";
+        }
+
+        /*
+            Somewhat arbitrary decision to show only exception msgs
+            until the last RuntimeException i.e. hide any exception
+            msgs after the last RuntimeException.
+
+            Reasoning: For convenience, most of the exceptions thrown 
+            by QuickGrail are RuntimeExceptions. These RuntimeExceptions 
+            contain most of the context for the reason of the underlying 
+            error. Any underlying error exposes too much irrelevant info 
+            to the user. It is too much effort to recheck all exceptions.
+            Thus, doing it this way.
+            
+            For logging to SPADE log, the whole stack trace is logged.
+
+            Downside: Might miss something that would be helpful for the
+            user but will see when such an issue is reported.
+        */
+
+        boolean previousExceptionWasRuntimeException = false;
+        boolean currentExceptionIsNotRuntimeException = false;
+
+        String msg = "";
+        while (t != null) {
+            currentExceptionIsNotRuntimeException = !t.getClass().equals(RuntimeException.class);
+            if (previousExceptionWasRuntimeException && currentExceptionIsNotRuntimeException) {
+                break;
+            }
+
+            msg += t.getMessage() + ". ";
+
+            previousExceptionWasRuntimeException = t.getClass().equals(RuntimeException.class);
+
+            t = t.getCause();
+        }
+        return msg;
     }
 
     private Query readQueryFromClient() throws Exception {

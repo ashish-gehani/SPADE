@@ -29,6 +29,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import spade.query.quickgrail.core.QueryInstructionExecutor;
 import spade.transformer.query.Context;
 import spade.transformer.query.parameter.AbstractParameter;
 import spade.utility.Result;
@@ -200,27 +201,35 @@ public abstract class AbstractTransformer {
 	public static Result<Graph> executeWithQueryContext(
 		final AbstractTransformer transformer,
 		final Graph graph,
-		final spade.query.execution.Context executionCtx
-	){
-		try{
-			final Context queryTransformerCtx = executionCtx.getTransformerContext();
-			queryTransformerCtx.materialize(executionCtx.getExecutor());
+		final spade.query.execution.Context queryExecCtx
+	) {
+		try {
+			// This is where the query parameter values (non-materialized), all, have been set.
+			final Context queryTransformerCtx = queryExecCtx.getTransformerContext();
+			// This is the query parameter values (non-resolved, non-materialized), specified by transformers explicitly.
+			final Context thisTransformerCtx = transformer.getContext();
 
-			return AbstractTransformer.executeWithOtherContext(transformer, graph, queryTransformerCtx);
-		}catch(Exception e){
+			final Context requiredTransformerCtx = queryTransformerCtx.filterBy(thisTransformerCtx);
+
+			final QueryInstructionExecutor qie = queryExecCtx.getExecutor();
+
+			requiredTransformerCtx.materialize(qie);
+
+			return AbstractTransformer.executeWithRequiredContext(transformer, graph, requiredTransformerCtx);
+		} catch(Exception e) {
 			return Result.failed("Error in graph transformation by " + transformer.getClass().getName(), e, null);
 		}
 	}
 
-	public static Result<Graph> executeWithOtherContext(
+	public static Result<Graph> executeWithRequiredContext(
 		final AbstractTransformer transformer,
 		final Graph graph,
-		final Context otherCtx
-	){
+		final Context requiredCtx
+	) {
 		try{
 			final Context thisTransformerCtx = transformer.getContext();
 
-			thisTransformerCtx.copyValuesPresentIn(otherCtx);
+			thisTransformerCtx.copyValuesPresentIn(requiredCtx);
 
 			return AbstractTransformer.execute(transformer, graph);
 		}catch(Exception e){
