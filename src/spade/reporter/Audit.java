@@ -2662,7 +2662,15 @@ public class Audit extends AbstractReporter {
 			if(isUnixSaddr(localSaddr)){
 				identifier = parseUnixSaddr(pid, localSaddr);
 				if(identifier == null){
-					logInvalidSaddr(localSaddr, time, eventId, syscall);
+					// try remoteSaddr
+					if(isUnixSaddr(remoteSaddr)){
+						identifier = parseUnixSaddr(pid, remoteSaddr);
+						if(identifier == null){
+							// try remoteSaddr
+							logInvalidSaddr(localSaddr, time, eventId, syscall);
+							logInvalidSaddr(remoteSaddr, time, eventId, syscall);
+						}
+					}
 				}
 			}
 		}
