@@ -166,6 +166,7 @@ KERNEL_OBJS := \
   audit/kernel/helper/network.o \
   audit/kernel/helper/task.o \
   audit/kernel/helper/sock.o \
+  audit/kernel/helper/unix.o \
   audit/kernel/setup/function/ftrace/ftrace.o \
   audit/kernel/setup/function/ftrace/ftrace_helper.o \
   audit/kernel/setup/namespace/namespace.o \
@@ -184,6 +185,9 @@ MSG_OBJS := \
   audit/msg/network/serialize/audit.o \
   audit/msg/network/create.o \
   audit/msg/network/ops.o \
+  audit/msg/scm_fd/serialize/audit.o \
+  audit/msg/scm_fd/create.o \
+  audit/msg/scm_fd/ops.o \
   audit/msg/ubsi/serialize/audit.o \
   audit/msg/ubsi/create.o \
   audit/msg/ubsi/ops.o \

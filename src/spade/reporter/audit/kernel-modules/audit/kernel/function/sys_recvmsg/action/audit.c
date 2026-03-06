@@ -31,6 +31,7 @@
 #include "audit/msg/network/network.h"
 #include "audit/msg/ops.h"
 #include "audit/kernel/helper/network.h"
+#include "audit/kernel/helper/unix.h"
 #include "audit/kernel/helper/audit_log.h"
 #include "audit/util/log/log.h"
 
@@ -49,6 +50,7 @@ int kernel_function_sys_recvmsg_action_audit_handle_post(
     struct sockaddr_storage remote_saddr;
     int remote_saddr_size;
     bool sockfd_is_connected;
+    struct audit_context *audit_ctx;
 
     struct kernel_function_sys_recvmsg_arg *sys_arg;
     struct kernel_function_sys_recvmsg_result *sys_res;
@@ -108,11 +110,14 @@ int kernel_function_sys_recvmsg_action_audit_handle_post(
         return err;
     }
 
-    err = kernel_helper_audit_log(NULL, &msg.header);
+    audit_ctx = kernel_helper_task_current_audit_context();
+    // NULL is not necessary for this scenario. When null new event id would be generated.
+
+    err = kernel_helper_audit_log(audit_ctx, &msg.header);
     if (err != 0)
-    {
-        util_log_debug(log_id, "Failed kernel_helper_audit_log. Err: %d", err);
-    }
+        util_log_debug(log_id, "Failed kernel_helper_audit_log for msg_network. Err: %d", err);
+
+    err = kernel_helper_unix_audit_log_scm_fd_msg(sys_arg->msg, audit_ctx, ctx_post->header->func_num);
 
     return err;
 }

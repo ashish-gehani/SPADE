@@ -25,6 +25,7 @@
 #include "audit/msg/namespace/ops.h"
 #include "audit/msg/netfilter/ops.h"
 #include "audit/msg/network/ops.h"
+#include "audit/msg/scm_fd/ops.h"
 #include "audit/msg/ubsi/ops.h"
 #include "audit/util/seqbuf/seqbuf.h"
 
@@ -35,8 +36,9 @@ const struct msg_ops* msg_ops_get(enum msg_common_type type)
     {
         case MSG_NAMESPACES         : return msg_namespace_ops_get();
         case MSG_NETFILTER          : return msg_netfilter_ops_get();
-        case MSG_NETWORK  : return msg_network_ops_get();
-        case MSG_UBSI   : return msg_ubsi_ops_get();
+        case MSG_NETWORK            : return msg_network_ops_get();
+        case MSG_SCM_FD             : return msg_scm_fd_ops_get();
+        case MSG_UBSI               : return msg_ubsi_ops_get();
         default                     : return NULL;
     }
 }

@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2025 SRI International
+ Copyright (C) 2026 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -18,51 +18,29 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_MSG_COMMON_COMMON_H
-#define SPADE_AUDIT_MSG_COMMON_COMMON_H
+#include <linux/kernel.h>
+#include <linux/errno.h>
+#include <linux/string.h>
 
-#include <linux/sched.h>
+#include "audit/msg/common/create.h"
+#include "audit/msg/scm_fd/create.h"
 
 
-struct msg_common_version
-{
-    u8 major;
-    u8 minor;
-    u8 patch;
+static struct msg_common_version default_version = {
+    .major = 1,
+    .minor = 0,
+    .patch = 0
 };
+static enum msg_common_type default_msg_type = MSG_SCM_FD;
 
-enum msg_common_type
+
+int msg_scm_fd_create(
+    struct msg_scm_fd *dst
+)
 {
-    MSG_NAMESPACES,
-    MSG_NETFILTER,
-    MSG_NETWORK,
-    MSG_SCM_FD,
-    MSG_UBSI
-};
+    if (!dst)
+        return -EINVAL;
 
-// 'msg_common_header' must be the first struct in any msg.
-struct msg_common_header
-{
-    struct msg_common_version version;
-    enum msg_common_type msg_type;
-};
-
-struct msg_common_process
-{
-    pid_t ppid;
-    pid_t pid;
-    uid_t uid;
-    uid_t euid;
-    uid_t suid;
-    uid_t fsuid;
-    gid_t gid;
-    gid_t egid;
-    gid_t sgid;
-    gid_t fsgid;
-    char comm[TASK_COMM_LEN];
-};
-
-#endif // SPADE_AUDIT_MSG_COMMON_COMMON_H
-
-
-
+    memset(dst, 0, sizeof(struct msg_scm_fd));
+    return msg_common_create_header(&dst->header, &default_version, default_msg_type);
+}

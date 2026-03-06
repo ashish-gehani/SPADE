@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2025 SRI International
+ Copyright (C) 2026 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -18,51 +18,22 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_MSG_COMMON_COMMON_H
-#define SPADE_AUDIT_MSG_COMMON_COMMON_H
+#ifndef SPADE_AUDIT_MSG_COMMON_SCM_FD_SERIALIZE_AUDIT_H
+#define SPADE_AUDIT_MSG_COMMON_SCM_FD_SERIALIZE_AUDIT_H
 
-#include <linux/sched.h>
+#include "audit/util/seqbuf/seqbuf.h"
 
+#include "audit/msg/scm_fd/scm_fd.h"
 
-struct msg_common_version
-{
-    u8 major;
-    u8 minor;
-    u8 patch;
-};
+/*
+    Write scm_fd msg as string to seqbuf.
 
-enum msg_common_type
-{
-    MSG_NAMESPACES,
-    MSG_NETFILTER,
-    MSG_NETWORK,
-    MSG_SCM_FD,
-    MSG_UBSI
-};
+    Returns:
+        0    -> Success.
+        -ive -> Error code.
+*/
+int msg_scm_fd_serialize_audit_msg(
+    struct seqbuf *b, struct msg_scm_fd *msg
+);
 
-// 'msg_common_header' must be the first struct in any msg.
-struct msg_common_header
-{
-    struct msg_common_version version;
-    enum msg_common_type msg_type;
-};
-
-struct msg_common_process
-{
-    pid_t ppid;
-    pid_t pid;
-    uid_t uid;
-    uid_t euid;
-    uid_t suid;
-    uid_t fsuid;
-    gid_t gid;
-    gid_t egid;
-    gid_t sgid;
-    gid_t fsgid;
-    char comm[TASK_COMM_LEN];
-};
-
-#endif // SPADE_AUDIT_MSG_COMMON_COMMON_H
-
-
-
+#endif // SPADE_AUDIT_MSG_COMMON_SCM_FD_SERIALIZE_AUDIT_H
