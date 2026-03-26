@@ -17,15 +17,15 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.reader;
+package spade.reporter.audit.reader.file;
 
-public class FileReaderConfig extends Config{
+import spade.reporter.audit.reader.Type;
+
+public class Config extends spade.reporter.audit.reader.Config{
 
 	private final String filePath;
 
-	public FileReaderConfig(
-		final String filePath, final boolean verboseEventFactory
-	){
+	public Config(final String filePath, final boolean verboseEventFactory){
 		super(Type.File, verboseEventFactory);
 		if(filePath == null){
 			throw new IllegalArgumentException("File path cannot be NULL");

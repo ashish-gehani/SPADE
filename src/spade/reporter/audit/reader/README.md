@@ -29,7 +29,7 @@ initialise factories in `State`.
 
 | Subclass | Extra fields |
 |----------|-------------|
-| `FileReaderConfig` | `filePath` (`String`) |
+| `file.Config` | `filePath` (`String`) |
 | `spade.audit.bridge.Config` | `bridgePath`, `mode`, `inputLogListFile`, `inputDir`, `inputDirTime`, `linuxAuditSocketPath`, `waitForLog`, `units`, `mergeUnit` |
 
 ## State
@@ -50,7 +50,7 @@ Abstract base class implementing `AutoCloseable`. Subclasses must implement:
 | `readEvent()` | Return the next `Event`, or `null` at end of source |
 | `close()` | Release resources |
 
-### FileReader
+### file.Reader
 
 Opens a `FileInputStream` on the given path and wraps it in a
 `las.event.reader.InputStreamReader`.
@@ -69,7 +69,8 @@ the matching `Reader`, passing the factories from `state` into it.
 ## Usage
 
 ```java
-final FileReaderConfig config = new FileReaderConfig("/var/log/audit/audit.log", false);
+final spade.reporter.audit.reader.file.Config config =
+    new spade.reporter.audit.reader.file.Config("/var/log/audit/audit.log", false);
 final State state = new State(config);
 final Reader reader = new Factory().create(config, state);
 

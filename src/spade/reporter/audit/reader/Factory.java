@@ -37,8 +37,9 @@ public class Factory{
 				return new spade.reporter.audit.reader.spade.audit.bridge.Reader(c, recordFactory, eventFactory);
 			}
 			case File:{
-				final FileReaderConfig c = (FileReaderConfig) config;
-				return new FileReader(c.getFilePath(), recordFactory, eventFactory);
+				final spade.reporter.audit.reader.file.Config c =
+					(spade.reporter.audit.reader.file.Config) config;
+				return new spade.reporter.audit.reader.file.Reader(c.getFilePath(), recordFactory, eventFactory);
 			}
 			default:
 				throw new IllegalArgumentException("Unknown reader type: " + config.getType());

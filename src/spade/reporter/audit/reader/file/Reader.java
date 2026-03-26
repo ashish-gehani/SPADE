@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.reader;
+package spade.reporter.audit.reader.file;
 
 import java.io.FileInputStream;
 import java.util.logging.Level;
@@ -27,16 +27,13 @@ import spade.reporter.audit.las.event.Event;
 import spade.reporter.audit.las.event.Factory;
 import spade.reporter.audit.las.event.reader.InputStreamReader;
 
-/**
- * Reads audit events from a file using InputStreamReader.
- */
-public class FileReader extends Reader{
+public class Reader extends spade.reporter.audit.reader.Reader{
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
 	private final InputStreamReader reader;
 
-	public FileReader(
+	public Reader(
 		final String filePath,
 		final spade.reporter.audit.las.event.record.Factory recordFactory,
 		final Factory eventFactory
