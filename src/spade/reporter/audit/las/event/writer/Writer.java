@@ -28,23 +28,29 @@ import spade.reporter.audit.las.event.Event;
  */
 public abstract class Writer implements AutoCloseable{
 
-	private final boolean verbose;
+	private final java.io.OutputStream stream;
 
-	protected Writer(final boolean verbose){
-		this.verbose = verbose;
+	public Writer(
+		final java.io.OutputStream outputStream
+	){
+		if (outputStream == null) {
+			throw new IllegalArgumentException("NULL output stream");
+		}
+		this.stream = outputStream;
 	}
 
-	public boolean isVerbose(){
-		return verbose;
+	public java.io.OutputStream getStream () {
+		return this.stream;
 	}
 
 	/**
 	 * Write an audit event to the output.
 	 *
 	 * @param event the audit event to write
+	 * @return The number of bytes written
 	 * @throws Exception if writing fails
 	 */
-	public abstract void writeEvent(final Event event) throws Exception;
+	public abstract long writeEvent(final Event event) throws Exception;
 
 	/**
 	 * Close the writer and release resources.
