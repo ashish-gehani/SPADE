@@ -34,6 +34,9 @@ public class Factory{
 				final RotatingFileWriterConfig c = (RotatingFileWriterConfig) config;
 				return new RotatingFileWriter(c.getBasePath(), c.getRotateAfterBytes());
 			}
+			case NULL:{
+				return new NullWriter();
+			}
 			default:
 				throw new IllegalArgumentException("Unknown writer type: " + config.getType());
 		}

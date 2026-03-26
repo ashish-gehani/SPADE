@@ -19,8 +19,16 @@
  */
 package spade.reporter.audit.writer;
 
-public enum Type{
-	FILE,
-	ROTATING_FILE,
-	NULL
+import spade.reporter.audit.las.event.Event;
+
+public class NullWriter extends Writer{
+
+	@Override
+	public long writeEvent(final Event event){
+		return 0;
+	}
+
+	@Override
+	public void close(){
+	}
 }

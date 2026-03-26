@@ -19,8 +19,9 @@
  */
 package spade.reporter.audit.writer;
 
-public enum Type{
-	FILE,
-	ROTATING_FILE,
-	NULL
+public class NullWriterConfig extends Config{
+
+	public NullWriterConfig(){
+		super(Type.NULL);
+	}
 }
