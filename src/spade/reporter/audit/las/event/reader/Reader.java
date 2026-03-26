@@ -20,6 +20,7 @@
 package spade.reporter.audit.las.event.reader;
 
 import spade.reporter.audit.las.event.Event;
+import spade.reporter.audit.las.event.Factory;
 
 /**
  * Abstract class for reading audit events from an arbitrary source.
@@ -29,46 +30,39 @@ import spade.reporter.audit.las.event.Event;
  */
 public abstract class Reader implements AutoCloseable{
 
-	private final String streamId;
 	private final java.io.InputStream inputStream;
-	private final Metrics metrics;
-	private final boolean verbose;
+	private final spade.reporter.audit.las.event.record.Factory recordFactory;
+	private final Factory eventFactory;
 
 	protected Reader(
-		final String streamId,
 		final java.io.InputStream inputStream,
-		final MetricsConfig metricsConfig,
-		final boolean verbose
+		final spade.reporter.audit.las.event.record.Factory recordFactory,
+		final Factory eventFactory
 	){
-		if(streamId == null){
-			throw new IllegalArgumentException("Stream ID cannot be NULL");
-		}
 		if(inputStream == null){
 			throw new IllegalArgumentException("The stream to read from cannot be NULL");
 		}
-		if(metricsConfig == null){
-			throw new IllegalArgumentException("The stream to read from cannot be NULL");
+		if(recordFactory == null){
+			throw new IllegalArgumentException("Record factory cannot be NULL");
 		}
-		this.streamId = streamId;
+		if(eventFactory == null){
+			throw new IllegalArgumentException("Event factory cannot be NULL");
+		}
 		this.inputStream = inputStream;
-		this.metrics = new Metrics(metricsConfig);
-		this.verbose = verbose;
-	}
-
-	public String getStreamId(){
-		return streamId;
+		this.recordFactory = recordFactory;
+		this.eventFactory = eventFactory;
 	}
 
 	protected java.io.InputStream getInputStream() {
 		return this.inputStream;
 	}
 
-	public Metrics getMetrics() {
-		return this.metrics;
+	protected spade.reporter.audit.las.event.record.Factory getRecordFactory() {
+		return this.recordFactory;
 	}
 
-	public boolean isVerbose(){
-		return verbose;
+	protected Factory getEventFactory() {
+		return this.eventFactory;
 	}
 
 	/**

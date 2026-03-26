@@ -40,40 +40,42 @@ public class InputStreamReader extends Reader{
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
-	private final spade.reporter.audit.las.event.record.Factory recordFactory;
-	private final Factory eventFactory;
-
 	private final BufferedReader stream;
 	private boolean eof;
 
 	private final Set<Record> currentEventRecords;
 	private String currentEventId;
 
+	public static InputStreamReader withDefaultFactories(
+		final java.io.InputStream inputStream,
+		final boolean verbose
+	) throws Exception{
+		return new InputStreamReader(
+			inputStream,
+			new spade.reporter.audit.las.event.record.Factory(verbose),
+			new Factory(verbose)
+		);
+	}
+
 	/**
 	 * Create a reader that reads from the given InputStream.
 	 *
-	 * @param streamId identifier for this stream
 	 * @param inputStream the stream to read from
-	 * @param metricsConfig the MetricsConfig object
-	 * @param verbose enable verbose logging
+	 * @param recordFactory factory for creating records from raw lines
+	 * @param eventFactory factory for creating events from records
 	 * @throws Exception if stream setup or config loading fails
 	 */
 	public InputStreamReader(
-		final String streamId,
 		final java.io.InputStream inputStream,
-		final MetricsConfig metricsConfig,
-		final boolean verbose
+		final spade.reporter.audit.las.event.record.Factory recordFactory,
+		final Factory eventFactory
 	) throws Exception{
-		super(streamId, inputStream, metricsConfig, verbose);
+		super(inputStream, recordFactory, eventFactory);
 
-		this.recordFactory = new spade.reporter.audit.las.event.record.Factory(verbose);
-		this.eventFactory = new Factory(verbose);
 		this.stream = new BufferedReader(new java.io.InputStreamReader(inputStream));
 		this.eof = false;
 		this.currentEventRecords = new HashSet<>();
 		this.currentEventId = null;
-
-		this.getMetrics().start();
 	}
 
 	/**
@@ -88,10 +90,6 @@ public class InputStreamReader extends Reader{
 	 */
 	@Override
 	public Event readEvent() throws Exception{
-		final Metrics metrics = getMetrics();
-		
-		metrics.checkAndReport();
-
 		while(!eof){
 			final String line = stream.readLine();
 			if(line == null){
@@ -99,11 +97,7 @@ public class InputStreamReader extends Reader{
 				break;
 			}
 
-			if(metrics.isEnabled()){
-				metrics.recordRead();
-			}
-
-			final Record record = recordFactory.create(line);
+			final Record record = getRecordFactory().create(line);
 			if(record == null){
 				continue;
 			}
@@ -124,7 +118,7 @@ public class InputStreamReader extends Reader{
 				currentEventRecords.add(record);
 				currentEventId = record.getEventId();
 
-				final Event event = eventFactory.createEvent(recordsToFlush);
+				final Event event = getEventFactory().createEvent(recordsToFlush);
 				if(event != null){
 					return event;
 				}
@@ -138,18 +132,16 @@ public class InputStreamReader extends Reader{
 		final Set<Record> recordsToFlush = new HashSet<>(currentEventRecords);
 		currentEventRecords.clear();
 
-		return eventFactory.createEvent(recordsToFlush);
+		return getEventFactory().createEvent(recordsToFlush);
 	}
 
 	@Override
 	public void close(){
-		final Metrics metrics = getMetrics();
-		metrics.printFinalStats();
 		if(stream != null){
 			try{
 				stream.close();
 			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to close the stream '" + getStreamId() + "'", e);
+				logger.log(Level.SEVERE, "Failed to close the stream", e);
 			}
 		}
 	}
