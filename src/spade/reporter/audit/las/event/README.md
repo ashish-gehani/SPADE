@@ -1,6 +1,6 @@
 # spade.reporter.audit.las.event
 
-Event subclasses, event factory, and the Tee pump.
+Event subclasses and event factory.
 
 ## Event (abstract base)
 
@@ -48,27 +48,6 @@ Constructors:
 `Factory.create(List<Record>)` inspects the record set, identifies the primary
 record type, and instantiates the corresponding `Event` subclass. Returns `null`
 for unrecognized record sets.
-
-## Tee
-
-`Tee` pumps events from a `reader.Reader` source to both a `writer.Writer` sink
-and a `channel.Channel`, running the pump on a background thread.
-
-| Method | Description |
-|--------|-------------|
-| `start()` | Launches the `tee-pump` daemon thread; throws `IllegalStateException` if already started |
-| `read()` | Blocks until the channel delivers the next event (called by the consumer) |
-| `close()` | Interrupts the pump thread; the thread's finally block closes source, sink, and channel |
-
-### Pump lifecycle
-
-The pump thread loops calling `source.readEvent()`. Each non-null event is written
-to the sink and then to the channel. On EOF (`readEvent()` returns `null`) or a read
-error, the loop exits and source, sink, and channel are closed in a `finally` block.
-Closing the channel unblocks any `read()` caller, which will then receive `null`.
-
-Write failures to the sink or channel are logged at `WARNING` level and do not stop
-the pump.
 
 ## Sub-packages
 
