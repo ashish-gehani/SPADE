@@ -31,9 +31,10 @@ public class Factory{
 		final spade.reporter.audit.las.event.record.Factory recordFactory = state.getRecordFactory();
 		final spade.reporter.audit.las.event.Factory eventFactory = state.getEventFactory();
 		switch(config.getType()){
-			case Process:{
-				final ProcessReaderConfig c = (ProcessReaderConfig) config;
-				return new ProcessReader(c.getProcess(), recordFactory, eventFactory);
+			case SPADEAuditBridge:{
+				final spade.reporter.audit.reader.spade.audit.bridge.Config c =
+					(spade.reporter.audit.reader.spade.audit.bridge.Config) config;
+				return new spade.reporter.audit.reader.spade.audit.bridge.Reader(c, recordFactory, eventFactory);
 			}
 			case File:{
 				final FileReaderConfig c = (FileReaderConfig) config;

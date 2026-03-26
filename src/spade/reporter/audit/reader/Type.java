@@ -20,6 +20,6 @@
 package spade.reporter.audit.reader;
 
 public enum Type{
-	Process,
+	SPADEAuditBridge,
 	File
 }

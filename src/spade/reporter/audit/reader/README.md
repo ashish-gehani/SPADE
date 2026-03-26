@@ -19,10 +19,8 @@ Enum identifying the reader implementation.
 
 | Value | Description |
 |-------|-------------|
-| `Process` | Read from the stdout of a `java.lang.Process` |
+| `SPADEAuditBridge` | Read from the stdout of a SPADE audit bridge process |
 | `File` | Read from a file on disk |
-| `LASRotatedFilesByBasePath` | Read from LAS rotated files identified by base path |
-| `LASRotatedFilesInDirectory` | Read from LAS rotated files in a directory |
 
 ## Config
 
@@ -31,8 +29,8 @@ initialise factories in `State`.
 
 | Subclass | Extra fields |
 |----------|-------------|
-| `ProcessReaderConfig` | `process` (`java.lang.Process`) |
 | `FileReaderConfig` | `filePath` (`String`) |
+| `spade.audit.bridge.Config` | `bridgePath`, `mode`, `inputLogListFile`, `inputDir`, `inputDirTime`, `linuxAuditSocketPath`, `waitForLog`, `units`, `mergeUnit` |
 
 ## State
 
@@ -52,14 +50,16 @@ Abstract base class implementing `AutoCloseable`. Subclasses must implement:
 | `readEvent()` | Return the next `Event`, or `null` at end of source |
 | `close()` | Release resources |
 
-### ProcessReader
-
-Wraps `process.getInputStream()` in a `las.event.reader.InputStreamReader`.
-
 ### FileReader
 
 Opens a `FileInputStream` on the given path and wraps it in a
 `las.event.reader.InputStreamReader`.
+
+### spade.audit.bridge.Reader
+
+Starts the SPADE audit bridge process and wraps its stdout in a
+`las.event.reader.InputStreamReader`. Calls `process.stop()` then `process.close()`
+on `close()`.
 
 ## Factory
 

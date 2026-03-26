@@ -26,7 +26,7 @@ public final class State{
 	private final spade.reporter.audit.las.event.record.Factory recordFactory;
 	private final Factory eventFactory;
 
-	protected State(final Config config){
+	public State(final Config config){
 		if(config == null){
 			throw new IllegalArgumentException("Config cannot be NULL");
 		}

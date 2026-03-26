@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2026 SRI International
+ Copyright (C) 2021 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.reader;
+package spade.reporter.audit.reader.spade.audit.bridge;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -25,22 +25,19 @@ import java.util.logging.Logger;
 import spade.reporter.audit.las.event.Event;
 import spade.reporter.audit.las.event.reader.InputStreamReader;
 
-/**
- * Reads audit events from the stdout of a process using InputStreamReader.
- */
-public class ProcessReader extends Reader{
+public class Reader extends spade.reporter.audit.reader.Reader{
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
+	private final spade.reporter.audit.reader.spade.audit.bridge.Process process;
 	private final InputStreamReader reader;
 
-	public ProcessReader(
-		final Process process,
-		final spade.reporter.audit.las.event.record.Factory recordFactory,
-		final spade.reporter.audit.las.event.Factory eventFactory
-	) throws Exception{
-		if(process == null){
-			throw new IllegalArgumentException("Process cannot be NULL");
+	public Reader(
+			final Config config,
+			final spade.reporter.audit.las.event.record.Factory recordFactory,
+			final spade.reporter.audit.las.event.Factory eventFactory) throws Exception{
+		if(config == null){
+			throw new IllegalArgumentException("Config cannot be NULL");
 		}
 		if(recordFactory == null){
 			throw new IllegalArgumentException("Record factory cannot be NULL");
@@ -48,11 +45,12 @@ public class ProcessReader extends Reader{
 		if(eventFactory == null){
 			throw new IllegalArgumentException("Event factory cannot be NULL");
 		}
+		this.process = new spade.reporter.audit.reader.spade.audit.bridge.Process(config);
+		this.process.start();
 		this.reader = new InputStreamReader(
-			process.getInputStream(),
-			recordFactory,
-			eventFactory
-		);
+				process.getStdOutStream(),
+				recordFactory,
+				eventFactory);
 	}
 
 	@Override
@@ -65,7 +63,17 @@ public class ProcessReader extends Reader{
 		try{
 			reader.close();
 		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to close process reader", e);
+			logger.log(Level.SEVERE, "Failed to close SPADE audit bridge reader", e);
+		}
+		try{
+			process.stop();
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to stop SPADE audit bridge process", e);
+		}
+		try{
+			process.close();
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to close SPADE audit bridge process", e);
 		}
 	}
 }
