@@ -60,3 +60,9 @@ may return `null` for unrecognized record sets; those are skipped.
 ### Lifecycle
 
 Stream is closed in `close()`.
+
+### Usage
+
+`InputStreamReader` is the underlying engine for higher-level readers in
+`spade.reporter.audit.reader`. For example, `FileReader` opens a `FileInputStream`
+and delegates to `InputStreamReader.withDefaultFactories(...)`.

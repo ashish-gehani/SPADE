@@ -46,17 +46,6 @@ public class InputStreamReader extends Reader{
 	private final Set<Record> currentEventRecords;
 	private String currentEventId;
 
-	public static InputStreamReader withDefaultFactories(
-		final java.io.InputStream inputStream,
-		final boolean verbose
-	) throws Exception{
-		return new InputStreamReader(
-			inputStream,
-			new spade.reporter.audit.las.event.record.Factory(verbose),
-			new Factory(verbose)
-		);
-	}
-
 	/**
 	 * Create a reader that reads from the given InputStream.
 	 *
