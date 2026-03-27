@@ -17,25 +17,8 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.reader.spade.audit.bridge;
+package spade.reporter.audit.reader;
 
-public class Create{
-
-	public static Reader reader(final Config config) throws Exception{
-		final spade.reporter.audit.Input input = config.getInput();
-		final spade.reporter.audit.AuditConfiguration auditConfiguration = config.getAuditConfiguration();
-		final ProcessConfig processConfig = new ProcessConfig(
-			input.getSPADEAuditBridgePath(),
-			input.getMode(),
-			input.getInputLogListFile(),
-			input.getInputDir(),
-			input.getInputDirTime(),
-			input.getLinuxAuditSocketPath(),
-			input.isWaitForLog(),
-			auditConfiguration.isUnits(),
-			auditConfiguration.getMergeUnit()
-		);
-		final Process process = new Process(processConfig);
-		return new Reader(process, config.getRecordFactory(), config.getEventFactory());
-	}
+public enum Type {
+	SPADEAuditBridge
 }

@@ -19,23 +19,17 @@
  */
 package spade.reporter.audit.reader.spade.audit.bridge;
 
-public class Create{
+import spade.reporter.audit.AuditConfiguration;
+import spade.reporter.audit.Input;
+import spade.reporter.audit.reader.Type;
 
-	public static Reader reader(final Config config) throws Exception{
-		final spade.reporter.audit.Input input = config.getInput();
-		final spade.reporter.audit.AuditConfiguration auditConfiguration = config.getAuditConfiguration();
-		final ProcessConfig processConfig = new ProcessConfig(
-			input.getSPADEAuditBridgePath(),
-			input.getMode(),
-			input.getInputLogListFile(),
-			input.getInputDir(),
-			input.getInputDirTime(),
-			input.getLinuxAuditSocketPath(),
-			input.isWaitForLog(),
-			auditConfiguration.isUnits(),
-			auditConfiguration.getMergeUnit()
-		);
-		final Process process = new Process(processConfig);
-		return new Reader(process, config.getRecordFactory(), config.getEventFactory());
+public class Config extends spade.reporter.audit.reader.Config {
+
+	public Config(
+			final Input input,
+			final AuditConfiguration auditConfiguration,
+			final spade.reporter.audit.las.event.record.Factory recordFactory,
+			final spade.reporter.audit.las.event.Factory eventFactory) {
+		super(Type.SPADEAuditBridge, input, auditConfiguration, recordFactory, eventFactory);
 	}
 }
