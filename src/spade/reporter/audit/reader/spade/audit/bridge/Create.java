@@ -17,29 +17,24 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.reader.file;
+package spade.reporter.audit.reader.spade.audit.bridge;
 
-import java.io.FileInputStream;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import spade.reporter.audit.AuditConfiguration;
+import spade.reporter.audit.Input;
 
-import spade.reporter.audit.las.event.Event;
-import spade.reporter.audit.las.event.Factory;
-import spade.reporter.audit.las.event.reader.InputStreamReader;
+public class Create{
 
-public class Reader extends spade.reporter.audit.reader.Reader{
-
-	private final Logger logger = Logger.getLogger(this.getClass().getName());
-
-	private final InputStreamReader reader;
-
-	public Reader(
-		final String filePath,
+	public static Reader reader(
+		final Input input,
+		final AuditConfiguration auditConfiguration,
 		final spade.reporter.audit.las.event.record.Factory recordFactory,
-		final Factory eventFactory
+		final spade.reporter.audit.las.event.Factory eventFactory
 	) throws Exception{
-		if(filePath == null){
-			throw new IllegalArgumentException("File path cannot be NULL");
+		if(input == null){
+			throw new IllegalArgumentException("Input cannot be NULL");
+		}
+		if(auditConfiguration == null){
+			throw new IllegalArgumentException("AuditConfiguration cannot be NULL");
 		}
 		if(recordFactory == null){
 			throw new IllegalArgumentException("Record factory cannot be NULL");
@@ -47,24 +42,18 @@ public class Reader extends spade.reporter.audit.reader.Reader{
 		if(eventFactory == null){
 			throw new IllegalArgumentException("Event factory cannot be NULL");
 		}
-		this.reader = new InputStreamReader(
-			new FileInputStream(filePath),
-			recordFactory,
-			eventFactory
+		final ProcessConfig processConfig = new ProcessConfig(
+			input.getSPADEAuditBridgePath(),
+			input.getMode(),
+			input.getInputLogListFile(),
+			input.getInputDir(),
+			input.getInputDirTime(),
+			input.getLinuxAuditSocketPath(),
+			input.isWaitForLog(),
+			auditConfiguration.isUnits(),
+			auditConfiguration.getMergeUnit()
 		);
-	}
-
-	@Override
-	public Event readEvent() throws Exception{
-		return reader.readEvent();
-	}
-
-	@Override
-	public void close(){
-		try{
-			reader.close();
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to close file reader", e);
-		}
+		final Process process = new Process(processConfig);
+		return new Reader(process, recordFactory, eventFactory);
 	}
 }

@@ -1,7 +1,7 @@
 /*
  --------------------------------------------------------------------------------
  SPADE - Support for Provenance Auditing in Distributed Environments.
- Copyright (C) 2021 SRI International
+ Copyright (C) 2026 SRI International
 
  This program is free software: you can redistribute it and/or
  modify it under the terms of the GNU General Public License as
@@ -31,29 +31,29 @@ public class Process{
 
 	private static final Logger logger = Logger.getLogger(Process.class.getName());
 
-	private final Config config;
+	private final ProcessConfig processConfig;
 
 	private String command;
 	private java.lang.Process process;
 	private String pid;
 	private BufferedReader stdErrReader;
 
-	public Process(final Config config){
-		if(config == null){
-			throw new IllegalArgumentException("Config cannot be NULL");
+	public Process(final ProcessConfig processConfig){
+		if(processConfig == null){
+			throw new IllegalArgumentException("ProcessConfig cannot be NULL");
 		}
-		this.config = config;
+		this.processConfig = processConfig;
 	}
 
 	public void start() throws Exception{
 		final String argStr;
 		try{
-			argStr = config.getArgAsStr();
+			argStr = processConfig.getArgAsStr();
 		}catch(Exception e){
 			throw new Exception("Failed to build SPADE audit bridge arguments", e);
 		}
 
-		command = config.getBridgePath() + " " + argStr;
+		command = processConfig.getBridgePath() + " " + argStr;
 		try{
 			process = Runtime.getRuntime().exec(command);
 		}catch(Exception e){

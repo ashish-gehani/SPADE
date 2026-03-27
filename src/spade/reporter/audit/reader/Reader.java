@@ -19,9 +19,35 @@
  */
 package spade.reporter.audit.reader;
 
+
 import spade.reporter.audit.las.event.Event;
 
 public abstract class Reader implements AutoCloseable{
+
+	private final spade.reporter.audit.las.event.record.Factory recordFactory;
+	private final spade.reporter.audit.las.event.Factory eventFactory;
+
+	public Reader(
+		final spade.reporter.audit.las.event.record.Factory recordFactory,
+		final spade.reporter.audit.las.event.Factory eventFactory
+	) throws Exception {
+		if(recordFactory == null){
+			throw new IllegalArgumentException("Record factory cannot be NULL");
+		}
+		if(eventFactory == null){
+			throw new IllegalArgumentException("Event factory cannot be NULL");
+		}
+		this.recordFactory = recordFactory;
+		this.eventFactory = eventFactory;
+	}
+
+	protected spade.reporter.audit.las.event.record.Factory getRecordFactory(){
+		return recordFactory;
+	}
+
+	protected spade.reporter.audit.las.event.Factory getEventFactory(){
+		return eventFactory;
+	}
 
 	/**
 	 * Read the next event from the source.

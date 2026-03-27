@@ -23,9 +23,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import spade.reporter.audit.Input.Mode;
-import spade.reporter.audit.reader.Type;
 
-public class Config extends spade.reporter.audit.reader.Config{
+public class ProcessConfig {
 
 	private final String bridgePath;
 	private final Mode mode;
@@ -37,8 +36,7 @@ public class Config extends spade.reporter.audit.reader.Config{
 	private final boolean units;
 	private final Integer mergeUnit;
 
-	public Config(
-			final boolean verboseEventFactory,
+	public ProcessConfig(
 			final String bridgePath,
 			final Mode mode,
 			final String inputLogListFile,
@@ -48,7 +46,6 @@ public class Config extends spade.reporter.audit.reader.Config{
 			final boolean waitForLog,
 			final boolean units,
 			final Integer mergeUnit){
-		super(Type.SPADEAuditBridge, verboseEventFactory);
 		if(bridgePath == null){
 			throw new IllegalArgumentException("Bridge path cannot be NULL");
 		}

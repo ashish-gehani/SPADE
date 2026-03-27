@@ -29,28 +29,25 @@ public class Reader extends spade.reporter.audit.reader.Reader{
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
-	private final spade.reporter.audit.reader.spade.audit.bridge.Process process;
+	private final Process process;
 	private final InputStreamReader reader;
 
-	public Reader(
-			final Config config,
-			final spade.reporter.audit.las.event.record.Factory recordFactory,
-			final spade.reporter.audit.las.event.Factory eventFactory) throws Exception{
-		if(config == null){
-			throw new IllegalArgumentException("Config cannot be NULL");
+	public Reader (
+		final Process process,
+		final spade.reporter.audit.las.event.record.Factory recordFactory,
+		final spade.reporter.audit.las.event.Factory eventFactory
+	) throws Exception {
+		super(recordFactory, eventFactory);
+		if(process == null){
+			throw new IllegalArgumentException("Process cannot be NULL");
 		}
-		if(recordFactory == null){
-			throw new IllegalArgumentException("Record factory cannot be NULL");
-		}
-		if(eventFactory == null){
-			throw new IllegalArgumentException("Event factory cannot be NULL");
-		}
-		this.process = new spade.reporter.audit.reader.spade.audit.bridge.Process(config);
+		this.process = process;
 		this.process.start();
 		this.reader = new InputStreamReader(
-				process.getStdOutStream(),
-				recordFactory,
-				eventFactory);
+			process.getStdOutStream(),
+			getRecordFactory(),
+			getEventFactory()
+		);
 	}
 
 	@Override

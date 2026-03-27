@@ -5,78 +5,61 @@ High-level reader abstraction for reading Linux audit events from various source
 ## Overview
 
 ```
-Config  ──►  State  ──►  Factory  ──►  Reader
+Reader  (abstract base)
+  └── spade.audit.bridge.Reader
 ```
 
-A `Config` carries both the source parameters and the `verboseEventFactory` flag.
-A `State` is constructed from a `Config` and holds the shared `record.Factory` and
-`event.Factory` instances. `Factory.create(config, state)` selects the right `Reader`
-implementation and passes the factories from `State` into it.
-
-## Type
-
-Enum identifying the reader implementation.
-
-| Value | Description |
-|-------|-------------|
-| `SPADEAuditBridge` | Read from the stdout of a SPADE audit bridge process |
-| `File` | Read from a file on disk |
-
-## Config
-
-Abstract base class. Holds the `Type` and `verboseEventFactory` flag used to
-initialise factories in `State`.
-
-| Subclass | Extra fields |
-|----------|-------------|
-| `file.Config` | `filePath` (`String`) |
-| `spade.audit.bridge.Config` | `bridgePath`, `mode`, `inputLogListFile`, `inputDir`, `inputDirTime`, `linuxAuditSocketPath`, `waitForLog`, `units`, `mergeUnit` |
-
-## State
-
-Constructed from a `Config`. Initialises and owns:
-
-- `las.event.record.Factory` — parses raw audit lines into `Record` objects
-- `las.event.Factory` — groups `Record` sets into typed `Event` objects
-
-Both factories are created with the `verboseEventFactory` flag from the config.
+`Reader` is the abstract base class. Each subpackage provides a concrete
+implementation along with a static `Create.reader(...)` factory method for
+constructing it.
 
 ## Reader
 
-Abstract base class implementing `AutoCloseable`. Subclasses must implement:
+Abstract base class implementing `AutoCloseable`. Holds shared factory
+instances passed in by the caller and exposes them to subclasses via
+protected getters.
+
+| Constructor parameter | Type | Description |
+|-----------------------|------|-------------|
+| `recordFactory` | `las.event.record.Factory` | Parses raw audit lines into `Record` objects |
+| `eventFactory` | `las.event.Factory` | Groups `Record` sets into typed `Event` objects |
+
+| Protected getter | Returns |
+|------------------|---------|
+| `getRecordFactory()` | `las.event.record.Factory` |
+| `getEventFactory()` | `las.event.Factory` |
+
+Subclasses must implement:
 
 | Method | Description |
 |--------|-------------|
 | `readEvent()` | Return the next `Event`, or `null` at end of source |
 | `close()` | Release resources |
 
-### file.Reader
+## spade.audit.bridge
 
-Opens a `FileInputStream` on the given path and wraps it in a
-`las.event.reader.InputStreamReader`.
+Reads events from the stdout of a running SPADE audit bridge process.
 
-### spade.audit.bridge.Reader
+### Classes
 
-Starts the SPADE audit bridge process and wraps its stdout in a
-`las.event.reader.InputStreamReader`. Calls `process.stop()` then `process.close()`
-on `close()`.
+| Class | Description |
+|-------|-------------|
+| `ProcessConfig` | Configuration for the bridge process (path, mode, socket/log/dir args, units, mergeUnit) |
+| `Process` | Manages the bridge OS process lifecycle: start, stop, kill, close |
+| `Reader` | Extends `spade.reporter.audit.reader.Reader`. Starts the process and wraps its stdout in a `las.event.reader.InputStreamReader` |
+| `Create` | Static factory. `Create.reader(input, auditConfiguration, recordFactory, eventFactory)` builds `ProcessConfig` → `Process` → `Reader` |
 
-## Factory
-
-`Factory.create(config, state)` dispatches on `config.getType()` and constructs
-the matching `Reader`, passing the factories from `state` into it.
-
-## Usage
+### Create.reader
 
 ```java
-final spade.reporter.audit.reader.file.Config config =
-    new spade.reporter.audit.reader.file.Config("/var/log/audit/audit.log", false);
-final State state = new State(config);
-final Reader reader = new Factory().create(config, state);
-
-Event event;
-while((event = reader.readEvent()) != null){
-    // handle event
-}
-reader.close();
+public static Reader reader(
+    Input input,
+    AuditConfiguration auditConfiguration,
+    las.event.record.Factory recordFactory,
+    las.event.Factory eventFactory
+) throws Exception
 ```
+
+Derives bridge arguments from `Input` (path, mode, log/dir/socket paths,
+waitForLog) and `AuditConfiguration` (units, mergeUnit), constructs the
+`Process`, and returns a started `Reader`.
