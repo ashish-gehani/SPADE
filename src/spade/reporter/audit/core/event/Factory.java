@@ -23,6 +23,6 @@ public abstract class Factory{
 
 	public abstract Event create(
 		final Context context
-	) throws InvalidContextException;
+	) throws InvalidContextException, MalformedEventException;
 
 }

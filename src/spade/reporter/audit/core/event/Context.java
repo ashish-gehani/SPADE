@@ -19,6 +19,12 @@
  */
 package spade.reporter.audit.core.event;
 
+/**
+ * Carries the raw data populated by an arbitrary source.
+ *
+ * A {@link Factory} reads the context and uses its contents to construct a
+ * fully formed {@link Event}.
+ */
 public abstract class Context{
 
     protected Context () {
