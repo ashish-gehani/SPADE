@@ -22,7 +22,7 @@ package spade.reporter.audit.linux.audit.event.record;
 import java.util.Map;
 
 import spade.reporter.audit.linux.audit.event.record.helper.AuditStringParser;
-import spade.reporter.audit.core.event.ID;
+import spade.reporter.audit.linux.audit.event.ID;
 import spade.reporter.audit.linux.audit.event.Timestamp;
 import spade.reporter.audit.linux.audit.event.record.helper.Header;
 import spade.reporter.audit.linux.audit.event.record.helper.KeyValueParser;

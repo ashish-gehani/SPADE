@@ -22,7 +22,7 @@ package spade.reporter.audit.linux.audit.event.record.ubsi;
 
 import java.util.Map;
 
-import spade.reporter.audit.core.event.ID;
+import spade.reporter.audit.linux.audit.event.ID;
 import spade.reporter.audit.linux.audit.event.Timestamp;
 import spade.reporter.audit.linux.audit.event.record.MalformedRecordException;
 import spade.reporter.audit.linux.audit.event.record.Record;
