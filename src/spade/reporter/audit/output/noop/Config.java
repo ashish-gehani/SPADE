@@ -17,20 +17,13 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.writer;
+package spade.reporter.audit.output.noop;
 
-public abstract class Config{
+import spade.reporter.audit.output.Type;
 
-	private final Type type;
+public class Config extends spade.reporter.audit.output.Config{
 
-	protected Config(final Type type){
-		if(type == null){
-			throw new IllegalArgumentException("Type cannot be NULL");
-		}
-		this.type = type;
-	}
-
-	public Type getType(){
-		return type;
+	public Config(){
+		super(Type.NO_OP);
 	}
 }

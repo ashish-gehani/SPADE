@@ -17,23 +17,20 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.writer.file;
+package spade.reporter.audit.output;
 
-import spade.reporter.audit.writer.Type;
+public abstract class Config{
 
-public class Config extends spade.reporter.audit.writer.Config{
+	private final Type type;
 
-	private final String filePath;
-
-	public Config(final String filePath){
-		super(Type.FILE);
-		if(filePath == null){
-			throw new IllegalArgumentException("File path cannot be NULL");
+	protected Config(final Type type){
+		if(type == null){
+			throw new IllegalArgumentException("Type cannot be NULL");
 		}
-		this.filePath = filePath;
+		this.type = type;
 	}
 
-	public String getFilePath(){
-		return filePath;
+	public Type getType(){
+		return type;
 	}
 }

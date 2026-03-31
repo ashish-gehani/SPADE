@@ -17,13 +17,13 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.writer.noop;
+package spade.reporter.audit.output.noop;
 
 import spade.reporter.audit.las.event.Event;
 
-public class NoOp extends spade.reporter.audit.writer.Writer{
+public class Writer extends spade.reporter.audit.output.Writer{
 
-	public NoOp (final Config config) {
+	public Writer (final Config config) {
 		super(config);
 	}
 

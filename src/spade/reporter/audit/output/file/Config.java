@@ -17,29 +17,23 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.writer.rotating.file;
+package spade.reporter.audit.output.file;
 
-import spade.reporter.audit.writer.Type;
+import spade.reporter.audit.output.Type;
 
-public class Config extends spade.reporter.audit.writer.Config{
+public class Config extends spade.reporter.audit.output.Config{
 
-	private final String basePath;
-	private final long rotateAfterBytes;
+	private final String filePath;
 
-	public Config(final String basePath, final long rotateAfterBytes){
-		super(Type.ROTATING_FILE);
-		if(basePath == null){
-			throw new IllegalArgumentException("Base path cannot be NULL");
+	public Config(final String filePath){
+		super(Type.FILE);
+		if(filePath == null){
+			throw new IllegalArgumentException("File path cannot be NULL");
 		}
-		this.basePath = basePath;
-		this.rotateAfterBytes = rotateAfterBytes;
+		this.filePath = filePath;
 	}
 
-	public String getBasePath(){
-		return basePath;
-	}
-
-	public long getRotateAfterBytes(){
-		return rotateAfterBytes;
+	public String getFilePath(){
+		return filePath;
 	}
 }

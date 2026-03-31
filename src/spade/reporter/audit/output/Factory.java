@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.writer;
+package spade.reporter.audit.output;
 
 public class Factory{
 
@@ -27,16 +27,16 @@ public class Factory{
 		}
 		switch(config.getType()){
 			case FILE:{
-				final spade.reporter.audit.writer.file.Config c = (spade.reporter.audit.writer.file.Config) config;
-				return new spade.reporter.audit.writer.file.File(c);
+				final spade.reporter.audit.output.file.Config c = (spade.reporter.audit.output.file.Config) config;
+				return new spade.reporter.audit.output.file.Writer(c);
 			}
 			case ROTATING_FILE:{
-				final spade.reporter.audit.writer.rotating.file.Config c = (spade.reporter.audit.writer.rotating.file.Config) config;
-				return new spade.reporter.audit.writer.rotating.file.File(c);
+				final spade.reporter.audit.output.rotating.file.Config c = (spade.reporter.audit.output.rotating.file.Config) config;
+				return new spade.reporter.audit.output.rotating.file.Writer(c);
 			}
 			case NO_OP:{
-				final spade.reporter.audit.writer.noop.Config c = (spade.reporter.audit.writer.noop.Config) config;
-				return new spade.reporter.audit.writer.noop.NoOp(c);
+				final spade.reporter.audit.output.noop.Config c = (spade.reporter.audit.output.noop.Config) config;
+				return new spade.reporter.audit.output.noop.Writer(c);
 			}
 			default:
 				throw new IllegalArgumentException("Unknown writer type: " + config.getType());

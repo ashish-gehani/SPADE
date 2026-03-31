@@ -17,13 +17,27 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.writer.noop;
+package spade.reporter.audit.output;
 
-import spade.reporter.audit.writer.Type;
+import spade.reporter.audit.las.event.Event;
 
-public class Config extends spade.reporter.audit.writer.Config{
+public abstract class Writer implements AutoCloseable{
 
-	public Config(){
-		super(Type.NO_OP);
+	private final Config config;
+
+	public Writer (final Config config) {
+		if (config == null) {
+			throw new IllegalArgumentException("Config cannot be NULL");
+		}
+		this.config = config;
 	}
+
+	public final Config getConfig () {
+		return config;
+	}
+
+	public abstract long writeEvent(final Event event) throws Exception;
+
+	@Override
+	public abstract void close();
 }

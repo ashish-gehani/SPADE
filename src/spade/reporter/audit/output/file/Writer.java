@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.writer.file;
+package spade.reporter.audit.output.file;
 
 import java.io.FileOutputStream;
 import java.util.logging.Level;
@@ -25,18 +25,17 @@ import java.util.logging.Logger;
 
 import spade.reporter.audit.las.event.Event;
 import spade.reporter.audit.las.event.writer.OutputStreamWriter;
-import spade.reporter.audit.writer.Writer;
 
 /**
  * Writes audit events to a file using OutputStreamWriter.
  */
-public class File extends Writer{
+public class Writer extends spade.reporter.audit.output.Writer{
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
 	private final OutputStreamWriter writer;
 
-	public File(final Config config) throws Exception{
+	public Writer(final Config config) throws Exception{
 		super(config);
 		this.writer = new OutputStreamWriter(new FileOutputStream(config.getFilePath()));
 	}

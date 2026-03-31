@@ -17,10 +17,29 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.writer;
+package spade.reporter.audit.output.rotating.file;
 
-public enum Type{
-	FILE,
-	ROTATING_FILE,
-	NO_OP
+import spade.reporter.audit.output.Type;
+
+public class Config extends spade.reporter.audit.output.Config{
+
+	private final String basePath;
+	private final long rotateAfterBytes;
+
+	public Config(final String basePath, final long rotateAfterBytes){
+		super(Type.ROTATING_FILE);
+		if(basePath == null){
+			throw new IllegalArgumentException("Base path cannot be NULL");
+		}
+		this.basePath = basePath;
+		this.rotateAfterBytes = rotateAfterBytes;
+	}
+
+	public String getBasePath(){
+		return basePath;
+	}
+
+	public long getRotateAfterBytes(){
+		return rotateAfterBytes;
+	}
 }

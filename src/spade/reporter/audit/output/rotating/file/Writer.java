@@ -17,20 +17,19 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.writer.rotating.file;
+package spade.reporter.audit.output.rotating.file;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.reporter.audit.las.event.Event;
-import spade.reporter.audit.writer.Writer;
 
 /**
  * Writes audit events to a file with rotation based on bytes written.
  *
  * File naming: basePath, basePath.1, basePath.2, ...
  */
-public class File extends Writer{
+public class Writer extends spade.reporter.audit.output.Writer{
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
@@ -38,18 +37,20 @@ public class File extends Writer{
 	private final long rotateAfterBytes;
 	private final boolean rotationEnabled;
 
-	private spade.reporter.audit.writer.file.File currentWriter;
+	private spade.reporter.audit.output.file.Writer currentWriter;
 	private int currentFileIndex;
 	private long totalBytesWritten;
 
-	public File(final Config config) throws Exception{
+	public Writer(final Config config) throws Exception{
 		super(config);
 		this.basePath = config.getBasePath();
 		this.rotateAfterBytes = config.getRotateAfterBytes();
 		this.rotationEnabled = this.rotateAfterBytes > 0;
 		this.currentFileIndex = 0;
 		this.totalBytesWritten = 0;
-		this.currentWriter = new spade.reporter.audit.writer.file.File(new spade.reporter.audit.writer.file.Config(basePath));
+		this.currentWriter = new spade.reporter.audit.output.file.Writer(
+			new spade.reporter.audit.output.file.Config(basePath)
+		);
 	}
 
 	@Override
@@ -65,7 +66,9 @@ public class File extends Writer{
 			currentWriter.close();
 			currentFileIndex++;
 			totalBytesWritten = 0;
-			currentWriter = new spade.reporter.audit.writer.file.File(new spade.reporter.audit.writer.file.Config(basePath + "." + currentFileIndex));
+			currentWriter = new spade.reporter.audit.output.file.Writer(
+				new spade.reporter.audit.output.file.Config(basePath + "." + currentFileIndex)
+			);
 		}
 		return bytesWritten;
 	}
