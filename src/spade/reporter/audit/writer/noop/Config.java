@@ -17,11 +17,13 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.writer;
+package spade.reporter.audit.writer.noop;
 
-public class NullWriterConfig extends Config{
+import spade.reporter.audit.writer.Type;
 
-	public NullWriterConfig(){
-		super(Type.NULL);
+public class Config extends spade.reporter.audit.writer.Config{
+
+	public Config(){
+		super(Type.NO_OP);
 	}
 }

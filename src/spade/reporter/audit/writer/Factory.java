@@ -27,15 +27,16 @@ public class Factory{
 		}
 		switch(config.getType()){
 			case FILE:{
-				final FileWriterConfig c = (FileWriterConfig) config;
-				return new FileWriter(c.getFilePath());
+				final spade.reporter.audit.writer.file.Config c = (spade.reporter.audit.writer.file.Config) config;
+				return new spade.reporter.audit.writer.file.File(c);
 			}
 			case ROTATING_FILE:{
-				final RotatingFileWriterConfig c = (RotatingFileWriterConfig) config;
-				return new RotatingFileWriter(c.getBasePath(), c.getRotateAfterBytes());
+				final spade.reporter.audit.writer.rotating.file.Config c = (spade.reporter.audit.writer.rotating.file.Config) config;
+				return new spade.reporter.audit.writer.rotating.file.File(c);
 			}
-			case NULL:{
-				return new NullWriter();
+			case NO_OP:{
+				final spade.reporter.audit.writer.noop.Config c = (spade.reporter.audit.writer.noop.Config) config;
+				return new spade.reporter.audit.writer.noop.NoOp(c);
 			}
 			default:
 				throw new IllegalArgumentException("Unknown writer type: " + config.getType());

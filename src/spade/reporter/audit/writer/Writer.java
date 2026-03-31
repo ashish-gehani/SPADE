@@ -23,6 +23,19 @@ import spade.reporter.audit.las.event.Event;
 
 public abstract class Writer implements AutoCloseable{
 
+	private final Config config;
+
+	public Writer (final Config config) {
+		if (config == null) {
+			throw new IllegalArgumentException("Config cannot be NULL");
+		}
+		this.config = config;
+	}
+
+	public final Config getConfig () {
+		return config;
+	}
+
 	public abstract long writeEvent(final Event event) throws Exception;
 
 	@Override

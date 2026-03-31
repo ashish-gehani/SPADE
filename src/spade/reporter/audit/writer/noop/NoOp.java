@@ -17,21 +17,22 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.writer;
+package spade.reporter.audit.writer.noop;
 
-public class FileWriterConfig extends Config{
+import spade.reporter.audit.las.event.Event;
 
-	private final String filePath;
+public class NoOp extends spade.reporter.audit.writer.Writer{
 
-	public FileWriterConfig(final String filePath){
-		super(Type.FILE);
-		if(filePath == null){
-			throw new IllegalArgumentException("File path cannot be NULL");
-		}
-		this.filePath = filePath;
+	public NoOp (final Config config) {
+		super(config);
 	}
 
-	public String getFilePath(){
-		return filePath;
+	@Override
+	public long writeEvent(final Event event){
+		return 0;
+	}
+
+	@Override
+	public void close(){
 	}
 }

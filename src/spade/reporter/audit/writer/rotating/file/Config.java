@@ -17,14 +17,16 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.writer;
+package spade.reporter.audit.writer.rotating.file;
 
-public class RotatingFileWriterConfig extends Config{
+import spade.reporter.audit.writer.Type;
+
+public class Config extends spade.reporter.audit.writer.Config{
 
 	private final String basePath;
 	private final long rotateAfterBytes;
 
-	public RotatingFileWriterConfig(final String basePath, final long rotateAfterBytes){
+	public Config(final String basePath, final long rotateAfterBytes){
 		super(Type.ROTATING_FILE);
 		if(basePath == null){
 			throw new IllegalArgumentException("Base path cannot be NULL");

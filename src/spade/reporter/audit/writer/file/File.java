@@ -17,18 +17,41 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.writer;
+package spade.reporter.audit.writer.file;
+
+import java.io.FileOutputStream;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import spade.reporter.audit.las.event.Event;
+import spade.reporter.audit.las.event.writer.OutputStreamWriter;
+import spade.reporter.audit.writer.Writer;
 
-public class NullWriter extends Writer{
+/**
+ * Writes audit events to a file using OutputStreamWriter.
+ */
+public class File extends Writer{
+
+	private final Logger logger = Logger.getLogger(this.getClass().getName());
+
+	private final OutputStreamWriter writer;
+
+	public File(final Config config) throws Exception{
+		super(config);
+		this.writer = new OutputStreamWriter(new FileOutputStream(config.getFilePath()));
+	}
 
 	@Override
-	public long writeEvent(final Event event){
-		return 0;
+	public long writeEvent(final Event event) throws Exception{
+		return writer.writeEvent(event);
 	}
 
 	@Override
 	public void close(){
+		try{
+			writer.close();
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to close file writer", e);
+		}
 	}
 }

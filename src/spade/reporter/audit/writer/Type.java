@@ -22,5 +22,5 @@ package spade.reporter.audit.writer;
 public enum Type{
 	FILE,
 	ROTATING_FILE,
-	NULL
+	NO_OP
 }
