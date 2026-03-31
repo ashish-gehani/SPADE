@@ -17,25 +17,36 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.reader.spade.audit.bridge;
+package spade.reporter.audit.input;
 
-public class Helper{
 
-	public static Process createProcess(final Config config) throws Exception{
-		final spade.reporter.audit.Input input = config.getInput();
-		final spade.reporter.audit.AuditConfiguration auditConfiguration = config.getAuditConfiguration();
-		final ProcessConfig processConfig = new ProcessConfig(
-			input.getSPADEAuditBridgePath(),
-			input.getMode(),
-			input.getInputLogListFile(),
-			input.getInputDir(),
-			input.getInputDirTime(),
-			input.getLinuxAuditSocketPath(),
-			input.isWaitForLog(),
-			auditConfiguration.isUnits(),
-			auditConfiguration.getMergeUnit()
-		);
-		final Process process = new Process(processConfig);
-		return process;
+import spade.reporter.audit.las.event.Event;
+
+public abstract class Reader implements AutoCloseable{
+
+	private final Config config;
+
+	public Reader(
+		final Config config
+	) throws Exception {
+		if(config == null){
+			throw new IllegalArgumentException("Config cannot be NULL");
+		}
+		this.config = config;
 	}
+
+	protected Config getConfig () {
+		return this.config;
+	}
+
+	/**
+	 * Read the next event from the source.
+	 *
+	 * @return the next Event, or null if end of source
+	 * @throws Exception if reading or parsing fails
+	 */
+	public abstract Event readEvent() throws Exception;
+
+	@Override
+	public abstract void close();
 }

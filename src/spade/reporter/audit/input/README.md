@@ -1,4 +1,4 @@
-# spade.reporter.audit.reader
+# spade.reporter.audit.input
 
 High-level reader abstraction for reading Linux audit events from various sources.
 
@@ -86,11 +86,11 @@ Reads events from the stdout of a running SPADE audit bridge process.
 
 | Class | Description |
 |-------|-------------|
-| `Config` | Extends `reader.Config`. No additional fields; fixes `type` to `SPADEAuditBridge` |
+| `Config` | Extends `input.Config`. No additional fields; fixes `type` to `SPADEAuditBridge` |
 | `Helper` | `Helper.createProcess(config)` builds a `ProcessConfig` from `Input` and `AuditConfiguration`, then returns a new `Process` |
 | `ProcessConfig` | Low-level bridge process configuration (path, mode, input args, units, mergeUnit) |
 | `Process` | Manages the bridge OS process lifecycle: start, stop, kill, close |
-| `Reader` | Extends `reader.Reader`. Uses `Helper` to create and start the `Process`, wraps its stdout in a `las.event.reader.InputStreamReader` |
+| `Reader` | Extends `input.Reader`. Uses `Helper` to create and start the `Process`, wraps its stdout in a `las.event.reader.InputStreamReader` |
 
 ### Config
 
@@ -103,7 +103,7 @@ public Config(
 )
 ```
 
-Delegates to `reader.Config` with `type = Type.SPADEAuditBridge`.
+Delegates to `input.Config` with `type = Type.SPADEAuditBridge`.
 
 ### Helper.createProcess
 

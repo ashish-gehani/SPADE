@@ -17,36 +17,19 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.reader;
+package spade.reporter.audit.input.spade.audit.bridge;
 
+import spade.reporter.audit.AuditConfiguration;
+import spade.reporter.audit.Input;
+import spade.reporter.audit.input.Type;
 
-import spade.reporter.audit.las.event.Event;
+public class Config extends spade.reporter.audit.input.Config {
 
-public abstract class Reader implements AutoCloseable{
-
-	private final Config config;
-
-	public Reader(
-		final Config config
-	) throws Exception {
-		if(config == null){
-			throw new IllegalArgumentException("Config cannot be NULL");
-		}
-		this.config = config;
+	public Config(
+			final Input input,
+			final AuditConfiguration auditConfiguration,
+			final spade.reporter.audit.las.event.record.Factory recordFactory,
+			final spade.reporter.audit.las.event.Factory eventFactory) {
+		super(Type.SPADEAuditBridge, input, auditConfiguration, recordFactory, eventFactory);
 	}
-
-	protected Config getConfig () {
-		return this.config;
-	}
-
-	/**
-	 * Read the next event from the source.
-	 *
-	 * @return the next Event, or null if end of source
-	 * @throws Exception if reading or parsing fails
-	 */
-	public abstract Event readEvent() throws Exception;
-
-	@Override
-	public abstract void close();
 }

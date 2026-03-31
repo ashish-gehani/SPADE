@@ -17,19 +17,25 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.reader.spade.audit.bridge;
+package spade.reporter.audit.input.spade.audit.bridge;
 
-import spade.reporter.audit.AuditConfiguration;
-import spade.reporter.audit.Input;
-import spade.reporter.audit.reader.Type;
+public class Helper{
 
-public class Config extends spade.reporter.audit.reader.Config {
-
-	public Config(
-			final Input input,
-			final AuditConfiguration auditConfiguration,
-			final spade.reporter.audit.las.event.record.Factory recordFactory,
-			final spade.reporter.audit.las.event.Factory eventFactory) {
-		super(Type.SPADEAuditBridge, input, auditConfiguration, recordFactory, eventFactory);
+	public static Process createProcess(final Config config) throws Exception{
+		final spade.reporter.audit.Input input = config.getInput();
+		final spade.reporter.audit.AuditConfiguration auditConfiguration = config.getAuditConfiguration();
+		final ProcessConfig processConfig = new ProcessConfig(
+			input.getSPADEAuditBridgePath(),
+			input.getMode(),
+			input.getInputLogListFile(),
+			input.getInputDir(),
+			input.getInputDirTime(),
+			input.getLinuxAuditSocketPath(),
+			input.isWaitForLog(),
+			auditConfiguration.isUnits(),
+			auditConfiguration.getMergeUnit()
+		);
+		final Process process = new Process(processConfig);
+		return process;
 	}
 }

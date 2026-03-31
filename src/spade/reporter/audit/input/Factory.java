@@ -17,17 +17,17 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.reader;
+package spade.reporter.audit.input;
 
 public class Factory {
 
 	public static Reader create(final Config config) throws Exception {
 		switch(config.getType()){
 			case SPADEAuditBridge:
-				final spade.reporter.audit.reader.spade.audit.bridge.Config c = (
-					(spade.reporter.audit.reader.spade.audit.bridge.Config) config
+				final spade.reporter.audit.input.spade.audit.bridge.Config c = (
+					(spade.reporter.audit.input.spade.audit.bridge.Config) config
 				);
-				return new spade.reporter.audit.reader.spade.audit.bridge.Reader(c);
+				return new spade.reporter.audit.input.spade.audit.bridge.Reader(c);
 			default:
 				throw new IllegalArgumentException("Unknown reader type: " + config.getType());
 		}

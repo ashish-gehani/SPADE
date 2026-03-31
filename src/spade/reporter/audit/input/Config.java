@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.reader;
+package spade.reporter.audit.input;
 
 import spade.reporter.audit.AuditConfiguration;
 import spade.reporter.audit.Input;
