@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.las.event.writer;
+package spade.reporter.audit.las.event.output.stream;
 
 import java.io.PrintWriter;
 import java.util.logging.Level;
@@ -32,13 +32,13 @@ import spade.reporter.audit.las.event.record.Record;
  *
  * Each record in the event is written as a single line.
  */
-public class OutputStreamWriter extends Writer{
+public class Writer extends spade.reporter.audit.las.event.output.Writer{
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
 	private final PrintWriter printWriter;
 
-	public OutputStreamWriter(final java.io.OutputStream outputStream){
+	public Writer(final java.io.OutputStream outputStream){
 		super(outputStream);
 		final boolean autoFlush = true;
 		this.printWriter = new PrintWriter(outputStream, autoFlush);

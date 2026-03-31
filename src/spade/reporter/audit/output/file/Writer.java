@@ -24,7 +24,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.reporter.audit.las.event.Event;
-import spade.reporter.audit.las.event.writer.OutputStreamWriter;
 
 /**
  * Writes audit events to a file using OutputStreamWriter.
@@ -33,11 +32,13 @@ public class Writer extends spade.reporter.audit.output.Writer{
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
-	private final OutputStreamWriter writer;
+	private final spade.reporter.audit.las.event.output.stream.Writer writer;
 
 	public Writer(final Config config) throws Exception{
 		super(config);
-		this.writer = new OutputStreamWriter(new FileOutputStream(config.getFilePath()));
+		this.writer = new spade.reporter.audit.las.event.output.stream.Writer(
+			new FileOutputStream(config.getFilePath())
+		);
 	}
 
 	@Override

@@ -75,7 +75,7 @@ Throws `IllegalArgumentException` if `config` is null or the type is unknown.
 
 ## file
 
-Writes audit events to a single file using `las.event.writer.OutputStreamWriter`.
+Writes audit events to a single file using `las.event.output.stream.Writer`.
 
 ### file.Config
 
@@ -96,8 +96,8 @@ public Writer(Config config) throws Exception
 ```
 
 Opens a `FileOutputStream` at `config.getFilePath()` and wraps it in an
-`OutputStreamWriter`. `writeEvent` delegates to the `OutputStreamWriter`.
-`close()` closes the `OutputStreamWriter`, logging any error at `SEVERE`.
+`las.event.output.stream.Writer`. `writeEvent` delegates to the `las.event.output.stream.Writer`.
+`close()` closes the `las.event.output.stream.Writer`, logging any error at `SEVERE`.
 
 ---
 
