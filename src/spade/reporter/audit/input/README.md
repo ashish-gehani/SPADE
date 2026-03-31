@@ -90,7 +90,7 @@ Reads events from the stdout of a running SPADE audit bridge process.
 | `Helper` | `Helper.createProcess(config)` builds a `ProcessConfig` from `Input` and `AuditConfiguration`, then returns a new `Process` |
 | `ProcessConfig` | Low-level bridge process configuration (path, mode, input args, units, mergeUnit) |
 | `Process` | Manages the bridge OS process lifecycle: start, stop, kill, close |
-| `Reader` | Extends `input.Reader`. Uses `Helper` to create and start the `Process`, wraps its stdout in a `las.event.reader.InputStreamReader` |
+| `Reader` | Extends `input.Reader`. Uses `Helper` to create and start the `Process`, wraps its stdout in a `las.event.input.stream.Reader` |
 
 ### Config
 
@@ -160,7 +160,7 @@ public Reader(Config config) throws Exception
 ```
 
 Calls `Helper.createProcess(config)`, starts the process, then wraps the stdout
-stream in a `las.event.reader.InputStreamReader` (using `recordFactory` and
+stream in a `las.event.input.stream.Reader` (using `recordFactory` and
 `eventFactory` from `config`).
 
 `readEvent()` delegates to the `InputStreamReader`.

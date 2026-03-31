@@ -23,14 +23,13 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.reporter.audit.las.event.Event;
-import spade.reporter.audit.las.event.reader.InputStreamReader;
 
 public class Reader extends spade.reporter.audit.input.Reader{
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
 	private final Process process;
-	private final InputStreamReader reader;
+	private final spade.reporter.audit.las.event.input.stream.Reader reader;
 
 	public Reader (
 		final Config config
@@ -38,7 +37,7 @@ public class Reader extends spade.reporter.audit.input.Reader{
 		super(config);
 		this.process = Helper.createProcess(config);
 		this.process.start();
-		this.reader = new InputStreamReader(
+		this.reader = new spade.reporter.audit.las.event.input.stream.Reader(
 			process.getStdOutStream(),
 			config.getRecordFactory(),
 			config.getEventFactory()

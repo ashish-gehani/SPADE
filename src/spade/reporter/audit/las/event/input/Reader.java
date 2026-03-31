@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.las.event.reader;
+package spade.reporter.audit.las.event.input;
 
 import spade.reporter.audit.las.event.Event;
 import spade.reporter.audit.las.event.Factory;

@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.las.event.reader;
+package spade.reporter.audit.las.event.input.stream;
 
 import java.io.BufferedReader;
 import java.util.HashSet;
@@ -36,7 +36,7 @@ import spade.reporter.audit.las.event.record.Record;
  * into events. Uses no regex — event ID grouping is done by comparing
  * Record.getEventId().
  */
-public class InputStreamReader extends Reader{
+public class Reader extends spade.reporter.audit.las.event.input.Reader{
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
@@ -54,7 +54,7 @@ public class InputStreamReader extends Reader{
 	 * @param eventFactory factory for creating events from records
 	 * @throws Exception if stream setup or config loading fails
 	 */
-	public InputStreamReader(
+	public Reader(
 		final java.io.InputStream inputStream,
 		final spade.reporter.audit.las.event.record.Factory recordFactory,
 		final Factory eventFactory
