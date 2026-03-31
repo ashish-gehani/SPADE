@@ -17,4 +17,4 @@ All parsing uses `indexOf`/`substring` — no regexes.
 
 `ProcessInfo` holds: `pid`, `ppid`, `uid`, `euid`, `suid`, `fsuid`, `gid`, `egid`,
 `sgid`, `fsgid`, `comm`. Used by `Syscall`, `UbsiEntry`, `UbsiExit`,
-`UbsiDep`, `Netio`, and `UBSIRaw`.
+`UbsiDep`, `Netio`, and `UbsiRaw`.
