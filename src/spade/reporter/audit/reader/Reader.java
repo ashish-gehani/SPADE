@@ -24,29 +24,19 @@ import spade.reporter.audit.las.event.Event;
 
 public abstract class Reader implements AutoCloseable{
 
-	private final spade.reporter.audit.las.event.record.Factory recordFactory;
-	private final spade.reporter.audit.las.event.Factory eventFactory;
+	private final Config config;
 
 	public Reader(
-		final spade.reporter.audit.las.event.record.Factory recordFactory,
-		final spade.reporter.audit.las.event.Factory eventFactory
+		final Config config
 	) throws Exception {
-		if(recordFactory == null){
-			throw new IllegalArgumentException("Record factory cannot be NULL");
+		if(config == null){
+			throw new IllegalArgumentException("Config cannot be NULL");
 		}
-		if(eventFactory == null){
-			throw new IllegalArgumentException("Event factory cannot be NULL");
-		}
-		this.recordFactory = recordFactory;
-		this.eventFactory = eventFactory;
+		this.config = config;
 	}
 
-	protected spade.reporter.audit.las.event.record.Factory getRecordFactory(){
-		return recordFactory;
-	}
-
-	protected spade.reporter.audit.las.event.Factory getEventFactory(){
-		return eventFactory;
+	protected Config getConfig () {
+		return this.config;
 	}
 
 	/**

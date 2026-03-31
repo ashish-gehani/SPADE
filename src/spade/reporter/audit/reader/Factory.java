@@ -24,8 +24,10 @@ public class Factory {
 	public static Reader create(final Config config) throws Exception {
 		switch(config.getType()){
 			case SPADEAuditBridge:
-				return spade.reporter.audit.reader.spade.audit.bridge.Create.reader(
-					(spade.reporter.audit.reader.spade.audit.bridge.Config) config);
+				final spade.reporter.audit.reader.spade.audit.bridge.Config c = (
+					(spade.reporter.audit.reader.spade.audit.bridge.Config) config
+				);
+				return new spade.reporter.audit.reader.spade.audit.bridge.Reader(c);
 			default:
 				throw new IllegalArgumentException("Unknown reader type: " + config.getType());
 		}

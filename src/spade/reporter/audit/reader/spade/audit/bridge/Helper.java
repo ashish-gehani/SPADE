@@ -19,9 +19,9 @@
  */
 package spade.reporter.audit.reader.spade.audit.bridge;
 
-public class Create{
+public class Helper{
 
-	public static Reader reader(final Config config) throws Exception{
+	public static Process createProcess(final Config config) throws Exception{
 		final spade.reporter.audit.Input input = config.getInput();
 		final spade.reporter.audit.AuditConfiguration auditConfiguration = config.getAuditConfiguration();
 		final ProcessConfig processConfig = new ProcessConfig(
@@ -36,6 +36,6 @@ public class Create{
 			auditConfiguration.getMergeUnit()
 		);
 		final Process process = new Process(processConfig);
-		return new Reader(process, config.getRecordFactory(), config.getEventFactory());
+		return process;
 	}
 }

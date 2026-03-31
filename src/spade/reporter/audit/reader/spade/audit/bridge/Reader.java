@@ -33,20 +33,15 @@ public class Reader extends spade.reporter.audit.reader.Reader{
 	private final InputStreamReader reader;
 
 	public Reader (
-		final Process process,
-		final spade.reporter.audit.las.event.record.Factory recordFactory,
-		final spade.reporter.audit.las.event.Factory eventFactory
+		final Config config
 	) throws Exception {
-		super(recordFactory, eventFactory);
-		if(process == null){
-			throw new IllegalArgumentException("Process cannot be NULL");
-		}
-		this.process = process;
+		super(config);
+		this.process = Helper.createProcess(config);
 		this.process.start();
 		this.reader = new InputStreamReader(
 			process.getStdOutStream(),
-			getRecordFactory(),
-			getEventFactory()
+			config.getRecordFactory(),
+			config.getEventFactory()
 		);
 	}
 
