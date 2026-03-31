@@ -21,6 +21,8 @@ package spade.reporter.audit.core.event;
 
 public abstract class Factory{
 
-	public abstract Event create(final Context context);
+	public abstract Event create(
+		final Context context
+	) throws InvalidContextException;
 
 }
