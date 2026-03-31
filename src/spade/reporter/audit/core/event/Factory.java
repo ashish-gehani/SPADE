@@ -17,12 +17,10 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.event.channel;
+package spade.reporter.audit.core.event;
 
-public class ReadTimeoutExpired extends Exception {
+public abstract class Factory{
 
-    public ReadTimeoutExpired(final String message) {
-        super(message);
-    }
+	public abstract Event create(final Context context);
 
 }

@@ -17,23 +17,12 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.event;
+package spade.reporter.audit.core.event.channel;
 
-public abstract class Event implements Comparable<Event>{
+public class ReadTimeoutExpired extends Exception {
 
-	private final ID id;
-
-	protected Event(final ID id){
-		this.id = id;
-	}
-
-	public ID getId(){
-		return id;
-	}
-
-	@Override
-	public int compareTo(final Event other){
-		return this.id.compareTo(other.id);
-	}
+    public ReadTimeoutExpired(final String message) {
+        super(message);
+    }
 
 }

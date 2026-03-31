@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.event.channel;
+package spade.reporter.audit.core.event.channel;
 
 public class Config {
     

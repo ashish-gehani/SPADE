@@ -17,17 +17,42 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.event;
+package spade.reporter.audit.core.event;
 
-public abstract class Writer implements AutoCloseable{
 
-	protected Writer(){
+/**
+ * Abstract class for reading audit events from an arbitrary source.
+ *
+ * Implementations return typed Event objects.
+ */
+public abstract class Reader implements AutoCloseable {
 
+	private final Factory eventFactory;
+
+	protected Reader(
+		final Factory eventFactory
+	){
+		if(eventFactory == null){
+			throw new IllegalArgumentException("Event factory cannot be NULL");
+		}
+		this.eventFactory = eventFactory;
 	}
 
-	public abstract void writeEvent(final Event event) throws Exception;
+	protected Factory getEventFactory() {
+		return this.eventFactory;
+	}
 
+	/**
+	 * Read the next complete event from the source.
+	 *
+	 * @return the next Event, or null if end of stream
+	 * @throws Exception if reading or parsing fails
+	 */
+	public abstract Event readEvent() throws Exception;
+
+	/**
+	 * Close the reader and release resources.
+	 */
 	@Override
 	public abstract void close();
-
 }

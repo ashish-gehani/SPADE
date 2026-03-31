@@ -1,4 +1,4 @@
-# spade.reporter.audit.event
+# spade.reporter.audit.core.event
 
 Abstract base layer for typed audit events. Defines the core contracts — identity,
 event structure, parsing context, production, and I/O — that concrete implementations

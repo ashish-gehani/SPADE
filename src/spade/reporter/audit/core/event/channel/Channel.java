@@ -17,14 +17,14 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.event.channel;
+package spade.reporter.audit.core.event.channel;
 
 import java.util.LinkedList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import spade.reporter.audit.event.Event;
+import spade.reporter.audit.core.event.Event;
 
 public class Channel implements AutoCloseable {
 

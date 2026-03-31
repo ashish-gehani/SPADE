@@ -17,12 +17,33 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.event.channel;
 
-public class WriteTimeoutExpired extends Exception {
+package spade.reporter.audit.core.event.channel;
 
-    public WriteTimeoutExpired(final String message) {
-        super(message);
+public enum LossMode {
+
+    LOSSY("lossy"),
+    LOSSLESS("lossless");
+
+    private final String value;
+
+    LossMode(final String value) {
+        this.value = value;
+    }
+
+    public String toValue() {
+        return value;
+    }
+
+    public static LossMode fromValue(final String value) {
+        if (value != null) {
+            for (final LossMode mode : values()) {
+                if (mode.value.equalsIgnoreCase(value)) {
+                    return mode;
+                }
+            }
+        }
+        throw new IllegalArgumentException("Unknown LossMode value: " + value);
     }
 
 }

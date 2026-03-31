@@ -17,33 +17,23 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
+package spade.reporter.audit.core.event;
 
-package spade.reporter.audit.event.channel;
+public abstract class Event implements Comparable<Event>{
 
-public enum LossMode {
+	private final ID id;
 
-    LOSSY("lossy"),
-    LOSSLESS("lossless");
+	protected Event(final ID id){
+		this.id = id;
+	}
 
-    private final String value;
+	public ID getId(){
+		return id;
+	}
 
-    LossMode(final String value) {
-        this.value = value;
-    }
-
-    public String toValue() {
-        return value;
-    }
-
-    public static LossMode fromValue(final String value) {
-        if (value != null) {
-            for (final LossMode mode : values()) {
-                if (mode.value.equalsIgnoreCase(value)) {
-                    return mode;
-                }
-            }
-        }
-        throw new IllegalArgumentException("Unknown LossMode value: " + value);
-    }
+	@Override
+	public int compareTo(final Event other){
+		return this.id.compareTo(other.id);
+	}
 
 }

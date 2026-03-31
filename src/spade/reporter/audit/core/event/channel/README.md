@@ -1,4 +1,4 @@
-# spade.reporter.audit.event.channel
+# spade.reporter.audit.core.event.channel
 
 Thread-safe bounded channel for passing audit events between a producer and a consumer,
 with configurable blocking, loss handling, and periodic metrics logging.

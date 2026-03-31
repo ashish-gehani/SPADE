@@ -17,32 +17,12 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.event;
+package spade.reporter.audit.core.event;
 
-/**
- * Exception thrown when an audit event cannot be constructed.
- */
-public class MalformedEventException extends Exception{
+public abstract class Context{
 
-	private static final long serialVersionUID = 1L;
+    protected Context () {
 
-	public MalformedEventException(final String msg){
-		super(msg);
-	}
+    }
 
-	public MalformedEventException(
-		final String msg, final ID eventId
-	){
-		super(String.format("msg='%s' eventId='%s'", msg, format(eventId)));
-	}
-
-	public MalformedEventException(
-		final String msg, final ID eventId, final Throwable t
-	){
-		super(String.format("msg='%s' eventId='%s'", msg, format(eventId)), t);
-	}
-
-	private static String format(final ID eventId){
-		return eventId == null ? "(null)" : eventId.toString();
-	}
 }

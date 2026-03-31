@@ -17,12 +17,17 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.event;
+package spade.reporter.audit.core.event;
 
-public abstract class Context{
+public abstract class Writer implements AutoCloseable{
 
-    protected Context () {
+	protected Writer(){
 
-    }
+	}
+
+	public abstract void writeEvent(final Event event) throws Exception;
+
+	@Override
+	public abstract void close();
 
 }

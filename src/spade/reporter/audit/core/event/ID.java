@@ -17,42 +17,40 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.event;
+package spade.reporter.audit.core.event;
 
+public abstract class ID implements Comparable<ID>{
 
-/**
- * Abstract class for reading audit events from an arbitrary source.
- *
- * Implementations return typed Event objects.
- */
-public abstract class Reader implements AutoCloseable {
+	private final long id;
 
-	private final Factory eventFactory;
-
-	protected Reader(
-		final Factory eventFactory
-	){
-		if(eventFactory == null){
-			throw new IllegalArgumentException("Event factory cannot be NULL");
-		}
-		this.eventFactory = eventFactory;
+	protected ID(final long id){
+		this.id = id;
 	}
 
-	protected Factory getEventFactory() {
-		return this.eventFactory;
+	public final long getId(){
+		return id;
 	}
 
-	/**
-	 * Read the next complete event from the source.
-	 *
-	 * @return the next Event, or null if end of stream
-	 * @throws Exception if reading or parsing fails
-	 */
-	public abstract Event readEvent() throws Exception;
-
-	/**
-	 * Close the reader and release resources.
-	 */
 	@Override
-	public abstract void close();
+	public final int compareTo(final ID other){
+		return Long.compare(this.id, other.id);
+	}
+
+	@Override
+	public final boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof ID)) return false;
+		return this.id == ((ID) obj).id;
+	}
+
+	@Override
+	public final int hashCode(){
+		return Long.hashCode(id);
+	}
+
+	@Override
+	public final String toString(){
+		return "ID[id=" + id + "]";
+	}
+
 }
