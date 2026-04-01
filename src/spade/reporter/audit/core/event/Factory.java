@@ -19,10 +19,12 @@
  */
 package spade.reporter.audit.core.event;
 
+import spade.reporter.audit.linux.audit.event.record.MalformedRecordException;
+
 public abstract class Factory{
 
 	public abstract Event create(
 		final Context context
-	) throws InvalidContextException, MalformedEventException;
+	) throws InvalidContextException, MalformedEventException, MalformedRecordException;
 
 }
