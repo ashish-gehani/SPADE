@@ -22,7 +22,10 @@ package spade.reporter.audit.linux.audit.output;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
+import spade.reporter.audit.core.event.writer.Writer;
 import spade.reporter.audit.linux.audit.event.Event;
 import spade.reporter.audit.linux.audit.event.record.Record;
 
@@ -32,30 +35,41 @@ import spade.reporter.audit.linux.audit.event.record.Record;
  * Each call to {@link #writeEvent(Event)} writes all records of the event
  * in order via the underlying {@link RecordWriter}.
  */
-public final class EventWriter implements AutoCloseable {
+public final class EventWriter extends Writer<Event> {
+
+    private final Logger logger = Logger.getLogger(this.getClass().getName());
 
     private RecordWriter recordWriter;
     private final Metrics metrics = new Metrics();
-    private final long snapshotIntervalMs;
+    private final Config config;
     private ScheduledExecutorService snapshotScheduler;
 
-    public EventWriter(final RecordWriter recordWriter, final long snapshotIntervalMs) {
+    public EventWriter(final RecordWriter recordWriter, final Config config) {
+        super();
         if (recordWriter == null) {
             throw new IllegalArgumentException("RecordWriter cannot be NULL");
         }
+        if (config == null) {
+            throw new IllegalArgumentException("Config cannot be NULL");
+        }
         this.recordWriter = recordWriter;
-        this.snapshotIntervalMs = snapshotIntervalMs;
+        this.config = config;
         startSnapshotScheduler();
     }
 
+    public Config getConfig() {
+        return config;
+    }
+
     private void startSnapshotScheduler() {
+        final long snapshotIntervalMs = config.getSnapshotIntervalMs();
         if (snapshotIntervalMs <= 0) {
             snapshotScheduler = null;
             return;
         }
         snapshotScheduler = Executors.newSingleThreadScheduledExecutor();
         snapshotScheduler.scheduleAtFixedRate(
-            metrics::snapshot,
+            metrics::log,
             snapshotIntervalMs,
             snapshotIntervalMs,
             TimeUnit.MILLISECONDS
@@ -77,6 +91,7 @@ public final class EventWriter implements AutoCloseable {
      * @return the total number of bytes written across all records
      * @throws Exception if writing fails
      */
+    @Override
     public long writeEvent(final Event event) throws Exception {
         if (event == null) {
             return 0;
@@ -102,8 +117,8 @@ public final class EventWriter implements AutoCloseable {
         } else {
             metrics.incrementEventsWritten();
         }
-        metrics.addRecordsWritten(recordCount);
-        metrics.addBytesWritten(byteCount);
+        metrics.incrementRecordsWritten(recordCount);
+        metrics.incrementBytesWritten(byteCount);
     }
 
     public Metrics getMetrics() {
@@ -111,13 +126,15 @@ public final class EventWriter implements AutoCloseable {
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         stopSnapshotScheduler();
         if (recordWriter == null) {
             return;
         }
         try {
             recordWriter.close();
+        } catch (final Exception e) {
+            logger.log(Level.SEVERE, "Failed to close the record writer", e);
         } finally {
             recordWriter = null;
         }

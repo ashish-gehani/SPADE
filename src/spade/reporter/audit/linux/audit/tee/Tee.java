@@ -22,9 +22,10 @@ package spade.reporter.audit.linux.audit.tee;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.reporter.audit.core.event.Event;
-import spade.reporter.audit.core.event.Factory;
-import spade.reporter.audit.core.event.Reader;
+import spade.reporter.audit.core.event.reader.Reader;
+import spade.reporter.audit.linux.audit.event.Context;
+import spade.reporter.audit.linux.audit.event.Event;
+import spade.reporter.audit.linux.audit.event.Factory;
 import spade.reporter.audit.linux.audit.input.BufferedEventReader;
 import spade.reporter.audit.linux.audit.output.EventWriter;
 
@@ -37,10 +38,11 @@ import spade.reporter.audit.linux.audit.output.EventWriter;
  * owned by the underlying reader and writer; this class only exposes
  * delegating getters.
  *
- * Lifecycle: construct → {@link #start()} → repeated {@link #readEvent()}
- * → {@link #close()}.
+ * Lifecycle: construct → repeated {@link #readEvent()} → {@link #close()}.
+ * The underlying {@link BufferedEventReader} pump thread is started
+ * automatically from its own constructor.
  */
-public final class Tee extends Reader {
+public final class Tee extends Reader<Event, Context> {
 
     private final Logger logger = Logger.getLogger(this.getClass().getName());
 
@@ -64,15 +66,24 @@ public final class Tee extends Reader {
         this.reader = reader;
         this.writer = writer;
         this.verbose = verbose;
+        start();
+    }
+
+    public boolean isVerbose() {
+        return verbose;
     }
 
     /**
-     * Start the underlying {@link BufferedEventReader} pump thread.
+     * Called automatically from the constructor.
      *
-     * Must be called before the first {@link #readEvent()}.
+     * The underlying {@link BufferedEventReader} now starts its own pump
+     * thread from its constructor, so there is nothing further to start
+     * here. Retained as a private lifecycle hook for symmetry.
      */
-    public void start() {
-        reader.start();
+    private void start() {
+        if (verbose) {
+            logger.log(Level.INFO, "Tee started; reader pump already running");
+        }
     }
 
     /**
@@ -89,18 +100,15 @@ public final class Tee extends Reader {
             return null;
         }
         if (verbose) {
-            logger.log(Level.FINE, "Tee read event id=" + event.getId());
+            logger.log(Level.INFO, "Tee read event id=" + event.getId());
         }
         writeEvent(event);
         return event;
     }
 
     private void writeEvent(final Event event) {
-        if (!(event instanceof spade.reporter.audit.linux.audit.event.Event)) {
-            return;
-        }
         try {
-            writer.writeEvent((spade.reporter.audit.linux.audit.event.Event) event);
+            writer.writeEvent(event);
         } catch (final Exception e) {
             logger.log(Level.WARNING, "Failed to write event to output", e);
         }

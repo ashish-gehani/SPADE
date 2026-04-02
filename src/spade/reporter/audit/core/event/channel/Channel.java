@@ -30,7 +30,7 @@ public class Channel implements AutoCloseable {
 
     private final Config config;
     private final LinkedList<Event> buffer = new LinkedList<>();
-    private final ChannelMetrics metrics = new ChannelMetrics();
+    private final Metrics metrics = new Metrics();
     private final ScheduledExecutorService snapshotScheduler;
     private boolean closed = false;
 
@@ -121,7 +121,7 @@ public class Channel implements AutoCloseable {
         return event;
     }
 
-    public ChannelMetrics getMetrics() {
+    public Metrics getMetrics() {
         return metrics;
     }
 

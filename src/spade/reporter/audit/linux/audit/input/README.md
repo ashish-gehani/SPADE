@@ -45,31 +45,30 @@ Wraps a `RecordReader`. Accumulates `Record` objects that share the same `(ID, T
 
 ### `BufferedEventReader`
 
-Wraps an `EventReader` with an asynchronous `Channel`. A daemon pump thread drains the `EventReader` and writes events into the channel. Callers read from the channel via `readEvent()`, decoupling audit log parsing from downstream processing. The channel is closed when the pump thread reaches end-of-stream or hits an unrecoverable error.
+Extends `core.event.reader.Reader<Event, Context>`. Wraps an `EventReader` with an asynchronous `Channel`. A daemon pump thread drains the `EventReader` and writes events into the channel. Callers read from the channel via `readEvent()`, decoupling audit log parsing from downstream processing. The channel is closed when the pump thread reaches end-of-stream or hits an unrecoverable error.
 
-Call `start()` before the first `readEvent()`.
+The pump thread is started automatically from the constructor.
 
-Holds a `Metrics` instance updated on every successful `readEvent()`; retrieve it via `getMetrics()`. If `snapshotIntervalMs > 0`, a `ScheduledExecutorService` is started at construction that logs a metrics snapshot at that interval and is shut down in `close()`.
+Holds a `Metrics` instance updated on every successful `readEvent()`; retrieve it via `getMetrics()`. The `Config` is passed at construction (retrievable via `getConfig()`); if `Config.getSnapshotIntervalMs() > 0`, a `ScheduledExecutorService` is started at construction that logs a metrics snapshot (`Metrics.log()`) at that interval and is shut down in `close()`.
 
 ### `Metrics`
 
-Counters for the reading pipeline, owned by `BufferedEventReader`:
+Extends `core.event.reader.Metrics` (which provides `eventsRead`). Adds the Linux-audit-specific counters:
 
 | Counter | Meaning |
 |---|---|
-| `eventsRead` | Linux audit events delivered to the caller |
+| `eventsRead` | Linux audit events delivered to the caller (inherited) |
 | `recordsRead` | Records those events were assembled from |
 | `bytesRead` | Total raw-record bytes those records represent |
 
-Mutators are package-private; getters and `snapshot()` (logs the current values) are public.
+Mutators are package-private/protected; getters, `toString()` (full snapshot line) and `log()` are public.
 
 ### `Helper`
 
-Convenience factory. `createReader(Config)` constructs the full pipeline and returns a `BufferedEventReader` (not yet started).
+Convenience factory. `createReader(Config)` constructs the full pipeline and returns a `BufferedEventReader` (already started).
 
 ```java
 BufferedEventReader reader = new Helper().createReader(config);
-reader.start();
 
 Event event;
 while ((event = reader.readEvent()) != null) {

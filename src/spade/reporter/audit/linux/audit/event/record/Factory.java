@@ -95,14 +95,14 @@ public final class Factory{
 		final Creator creator = creators.get(type);
 		if (creator == null) {
 			if(verbose){
-				logger.log(Level.FINE, "No creator matched for type={0}, eventId={1}",
+				logger.log(Level.INFO, "No creator matched for type={0}, eventId={1}",
 						new Object[]{type, header.getEventId()});
 			}
 		}
 
 		if(!creator.matches(header)){
 			if(verbose){
-				logger.log(Level.FINE, "Creator with type={0} did not match record with eventId={1}",
+				logger.log(Level.INFO, "Creator with type={0} did not match record with eventId={1}",
 						new Object[]{type, header.getEventId()});
 			}
 			return null;

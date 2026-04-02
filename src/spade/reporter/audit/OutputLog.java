@@ -27,9 +27,16 @@ import spade.utility.HelperFunctions;
 import spade.utility.Result;
 
 public class OutputLog{
-	
+
 	public final static String keyOutputLog = "outputLog",
 			keyOutputLogRotate = "outputLogRotate";
+
+	/**
+	 * Approximate number of bytes occupied by a single Linux audit record (one
+	 * line). Used to convert a line-count rotation threshold into a byte-count
+	 * rotation threshold for writers that operate on bytes.
+	 */
+	public static final int APPROXIMATE_BYTES_PER_LINE = 200;
 
 	private boolean enabled;
 	private String outputLogPath;

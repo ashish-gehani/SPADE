@@ -38,7 +38,7 @@ public class Helper {
         }
         final LineWriter lineWriter = Factory.create(config);
         final RecordWriter recordWriter = new RecordWriter(lineWriter);
-        return new EventWriter(recordWriter, config.getSnapshotIntervalMs());
+        return new EventWriter(recordWriter, config);
     }
 
 }

@@ -53,7 +53,7 @@ waiting callers.
 `fromValue(String)` performs a case-insensitive lookup. `toValue()` returns the
 lowercase string form.
 
-## ChannelMetrics
+## Metrics
 
 Tracks cumulative counters updated inline by `Channel`:
 
@@ -67,7 +67,7 @@ Tracks cumulative counters updated inline by `Channel`:
 
 `snapshot()` logs all counters at `INFO` level with a wall-clock timestamp. It is
 called automatically by the scheduler at the interval configured in `Config`. All
-methods are `synchronized` on the `ChannelMetrics` instance.
+methods are `synchronized` on the `Metrics` instance.
 
 ## Exceptions
 

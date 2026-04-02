@@ -17,15 +17,29 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.event;
+package spade.reporter.audit.core.event.writer;
 
-public abstract class Writer implements AutoCloseable{
+import spade.reporter.audit.core.event.Event;
+
+/**
+ * Abstract class for writing audit events to an arbitrary sink.
+ *
+ * @param <T> the concrete {@link Event} subtype this writer accepts
+ */
+public abstract class Writer<T extends Event> implements AutoCloseable{
 
 	protected Writer(){
 
 	}
 
-	public abstract void writeEvent(final Event event) throws Exception;
+	/**
+	 * Write one event to the underlying sink.
+	 *
+	 * @param event the event to write
+	 * @return the number of bytes written
+	 * @throws Exception if writing fails
+	 */
+	public abstract long writeEvent(final T event) throws Exception;
 
 	@Override
 	public abstract void close();

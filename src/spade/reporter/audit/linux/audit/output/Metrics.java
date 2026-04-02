@@ -24,38 +24,40 @@ import java.util.logging.Logger;
 /**
  * Counters for the audit-writing pipeline.
  *
- * Tracks the number of events written, the number of records those
- * events expanded into, and the total bytes written to the underlying
+ * Extends {@link spade.reporter.audit.core.event.writer.Metrics} (which
+ * tracks {@code eventsWritten} and {@code writeFailures}) with the
+ * Linux-audit-specific counters: the number of records those events
+ * expanded into, and the total bytes written to the underlying
  * destination. Mutators are package-private and single-purpose;
- * getters and {@link #snapshot()} are public.
+ * getters, {@link #toString()} and {@link #log()} are public.
  */
-public class Metrics {
+public class Metrics extends spade.reporter.audit.core.event.writer.Metrics {
 
     private final Logger logger = Logger.getLogger(this.getClass().getName());
 
-    private long eventsWritten = 0;
     private long recordsWritten = 0;
     private long bytesWritten = 0;
-    private long writeFailures = 0;
 
-    synchronized void incrementEventsWritten() {
-        eventsWritten++;
+    public Metrics() {
+        super();
     }
 
-    synchronized void addRecordsWritten(final long records) {
+    @Override
+    protected synchronized void incrementEventsWritten() {
+        super.incrementEventsWritten();
+    }
+
+    @Override
+    protected synchronized void incrementWriteFailures() {
+        super.incrementWriteFailures();
+    }
+
+    synchronized void incrementRecordsWritten(final long records) {
         recordsWritten += records;
     }
 
-    synchronized void addBytesWritten(final long bytes) {
+    synchronized void incrementBytesWritten(final long bytes) {
         bytesWritten += bytes;
-    }
-
-    synchronized void incrementWriteFailures() {
-        writeFailures++;
-    }
-
-    public synchronized long getEventsWritten() {
-        return eventsWritten;
     }
 
     public synchronized long getRecordsWritten() {
@@ -66,20 +68,20 @@ public class Metrics {
         return bytesWritten;
     }
 
-    public synchronized long getWriteFailures() {
-        return writeFailures;
-    }
-
-    public synchronized void snapshot() {
-        logger.info(
-            this.getClass().getName() + " snapshot ["
+    @Override
+    public synchronized String toString() {
+        return this.getClass().getName() + " ["
             + "timestamp=" + System.currentTimeMillis()
-            + ", eventsWritten=" + eventsWritten
+            + ", eventsWritten=" + getEventsWritten()
             + ", recordsWritten=" + recordsWritten
             + ", bytesWritten=" + bytesWritten
-            + ", writeFailures=" + writeFailures
-            + "]"
-        );
+            + ", writeFailures=" + getWriteFailures()
+            + "]";
+    }
+
+    @Override
+    public synchronized void log() {
+        logger.info(toString());
     }
 
 }

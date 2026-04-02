@@ -22,8 +22,9 @@ package spade.reporter.audit.linux.audit.input;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.reporter.audit.core.event.Event;
+import spade.reporter.audit.core.event.reader.Reader;
 import spade.reporter.audit.linux.audit.event.Context;
+import spade.reporter.audit.linux.audit.event.Event;
 import spade.reporter.audit.linux.audit.event.Factory;
 import spade.reporter.audit.linux.audit.event.ID;
 import spade.reporter.audit.linux.audit.event.Timestamp;
@@ -37,7 +38,7 @@ import spade.reporter.audit.linux.audit.event.record.Record;
  * buffered context is flushed through the {@link Factory} to produce a typed
  * {@link Event}, then the context is reset for the next group.
  */
-public final class EventReader extends spade.reporter.audit.core.event.Reader {
+public final class EventReader extends Reader<Event, Context> {
 
     private final Logger logger = Logger.getLogger(this.getClass().getName());
 
@@ -59,7 +60,7 @@ public final class EventReader extends spade.reporter.audit.core.event.Reader {
     }
 
     @Override
-    public spade.reporter.audit.core.event.Factory getEventFactory() {
+    public spade.reporter.audit.core.event.Factory<Event, Context> getEventFactory() {
         return super.getEventFactory();
     }
 

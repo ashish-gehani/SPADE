@@ -25,9 +25,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.reporter.audit.core.event.Event;
 import spade.reporter.audit.core.event.channel.Channel;
 import spade.reporter.audit.core.event.channel.ReadTimeoutExpired;
+import spade.reporter.audit.core.event.reader.Reader;
+import spade.reporter.audit.linux.audit.event.Context;
+import spade.reporter.audit.linux.audit.event.Event;
 import spade.reporter.audit.linux.audit.event.record.Record;
 
 /**
@@ -41,41 +43,52 @@ import spade.reporter.audit.linux.audit.event.record.Record;
  * The channel is closed once the pump thread reaches end-of-stream or
  * encounters an unrecoverable error, after which {@link #readEvent()} will
  * drain any remaining buffered events and then return {@code null}.
+ *
+ * The pump thread is started automatically from the constructor.
  */
-public final class BufferedEventReader extends spade.reporter.audit.core.event.Reader {
+public final class BufferedEventReader extends Reader<Event, Context> {
 
     private final Logger logger = Logger.getLogger(this.getClass().getName());
 
     private EventReader eventReader;
     private final Channel channel;
     private final Metrics metrics = new Metrics();
-    private final long snapshotIntervalMs;
+    private final Config config;
     private ScheduledExecutorService snapshotScheduler;
     private Thread pumpThread;
 
     public BufferedEventReader(
         final EventReader eventReader,
         final Channel channel,
-        final long snapshotIntervalMs
+        final Config config
     ) {
         super(eventReader.getEventFactory());
         if (channel == null) {
             throw new IllegalArgumentException("Channel cannot be NULL");
         }
+        if (config == null) {
+            throw new IllegalArgumentException("Config cannot be NULL");
+        }
         this.eventReader = eventReader;
         this.channel = channel;
-        this.snapshotIntervalMs = snapshotIntervalMs;
+        this.config = config;
         startSnapshotScheduler();
+        start();
+    }
+
+    public Config getConfig() {
+        return config;
     }
 
     private void startSnapshotScheduler() {
+        final long snapshotIntervalMs = config.getSnapshotIntervalMs();
         if (snapshotIntervalMs <= 0) {
             snapshotScheduler = null;
             return;
         }
         snapshotScheduler = Executors.newSingleThreadScheduledExecutor();
         snapshotScheduler.scheduleAtFixedRate(
-            metrics::snapshot,
+            metrics::log,
             snapshotIntervalMs,
             snapshotIntervalMs,
             TimeUnit.MILLISECONDS
@@ -93,9 +106,9 @@ public final class BufferedEventReader extends spade.reporter.audit.core.event.R
     /**
      * Start the background pump thread.
      *
-     * Must be called before the first {@link #readEvent()}.
+     * Called automatically from the constructor.
      */
-    public synchronized void start() {
+    private synchronized void start() {
         if (pumpThread != null) {
             throw new IllegalStateException("Already started");
         }
@@ -145,7 +158,7 @@ public final class BufferedEventReader extends spade.reporter.audit.core.event.R
      */
     @Override
     public Event readEvent() throws InterruptedException, ReadTimeoutExpired {
-        final Event event = channel.read();
+        final Event event = (Event) channel.read();
         updateMetrics(event);
         return event;
     }
@@ -154,21 +167,18 @@ public final class BufferedEventReader extends spade.reporter.audit.core.event.R
         if (event == null) {
             return;
         }
-        if (!(event instanceof spade.reporter.audit.linux.audit.event.Event)) {
-            return;
-        }
         metrics.incrementEventsRead();
         long recordCount = 0;
         long byteCount = 0;
-        for (final Record record : ((spade.reporter.audit.linux.audit.event.Event) event).getRecords()) {
+        for (final Record record : event.getRecords()) {
             recordCount++;
             final String raw = record.getRawRecord();
             if (raw != null) {
                 byteCount += raw.length();
             }
         }
-        metrics.addRecordsRead(recordCount);
-        metrics.addBytesRead(byteCount);
+        metrics.incrementRecordsRead(recordCount);
+        metrics.incrementBytesRead(byteCount);
     }
 
     public Metrics getMetrics() {

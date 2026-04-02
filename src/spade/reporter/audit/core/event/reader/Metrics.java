@@ -17,63 +17,46 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.audit.input;
+package spade.reporter.audit.core.event.reader;
 
 import java.util.logging.Logger;
 
 /**
- * Counters for the audit-reading pipeline.
+ * Abstract counters for an event-reading pipeline.
  *
- * Extends {@link spade.reporter.audit.core.event.reader.Metrics} (which
- * tracks {@code eventsRead}) with the Linux-audit-specific counters:
- * the number of records those events were assembled from, and the total
- * raw bytes those records represent. Mutators are package-private and
- * single-purpose; getters, {@link #toString()} and {@link #log()} are
- * public.
+ * Tracks the number of {@link spade.reporter.audit.core.event.Event}s
+ * delivered to the caller. Subclasses add source-specific counters by
+ * declaring their own fields and appending them via {@link #toString()}.
  */
-public class Metrics extends spade.reporter.audit.core.event.reader.Metrics {
+public abstract class Metrics {
 
     private final Logger logger = Logger.getLogger(this.getClass().getName());
 
-    private long recordsRead = 0;
-    private long bytesRead = 0;
+    private long eventsRead = 0;
 
-    public Metrics() {
-        super();
+    protected Metrics() {
     }
 
-    @Override
     protected synchronized void incrementEventsRead() {
-        super.incrementEventsRead();
+        eventsRead++;
     }
 
-    synchronized void incrementRecordsRead(final long records) {
-        recordsRead += records;
+    public synchronized long getEventsRead() {
+        return eventsRead;
     }
 
-    synchronized void incrementBytesRead(final long bytes) {
-        bytesRead += bytes;
-    }
-
-    public synchronized long getRecordsRead() {
-        return recordsRead;
-    }
-
-    public synchronized long getBytesRead() {
-        return bytesRead;
-    }
-
+    /**
+     * Returns the full snapshot line: class name, wall-clock timestamp,
+     * and all counters. Subclasses override to append their own counters.
+     */
     @Override
     public synchronized String toString() {
         return this.getClass().getName() + " ["
             + "timestamp=" + System.currentTimeMillis()
-            + ", eventsRead=" + getEventsRead()
-            + ", recordsRead=" + recordsRead
-            + ", bytesRead=" + bytesRead
+            + ", eventsRead=" + eventsRead
             + "]";
     }
 
-    @Override
     public synchronized void log() {
         logger.info(toString());
     }

@@ -21,36 +21,24 @@ event's identity.
 Abstract marker for the parsing context passed to a `Factory`. Carries whatever
 source-specific state a `Factory` implementation needs to construct an `Event`.
 
-## Factory
+## Factory<T extends Event, V extends Context>
 
-Abstract factory with a single method:
+Abstract factory parameterised on the concrete `Event` subtype `T` it produces
+and the `Context` subtype `V` it consumes. Single method:
 
 ```
-Event create(Context context)
+T create(V context)
 ```
 
-Subclasses receive a `Context` and return a concrete `Event`. Separates event
+Subclasses receive a typed `V` and return a typed `T`. Separates event
 construction from the I/O layer.
 
-## Reader
+## Reader / Writer
 
-Abstract, `AutoCloseable` event source. Requires a non-null `Factory` at construction
-(throws `IllegalArgumentException` otherwise) and exposes it to subclasses via
-`getEventFactory()`. Subclasses implement:
+Live in dedicated subpackages alongside their abstract `Metrics`:
 
-| Method | Behaviour |
-|--------|-----------|
-| `readEvent()` | Returns the next `Event`, or `null` at end of stream |
-| `close()` | Releases resources |
-
-## Writer
-
-Abstract, `AutoCloseable` event sink. Subclasses implement:
-
-| Method | Behaviour |
-|--------|-----------|
-| `writeEvent(Event)` | Writes one event; may throw `Exception` |
-| `close()` | Releases resources |
+- [`reader/`](reader/README.md) — `Reader<T extends Event, V extends Context>` and reader `Metrics`
+- [`writer/`](writer/README.md) — `Writer<T extends Event>` and writer `Metrics`
 
 ## MalformedEventException
 

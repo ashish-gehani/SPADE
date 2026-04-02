@@ -17,45 +17,59 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.event.channel;
+package spade.reporter.audit.core.event.writer;
 
 import java.util.logging.Logger;
 
-public class ChannelMetrics {
+/**
+ * Abstract counters for an event-writing pipeline.
+ *
+ * Tracks the number of {@link spade.reporter.audit.core.event.Event}s
+ * successfully written and the number of write failures. Subclasses add
+ * sink-specific counters by declaring their own fields and appending them
+ * via {@link #toString()}.
+ */
+public abstract class Metrics {
 
     private final Logger logger = Logger.getLogger(this.getClass().getName());
 
-    private long lostRecords = 0;
-    private long eventsRead = 0;
     private long eventsWritten = 0;
-    private long totalReadWaitMs = 0;
-    private long totalWriteWaitMs = 0;
+    private long writeFailures = 0;
 
-    synchronized void recordLost() {
-        lostRecords++;
+    protected Metrics() {
     }
 
-    synchronized void recordRead(final long waitMs) {
-        eventsRead++;
-        totalReadWaitMs += waitMs;
-    }
-
-    synchronized void recordWritten(final long waitMs) {
+    protected synchronized void incrementEventsWritten() {
         eventsWritten++;
-        totalWriteWaitMs += waitMs;
     }
 
-    synchronized void snapshot() {
-        logger.info(
-            this.getClass().getName() + " snapshot ["
+    public synchronized long getEventsWritten() {
+        return eventsWritten;
+    }
+
+    protected synchronized void incrementWriteFailures() {
+        writeFailures++;
+    }
+
+    public synchronized long getWriteFailures() {
+        return writeFailures;
+    }
+
+    /**
+     * Returns the full snapshot line: class name, wall-clock timestamp,
+     * and all counters. Subclasses override to append their own counters.
+     */
+    @Override
+    public synchronized String toString() {
+        return this.getClass().getName() + " ["
             + "timestamp=" + System.currentTimeMillis()
-            + ", lostRecords=" + lostRecords
-            + ", eventsRead=" + eventsRead
             + ", eventsWritten=" + eventsWritten
-            + ", totalReadWaitMs=" + totalReadWaitMs
-            + ", totalWriteWaitMs=" + totalWriteWaitMs
-            + "]"
-        );
+            + ", writeFailures=" + writeFailures
+            + "]";
+    }
+
+    public synchronized void log() {
+        logger.info(toString());
     }
 
 }

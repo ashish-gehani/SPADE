@@ -28,7 +28,7 @@ Wraps an `OutputLog` and exposes the parameters needed to build the pipeline. Th
 | `isEnabled() && !isRotationEnabled()` | `FILE` |
 | `isEnabled() && isRotationEnabled()` | `ROTATING_FILE` |
 
-The file path comes from `OutputLog.getOutputLogPath()` and the rotation threshold from `OutputLog.getRotateLogAfterLines()`. `snapshotIntervalMs` configures the interval at which writer `Metrics` snapshots are logged.
+The file path comes from `OutputLog.getOutputLogPath()`. The rotation threshold (in bytes) is derived from `OutputLog.getRotateLogAfterLines() * OutputLog.APPROXIMATE_BYTES_PER_LINE`, since `OutputLog` expresses rotation in lines (audit records) but the rotating `LineWriter` operates on bytes. `snapshotIntervalMs` configures the interval at which writer `Metrics` snapshots are logged.
 
 ### `RecordWriter`
 
@@ -36,22 +36,22 @@ Wraps a `writer.LineWriter`. On each call to `writeRecord(Record)` it serialises
 
 ### `EventWriter`
 
-Wraps a `RecordWriter`. On each call to `writeEvent(Event)` it iterates the event's records in order and writes each one through the `RecordWriter`. Returns the total bytes written across all records.
+Extends `core.event.writer.Writer<Event>`. Wraps a `RecordWriter`. On each call to `writeEvent(Event)` it iterates the event's records in order and writes each one through the `RecordWriter`. Returns the total bytes written across all records.
 
-Holds a `Metrics` instance updated on every `writeEvent()` call (success or failure); retrieve it via `getMetrics()`. If `snapshotIntervalMs > 0`, a `ScheduledExecutorService` is started at construction that logs a metrics snapshot at that interval and is shut down in `close()`.
+Holds a `Metrics` instance updated on every `writeEvent()` call (success or failure); retrieve it via `getMetrics()`. The `Config` is passed at construction (retrievable via `getConfig()`); if `Config.getSnapshotIntervalMs() > 0`, a `ScheduledExecutorService` is started at construction that logs a metrics snapshot (`Metrics.log()`) at that interval and is shut down in `close()`.
 
 ### `Metrics`
 
-Counters for the writing pipeline, owned by `EventWriter`:
+Extends `core.event.writer.Metrics` (which provides `eventsWritten` and `writeFailures`). Adds the Linux-audit-specific counters:
 
 | Counter | Meaning |
 |---|---|
-| `eventsWritten` | Events fully written |
+| `eventsWritten` | Events fully written (inherited) |
 | `recordsWritten` | Records written to the underlying `LineWriter` |
 | `bytesWritten` | Total bytes written |
-| `writeFailures` | `writeEvent()` calls that threw |
+| `writeFailures` | `writeEvent()` calls that threw (inherited) |
 
-Mutators are package-private; getters and `snapshot()` (logs the current values) are public.
+Mutators are package-private/protected; getters, `toString()` (full snapshot line) and `log()` are public.
 
 ### `Helper`
 

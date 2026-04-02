@@ -17,20 +17,27 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.event;
+package spade.reporter.audit.core.event.reader;
 
+import spade.reporter.audit.core.event.Context;
+import spade.reporter.audit.core.event.Event;
+import spade.reporter.audit.core.event.Factory;
 
 /**
  * Abstract class for reading audit events from an arbitrary source.
  *
- * Implementations return typed Event objects.
+ * Implementations return typed {@code T} objects produced by a
+ * {@link Factory} from a {@code V} parsing context.
+ *
+ * @param <T> the concrete {@link Event} subtype this reader produces
+ * @param <V> the concrete {@link Context} subtype the factory consumes
  */
-public abstract class Reader implements AutoCloseable {
+public abstract class Reader<T extends Event, V extends Context> implements AutoCloseable {
 
-	private final Factory eventFactory;
+	private final Factory<T, V> eventFactory;
 
 	protected Reader(
-		final Factory eventFactory
+		final Factory<T, V> eventFactory
 	){
 		if(eventFactory == null){
 			throw new IllegalArgumentException("Event factory cannot be NULL");
@@ -38,17 +45,17 @@ public abstract class Reader implements AutoCloseable {
 		this.eventFactory = eventFactory;
 	}
 
-	protected Factory getEventFactory() {
+	protected Factory<T, V> getEventFactory() {
 		return this.eventFactory;
 	}
 
 	/**
 	 * Read the next complete event from the source.
 	 *
-	 * @return the next Event, or null if end of stream
+	 * @return the next event, or null if end of stream
 	 * @throws Exception if reading or parsing fails
 	 */
-	public abstract Event readEvent() throws Exception;
+	public abstract T readEvent() throws Exception;
 
 	/**
 	 * Close the reader and release resources.

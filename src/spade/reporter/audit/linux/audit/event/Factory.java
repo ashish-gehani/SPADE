@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.reporter.audit.core.event.InvalidContextException;
 import spade.reporter.audit.core.event.MalformedEventException;
 import spade.reporter.audit.linux.audit.event.record.Record;
 
@@ -40,9 +39,8 @@ import spade.reporter.audit.linux.audit.event.record.Record;
  * USER records alongside the SYSCALL record.
  *
  * Returns {@code null} if no creator matches or if event construction fails.
- * Throws {@link InvalidContextException} if the context is not a {@link Context}.
  */
-public final class Factory extends spade.reporter.audit.core.event.Factory{
+public final class Factory extends spade.reporter.audit.core.event.Factory<Event, Context>{
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
@@ -69,12 +67,12 @@ public final class Factory extends spade.reporter.audit.core.event.Factory{
 
 	@Override
 	public Event create(
-		final spade.reporter.audit.core.event.Context context
-	) throws InvalidContextException, MalformedEventException{
-		if(!(context instanceof Context)){
-			throw new InvalidContextException(Context.class, context);
+		final Context context
+	) throws MalformedEventException{
+		if(context == null){
+			throw new IllegalArgumentException("Context cannot be NULL");
 		}
-		final List<Record> records = ((Context) context).getRecords();
+		final List<Record> records = context.getRecords();
 		if(records == null || records.isEmpty()){
 			return null;
 		}
@@ -84,7 +82,7 @@ public final class Factory extends spade.reporter.audit.core.event.Factory{
 			}
 		}
 		if(verbose){
-			logger.log(Level.FINE, "No creator matched for records of size {0}",
+			logger.log(Level.INFO, "No creator matched for records of size {0}",
 				records.size());
 		}
 		return null;

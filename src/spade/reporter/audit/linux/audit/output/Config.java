@@ -48,10 +48,15 @@ public class Config {
             return Type.NO_OP;
         }
         return outputLog.isRotationEnabled() ? Type.ROTATING_FILE : Type.FILE;
-    }// TODO multiple things
+    }
 
+    /**
+     * {@link OutputLog} expresses the rotation threshold in lines (audit
+     * records) but the rotating {@code LineWriter} operates on bytes.
+     * Convert using {@link OutputLog#APPROXIMATE_BYTES_PER_LINE}.
+     */
     public long getRotationBytes() {
-        return outputLog.getRotateLogAfterLines();
+        return (long) outputLog.getRotateLogAfterLines() * OutputLog.APPROXIMATE_BYTES_PER_LINE;
     }
 
     public long getSnapshotIntervalMs() {

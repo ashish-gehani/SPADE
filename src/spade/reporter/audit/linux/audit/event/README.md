@@ -94,16 +94,16 @@ Each subclass exposes a typed getter for its primary record (e.g.
 
 ## `Factory`
 
-Extends `core.event.Factory`. Holds a fixed, ordered `List<Event.Creator>` and
-iterates it on each `create(core.event.Context)` call, returning the first typed
-`Event` whose `Creator.matches()` accepts the record list.
+Extends `core.event.Factory<Event, Context>`. Holds a fixed, ordered
+`List<Event.Creator>` and iterates it on each `create(Context)` call, returning
+the first typed `Event` whose `Creator.matches()` accepts the record list.
 
 `Syscall.Creator` is listed first because a syscall event may contain non-SYSCALL
 records (e.g. USER records) alongside the primary SYSCALL record.
 
-Returns `null` if no creator matches (logs at `FINE` when `verbose` is enabled),
-or if the record list is empty. Throws `InvalidContextException` if the argument
-is not a `Context`.
+Returns `null` if no creator matches (logs at `INFO` when `verbose` is enabled),
+or if the record list is empty. Throws `IllegalArgumentException` if the argument
+is `null`.
 
 ## Subpackages
 
