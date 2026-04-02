@@ -50,7 +50,7 @@ public class Helper {
             recordReader
         );
         final Channel channel = new Channel(config.getChannelConfig());
-        return new BufferedEventReader(eventReader, channel);
+        return new BufferedEventReader(eventReader, channel, config.getSnapshotIntervalMs());
     }
 
 }

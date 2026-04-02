@@ -33,6 +33,7 @@ Immutable value object that carries all parameters needed to build the pipeline:
 | `lineReaderType` | Which `reader.LineReader` implementation to use |
 | `recordFactoryVerbose` | Enable verbose logging in the record parser |
 | `eventFactoryVerbose` | Enable verbose logging in the event factory |
+| `snapshotIntervalMs` | Interval at which reader `Metrics` snapshots are logged |
 
 ### `RecordReader`
 
@@ -47,6 +48,20 @@ Wraps a `RecordReader`. Accumulates `Record` objects that share the same `(ID, T
 Wraps an `EventReader` with an asynchronous `Channel`. A daemon pump thread drains the `EventReader` and writes events into the channel. Callers read from the channel via `readEvent()`, decoupling audit log parsing from downstream processing. The channel is closed when the pump thread reaches end-of-stream or hits an unrecoverable error.
 
 Call `start()` before the first `readEvent()`.
+
+Holds a `Metrics` instance updated on every successful `readEvent()`; retrieve it via `getMetrics()`. If `snapshotIntervalMs > 0`, a `ScheduledExecutorService` is started at construction that logs a metrics snapshot at that interval and is shut down in `close()`.
+
+### `Metrics`
+
+Counters for the reading pipeline, owned by `BufferedEventReader`:
+
+| Counter | Meaning |
+|---|---|
+| `eventsRead` | Linux audit events delivered to the caller |
+| `recordsRead` | Records those events were assembled from |
+| `bytesRead` | Total raw-record bytes those records represent |
+
+Mutators are package-private; getters and `snapshot()` (logs the current values) are public.
 
 ### `Helper`
 

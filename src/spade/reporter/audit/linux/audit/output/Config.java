@@ -25,12 +25,14 @@ import spade.reporter.audit.linux.audit.output.writer.Type;
 public class Config {
 
     private final OutputLog outputLog;
+    private final long snapshotIntervalMs;
 
-    public Config(final OutputLog outputLog) {
+    public Config(final OutputLog outputLog, final long snapshotIntervalMs) {
         if (outputLog == null) {
             throw new IllegalArgumentException("OutputLog cannot be NULL");
         }
         this.outputLog = outputLog;
+        this.snapshotIntervalMs = snapshotIntervalMs;
     }
 
     public boolean hasFilePath() {
@@ -50,6 +52,10 @@ public class Config {
 
     public long getRotationBytes() {
         return outputLog.getRotateLogAfterLines();
+    }
+
+    public long getSnapshotIntervalMs() {
+        return snapshotIntervalMs;
     }
 
 }

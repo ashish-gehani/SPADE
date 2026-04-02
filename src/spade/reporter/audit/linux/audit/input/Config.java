@@ -31,6 +31,7 @@ public class Config {
 	private final boolean recordFactoryVerbose;
 	private final boolean eventFactoryVerbose;
 	private final Type lineReaderType;
+	private final long snapshotIntervalMs;
 
 	protected Config(
 			final Input input,
@@ -38,7 +39,8 @@ public class Config {
 			final spade.reporter.audit.core.event.channel.Config channelConfig,
 			final boolean recordFactoryVerbose,
 			final boolean eventFactoryVerbose,
-			final Type lineReaderType
+			final Type lineReaderType,
+			final long snapshotIntervalMs
 	) {
 		if(input == null){
 			throw new IllegalArgumentException("Input cannot be NULL");
@@ -58,6 +60,7 @@ public class Config {
 		this.recordFactoryVerbose = recordFactoryVerbose;
 		this.eventFactoryVerbose = eventFactoryVerbose;
 		this.lineReaderType = lineReaderType;
+		this.snapshotIntervalMs = snapshotIntervalMs;
 	}
 
 	public Input getInput() {
@@ -82,5 +85,9 @@ public class Config {
 
 	public Type getLineReaderType() {
 		return lineReaderType;
+	}
+
+	public long getSnapshotIntervalMs() {
+		return snapshotIntervalMs;
 	}
 }

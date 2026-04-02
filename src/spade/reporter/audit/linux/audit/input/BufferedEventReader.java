@@ -19,12 +19,16 @@
  */
 package spade.reporter.audit.linux.audit.input;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.reporter.audit.core.event.Event;
 import spade.reporter.audit.core.event.channel.Channel;
 import spade.reporter.audit.core.event.channel.ReadTimeoutExpired;
+import spade.reporter.audit.linux.audit.event.record.Record;
 
 /**
  * Wraps an {@link EventReader} with an asynchronous {@link Channel} buffer.
@@ -44,11 +48,15 @@ public final class BufferedEventReader extends spade.reporter.audit.core.event.R
 
     private EventReader eventReader;
     private final Channel channel;
+    private final Metrics metrics = new Metrics();
+    private final long snapshotIntervalMs;
+    private ScheduledExecutorService snapshotScheduler;
     private Thread pumpThread;
 
     public BufferedEventReader(
         final EventReader eventReader,
-        final Channel channel
+        final Channel channel,
+        final long snapshotIntervalMs
     ) {
         super(eventReader.getEventFactory());
         if (channel == null) {
@@ -56,6 +64,30 @@ public final class BufferedEventReader extends spade.reporter.audit.core.event.R
         }
         this.eventReader = eventReader;
         this.channel = channel;
+        this.snapshotIntervalMs = snapshotIntervalMs;
+        startSnapshotScheduler();
+    }
+
+    private void startSnapshotScheduler() {
+        if (snapshotIntervalMs <= 0) {
+            snapshotScheduler = null;
+            return;
+        }
+        snapshotScheduler = Executors.newSingleThreadScheduledExecutor();
+        snapshotScheduler.scheduleAtFixedRate(
+            metrics::snapshot,
+            snapshotIntervalMs,
+            snapshotIntervalMs,
+            TimeUnit.MILLISECONDS
+        );
+    }
+
+    private void stopSnapshotScheduler() {
+        if (snapshotScheduler == null) {
+            return;
+        }
+        snapshotScheduler.shutdown();
+        snapshotScheduler = null;
     }
 
     /**
@@ -113,11 +145,39 @@ public final class BufferedEventReader extends spade.reporter.audit.core.event.R
      */
     @Override
     public Event readEvent() throws InterruptedException, ReadTimeoutExpired {
-        return channel.read();
+        final Event event = channel.read();
+        updateMetrics(event);
+        return event;
+    }
+
+    private void updateMetrics(final Event event) {
+        if (event == null) {
+            return;
+        }
+        if (!(event instanceof spade.reporter.audit.linux.audit.event.Event)) {
+            return;
+        }
+        metrics.incrementEventsRead();
+        long recordCount = 0;
+        long byteCount = 0;
+        for (final Record record : ((spade.reporter.audit.linux.audit.event.Event) event).getRecords()) {
+            recordCount++;
+            final String raw = record.getRawRecord();
+            if (raw != null) {
+                byteCount += raw.length();
+            }
+        }
+        metrics.addRecordsRead(recordCount);
+        metrics.addBytesRead(byteCount);
+    }
+
+    public Metrics getMetrics() {
+        return metrics;
     }
 
     @Override
     public synchronized void close() {
+        stopSnapshotScheduler();
         if (pumpThread != null) {
             pumpThread.interrupt();
             pumpThread = null;

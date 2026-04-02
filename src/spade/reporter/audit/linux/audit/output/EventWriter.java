@@ -19,6 +19,10 @@
  */
 package spade.reporter.audit.linux.audit.output;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 import spade.reporter.audit.linux.audit.event.Event;
 import spade.reporter.audit.linux.audit.event.record.Record;
 
@@ -31,12 +35,39 @@ import spade.reporter.audit.linux.audit.event.record.Record;
 public final class EventWriter implements AutoCloseable {
 
     private RecordWriter recordWriter;
+    private final Metrics metrics = new Metrics();
+    private final long snapshotIntervalMs;
+    private ScheduledExecutorService snapshotScheduler;
 
-    public EventWriter(final RecordWriter recordWriter) {
+    public EventWriter(final RecordWriter recordWriter, final long snapshotIntervalMs) {
         if (recordWriter == null) {
             throw new IllegalArgumentException("RecordWriter cannot be NULL");
         }
         this.recordWriter = recordWriter;
+        this.snapshotIntervalMs = snapshotIntervalMs;
+        startSnapshotScheduler();
+    }
+
+    private void startSnapshotScheduler() {
+        if (snapshotIntervalMs <= 0) {
+            snapshotScheduler = null;
+            return;
+        }
+        snapshotScheduler = Executors.newSingleThreadScheduledExecutor();
+        snapshotScheduler.scheduleAtFixedRate(
+            metrics::snapshot,
+            snapshotIntervalMs,
+            snapshotIntervalMs,
+            TimeUnit.MILLISECONDS
+        );
+    }
+
+    private void stopSnapshotScheduler() {
+        if (snapshotScheduler == null) {
+            return;
+        }
+        snapshotScheduler.shutdown();
+        snapshotScheduler = null;
     }
 
     /**
@@ -50,15 +81,38 @@ public final class EventWriter implements AutoCloseable {
         if (event == null) {
             return 0;
         }
+        long recordCount = 0;
         long totalBytesWritten = 0;
-        for (final Record record : event.getRecords()) {
-            totalBytesWritten += recordWriter.writeRecord(record);
+        try {
+            for (final Record record : event.getRecords()) {
+                totalBytesWritten += recordWriter.writeRecord(record);
+                recordCount++;
+            }
+        } catch (final Exception e) {
+            updateMetrics(recordCount, totalBytesWritten, true);
+            throw e;
         }
+        updateMetrics(recordCount, totalBytesWritten, false);
         return totalBytesWritten;
+    }
+
+    private void updateMetrics(final long recordCount, final long byteCount, final boolean failed) {
+        if (failed) {
+            metrics.incrementWriteFailures();
+        } else {
+            metrics.incrementEventsWritten();
+        }
+        metrics.addRecordsWritten(recordCount);
+        metrics.addBytesWritten(byteCount);
+    }
+
+    public Metrics getMetrics() {
+        return metrics;
     }
 
     @Override
     public void close() throws Exception {
+        stopSnapshotScheduler();
         if (recordWriter == null) {
             return;
         }

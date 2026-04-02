@@ -1,0 +1,85 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2026 SRI International
+
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
+package spade.reporter.audit.linux.audit.output;
+
+import java.util.logging.Logger;
+
+/**
+ * Counters for the audit-writing pipeline.
+ *
+ * Tracks the number of events written, the number of records those
+ * events expanded into, and the total bytes written to the underlying
+ * destination. Mutators are package-private and single-purpose;
+ * getters and {@link #snapshot()} are public.
+ */
+public class Metrics {
+
+    private final Logger logger = Logger.getLogger(this.getClass().getName());
+
+    private long eventsWritten = 0;
+    private long recordsWritten = 0;
+    private long bytesWritten = 0;
+    private long writeFailures = 0;
+
+    synchronized void incrementEventsWritten() {
+        eventsWritten++;
+    }
+
+    synchronized void addRecordsWritten(final long records) {
+        recordsWritten += records;
+    }
+
+    synchronized void addBytesWritten(final long bytes) {
+        bytesWritten += bytes;
+    }
+
+    synchronized void incrementWriteFailures() {
+        writeFailures++;
+    }
+
+    public synchronized long getEventsWritten() {
+        return eventsWritten;
+    }
+
+    public synchronized long getRecordsWritten() {
+        return recordsWritten;
+    }
+
+    public synchronized long getBytesWritten() {
+        return bytesWritten;
+    }
+
+    public synchronized long getWriteFailures() {
+        return writeFailures;
+    }
+
+    public synchronized void snapshot() {
+        logger.info(
+            this.getClass().getName() + " snapshot ["
+            + "timestamp=" + System.currentTimeMillis()
+            + ", eventsWritten=" + eventsWritten
+            + ", recordsWritten=" + recordsWritten
+            + ", bytesWritten=" + bytesWritten
+            + ", writeFailures=" + writeFailures
+            + "]"
+        );
+    }
+
+}
