@@ -20,13 +20,15 @@ writer.LineWriter          writes raw text lines to a destination
 
 ### `Config`
 
-Immutable value object that carries all parameters needed to build the pipeline:
+Wraps an `OutputLog` and exposes the parameters needed to build the pipeline. The `LineWriter` type is derived automatically:
 
-| Field | Purpose |
+| `OutputLog` state | Derived `Type` |
 |---|---|
-| `filePath` | Destination file path (optional — not required for `NO_OP`) |
-| `lineWriterType` | Which `writer.LineWriter` implementation to use |
-| `rotationBytes` | Byte threshold at which the file is rotated (used by `ROTATING_FILE`) |
+| `isEnabled() == false` | `NO_OP` |
+| `isEnabled() && !isRotationEnabled()` | `FILE` |
+| `isEnabled() && isRotationEnabled()` | `ROTATING_FILE` |
+
+The file path comes from `OutputLog.getOutputLogPath()` and the rotation threshold from `OutputLog.getRotateLogAfterLines()`.
 
 ### `RecordWriter`
 

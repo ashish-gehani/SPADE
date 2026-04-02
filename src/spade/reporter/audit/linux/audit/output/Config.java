@@ -19,41 +19,37 @@
  */
 package spade.reporter.audit.linux.audit.output;
 
+import spade.reporter.audit.OutputLog;
 import spade.reporter.audit.linux.audit.output.writer.Type;
 
 public class Config {
 
-    private final String filePath;
-    private final Type lineWriterType;
-    private final long rotationBytes;
+    private final OutputLog outputLog;
 
-    public Config(
-        final String filePath,
-        final Type lineWriterType,
-        final long rotationBytes
-    ) {
-        if (lineWriterType == null) {
-            throw new IllegalArgumentException("Line writer type cannot be NULL");
+    public Config(final OutputLog outputLog) {
+        if (outputLog == null) {
+            throw new IllegalArgumentException("OutputLog cannot be NULL");
         }
-        this.filePath = filePath;
-        this.lineWriterType = lineWriterType;
-        this.rotationBytes = rotationBytes;
+        this.outputLog = outputLog;
     }
 
     public boolean hasFilePath() {
-        return filePath != null;
+        return outputLog.isEnabled();
     }
 
     public String getFilePath() {
-        return filePath;
+        return outputLog.getOutputLogPath();
     }
 
     public Type getLineWriterType() {
-        return lineWriterType;
-    }
+        if (!outputLog.isEnabled()) {
+            return Type.NO_OP;
+        }
+        return outputLog.isRotationEnabled() ? Type.ROTATING_FILE : Type.FILE;
+    }// TODO multiple things
 
     public long getRotationBytes() {
-        return rotationBytes;
+        return outputLog.getRotateLogAfterLines();
     }
 
 }
