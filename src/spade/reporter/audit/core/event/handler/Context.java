@@ -21,7 +21,7 @@ package spade.reporter.audit.core.event.handler;
 
 import spade.reporter.audit.core.event.Event;
 
-public class Context<E extends Event>{
+public abstract class Context<E extends Event>{
 
 	private final E event;
 
