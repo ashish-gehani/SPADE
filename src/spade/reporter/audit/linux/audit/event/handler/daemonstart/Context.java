@@ -17,12 +17,14 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.event.handler;
+package spade.reporter.audit.linux.audit.event.handler.daemonstart;
 
-import spade.reporter.audit.core.event.Event;
+import spade.reporter.audit.linux.audit.event.DaemonStart;
 
-public interface Handler<E extends Event, C extends Context<E>>{
+public class Context extends spade.reporter.audit.core.event.handler.Context<DaemonStart>{
 
-	public void handle(C context);
+	public Context(final DaemonStart event){
+		super(event);
+	}
 
 }

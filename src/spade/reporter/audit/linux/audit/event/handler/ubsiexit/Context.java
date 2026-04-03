@@ -17,12 +17,14 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.event.handler;
+package spade.reporter.audit.linux.audit.event.handler.ubsiexit;
 
-import spade.reporter.audit.core.event.Event;
+import spade.reporter.audit.linux.audit.event.UbsiExit;
 
-public interface Handler<E extends Event, C extends Context<E>>{
+public class Context extends spade.reporter.audit.core.event.handler.Context<UbsiExit>{
 
-	public void handle(C context);
+	public Context(final UbsiExit event){
+		super(event);
+	}
 
 }
