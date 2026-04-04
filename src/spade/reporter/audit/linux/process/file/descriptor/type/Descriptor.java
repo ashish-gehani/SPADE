@@ -17,32 +17,17 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.audit.event;
+package spade.reporter.audit.linux.process.file.descriptor.type;
 
-public final class Timestamp implements Comparable<Timestamp>{
+public abstract class Descriptor{
 
-	private final double seconds;
+	public final Type type;
 
-	public Timestamp(final double seconds){
-		this.seconds = seconds;
-	}
-
-	public double getSeconds(){
-		return seconds;
-	}
-
-	public String getSecondsInAuditFormat(){
-		return String.format("%.3f", seconds);
-	}
-
-	@Override
-	public int compareTo(final Timestamp other){
-		return Double.compare(this.seconds, other.seconds);
-	}
-
-	@Override
-	public String toString(){
-		return "Timestamp[seconds=" + seconds + "]";
+	protected Descriptor(final Type type){
+		if(type == null){
+			throw new IllegalArgumentException("type cannot be NULL");
+		}
+		this.type = type;
 	}
 
 }

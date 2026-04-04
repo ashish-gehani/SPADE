@@ -31,6 +31,42 @@ public class Handler implements spade.reporter.audit.core.event.handler.Handler<
 		if(context.getEvent() == null){
 			throw new IllegalArgumentException("Event in context cannot be NULL");
 		}
+		_handle(context);
+	}
+
+	private void _handle(Context context) {
+		final UbsiEntry event = context.getEvent();
+
+		String pid = event.getPid();
+		String time = event.getTimestamp().getSecondsInAuditFormat();
+		String eventId = String.valueOf(event.getId().getId());
+
+		String unitId = event.getUnitId();
+		String unitIteration = event.getUnitIteration();
+		String unitCount = event.getUnitCount();
+		String unitStartTime = event.getUnitStartTime();
+
+		// Process processVertex = null;
+
+		// // remove the last unit if there was any
+		// ProcessUnitState state = getProcessUnitState(pid);
+		// if(state != null){
+		// 	if(state.isUnitActive()){
+		// 		state.unitExit();
+		// 	}
+		// 	processVertex = buildVertex(state.getProcess(), state.getAgent(), state.getUnit(), state.getNamespace());
+		// }else{
+		// 	processVertex = handleProcessFromSyscall(eventData);
+		// }
+
+		// UnitIdentifier unitIdentifier = new UnitIdentifier(unitId, unitIteration, unitCount, unitStartTime, eventId);
+
+		// Process unitVertex = putUnitVertex(time, eventId, pid, unitIdentifier);
+
+		// WasTriggeredBy edge = new WasTriggeredBy(unitVertex, processVertex);
+		// reporter.putEdge(edge, reporter.getOperation(SYSCALL.UNIT), time, eventId, OPMConstants.SOURCE_BEEP);
+
+		// return true;
 	}
 
 }

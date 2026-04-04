@@ -17,32 +17,46 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.audit.event;
+package spade.reporter.audit.linux.process;
 
-public final class Timestamp implements Comparable<Timestamp>{
+import spade.reporter.audit.core.util.statetable.Indexable;
 
-	private final double seconds;
+public class ID implements Indexable<ID>{
 
-	public Timestamp(final double seconds){
-		this.seconds = seconds;
+	// Host PID
+	private final String pid;
+
+	public ID(final String pid){
+		if(pid == null){
+			throw new IllegalArgumentException("pid cannot be NULL");
+		}
+		this.pid = pid;
 	}
 
-	public double getSeconds(){
-		return seconds;
-	}
-
-	public String getSecondsInAuditFormat(){
-		return String.format("%.3f", seconds);
-	}
-
-	@Override
-	public int compareTo(final Timestamp other){
-		return Double.compare(this.seconds, other.seconds);
+	public String getPid(){
+		return pid;
 	}
 
 	@Override
-	public String toString(){
-		return "Timestamp[seconds=" + seconds + "]";
+	public int compareTo(final ID other){
+		if(other == null){
+			throw new IllegalArgumentException("Cannot compare to NULL");
+		}
+		final int cmp = this.pid.compareTo(other.pid);
+		return cmp;
+	}
+
+	@Override
+	public boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof ID)) return false;
+		final ID other = (ID) obj;
+		return this.pid.equals(other.pid);
+	}
+
+	@Override
+	public int hashCode(){
+		return 31 * pid.hashCode();
 	}
 
 }

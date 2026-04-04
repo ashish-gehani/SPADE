@@ -45,6 +45,26 @@ public class UbsiEntry extends Event{
 		return record;
 	}
 
+	public String getPid(){
+		return record.processInfo.pid;
+	}
+
+	public String getUnitId(){
+		return record.unit.id;
+	}
+
+	public String getUnitIteration(){
+		return record.unit.iteration;
+	}
+
+	public String getUnitCount(){
+		return record.unit.count;
+	}
+
+	public String getUnitStartTime(){
+		return record.unit.time;
+	}
+
 	protected static class Creator extends Event.Creator{
 
 		@Override

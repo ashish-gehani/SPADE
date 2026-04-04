@@ -17,32 +17,19 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.audit.event;
+package spade.reporter.audit.linux.process.info;
 
-public final class Timestamp implements Comparable<Timestamp>{
+public class Path{
 
-	private final double seconds;
+	private final String val;
 
-	public Timestamp(final double seconds){
-		this.seconds = seconds;
+	public Path(final String val){
+		if(val == null){
+			throw new IllegalArgumentException("val cannot be NULL");
+		}
+		this.val = val;
 	}
 
-	public double getSeconds(){
-		return seconds;
-	}
-
-	public String getSecondsInAuditFormat(){
-		return String.format("%.3f", seconds);
-	}
-
-	@Override
-	public int compareTo(final Timestamp other){
-		return Double.compare(this.seconds, other.seconds);
-	}
-
-	@Override
-	public String toString(){
-		return "Timestamp[seconds=" + seconds + "]";
-	}
+	public String getVal(){ return val; }
 
 }

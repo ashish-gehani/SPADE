@@ -17,32 +17,39 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.audit.event;
+package spade.reporter.audit.linux.process.file.descriptor.type;
 
-public final class Timestamp implements Comparable<Timestamp>{
+public abstract class SystemV extends Descriptor{
 
-	private final double seconds;
+	public final String id;
+	public final String ouid;
+	public final String ogid;
+	public final String ipcNamespace;
 
-	public Timestamp(final double seconds){
-		this.seconds = seconds;
-	}
-
-	public double getSeconds(){
-		return seconds;
-	}
-
-	public String getSecondsInAuditFormat(){
-		return String.format("%.3f", seconds);
-	}
-
-	@Override
-	public int compareTo(final Timestamp other){
-		return Double.compare(this.seconds, other.seconds);
-	}
-
-	@Override
-	public String toString(){
-		return "Timestamp[seconds=" + seconds + "]";
+	protected SystemV(
+		final Type type,
+		final String id,
+		final String ouid,
+		final String ogid,
+		final String ipcNamespace
+	){
+		super(type);
+		if(id == null){
+			throw new IllegalArgumentException("id cannot be NULL");
+		}
+		if(ouid == null){
+			throw new IllegalArgumentException("ouid cannot be NULL");
+		}
+		if(ogid == null){
+			throw new IllegalArgumentException("ogid cannot be NULL");
+		}
+		if(ipcNamespace == null){
+			throw new IllegalArgumentException("ipcNamespace cannot be NULL");
+		}
+		this.id = id;
+		this.ouid = ouid;
+		this.ogid = ogid;
+		this.ipcNamespace = ipcNamespace;
 	}
 
 }

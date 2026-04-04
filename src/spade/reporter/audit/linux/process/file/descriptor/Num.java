@@ -17,32 +17,35 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.audit.event;
+package spade.reporter.audit.linux.process.file.descriptor;
 
-public final class Timestamp implements Comparable<Timestamp>{
+import spade.reporter.audit.core.util.statetable.Indexable;
 
-	private final double seconds;
+public class Num implements Indexable<Num>{
 
-	public Timestamp(final double seconds){
-		this.seconds = seconds;
+	private final int val;
+
+	public Num(final int val){
+		this.val = val;
 	}
 
-	public double getSeconds(){
-		return seconds;
-	}
+	public int getVal(){ return val; }
 
-	public String getSecondsInAuditFormat(){
-		return String.format("%.3f", seconds);
+	@Override
+	public int compareTo(final Num other){
+		return Integer.compare(this.val, other.val);
 	}
 
 	@Override
-	public int compareTo(final Timestamp other){
-		return Double.compare(this.seconds, other.seconds);
+	public boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof Num)) return false;
+		return this.val == ((Num) obj).val;
 	}
 
 	@Override
-	public String toString(){
-		return "Timestamp[seconds=" + seconds + "]";
+	public int hashCode(){
+		return Integer.hashCode(val);
 	}
 
 }

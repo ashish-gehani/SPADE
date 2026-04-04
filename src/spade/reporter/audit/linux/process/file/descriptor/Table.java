@@ -17,32 +17,29 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.audit.event;
+package spade.reporter.audit.linux.process.file.descriptor;
 
-public final class Timestamp implements Comparable<Timestamp>{
+public class Table extends spade.reporter.audit.core.util.statetable.Table<Num, State>{
 
-	private final double seconds;
+	private final spade.reporter.audit.linux.process.ID sharedWith;
 
-	public Timestamp(final double seconds){
-		this.seconds = seconds;
+	public Table(){
+		this.sharedWith = null;
 	}
 
-	public double getSeconds(){
-		return seconds;
+	public Table(final spade.reporter.audit.linux.process.ID sharedWith){
+		if(sharedWith == null){
+			throw new IllegalArgumentException("sharedWith cannot be NULL");
+		}
+		this.sharedWith = sharedWith;
 	}
 
-	public String getSecondsInAuditFormat(){
-		return String.format("%.3f", seconds);
+	public boolean isSharedWith(){
+		return sharedWith != null;
 	}
 
-	@Override
-	public int compareTo(final Timestamp other){
-		return Double.compare(this.seconds, other.seconds);
-	}
-
-	@Override
-	public String toString(){
-		return "Timestamp[seconds=" + seconds + "]";
+	public spade.reporter.audit.linux.process.ID getSharedWith(){
+		return sharedWith;
 	}
 
 }

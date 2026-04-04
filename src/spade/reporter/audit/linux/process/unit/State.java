@@ -17,32 +17,39 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.audit.event;
+package spade.reporter.audit.linux.process.unit;
 
-public final class Timestamp implements Comparable<Timestamp>{
+public class State {
 
-	private final double seconds;
+	private Unit active = null;
+	private boolean wasActive = false;
 
-	public Timestamp(final double seconds){
-		this.seconds = seconds;
+	public State () {
+
 	}
 
-	public double getSeconds(){
-		return seconds;
+	public Unit getActive () {
+		return active;
 	}
 
-	public String getSecondsInAuditFormat(){
-		return String.format("%.3f", seconds);
+	public boolean isActive () {
+		return active != null;
 	}
 
-	@Override
-	public int compareTo(final Timestamp other){
-		return Double.compare(this.seconds, other.seconds);
+	public boolean wasActive () {
+		return wasActive;
 	}
 
-	@Override
-	public String toString(){
-		return "Timestamp[seconds=" + seconds + "]";
+	public void enter (final Unit unit) {
+		if (unit == null) {
+			throw new IllegalArgumentException("Cannot enter null unit");
+		}
+		wasActive = true;
+		this.active = unit;
+	}
+
+	public void exit () {
+		this.active = null;
 	}
 
 }
