@@ -27,6 +27,7 @@ import java.util.logging.Logger;
 
 import spade.reporter.audit.core.event.MalformedEventException;
 import spade.reporter.audit.linux.audit.event.record.Record;
+import spade.reporter.audit.linux.audit.event.syscall.Syscall;
 
 /**
  * Concrete event factory for the Linux Audit Subsystem.

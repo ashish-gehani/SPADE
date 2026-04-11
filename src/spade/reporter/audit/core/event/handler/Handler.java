@@ -20,8 +20,17 @@
 package spade.reporter.audit.core.event.handler;
 
 import spade.reporter.audit.core.event.Event;
+import spade.reporter.audit.core.platform.runtime.State;
+import spade.reporter.audit.core.util.statetable.Indexable;
 
-public interface Handler<E extends Event, C extends Context<E>>{
+public interface Handler<
+    E extends Event,                                                                        // Event type
+    PTI extends Indexable<PTI>,                                                             // Process table index
+    PTS extends spade.reporter.audit.core.util.statetable.State<PTI>,                       // Process table state
+    PT extends spade.reporter.audit.core.util.statetable.Table<PTI, PTS>,                   // Process table
+    PRS extends State<PTI, PTS, PT>,                                                         // Platform Runtime state
+    C extends Context<E, PTI, PTS, PT, PRS>                                                  // Handler context
+>{
 
 	public void handle(C context);
 

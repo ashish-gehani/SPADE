@@ -19,7 +19,7 @@
  */
 package spade.reporter.audit.linux.audit.event.handler.syscall;
 
-import spade.reporter.audit.linux.audit.event.Syscall;
+import spade.reporter.audit.linux.audit.event.syscall.Syscall;
 
 public class Context extends spade.reporter.audit.core.event.handler.Context<Syscall>{
 

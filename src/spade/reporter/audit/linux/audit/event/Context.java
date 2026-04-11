@@ -31,7 +31,7 @@ import spade.reporter.audit.linux.audit.event.record.Record;
  * {@link ID} and {@link Timestamp}) so that {@link Factory} can construct a
  * typed {@link Event} once all records have been collected.
  */
-public final class Context extends spade.reporter.audit.core.event.Context{
+public class Context extends spade.reporter.audit.core.event.Context{
 
 	private ID id;
 	private Timestamp timestamp;

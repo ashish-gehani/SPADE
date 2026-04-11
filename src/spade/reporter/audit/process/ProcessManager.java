@@ -592,6 +592,7 @@ public abstract class ProcessManager extends ProcessStateManager{
 			
 			final boolean isThread = platformConstants.testForCloneFlagThread(flags);
 			if(isThread){
+				// JUNK
 				String threadGroupId = parentState.getThreadGroupId(); // Can't be null
 				ProcessUnitState childState = getProcessUnitState(childPid); // State already added above using putProcessVertex
 				childState.setThreadGroupId(threadGroupId); // Update the thread group id for child

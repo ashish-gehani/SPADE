@@ -19,12 +19,21 @@
  */
 package spade.reporter.audit.linux.audit.event.handler.daemonstart;
 
+import spade.reporter.audit.core.platform.runtime.State;
 import spade.reporter.audit.linux.audit.event.DaemonStart;
+import spade.reporter.audit.linux.platform.process.ID;
 
-public class Handler implements spade.reporter.audit.core.event.handler.Handler<DaemonStart, Context>{
+public class Handler<S extends State<ID, spade.reporter.audit.linux.platform.process.State>>
+    implements spade.reporter.audit.core.event.handler.Handler<
+        DaemonStart,
+        ID,
+        spade.reporter.audit.linux.platform.process.State,
+        S,
+        Context<S>
+    >{
 
 	@Override
-	public void handle(Context context) {
+	public void handle(Context<S> context) {
 		if(context == null){
 			throw new IllegalArgumentException("Context cannot be NULL");
 		}

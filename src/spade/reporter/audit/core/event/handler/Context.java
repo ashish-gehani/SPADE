@@ -20,17 +20,34 @@
 package spade.reporter.audit.core.event.handler;
 
 import spade.reporter.audit.core.event.Event;
+import spade.reporter.audit.core.platform.runtime.State;
+import spade.reporter.audit.core.util.statetable.Indexable;
 
-public abstract class Context<E extends Event>{
+public abstract class Context<
+    E extends Event,
+    PTI extends Indexable<PTI>,
+    PTS extends spade.reporter.audit.core.util.statetable.State<PTI>,
+    PT extends spade.reporter.audit.core.util.statetable.Table<PTI, PTS>,
+    RS extends State<PTI, PTS, PT>
+>{
 
 	private final E event;
+	private final spade.reporter.audit.core.platform.Context<PTI, PTS, PT, RS> platformContext;
 
-	public Context(final E event){
+	public Context(final E event, final spade.reporter.audit.core.platform.Context<PTI, PTS, PT, RS> platformContext){
 		this.event = event;
+		if(platformContext == null){
+			throw new IllegalArgumentException("platformContext cannot be NULL");
+		}
+		this.platformContext = platformContext;
 	}
 
 	public E getEvent(){
 		return event;
+	}
+
+	public spade.reporter.audit.core.platform.Context<PTI, PTS, PT, RS> getPlatformContext(){
+		return platformContext;
 	}
 
 }

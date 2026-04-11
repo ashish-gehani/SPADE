@@ -19,12 +19,18 @@
  */
 package spade.reporter.audit.linux.audit.event.handler.daemonstart;
 
+import spade.reporter.audit.core.platform.runtime.State;
 import spade.reporter.audit.linux.audit.event.DaemonStart;
+import spade.reporter.audit.linux.platform.process.ID;
 
-public class Context extends spade.reporter.audit.core.event.handler.Context<DaemonStart>{
+public class Context<S extends State<ID, spade.reporter.audit.linux.platform.process.State, spade.reporter.audit.linux.platform.runtime.ProcessTable>>
+    extends spade.reporter.audit.linux.audit.event.handler.Context<DaemonStart, S>{
 
-	public Context(final DaemonStart event){
-		super(event);
+	public Context(
+		final DaemonStart event,
+		final spade.reporter.audit.core.platform.Context<ID, spade.reporter.audit.linux.platform.process.State, spade.reporter.audit.linux.platform.runtime.ProcessTable, S> platformContext
+	){
+		super(event, platformContext);
 	}
 
 }
