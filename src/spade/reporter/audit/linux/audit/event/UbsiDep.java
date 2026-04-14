@@ -35,7 +35,7 @@ public class UbsiDep extends Event{
 	private final spade.reporter.audit.linux.audit.event.record.ubsi.UbsiDep record;
 
 	protected UbsiDep(final spade.reporter.audit.linux.audit.event.record.ubsi.UbsiDep record){
-		super(record.getEventId(), record.getTime(), Type.UBSI_DEP);
+		super(record.getId(), Type.UBSI_DEP);
 		setRecords(Arrays.asList(record));
 		this.record = record;
 	}
@@ -53,17 +53,11 @@ public class UbsiDep extends Event{
 					+ (records == null ? "null" : records.size());
 			}
 			final Record r = records.get(0);
+			if(!(r.getType() == spade.reporter.audit.linux.audit.event.record.Type.UBSI_DEP)){
+				return "Expected UBSI_DEP record, got type: " + r.getType();
+			}
 			if(!(r instanceof spade.reporter.audit.linux.audit.event.record.ubsi.UbsiDep)){
-				return "Expected UbsiDep record, got: "
-					+ (r == null ? "null" : r.getClass().getName());
-			}
-			final spade.reporter.audit.linux.audit.event.record.ubsi.UbsiDep ubsiDepRecord =
-				(spade.reporter.audit.linux.audit.event.record.ubsi.UbsiDep) r;
-			if(ubsiDepRecord.getEventId() == null){
-				return "Event ID cannot be null in UbsiDep record";
-			}
-			if(ubsiDepRecord.getTime() == null){
-				return "Time cannot be null in UbsiDep record";
+				return "Expected UBSI_DEP record, got class: " + r.getClass().getName();
 			}
 			return null;
 		}

@@ -19,23 +19,22 @@
  */
 package spade.reporter.audit.linux.platform.process;
 
-import spade.reporter.audit.linux.platform.namespace.Tuple;
-import spade.reporter.audit.linux.platform.process.credential.Group;
-import spade.reporter.audit.linux.platform.process.credential.User;
+import spade.reporter.audit.linux.platform.type.namespace.Tuple;
 import spade.reporter.audit.linux.platform.process.fd.Table;
 import spade.reporter.audit.linux.platform.process.info.Info;
+import spade.reporter.audit.linux.platform.process.info.credential.Group;
+import spade.reporter.audit.linux.platform.process.info.credential.User;
 public class State extends spade.reporter.audit.core.util.statetable.State<ID>{
 
-	private final History history = new History();
-
 	private final Info info;
-
 	private final Table fdTable;
+	private final History history;
 
 	public State(
 		final ID id,
 		final Info info,
-		final Table fdTable
+		final Table fdTable,
+		final History history
 	){
 		super(id);
 		if(info == null){
@@ -44,8 +43,12 @@ public class State extends spade.reporter.audit.core.util.statetable.State<ID>{
 		if(fdTable == null){
 			throw new IllegalArgumentException("fdTable cannot be NULL");
 		}
+		if(history == null){
+			throw new IllegalArgumentException("history cannot be NULL");
+		}
 		this.info = info;
 		this.fdTable = fdTable;
+		this.history = history;
 		initHistories(this.info.getTime().getValue());
 	}
 
@@ -69,11 +72,11 @@ public class State extends spade.reporter.audit.core.util.statetable.State<ID>{
 		history.addNamespace(eventTime, namespace);
 	}
 
-	public spade.reporter.audit.linux.platform.process.credential.Tuple getCred(){
+	public spade.reporter.audit.linux.platform.process.info.credential.Tuple getCred(){
 		return info.getCred();
 	}
 
-	public void setCred(final String eventTime, final spade.reporter.audit.linux.platform.process.credential.Tuple cred){
+	public void setCred(final String eventTime, final spade.reporter.audit.linux.platform.process.info.credential.Tuple cred){
 		if(cred == null){
 			throw new IllegalArgumentException("cred cannot be NULL");
 		}

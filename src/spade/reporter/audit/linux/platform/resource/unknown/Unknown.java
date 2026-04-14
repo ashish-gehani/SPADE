@@ -20,11 +20,23 @@
 package spade.reporter.audit.linux.platform.resource.unknown;
 
 import spade.reporter.audit.linux.platform.resource.Resource;
+import spade.reporter.audit.linux.platform.type.fd.Num;
 
+// Catch-all resource used when the resource type is unavailable or cannot be determined.
 public class Unknown extends Resource{
 
-	public Unknown(){
+	private final Num num;
+
+	public Unknown(final Num num){
 		super(spade.reporter.audit.linux.platform.resource.Type.UNKNOWN);
+		if(num == null){
+			throw new IllegalArgumentException("num cannot be NULL");
+		}
+		this.num = num;
+	}
+
+	public Num getNum(){
+		return num;
 	}
 
 }

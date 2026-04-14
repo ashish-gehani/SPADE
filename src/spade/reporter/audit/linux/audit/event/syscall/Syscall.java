@@ -40,7 +40,7 @@ public class Syscall extends Event{
 		final spade.reporter.audit.linux.audit.event.record.Syscall syscallRecord,
 		final List<Record> records
 	){
-		super(syscallRecord.getEventId(), syscallRecord.getTime(), Type.SYSCALL);
+		super(syscallRecord.getId(), Type.SYSCALL);
 		setRecords(records);
 		this.syscallRecord = syscallRecord;
 	}

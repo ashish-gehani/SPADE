@@ -22,7 +22,6 @@ package spade.reporter.audit.linux.audit.event.record;
 import java.util.Map;
 
 import spade.reporter.audit.linux.audit.event.ID;
-import spade.reporter.audit.linux.audit.event.Timestamp;
 import spade.reporter.audit.linux.audit.event.record.helper.Header;
 import spade.reporter.audit.linux.audit.event.record.helper.KeyValueParser;
 
@@ -57,9 +56,9 @@ public class Netfilter extends Record {
 	private final String nfNetNs;
 
 	public Netfilter(
-		final ID eventId, final Timestamp time, final String rawRecord
+		final ID id, final String rawRecord
 	){
-		super(eventId, time, Type.NETFILTER, rawRecord);
+		super(id, Type.NETFILTER, rawRecord);
 		final Map<String, String> fields = KeyValueParser.parseKeyValuePairs(rawRecord);
 		this.version = fields.get("version");
 		this.nfSubtype = fields.get(NETFILTER_RECORD_KEY);
@@ -105,7 +104,7 @@ public class Netfilter extends Record {
 		public Record create(final Header header) throws MalformedRecordException{
 			final String error = validate(header);
 			if(error != null) throw new MalformedRecordException(error, header.getRawLine());
-			return new Netfilter(header.getEventId(), header.getTime(), header.getRawLine());
+			return new Netfilter(header.getId(), header.getRawLine());
 		}
 	}
 }

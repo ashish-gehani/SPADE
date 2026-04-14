@@ -21,7 +21,6 @@ package spade.reporter.audit.linux.audit.event.record;
 
 import spade.reporter.audit.linux.audit.event.record.helper.AuditStringParser;
 import spade.reporter.audit.linux.audit.event.ID;
-import spade.reporter.audit.linux.audit.event.Timestamp;
 import spade.reporter.audit.linux.audit.event.record.helper.Header;
 
 /**
@@ -34,9 +33,9 @@ public class Cwd extends Record{
 	private final String cwd;
 
 	public Cwd(
-		final ID eventId, final Timestamp time, final String rawRecord
+		final ID id, final String rawRecord
 	) throws MalformedRecordException{
-		super(eventId, time, Type.CWD, rawRecord);
+		super(id, Type.CWD, rawRecord);
 		this.cwd = AuditStringParser.mustParse(rawRecord, "cwd");
 	}
 
@@ -56,7 +55,7 @@ public class Cwd extends Record{
 		public Record create(final Header header) throws MalformedRecordException{
 			final String error = validate(header);
 			if(error != null) throw new MalformedRecordException(error, header.getRawLine());
-			return new Cwd(header.getEventId(), header.getTime(), header.getRawLine());
+			return new Cwd(header.getId(), header.getRawLine());
 		}
 	}
 }

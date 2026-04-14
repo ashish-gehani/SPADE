@@ -21,42 +21,42 @@ package spade.reporter.audit.linux.platform.process;
 
 import spade.reporter.audit.core.util.history.Timestamp;
 import spade.reporter.audit.core.util.history.Timestamped;
-import spade.reporter.audit.linux.platform.namespace.Tuple;
-import spade.reporter.audit.linux.platform.process.credential.Group;
-import spade.reporter.audit.linux.platform.process.credential.User;
+import spade.reporter.audit.linux.platform.type.namespace.Tuple;
+import spade.reporter.audit.linux.platform.process.info.credential.Group;
+import spade.reporter.audit.linux.platform.process.info.credential.User;
 
 public class History{
 
-	private final Timestamped<Tuple> namespaceHistory = new Timestamped<>();
-	private final Timestamped<User> userHistory = new Timestamped<>();
-	private final Timestamped<Group> groupHistory = new Timestamped<>();
+	private final Timestamped<Tuple> namespace = new Timestamped<>();
+	private final Timestamped<User> user = new Timestamped<>();
+	private final Timestamped<Group> group = new Timestamped<>();
 
-	public boolean hasNamespace(final Tuple namespace){
-		return namespaceHistory.has(namespace);
+	public boolean hasNamespace(final Tuple ns){
+		return namespace.has(ns);
 	}
 
 	public Tuple getNamespace(final String eventTime){
-		return namespaceHistory.closestTo(toTimestamp(eventTime));
+		return namespace.closestTo(toTimestamp(eventTime));
 	}
 
 	public User getUser(final String eventTime){
-		return userHistory.closestTo(toTimestamp(eventTime));
+		return user.closestTo(toTimestamp(eventTime));
 	}
 
 	public Group getGroup(final String eventTime){
-		return groupHistory.closestTo(toTimestamp(eventTime));
+		return group.closestTo(toTimestamp(eventTime));
 	}
 
-	public void addNamespace(final String eventTime, final Tuple namespace){
-		namespaceHistory.add(toTimestamp(eventTime), namespace);
+	public void addNamespace(final String eventTime, final Tuple ns){
+		namespace.add(toTimestamp(eventTime), ns);
 	}
 
-	public void addUser(final String eventTime, final User user){
-		userHistory.add(toTimestamp(eventTime), user);
+	public void addUser(final String eventTime, final User u){
+		user.add(toTimestamp(eventTime), u);
 	}
 
-	public void addGroup(final String eventTime, final Group group){
-		groupHistory.add(toTimestamp(eventTime), group);
+	public void addGroup(final String eventTime, final Group g){
+		group.add(toTimestamp(eventTime), g);
 	}
 
 	private static Timestamp toTimestamp(final String eventTime){

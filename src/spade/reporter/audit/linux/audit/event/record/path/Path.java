@@ -22,7 +22,6 @@ package spade.reporter.audit.linux.audit.event.record.path;
 import java.util.Map;
 
 import spade.reporter.audit.linux.audit.event.ID;
-import spade.reporter.audit.linux.audit.event.Timestamp;
 import spade.reporter.audit.linux.audit.event.record.MalformedRecordException;
 import spade.reporter.audit.linux.audit.event.record.Record;
 import spade.reporter.audit.linux.audit.event.record.Type;
@@ -55,9 +54,9 @@ public class Path extends Record implements Comparable<Path>{
 	 * Construct from raw audit data (used by RecordFactory).
 	 */
 	public Path(
-		final ID eventId, final Timestamp time, final String rawRecord
+		final ID id, final String rawRecord
 	){
-		super(eventId, time, Type.PATH, rawRecord);
+		super(id, Type.PATH, rawRecord);
 		final Map<String, String> tempMap = KeyValueParser.parseKeyValuePairs(rawRecord);
 		this.itemNumber = Integer.parseInt(tempMap.get("item"));
 		this.mode = tempMap.get("mode") == null ? "0" : tempMap.get("mode");
@@ -204,7 +203,7 @@ public class Path extends Record implements Comparable<Path>{
 		public Record create(final Header header) throws MalformedRecordException{
 			final String error = validate(header);
 			if(error != null) throw new MalformedRecordException(error, header.getRawLine());
-			return new Path(header.getEventId(), header.getTime(), header.getRawLine());
+			return new Path(header.getId(), header.getRawLine());
 		}
 	}
 }

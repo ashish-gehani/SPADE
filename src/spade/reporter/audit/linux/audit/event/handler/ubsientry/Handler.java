@@ -39,7 +39,7 @@ public class Handler implements spade.reporter.audit.core.event.handler.Handler<
 
 		String pid = event.getPid();
 		String time = event.getTimestamp().getSecondsInAuditFormat();
-		String eventId = String.valueOf(event.getId().getId());
+		String eventId = String.valueOf(event.getId().getNum());
 
 		String unitId = event.getUnitId();
 		String unitIteration = event.getUnitIteration();

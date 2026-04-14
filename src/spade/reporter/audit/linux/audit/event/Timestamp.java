@@ -19,30 +19,49 @@
  */
 package spade.reporter.audit.linux.audit.event;
 
-public final class Timestamp implements Comparable<Timestamp>{
+/**
+ * Concrete timestamp for Linux Audit Subsystem events.
+ *
+ * Wraps a {@code double} value value and delegates identity / ordering to
+ * {@link spade.reporter.audit.core.event.Timestamp} via the audit-format
+ * string representation (e.g. {@code "1234567890.123"}).
+ */
+public final class Timestamp extends spade.reporter.audit.core.event.Timestamp{
 
-	private final double seconds;
+	// value is in seconds
+	private final double value;
 
-	public Timestamp(final double seconds){
-		this.seconds = seconds;
+	public Timestamp(final String valueStr){
+		super(valueStr);
+		this.value = Double.parseDouble(valueStr);
 	}
 
-	public double getSeconds(){
-		return seconds;
+	public double getValue(){
+		return value;
 	}
 
 	public String getSecondsInAuditFormat(){
-		return String.format("%.3f", seconds);
+		return getValueStr();
 	}
 
 	@Override
-	public int compareTo(final Timestamp other){
-		return Double.compare(this.seconds, other.seconds);
+	public int compareTo(final spade.reporter.audit.core.event.Timestamp other){
+		if(other instanceof Timestamp){
+			return Double.compare(this.value, ((Timestamp) other).value);
+		}
+		return super.compareTo(other);
 	}
 
 	@Override
-	public String toString(){
-		return "Timestamp[seconds=" + seconds + "]";
+	public boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof Timestamp)) return false;
+		return Double.compare(this.value, ((Timestamp) obj).value) == 0;
+	}
+
+	@Override
+	public int hashCode(){
+		return Double.hashCode(value);
 	}
 
 }

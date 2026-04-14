@@ -22,7 +22,6 @@ package spade.reporter.audit.linux.audit.event.record;
 import java.util.Map;
 
 import spade.reporter.audit.linux.audit.event.ID;
-import spade.reporter.audit.linux.audit.event.Timestamp;
 import spade.reporter.audit.linux.audit.event.record.helper.Header;
 import spade.reporter.audit.linux.audit.event.record.helper.KeyValueParser;
 
@@ -38,9 +37,9 @@ public class Ipc extends Record{
 	public final String mode;
 
 	public Ipc(
-		final ID eventId, final Timestamp time, final String rawRecord
+		final ID id, final String rawRecord
 	){
-		super(eventId, time, Type.IPC, rawRecord);
+		super(id, Type.IPC, rawRecord);
 		final Map<String, String> parsedFields = KeyValueParser.parseKeyValuePairs(rawRecord);
 		this.ouid = parsedFields.get("ouid");
 		this.ogid = parsedFields.get("ogid");
@@ -71,7 +70,7 @@ public class Ipc extends Record{
 		public Record create(final Header header) throws MalformedRecordException{
 			final String error = validate(header);
 			if(error != null) throw new MalformedRecordException(error, header.getRawLine());
-			return new Ipc(header.getEventId(), header.getTime(), header.getRawLine());
+			return new Ipc(header.getId(), header.getRawLine());
 		}
 	}
 }

@@ -19,38 +19,59 @@
  */
 package spade.reporter.audit.core.event;
 
-public abstract class ID implements Comparable<ID>{
+import spade.reporter.audit.core.util.statetable.Indexable;
 
-	private final long id;
+public abstract class ID implements Indexable<ID>{
 
-	protected ID(final long id){
-		this.id = id;
+	private final Num num;
+	private final Timestamp timestamp;
+
+	protected ID(final Num num, final Timestamp timestamp){
+		if(num == null){
+			throw new IllegalArgumentException("num cannot be NULL");
+		}
+		if(timestamp == null){
+			throw new IllegalArgumentException("timestamp cannot be NULL");
+		}
+		this.num = num;
+		this.timestamp = timestamp;
 	}
 
-	public final long getId(){
-		return id;
+	public final Num getNum(){
+		return num;
+	}
+
+	public final Timestamp getTimestamp(){
+		return timestamp;
 	}
 
 	@Override
-	public final int compareTo(final ID other){
-		return Long.compare(this.id, other.id);
+	public int compareTo(final ID other){
+		final int cmp = this.num.compareTo(other.num);
+		if(cmp != 0){
+			return cmp;
+		}
+		return this.timestamp.compareTo(other.timestamp);
 	}
 
 	@Override
-	public final boolean equals(final Object obj){
+	public boolean equals(final Object obj){
 		if(this == obj) return true;
 		if(!(obj instanceof ID)) return false;
-		return this.id == ((ID) obj).id;
+		final ID other = (ID) obj;
+		return this.num.equals(other.num) && this.timestamp.equals(other.timestamp);
 	}
 
 	@Override
-	public final int hashCode(){
-		return Long.hashCode(id);
+	public int hashCode(){
+		int result = num.hashCode();
+		result = 31 * result + timestamp.hashCode();
+		return result;
 	}
 
 	@Override
 	public final String toString(){
-		return "ID[id=" + id + "]";
+		return "ID[num=" + num + ", timestamp=" + timestamp + "]";
 	}
 
 }

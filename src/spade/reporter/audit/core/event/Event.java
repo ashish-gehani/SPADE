@@ -24,6 +24,9 @@ public abstract class Event implements Comparable<Event>{
 	private final ID id;
 
 	protected Event(final ID id){
+		if(id == null){
+			throw new IllegalArgumentException("id cannot be NULL");
+		}
 		this.id = id;
 	}
 

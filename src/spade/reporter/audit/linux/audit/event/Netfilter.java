@@ -36,7 +36,7 @@ public class Netfilter extends Event{
 	protected Netfilter(
 		final spade.reporter.audit.linux.audit.event.record.Netfilter record
 	){
-		super(record.getEventId(), record.getTime(), Type.NETFILTER);
+		super(record.getId(), Type.NETFILTER);
 		setRecords(Arrays.asList(record));
 		this.record = record;
 	}
@@ -54,17 +54,11 @@ public class Netfilter extends Event{
 					+ (records == null ? "null" : records.size());
 			}
 			final Record r = records.get(0);
+			if(!(r.getType() == spade.reporter.audit.linux.audit.event.record.Type.NETFILTER)){
+				return "Expected Netfilter record, got type: " + r.getType();
+			}
 			if(!(r instanceof spade.reporter.audit.linux.audit.event.record.Netfilter)){
-				return "Expected Netfilter record, got: "
-					+ (r == null ? "null" : r.getClass().getName());
-			}
-			final spade.reporter.audit.linux.audit.event.record.Netfilter netfilterRecord =
-				(spade.reporter.audit.linux.audit.event.record.Netfilter) r;
-			if(netfilterRecord.getEventId() == null){
-				return "Event ID cannot be null in Netfilter record";
-			}
-			if(netfilterRecord.getTime() == null){
-				return "Time cannot be null in Netfilter record";
+				return "Expected Netfilter record, got class: " + r.getClass().getName();
 			}
 			return null;
 		}

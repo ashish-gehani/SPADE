@@ -33,29 +33,28 @@ import spade.reporter.audit.linux.audit.event.record.Record;
  */
 public abstract class Event extends spade.reporter.audit.core.event.Event{
 
-	private final Timestamp timestamp;
 	private final Type type;
 
 	private final List<Record> records = new ArrayList<Record>();
-	
-	protected Event(
-		final ID id,
-		final Timestamp timestamp,
-		final Type type
-	){
+
+	protected Event(final ID id, final Type type){
 		super(id);
-		if(timestamp == null){
-			throw new IllegalArgumentException("LAS event timestamp cannot be NULL");
-		}
-		if (type == null) {
+		if(type == null){
 			throw new IllegalArgumentException("LAS event type cannot be NULL");
 		}
-		this.timestamp = timestamp;
 		this.type = type;
 	}
 
+	public ID getId(){
+		return (ID) super.getId();
+	}
+
+	public Num getNum(){
+		return (Num) getId().getNum();
+	}
+
 	public Timestamp getTimestamp(){
-		return timestamp;
+		return (Timestamp) getId().getTimestamp();
 	}
 
 	public Type getType(){

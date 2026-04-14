@@ -20,20 +20,20 @@
 package spade.reporter.audit.linux.platform.process;
 
 import spade.reporter.audit.core.util.statetable.Indexable;
+import spade.reporter.audit.linux.platform.type.credential.PID;
 
 public class ID implements Indexable<ID>{
 
-	// Host PID
-	private final String pid;
+	private final PID pid;
 
-	public ID(final String pid){
+	public ID(final PID pid){
 		if(pid == null){
 			throw new IllegalArgumentException("pid cannot be NULL");
 		}
 		this.pid = pid;
 	}
 
-	public String getPid(){
+	public PID getPid(){
 		return pid;
 	}
 
@@ -42,8 +42,7 @@ public class ID implements Indexable<ID>{
 		if(other == null){
 			throw new IllegalArgumentException("Cannot compare to NULL");
 		}
-		final int cmp = this.pid.compareTo(other.pid);
-		return cmp;
+		return Long.compare(this.pid.getValue(), other.pid.getValue());
 	}
 
 	@Override
@@ -51,12 +50,12 @@ public class ID implements Indexable<ID>{
 		if(this == obj) return true;
 		if(!(obj instanceof ID)) return false;
 		final ID other = (ID) obj;
-		return this.pid.equals(other.pid);
+		return this.pid.getValue() == other.pid.getValue();
 	}
 
 	@Override
 	public int hashCode(){
-		return 31 * pid.hashCode();
+		return 31 * Long.hashCode(pid.getValue());
 	}
 
 }

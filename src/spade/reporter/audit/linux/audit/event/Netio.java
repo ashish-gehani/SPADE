@@ -36,7 +36,7 @@ public class Netio extends Event{
 	protected Netio(
 		final spade.reporter.audit.linux.audit.event.record.Netio record
 	){
-		super(record.getEventId(), record.getTime(), Type.NETIO);
+		super(record.getId(), Type.NETIO);
 		setRecords(Arrays.asList(record));
 		this.record = record;
 	}
@@ -54,17 +54,11 @@ public class Netio extends Event{
 					+ (records == null ? "null" : records.size());
 			}
 			final Record r = records.get(0);
+			if(!(r.getType() == spade.reporter.audit.linux.audit.event.record.Type.NETIO)){
+				return "Expected NETIO record, got type: " + r.getType();
+			}
 			if(!(r instanceof spade.reporter.audit.linux.audit.event.record.Netio)){
-				return "Expected Netio record, got: "
-					+ (r == null ? "null" : r.getClass().getName());
-			}
-			final spade.reporter.audit.linux.audit.event.record.Netio netioRecord =
-				(spade.reporter.audit.linux.audit.event.record.Netio) r;
-			if(netioRecord.getEventId() == null){
-				return "Event ID cannot be null in Netio record";
-			}
-			if(netioRecord.getTime() == null){
-				return "Time cannot be null in Netio record";
+				return "Expected NETIO record, got class: " + r.getClass().getName();
 			}
 			return null;
 		}

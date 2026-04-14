@@ -36,7 +36,7 @@ public class UbsiExit extends Event{
 	private final spade.reporter.audit.linux.audit.event.record.ubsi.UbsiExit record;
 
 	protected UbsiExit(final spade.reporter.audit.linux.audit.event.record.ubsi.UbsiExit record){
-		super(record.getEventId(), record.getTime(), Type.UBSI_EXIT);
+		super(record.getId(), Type.UBSI_EXIT);
 		setRecords(Arrays.asList(record));
 		this.record = record;
 	}
@@ -54,17 +54,11 @@ public class UbsiExit extends Event{
 					+ (records == null ? "null" : records.size());
 			}
 			final Record r = records.get(0);
+			if(!(r.getType() == spade.reporter.audit.linux.audit.event.record.Type.UBSI_EXIT)){
+				return "Expected UBSI_EXIT record, got type: " + r.getType();
+			}
 			if(!(r instanceof spade.reporter.audit.linux.audit.event.record.ubsi.UbsiExit)){
-				return "Expected UbsiExit record, got: "
-					+ (r == null ? "null" : r.getClass().getName());
-			}
-			final spade.reporter.audit.linux.audit.event.record.ubsi.UbsiExit ubsiExitRecord =
-				(spade.reporter.audit.linux.audit.event.record.ubsi.UbsiExit) r;
-			if(ubsiExitRecord.getEventId() == null){
-				return "Event ID cannot be null in UbsiExit record";
-			}
-			if(ubsiExitRecord.getTime() == null){
-				return "Time cannot be null in UbsiExit record";
+				return "Expected UBSI_EXIT record, got class: " + r.getClass().getName();
 			}
 			return null;
 		}

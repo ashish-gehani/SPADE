@@ -20,6 +20,7 @@
 package spade.reporter.audit.linux.audit.event.record.helper;
 
 import spade.reporter.audit.linux.audit.event.ID;
+import spade.reporter.audit.linux.audit.event.Num;
 import spade.reporter.audit.linux.audit.event.Timestamp;
 import spade.reporter.audit.linux.audit.event.record.MalformedRecordException;
 import spade.reporter.audit.linux.audit.event.record.Type;
@@ -27,21 +28,19 @@ import spade.reporter.audit.linux.audit.event.record.Type;
 /**
  * Parses the header of a raw audit log line into its component fields.
  *
- * Expected format: type=XXX msg=audit(TIMESTAMP:ID): rest_of_data
+ * Expected format: type=XXX msg=audit(TIMESTAMP:Num): rest_of_data
  *
  * Uses indexOf/substring only — no regexes.
  */
 public final class Header{
 
 	private final Type type;
-	private final ID eventId;
-	private final Timestamp time;
+	private final ID id;
 	private final String rawLine;
 
-	public Header(final Type type, final ID eventId, final Timestamp time, final String rawLine){
+	public Header(final Type type, final ID id, final String rawLine){
 		this.type = type;
-		this.eventId = eventId;
-		this.time = time;
+		this.id = id;
 		this.rawLine = rawLine;
 	}
 
@@ -49,12 +48,8 @@ public final class Header{
 		return type;
 	}
 
-	public ID getEventId(){
-		return eventId;
-	}
-
-	public Timestamp getTime(){
-		return time;
+	public ID getId(){
+		return id;
 	}
 
 	public String getRawLine(){
@@ -81,22 +76,17 @@ public final class Header{
 		if(eventIdStr == null){
 			throw new MalformedRecordException("No event id in the audit record", rawLine);
 		}
-		final ID eventId;
-		try{
-			eventId = ID.parse(eventIdStr);
-		}catch(NumberFormatException e){
-			throw new MalformedRecordException("Malformed event id: " + eventIdStr, rawLine);
-		}
+		final Num eventId = new Num(eventIdStr);
 		final String timeStr = StringHelper.substringBetween(rawLine, "(", ":");
 		if(timeStr == null){
 			throw new MalformedRecordException("No event time in the audit record", rawLine);
 		}
 		final Timestamp time;
 		try{
-			time = new Timestamp(Double.parseDouble(timeStr));
+			time = new Timestamp(timeStr);
 		}catch(NumberFormatException e){
 			throw new MalformedRecordException("Malformed event time: " + timeStr, rawLine);
 		}
-		return new Header(type, eventId, time, rawLine);
+		return new Header(type, new ID(eventId, time), rawLine);
 	}
 }

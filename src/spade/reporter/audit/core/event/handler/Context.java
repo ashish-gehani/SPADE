@@ -20,19 +20,26 @@
 package spade.reporter.audit.core.event.handler;
 
 import spade.reporter.audit.core.event.Event;
+import spade.reporter.audit.core.platform.runtime.ResourceTable;
 import spade.reporter.audit.core.platform.runtime.State;
 import spade.reporter.audit.core.util.statetable.Indexable;
 
 public abstract class Context<
     E extends Event,
+
     PTI extends Indexable<PTI>,
     PTS extends spade.reporter.audit.core.util.statetable.State<PTI>,
-    PT extends spade.reporter.audit.core.util.statetable.Table<PTI, PTS>,
-    RS extends State<PTI, PTS, PT>
+    PT extends spade.reporter.audit.core.platform.runtime.ProcessTable<PTI, PTS>,
+
+    RTI extends Indexable<RTI>,
+    RTS extends spade.reporter.audit.core.util.statetable.State<RTI>,
+    RT extends ResourceTable<RTI, RTS>,
+
+	PRS extends State<PTI, PTS, PT, RTI, RTS, RT>
 >{
 
 	private final E event;
-	private final spade.reporter.audit.core.platform.Context<PTI, PTS, PT, RS> platformContext;
+	private final spade.reporter.audit.core.platform.Context<PTI, PTS, PT, RTI, RTS, RT, PRS> platformContext;
 
 	public Context(final E event, final spade.reporter.audit.core.platform.Context<PTI, PTS, PT, RS> platformContext){
 		this.event = event;

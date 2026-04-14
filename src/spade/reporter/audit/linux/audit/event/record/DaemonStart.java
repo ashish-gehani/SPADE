@@ -20,7 +20,6 @@
 package spade.reporter.audit.linux.audit.event.record;
 
 import spade.reporter.audit.linux.audit.event.ID;
-import spade.reporter.audit.linux.audit.event.Timestamp;
 import spade.reporter.audit.linux.audit.event.record.helper.Header;
 
 /**
@@ -32,9 +31,9 @@ import spade.reporter.audit.linux.audit.event.record.helper.Header;
 public class DaemonStart extends Record{
 
 	public DaemonStart(
-		final ID eventId, final Timestamp time, final String rawRecord
+		final ID id, final String rawRecord
 	){
-		super(eventId, time, Type.DAEMON_START, rawRecord);
+		super(id, Type.DAEMON_START, rawRecord);
 	}
 
 	public static class Creator extends Record.Creator{
@@ -49,7 +48,7 @@ public class DaemonStart extends Record{
 		public Record create(final Header header) throws MalformedRecordException{
 			final String error = validate(header);
 			if(error != null) throw new MalformedRecordException(error, header.getRawLine());
-			return new DaemonStart(header.getEventId(), header.getTime(), header.getRawLine());
+			return new DaemonStart(header.getId(), header.getRawLine());
 		}
 	}
 }

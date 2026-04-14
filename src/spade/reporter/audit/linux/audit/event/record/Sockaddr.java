@@ -22,7 +22,6 @@ package spade.reporter.audit.linux.audit.event.record;
 import java.util.Map;
 
 import spade.reporter.audit.linux.audit.event.ID;
-import spade.reporter.audit.linux.audit.event.Timestamp;
 import spade.reporter.audit.linux.audit.event.record.helper.Header;
 import spade.reporter.audit.linux.audit.event.record.helper.KeyValueParser;
 
@@ -39,9 +38,9 @@ public class Sockaddr extends Record{
 	public final String saddr;
 
 	public Sockaddr(
-		final ID eventId, final Timestamp time, final String rawRecord
+		final ID id, final String rawRecord
 	){
-		super(eventId, time, Type.SOCKADDR, rawRecord);
+		super(id, Type.SOCKADDR, rawRecord);
 		final Map<String, String> parsedFields = KeyValueParser.parseKeyValuePairs(rawRecord);
 		this.saddr = parsedFields.get("saddr");
 	}
@@ -62,7 +61,7 @@ public class Sockaddr extends Record{
 		public Record create(final Header header) throws MalformedRecordException{
 			final String error = validate(header);
 			if(error != null) throw new MalformedRecordException(error, header.getRawLine());
-			return new Sockaddr(header.getEventId(), header.getTime(), header.getRawLine());
+			return new Sockaddr(header.getId(), header.getRawLine());
 		}
 	}
 }

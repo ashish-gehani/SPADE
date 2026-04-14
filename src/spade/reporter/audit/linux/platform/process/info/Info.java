@@ -19,7 +19,9 @@
  */
 package spade.reporter.audit.linux.platform.process.info;
 
-import spade.reporter.audit.linux.platform.namespace.Tuple;
+import spade.reporter.audit.linux.platform.type.fs.Path;
+import spade.reporter.audit.linux.platform.type.namespace.Tuple;
+import spade.reporter.audit.linux.platform.type.time.Time;
 
 public class Info {
 
@@ -29,9 +31,9 @@ public class Info {
 	private final Time time;
 	private final Path exe;
 	private Tuple namespace;
-	private spade.reporter.audit.linux.platform.process.credential.Tuple cred;
+	private spade.reporter.audit.linux.platform.process.info.credential.Tuple cred;
 	private final spade.reporter.audit.linux.platform.process.info.Memory memory;
-	private spade.reporter.audit.linux.platform.process.unit.State unitState = (new spade.reporter.audit.linux.platform.process.unit.State());
+	private final spade.reporter.audit.linux.platform.process.info.unit.State unitState;
 
 	public Info(
 		final String name,
@@ -40,8 +42,9 @@ public class Info {
 		final Time time,
 		final Path exe,
 		final Tuple namespace,
-		final spade.reporter.audit.linux.platform.process.credential.Tuple cred,
-		final spade.reporter.audit.linux.platform.process.info.Memory memory
+		final spade.reporter.audit.linux.platform.process.info.credential.Tuple cred,
+		final spade.reporter.audit.linux.platform.process.info.Memory memory,
+		final spade.reporter.audit.linux.platform.process.info.unit.State unitState
 	) {
 		if (name == null) {
 			throw new IllegalArgumentException("name cannot be NULL");
@@ -64,6 +67,9 @@ public class Info {
 		if (memory == null) {
 			throw new IllegalArgumentException("memoryState cannot be NULL");
 		}
+		if (unitState == null) {
+			throw new IllegalArgumentException("unitState cannot be NULL");
+		}
 		this.name = name;
 		this.cwd = cwd;
 		this.root = root;
@@ -72,6 +78,7 @@ public class Info {
 		this.namespace = namespace;
 		this.cred = cred;
 		this.memory = memory;
+		this.unitState = unitState;
 	}
 
 	public String getName() {
@@ -105,7 +112,7 @@ public class Info {
 		this.namespace = namespace;
 	}
 
-	public spade.reporter.audit.linux.platform.process.unit.State getUnitState() {
+	public spade.reporter.audit.linux.platform.process.info.unit.State getUnitState() {
 		return unitState;
 	}
 
@@ -113,11 +120,11 @@ public class Info {
 		return memory;
 	}
 
-	public spade.reporter.audit.linux.platform.process.credential.Tuple getCred() {
+	public spade.reporter.audit.linux.platform.process.info.credential.Tuple getCred() {
 		return cred;
 	}
 
-	public void setCred(final spade.reporter.audit.linux.platform.process.credential.Tuple cred) {
+	public void setCred(final spade.reporter.audit.linux.platform.process.info.credential.Tuple cred) {
 		if (cred == null) {
 			throw new IllegalArgumentException("cred cannot be NULL");
 		}

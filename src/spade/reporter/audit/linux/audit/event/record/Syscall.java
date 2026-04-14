@@ -23,7 +23,6 @@ import java.util.Map;
 
 import spade.reporter.audit.linux.audit.event.record.helper.AuditStringParser;
 import spade.reporter.audit.linux.audit.event.ID;
-import spade.reporter.audit.linux.audit.event.Timestamp;
 import spade.reporter.audit.linux.audit.event.record.helper.Header;
 import spade.reporter.audit.linux.audit.event.record.helper.KeyValueParser;
 import spade.reporter.audit.linux.audit.event.record.helper.ProcessInfo;
@@ -62,9 +61,9 @@ public class Syscall extends Record{
 	public final ProcessInfo processInfo;
 
 	public Syscall(
-		final ID eventId, final Timestamp time, final String rawRecord
+		final ID id, final String rawRecord
 	) throws MalformedRecordException{
-		super(eventId, time, Type.SYSCALL, rawRecord);
+		super(id, Type.SYSCALL, rawRecord);
 		final Map<String, String> parsedFields = KeyValueParser.parseKeyValuePairs(rawRecord);
 		this.syscall = parsedFields.get("syscall");
 		this.success = parsedFields.get("success");
@@ -182,7 +181,7 @@ public class Syscall extends Record{
 		public Record create(final Header header) throws MalformedRecordException{
 			final String error = validate(header);
 			if(error != null) throw new MalformedRecordException(error, header.getRawLine());
-			return new Syscall(header.getEventId(), header.getTime(), header.getRawLine());
+			return new Syscall(header.getId(), header.getRawLine());
 		}
 	}
 }

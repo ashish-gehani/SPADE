@@ -20,26 +20,43 @@
 package spade.reporter.audit.linux.audit.event;
 
 /**
- * Concrete event identity for Linux Audit Subsystem events.
+ * Concrete event identifier for Linux Audit Subsystem events.
  *
- * The LAS event ID is a decimal string (e.g. "1234567890"); {@link #parse}
- * converts it to the underlying {@code long}.
+ * Composes a {@link Num} and a {@link Timestamp} and delegates all identity /
+ * ordering logic to {@link spade.reporter.audit.core.event.ID}.
  */
 public final class ID extends spade.reporter.audit.core.event.ID{
 
-	public ID(final long id){
-		super(id);
+	public ID(final Num num, final Timestamp timestamp){
+		super(num, timestamp);
 	}
 
-	/**
-	 * Parse the decimal event-ID string produced by the Linux Audit Subsystem.
-	 *
-	 * @param eventId decimal string, e.g. {@code "1234567890"}
-	 * @return a new {@code ID} wrapping the parsed value
-	 * @throws NumberFormatException if {@code eventId} is not a valid long
-	 */
-	public static ID parse(final String eventId){
-		return new ID(Long.parseLong(eventId));
+	@Override
+	public int compareTo(final spade.reporter.audit.core.event.ID other){
+		if(other instanceof ID){
+			final ID o = (ID) other;
+			final int cmp = ((Num) getNum()).compareTo(o.getNum());
+			if(cmp != 0){
+				return cmp;
+			}
+			return ((Timestamp) getTimestamp()).compareTo(o.getTimestamp());
+		}
+		return super.compareTo(other);
+	}
+
+	@Override
+	public boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof ID)) return false;
+		final ID other = (ID) obj;
+		return getNum().equals(other.getNum()) && getTimestamp().equals(other.getTimestamp());
+	}
+
+	@Override
+	public int hashCode(){
+		int result = getNum().hashCode();
+		result = 31 * result + getTimestamp().hashCode();
+		return result;
 	}
 
 }

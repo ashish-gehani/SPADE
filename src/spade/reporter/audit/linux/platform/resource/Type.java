@@ -21,10 +21,10 @@ package spade.reporter.audit.linux.platform.resource;
 
 public enum Type{
 
-	DIRENT("dirent"),
 	FD_PAIR("fd pair"),
 	MEMORY("memory"),
 	NETWORK("network"),
+	FS("file system"),
 	SYSTEMV("system v"),
 	UNKNOWN("unknown");
 

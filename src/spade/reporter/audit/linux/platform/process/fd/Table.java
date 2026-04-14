@@ -19,7 +19,9 @@
  */
 package spade.reporter.audit.linux.platform.process.fd;
 
-public class Table extends spade.reporter.audit.core.util.statetable.Table<Num, State>{
+import spade.reporter.audit.linux.platform.type.fd.Num;
+
+public class Table extends spade.reporter.audit.core.util.statetable.Table<Num, Descriptor>{
 
 	private final spade.reporter.audit.linux.platform.process.ID sharedWith;
 

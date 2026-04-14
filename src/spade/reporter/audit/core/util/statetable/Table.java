@@ -67,4 +67,8 @@ public abstract class Table<T extends Indexable<T>, S extends State<T>>{
 		return map.size();
 	}
 
+	public void clear(){
+		map.clear();
+	}
+
 }

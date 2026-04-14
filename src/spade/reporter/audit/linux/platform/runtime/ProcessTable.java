@@ -22,6 +22,6 @@ package spade.reporter.audit.linux.platform.runtime;
 import spade.reporter.audit.linux.platform.process.ID;
 import spade.reporter.audit.linux.platform.process.State;
 
-public class ProcessTable extends spade.reporter.audit.core.util.statetable.Table<ID, State>{
+public class ProcessTable extends spade.reporter.audit.core.platform.runtime.ProcessTable<ID, State>{
 
 }

@@ -22,7 +22,6 @@ package spade.reporter.audit.linux.audit.event.record.ubsi;
 import java.util.Map;
 
 import spade.reporter.audit.linux.audit.event.ID;
-import spade.reporter.audit.linux.audit.event.Timestamp;
 import spade.reporter.audit.linux.audit.event.record.MalformedRecordException;
 import spade.reporter.audit.linux.audit.event.record.Record;
 import spade.reporter.audit.linux.audit.event.record.Type;
@@ -48,9 +47,9 @@ public class UbsiExit extends Record{
 	public final String exe;
 
 	public UbsiExit(
-		final ID eventId, final Timestamp time, final String rawRecord
+		final ID id, final String rawRecord
 	) throws MalformedRecordException{
-		super(eventId, time, Type.UBSI_EXIT, rawRecord);
+		super(id, Type.UBSI_EXIT, rawRecord);
 
 		final Map<String, String> processFields = KeyValueParser.parseKeyValuePairs(rawRecord);
 		this.exe = processFields.get("exe");
@@ -89,7 +88,7 @@ public class UbsiExit extends Record{
 		public Record create(final Header header) throws MalformedRecordException{
 			final String error = validate(header);
 			if(error != null) throw new MalformedRecordException(error, header.getRawLine());
-			return new UbsiExit(header.getEventId(), header.getTime(), header.getRawLine());
+			return new UbsiExit(header.getId(), header.getRawLine());
 		}
 	}
 }

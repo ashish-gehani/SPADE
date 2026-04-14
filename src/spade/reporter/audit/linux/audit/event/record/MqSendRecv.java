@@ -22,7 +22,6 @@ package spade.reporter.audit.linux.audit.event.record;
 import java.util.Map;
 
 import spade.reporter.audit.linux.audit.event.ID;
-import spade.reporter.audit.linux.audit.event.Timestamp;
 import spade.reporter.audit.linux.audit.event.record.helper.Header;
 import spade.reporter.audit.linux.audit.event.record.helper.KeyValueParser;
 
@@ -40,9 +39,9 @@ public class MqSendRecv extends Record{
 	public final String absTimeoutNsec;
 
 	public MqSendRecv(
-		final ID eventId, final Timestamp time, final String rawRecord
+		final ID id, final String rawRecord
 	){
-		super(eventId, time, Type.MQ_SENDRECV, rawRecord);
+		super(id, Type.MQ_SENDRECV, rawRecord);
 		final Map<String, String> parsedFields = KeyValueParser.parseKeyValuePairs(rawRecord);
 		this.mqdes = parsedFields.get("mqdes");
 		this.msgLen = parsedFields.get("msg_len");
@@ -83,7 +82,7 @@ public class MqSendRecv extends Record{
 		public Record create(final Header header) throws MalformedRecordException{
 			final String error = validate(header);
 			if(error != null) throw new MalformedRecordException(error, header.getRawLine());
-			return new MqSendRecv(header.getEventId(), header.getTime(), header.getRawLine());
+			return new MqSendRecv(header.getId(), header.getRawLine());
 		}
 	}
 }

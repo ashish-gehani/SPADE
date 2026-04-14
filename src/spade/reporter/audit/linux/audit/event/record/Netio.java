@@ -23,7 +23,6 @@ import java.util.Map;
 
 import spade.reporter.audit.linux.audit.event.record.helper.AuditStringParser;
 import spade.reporter.audit.linux.audit.event.ID;
-import spade.reporter.audit.linux.audit.event.Timestamp;
 import spade.reporter.audit.linux.audit.event.record.helper.Header;
 import spade.reporter.audit.linux.audit.event.record.helper.KeyValueParser;
 import spade.reporter.audit.linux.audit.event.record.helper.ProcessInfo;
@@ -58,9 +57,9 @@ public class Netio extends Record{
 	private final String netNsInum;
 
 	public Netio(
-		final ID eventId, final Timestamp time, final String rawRecord
+		final ID id, final String rawRecord
 	) throws MalformedRecordException{
-		super(eventId, time, Type.NETIO, rawRecord);
+		super(id, Type.NETIO, rawRecord);
 
 		final String subRecord = StringHelper.substringBetween(rawRecord,
 				NETIO_RECORD_KEY + "=\"", "\"");
@@ -114,7 +113,7 @@ public class Netio extends Record{
 		public Record create(final Header header) throws MalformedRecordException{
 			final String error = validate(header);
 			if(error != null) throw new MalformedRecordException(error, header.getRawLine());
-			return new Netio(header.getEventId(), header.getTime(), header.getRawLine());
+			return new Netio(header.getId(), header.getRawLine());
 		}
 	}
 }

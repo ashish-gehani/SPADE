@@ -20,38 +20,30 @@
 package spade.reporter.audit.linux.audit.event.record;
 
 import spade.reporter.audit.linux.audit.event.ID;
-import spade.reporter.audit.linux.audit.event.Timestamp;
 import spade.reporter.audit.linux.audit.event.record.helper.Header;
 
 /**
  * Abstract class representing a single Linux Audit Subsystem record.
  *
  * A record is one line in the audit log. Multiple records with the same
- * event ID form an event.
+ * {@link ID} form an event.
  *
  * Each subclass holds record-type-specific parsed fields.
  */
 public abstract class Record{
 
-	private final ID eventId;
-	private final Timestamp time;
+	private final ID id;
 	private final Type type;
 	private final String rawRecord;
 
-	protected Record(final ID eventId, final Timestamp time, final Type type,
-			final String rawRecord){
-		this.eventId = eventId;
-		this.time = time;
+	protected Record(final ID id, final Type type, final String rawRecord){
+		this.id = id;
 		this.type = type;
 		this.rawRecord = rawRecord;
 	}
 
-	public ID getEventId(){
-		return eventId;
-	}
-
-	public Timestamp getTime(){
-		return time;
+	public ID getId(){
+		return id;
 	}
 
 	public Type getType(){
@@ -66,8 +58,7 @@ public abstract class Record{
 	public int hashCode(){
 		final int prime = 31;
 		int result = 1;
-		result = prime * result + ((eventId == null) ? 0 : eventId.hashCode());
-		result = prime * result + ((time == null) ? 0 : time.hashCode());
+		result = prime * result + ((id == null) ? 0 : id.hashCode());
 		result = prime * result + ((type == null) ? 0 : type.hashCode());
 		result = prime * result + ((rawRecord == null) ? 0 : rawRecord.hashCode());
 		return result;
@@ -82,15 +73,10 @@ public abstract class Record{
 		if(getClass() != obj.getClass())
 			return false;
 		final Record other = (Record)obj;
-		if(eventId == null){
-			if(other.eventId != null)
+		if(id == null){
+			if(other.id != null)
 				return false;
-		}else if(!eventId.equals(other.eventId))
-			return false;
-		if(time == null){
-			if(other.time != null)
-				return false;
-		}else if(!time.equals(other.time))
+		}else if(!id.equals(other.id))
 			return false;
 		if(type != other.type)
 			return false;

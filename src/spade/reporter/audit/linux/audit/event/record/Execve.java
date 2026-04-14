@@ -24,7 +24,6 @@ import java.util.Map;
 
 import spade.reporter.audit.linux.audit.event.record.helper.AuditStringParser;
 import spade.reporter.audit.linux.audit.event.ID;
-import spade.reporter.audit.linux.audit.event.Timestamp;
 import spade.reporter.audit.linux.audit.event.record.helper.Header;
 import spade.reporter.audit.linux.audit.event.record.helper.KeyValueParser;
 import spade.utility.HelperFunctions;
@@ -42,9 +41,9 @@ public class Execve extends Record{
 	private final Map<Integer, String> args;
 
 	public Execve(
-		final ID eventId, final Timestamp time, final String rawRecord
+		final ID id, final String rawRecord
 	){
-		super(eventId, time, Type.EXECVE, rawRecord);
+		super(id, Type.EXECVE, rawRecord);
 		final Map<String, String> tempMap = KeyValueParser.parseKeyValuePairs(rawRecord);
 		final Integer parsedArgc = HelperFunctions.parseInt(tempMap.get("argc"), null);
 		this.argc = parsedArgc != null ? parsedArgc : 0;
@@ -80,7 +79,7 @@ public class Execve extends Record{
 		public Record create(final Header header) throws MalformedRecordException{
 			final String error = validate(header);
 			if(error != null) throw new MalformedRecordException(error, header.getRawLine());
-			return new Execve(header.getEventId(), header.getTime(), header.getRawLine());
+			return new Execve(header.getId(), header.getRawLine());
 		}
 	}
 }

@@ -27,14 +27,15 @@ import spade.reporter.audit.linux.audit.event.Context;
 import spade.reporter.audit.linux.audit.event.Event;
 import spade.reporter.audit.linux.audit.event.Factory;
 import spade.reporter.audit.linux.audit.event.ID;
+import spade.reporter.audit.linux.audit.event.Num;
 import spade.reporter.audit.linux.audit.event.Timestamp;
 import spade.reporter.audit.linux.audit.event.record.Record;
 
 /**
  * Reads audit {@link Event}s from a {@link RecordReader}.
  *
- * Records sharing the same {@link ID} and {@link Timestamp} are accumulated in
- * a {@link Context}. When a new (ID, Timestamp) pair is encountered the
+ * Records sharing the same {@link Num} and {@link Timestamp} are accumulated in
+ * a {@link Context}. When a new (Num, Timestamp) pair is encountered the
  * buffered context is flushed through the {@link Factory} to produce a typed
  * {@link Event}, then the context is reset for the next group.
  */
@@ -68,8 +69,8 @@ public final class EventReader extends Reader<Event, Context> {
      * Read the next complete event from the stream.
      *
      * Records are fetched one at a time from the {@link RecordReader} and
-     * accumulated in the {@link Context} by (ID, Timestamp). When a new
-     * (ID, Timestamp) pair is seen the previous context is flushed through the
+     * accumulated in the {@link Context} by (Num, Timestamp). When a new
+     * (Num, Timestamp) pair is seen the previous context is flushed through the
      * event factory to produce an {@link Event}.
      *
      * @return the next Event, or {@code null} at end of stream
@@ -84,23 +85,22 @@ public final class EventReader extends Reader<Event, Context> {
                 break;
             }
 
-            final ID id = record.getEventId();
-            final Timestamp timestamp = record.getTime();
+            final ID id = record.getId();
 
             if (!context.isSet()) {
-                context.set(id, timestamp);
+                context.set(id);
                 context.addRecord(record);
                 continue;
             }
 
-            if (context.matches(id, timestamp)) {
+            if (context.matches(id)) {
                 context.addRecord(record);
                 continue;
             }
 
             final Event event = getEventFactory().create(context);
             context.reset();
-            context.set(id, timestamp);
+            context.set(id);
             context.addRecord(record);
             if (event != null) {
                 return event;

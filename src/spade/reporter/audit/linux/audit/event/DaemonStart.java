@@ -36,7 +36,7 @@ public class DaemonStart extends Event{
 	protected DaemonStart(
 		final spade.reporter.audit.linux.audit.event.record.DaemonStart record
 	){
-		super(record.getEventId(), record.getTime(), Type.DAEMON_START);
+		super(record.getId(), Type.DAEMON_START);
 		setRecords(Arrays.asList(record));
 		this.record = record;
 	}
@@ -54,17 +54,11 @@ public class DaemonStart extends Event{
 					+ (records == null ? "null" : records.size());
 			}
 			final Record r = records.get(0);
+			if(!(r.getType() == spade.reporter.audit.linux.audit.event.record.Type.DAEMON_START)){
+				return "Expected DaemonStart record, got type: " + r.getType();
+			}
 			if(!(r instanceof spade.reporter.audit.linux.audit.event.record.DaemonStart)){
-				return "Expected DaemonStart record, got: "
-					+ (r == null ? "null" : r.getClass().getName());
-			}
-			final spade.reporter.audit.linux.audit.event.record.DaemonStart daemonStartRecord =
-				(spade.reporter.audit.linux.audit.event.record.DaemonStart) r;
-			if(daemonStartRecord.getEventId() == null){
-				return "Event ID cannot be null in DaemonStart record";
-			}
-			if(daemonStartRecord.getTime() == null){
-				return "Time cannot be null in DaemonStart record";
+				return "Expected DaemonStart record, got class: " + r.getClass().getName();
 			}
 			return null;
 		}

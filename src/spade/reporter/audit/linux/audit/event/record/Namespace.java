@@ -22,7 +22,6 @@ package spade.reporter.audit.linux.audit.event.record;
 import java.util.Map;
 
 import spade.reporter.audit.linux.audit.event.ID;
-import spade.reporter.audit.linux.audit.event.Timestamp;
 import spade.reporter.audit.linux.audit.event.record.helper.Header;
 import spade.reporter.audit.linux.audit.event.record.helper.KeyValueParser;
 
@@ -56,9 +55,9 @@ public class Namespace extends Record {
 	private final String nsInumIpc;
 
 	public Namespace(
-		final ID eventId, final Timestamp time, final String rawRecord
+		final ID id, final String rawRecord
 	){
-		super(eventId, time, Type.NAMESPACE, rawRecord);
+		super(id, Type.NAMESPACE, rawRecord);
 		final Map<String, String> fields = KeyValueParser.parseKeyValuePairs(rawRecord);
 		this.nsSyscall = fields.get("ns_syscall");
 		this.nsSubtype = fields.get(NAMESPACE_RECORD_KEY);
@@ -102,7 +101,7 @@ public class Namespace extends Record {
 		public Record create(final Header header) throws MalformedRecordException{
 			final String error = validate(header);
 			if(error != null) throw new MalformedRecordException(error, header.getRawLine());
-			return new Namespace(header.getEventId(), header.getTime(), header.getRawLine());
+			return new Namespace(header.getId(), header.getRawLine());
 		}
 	}
 }
