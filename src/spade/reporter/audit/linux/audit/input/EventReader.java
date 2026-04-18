@@ -22,7 +22,7 @@ package spade.reporter.audit.linux.audit.input;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.reporter.audit.core.event.reader.Reader;
+import spade.reporter.audit.core.source.reader.Reader;
 import spade.reporter.audit.linux.audit.event.Context;
 import spade.reporter.audit.linux.audit.event.Event;
 import spade.reporter.audit.linux.audit.event.Factory;
@@ -61,7 +61,7 @@ public final class EventReader extends Reader<Event, Context> {
     }
 
     @Override
-    public spade.reporter.audit.core.event.Factory<Event, Context> getEventFactory() {
+    public spade.reporter.audit.core.source.Factory<Event, Context> getEventFactory() {
         return super.getEventFactory();
     }
 

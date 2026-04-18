@@ -24,7 +24,7 @@ import spade.reporter.audit.linux.audit.event.DaemonStart;
 import spade.reporter.audit.linux.platform.process.ID;
 
 public class Handler<S extends State<ID, spade.reporter.audit.linux.platform.process.State>>
-    implements spade.reporter.audit.core.event.handler.Handler<
+    implements spade.reporter.audit.core.source.handler.Handler<
         DaemonStart,
         ID,
         spade.reporter.audit.linux.platform.process.State,

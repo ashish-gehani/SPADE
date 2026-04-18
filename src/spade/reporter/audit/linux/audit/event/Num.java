@@ -22,7 +22,7 @@ package spade.reporter.audit.linux.audit.event;
 /**
  * Concrete event number for Linux Audit Subsystem events.
  */
-public final class Num extends spade.reporter.audit.core.event.Num{
+public final class Num extends spade.reporter.audit.core.source.Num{
 
 	private final long value;
 
@@ -36,7 +36,7 @@ public final class Num extends spade.reporter.audit.core.event.Num{
 	}
 
 	@Override
-	public int compareTo(final spade.reporter.audit.core.event.Num other){
+	public int compareTo(final spade.reporter.audit.core.source.Num other){
 		if(other instanceof Num){
 			return Long.compare(this.value, ((Num) other).value);
 		}

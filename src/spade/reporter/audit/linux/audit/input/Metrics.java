@@ -24,14 +24,14 @@ import java.util.logging.Logger;
 /**
  * Counters for the audit-reading pipeline.
  *
- * Extends {@link spade.reporter.audit.core.event.reader.Metrics} (which
+ * Extends {@link spade.reporter.audit.core.source.reader.Metrics} (which
  * tracks {@code eventsRead}) with the Linux-audit-specific counters:
  * the number of records those events were assembled from, and the total
  * raw bytes those records represent. Mutators are package-private and
  * single-purpose; getters, {@link #toString()} and {@link #log()} are
  * public.
  */
-public class Metrics extends spade.reporter.audit.core.event.reader.Metrics {
+public class Metrics extends spade.reporter.audit.core.source.reader.Metrics {
 
     private final Logger logger = Logger.getLogger(this.getClass().getName());
 

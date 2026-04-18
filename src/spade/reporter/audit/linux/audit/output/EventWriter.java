@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.reporter.audit.core.event.writer.Writer;
+import spade.reporter.audit.core.source.writer.Writer;
 import spade.reporter.audit.linux.audit.event.Event;
 import spade.reporter.audit.linux.audit.event.record.Record;
 

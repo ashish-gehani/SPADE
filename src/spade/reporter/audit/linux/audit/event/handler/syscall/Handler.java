@@ -21,7 +21,7 @@ package spade.reporter.audit.linux.audit.event.handler.syscall;
 
 import spade.reporter.audit.linux.audit.event.syscall.Syscall;
 
-public class Handler implements spade.reporter.audit.core.event.handler.Handler<Syscall, Context>{
+public class Handler implements spade.reporter.audit.core.source.handler.Handler<Syscall, Context>{
 
 	@Override
 	public void handle(Context context) {

@@ -22,16 +22,16 @@ package spade.reporter.audit.linux.audit.event;
 import java.util.ArrayList;
 import java.util.List;
 
-import spade.reporter.audit.core.event.MalformedEventException;
+import spade.reporter.audit.core.source.MalformedEventException;
 import spade.reporter.audit.linux.audit.event.record.Record;
 
 /**
  * Concrete audit event for the Linux Audit Subsystem.
  *
- * Wraps a {@link spade.reporter.audit.core.event.Event} and exposes it
- * through the abstract {@link spade.reporter.audit.core.event.Event} contract.
+ * Wraps a {@link spade.reporter.audit.core.source.Event} and exposes it
+ * through the abstract {@link spade.reporter.audit.core.source.Event} contract.
  */
-public abstract class Event extends spade.reporter.audit.core.event.Event{
+public abstract class Event extends spade.reporter.audit.core.source.Event{
 
 	private final Type type;
 

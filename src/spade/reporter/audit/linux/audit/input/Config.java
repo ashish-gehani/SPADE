@@ -27,7 +27,7 @@ public class Config {
 
 	private final Input input;
 	private final AuditConfiguration auditConfiguration;
-	private final spade.reporter.audit.core.event.channel.Config channelConfig;
+	private final spade.reporter.audit.core.source.channel.Config channelConfig;
 	private final boolean recordFactoryVerbose;
 	private final boolean eventFactoryVerbose;
 	private final Type lineReaderType;
@@ -36,7 +36,7 @@ public class Config {
 	protected Config(
 			final Input input,
 			final AuditConfiguration auditConfiguration,
-			final spade.reporter.audit.core.event.channel.Config channelConfig,
+			final spade.reporter.audit.core.source.channel.Config channelConfig,
 			final boolean recordFactoryVerbose,
 			final boolean eventFactoryVerbose,
 			final Type lineReaderType,
@@ -71,7 +71,7 @@ public class Config {
 		return auditConfiguration;
 	}
 
-	public spade.reporter.audit.core.event.channel.Config getChannelConfig() {
+	public spade.reporter.audit.core.source.channel.Config getChannelConfig() {
 		return channelConfig;
 	}
 

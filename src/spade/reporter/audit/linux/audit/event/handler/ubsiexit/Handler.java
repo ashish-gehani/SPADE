@@ -21,7 +21,7 @@ package spade.reporter.audit.linux.audit.event.handler.ubsiexit;
 
 import spade.reporter.audit.linux.audit.event.UbsiExit;
 
-public class Handler implements spade.reporter.audit.core.event.handler.Handler<UbsiExit, Context>{
+public class Handler implements spade.reporter.audit.core.source.handler.Handler<UbsiExit, Context>{
 
 	@Override
 	public void handle(Context context) {

@@ -23,10 +23,10 @@ package spade.reporter.audit.linux.audit.event;
  * Concrete timestamp for Linux Audit Subsystem events.
  *
  * Wraps a {@code double} value value and delegates identity / ordering to
- * {@link spade.reporter.audit.core.event.Timestamp} via the audit-format
+ * {@link spade.reporter.audit.core.source.Timestamp} via the audit-format
  * string representation (e.g. {@code "1234567890.123"}).
  */
-public final class Timestamp extends spade.reporter.audit.core.event.Timestamp{
+public final class Timestamp extends spade.reporter.audit.core.source.Timestamp{
 
 	// value is in seconds
 	private final double value;
@@ -45,7 +45,7 @@ public final class Timestamp extends spade.reporter.audit.core.event.Timestamp{
 	}
 
 	@Override
-	public int compareTo(final spade.reporter.audit.core.event.Timestamp other){
+	public int compareTo(final spade.reporter.audit.core.source.Timestamp other){
 		if(other instanceof Timestamp){
 			return Double.compare(this.value, ((Timestamp) other).value);
 		}

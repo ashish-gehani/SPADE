@@ -26,7 +26,7 @@ import spade.reporter.audit.linux.platform.process.ID;
 public abstract class Context<
     E extends Event,
     S extends State<ID, spade.reporter.audit.linux.platform.process.State, spade.reporter.audit.linux.platform.runtime.ProcessTable>
-> extends spade.reporter.audit.core.event.handler.Context<
+> extends spade.reporter.audit.core.source.handler.Context<
     E,
     ID,
     spade.reporter.audit.linux.platform.process.State,

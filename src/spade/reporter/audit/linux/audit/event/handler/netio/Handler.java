@@ -21,7 +21,7 @@ package spade.reporter.audit.linux.audit.event.handler.netio;
 
 import spade.reporter.audit.linux.audit.event.Netio;
 
-public class Handler implements spade.reporter.audit.core.event.handler.Handler<Netio, Context>{
+public class Handler implements spade.reporter.audit.core.source.handler.Handler<Netio, Context>{
 
 	@Override
 	public void handle(Context context) {

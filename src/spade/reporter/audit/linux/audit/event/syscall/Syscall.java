@@ -21,7 +21,7 @@ package spade.reporter.audit.linux.audit.event.syscall;
 
 import java.util.List;
 
-import spade.reporter.audit.core.event.MalformedEventException;
+import spade.reporter.audit.core.source.MalformedEventException;
 import spade.reporter.audit.linux.audit.event.Event;
 import spade.reporter.audit.linux.audit.event.Type;
 import spade.reporter.audit.linux.audit.event.record.Record;

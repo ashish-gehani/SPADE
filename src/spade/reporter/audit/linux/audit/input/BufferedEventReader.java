@@ -25,9 +25,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.reporter.audit.core.event.channel.Channel;
-import spade.reporter.audit.core.event.channel.ReadTimeoutExpired;
-import spade.reporter.audit.core.event.reader.Reader;
+import spade.reporter.audit.core.source.channel.Channel;
+import spade.reporter.audit.core.source.channel.ReadTimeoutExpired;
+import spade.reporter.audit.core.source.reader.Reader;
 import spade.reporter.audit.linux.audit.event.Context;
 import spade.reporter.audit.linux.audit.event.Event;
 import spade.reporter.audit.linux.audit.event.record.Record;

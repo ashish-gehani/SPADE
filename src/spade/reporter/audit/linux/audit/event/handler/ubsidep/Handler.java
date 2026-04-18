@@ -21,7 +21,7 @@ package spade.reporter.audit.linux.audit.event.handler.ubsidep;
 
 import spade.reporter.audit.linux.audit.event.UbsiDep;
 
-public class Handler implements spade.reporter.audit.core.event.handler.Handler<UbsiDep, Context>{
+public class Handler implements spade.reporter.audit.core.source.handler.Handler<UbsiDep, Context>{
 
 	@Override
 	public void handle(Context context) {

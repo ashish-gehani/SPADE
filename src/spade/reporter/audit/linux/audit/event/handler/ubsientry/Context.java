@@ -21,7 +21,7 @@ package spade.reporter.audit.linux.audit.event.handler.ubsientry;
 
 import spade.reporter.audit.linux.audit.event.UbsiEntry;
 
-public class Context extends spade.reporter.audit.core.event.handler.Context<UbsiEntry>{
+public class Context extends spade.reporter.audit.core.source.handler.Context<UbsiEntry>{
 
 	public Context(final UbsiEntry event){
 		super(event);

@@ -21,7 +21,7 @@ package spade.reporter.audit.linux.audit.event.handler.netio;
 
 import spade.reporter.audit.linux.audit.event.Netio;
 
-public class Context extends spade.reporter.audit.core.event.handler.Context<Netio>{
+public class Context extends spade.reporter.audit.core.source.handler.Context<Netio>{
 
 	public Context(final Netio event){
 		super(event);

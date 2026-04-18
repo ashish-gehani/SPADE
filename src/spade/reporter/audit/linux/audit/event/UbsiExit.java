@@ -22,7 +22,7 @@ package spade.reporter.audit.linux.audit.event;
 import java.util.Arrays;
 import java.util.List;
 
-import spade.reporter.audit.core.event.MalformedEventException;
+import spade.reporter.audit.core.source.MalformedEventException;
 import spade.reporter.audit.linux.audit.event.record.Record;
 
 /**

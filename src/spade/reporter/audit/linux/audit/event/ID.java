@@ -23,16 +23,16 @@ package spade.reporter.audit.linux.audit.event;
  * Concrete event identifier for Linux Audit Subsystem events.
  *
  * Composes a {@link Num} and a {@link Timestamp} and delegates all identity /
- * ordering logic to {@link spade.reporter.audit.core.event.ID}.
+ * ordering logic to {@link spade.reporter.audit.core.source.ID}.
  */
-public final class ID extends spade.reporter.audit.core.event.ID{
+public final class ID extends spade.reporter.audit.core.source.ID{
 
 	public ID(final Num num, final Timestamp timestamp){
 		super(num, timestamp);
 	}
 
 	@Override
-	public int compareTo(final spade.reporter.audit.core.event.ID other){
+	public int compareTo(final spade.reporter.audit.core.source.ID other){
 		if(other instanceof ID){
 			final ID o = (ID) other;
 			final int cmp = ((Num) getNum()).compareTo(o.getNum());

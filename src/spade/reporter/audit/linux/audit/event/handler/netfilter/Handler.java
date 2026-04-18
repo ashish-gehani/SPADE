@@ -21,7 +21,7 @@ package spade.reporter.audit.linux.audit.event.handler.netfilter;
 
 import spade.reporter.audit.linux.audit.event.Netfilter;
 
-public class Handler implements spade.reporter.audit.core.event.handler.Handler<Netfilter, Context>{
+public class Handler implements spade.reporter.audit.core.source.handler.Handler<Netfilter, Context>{
 
 	@Override
 	public void handle(Context context) {

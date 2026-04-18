@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.reporter.audit.core.event.MalformedEventException;
+import spade.reporter.audit.core.source.MalformedEventException;
 import spade.reporter.audit.linux.audit.event.record.Record;
 import spade.reporter.audit.linux.audit.event.syscall.Syscall;
 
@@ -41,7 +41,7 @@ import spade.reporter.audit.linux.audit.event.syscall.Syscall;
  *
  * Returns {@code null} if no creator matches or if event construction fails.
  */
-public final class Factory extends spade.reporter.audit.core.event.Factory<Event, Context>{
+public final class Factory extends spade.reporter.audit.core.source.Factory<Event, Context>{
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 

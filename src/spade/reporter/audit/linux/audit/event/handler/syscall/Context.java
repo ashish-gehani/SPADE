@@ -21,7 +21,7 @@ package spade.reporter.audit.linux.audit.event.handler.syscall;
 
 import spade.reporter.audit.linux.audit.event.syscall.Syscall;
 
-public class Context extends spade.reporter.audit.core.event.handler.Context<Syscall>{
+public class Context extends spade.reporter.audit.core.source.handler.Context<Syscall>{
 
 	public Context(final Syscall event){
 		super(event);

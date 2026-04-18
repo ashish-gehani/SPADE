@@ -19,7 +19,7 @@
  */
 package spade.reporter.audit.linux.audit.input;
 
-import spade.reporter.audit.core.event.channel.Channel;
+import spade.reporter.audit.core.source.channel.Channel;
 import spade.reporter.audit.linux.audit.event.Factory;
 
 /**

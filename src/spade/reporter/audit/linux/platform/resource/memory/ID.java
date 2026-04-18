@@ -27,6 +27,8 @@ public class ID extends spade.reporter.audit.linux.platform.resource.ID{
 		super(memory, processState);
 	}
 
+	// 
+
 	public Memory getMemory(){
 		return (Memory) getResource();
 	}
