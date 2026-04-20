@@ -19,11 +19,9 @@
  */
 package spade.reporter.audit.core.platform.runtime;
 
-import spade.reporter.audit.core.util.statetable.Indexable;
-
 public abstract class ResourceTable<
-    RTI extends Indexable<RTI>,                                         // Resource table index
-    RTS extends spade.reporter.audit.core.util.statetable.State<RTI>    // Resource table state
+    RTI extends spade.reporter.audit.core.platform.resource.ID<RTI>,
+    RTS extends spade.reporter.audit.core.platform.resource.State<RTI>
 > extends spade.reporter.audit.core.util.statetable.Table<RTI, RTS>{
 
 }

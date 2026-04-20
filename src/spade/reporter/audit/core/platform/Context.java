@@ -20,17 +20,17 @@
 package spade.reporter.audit.core.platform;
 
 import spade.reporter.audit.core.platform.info.Info;
+import spade.reporter.audit.core.platform.runtime.ProcessTable;
 import spade.reporter.audit.core.platform.runtime.ResourceTable;
 import spade.reporter.audit.core.platform.runtime.State;
-import spade.reporter.audit.core.util.statetable.Indexable;
 
 public class Context<
-    PTI extends Indexable<PTI>,
-    PTS extends spade.reporter.audit.core.util.statetable.State<PTI>,
-    PT extends spade.reporter.audit.core.platform.runtime.ProcessTable<PTI, PTS>,
-    RTI extends Indexable<RTI>,
-    RTS extends spade.reporter.audit.core.util.statetable.State<RTI>,
-    RT extends ResourceTable<RTI, RTS>,   
+    PTI extends spade.reporter.audit.core.platform.process.ID<PTI>,
+    PTS extends spade.reporter.audit.core.platform.process.State<PTI>,
+    PT extends ProcessTable<PTI, PTS>,
+    RTI extends spade.reporter.audit.core.platform.resource.ID<RTI>,
+    RTS extends spade.reporter.audit.core.platform.resource.State<RTI>,
+    RT extends ResourceTable<RTI, RTS>,
     PRS extends State<PTI, PTS, PT, RTI, RTS, RT>
 > {
 

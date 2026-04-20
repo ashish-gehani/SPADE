@@ -21,6 +21,15 @@ package spade.reporter.audit.core.platform.resource;
 
 import spade.reporter.audit.core.util.statetable.Indexable;
 
-public interface Keyable<T> extends Indexable<T> {
+public abstract class ID<T extends ID<T>> implements Indexable<T> {
+
+	@Override
+	public abstract int compareTo(final T other);
+
+	@Override
+	public abstract boolean equals(final Object obj);
+
+	@Override
+	public abstract int hashCode();
 
 }

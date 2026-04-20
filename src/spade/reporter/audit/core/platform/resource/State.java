@@ -19,11 +19,10 @@
  */
 package spade.reporter.audit.core.platform.resource;
 
-public abstract class State<T extends Keyable<T>>
-    extends spade.reporter.audit.core.util.statetable.State<T> {
+public abstract class State<T extends ID<T>> extends spade.reporter.audit.core.util.statetable.State<T> {
 
-    public State (T id) {
-        super(id);
-    }
+	protected State(final T id) {
+		super(id);
+	}
 
 }

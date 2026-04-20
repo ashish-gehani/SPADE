@@ -19,11 +19,10 @@
  */
 package spade.reporter.audit.core.platform.runtime;
 
-import spade.reporter.audit.core.util.statetable.Indexable;
 
 public abstract class ProcessTable<
-    PTI extends Indexable<PTI>,                                         // Process table index
-    PTS extends spade.reporter.audit.core.util.statetable.State<PTI>    // Process table state
-> extends spade.reporter.audit.core.util.statetable.Table<PTI, PTS>{
+    PTI extends spade.reporter.audit.core.platform.process.ID<PTI>,
+    PTS extends spade.reporter.audit.core.platform.process.State<PTI>
+> extends spade.reporter.audit.core.util.statetable.Table<PTI, PTS> {
 
 }

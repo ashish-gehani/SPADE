@@ -19,15 +19,13 @@
  */
 package spade.reporter.audit.core.platform.runtime;
 
-import spade.reporter.audit.core.util.statetable.Indexable;
-
 public abstract class State<
-    PTI extends Indexable<PTI>,                                                                      // PT=ProcessTable, I=Indexable (the indexable key type of the process table)
-    PTS extends spade.reporter.audit.core.util.statetable.State<PTI>,                                // PT=ProcessTable, S=State (the statetable entry state for the process table)
-    PT extends ProcessTable<PTI, PTS>,                                                               // Process table
-    RTI extends Indexable<RTI>,                                                                      // RT=ResourceTable, I=Indexable (the indexable key type of the resource table)
-    RTS extends spade.reporter.audit.core.util.statetable.State<RTI>,                                // RT=ResourceTable, S=State (the statetable entry state for the resource table)
-    RT extends ResourceTable<RTI, RTS>                                                               // Resource table
+    PTI extends spade.reporter.audit.core.platform.process.ID<PTI>,
+    PTS extends spade.reporter.audit.core.platform.process.State<PTI>,
+    PT extends ProcessTable<PTI, PTS>,
+    RTI extends spade.reporter.audit.core.platform.resource.ID<RTI>,
+    RTS extends spade.reporter.audit.core.platform.resource.State<RTI>,
+    RT extends ResourceTable<RTI, RTS>
 > {
 
 	private final PT processTable;

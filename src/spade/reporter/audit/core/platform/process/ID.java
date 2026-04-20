@@ -19,20 +19,17 @@
  */
 package spade.reporter.audit.core.platform.process;
 
-public abstract class ID {
+import spade.reporter.audit.core.util.statetable.Indexable;
 
-	public abstract boolean idEquals(final Object obj);
-
-	public abstract int idHashCode();
+public abstract class ID<T extends ID<T>> implements Indexable<T> {
 
 	@Override
-	public final boolean equals(final Object obj){
-		return idEquals(obj);
-	}
+	public abstract int compareTo(final T other);
 
 	@Override
-	public final int hashCode(){
-		return idHashCode();
-	}
+	public abstract boolean equals(final Object obj);
+
+	@Override
+	public abstract int hashCode();
 
 }

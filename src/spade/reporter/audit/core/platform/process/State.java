@@ -19,8 +19,10 @@
  */
 package spade.reporter.audit.core.platform.process;
 
-public interface Processable<T extends Keyable<T>> {
+public abstract class State<T extends ID<T>> extends spade.reporter.audit.core.util.statetable.State<T> {
 
-	public T getGloballyUniqueKey();
+	protected State(final T id) {
+		super(id);
+	}
 
 }
