@@ -19,25 +19,33 @@
  */
 package spade.reporter.audit.core.provenance.event.type.resource;
 
-import spade.reporter.audit.core.provenance.Process;
-import spade.reporter.audit.core.provenance.Resource;
+import java.util.ArrayList;
+import java.util.List;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
+import spade.reporter.audit.core.provenance.ManagerContext;
+import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.core.provenance.event.Type;
+import spade.reporter.audit.core.provenance.event.ResourceType;
+import spade.reporter.audit.core.provenance.type.AbstractContext;
+import spade.reporter.audit.core.provenance.type.AbstractProcess;
+import spade.reporter.audit.core.provenance.type.AbstractResource;
 
 public abstract class Update extends Event{
 
-	private final Process updater;
-	private final Resource oldVersion;
-	private final Resource newVersion;
+	private final AbstractProcess updater;
+	private final AbstractResource oldVersion;
+	private final AbstractResource newVersion;
 
 	public Update(
 		final ID id,
-		final Process updater,
-		final Resource oldVersion,
-		final Resource newVersion
+		final AbstractProcess updater,
+		final AbstractResource oldVersion,
+		final AbstractResource newVersion
 	){
-		super(Type.RESOURCE_UPDATE, id);
+		super(ResourceType.UPDATE, id);
 		if(updater == null){
 			throw new IllegalArgumentException("updater cannot be NULL");
 		}
@@ -52,16 +60,47 @@ public abstract class Update extends Event{
 		this.newVersion = newVersion;
 	}
 
-	public Process getUpdater(){
+	public AbstractProcess getUpdater(){
 		return updater;
 	}
 
-	public Resource getOldVersion(){
+	public AbstractResource getOldVersion(){
 		return oldVersion;
 	}
 
-	public Resource getNewVersion(){
+	public AbstractResource getNewVersion(){
 		return newVersion;
+	}
+
+	@Override
+	public List<ProvenanceElement> handle(final AbstractContext context, final ManagerContext managerContext){
+		final AbstractVertex updaterVertex = managerContext.getVertexGenerator().generate();
+		updaterVertex.addAnnotations(updater.getKeyAnnotations());
+		updaterVertex.addAnnotations(updater.getExtraAnnotations());
+
+		final AbstractVertex oldVertex = managerContext.getVertexGenerator().generate();
+		oldVertex.addAnnotations(oldVersion.getKeyAnnotations());
+		oldVertex.addAnnotations(oldVersion.getExtraAnnotations());
+
+		final AbstractVertex newVertex = managerContext.getVertexGenerator().generate();
+		newVertex.addAnnotations(newVersion.getKeyAnnotations());
+		newVertex.addAnnotations(newVersion.getExtraAnnotations());
+
+		final AbstractEdge updaterToNew = managerContext.getEdgeGenerator().generate(updaterVertex, newVertex);
+		updaterToNew.addAnnotations(getKeyAnnotations());
+		updaterToNew.addAnnotations(getExtraAnnotations());
+
+		final AbstractEdge newToOld = managerContext.getEdgeGenerator().generate(newVertex, oldVertex);
+		newToOld.addAnnotations(getKeyAnnotations());
+		newToOld.addAnnotations(getExtraAnnotations());
+
+		final List<ProvenanceElement> elements = new ArrayList<>();
+		elements.add(ProvenanceElement.of(updaterVertex));
+		elements.add(ProvenanceElement.of(oldVertex));
+		elements.add(ProvenanceElement.of(newVertex));
+		elements.add(ProvenanceElement.of(updaterToNew));
+		elements.add(ProvenanceElement.of(newToOld));
+		return elements;
 	}
 
 }

@@ -21,26 +21,10 @@ package spade.reporter.audit.core.provenance.type;
 
 import java.util.Map;
 
-/**
- * Implemented by types that can describe themselves as provenance annotations.
- *
- * Both methods must be implemented by the same class so that all annotations
- * for a given object are visible in one place, making it straightforward to
- * reason about what is being emitted.
- */
 public interface Provenanceable{
 
-	/**
-	 * Returns the annotations that uniquely identify this object.
-	 * These form the stable key by which the object is looked up or deduplicated
-	 * in the provenance graph.
-	 */
 	public Map<String, String> getKeyAnnotations();
 
-	/**
-	 * Returns supplementary annotations that describe this object beyond its
-	 * identity.  These enrich the provenance record but are not used as keys.
-	 */
 	public Map<String, String> getExtraAnnotations();
 
 }

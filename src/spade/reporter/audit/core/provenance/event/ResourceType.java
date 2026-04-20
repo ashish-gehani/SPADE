@@ -17,22 +17,14 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance;
+package spade.reporter.audit.core.provenance.event;
 
-import spade.core.AbstractVertex;
-import spade.core.Vertex;
-import spade.reporter.audit.core.provenance.type.Provenanceable;
+public enum ResourceType implements Type{
 
-public class Vertexifier{
-
-	public AbstractVertex vertexify(final Provenanceable provenanceable){
-		if(provenanceable == null){
-			throw new IllegalArgumentException("provenanceable cannot be NULL");
-		}
-		final Vertex vertex = new Vertex();
-		vertex.addAnnotations(provenanceable.getKeyAnnotations());
-		vertex.addAnnotations(provenanceable.getExtraAnnotations());
-		return vertex;
-	}
+	ACCESS,
+	CLOSE,
+	CREATE,
+	DELETE,
+	UPDATE
 
 }

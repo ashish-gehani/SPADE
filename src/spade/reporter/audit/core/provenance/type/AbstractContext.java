@@ -19,7 +19,6 @@
  */
 package spade.reporter.audit.core.provenance.type;
 
-public abstract class Process implements Provenanceable {
-
+public interface AbstractContext{
 
 }

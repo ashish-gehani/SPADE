@@ -17,39 +17,8 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.event;
+package spade.reporter.audit.core.provenance.type;
 
-import java.util.List;
-
-import spade.reporter.audit.core.provenance.ManagerContext;
-import spade.reporter.audit.core.provenance.ProvenanceElement;
-import spade.reporter.audit.core.provenance.type.AbstractContext;
-import spade.reporter.audit.core.provenance.type.Provenanceable;
-
-public abstract class Event implements Provenanceable{
-
-	private final Type type;
-	private final ID id;
-
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
-		}
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
-		}
-		this.type = type;
-		this.id = id;
-	}
-
-	public Type getType(){
-		return type;
-	}
-
-	public ID getId(){
-		return id;
-	}
-
-	public abstract List<ProvenanceElement> handle(AbstractContext context, ManagerContext managerContext);
+public abstract class AbstractResource implements Provenanceable{
 
 }

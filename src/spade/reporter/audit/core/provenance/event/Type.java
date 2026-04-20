@@ -19,18 +19,8 @@
  */
 package spade.reporter.audit.core.provenance.event;
 
-public enum Type{
+public interface Type{
 
-	PROCESS_CONTROL,
-	PROCESS_CREATE,
-	PROCESS_CREATE_SYNTHETIC,
-	PROCESS_EXIT,
-	PROCESS_SIGNAL,
-	PROCESS_UPDATE,
-	RESOURCE_ACCESS,
-	RESOURCE_CLOSE,
-	RESOURCE_CREATE,
-	RESOURCE_DELETE,
-	RESOURCE_UPDATE
+	String name();
 
 }

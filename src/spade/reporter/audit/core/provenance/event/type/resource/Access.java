@@ -19,23 +19,27 @@
  */
 package spade.reporter.audit.core.provenance.event.type.resource;
 
-import spade.reporter.audit.core.provenance.Process;
-import spade.reporter.audit.core.provenance.Resource;
+import java.util.ArrayList;
+import java.util.List;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
+import spade.reporter.audit.core.provenance.ManagerContext;
+import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.core.provenance.event.Type;
+import spade.reporter.audit.core.provenance.event.ResourceType;
+import spade.reporter.audit.core.provenance.type.AbstractContext;
+import spade.reporter.audit.core.provenance.type.AbstractProcess;
+import spade.reporter.audit.core.provenance.type.AbstractResource;
 
 public abstract class Access extends Event{
 
-	private final Process accessor;
-	private final Resource resource;
+	private final AbstractProcess accessor;
+	private final AbstractResource resource;
 
-	public Access(
-		final ID id,
-		final Process accessor,
-		final Resource resource
-	){
-		super(Type.RESOURCE_ACCESS, id);
+	public Access(final ID id, final AbstractProcess accessor, final AbstractResource resource){
+		super(ResourceType.ACCESS, id);
 		if(accessor == null){
 			throw new IllegalArgumentException("accessor cannot be NULL");
 		}
@@ -46,12 +50,33 @@ public abstract class Access extends Event{
 		this.resource = resource;
 	}
 
-	public Process getAccessor(){
+	public AbstractProcess getAccessor(){
 		return accessor;
 	}
 
-	public Resource getResource(){
+	public AbstractResource getResource(){
 		return resource;
+	}
+
+	@Override
+	public List<ProvenanceElement> handle(final AbstractContext context, final ManagerContext managerContext){
+		final AbstractVertex accessorVertex = managerContext.getVertexGenerator().generate();
+		accessorVertex.addAnnotations(accessor.getKeyAnnotations());
+		accessorVertex.addAnnotations(accessor.getExtraAnnotations());
+
+		final AbstractVertex resourceVertex = managerContext.getVertexGenerator().generate();
+		resourceVertex.addAnnotations(resource.getKeyAnnotations());
+		resourceVertex.addAnnotations(resource.getExtraAnnotations());
+
+		final AbstractEdge edge = managerContext.getEdgeGenerator().generate(accessorVertex, resourceVertex);
+		edge.addAnnotations(getKeyAnnotations());
+		edge.addAnnotations(getExtraAnnotations());
+
+		final List<ProvenanceElement> elements = new ArrayList<>();
+		elements.add(ProvenanceElement.of(accessorVertex));
+		elements.add(ProvenanceElement.of(resourceVertex));
+		elements.add(ProvenanceElement.of(edge));
+		return elements;
 	}
 
 }

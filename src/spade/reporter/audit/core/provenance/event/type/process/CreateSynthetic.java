@@ -19,28 +19,43 @@
  */
 package spade.reporter.audit.core.provenance.event.type.process;
 
-import spade.reporter.audit.core.provenance.Process;
+import java.util.ArrayList;
+import java.util.List;
+
+import spade.core.AbstractVertex;
+import spade.reporter.audit.core.provenance.ManagerContext;
+import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.core.provenance.event.Type;
+import spade.reporter.audit.core.provenance.event.ProcessType;
+import spade.reporter.audit.core.provenance.type.AbstractContext;
+import spade.reporter.audit.core.provenance.type.AbstractProcess;
 
 public abstract class CreateSynthetic extends Event{
 
-	private final Process process;
+	private final AbstractProcess process;
 
-	public CreateSynthetic(
-		final ID id,
-		final Process process
-	){
-		super(Type.PROCESS_CREATE_SYNTHETIC, id);
+	public CreateSynthetic(final ID id, final AbstractProcess process){
+		super(ProcessType.CREATE_SYNTHETIC, id);
 		if(process == null){
 			throw new IllegalArgumentException("process cannot be NULL");
 		}
 		this.process = process;
 	}
 
-	public Process getProcess(){
+	public AbstractProcess getProcess(){
 		return process;
+	}
+
+	@Override
+	public List<ProvenanceElement> handle(final AbstractContext context, final ManagerContext managerContext){
+		final AbstractVertex processVertex = managerContext.getVertexGenerator().generate();
+		processVertex.addAnnotations(process.getKeyAnnotations());
+		processVertex.addAnnotations(process.getExtraAnnotations());
+
+		final List<ProvenanceElement> elements = new ArrayList<>();
+		elements.add(ProvenanceElement.of(processVertex));
+		return elements;
 	}
 
 }

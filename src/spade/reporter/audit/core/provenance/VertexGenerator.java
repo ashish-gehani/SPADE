@@ -19,32 +19,10 @@
  */
 package spade.reporter.audit.core.provenance;
 
-import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.core.Edge;
-import spade.reporter.audit.core.provenance.event.Event;
-import spade.reporter.audit.core.provenance.type.Provenanceable;
 
-public class Edgifier{
+public interface VertexGenerator{
 
-	private final Vertexifier vertexifier = new Vertexifier();
-
-	public AbstractEdge edgify(final Event event, final Provenanceable child, final Provenanceable parent){
-		if(event == null){
-			throw new IllegalArgumentException("event cannot be NULL");
-		}
-		if(child == null){
-			throw new IllegalArgumentException("child cannot be NULL");
-		}
-		if(parent == null){
-			throw new IllegalArgumentException("parent cannot be NULL");
-		}
-		final AbstractVertex childVertex = vertexifier.vertexify(child);
-		final AbstractVertex parentVertex = vertexifier.vertexify(parent);
-		final Edge edge = new Edge(childVertex, parentVertex);
-		edge.addAnnotations(event.getKeyAnnotations());
-		edge.addAnnotations(event.getExtraAnnotations());
-		return edge;
-	}
+	public AbstractVertex generate();
 
 }

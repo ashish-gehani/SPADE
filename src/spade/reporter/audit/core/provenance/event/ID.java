@@ -19,7 +19,7 @@
  */
 package spade.reporter.audit.core.provenance.event;
 
-public class ID implements Comparable<ID>{
+public final class ID implements Comparable<ID>{
 
 	private final long value;
 

@@ -17,9 +17,8 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance;
+package spade.reporter.audit.core.provenance.type;
 
-public abstract class Resource implements Provenanceable {
-
+public abstract class AbstractProcess implements Provenanceable{
 
 }

@@ -19,22 +19,26 @@
  */
 package spade.reporter.audit.core.provenance.event.type.process;
 
-import spade.reporter.audit.core.provenance.Process;
+import java.util.ArrayList;
+import java.util.List;
+
+import spade.core.AbstractEdge;
+import spade.core.AbstractVertex;
+import spade.reporter.audit.core.provenance.ManagerContext;
+import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.core.provenance.event.Type;
+import spade.reporter.audit.core.provenance.event.ProcessType;
+import spade.reporter.audit.core.provenance.type.AbstractContext;
+import spade.reporter.audit.core.provenance.type.AbstractProcess;
 
 public abstract class Update extends Event{
 
-	private final Process oldVersion;
-	private final Process newVersion;
+	private final AbstractProcess oldVersion;
+	private final AbstractProcess newVersion;
 
-	public Update(
-		final ID id,
-		final Process oldVersion,
-		final Process newVersion
-	){
-		super(Type.PROCESS_CREATE, id);
+	public Update(final ID id, final AbstractProcess oldVersion, final AbstractProcess newVersion){
+		super(ProcessType.UPDATE, id);
 		if(oldVersion == null){
 			throw new IllegalArgumentException("oldVersion cannot be NULL");
 		}
@@ -45,12 +49,33 @@ public abstract class Update extends Event{
 		this.newVersion = newVersion;
 	}
 
-	public Process getOldVersion(){
+	public AbstractProcess getOldVersion(){
 		return oldVersion;
 	}
 
-	public Process getNewVersion(){
+	public AbstractProcess getNewVersion(){
 		return newVersion;
+	}
+
+	@Override
+	public List<ProvenanceElement> handle(final AbstractContext context, final ManagerContext managerContext){
+		final AbstractVertex oldVertex = managerContext.getVertexGenerator().generate();
+		oldVertex.addAnnotations(oldVersion.getKeyAnnotations());
+		oldVertex.addAnnotations(oldVersion.getExtraAnnotations());
+
+		final AbstractVertex newVertex = managerContext.getVertexGenerator().generate();
+		newVertex.addAnnotations(newVersion.getKeyAnnotations());
+		newVertex.addAnnotations(newVersion.getExtraAnnotations());
+
+		final AbstractEdge edge = managerContext.getEdgeGenerator().generate(newVertex, oldVertex);
+		edge.addAnnotations(getKeyAnnotations());
+		edge.addAnnotations(getExtraAnnotations());
+
+		final List<ProvenanceElement> elements = new ArrayList<>();
+		elements.add(ProvenanceElement.of(oldVertex));
+		elements.add(ProvenanceElement.of(newVertex));
+		elements.add(ProvenanceElement.of(edge));
+		return elements;
 	}
 
 }
