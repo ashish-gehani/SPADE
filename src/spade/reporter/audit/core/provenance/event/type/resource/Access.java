@@ -61,16 +61,16 @@ public abstract class Access extends Event{
 	@Override
 	public List<ProvenanceElement> handle(final AbstractContext context, final ManagerContext managerContext){
 		final AbstractVertex accessorVertex = managerContext.getVertexGenerator().generate();
-		accessorVertex.addAnnotations(accessor.getKeyAnnotations());
-		accessorVertex.addAnnotations(accessor.getExtraAnnotations());
+		accessorVertex.addAnnotations(accessor.getKeyAnnotations(context));
+		accessorVertex.addAnnotations(accessor.getExtraAnnotations(context));
 
 		final AbstractVertex resourceVertex = managerContext.getVertexGenerator().generate();
-		resourceVertex.addAnnotations(resource.getKeyAnnotations());
-		resourceVertex.addAnnotations(resource.getExtraAnnotations());
+		resourceVertex.addAnnotations(resource.getKeyAnnotations(context));
+		resourceVertex.addAnnotations(resource.getExtraAnnotations(context));
 
 		final AbstractEdge edge = managerContext.getEdgeGenerator().generate(accessorVertex, resourceVertex);
-		edge.addAnnotations(getKeyAnnotations());
-		edge.addAnnotations(getExtraAnnotations());
+		edge.addAnnotations(getKeyAnnotations(context));
+		edge.addAnnotations(getExtraAnnotations(context));
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(accessorVertex));

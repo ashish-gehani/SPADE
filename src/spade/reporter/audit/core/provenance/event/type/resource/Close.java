@@ -61,16 +61,16 @@ public abstract class Close extends Event{
 	@Override
 	public List<ProvenanceElement> handle(final AbstractContext context, final ManagerContext managerContext){
 		final AbstractVertex closerVertex = managerContext.getVertexGenerator().generate();
-		closerVertex.addAnnotations(closer.getKeyAnnotations());
-		closerVertex.addAnnotations(closer.getExtraAnnotations());
+		closerVertex.addAnnotations(closer.getKeyAnnotations(context));
+		closerVertex.addAnnotations(closer.getExtraAnnotations(context));
 
 		final AbstractVertex resourceVertex = managerContext.getVertexGenerator().generate();
-		resourceVertex.addAnnotations(resource.getKeyAnnotations());
-		resourceVertex.addAnnotations(resource.getExtraAnnotations());
+		resourceVertex.addAnnotations(resource.getKeyAnnotations(context));
+		resourceVertex.addAnnotations(resource.getExtraAnnotations(context));
 
 		final AbstractEdge edge = managerContext.getEdgeGenerator().generate(closerVertex, resourceVertex);
-		edge.addAnnotations(getKeyAnnotations());
-		edge.addAnnotations(getExtraAnnotations());
+		edge.addAnnotations(getKeyAnnotations(context));
+		edge.addAnnotations(getExtraAnnotations(context));
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(closerVertex));

@@ -60,16 +60,16 @@ public abstract class Update extends Event{
 	@Override
 	public List<ProvenanceElement> handle(final AbstractContext context, final ManagerContext managerContext){
 		final AbstractVertex oldVertex = managerContext.getVertexGenerator().generate();
-		oldVertex.addAnnotations(oldVersion.getKeyAnnotations());
-		oldVertex.addAnnotations(oldVersion.getExtraAnnotations());
+		oldVertex.addAnnotations(oldVersion.getKeyAnnotations(context));
+		oldVertex.addAnnotations(oldVersion.getExtraAnnotations(context));
 
 		final AbstractVertex newVertex = managerContext.getVertexGenerator().generate();
-		newVertex.addAnnotations(newVersion.getKeyAnnotations());
-		newVertex.addAnnotations(newVersion.getExtraAnnotations());
+		newVertex.addAnnotations(newVersion.getKeyAnnotations(context));
+		newVertex.addAnnotations(newVersion.getExtraAnnotations(context));
 
 		final AbstractEdge edge = managerContext.getEdgeGenerator().generate(newVertex, oldVertex);
-		edge.addAnnotations(getKeyAnnotations());
-		edge.addAnnotations(getExtraAnnotations());
+		edge.addAnnotations(getKeyAnnotations(context));
+		edge.addAnnotations(getExtraAnnotations(context));
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(oldVertex));

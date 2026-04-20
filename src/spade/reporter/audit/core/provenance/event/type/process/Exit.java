@@ -50,8 +50,8 @@ public abstract class Exit extends Event{
 	@Override
 	public List<ProvenanceElement> handle(final AbstractContext context, final ManagerContext managerContext){
 		final AbstractVertex processVertex = managerContext.getVertexGenerator().generate();
-		processVertex.addAnnotations(process.getKeyAnnotations());
-		processVertex.addAnnotations(process.getExtraAnnotations());
+		processVertex.addAnnotations(process.getKeyAnnotations(context));
+		processVertex.addAnnotations(process.getExtraAnnotations(context));
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(processVertex));

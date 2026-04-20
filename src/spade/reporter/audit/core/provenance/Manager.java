@@ -28,13 +28,11 @@ import spade.reporter.audit.core.provenance.type.AbstractContext;
 
 public final class Manager{
 
-	private final AbstractContext context;
 	private final ManagerContext managerContext;
 
 	public Manager(
 		final VertexGenerator vertexGenerator,
-		final EdgeGenerator edgeGenerator,
-		final AbstractContext context
+		final EdgeGenerator edgeGenerator
 	){
 		if(vertexGenerator == null){
 			throw new IllegalArgumentException("vertexGenerator cannot be NULL");
@@ -42,14 +40,13 @@ public final class Manager{
 		if(edgeGenerator == null){
 			throw new IllegalArgumentException("edgeGenerator cannot be NULL");
 		}
-		if(context == null){
-			throw new IllegalArgumentException("context cannot be NULL");
-		}
-		this.context = context;
 		this.managerContext = new ManagerContext(vertexGenerator, edgeGenerator);
 	}
 
-	public List<ProvenanceElement> handle(final List<Event> events){
+	public List<ProvenanceElement> handle(final AbstractContext context, final List<Event> events){
+		if(context == null){
+			throw new IllegalArgumentException("context cannot be NULL");
+		}
 		if(events == null){
 			throw new IllegalArgumentException("events cannot be NULL");
 		}

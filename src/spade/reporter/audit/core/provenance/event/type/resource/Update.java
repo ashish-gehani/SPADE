@@ -75,24 +75,24 @@ public abstract class Update extends Event{
 	@Override
 	public List<ProvenanceElement> handle(final AbstractContext context, final ManagerContext managerContext){
 		final AbstractVertex updaterVertex = managerContext.getVertexGenerator().generate();
-		updaterVertex.addAnnotations(updater.getKeyAnnotations());
-		updaterVertex.addAnnotations(updater.getExtraAnnotations());
+		updaterVertex.addAnnotations(updater.getKeyAnnotations(context));
+		updaterVertex.addAnnotations(updater.getExtraAnnotations(context));
 
 		final AbstractVertex oldVertex = managerContext.getVertexGenerator().generate();
-		oldVertex.addAnnotations(oldVersion.getKeyAnnotations());
-		oldVertex.addAnnotations(oldVersion.getExtraAnnotations());
+		oldVertex.addAnnotations(oldVersion.getKeyAnnotations(context));
+		oldVertex.addAnnotations(oldVersion.getExtraAnnotations(context));
 
 		final AbstractVertex newVertex = managerContext.getVertexGenerator().generate();
-		newVertex.addAnnotations(newVersion.getKeyAnnotations());
-		newVertex.addAnnotations(newVersion.getExtraAnnotations());
+		newVertex.addAnnotations(newVersion.getKeyAnnotations(context));
+		newVertex.addAnnotations(newVersion.getExtraAnnotations(context));
 
 		final AbstractEdge updaterToNew = managerContext.getEdgeGenerator().generate(updaterVertex, newVertex);
-		updaterToNew.addAnnotations(getKeyAnnotations());
-		updaterToNew.addAnnotations(getExtraAnnotations());
+		updaterToNew.addAnnotations(getKeyAnnotations(context));
+		updaterToNew.addAnnotations(getExtraAnnotations(context));
 
 		final AbstractEdge newToOld = managerContext.getEdgeGenerator().generate(newVertex, oldVertex);
-		newToOld.addAnnotations(getKeyAnnotations());
-		newToOld.addAnnotations(getExtraAnnotations());
+		newToOld.addAnnotations(getKeyAnnotations(context));
+		newToOld.addAnnotations(getExtraAnnotations(context));
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(updaterVertex));

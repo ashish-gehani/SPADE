@@ -60,16 +60,16 @@ public abstract class Create extends Event{
 	@Override
 	public List<ProvenanceElement> handle(final AbstractContext context, final ManagerContext managerContext){
 		final AbstractVertex parentVertex = managerContext.getVertexGenerator().generate();
-		parentVertex.addAnnotations(parent.getKeyAnnotations());
-		parentVertex.addAnnotations(parent.getExtraAnnotations());
+		parentVertex.addAnnotations(parent.getKeyAnnotations(context));
+		parentVertex.addAnnotations(parent.getExtraAnnotations(context));
 
 		final AbstractVertex childVertex = managerContext.getVertexGenerator().generate();
-		childVertex.addAnnotations(child.getKeyAnnotations());
-		childVertex.addAnnotations(child.getExtraAnnotations());
+		childVertex.addAnnotations(child.getKeyAnnotations(context));
+		childVertex.addAnnotations(child.getExtraAnnotations(context));
 
 		final AbstractEdge edge = managerContext.getEdgeGenerator().generate(childVertex, parentVertex);
-		edge.addAnnotations(getKeyAnnotations());
-		edge.addAnnotations(getExtraAnnotations());
+		edge.addAnnotations(getKeyAnnotations(context));
+		edge.addAnnotations(getExtraAnnotations(context));
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(parentVertex));

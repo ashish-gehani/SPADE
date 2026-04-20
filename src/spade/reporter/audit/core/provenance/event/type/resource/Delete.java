@@ -61,16 +61,16 @@ public abstract class Delete extends Event{
 	@Override
 	public List<ProvenanceElement> handle(final AbstractContext context, final ManagerContext managerContext){
 		final AbstractVertex deleterVertex = managerContext.getVertexGenerator().generate();
-		deleterVertex.addAnnotations(deleter.getKeyAnnotations());
-		deleterVertex.addAnnotations(deleter.getExtraAnnotations());
+		deleterVertex.addAnnotations(deleter.getKeyAnnotations(context));
+		deleterVertex.addAnnotations(deleter.getExtraAnnotations(context));
 
 		final AbstractVertex resourceVertex = managerContext.getVertexGenerator().generate();
-		resourceVertex.addAnnotations(resource.getKeyAnnotations());
-		resourceVertex.addAnnotations(resource.getExtraAnnotations());
+		resourceVertex.addAnnotations(resource.getKeyAnnotations(context));
+		resourceVertex.addAnnotations(resource.getExtraAnnotations(context));
 
 		final AbstractEdge edge = managerContext.getEdgeGenerator().generate(deleterVertex, resourceVertex);
-		edge.addAnnotations(getKeyAnnotations());
-		edge.addAnnotations(getExtraAnnotations());
+		edge.addAnnotations(getKeyAnnotations(context));
+		edge.addAnnotations(getExtraAnnotations(context));
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(deleterVertex));

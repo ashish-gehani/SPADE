@@ -60,16 +60,16 @@ public abstract class Control extends Event{
 	@Override
 	public List<ProvenanceElement> handle(final AbstractContext context, final ManagerContext managerContext){
 		final AbstractVertex controllerVertex = managerContext.getVertexGenerator().generate();
-		controllerVertex.addAnnotations(controller.getKeyAnnotations());
-		controllerVertex.addAnnotations(controller.getExtraAnnotations());
+		controllerVertex.addAnnotations(controller.getKeyAnnotations(context));
+		controllerVertex.addAnnotations(controller.getExtraAnnotations(context));
 
 		final AbstractVertex targetVertex = managerContext.getVertexGenerator().generate();
-		targetVertex.addAnnotations(target.getKeyAnnotations());
-		targetVertex.addAnnotations(target.getExtraAnnotations());
+		targetVertex.addAnnotations(target.getKeyAnnotations(context));
+		targetVertex.addAnnotations(target.getExtraAnnotations(context));
 
 		final AbstractEdge edge = managerContext.getEdgeGenerator().generate(controllerVertex, targetVertex);
-		edge.addAnnotations(getKeyAnnotations());
-		edge.addAnnotations(getExtraAnnotations());
+		edge.addAnnotations(getKeyAnnotations(context));
+		edge.addAnnotations(getExtraAnnotations(context));
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(controllerVertex));

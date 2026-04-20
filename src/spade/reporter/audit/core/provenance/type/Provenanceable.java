@@ -23,8 +23,8 @@ import java.util.Map;
 
 public interface Provenanceable{
 
-	public Map<String, String> getKeyAnnotations();
+	public Map<String, String> getKeyAnnotations(AbstractContext context);
 
-	public Map<String, String> getExtraAnnotations();
+	public Map<String, String> getExtraAnnotations(AbstractContext context);
 
 }

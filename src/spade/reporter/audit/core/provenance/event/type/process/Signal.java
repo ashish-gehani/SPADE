@@ -60,16 +60,16 @@ public abstract class Signal extends Event{
 	@Override
 	public List<ProvenanceElement> handle(final AbstractContext context, final ManagerContext managerContext){
 		final AbstractVertex senderVertex = managerContext.getVertexGenerator().generate();
-		senderVertex.addAnnotations(sender.getKeyAnnotations());
-		senderVertex.addAnnotations(sender.getExtraAnnotations());
+		senderVertex.addAnnotations(sender.getKeyAnnotations(context));
+		senderVertex.addAnnotations(sender.getExtraAnnotations(context));
 
 		final AbstractVertex receiverVertex = managerContext.getVertexGenerator().generate();
-		receiverVertex.addAnnotations(receiver.getKeyAnnotations());
-		receiverVertex.addAnnotations(receiver.getExtraAnnotations());
+		receiverVertex.addAnnotations(receiver.getKeyAnnotations(context));
+		receiverVertex.addAnnotations(receiver.getExtraAnnotations(context));
 
 		final AbstractEdge edge = managerContext.getEdgeGenerator().generate(senderVertex, receiverVertex);
-		edge.addAnnotations(getKeyAnnotations());
-		edge.addAnnotations(getExtraAnnotations());
+		edge.addAnnotations(getKeyAnnotations(context));
+		edge.addAnnotations(getExtraAnnotations(context));
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(senderVertex));
