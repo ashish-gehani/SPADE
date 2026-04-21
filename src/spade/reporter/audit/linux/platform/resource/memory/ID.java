@@ -27,11 +27,66 @@ public class ID extends spade.reporter.audit.linux.platform.resource.ID{
 		super(memory, processState);
 	}
 
-	// 
-
 	public Memory getMemory(){
 		return (Memory) getResource();
 	}
 
+	private long pid(){
+		return getProcessState().getCred().getProcess().getPid().getValue();
+	}
+
+	private long address(){
+		return getMemory().getAddress();
+	}
+
+	private long size(){
+		return getMemory().getSize();
+	}
+
+	private spade.reporter.audit.linux.platform.resource.Type type(){
+		return getResource().getType();
+	}
+
+	@Override
+	public int compareTo(final spade.reporter.audit.linux.platform.resource.ID other){
+		if(other == null){
+			throw new IllegalArgumentException("Cannot compare to NULL");
+		}
+		if(this == other) return 0;
+		if(!(other instanceof ID)){
+			return Integer.compare(
+				this.getResource().getType().ordinal(),
+				other.getResource().getType().ordinal()
+			);
+		}
+		final ID o = (ID) other;
+		int c = this.type().compareTo(o.type());
+		if(c != 0) return c;
+		c = Long.compare(this.pid(), o.pid());
+		if(c != 0) return c;
+		c = Long.compare(this.address(), o.address());
+		if(c != 0) return c;
+		return Long.compare(this.size(), o.size());
+	}
+
+	@Override
+	public boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof ID)) return false;
+		final ID other = (ID) obj;
+		return this.type() == other.type()
+			&& this.pid() == other.pid()
+			&& this.address() == other.address()
+			&& this.size() == other.size();
+	}
+
+	@Override
+	public int hashCode(){
+		int result = type().hashCode();
+		result = 31 * result + Long.hashCode(pid());
+		result = 31 * result + Long.hashCode(address());
+		result = 31 * result + Long.hashCode(size());
+		return result;
+	}
 
 }

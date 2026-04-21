@@ -52,6 +52,15 @@ public class User{
 	public UID getSuid(){ return suid; }
 	public UID getFsuid(){ return fsuid; }
 
+	public User(final User other){
+		this(
+			new UID(other.uid),
+			new UID(other.euid),
+			new UID(other.suid),
+			new UID(other.fsuid)
+		);
+	}
+
 	@Override
 	public boolean equals(final Object obj){
 		if(this == obj) return true;

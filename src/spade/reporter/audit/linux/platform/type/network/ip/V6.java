@@ -39,4 +39,16 @@ public class V6 extends IP{
 		return address;
 	}
 
+	@Override
+	public boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof V6)) return false;
+		return this.address.equals(((V6) obj).address);
+	}
+
+	@Override
+	public int hashCode(){
+		return address.hashCode();
+	}
+
 }

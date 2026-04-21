@@ -19,7 +19,8 @@
  */
 package spade.reporter.audit.linux.audit.input;
 
-import spade.reporter.audit.core.source.channel.Channel;
+import spade.reporter.audit.core.util.channel.Channel;
+import spade.reporter.audit.linux.audit.event.Event;
 import spade.reporter.audit.linux.audit.event.Factory;
 
 /**
@@ -49,7 +50,7 @@ public class Helper {
             new Factory(config.isEventFactoryVerbose()),
             recordReader
         );
-        final Channel channel = new Channel(config.getChannelConfig());
+        final Channel<Event> channel = new Channel<>(config.getChannelConfig());
         return new BufferedEventReader(eventReader, channel, config);
     }
 

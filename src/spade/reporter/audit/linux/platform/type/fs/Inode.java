@@ -27,6 +27,10 @@ public class Inode{
 		this.value = value;
 	}
 
+	public Inode(final Inode other){
+		this.value = other.value;
+	}
+
 	public long getValue(){
 		return value;
 	}

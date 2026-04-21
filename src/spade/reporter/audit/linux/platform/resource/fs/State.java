@@ -24,13 +24,18 @@ import spade.reporter.audit.linux.platform.type.fs.Permission;
 
 public class State extends spade.reporter.audit.linux.platform.resource.State{
 
-	private final Permission permission;
+	private Permission permission;
 
 	public State(final ID id, final Permission permission){
 		super(id);
-		if(permission == null){
-			throw new IllegalArgumentException("permission cannot be NULL");
-		}
+		this.permission = permission;
+	}
+
+	public boolean hasPermission(){
+		return permission != null;
+	}
+
+	public void setPermission(final Permission permission){
 		this.permission = permission;
 	}
 

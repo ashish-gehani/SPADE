@@ -38,4 +38,8 @@ public class Time{
 	public String getValue(){ return value; }
 	public Type getType(){ return type; }
 
+	public Time(final Time other){
+		this(other.value, other.type);
+	}
+
 }

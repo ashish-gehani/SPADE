@@ -43,6 +43,10 @@ public class ID extends spade.reporter.audit.linux.platform.resource.ID{
 		return getFDPair().getFd1().getValue();
 	}
 
+	private Type fdPairType(){
+		return getFDPair().getFdPairType();
+	}
+
 	@Override
 	public int compareTo(final spade.reporter.audit.linux.platform.resource.ID other){
 		if(other == null){
@@ -56,7 +60,9 @@ public class ID extends spade.reporter.audit.linux.platform.resource.ID{
 			);
 		}
 		final ID o = (ID) other;
-		int c = Long.compare(this.pid(), o.pid());
+		int c = this.fdPairType().compareTo(o.fdPairType());
+		if(c != 0) return c;
+		c = Long.compare(this.pid(), o.pid());
 		if(c != 0) return c;
 		c = Integer.compare(this.fd0(), o.fd0());
 		if(c != 0) return c;
@@ -68,14 +74,16 @@ public class ID extends spade.reporter.audit.linux.platform.resource.ID{
 		if(this == obj) return true;
 		if(!(obj instanceof ID)) return false;
 		final ID other = (ID) obj;
-		return this.pid() == other.pid()
+		return this.fdPairType() == other.fdPairType()
+			&& this.pid() == other.pid()
 			&& this.fd0() == other.fd0()
 			&& this.fd1() == other.fd1();
 	}
 
 	@Override
 	public int hashCode(){
-		int result = Long.hashCode(pid());
+		int result = fdPairType().hashCode();
+		result = 31 * result + Long.hashCode(pid());
 		result = 31 * result + Integer.hashCode(fd0());
 		result = 31 * result + Integer.hashCode(fd1());
 		return result;

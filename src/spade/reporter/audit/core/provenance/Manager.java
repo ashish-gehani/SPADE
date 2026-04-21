@@ -19,20 +19,26 @@
  */
 package spade.reporter.audit.core.provenance;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.type.AbstractContext;
+import spade.reporter.audit.core.util.channel.Channel;
+import spade.reporter.audit.core.util.channel.ReadTimeoutExpired;
 
 public final class Manager{
 
 	private final ManagerContext managerContext;
+	private final Channel<Event> channel;
+
+	private volatile boolean running = false;
+	private Thread pumpThread;
 
 	public Manager(
 		final VertexGenerator vertexGenerator,
-		final EdgeGenerator edgeGenerator
+		final EdgeGenerator edgeGenerator,
+		final Channel<Event> channel
 	){
 		if(vertexGenerator == null){
 			throw new IllegalArgumentException("vertexGenerator cannot be NULL");
@@ -40,24 +46,68 @@ public final class Manager{
 		if(edgeGenerator == null){
 			throw new IllegalArgumentException("edgeGenerator cannot be NULL");
 		}
+		if(channel == null){
+			throw new IllegalArgumentException("channel cannot be NULL");
+		}
 		this.managerContext = new ManagerContext(vertexGenerator, edgeGenerator);
+		this.channel = channel;
 	}
 
-	public List<ProvenanceElement> handle(final AbstractContext context, final List<Event> events){
+	public synchronized void start(final AbstractContext context){
+		if(running){
+			throw new IllegalStateException("Already running");
+		}
 		if(context == null){
 			throw new IllegalArgumentException("context cannot be NULL");
 		}
-		if(events == null){
-			throw new IllegalArgumentException("events cannot be NULL");
+		running = true;
+		pumpThread = new Thread(() -> pump(context), "manager-pump");
+		pumpThread.setDaemon(true);
+		pumpThread.start();
+	}
+
+	public synchronized void stop(){
+		running = false;
+		if(pumpThread != null){
+			pumpThread.interrupt();
+			pumpThread = null;
 		}
-		final List<ProvenanceElement> result = new ArrayList<>();
-		for(final Event event : events){
-			if(event == null){
-				throw new IllegalArgumentException("event in list cannot be NULL");
+	}
+
+	public boolean isRunning(){
+		return running;
+	}
+
+	private void pump(final AbstractContext context){
+		try{
+			while(running){
+				try{
+					handle(context);
+					if(channel.isClosed()){
+						break;
+					}
+				}catch(final ReadTimeoutExpired e){
+					// channel not yet closed, continue waiting
+				}catch(final InterruptedException e){
+					Thread.currentThread().interrupt();
+					break;
+				}
 			}
-			result.addAll(event.handle(context, managerContext));
+		}finally{
+			channel.close();
+			running = false;
 		}
-		return Collections.unmodifiableList(result);
+	}
+
+	public List<ProvenanceElement> handle(final AbstractContext context) throws InterruptedException, ReadTimeoutExpired {
+		if(context == null){
+			throw new IllegalArgumentException("context cannot be NULL");
+		}
+		final Event event = channel.read();
+		if(event == null){
+			return Collections.emptyList();
+		}
+		return Collections.unmodifiableList(event.handle(context, managerContext));
 	}
 
 }

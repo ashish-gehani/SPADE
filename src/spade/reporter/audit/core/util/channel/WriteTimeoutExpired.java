@@ -17,24 +17,12 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.util;
+package spade.reporter.audit.core.util.channel;
 
-/**
- * Implemented by types that can produce an immutable point-in-time copy of
- * themselves.
- *
- * @param <T> the concrete implementing type, so that {@link #snapshot()}
- *            returns the same type rather than a raw {@code Snapshotable}
- */
-public interface Snapshotable<T extends Snapshotable<T>>{
+public class WriteTimeoutExpired extends Exception {
 
-	/**
-	 * Returns an immutable snapshot of the current state.
-	 * The returned instance must not reflect any mutations made to the
-	 * original after this call.
-	 *
-	 * @return a point-in-time copy of this object
-	 */
-	public T snapshot();
+    public WriteTimeoutExpired(final String message) {
+        super(message);
+    }
 
 }

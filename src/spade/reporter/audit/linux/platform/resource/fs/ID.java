@@ -35,22 +35,50 @@ public class ID extends spade.reporter.audit.linux.platform.resource.ID{
 		return getPath().getPath().getResolvedPath();
 	}
 
+	private Type pathType(){
+		return getPath().getPathType();
+	}
+
+	private long inode(){
+		return getPath().getInode().getValue();
+	}
+
 	@Override
 	public int compareTo(final spade.reporter.audit.linux.platform.resource.ID other){
-		if(!(other instanceof ID)) return -1;
-		return this.getResolvedPath().compareTo(((ID) other).getResolvedPath());
+		if(other == null){
+			throw new IllegalArgumentException("Cannot compare to NULL");
+		}
+		if(this == other) return 0;
+		if(!(other instanceof ID)){
+			return Integer.compare(
+				this.getResource().getType().ordinal(),
+				other.getResource().getType().ordinal()
+			);
+		}
+		final ID o = (ID) other;
+		int c = this.pathType().compareTo(o.pathType());
+		if(c != 0) return c;
+		c = Long.compare(this.inode(), o.inode());
+		if(c != 0) return c;
+		return this.getResolvedPath().compareTo(o.getResolvedPath());
 	}
 
 	@Override
 	public boolean equals(final Object obj){
 		if(this == obj) return true;
 		if(!(obj instanceof ID)) return false;
-		return this.getResolvedPath().equals(((ID) obj).getResolvedPath());
+		final ID other = (ID) obj;
+		return this.pathType() == other.pathType()
+			&& this.inode() == other.inode()
+			&& this.getResolvedPath().equals(other.getResolvedPath());
 	}
 
 	@Override
 	public int hashCode(){
-		return getResolvedPath().hashCode();
+		int result = pathType().hashCode();
+		result = 31 * result + Long.hashCode(inode());
+		result = 31 * result + getResolvedPath().hashCode();
+		return result;
 	}
 
 }

@@ -23,7 +23,7 @@ import spade.reporter.audit.linux.platform.type.fs.Path;
 import spade.reporter.audit.linux.platform.type.namespace.Tuple;
 import spade.reporter.audit.linux.platform.type.time.Time;
 
-public class Info {
+public class Info{
 
 	private final String name;
 	private final Path cwd;
@@ -34,6 +34,20 @@ public class Info {
 	private spade.reporter.audit.linux.platform.process.info.credential.Tuple cred;
 	private final spade.reporter.audit.linux.platform.process.info.Memory memory;
 	private final spade.reporter.audit.linux.platform.process.info.unit.State unitState;
+
+	public Info(final Info other){
+		this(
+			other.name,
+			new Path(other.cwd),
+			new Path(other.root),
+			new Time(other.time),
+			new Path(other.exe),
+			new Tuple(other.namespace),
+			new spade.reporter.audit.linux.platform.process.info.credential.Tuple(other.cred),
+			new spade.reporter.audit.linux.platform.process.info.Memory(other.memory),
+			new spade.reporter.audit.linux.platform.process.info.unit.State(other.unitState)
+		);
+	}
 
 	public Info(
 		final String name,
@@ -51,6 +65,9 @@ public class Info {
 		}
 		if (cwd == null) {
 			throw new IllegalArgumentException("cwd cannot be NULL");
+		}
+		if (root == null) {
+			throw new IllegalArgumentException("root cannot be NULL");
 		}
 		if (time == null) {
 			throw new IllegalArgumentException("time cannot be NULL");

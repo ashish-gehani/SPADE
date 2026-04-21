@@ -45,4 +45,20 @@ public class Address{
 		return port;
 	}
 
+	@Override
+	public boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof Address)) return false;
+		final Address other = (Address) obj;
+		return this.ip.equals(other.ip)
+			&& this.port == other.port;
+	}
+
+	@Override
+	public int hashCode(){
+		int result = ip.hashCode();
+		result = 31 * result + Integer.hashCode(port);
+		return result;
+	}
+
 }

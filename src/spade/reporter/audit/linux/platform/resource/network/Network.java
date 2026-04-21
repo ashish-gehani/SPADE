@@ -62,4 +62,22 @@ public class Network extends Resource {
 		return dst;
 	}
 
+	@Override
+	public boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof Network)) return false;
+		final Network other = (Network) obj;
+		return this.protocol == other.protocol
+			&& this.src.equals(other.src)
+			&& this.dst.equals(other.dst);
+	}
+
+	@Override
+	public int hashCode(){
+		int result = protocol.hashCode();
+		result = 31 * result + src.hashCode();
+		result = 31 * result + dst.hashCode();
+		return result;
+	}
+
 }

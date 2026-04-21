@@ -19,43 +19,61 @@
  */
 package spade.reporter.audit.linux.platform.process;
 
-import spade.reporter.audit.core.util.statetable.Indexable;
 import spade.reporter.audit.linux.platform.type.credential.PID;
 
-public class ID implements Indexable<ID>{
+public class VersionedID extends spade.reporter.audit.core.platform.process.ID<VersionedID>{
 
 	private final PID pid;
+	private final long version;
 
-	public ID(final PID pid){
+	public VersionedID(final VersionedID other){
+		this(new PID(other.pid), other.version);
+	}
+
+	public VersionedID(final PID pid, final long version){
 		if(pid == null){
 			throw new IllegalArgumentException("pid cannot be NULL");
 		}
 		this.pid = pid;
+		this.version = version;
 	}
 
 	public PID getPid(){
 		return pid;
 	}
 
+	public long getVersion(){
+		return version;
+	}
+
+	public VersionedID nextVersion(){
+		return new VersionedID(pid, version + 1);
+	}
+
 	@Override
-	public int compareTo(final ID other){
+	public int compareTo(final VersionedID other){
 		if(other == null){
 			throw new IllegalArgumentException("Cannot compare to NULL");
 		}
-		return Long.compare(this.pid.getValue(), other.pid.getValue());
+		final int pidCmp = Long.compare(this.pid.getValue(), other.pid.getValue());
+		if(pidCmp != 0){
+			return pidCmp;
+		}
+		return Long.compare(this.version, other.version);
 	}
 
 	@Override
 	public boolean equals(final Object obj){
 		if(this == obj) return true;
-		if(!(obj instanceof ID)) return false;
-		final ID other = (ID) obj;
-		return this.pid.getValue() == other.pid.getValue();
+		if(!(obj instanceof VersionedID)) return false;
+		final VersionedID other = (VersionedID) obj;
+		return this.pid.getValue() == other.pid.getValue()
+			&& this.version == other.version;
 	}
 
 	@Override
 	public int hashCode(){
-		return 31 * Long.hashCode(pid.getValue());
+		return 31 * Long.hashCode(pid.getValue()) + Long.hashCode(version);
 	}
 
 }

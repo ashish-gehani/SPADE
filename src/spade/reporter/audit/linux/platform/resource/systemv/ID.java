@@ -31,9 +31,74 @@ public class ID extends spade.reporter.audit.linux.platform.resource.ID{
 		return (SystemV) getResource();
 	}
 
+	private Type systemVType(){
+		return getSystemV().getSystemVType();
+	}
+
+	private String id(){
+		return getSystemV().getId();
+	}
+
+	private long ownerUid(){
+		return getSystemV().getOwnerUID().getValue();
+	}
+
+	private long ownerGid(){
+		return getSystemV().getOwnerGID().getValue();
+	}
+
+	private spade.reporter.audit.linux.platform.type.namespace.ID ipcNamespace(){
+		return getProcessState().getNamespace().getIpc();
+	}
+
 	@Override
 	public int compareTo(final spade.reporter.audit.linux.platform.resource.ID other){
-		return super.compareTo(other);
+		if(other == null){
+			throw new IllegalArgumentException("Cannot compare to NULL");
+		}
+		if(this == other) return 0;
+		if(!(other instanceof ID)){
+			return Integer.compare(
+				this.getResource().getType().ordinal(),
+				other.getResource().getType().ordinal()
+			);
+		}
+		final ID o = (ID) other;
+		int c = this.systemVType().compareTo(o.systemVType());
+		if(c != 0) return c;
+		c = this.id().compareTo(o.id());
+		if(c != 0) return c;
+		c = Long.compare(this.ownerUid(), o.ownerUid());
+		if(c != 0) return c;
+		c = Long.compare(this.ownerGid(), o.ownerGid());
+		if(c != 0) return c;
+		spade.reporter.audit.linux.platform.type.namespace.ID thisIpc = this.ipcNamespace();
+		spade.reporter.audit.linux.platform.type.namespace.ID otherIpc = o.ipcNamespace();
+		c = thisIpc.getType().compareTo(otherIpc.getType());
+		if(c != 0) return c;
+		return Long.compare(thisIpc.getInode().getValue(), otherIpc.getInode().getValue());
+	}
+
+	@Override
+	public boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof ID)) return false;
+		final ID other = (ID) obj;
+		return this.systemVType() == other.systemVType()
+			&& this.id().equals(other.id())
+			&& this.ownerUid() == other.ownerUid()
+			&& this.ownerGid() == other.ownerGid()
+			&& this.ipcNamespace().equals(other.ipcNamespace());
+	}
+
+	@Override
+	public int hashCode(){
+		int result = systemVType().hashCode();
+		result = 31 * result + id().hashCode();
+		result = 31 * result + Long.hashCode(ownerUid());
+		result = 31 * result + Long.hashCode(ownerGid());
+		result = 31 * result + ipcNamespace().hashCode();
+		return result;
 	}
 
 }

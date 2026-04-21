@@ -17,19 +17,17 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.source.channel;
+package spade.reporter.audit.core.util.channel;
 
 import java.util.LinkedList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import spade.reporter.audit.core.source.Event;
-
-public class Channel implements AutoCloseable {
+public class Channel<T> implements AutoCloseable {
 
     private final Config config;
-    private final LinkedList<Event> buffer = new LinkedList<>();
+    private final LinkedList<T> buffer = new LinkedList<>();
     private final Metrics metrics = new Metrics();
     private final ScheduledExecutorService snapshotScheduler;
     private boolean closed = false;
@@ -52,11 +50,11 @@ public class Channel implements AutoCloseable {
         }
     }
 
-    public synchronized void write(final Event event) throws InterruptedException, WriteTimeoutExpired {
+    public synchronized void write(final T item) throws InterruptedException, WriteTimeoutExpired {
         if (closed) {
             throw new IllegalStateException("Channel is closed");
         }
-        if (event == null) {
+        if (item == null) {
             return;
         }
         long waitMs = 0;
@@ -85,12 +83,12 @@ public class Channel implements AutoCloseable {
                 throw new WriteTimeoutExpired("Buffer is full");
             }
         }
-        buffer.addLast(event);
+        buffer.addLast(item);
         metrics.recordWritten(waitMs);
         notifyAll();
     }
 
-    public synchronized Event read() throws InterruptedException, ReadTimeoutExpired {
+    public synchronized T read() throws InterruptedException, ReadTimeoutExpired {
         long waitMs = 0;
         if (config.isReadBlocking()) {
             final long readTimeoutMs = config.getReadTimeoutMs();
@@ -115,10 +113,10 @@ public class Channel implements AutoCloseable {
             }
             return null;
         }
-        final Event event = buffer.removeFirst();
+        final T item = buffer.removeFirst();
         metrics.recordRead(waitMs);
         notifyAll();
-        return event;
+        return item;
     }
 
     public Metrics getMetrics() {

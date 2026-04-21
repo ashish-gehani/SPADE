@@ -19,6 +19,6 @@
  */
 package spade.reporter.audit.core.provenance.type;
 
-public abstract class AbstractProcess implements Provenanceable{
+public abstract class AbstractProcess<C extends AbstractContext> implements Provenanceable<C>{
 
 }

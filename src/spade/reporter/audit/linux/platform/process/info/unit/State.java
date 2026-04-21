@@ -19,13 +19,18 @@
  */
 package spade.reporter.audit.linux.platform.process.info.unit;
 
-public class State {
+public class State{
 
 	private Unit active = null;
 	private boolean wasActive = false;
 
-	public State () {
+	public State(){
 
+	}
+
+	public State(final State other){
+		this.active = other.active;
+		this.wasActive = other.wasActive;
 	}
 
 	public Unit getActive () {
@@ -51,5 +56,6 @@ public class State {
 	public void exit () {
 		this.active = null;
 	}
+
 
 }

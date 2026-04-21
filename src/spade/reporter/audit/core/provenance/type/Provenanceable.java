@@ -21,10 +21,10 @@ package spade.reporter.audit.core.provenance.type;
 
 import java.util.Map;
 
-public interface Provenanceable{
+public interface Provenanceable<C extends AbstractContext>{
 
-	public Map<String, String> getKeyAnnotations(AbstractContext context);
+	public Map<String, String> getKeyAnnotations(C context);
 
-	public Map<String, String> getExtraAnnotations(AbstractContext context);
+	public Map<String, String> getExtraAnnotations(C context);
 
 }

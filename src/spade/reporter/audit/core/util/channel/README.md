@@ -1,25 +1,25 @@
-# spade.reporter.audit.core.event.channel
+# spade.reporter.audit.core.util.channel
 
-Thread-safe bounded channel for passing audit events between a producer and a consumer,
+Thread-safe bounded generic channel for passing objects between a producer and a consumer,
 with configurable blocking, loss handling, and periodic metrics logging.
 
-## Channel
+## Channel\<T\>
 
-Bounded FIFO buffer of `Event` objects. Implements `AutoCloseable`. Both `write()` and
+Bounded FIFO buffer of `T` objects. Implements `AutoCloseable`. Both `write()` and
 `read()` are `synchronized` and use `wait`/`notifyAll` for blocking coordination.
 
-### write(Event)
+### write(T)
 
 Throws `IllegalStateException` if the channel is closed. If the buffer is full and
 `writeBlocking` is enabled, waits up to `writeTimeoutMs` for space (0 = wait
 indefinitely). After the wait:
 
-- `LOSSY` — drops the incoming event silently and returns.
+- `LOSSY` — drops the incoming item silently and returns.
 - `LOSSLESS` — throws `WriteTimeoutExpired`.
 
 ### read()
 
-If `readBlocking` is enabled, waits up to `readTimeoutMs` for an event (0 = wait
+If `readBlocking` is enabled, waits up to `readTimeoutMs` for an item (0 = wait
 indefinitely). After the wait:
 
 - If the buffer is empty and the channel is **not** closed — throws `ReadTimeoutExpired`.
@@ -35,7 +35,7 @@ waiting callers.
 
 | Parameter | Description |
 |-----------|-------------|
-| `bufferMaxSize` | Maximum number of events held in the buffer |
+| `bufferMaxSize` | Maximum number of items held in the buffer |
 | `readBlocking` | Block on `read()` when the buffer is empty |
 | `readTimeoutMs` | Max wait time for `read()`; 0 = wait indefinitely |
 | `writeBlocking` | Block on `write()` when the buffer is full |
@@ -47,7 +47,7 @@ waiting callers.
 
 | Value | Behaviour when buffer is full |
 |-------|-------------------------------|
-| `LOSSY` | Incoming event is dropped; `lostRecords` counter is incremented |
+| `LOSSY` | Incoming item is dropped; `lostRecords` counter is incremented |
 | `LOSSLESS` | `WriteTimeoutExpired` is thrown |
 
 `fromValue(String)` performs a case-insensitive lookup. `toValue()` returns the
@@ -59,7 +59,7 @@ Tracks cumulative counters updated inline by `Channel`:
 
 | Counter | Incremented by |
 |---------|----------------|
-| `lostRecords` | Each dropped event in LOSSY mode |
+| `lostRecords` | Each dropped item in LOSSY mode |
 | `eventsRead` | Each successful `read()` |
 | `eventsWritten` | Each successful `write()` |
 | `totalReadWaitMs` | Time spent blocking in `read()` |

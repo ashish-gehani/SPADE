@@ -17,12 +17,12 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.source.channel;
+package spade.reporter.audit.linux.platform.resource.systemv;
 
-public class ReadTimeoutExpired extends Exception {
+public class State extends spade.reporter.audit.linux.platform.resource.State{
 
-    public ReadTimeoutExpired(final String message) {
-        super(message);
-    }
+	public State(final ID id){
+		super(id);
+	}
 
 }

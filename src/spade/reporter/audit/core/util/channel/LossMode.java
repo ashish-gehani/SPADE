@@ -17,22 +17,33 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.type.credential;
 
-public class GID{
+package spade.reporter.audit.core.util.channel;
 
-	private final long value;
+public enum LossMode {
 
-	public GID(final long value){
-		this.value = value;
-	}
+    LOSSY("lossy"),
+    LOSSLESS("lossless");
 
-	public GID(final GID other){
-		this.value = other.value;
-	}
+    private final String value;
 
-	public long getValue(){
-		return value;
-	}
+    LossMode(final String value) {
+        this.value = value;
+    }
+
+    public String toValue() {
+        return value;
+    }
+
+    public static LossMode fromValue(final String value) {
+        if (value != null) {
+            for (final LossMode mode : values()) {
+                if (mode.value.equalsIgnoreCase(value)) {
+                    return mode;
+                }
+            }
+        }
+        throw new IllegalArgumentException("Unknown LossMode value: " + value);
+    }
 
 }

@@ -31,9 +31,54 @@ public class ID extends spade.reporter.audit.linux.platform.resource.ID{
 		return (Unknown) getResource();
 	}
 
+	private spade.reporter.audit.linux.platform.resource.Type type(){
+		return getResource().getType();
+	}
+
+	private int num(){
+		return getUnknown().getNum().getValue();
+	}
+
+	private long pid(){
+		return getProcessState().getCred().getProcess().getPid().getValue();
+	}
+
 	@Override
 	public int compareTo(final spade.reporter.audit.linux.platform.resource.ID other){
-		return super.compareTo(other);
+		if(other == null){
+			throw new IllegalArgumentException("Cannot compare to NULL");
+		}
+		if(this == other) return 0;
+		if(!(other instanceof ID)){
+			return Integer.compare(
+				this.getResource().getType().ordinal(),
+				other.getResource().getType().ordinal()
+			);
+		}
+		final ID o = (ID) other;
+		int c = this.type().compareTo(o.type());
+		if(c != 0) return c;
+		c = Long.compare(this.pid(), o.pid());
+		if(c != 0) return c;
+		return Integer.compare(this.num(), o.num());
+	}
+
+	@Override
+	public boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof ID)) return false;
+		final ID other = (ID) obj;
+		return this.type() == other.type()
+			&& this.pid() == other.pid()
+			&& this.num() == other.num();
+	}
+
+	@Override
+	public int hashCode(){
+		int result = type().hashCode();
+		result = 31 * result + Long.hashCode(pid());
+		result = 31 * result + Integer.hashCode(num());
+		return result;
 	}
 
 }

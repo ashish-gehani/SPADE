@@ -29,6 +29,10 @@ public class Descriptor extends State<Num>{
 	private final Resource resource;
 	private final OpenMode openMode;
 
+	public Descriptor(final Descriptor other){
+		this(other.type, new Num(other.getId()), other.openMode, other.resource);
+	}
+
 	public Descriptor(final Type type, final Num num, final OpenMode openMode, final Resource resource){
 		super(num);
 		if(type == null){

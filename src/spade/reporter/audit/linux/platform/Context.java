@@ -22,16 +22,19 @@ package spade.reporter.audit.linux.platform;
 import spade.reporter.audit.core.platform.ID;
 import spade.reporter.audit.core.platform.info.Info;
 
-public class Context<PRS extends spade.reporter.audit.linux.platform.runtime.State>
-    extends spade.reporter.audit.core.platform.Context<
-        spade.reporter.audit.linux.platform.process.ID,
-        spade.reporter.audit.linux.platform.process.State,
-        spade.reporter.audit.linux.platform.runtime.ProcessTable,
-        PRS
-    >
+public class Context
+        extends spade.reporter.audit.core.platform.Context<
+            spade.reporter.audit.linux.platform.process.VersionedID,
+            spade.reporter.audit.linux.platform.process.State,
+            spade.reporter.audit.linux.platform.runtime.ProcessTable,
+            spade.reporter.audit.linux.platform.resource.ID,
+            spade.reporter.audit.linux.platform.resource.State,
+            spade.reporter.audit.linux.platform.runtime.ResourceTable,
+            spade.reporter.audit.linux.platform.runtime.State
+        >
 {
 
-	public Context(final ID id, final Info info, final PRS runtimeState){
+	public Context(final ID id, final Info info, final spade.reporter.audit.linux.platform.runtime.State runtimeState){
 		super(id, info, runtimeState);
 	}
 

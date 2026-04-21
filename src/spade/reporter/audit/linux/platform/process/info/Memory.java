@@ -19,17 +19,21 @@
  */
 package spade.reporter.audit.linux.platform.process.info;
 
-import spade.reporter.audit.linux.platform.process.ID;
+import spade.reporter.audit.linux.platform.type.credential.PID;
 
 public class Memory{
 
-	private final ID sharedWith;
+	private final PID sharedWith;
 
 	public Memory(){
 		this.sharedWith = null;
 	}
 
-	public Memory(final ID sharedWith){
+	public Memory(final Memory other){
+		this.sharedWith = other.sharedWith == null ? null : new PID(other.sharedWith);
+	}
+
+	public Memory(final PID sharedWith){
 		if(sharedWith == null){
 			throw new IllegalArgumentException("sharedWith cannot be NULL");
 		}
@@ -40,8 +44,9 @@ public class Memory{
 		return sharedWith != null;
 	}
 
-	public ID getSharedWith(){
+	public PID getSharedWith(){
 		return sharedWith;
 	}
+
 
 }

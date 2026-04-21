@@ -89,4 +89,8 @@ public class Path{
 		return sb.toString();
 	}
 
+	public Path(final Path other){
+		this(other.root, other.unresolvedPath);
+	}
+
 }

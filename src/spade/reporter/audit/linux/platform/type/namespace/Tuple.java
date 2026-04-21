@@ -19,7 +19,7 @@
  */
 package spade.reporter.audit.linux.platform.type.namespace;
 
-public class Tuple {
+public class Tuple{
 
 	private final ID mount;
 	private final ID user;
@@ -68,6 +68,18 @@ public class Tuple {
 	public ID getPidChildren(){ return pidChildren; }
 	public ID getIpc(){ return ipc; }
 	public ID getCgroup(){ return cgroup; }
+
+	public Tuple(final Tuple other){
+		this(
+			new ID(other.mount),
+			new ID(other.user),
+			new ID(other.net),
+			new ID(other.pid),
+			new ID(other.pidChildren),
+			new ID(other.ipc),
+			new ID(other.cgroup)
+		);
+	}
 
 	@Override
 	public boolean equals(final Object obj){

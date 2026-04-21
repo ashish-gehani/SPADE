@@ -24,14 +24,15 @@ import spade.reporter.audit.linux.platform.process.fd.Table;
 import spade.reporter.audit.linux.platform.process.info.Info;
 import spade.reporter.audit.linux.platform.process.info.credential.Group;
 import spade.reporter.audit.linux.platform.process.info.credential.User;
-public class State extends spade.reporter.audit.core.util.statetable.State<ID>{
+
+public class State extends spade.reporter.audit.core.platform.process.State<VersionedID>{
 
 	private final Info info;
 	private final Table fdTable;
 	private final History history;
 
 	public State(
-		final ID id,
+		final VersionedID id,
 		final Info info,
 		final Table fdTable,
 		final History history
@@ -50,6 +51,15 @@ public class State extends spade.reporter.audit.core.util.statetable.State<ID>{
 		this.fdTable = fdTable;
 		this.history = history;
 		initHistories(this.info.getTime().getValue());
+	}
+
+	public State nextVersion(){
+		return new State(
+			getId().nextVersion(),
+			new Info(this.info),
+			new Table(this.fdTable),
+			new History(this.history)
+		);
 	}
 
 	public Table getTable(){

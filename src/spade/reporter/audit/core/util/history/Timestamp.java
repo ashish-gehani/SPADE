@@ -27,6 +27,10 @@ public class Timestamp implements Comparable<Timestamp>{
 		this.value = value;
 	}
 
+	public Timestamp(final Timestamp other){
+		this.value = other.value;
+	}
+
 	public double getValue(){ return value; }
 
 	public static Timestamp fromAuditFormat(final String value){

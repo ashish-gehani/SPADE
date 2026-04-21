@@ -27,6 +27,10 @@ public class UID{
 		this.value = value;
 	}
 
+	public UID(final UID other){
+		this.value = other.value;
+	}
+
 	public long getValue(){
 		return value;
 	}

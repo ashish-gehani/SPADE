@@ -20,7 +20,7 @@
 package spade.reporter.audit.linux.platform.runtime;
 
 public abstract class State extends spade.reporter.audit.core.platform.runtime.State<
-    spade.reporter.audit.linux.platform.process.ID,
+    spade.reporter.audit.linux.platform.process.VersionedID,
     spade.reporter.audit.linux.platform.process.State,
     spade.reporter.audit.linux.platform.runtime.ProcessTable,
     spade.reporter.audit.linux.platform.resource.ID,

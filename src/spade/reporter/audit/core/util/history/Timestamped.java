@@ -19,6 +19,16 @@
  */
 package spade.reporter.audit.core.util.history;
 
+import java.util.Map;
+
 public class Timestamped<V> extends History<Timestamp, V>{
+
+	public Timestamped(){}
+
+	public Timestamped(final Timestamped<V> other){
+		for(final Map.Entry<Timestamp, V> entry : other.copyEntries().entrySet()){
+			this.add(new Timestamp(entry.getKey()), entry.getValue());
+		}
+	}
 
 }

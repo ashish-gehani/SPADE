@@ -26,6 +26,10 @@ public class Unit{
 	private final String count;
 	private final String startTime;
 
+	public Unit(final Unit other){
+		this(other.id, other.iteration, other.count, other.startTime);
+	}
+
 	public Unit(final String id, final String iteration, final String count, final String startTime){
 		if(id == null){
 			throw new IllegalArgumentException("id cannot be NULL");

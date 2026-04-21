@@ -19,10 +19,33 @@
  */
 package spade.reporter.audit.linux.platform.resource;
 
-public class State extends spade.reporter.audit.core.util.statetable.State<ID>{
+public class State extends spade.reporter.audit.core.platform.resource.State<ID>{
+
+	private static final long STARTING_VERSION = 0;
+	private static final long STARTING_EPOCH = 0;
+
+	private long version = STARTING_VERSION;
+	private long epoch = STARTING_EPOCH;
 
 	public State(final ID id){
 		super(id);
+	}
+
+	public long getVersion(){
+		return version;
+	}
+
+	public void incrementVersion(){
+		this.version++;
+	}
+
+	public long getEpoch(){
+		return epoch;
+	}
+
+	public void incrementEpoch(){
+		this.epoch++;
+		this.version = STARTING_VERSION;
 	}
 
 }

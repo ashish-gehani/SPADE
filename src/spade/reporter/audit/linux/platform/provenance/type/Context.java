@@ -17,22 +17,21 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.type.credential;
+package spade.reporter.audit.linux.platform.provenance.type;
 
-public class GID{
+public class Context implements spade.reporter.audit.core.provenance.type.AbstractContext{
 
-	private final long value;
+	private final spade.reporter.audit.linux.platform.Context platformContext;
 
-	public GID(final long value){
-		this.value = value;
+	public Context(final spade.reporter.audit.linux.platform.Context platformContext){
+		if(platformContext == null){
+			throw new IllegalArgumentException("platformContext cannot be NULL");
+		}
+		this.platformContext = platformContext;
 	}
 
-	public GID(final GID other){
-		this.value = other.value;
-	}
-
-	public long getValue(){
-		return value;
+	public spade.reporter.audit.linux.platform.Context getPlatformContext(){
+		return platformContext;
 	}
 
 }

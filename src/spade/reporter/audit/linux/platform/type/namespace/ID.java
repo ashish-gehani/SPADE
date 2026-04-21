@@ -45,6 +45,10 @@ public class ID{
 		return inode;
 	}
 
+	public ID(final ID other){
+		this(other.type, new Inode(other.inode));
+	}
+
 	@Override
 	public boolean equals(final Object obj){
 		if(this == obj) return true;

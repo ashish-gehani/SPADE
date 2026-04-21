@@ -19,9 +19,56 @@
  */
 package spade.reporter.audit.linux.platform.runtime;
 
-import spade.reporter.audit.linux.platform.process.ID;
-import spade.reporter.audit.linux.platform.process.State;
+import java.util.HashMap;
+import java.util.Map;
 
-public class ProcessTable extends spade.reporter.audit.core.platform.runtime.ProcessTable<ID, State>{
+import spade.reporter.audit.linux.platform.process.State;
+import spade.reporter.audit.linux.platform.process.VersionedID;
+import spade.reporter.audit.linux.platform.type.credential.PID;
+
+public class ProcessTable extends spade.reporter.audit.core.platform.runtime.ProcessTable<VersionedID, State>{
+
+	private final Map<PID, Long> maxVersions = new HashMap<>();
+
+	@Override
+	public void put(final VersionedID id, final State state){
+		super.put(id, state);
+		final PID pid = id.getPid();
+		final long version = id.getVersion();
+		maxVersions.merge(pid, version, Math::max);
+	}
+
+	@Override
+	public State remove(final VersionedID id){
+		final State removed = super.remove(id);
+		if(removed != null){
+			final PID pid = id.getPid();
+			final long version = id.getVersion();
+			final Long current = maxVersions.get(pid);
+			if(current != null && current == version){
+				final long newMax = ids().stream()
+					.filter(v -> v.getPid().equals(pid))
+					.mapToLong(VersionedID::getVersion)
+					.max()
+					.orElse(-1L);
+				if(newMax < 0){
+					maxVersions.remove(pid);
+				}else{
+					maxVersions.put(pid, newMax);
+				}
+			}
+		}
+		return removed;
+	}
+
+	@Override
+	public void clear(){
+		super.clear();
+		maxVersions.clear();
+	}
+
+	public Long getMaxVersion(final PID pid){
+		return maxVersions.get(pid);
+	}
 
 }

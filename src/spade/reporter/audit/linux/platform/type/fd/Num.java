@@ -29,6 +29,10 @@ public class Num implements Indexable<Num>{
 		this.value = value;
 	}
 
+	public Num(final Num other){
+		this(other.value);
+	}
+
 	public int getValue(){
 		return value;
 	}

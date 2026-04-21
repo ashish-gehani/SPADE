@@ -27,8 +27,24 @@ public class PID{
 		this.value = value;
 	}
 
+	public PID(final PID other){
+		this.value = other.value;
+	}
+
 	public long getValue(){
 		return value;
+	}
+
+	@Override
+	public boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof PID)) return false;
+		return this.value == ((PID) obj).value;
+	}
+
+	@Override
+	public int hashCode(){
+		return Long.hashCode(value);
 	}
 
 }

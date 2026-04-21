@@ -23,13 +23,20 @@ import spade.reporter.audit.linux.platform.type.fd.Num;
 
 public class Table extends spade.reporter.audit.core.util.statetable.Table<Num, Descriptor>{
 
-	private final spade.reporter.audit.linux.platform.process.ID sharedWith;
+	private final spade.reporter.audit.linux.platform.type.credential.PID sharedWith;
 
 	public Table(){
 		this.sharedWith = null;
 	}
 
-	public Table(final spade.reporter.audit.linux.platform.process.ID sharedWith){
+	public Table(final Table other){
+		this.sharedWith = other.sharedWith;
+		for(final Num id : other.ids()){
+			put(new Num(id), new Descriptor(other.get(id)));
+		}
+	}
+
+	public Table(final spade.reporter.audit.linux.platform.type.credential.PID sharedWith){
 		if(sharedWith == null){
 			throw new IllegalArgumentException("sharedWith cannot be NULL");
 		}
@@ -40,7 +47,7 @@ public class Table extends spade.reporter.audit.core.util.statetable.Table<Num, 
 		return sharedWith != null;
 	}
 
-	public spade.reporter.audit.linux.platform.process.ID getSharedWith(){
+	public spade.reporter.audit.linux.platform.type.credential.PID getSharedWith(){
 		return sharedWith;
 	}
 

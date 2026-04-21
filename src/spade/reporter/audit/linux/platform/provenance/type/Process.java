@@ -17,22 +17,35 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.type.credential;
+package spade.reporter.audit.linux.platform.provenance.type;
 
-public class GID{
+import java.util.HashMap;
+import java.util.Map;
 
-	private final long value;
+import spade.reporter.audit.linux.platform.process.VersionedID;
 
-	public GID(final long value){
-		this.value = value;
+public class Process extends spade.reporter.audit.core.provenance.type.AbstractProcess<Context>{
+
+	private final VersionedID id;
+
+	public Process(final VersionedID id){
+		if(id == null){
+			throw new IllegalArgumentException("id cannot be NULL");
+		}
+		this.id = id;
 	}
 
-	public GID(final GID other){
-		this.value = other.value;
+	@Override
+	public Map<String, String> getKeyAnnotations(final Context context){
+		final Map<String, String> map = new HashMap<>();
+		map.put("pid", String.valueOf(id.getPid().getValue()));
+		map.put("version", String.valueOf(id.getVersion()));
+		return map;
 	}
 
-	public long getValue(){
-		return value;
+	@Override
+	public Map<String, String> getExtraAnnotations(final Context context){
+		return new HashMap<>();
 	}
 
 }

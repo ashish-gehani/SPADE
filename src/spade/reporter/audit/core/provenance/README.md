@@ -126,3 +126,8 @@ List<ProvenanceElement> handle(List<Event> events)
 ```
 
 Iterates over the event list, delegates to each event's `handle(context, managerContext)`, and returns a flat, ordered, unmodifiable list of all resulting `ProvenanceElement` instances.
+
+## TODO
+
+Add channel for incoming events, and channel for outgoing provenance elements. Ask/think of implementation.
+Why? It would enable asynchronous event handling.

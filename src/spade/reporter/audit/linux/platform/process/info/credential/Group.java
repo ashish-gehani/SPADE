@@ -52,6 +52,15 @@ public class Group{
 	public GID getSgid(){ return sgid; }
 	public GID getFsgid(){ return fsgid; }
 
+	public Group(final Group other){
+		this(
+			new GID(other.gid),
+			new GID(other.egid),
+			new GID(other.sgid),
+			new GID(other.fsgid)
+		);
+	}
+
 	@Override
 	public boolean equals(final Object obj){
 		if(this == obj) return true;

@@ -71,4 +71,8 @@ public class History<T extends Comparable<T>, V> {
 		return entries.size();
 	}
 
+	protected TreeMap<T, V> copyEntries() {
+		return new TreeMap<>(entries);
+	}
+
 }

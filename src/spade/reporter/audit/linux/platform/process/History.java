@@ -27,9 +27,21 @@ import spade.reporter.audit.linux.platform.process.info.credential.User;
 
 public class History{
 
-	private final Timestamped<Tuple> namespace = new Timestamped<>();
-	private final Timestamped<User> user = new Timestamped<>();
-	private final Timestamped<Group> group = new Timestamped<>();
+	private final Timestamped<Tuple> namespace;
+	private final Timestamped<User> user;
+	private final Timestamped<Group> group;
+
+	public History(){
+		this.namespace = new Timestamped<>();
+		this.user = new Timestamped<>();
+		this.group = new Timestamped<>();
+	}
+
+	public History(final History other){
+		this.namespace = new Timestamped<>(other.namespace);
+		this.user = new Timestamped<>(other.user);
+		this.group = new Timestamped<>(other.group);
+	}
 
 	public boolean hasNamespace(final Tuple ns){
 		return namespace.has(ns);

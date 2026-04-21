@@ -17,22 +17,12 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.type.credential;
+package spade.reporter.audit.linux.platform.resource.network;
 
-public class GID{
+public class State extends spade.reporter.audit.linux.platform.resource.State{
 
-	private final long value;
-
-	public GID(final long value){
-		this.value = value;
-	}
-
-	public GID(final GID other){
-		this.value = other.value;
-	}
-
-	public long getValue(){
-		return value;
+	public State(final ID id){
+		super(id);
 	}
 
 }

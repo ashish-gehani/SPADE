@@ -52,6 +52,15 @@ public class Process{
 	public PID getPgid(){ return pgid; }
 	public PID getSid(){ return sid; }
 
+	public Process(final Process other){
+		this(
+			new PID(other.pid),
+			new PID(other.ppid),
+			new PID(other.pgid),
+			new PID(other.sid)
+		);
+	}
+
 	@Override
 	public boolean equals(final Object obj){
 		if(this == obj) return true;

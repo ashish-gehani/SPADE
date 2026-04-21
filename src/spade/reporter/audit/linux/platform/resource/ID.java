@@ -19,10 +19,9 @@
  */
 package spade.reporter.audit.linux.platform.resource;
 
-import spade.reporter.audit.core.util.statetable.Indexable;
 import spade.reporter.audit.linux.platform.process.State;
 
-public abstract class ID implements Indexable<ID>{
+public abstract class ID extends spade.reporter.audit.core.platform.resource.ID<ID>{
 
 	private final Resource resource;
 	private final State processState;

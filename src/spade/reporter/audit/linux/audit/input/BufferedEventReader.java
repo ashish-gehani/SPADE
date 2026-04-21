@@ -25,9 +25,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import spade.reporter.audit.core.source.channel.Channel;
-import spade.reporter.audit.core.source.channel.ReadTimeoutExpired;
 import spade.reporter.audit.core.source.reader.Reader;
+import spade.reporter.audit.core.util.channel.Channel;
+import spade.reporter.audit.core.util.channel.ReadTimeoutExpired;
 import spade.reporter.audit.linux.audit.event.Context;
 import spade.reporter.audit.linux.audit.event.Event;
 import spade.reporter.audit.linux.audit.event.record.Record;
@@ -51,7 +51,7 @@ public final class BufferedEventReader extends Reader<Event, Context> {
     private final Logger logger = Logger.getLogger(this.getClass().getName());
 
     private EventReader eventReader;
-    private final Channel channel;
+    private final Channel<Event> channel;
     private final Metrics metrics = new Metrics();
     private final Config config;
     private ScheduledExecutorService snapshotScheduler;
@@ -59,7 +59,7 @@ public final class BufferedEventReader extends Reader<Event, Context> {
 
     public BufferedEventReader(
         final EventReader eventReader,
-        final Channel channel,
+        final Channel<Event> channel,
         final Config config
     ) {
         super(eventReader.getEventFactory());
@@ -158,7 +158,7 @@ public final class BufferedEventReader extends Reader<Event, Context> {
      */
     @Override
     public Event readEvent() throws InterruptedException, ReadTimeoutExpired {
-        final Event event = (Event) channel.read();
+        final Event event = channel.read();
         updateMetrics(event);
         return event;
     }

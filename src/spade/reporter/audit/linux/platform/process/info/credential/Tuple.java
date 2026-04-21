@@ -35,6 +35,14 @@ public class Tuple{
 	public User getUser(){ return user; }
 	public Group getGroup(){ return group; }
 
+	public Tuple(final Tuple other){
+		this(
+			new Process(other.process),
+			new User(other.user),
+			new Group(other.group)
+		);
+	}
+
 	public void setProcess(final Process process){
 		if(process == null){
 			throw new IllegalArgumentException("process cannot be NULL");
