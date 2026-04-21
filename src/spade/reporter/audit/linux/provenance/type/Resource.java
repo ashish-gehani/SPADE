@@ -17,39 +17,39 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.event;
+package spade.reporter.audit.linux.platform.provenance.type;
 
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
-import spade.reporter.audit.core.provenance.Context;
-import spade.reporter.audit.core.provenance.ProvenanceElement;
-import spade.reporter.audit.core.provenance.type.AbstractContext;
-import spade.reporter.audit.core.provenance.type.Provenanceable;
+import spade.reporter.audit.linux.platform.process.VersionedID;
+import spade.reporter.audit.linux.platform.resource.ID;
 
-public abstract class Event<C extends AbstractContext> implements Provenanceable<C>{
+public class Resource extends spade.reporter.audit.core.provenance.type.AbstractResource<Context>{
 
-	private final Type type;
 	private final ID id;
 
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
-		}
+	public Resource(final ID id){
 		if(id == null){
 			throw new IllegalArgumentException("id cannot be NULL");
 		}
-		this.type = type;
 		this.id = id;
 	}
 
-	public Type getType(){
-		return type;
+	@Override
+	public Map<String, String> getKeyAnnotations(final Context context){
+		final Map<String, String> map = new HashMap<>();
+		map.put("type", "Artifact");
+		map.put("subtype", id.getResource().getType().name);
+		final VersionedID processId = id.getProcessState().getId();
+		map.put("pid", String.valueOf(processId.getPid().getValue()));
+		map.put("pid_version", String.valueOf(processId.getVersion()));
+		return map;
 	}
 
-	public ID getId(){
-		return id;
+	@Override
+	public Map<String, String> getExtraAnnotations(final Context context){
+		return new HashMap<>();
 	}
-
-	public abstract List<ProvenanceElement> handle(C provContext, Context managerContext);
 
 }

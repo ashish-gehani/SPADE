@@ -17,39 +17,16 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.event;
+package spade.reporter.audit.linux.platform.provenance.event.type.process;
 
-import java.util.List;
+import spade.reporter.audit.core.provenance.event.ID;
+import spade.reporter.audit.linux.platform.provenance.type.Context;
+import spade.reporter.audit.linux.platform.provenance.type.Process;
 
-import spade.reporter.audit.core.provenance.Context;
-import spade.reporter.audit.core.provenance.ProvenanceElement;
-import spade.reporter.audit.core.provenance.type.AbstractContext;
-import spade.reporter.audit.core.provenance.type.Provenanceable;
+public abstract class Signal extends spade.reporter.audit.core.provenance.event.type.process.Signal<Context>{
 
-public abstract class Event<C extends AbstractContext> implements Provenanceable<C>{
-
-	private final Type type;
-	private final ID id;
-
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
-		}
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
-		}
-		this.type = type;
-		this.id = id;
+	public Signal(final ID id, final Process sender, final Process receiver){
+		super(id, sender, receiver);
 	}
-
-	public Type getType(){
-		return type;
-	}
-
-	public ID getId(){
-		return id;
-	}
-
-	public abstract List<ProvenanceElement> handle(C provContext, Context managerContext);
 
 }

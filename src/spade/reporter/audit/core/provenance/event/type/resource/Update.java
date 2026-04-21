@@ -24,7 +24,7 @@ import java.util.List;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.reporter.audit.core.provenance.ManagerContext;
+import spade.reporter.audit.core.provenance.Context;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
@@ -33,17 +33,17 @@ import spade.reporter.audit.core.provenance.type.AbstractContext;
 import spade.reporter.audit.core.provenance.type.AbstractProcess;
 import spade.reporter.audit.core.provenance.type.AbstractResource;
 
-public abstract class Update extends Event{
+public abstract class Update<C extends AbstractContext> extends Event<C>{
 
-	private final AbstractProcess updater;
-	private final AbstractResource oldVersion;
-	private final AbstractResource newVersion;
+	private final AbstractProcess<C> updater;
+	private final AbstractResource<C> oldVersion;
+	private final AbstractResource<C> newVersion;
 
 	public Update(
 		final ID id,
-		final AbstractProcess updater,
-		final AbstractResource oldVersion,
-		final AbstractResource newVersion
+		final AbstractProcess<C> updater,
+		final AbstractResource<C> oldVersion,
+		final AbstractResource<C> newVersion
 	){
 		super(ResourceType.UPDATE, id);
 		if(updater == null){
@@ -60,39 +60,39 @@ public abstract class Update extends Event{
 		this.newVersion = newVersion;
 	}
 
-	public AbstractProcess getUpdater(){
+	public AbstractProcess<C> getUpdater(){
 		return updater;
 	}
 
-	public AbstractResource getOldVersion(){
+	public AbstractResource<C> getOldVersion(){
 		return oldVersion;
 	}
 
-	public AbstractResource getNewVersion(){
+	public AbstractResource<C> getNewVersion(){
 		return newVersion;
 	}
 
 	@Override
-	public List<ProvenanceElement> handle(final AbstractContext context, final ManagerContext managerContext){
+	public List<ProvenanceElement> handle(final C provContext, final Context managerContext){
 		final AbstractVertex updaterVertex = managerContext.getVertexGenerator().generate();
-		updaterVertex.addAnnotations(updater.getKeyAnnotations(context));
-		updaterVertex.addAnnotations(updater.getExtraAnnotations(context));
+		updaterVertex.addAnnotations(updater.getKeyAnnotations(provContext));
+		updaterVertex.addAnnotations(updater.getExtraAnnotations(provContext));
 
 		final AbstractVertex oldVertex = managerContext.getVertexGenerator().generate();
-		oldVertex.addAnnotations(oldVersion.getKeyAnnotations(context));
-		oldVertex.addAnnotations(oldVersion.getExtraAnnotations(context));
+		oldVertex.addAnnotations(oldVersion.getKeyAnnotations(provContext));
+		oldVertex.addAnnotations(oldVersion.getExtraAnnotations(provContext));
 
 		final AbstractVertex newVertex = managerContext.getVertexGenerator().generate();
-		newVertex.addAnnotations(newVersion.getKeyAnnotations(context));
-		newVertex.addAnnotations(newVersion.getExtraAnnotations(context));
+		newVertex.addAnnotations(newVersion.getKeyAnnotations(provContext));
+		newVertex.addAnnotations(newVersion.getExtraAnnotations(provContext));
 
 		final AbstractEdge updaterToNew = managerContext.getEdgeGenerator().generate(updaterVertex, newVertex);
-		updaterToNew.addAnnotations(getKeyAnnotations(context));
-		updaterToNew.addAnnotations(getExtraAnnotations(context));
+		updaterToNew.addAnnotations(getKeyAnnotations(provContext));
+		updaterToNew.addAnnotations(getExtraAnnotations(provContext));
 
 		final AbstractEdge newToOld = managerContext.getEdgeGenerator().generate(newVertex, oldVertex);
-		newToOld.addAnnotations(getKeyAnnotations(context));
-		newToOld.addAnnotations(getExtraAnnotations(context));
+		newToOld.addAnnotations(getKeyAnnotations(provContext));
+		newToOld.addAnnotations(getExtraAnnotations(provContext));
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(updaterVertex));

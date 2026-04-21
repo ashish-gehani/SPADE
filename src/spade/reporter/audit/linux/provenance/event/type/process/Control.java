@@ -17,30 +17,16 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance;
+package spade.reporter.audit.linux.platform.provenance.event.type.process;
 
-public final class ManagerContext{
+import spade.reporter.audit.core.provenance.event.ID;
+import spade.reporter.audit.linux.platform.provenance.type.Context;
+import spade.reporter.audit.linux.platform.provenance.type.Process;
 
-	private final VertexGenerator vertexGenerator;
-	private final EdgeGenerator edgeGenerator;
+public abstract class Control extends spade.reporter.audit.core.provenance.event.type.process.Control<Context>{
 
-	public ManagerContext(final VertexGenerator vertexGenerator, final EdgeGenerator edgeGenerator){
-		if(vertexGenerator == null){
-			throw new IllegalArgumentException("vertexGenerator cannot be NULL");
-		}
-		if(edgeGenerator == null){
-			throw new IllegalArgumentException("edgeGenerator cannot be NULL");
-		}
-		this.vertexGenerator = vertexGenerator;
-		this.edgeGenerator = edgeGenerator;
-	}
-
-	public VertexGenerator getVertexGenerator(){
-		return vertexGenerator;
-	}
-
-	public EdgeGenerator getEdgeGenerator(){
-		return edgeGenerator;
+	public Control(final ID id, final Process controller, final Process target){
+		super(id, controller, target);
 	}
 
 }

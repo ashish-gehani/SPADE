@@ -26,11 +26,13 @@ import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.type.AbstractContext;
 import spade.reporter.audit.core.util.channel.Channel;
 import spade.reporter.audit.core.util.channel.ReadTimeoutExpired;
+import spade.reporter.audit.core.util.channel.WriteTimeoutExpired;
 
-public final class Manager{
+public final class Manager<C extends AbstractContext>{
 
-	private final ManagerContext managerContext;
-	private final Channel<Event> channel;
+	private final Context managerContext;
+	private final Channel<Event<C>> inChannel;
+	private final Channel<ProvenanceElement> outChannel;
 
 	private volatile boolean running = false;
 	private Thread pumpThread;
@@ -38,7 +40,8 @@ public final class Manager{
 	public Manager(
 		final VertexGenerator vertexGenerator,
 		final EdgeGenerator edgeGenerator,
-		final Channel<Event> channel
+		final Channel<Event<C>> inChannel,
+		final Channel<ProvenanceElement> outChannel
 	){
 		if(vertexGenerator == null){
 			throw new IllegalArgumentException("vertexGenerator cannot be NULL");
@@ -46,14 +49,18 @@ public final class Manager{
 		if(edgeGenerator == null){
 			throw new IllegalArgumentException("edgeGenerator cannot be NULL");
 		}
-		if(channel == null){
-			throw new IllegalArgumentException("channel cannot be NULL");
+		if(inChannel == null){
+			throw new IllegalArgumentException("inChannel cannot be NULL");
 		}
-		this.managerContext = new ManagerContext(vertexGenerator, edgeGenerator);
-		this.channel = channel;
+		if(outChannel == null){
+			throw new IllegalArgumentException("outChannel cannot be NULL");
+		}
+		this.managerContext = new Context(vertexGenerator, edgeGenerator);
+		this.inChannel = inChannel;
+		this.outChannel = outChannel;
 	}
 
-	public synchronized void start(final AbstractContext context){
+	public synchronized void start(final C context){
 		if(running){
 			throw new IllegalStateException("Already running");
 		}
@@ -78,36 +85,42 @@ public final class Manager{
 		return running;
 	}
 
-	private void pump(final AbstractContext context){
+	private void pump(final C context){
 		try{
 			while(running){
 				try{
 					handle(context);
-					if(channel.isClosed()){
+					if(inChannel.isClosed()){
 						break;
 					}
 				}catch(final ReadTimeoutExpired e){
 					// channel not yet closed, continue waiting
+				}catch(final WriteTimeoutExpired e){
+					// outChannel full, continue
 				}catch(final InterruptedException e){
 					Thread.currentThread().interrupt();
 					break;
 				}
 			}
 		}finally{
-			channel.close();
+			inChannel.close();
 			running = false;
 		}
 	}
 
-	public List<ProvenanceElement> handle(final AbstractContext context) throws InterruptedException, ReadTimeoutExpired {
-		if(context == null){
-			throw new IllegalArgumentException("context cannot be NULL");
+	public List<ProvenanceElement> handle(final C provContext) throws InterruptedException, ReadTimeoutExpired, WriteTimeoutExpired {
+		if(provContext == null){
+			throw new IllegalArgumentException("provContext cannot be NULL");
 		}
-		final Event event = channel.read();
+		final Event<C> event = inChannel.read();
 		if(event == null){
 			return Collections.emptyList();
 		}
-		return Collections.unmodifiableList(event.handle(context, managerContext));
+		final List<ProvenanceElement> elements = Collections.unmodifiableList(event.handle(provContext, managerContext));
+		for(final ProvenanceElement element : elements){
+			outChannel.write(element);
+		}
+		return elements;
 	}
 
 }

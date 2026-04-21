@@ -17,35 +17,16 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.provenance.type;
+package spade.reporter.audit.linux.platform.provenance;
 
-import java.util.HashMap;
-import java.util.Map;
+import spade.core.AbstractVertex;
+import spade.core.Vertex;
 
-import spade.reporter.audit.linux.platform.process.VersionedID;
-
-public class Process extends spade.reporter.audit.core.provenance.type.AbstractProcess<Context>{
-
-	private final VersionedID id;
-
-	public Process(final VersionedID id){
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
-		}
-		this.id = id;
-	}
+public class VertexGenerator implements spade.reporter.audit.core.provenance.VertexGenerator{
 
 	@Override
-	public Map<String, String> getKeyAnnotations(final Context context){
-		final Map<String, String> map = new HashMap<>();
-		map.put("pid", String.valueOf(id.getPid().getValue()));
-		map.put("version", String.valueOf(id.getVersion()));
-		return map;
-	}
-
-	@Override
-	public Map<String, String> getExtraAnnotations(final Context context){
-		return new HashMap<>();
+	public AbstractVertex generate(){
+		return new Vertex();
 	}
 
 }

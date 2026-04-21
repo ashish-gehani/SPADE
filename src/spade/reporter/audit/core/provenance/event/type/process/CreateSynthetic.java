@@ -23,7 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import spade.core.AbstractVertex;
-import spade.reporter.audit.core.provenance.ManagerContext;
+import spade.reporter.audit.core.provenance.Context;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
@@ -31,11 +31,11 @@ import spade.reporter.audit.core.provenance.event.ProcessType;
 import spade.reporter.audit.core.provenance.type.AbstractContext;
 import spade.reporter.audit.core.provenance.type.AbstractProcess;
 
-public abstract class CreateSynthetic extends Event{
+public abstract class CreateSynthetic<C extends AbstractContext> extends Event<C>{
 
-	private final AbstractProcess process;
+	private final AbstractProcess<C> process;
 
-	public CreateSynthetic(final ID id, final AbstractProcess process){
+	public CreateSynthetic(final ID id, final AbstractProcess<C> process){
 		super(ProcessType.CREATE_SYNTHETIC, id);
 		if(process == null){
 			throw new IllegalArgumentException("process cannot be NULL");
@@ -43,15 +43,15 @@ public abstract class CreateSynthetic extends Event{
 		this.process = process;
 	}
 
-	public AbstractProcess getProcess(){
+	public AbstractProcess<C> getProcess(){
 		return process;
 	}
 
 	@Override
-	public List<ProvenanceElement> handle(final AbstractContext context, final ManagerContext managerContext){
+	public List<ProvenanceElement> handle(final C provContext, final Context managerContext){
 		final AbstractVertex processVertex = managerContext.getVertexGenerator().generate();
-		processVertex.addAnnotations(process.getKeyAnnotations(context));
-		processVertex.addAnnotations(process.getExtraAnnotations(context));
+		processVertex.addAnnotations(process.getKeyAnnotations(provContext));
+		processVertex.addAnnotations(process.getExtraAnnotations(provContext));
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(processVertex));

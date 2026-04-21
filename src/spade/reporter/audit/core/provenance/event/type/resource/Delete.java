@@ -24,7 +24,7 @@ import java.util.List;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.reporter.audit.core.provenance.ManagerContext;
+import spade.reporter.audit.core.provenance.Context;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
@@ -33,12 +33,12 @@ import spade.reporter.audit.core.provenance.type.AbstractContext;
 import spade.reporter.audit.core.provenance.type.AbstractProcess;
 import spade.reporter.audit.core.provenance.type.AbstractResource;
 
-public abstract class Delete extends Event{
+public abstract class Delete<C extends AbstractContext> extends Event<C>{
 
-	private final AbstractProcess deleter;
-	private final AbstractResource resource;
+	private final AbstractProcess<C> deleter;
+	private final AbstractResource<C> resource;
 
-	public Delete(final ID id, final AbstractProcess deleter, final AbstractResource resource){
+	public Delete(final ID id, final AbstractProcess<C> deleter, final AbstractResource<C> resource){
 		super(ResourceType.DELETE, id);
 		if(deleter == null){
 			throw new IllegalArgumentException("deleter cannot be NULL");
@@ -50,27 +50,27 @@ public abstract class Delete extends Event{
 		this.resource = resource;
 	}
 
-	public AbstractProcess getDeleter(){
+	public AbstractProcess<C> getDeleter(){
 		return deleter;
 	}
 
-	public AbstractResource getResource(){
+	public AbstractResource<C> getResource(){
 		return resource;
 	}
 
 	@Override
-	public List<ProvenanceElement> handle(final AbstractContext context, final ManagerContext managerContext){
+	public List<ProvenanceElement> handle(final C provContext, final Context managerContext){
 		final AbstractVertex deleterVertex = managerContext.getVertexGenerator().generate();
-		deleterVertex.addAnnotations(deleter.getKeyAnnotations(context));
-		deleterVertex.addAnnotations(deleter.getExtraAnnotations(context));
+		deleterVertex.addAnnotations(deleter.getKeyAnnotations(provContext));
+		deleterVertex.addAnnotations(deleter.getExtraAnnotations(provContext));
 
 		final AbstractVertex resourceVertex = managerContext.getVertexGenerator().generate();
-		resourceVertex.addAnnotations(resource.getKeyAnnotations(context));
-		resourceVertex.addAnnotations(resource.getExtraAnnotations(context));
+		resourceVertex.addAnnotations(resource.getKeyAnnotations(provContext));
+		resourceVertex.addAnnotations(resource.getExtraAnnotations(provContext));
 
 		final AbstractEdge edge = managerContext.getEdgeGenerator().generate(deleterVertex, resourceVertex);
-		edge.addAnnotations(getKeyAnnotations(context));
-		edge.addAnnotations(getExtraAnnotations(context));
+		edge.addAnnotations(getKeyAnnotations(provContext));
+		edge.addAnnotations(getExtraAnnotations(provContext));
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(deleterVertex));

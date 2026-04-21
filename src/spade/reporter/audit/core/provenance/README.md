@@ -12,26 +12,39 @@ Provenance structures may also be **composite**. For example, `Rename` — where
 
 ---
 
+## Generics
+
+The component is parameterized on a single type variable `C extends AbstractContext`, which flows through every type in the system:
+
+```
+Provenanceable<C>  ←  AbstractProcess<C>, AbstractResource<C>, Event<C>
+Manager<C>
+```
+
+This ensures that the context type passed to annotation methods and event handlers is consistent end-to-end, and is enforced at compile time.
+
+---
+
 ## API
 
-### `type/Provenanceable`
+### `type/Provenanceable<C>`
 
 Interface implemented by all types that describe themselves as provenance annotations. Requires two methods:
 
-- `getKeyAnnotations()` — key-value annotations that **uniquely identify** the object at the system level.
-- `getExtraAnnotations()` — supplementary key-value annotations with no uniqueness requirement.
+- `getKeyAnnotations(C context)` — key-value annotations that **uniquely identify** the object at the system level.
+- `getExtraAnnotations(C context)` — supplementary key-value annotations with no uniqueness requirement.
 
-### `type/AbstractProcess`
+### `type/AbstractProcess<C>`
 
-Abstract class representing a system process. Implemented by the component user; must implement `Provenanceable`.
+Abstract class representing a system process. Implemented by the component user; must implement `Provenanceable<C>`.
 
-### `type/AbstractResource`
+### `type/AbstractResource<C>`
 
-Abstract class representing a system resource. Implemented by the component user; must implement `Provenanceable`.
+Abstract class representing a system resource. Implemented by the component user; must implement `Provenanceable<C>`.
 
 ### `type/AbstractContext`
 
-Marker interface for user-provided context. Passed to every event handler alongside `ManagerContext`. Treated as a black box by the component — the implementation must be compatible with the chosen `AbstractProcess` and `AbstractResource` implementations.
+Marker interface for user-provided context. Passed to every annotation method and event handler. Treated as a black box by the component — the implementation must be compatible with the chosen `AbstractProcess` and `AbstractResource` implementations.
 
 ### `event/Type`
 
@@ -48,38 +61,38 @@ Additional event categories can be introduced by creating a new enum that implem
 
 A `long`-valued identifier for an event. Implements `Comparable<ID>`, `equals`, and `hashCode`.
 
-### `event/Event`
+### `event/Event<C>`
 
-Abstract base class for all provenance structures. Implements `Provenanceable` (the user subclass supplies annotations). Holds an `ID` and a `Type`.
+Abstract base class for all provenance structures. Implements `Provenanceable<C>` (the user subclass supplies annotations). Holds an `ID` and a `Type`.
 
 Declares the abstract method:
 
 ```
-List<ProvenanceElement> handle(AbstractContext context, ManagerContext managerContext)
+List<ProvenanceElement> handle(C provContext, Context managerContext)
 ```
 
-Each concrete subclass implements `handle` to produce an ordered list of `ProvenanceElement` instances (vertices and edges) using the generators in `ManagerContext`.
+Each concrete subclass implements `handle` to produce an ordered list of `ProvenanceElement` instances (vertices and edges) using the generators in `Context`.
 
 #### Process event types (`event/type/process/`)
 
 | Class | Participants | Elements emitted (in order) |
 |---|---|---|
-| `Control` | controller, target | vertex(controller), vertex(target), edge(controller→target) |
-| `Create` | parent, child | vertex(parent), vertex(child), edge(child→parent) |
-| `CreateSynthetic` | process | vertex(process) |
-| `Exit` | process | vertex(process) |
-| `Signal` | sender, receiver | vertex(sender), vertex(receiver), edge(sender→receiver) |
-| `Update` | oldVersion, newVersion | vertex(old), vertex(new), edge(new→old) |
+| `Control<C>` | controller, target | vertex(controller), vertex(target), edge(controller→target) |
+| `Create<C>` | parent, child | vertex(parent), vertex(child), edge(child→parent) |
+| `CreateSynthetic<C>` | process | vertex(process) |
+| `Exit<C>` | process | vertex(process) |
+| `Signal<C>` | sender, receiver | vertex(sender), vertex(receiver), edge(sender→receiver) |
+| `Update<C>` | oldVersion, newVersion | vertex(old), vertex(new), edge(new→old) |
 
 #### Resource event types (`event/type/resource/`)
 
 | Class | Participants | Elements emitted (in order) |
 |---|---|---|
-| `Access` | accessor, resource | vertex(accessor), vertex(resource), edge(accessor→resource) |
-| `Close` | closer, resource | vertex(closer), vertex(resource), edge(closer→resource) |
-| `Create` | creator, resource | vertex(creator), vertex(resource), edge(resource→creator) |
-| `Delete` | deleter, resource | vertex(deleter), vertex(resource), edge(deleter→resource) |
-| `Update` | updater, oldVersion, newVersion | vertex(updater), vertex(old), vertex(new), edge(updater→new), edge(new→old) |
+| `Access<C>` | accessor, resource | vertex(accessor), vertex(resource), edge(accessor→resource) |
+| `Close<C>` | closer, resource | vertex(closer), vertex(resource), edge(closer→resource) |
+| `Create<C>` | creator, resource | vertex(creator), vertex(resource), edge(resource→creator) |
+| `Delete<C>` | deleter, resource | vertex(deleter), vertex(resource), edge(deleter→resource) |
+| `Update<C>` | updater, oldVersion, newVersion | vertex(updater), vertex(old), vertex(new), edge(updater→new), edge(new→old) |
 
 All event subclasses remain **abstract** — the user subclass provides `getKeyAnnotations()` and `getExtraAnnotations()`.
 
@@ -107,27 +120,19 @@ AbstractEdge generate(AbstractVertex child, AbstractVertex parent)
 
 The implementation decides the concrete edge type. The event handler populates annotations from the event's `Provenanceable` methods after the edge is created.
 
-### `ManagerContext`
+### `Context`
 
 Immutable holder for `VertexGenerator` and `EdgeGenerator`. Created internally by `Manager` and passed to every `Event.handle` call.
 
-### `Manager`
+### `Manager<C>`
 
-The component entry point. Constructed with immutable arguments:
+The component entry point. Constructed with:
 
 - `VertexGenerator vertexGenerator`
 - `EdgeGenerator edgeGenerator`
-- `AbstractContext context`
+- `Channel<Event<C>> inChannel` — source of incoming provenance events
+- `Channel<ProvenanceElement> outChannel` — sink for outgoing provenance elements
 
-Exposes a single method:
+`Manager` runs asynchronously. Call `start(C context)` to launch a background pump thread that continuously reads events from `inChannel`, delegates to each event's `handle(provContext, context)`, and writes every resulting `ProvenanceElement` to `outChannel`. Call `stop()` to interrupt the pump.
 
-```
-List<ProvenanceElement> handle(List<Event> events)
-```
-
-Iterates over the event list, delegates to each event's `handle(context, managerContext)`, and returns a flat, ordered, unmodifiable list of all resulting `ProvenanceElement` instances.
-
-## TODO
-
-Add channel for incoming events, and channel for outgoing provenance elements. Ask/think of implementation.
-Why? It would enable asynchronous event handling.
+`handle(C provContext)` is also available for synchronous, single-event use: it reads one event from `inChannel`, produces its elements, writes them to `outChannel`, and returns them as an unmodifiable list.
