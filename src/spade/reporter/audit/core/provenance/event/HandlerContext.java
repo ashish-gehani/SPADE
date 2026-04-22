@@ -19,29 +19,31 @@
  */
 package spade.reporter.audit.core.provenance.event;
 
+import spade.reporter.audit.core.provenance.EdgeGenerator;
+import spade.reporter.audit.core.provenance.VertexGenerator;
 
-public abstract class Event{
+public abstract class HandlerContext{
 
-	private final Type type;
-	private final ID id;
+	private final VertexGenerator vertexGenerator;
+	private final EdgeGenerator edgeGenerator;
 
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
+	protected HandlerContext(final VertexGenerator vertexGenerator, final EdgeGenerator edgeGenerator){
+		if(vertexGenerator == null){
+			throw new IllegalArgumentException("vertexGenerator cannot be NULL");
 		}
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
+		if(edgeGenerator == null){
+			throw new IllegalArgumentException("edgeGenerator cannot be NULL");
 		}
-		this.type = type;
-		this.id = id;
+		this.vertexGenerator = vertexGenerator;
+		this.edgeGenerator = edgeGenerator;
 	}
 
-	public Type getType(){
-		return type;
+	public VertexGenerator getVertexGenerator(){
+		return vertexGenerator;
 	}
 
-	public ID getId(){
-		return id;
+	public EdgeGenerator getEdgeGenerator(){
+		return edgeGenerator;
 	}
 
 }

@@ -17,31 +17,30 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.event;
+package spade.reporter.audit.core.source.reader;
 
+import spade.reporter.audit.core.source.event.Event;
+import spade.reporter.audit.core.source.event.IDable;
 
-public abstract class Event{
+/**
+ * Abstract class for reading audit events from an arbitrary source.
+ *
+ * @param <I> the ID type of the events
+ * @param <T> the concrete {@link Event} subtype this reader produces
+ */
+public abstract class Reader<I extends IDable, T extends Event<I>> implements AutoCloseable {
 
-	private final Type type;
-	private final ID id;
+	/**
+	 * Read the next complete event from the source.
+	 *
+	 * @return the next event, or null if end of stream
+	 * @throws Exception if reading or parsing fails
+	 */
+	public abstract T readEvent() throws Exception;
 
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
-		}
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
-		}
-		this.type = type;
-		this.id = id;
-	}
-
-	public Type getType(){
-		return type;
-	}
-
-	public ID getId(){
-		return id;
-	}
-
+	/**
+	 * Close the reader and release resources.
+	 */
+	@Override
+	public abstract void close();
 }

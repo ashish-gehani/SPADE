@@ -17,31 +17,21 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.event;
+package spade.reporter.audit.linux.source.audit.event;
 
+public class HandlerContext implements spade.reporter.audit.core.source.event.HandlerContext{
 
-public abstract class Event{
+	private final spade.reporter.audit.linux.platform.Context platformContext;
 
-	private final Type type;
-	private final ID id;
-
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
+	public HandlerContext(final spade.reporter.audit.linux.platform.Context platformContext){
+		if(platformContext == null){
+			throw new IllegalArgumentException("platformContext cannot be NULL");
 		}
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
-		}
-		this.type = type;
-		this.id = id;
+		this.platformContext = platformContext;
 	}
 
-	public Type getType(){
-		return type;
-	}
-
-	public ID getId(){
-		return id;
+	public spade.reporter.audit.linux.platform.Context getPlatformContext(){
+		return platformContext;
 	}
 
 }

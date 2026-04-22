@@ -17,31 +17,43 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.event;
+package spade.reporter.audit.linux.source.audit.reader;
 
-
-public abstract class Event{
+/**
+ * A source of raw audit log lines.
+ *
+ * Implementations read one line at a time from an underlying source (e.g. a
+ * process stdout stream) and signal end-of-stream by returning {@code null}.
+ */
+public abstract class LineReader implements AutoCloseable {
 
 	private final Type type;
-	private final ID id;
 
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
-		}
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
+	protected LineReader(final Type type) {
+		if (type == null) {
+			throw new IllegalArgumentException("Type cannot be NULL");
 		}
 		this.type = type;
-		this.id = id;
 	}
 
-	public Type getType(){
+	public Type getType() {
 		return type;
 	}
 
-	public ID getId(){
-		return id;
-	}
+	/**
+	 * Read the next line from the source.
+	 *
+	 * @return the next line, or {@code null} at end of stream
+	 * @throws Exception if reading fails
+	 */
+	public abstract String readLine() throws Exception;
+
+	/**
+	 * Release any resources held by this reader.
+	 *
+	 * @throws Exception if closing fails
+	 */
+	@Override
+	public abstract void close() throws Exception;
 
 }

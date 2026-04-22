@@ -21,7 +21,9 @@ package spade.reporter.audit.core.provenance;
 
 import java.util.Map;
 
-public interface Provenanceable<C extends Context>{
+import spade.reporter.audit.core.provenance.event.HandlerContext;
+
+public interface Provenanceable<C extends HandlerContext>{
 
 	public Map<String, String> getKeyAnnotations(C context);
 

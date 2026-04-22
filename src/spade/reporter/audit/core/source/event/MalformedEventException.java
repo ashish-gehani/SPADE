@@ -17,31 +17,32 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.event;
+package spade.reporter.audit.core.source.event;
 
+/**
+ * Exception thrown when an audit event cannot be constructed.
+ */
+public class MalformedEventException extends Exception{
 
-public abstract class Event{
+	private static final long serialVersionUID = 1L;
 
-	private final Type type;
-	private final ID id;
-
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
-		}
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
-		}
-		this.type = type;
-		this.id = id;
+	public MalformedEventException(final String msg){
+		super(msg);
 	}
 
-	public Type getType(){
-		return type;
+	public MalformedEventException(
+		final String msg, final IDable eventId
+	){
+		super(String.format("msg='%s' eventId='%s'", msg, format(eventId)));
 	}
 
-	public ID getId(){
-		return id;
+	public MalformedEventException(
+		final String msg, final IDable eventId, final Throwable t
+	){
+		super(String.format("msg='%s' eventId='%s'", msg, format(eventId)), t);
 	}
 
+	private static String format(final IDable eventId){
+		return eventId == null ? "(null)" : eventId.toString();
+	}
 }

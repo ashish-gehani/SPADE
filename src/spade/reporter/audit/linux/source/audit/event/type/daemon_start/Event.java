@@ -17,31 +17,29 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.event;
+package spade.reporter.audit.linux.source.audit.event.type.daemon_start;
 
+import spade.reporter.audit.linux.source.audit.event.Type;
 
-public abstract class Event{
+import java.util.Arrays;
 
-	private final Type type;
-	private final ID id;
+/**
+ * Event subclass for DAEMON_START events.
+ * Contains a single DaemonStart record.
+ */
+public class Event extends spade.reporter.audit.linux.source.audit.event.Event{
 
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
-		}
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
-		}
-		this.type = type;
-		this.id = id;
+	private final spade.reporter.audit.linux.source.audit.event.record.type.DaemonStart record;
+
+	protected Event(
+		final spade.reporter.audit.linux.source.audit.event.record.type.DaemonStart record
+	){
+		super(record.getId(), Type.DAEMON_START);
+		setRecords(Arrays.asList(record));
+		this.record = record;
 	}
 
-	public Type getType(){
-		return type;
+	public spade.reporter.audit.linux.source.audit.event.record.type.DaemonStart getDaemonStartRecord(){
+		return record;
 	}
-
-	public ID getId(){
-		return id;
-	}
-
 }

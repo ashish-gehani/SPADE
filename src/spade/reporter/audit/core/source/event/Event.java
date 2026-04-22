@@ -17,31 +17,39 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.event;
+package spade.reporter.audit.core.source.event;
 
 
-public abstract class Event{
+public abstract class Event<T extends IDable> implements Comparable<Event<T>>{
 
-	private final Type type;
-	private final ID id;
+	private final T id;
 
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
-		}
+	protected Event(final T id){
 		if(id == null){
 			throw new IllegalArgumentException("id cannot be NULL");
 		}
-		this.type = type;
 		this.id = id;
 	}
 
-	public Type getType(){
-		return type;
+	public T getId(){
+		return id;
 	}
 
-	public ID getId(){
-		return id;
+	@Override
+	public final int compareTo(final Event<T> other){
+		return this.id.compareTo(other.id);
+	}
+
+	@Override
+	public final int hashCode(){
+		return id.hashCode();
+	}
+
+	@Override
+	public final boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof Event)) return false;
+		return this.id.equals(((Event<?>)obj).id);
 	}
 
 }

@@ -17,31 +17,35 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.event;
+package spade.reporter.audit.linux.provenance.event.type.process.create;
 
+import spade.reporter.audit.core.provenance.event.ID;
+import spade.reporter.audit.linux.provenance.ProvEvent;
+import spade.reporter.audit.linux.provenance.ProvProcess;
+import spade.reporter.audit.linux.provenance.event.type.ProcessType;
 
-public abstract class Event{
+public class Event extends spade.reporter.audit.linux.provenance.event.Event{
 
-	private final Type type;
-	private final ID id;
+	private final ProvProcess parent;
+	private final ProvProcess child;
 
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
+	public Event(final ID id, final ProvEvent provEvent, final ProvProcess parent, final ProvProcess child){
+		super(ProcessType.CREATE, id, provEvent);
+		if(parent == null){
+			throw new IllegalArgumentException("parent cannot be NULL");
 		}
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
+		if(child == null){
+			throw new IllegalArgumentException("child cannot be NULL");
 		}
-		this.type = type;
-		this.id = id;
+		this.parent = parent;
+		this.child = child;
 	}
 
-	public Type getType(){
-		return type;
+	public ProvProcess getParent(){
+		return parent;
 	}
 
-	public ID getId(){
-		return id;
+	public ProvProcess getChild(){
+		return child;
 	}
-
 }

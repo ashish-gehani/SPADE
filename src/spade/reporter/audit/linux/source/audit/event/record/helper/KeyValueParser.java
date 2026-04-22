@@ -17,31 +17,28 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.event;
+package spade.reporter.audit.linux.source.audit.event.record.helper;
 
+import java.util.Map;
 
-public abstract class Event{
+import spade.utility.HelperFunctions;
 
-	private final Type type;
-	private final ID id;
+/**
+ * Parses space-separated key=value pairs from audit record data.
+ * Delegates to {@link HelperFunctions#parseKeyValPairs(String)}.
+ */
+public final class KeyValueParser{
 
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
-		}
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
-		}
-		this.type = type;
-		this.id = id;
+	private KeyValueParser(){
 	}
 
-	public Type getType(){
-		return type;
+	/**
+	 * Parse space-separated key=value pairs from audit data.
+	 *
+	 * @param data the data string with key=value pairs
+	 * @return map of key-value pairs
+	 */
+	public static Map<String, String> parseKeyValuePairs(final String data){
+		return HelperFunctions.parseKeyValPairs(data);
 	}
-
-	public ID getId(){
-		return id;
-	}
-
 }

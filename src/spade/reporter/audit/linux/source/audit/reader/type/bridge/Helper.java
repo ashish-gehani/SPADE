@@ -17,31 +17,27 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.event;
+package spade.reporter.audit.linux.source.audit.reader.type.bridge;
 
+import spade.reporter.audit.linux.source.audit.reader.Config;
 
-public abstract class Event{
+public class Helper{
 
-	private final Type type;
-	private final ID id;
-
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
-		}
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
-		}
-		this.type = type;
-		this.id = id;
+	public static Process createProcess(final Config config) throws Exception{
+		final spade.reporter.audit.Input input = config.getInput();
+		final spade.reporter.audit.AuditConfiguration auditConfiguration = config.getAuditConfiguration();
+		final ProcessConfig processConfig = new ProcessConfig(
+			input.getSPADEAuditBridgePath(),
+			input.getMode(),
+			input.getInputLogListFile(),
+			input.getInputDir(),
+			input.getInputDirTime(),
+			input.getLinuxAuditSocketPath(),
+			input.isWaitForLog(),
+			auditConfiguration.isUnits(),
+			auditConfiguration.getMergeUnit()
+		);
+		final Process process = new Process(processConfig);
+		return process;
 	}
-
-	public Type getType(){
-		return type;
-	}
-
-	public ID getId(){
-		return id;
-	}
-
 }

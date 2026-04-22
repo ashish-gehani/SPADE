@@ -17,31 +17,25 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.event;
+package spade.reporter.audit.linux.source.audit.writer;
 
+/**
+ * Wires together the full audit-writing pipeline and returns a
+ * ready-to-use {@link EventWriter}.
+ *
+ * Pipeline: {@link LineWriter} → {@link RecordWriter} → {@link EventWriter}
+ */
+public class Helper {
 
-public abstract class Event{
+    public Helper() {}
 
-	private final Type type;
-	private final ID id;
-
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
-		}
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
-		}
-		this.type = type;
-		this.id = id;
-	}
-
-	public Type getType(){
-		return type;
-	}
-
-	public ID getId(){
-		return id;
-	}
+    public EventWriter createWriter(final Config config) throws Exception {
+        if (config == null) {
+            throw new IllegalArgumentException("Config cannot be NULL");
+        }
+        final LineWriter lineWriter = Factory.create(config);
+        final RecordWriter recordWriter = new RecordWriter(lineWriter);
+        return new EventWriter(recordWriter, config);
+    }
 
 }

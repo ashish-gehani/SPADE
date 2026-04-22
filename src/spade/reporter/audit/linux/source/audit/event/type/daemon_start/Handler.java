@@ -17,31 +17,17 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.event;
+package spade.reporter.audit.linux.source.audit.event.type.daemon_start;
 
 
-public abstract class Event{
+import spade.reporter.audit.linux.source.audit.event.HandlerContext;
+import spade.reporter.audit.linux.source.audit.event.ID;
 
-	private final Type type;
-	private final ID id;
+public class Handler implements spade.reporter.audit.core.source.event.Handler<ID, Event, HandlerContext>{
 
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
-		}
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
-		}
-		this.type = type;
-		this.id = id;
-	}
-
-	public Type getType(){
-		return type;
-	}
-
-	public ID getId(){
-		return id;
+	@Override
+	public void handle(final Event event, final HandlerContext context){
+		
 	}
 
 }

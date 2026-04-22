@@ -17,31 +17,29 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.event;
+package spade.reporter.audit.linux.source.audit.event.type.netio;
 
+import java.util.Arrays;
 
-public abstract class Event{
+import spade.reporter.audit.linux.source.audit.event.Type;
 
-	private final Type type;
-	private final ID id;
+/**
+ * Event subclass for NETIO_INTERCEPTED events.
+ * Contains a single Netio record (from USER record).
+ */
+public class Event extends spade.reporter.audit.linux.source.audit.event.Event{
 
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
-		}
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
-		}
-		this.type = type;
-		this.id = id;
+	private final spade.reporter.audit.linux.source.audit.event.record.type.Netio record;
+
+	protected Event(
+		final spade.reporter.audit.linux.source.audit.event.record.type.Netio record
+	){
+		super(record.getId(), Type.NETIO);
+		setRecords(Arrays.asList(record));
+		this.record = record;
 	}
 
-	public Type getType(){
-		return type;
+	public spade.reporter.audit.linux.source.audit.event.record.type.Netio getNetioRecord(){
+		return record;
 	}
-
-	public ID getId(){
-		return id;
-	}
-
 }

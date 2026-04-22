@@ -17,31 +17,43 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.event;
+package spade.reporter.audit.linux.source.audit.event;
 
+/**
+ * Concrete event number for Linux Audit Subsystem events.
+ */
+public final class Num implements Comparable<Num>{
 
-public abstract class Event{
+	private final long value;
 
-	private final Type type;
-	private final ID id;
-
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
-		}
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
-		}
-		this.type = type;
-		this.id = id;
+	public Num(final long value){
+		this.value = value;
 	}
 
-	public Type getType(){
-		return type;
+	public long getValue(){
+		return value;
 	}
 
-	public ID getId(){
-		return id;
+	@Override
+	public int compareTo(final Num other){
+		return Long.compare(this.value, other.value);
+	}
+
+	@Override
+	public boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof Num)) return false;
+		return this.value == ((Num) obj).value;
+	}
+
+	@Override
+	public int hashCode(){
+		return Long.hashCode(value);
+	}
+
+	@Override
+	public String toString(){
+		return String.valueOf(value);
 	}
 
 }

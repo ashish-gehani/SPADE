@@ -17,31 +17,40 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.event;
+package spade.reporter.audit.linux.provenance;
 
+import java.util.HashMap;
+import java.util.Map;
 
-public abstract class Event{
+import spade.reporter.audit.linux.platform.process.VersionedID;
+import spade.reporter.audit.linux.platform.resource.ID;
+import spade.reporter.audit.linux.provenance.event.HandlerContext;
 
-	private final Type type;
+public class ProvResource implements spade.reporter.audit.core.provenance.Resourcable<HandlerContext>{
+
 	private final ID id;
 
-	public Event(final Type type, final ID id){
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
-		}
+	public ProvResource(final ID id){
 		if(id == null){
 			throw new IllegalArgumentException("id cannot be NULL");
 		}
-		this.type = type;
 		this.id = id;
 	}
 
-	public Type getType(){
-		return type;
+	@Override
+	public Map<String, String> getKeyAnnotations(final HandlerContext context){
+		final Map<String, String> map = new HashMap<>();
+		map.put("type", "Artifact");
+		map.put("subtype", id.getResource().getType().name);
+		final VersionedID processId = id.getProcessState().getId();
+		map.put("pid", String.valueOf(processId.getPid().getValue()));
+		map.put("pid_version", String.valueOf(processId.getVersion()));
+		return map;
 	}
 
-	public ID getId(){
-		return id;
+	@Override
+	public Map<String, String> getExtraAnnotations(final HandlerContext context){
+		return new HashMap<>();
 	}
 
 }
