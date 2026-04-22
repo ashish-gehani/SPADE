@@ -17,20 +17,30 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.event.handler.syscall;
+package spade.reporter.audit.core.provenance;
 
-import spade.reporter.audit.linux.event.type.Syscall;
+public final class Config{
 
-public class Handler implements spade.reporter.audit.core.source.handler.Handler<Syscall, Context>{
+	private final VertexGenerator vertexGenerator;
+	private final EdgeGenerator edgeGenerator;
 
-	@Override
-	public void handle(Context context) {
-		if(context == null){
-			throw new IllegalArgumentException("Context cannot be NULL");
+	public Config(final VertexGenerator vertexGenerator, final EdgeGenerator edgeGenerator){
+		if(vertexGenerator == null){
+			throw new IllegalArgumentException("vertexGenerator cannot be NULL");
 		}
-		if(context.getEvent() == null){
-			throw new IllegalArgumentException("Event in context cannot be NULL");
+		if(edgeGenerator == null){
+			throw new IllegalArgumentException("edgeGenerator cannot be NULL");
 		}
+		this.vertexGenerator = vertexGenerator;
+		this.edgeGenerator = edgeGenerator;
+	}
+
+	public VertexGenerator getVertexGenerator(){
+		return vertexGenerator;
+	}
+
+	public EdgeGenerator getEdgeGenerator(){
+		return edgeGenerator;
 	}
 
 }

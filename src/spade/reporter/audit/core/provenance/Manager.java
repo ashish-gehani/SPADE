@@ -23,14 +23,14 @@ import java.util.Collections;
 import java.util.List;
 
 import spade.reporter.audit.core.provenance.event.Event;
-import spade.reporter.audit.core.provenance.type.AbstractContext;
+import spade.reporter.audit.core.provenance.type.ProvenanceContext;
 import spade.reporter.audit.core.util.channel.Channel;
 import spade.reporter.audit.core.util.channel.ReadTimeoutExpired;
 import spade.reporter.audit.core.util.channel.WriteTimeoutExpired;
 
-public final class Manager<C extends AbstractContext>{
+public final class Manager<C extends ProvenanceContext>{
 
-	private final Context managerContext;
+	private final Config managerConfig;
 	private final Channel<Event<C>> inChannel;
 	private final Channel<ProvenanceElement> outChannel;
 
@@ -55,7 +55,7 @@ public final class Manager<C extends AbstractContext>{
 		if(outChannel == null){
 			throw new IllegalArgumentException("outChannel cannot be NULL");
 		}
-		this.managerContext = new Context(vertexGenerator, edgeGenerator);
+		this.managerConfig = new Config(vertexGenerator, edgeGenerator);
 		this.inChannel = inChannel;
 		this.outChannel = outChannel;
 	}
@@ -116,7 +116,7 @@ public final class Manager<C extends AbstractContext>{
 		if(event == null){
 			return Collections.emptyList();
 		}
-		final List<ProvenanceElement> elements = Collections.unmodifiableList(event.handle(provContext, managerContext));
+		final List<ProvenanceElement> elements = Collections.unmodifiableList(event.handle(provContext, managerConfig));
 		for(final ProvenanceElement element : elements){
 			outChannel.write(element);
 		}

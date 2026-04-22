@@ -25,6 +25,7 @@ import java.util.logging.Logger;
 import spade.reporter.audit.core.event.reader.Reader;
 import spade.reporter.audit.linux.event.Context;
 import spade.reporter.audit.linux.event.Event;
+import spade.reporter.audit.linux.event.EventHandlerContext;
 import spade.reporter.audit.linux.event.Factory;
 import spade.reporter.audit.linux.event.ID;
 import spade.reporter.audit.linux.event.Num;
@@ -39,7 +40,7 @@ import spade.reporter.audit.linux.event.record.Record;
  * buffered context is flushed through the {@link Factory} to produce a typed
  * {@link Event}, then the context is reset for the next group.
  */
-public final class EventReader extends Reader<ID, Event> {
+public final class EventReader extends Reader<ID, EventHandlerContext, Event> {
 
     private final Logger logger = Logger.getLogger(this.getClass().getName());
 

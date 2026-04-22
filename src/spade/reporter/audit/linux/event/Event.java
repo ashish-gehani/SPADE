@@ -28,7 +28,7 @@ import spade.reporter.audit.linux.event.record.Record;
 /**
  * Concrete audit event for the Linux Audit Subsystem.
  */
-public abstract class Event extends spade.reporter.audit.core.event.Event<ID>{
+public abstract class Event extends spade.reporter.audit.core.event.Event<ID, EventHandlerContext>{
 
 	private final Type type;
 

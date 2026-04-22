@@ -20,11 +20,11 @@
 package spade.reporter.audit.linux.provenance.event.type.resource;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.type.Context;
+import spade.reporter.audit.linux.provenance.type.ProvenanceContext;
 import spade.reporter.audit.linux.provenance.type.Process;
 import spade.reporter.audit.linux.provenance.type.Resource;
 
-public abstract class Close extends spade.reporter.audit.core.provenance.event.type.resource.Close<Context>{
+public abstract class Close extends spade.reporter.audit.core.provenance.event.type.resource.Close<ProvenanceContext>{
 
 	public Close(final ID id, final Process closer, final Resource resource){
 		super(id, closer, resource);

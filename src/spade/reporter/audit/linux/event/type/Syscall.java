@@ -23,6 +23,7 @@ import java.util.List;
 
 import spade.reporter.audit.core.event.MalformedEventException;
 import spade.reporter.audit.linux.event.Event;
+import spade.reporter.audit.linux.event.EventHandlerContext;
 import spade.reporter.audit.linux.event.Type;
 import spade.reporter.audit.linux.event.record.Record;
 
@@ -47,6 +48,11 @@ public class Syscall extends Event{
 
 	public spade.reporter.audit.linux.event.record.type.Syscall getSyscallRecord(){
 		return syscallRecord;
+	}
+
+	@Override
+	public void handle(final EventHandlerContext context){
+
 	}
 
 	public static class Creator extends Event.Creator{

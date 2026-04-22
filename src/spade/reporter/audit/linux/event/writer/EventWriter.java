@@ -26,8 +26,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.reporter.audit.core.event.writer.Writer;
-import spade.reporter.audit.linux.event.ID;
 import spade.reporter.audit.linux.event.Event;
+import spade.reporter.audit.linux.event.EventHandlerContext;
+import spade.reporter.audit.linux.event.ID;
 import spade.reporter.audit.linux.event.record.Record;
 
 /**
@@ -36,7 +37,7 @@ import spade.reporter.audit.linux.event.record.Record;
  * Each call to {@link #writeEvent(Event)} writes all records of the event
  * in order via the underlying {@link RecordWriter}.
  */
-public final class EventWriter extends Writer<ID, Event> {
+public final class EventWriter extends Writer<ID, EventHandlerContext, Event> {
 
     private final Logger logger = Logger.getLogger(this.getClass().getName());
 

@@ -20,15 +20,17 @@
 package spade.reporter.audit.core.event.reader;
 
 import spade.reporter.audit.core.event.Event;
+import spade.reporter.audit.core.event.EventHandlerContext;
 import spade.reporter.audit.core.event.IDable;
 
 /**
  * Abstract class for reading audit events from an arbitrary source.
  *
  * @param <V> the ID type of the events
+ * @param <C> the context type for event handling
  * @param <T> the concrete {@link Event} subtype this reader produces
  */
-public abstract class Reader<V extends IDable, T extends Event<V>> implements AutoCloseable {
+public abstract class Reader<V extends IDable, C extends EventHandlerContext, T extends Event<V, C>> implements AutoCloseable {
 
 	/**
 	 * Read the next complete event from the source.

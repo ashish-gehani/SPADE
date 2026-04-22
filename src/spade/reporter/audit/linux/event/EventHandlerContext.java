@@ -17,8 +17,21 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance.type;
+package spade.reporter.audit.linux.event;
 
-public interface AbstractContext{
+public class EventHandlerContext implements spade.reporter.audit.core.event.EventHandlerContext{
+
+	private final spade.reporter.audit.linux.platform.Context platformContext;
+
+	public EventHandlerContext(final spade.reporter.audit.linux.platform.Context platformContext){
+		if(platformContext == null){
+			throw new IllegalArgumentException("platformContext cannot be NULL");
+		}
+		this.platformContext = platformContext;
+	}
+
+	public spade.reporter.audit.linux.platform.Context getPlatformContext(){
+		return platformContext;
+	}
 
 }

@@ -17,30 +17,8 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance;
+package spade.reporter.audit.core.provenance.type;
 
-public final class Context{
-
-	private final VertexGenerator vertexGenerator;
-	private final EdgeGenerator edgeGenerator;
-
-	public Context(final VertexGenerator vertexGenerator, final EdgeGenerator edgeGenerator){
-		if(vertexGenerator == null){
-			throw new IllegalArgumentException("vertexGenerator cannot be NULL");
-		}
-		if(edgeGenerator == null){
-			throw new IllegalArgumentException("edgeGenerator cannot be NULL");
-		}
-		this.vertexGenerator = vertexGenerator;
-		this.edgeGenerator = edgeGenerator;
-	}
-
-	public VertexGenerator getVertexGenerator(){
-		return vertexGenerator;
-	}
-
-	public EdgeGenerator getEdgeGenerator(){
-		return edgeGenerator;
-	}
+public abstract class Process<C extends ProvenanceContext> implements Provenanceable<C>{
 
 }

@@ -19,7 +19,8 @@
  */
 package spade.reporter.audit.core.event;
 
-public abstract class Event<T extends IDable> implements Comparable<Event<T>>{
+
+public abstract class Event<T extends IDable, C extends EventHandlerContext> implements Comparable<Event<T, ?>>{
 
 	private final T id;
 
@@ -35,7 +36,7 @@ public abstract class Event<T extends IDable> implements Comparable<Event<T>>{
 	}
 
 	@Override
-	public final int compareTo(final Event<T> other){
+	public final int compareTo(final Event<T, ?> other){
 		return this.id.compareTo(other.id);
 	}
 
@@ -48,7 +49,9 @@ public abstract class Event<T extends IDable> implements Comparable<Event<T>>{
 	public final boolean equals(final Object obj){
 		if(this == obj) return true;
 		if(!(obj instanceof Event)) return false;
-		return this.id.equals(((Event<?>)obj).id);
+		return this.id.equals(((Event<?, ?>)obj).id);
 	}
+
+	public abstract void handle(C context);
 
 }

@@ -23,19 +23,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 import spade.core.AbstractVertex;
-import spade.reporter.audit.core.provenance.Context;
+import spade.reporter.audit.core.provenance.Config;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
 import spade.reporter.audit.core.provenance.event.ProcessType;
-import spade.reporter.audit.core.provenance.type.AbstractContext;
-import spade.reporter.audit.core.provenance.type.AbstractProcess;
+import spade.reporter.audit.core.provenance.type.ProvenanceContext;
+import spade.reporter.audit.core.provenance.type.Process;
 
-public abstract class Exit<C extends AbstractContext> extends Event<C>{
+public abstract class Exit<C extends ProvenanceContext> extends Event<C>{
 
-	private final AbstractProcess<C> process;
+	private final Process<C> process;
 
-	public Exit(final ID id, final AbstractProcess<C> process){
+	public Exit(final ID id, final Process<C> process){
 		super(ProcessType.EXIT, id);
 		if(process == null){
 			throw new IllegalArgumentException("process cannot be NULL");
@@ -43,13 +43,13 @@ public abstract class Exit<C extends AbstractContext> extends Event<C>{
 		this.process = process;
 	}
 
-	public AbstractProcess<C> getProcess(){
+	public Process<C> getProcess(){
 		return process;
 	}
 
 	@Override
-	public List<ProvenanceElement> handle(final C provContext, final Context managerContext){
-		final AbstractVertex processVertex = managerContext.getVertexGenerator().generate();
+	public List<ProvenanceElement> handle(final C provContext, final Config managerConfig){
+		final AbstractVertex processVertex = managerConfig.getVertexGenerator().generate();
 		processVertex.addAnnotations(process.getKeyAnnotations(provContext));
 		processVertex.addAnnotations(process.getExtraAnnotations(provContext));
 

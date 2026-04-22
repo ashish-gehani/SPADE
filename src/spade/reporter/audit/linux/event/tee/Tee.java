@@ -23,8 +23,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.reporter.audit.core.event.reader.Reader;
-import spade.reporter.audit.linux.event.ID;
 import spade.reporter.audit.linux.event.Event;
+import spade.reporter.audit.linux.event.EventHandlerContext;
+import spade.reporter.audit.linux.event.ID;
 import spade.reporter.audit.linux.event.reader.BufferedEventReader;
 import spade.reporter.audit.linux.event.writer.EventWriter;
 
@@ -41,7 +42,7 @@ import spade.reporter.audit.linux.event.writer.EventWriter;
  * The underlying {@link BufferedEventReader} pump thread is started
  * automatically from its own constructor.
  */
-public final class Tee extends Reader<ID, Event>{
+public final class Tee extends Reader<ID, EventHandlerContext, Event>{
 
     private final Logger logger = Logger.getLogger(this.getClass().getName());
 

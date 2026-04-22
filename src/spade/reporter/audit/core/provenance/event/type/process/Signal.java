@@ -24,20 +24,20 @@ import java.util.List;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.reporter.audit.core.provenance.Context;
+import spade.reporter.audit.core.provenance.Config;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
 import spade.reporter.audit.core.provenance.event.ProcessType;
-import spade.reporter.audit.core.provenance.type.AbstractContext;
-import spade.reporter.audit.core.provenance.type.AbstractProcess;
+import spade.reporter.audit.core.provenance.type.ProvenanceContext;
+import spade.reporter.audit.core.provenance.type.Process;
 
-public abstract class Signal<C extends AbstractContext> extends Event<C>{
+public abstract class Signal<C extends ProvenanceContext> extends Event<C>{
 
-	private final AbstractProcess<C> sender;
-	private final AbstractProcess<C> receiver;
+	private final Process<C> sender;
+	private final Process<C> receiver;
 
-	public Signal(final ID id, final AbstractProcess<C> sender, final AbstractProcess<C> receiver){
+	public Signal(final ID id, final Process<C> sender, final Process<C> receiver){
 		super(ProcessType.SIGNAL, id);
 		if(sender == null){
 			throw new IllegalArgumentException("sender cannot be NULL");
@@ -49,25 +49,25 @@ public abstract class Signal<C extends AbstractContext> extends Event<C>{
 		this.receiver = receiver;
 	}
 
-	public AbstractProcess<C> getSender(){
+	public Process<C> getSender(){
 		return sender;
 	}
 
-	public AbstractProcess<C> getReceiver(){
+	public Process<C> getReceiver(){
 		return receiver;
 	}
 
 	@Override
-	public List<ProvenanceElement> handle(final C provContext, final Context managerContext){
-		final AbstractVertex senderVertex = managerContext.getVertexGenerator().generate();
+	public List<ProvenanceElement> handle(final C provContext, final Config managerConfig){
+		final AbstractVertex senderVertex = managerConfig.getVertexGenerator().generate();
 		senderVertex.addAnnotations(sender.getKeyAnnotations(provContext));
 		senderVertex.addAnnotations(sender.getExtraAnnotations(provContext));
 
-		final AbstractVertex receiverVertex = managerContext.getVertexGenerator().generate();
+		final AbstractVertex receiverVertex = managerConfig.getVertexGenerator().generate();
 		receiverVertex.addAnnotations(receiver.getKeyAnnotations(provContext));
 		receiverVertex.addAnnotations(receiver.getExtraAnnotations(provContext));
 
-		final AbstractEdge edge = managerContext.getEdgeGenerator().generate(senderVertex, receiverVertex);
+		final AbstractEdge edge = managerConfig.getEdgeGenerator().generate(senderVertex, receiverVertex);
 		edge.addAnnotations(getKeyAnnotations(provContext));
 		edge.addAnnotations(getExtraAnnotations(provContext));
 

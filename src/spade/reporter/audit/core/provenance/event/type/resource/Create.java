@@ -24,21 +24,21 @@ import java.util.List;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.reporter.audit.core.provenance.Context;
+import spade.reporter.audit.core.provenance.Config;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
 import spade.reporter.audit.core.provenance.event.ResourceType;
-import spade.reporter.audit.core.provenance.type.AbstractContext;
-import spade.reporter.audit.core.provenance.type.AbstractProcess;
-import spade.reporter.audit.core.provenance.type.AbstractResource;
+import spade.reporter.audit.core.provenance.type.ProvenanceContext;
+import spade.reporter.audit.core.provenance.type.Process;
+import spade.reporter.audit.core.provenance.type.Resource;
 
-public abstract class Create<C extends AbstractContext> extends Event<C>{
+public abstract class Create<C extends ProvenanceContext> extends Event<C>{
 
-	private final AbstractProcess<C> creator;
-	private final AbstractResource<C> resource;
+	private final Process<C> creator;
+	private final Resource<C> resource;
 
-	public Create(final ID id, final AbstractProcess<C> creator, final AbstractResource<C> resource){
+	public Create(final ID id, final Process<C> creator, final Resource<C> resource){
 		super(ResourceType.CREATE, id);
 		if(creator == null){
 			throw new IllegalArgumentException("creator cannot be NULL");
@@ -50,25 +50,25 @@ public abstract class Create<C extends AbstractContext> extends Event<C>{
 		this.resource = resource;
 	}
 
-	public AbstractProcess<C> getCreator(){
+	public Process<C> getCreator(){
 		return creator;
 	}
 
-	public AbstractResource<C> getResource(){
+	public Resource<C> getResource(){
 		return resource;
 	}
 
 	@Override
-	public List<ProvenanceElement> handle(final C provContext, final Context managerContext){
-		final AbstractVertex creatorVertex = managerContext.getVertexGenerator().generate();
+	public List<ProvenanceElement> handle(final C provContext, final Config managerConfig){
+		final AbstractVertex creatorVertex = managerConfig.getVertexGenerator().generate();
 		creatorVertex.addAnnotations(creator.getKeyAnnotations(provContext));
 		creatorVertex.addAnnotations(creator.getExtraAnnotations(provContext));
 
-		final AbstractVertex resourceVertex = managerContext.getVertexGenerator().generate();
+		final AbstractVertex resourceVertex = managerConfig.getVertexGenerator().generate();
 		resourceVertex.addAnnotations(resource.getKeyAnnotations(provContext));
 		resourceVertex.addAnnotations(resource.getExtraAnnotations(provContext));
 
-		final AbstractEdge edge = managerContext.getEdgeGenerator().generate(resourceVertex, creatorVertex);
+		final AbstractEdge edge = managerConfig.getEdgeGenerator().generate(resourceVertex, creatorVertex);
 		edge.addAnnotations(getKeyAnnotations(provContext));
 		edge.addAnnotations(getExtraAnnotations(provContext));
 

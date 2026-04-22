@@ -24,20 +24,20 @@ import java.util.List;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.reporter.audit.core.provenance.Context;
+import spade.reporter.audit.core.provenance.Config;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
 import spade.reporter.audit.core.provenance.event.ProcessType;
-import spade.reporter.audit.core.provenance.type.AbstractContext;
-import spade.reporter.audit.core.provenance.type.AbstractProcess;
+import spade.reporter.audit.core.provenance.type.ProvenanceContext;
+import spade.reporter.audit.core.provenance.type.Process;
 
-public abstract class Control<C extends AbstractContext> extends Event<C>{
+public abstract class Control<C extends ProvenanceContext> extends Event<C>{
 
-	private final AbstractProcess<C> controller;
-	private final AbstractProcess<C> target;
+	private final Process<C> controller;
+	private final Process<C> target;
 
-	public Control(final ID id, final AbstractProcess<C> controller, final AbstractProcess<C> target){
+	public Control(final ID id, final Process<C> controller, final Process<C> target){
 		super(ProcessType.CONTROL, id);
 		if(controller == null){
 			throw new IllegalArgumentException("controller cannot be NULL");
@@ -49,25 +49,25 @@ public abstract class Control<C extends AbstractContext> extends Event<C>{
 		this.target = target;
 	}
 
-	public AbstractProcess<C> getController(){
+	public Process<C> getController(){
 		return controller;
 	}
 
-	public AbstractProcess<C> getTarget(){
+	public Process<C> getTarget(){
 		return target;
 	}
 
 	@Override
-	public List<ProvenanceElement> handle(final C provContext, final Context managerContext){
-		final AbstractVertex controllerVertex = managerContext.getVertexGenerator().generate();
+	public List<ProvenanceElement> handle(final C provContext, final Config managerConfig){
+		final AbstractVertex controllerVertex = managerConfig.getVertexGenerator().generate();
 		controllerVertex.addAnnotations(controller.getKeyAnnotations(provContext));
 		controllerVertex.addAnnotations(controller.getExtraAnnotations(provContext));
 
-		final AbstractVertex targetVertex = managerContext.getVertexGenerator().generate();
+		final AbstractVertex targetVertex = managerConfig.getVertexGenerator().generate();
 		targetVertex.addAnnotations(target.getKeyAnnotations(provContext));
 		targetVertex.addAnnotations(target.getExtraAnnotations(provContext));
 
-		final AbstractEdge edge = managerContext.getEdgeGenerator().generate(controllerVertex, targetVertex);
+		final AbstractEdge edge = managerConfig.getEdgeGenerator().generate(controllerVertex, targetVertex);
 		edge.addAnnotations(getKeyAnnotations(provContext));
 		edge.addAnnotations(getExtraAnnotations(provContext));
 

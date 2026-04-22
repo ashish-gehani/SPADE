@@ -24,20 +24,20 @@ import java.util.List;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.reporter.audit.core.provenance.Context;
+import spade.reporter.audit.core.provenance.Config;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
 import spade.reporter.audit.core.provenance.event.ProcessType;
-import spade.reporter.audit.core.provenance.type.AbstractContext;
-import spade.reporter.audit.core.provenance.type.AbstractProcess;
+import spade.reporter.audit.core.provenance.type.ProvenanceContext;
+import spade.reporter.audit.core.provenance.type.Process;
 
-public abstract class Update<C extends AbstractContext> extends Event<C>{
+public abstract class Update<C extends ProvenanceContext> extends Event<C>{
 
-	private final AbstractProcess<C> oldVersion;
-	private final AbstractProcess<C> newVersion;
+	private final Process<C> oldVersion;
+	private final Process<C> newVersion;
 
-	public Update(final ID id, final AbstractProcess<C> oldVersion, final AbstractProcess<C> newVersion){
+	public Update(final ID id, final Process<C> oldVersion, final Process<C> newVersion){
 		super(ProcessType.UPDATE, id);
 		if(oldVersion == null){
 			throw new IllegalArgumentException("oldVersion cannot be NULL");
@@ -49,25 +49,25 @@ public abstract class Update<C extends AbstractContext> extends Event<C>{
 		this.newVersion = newVersion;
 	}
 
-	public AbstractProcess<C> getOldVersion(){
+	public Process<C> getOldVersion(){
 		return oldVersion;
 	}
 
-	public AbstractProcess<C> getNewVersion(){
+	public Process<C> getNewVersion(){
 		return newVersion;
 	}
 
 	@Override
-	public List<ProvenanceElement> handle(final C provContext, final Context managerContext){
-		final AbstractVertex oldVertex = managerContext.getVertexGenerator().generate();
+	public List<ProvenanceElement> handle(final C provContext, final Config managerConfig){
+		final AbstractVertex oldVertex = managerConfig.getVertexGenerator().generate();
 		oldVertex.addAnnotations(oldVersion.getKeyAnnotations(provContext));
 		oldVertex.addAnnotations(oldVersion.getExtraAnnotations(provContext));
 
-		final AbstractVertex newVertex = managerContext.getVertexGenerator().generate();
+		final AbstractVertex newVertex = managerConfig.getVertexGenerator().generate();
 		newVertex.addAnnotations(newVersion.getKeyAnnotations(provContext));
 		newVertex.addAnnotations(newVersion.getExtraAnnotations(provContext));
 
-		final AbstractEdge edge = managerContext.getEdgeGenerator().generate(newVertex, oldVertex);
+		final AbstractEdge edge = managerConfig.getEdgeGenerator().generate(newVertex, oldVertex);
 		edge.addAnnotations(getKeyAnnotations(provContext));
 		edge.addAnnotations(getExtraAnnotations(provContext));
 

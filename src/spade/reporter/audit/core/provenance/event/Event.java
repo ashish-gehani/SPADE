@@ -21,12 +21,12 @@ package spade.reporter.audit.core.provenance.event;
 
 import java.util.List;
 
-import spade.reporter.audit.core.provenance.Context;
+import spade.reporter.audit.core.provenance.Config;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
-import spade.reporter.audit.core.provenance.type.AbstractContext;
+import spade.reporter.audit.core.provenance.type.ProvenanceContext;
 import spade.reporter.audit.core.provenance.type.Provenanceable;
 
-public abstract class Event<C extends AbstractContext> implements Provenanceable<C>{
+public abstract class Event<C extends ProvenanceContext> implements Provenanceable<C>{
 
 	private final Type type;
 	private final ID id;
@@ -50,6 +50,6 @@ public abstract class Event<C extends AbstractContext> implements Provenanceable
 		return id;
 	}
 
-	public abstract List<ProvenanceElement> handle(C provContext, Context managerContext);
+	public abstract List<ProvenanceElement> handle(C provContext, Config managerConfig);
 
 }

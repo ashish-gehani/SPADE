@@ -20,10 +20,10 @@
 package spade.reporter.audit.linux.provenance.event.type.process;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.type.Context;
+import spade.reporter.audit.linux.provenance.type.ProvenanceContext;
 import spade.reporter.audit.linux.provenance.type.Process;
 
-public abstract class Create extends spade.reporter.audit.core.provenance.event.type.process.Create<Context>{
+public abstract class Create extends spade.reporter.audit.core.provenance.event.type.process.Create<ProvenanceContext>{
 
 	public Create(final ID id, final Process parent, final Process child){
 		super(id, parent, child);

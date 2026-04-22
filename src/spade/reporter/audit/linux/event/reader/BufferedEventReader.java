@@ -28,8 +28,9 @@ import java.util.logging.Logger;
 import spade.reporter.audit.core.event.reader.Reader;
 import spade.reporter.audit.core.util.channel.Channel;
 import spade.reporter.audit.core.util.channel.ReadTimeoutExpired;
-import spade.reporter.audit.linux.event.ID;
 import spade.reporter.audit.linux.event.Event;
+import spade.reporter.audit.linux.event.EventHandlerContext;
+import spade.reporter.audit.linux.event.ID;
 import spade.reporter.audit.linux.event.record.Record;
 
 /**
@@ -46,7 +47,7 @@ import spade.reporter.audit.linux.event.record.Record;
  *
  * The pump thread is started automatically from the constructor.
  */
-public final class BufferedEventReader extends Reader<ID, Event> {
+public final class BufferedEventReader extends Reader<ID, EventHandlerContext, Event> {
 
     private final Logger logger = Logger.getLogger(this.getClass().getName());
 

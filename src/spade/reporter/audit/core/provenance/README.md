@@ -68,7 +68,7 @@ Abstract base class for all provenance structures. Implements `Provenanceable<C>
 Declares the abstract method:
 
 ```
-List<ProvenanceElement> handle(C provContext, Context managerContext)
+List<ProvenanceElement> handle(C provContext, Context managerConfig)
 ```
 
 Each concrete subclass implements `handle` to produce an ordered list of `ProvenanceElement` instances (vertices and edges) using the generators in `Context`.

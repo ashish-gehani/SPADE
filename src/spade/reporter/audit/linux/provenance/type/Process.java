@@ -24,7 +24,7 @@ import java.util.Map;
 
 import spade.reporter.audit.linux.platform.process.VersionedID;
 
-public class Process extends spade.reporter.audit.core.provenance.type.AbstractProcess<Context>{
+public class Process extends spade.reporter.audit.core.provenance.type.Process<ProvenanceContext>{
 
 	private final VersionedID id;
 
@@ -36,7 +36,7 @@ public class Process extends spade.reporter.audit.core.provenance.type.AbstractP
 	}
 
 	@Override
-	public Map<String, String> getKeyAnnotations(final Context context){
+	public Map<String, String> getKeyAnnotations(final ProvenanceContext context){
 		final Map<String, String> map = new HashMap<>();
 		map.put("type", "Process");
 		map.put("pid", String.valueOf(id.getPid().getValue()));
@@ -45,7 +45,7 @@ public class Process extends spade.reporter.audit.core.provenance.type.AbstractP
 	}
 
 	@Override
-	public Map<String, String> getExtraAnnotations(final Context context){
+	public Map<String, String> getExtraAnnotations(final ProvenanceContext context){
 		return new HashMap<>();
 	}
 

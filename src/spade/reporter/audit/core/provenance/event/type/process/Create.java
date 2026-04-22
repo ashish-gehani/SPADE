@@ -24,20 +24,20 @@ import java.util.List;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.reporter.audit.core.provenance.Context;
+import spade.reporter.audit.core.provenance.Config;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
 import spade.reporter.audit.core.provenance.event.ProcessType;
-import spade.reporter.audit.core.provenance.type.AbstractContext;
-import spade.reporter.audit.core.provenance.type.AbstractProcess;
+import spade.reporter.audit.core.provenance.type.ProvenanceContext;
+import spade.reporter.audit.core.provenance.type.Process;
 
-public abstract class Create<C extends AbstractContext> extends Event<C>{
+public abstract class Create<C extends ProvenanceContext> extends Event<C>{
 
-	private final AbstractProcess<C> parent;
-	private final AbstractProcess<C> child;
+	private final Process<C> parent;
+	private final Process<C> child;
 
-	public Create(final ID id, final AbstractProcess<C> parent, final AbstractProcess<C> child){
+	public Create(final ID id, final Process<C> parent, final Process<C> child){
 		super(ProcessType.CREATE, id);
 		if(parent == null){
 			throw new IllegalArgumentException("parent cannot be NULL");
@@ -49,25 +49,25 @@ public abstract class Create<C extends AbstractContext> extends Event<C>{
 		this.child = child;
 	}
 
-	public AbstractProcess<C> getParent(){
+	public Process<C> getParent(){
 		return parent;
 	}
 
-	public AbstractProcess<C> getChild(){
+	public Process<C> getChild(){
 		return child;
 	}
 
 	@Override
-	public List<ProvenanceElement> handle(final C provContext, final Context managerContext){
-		final AbstractVertex parentVertex = managerContext.getVertexGenerator().generate();
+	public List<ProvenanceElement> handle(final C provContext, final Config managerConfig){
+		final AbstractVertex parentVertex = managerConfig.getVertexGenerator().generate();
 		parentVertex.addAnnotations(parent.getKeyAnnotations(provContext));
 		parentVertex.addAnnotations(parent.getExtraAnnotations(provContext));
 
-		final AbstractVertex childVertex = managerContext.getVertexGenerator().generate();
+		final AbstractVertex childVertex = managerConfig.getVertexGenerator().generate();
 		childVertex.addAnnotations(child.getKeyAnnotations(provContext));
 		childVertex.addAnnotations(child.getExtraAnnotations(provContext));
 
-		final AbstractEdge edge = managerContext.getEdgeGenerator().generate(childVertex, parentVertex);
+		final AbstractEdge edge = managerConfig.getEdgeGenerator().generate(childVertex, parentVertex);
 		edge.addAnnotations(getKeyAnnotations(provContext));
 		edge.addAnnotations(getExtraAnnotations(provContext));
 

@@ -17,14 +17,8 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.event.handler.ubsidep;
+package spade.reporter.audit.core.provenance.type;
 
-import spade.reporter.audit.linux.event.UbsiDep;
-
-public class Context extends spade.reporter.audit.core.source.handler.Context<UbsiDep>{
-
-	public Context(final UbsiDep event){
-		super(event);
-	}
+public abstract class Resource<C extends ProvenanceContext> implements Provenanceable<C>{
 
 }

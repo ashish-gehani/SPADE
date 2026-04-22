@@ -25,7 +25,7 @@ import java.util.Map;
 import spade.reporter.audit.linux.platform.process.VersionedID;
 import spade.reporter.audit.linux.platform.resource.ID;
 
-public class Resource extends spade.reporter.audit.core.provenance.type.AbstractResource<Context>{
+public class Resource extends spade.reporter.audit.core.provenance.type.Resource<ProvenanceContext>{
 
 	private final ID id;
 
@@ -37,7 +37,7 @@ public class Resource extends spade.reporter.audit.core.provenance.type.Abstract
 	}
 
 	@Override
-	public Map<String, String> getKeyAnnotations(final Context context){
+	public Map<String, String> getKeyAnnotations(final ProvenanceContext context){
 		final Map<String, String> map = new HashMap<>();
 		map.put("type", "Artifact");
 		map.put("subtype", id.getResource().getType().name);
@@ -48,7 +48,7 @@ public class Resource extends spade.reporter.audit.core.provenance.type.Abstract
 	}
 
 	@Override
-	public Map<String, String> getExtraAnnotations(final Context context){
+	public Map<String, String> getExtraAnnotations(final ProvenanceContext context){
 		return new HashMap<>();
 	}
 

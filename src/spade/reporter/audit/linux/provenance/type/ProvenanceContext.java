@@ -17,20 +17,21 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.event.handler.ubsiraw;
+package spade.reporter.audit.linux.provenance.type;
 
-import spade.reporter.audit.linux.event.UbsiRaw;
+public class ProvenanceContext implements spade.reporter.audit.core.provenance.type.ProvenanceContext{
 
-public class Handler implements spade.reporter.audit.core.source.handler.Handler<UbsiRaw, Context>{
+	private final spade.reporter.audit.linux.platform.Context platformContext;
 
-	@Override
-	public void handle(Context context) {
-		if(context == null){
-			throw new IllegalArgumentException("Context cannot be NULL");
+	public ProvenanceContext(final spade.reporter.audit.linux.platform.Context platformContext){
+		if(platformContext == null){
+			throw new IllegalArgumentException("platformContext cannot be NULL");
 		}
-		if(context.getEvent() == null){
-			throw new IllegalArgumentException("Event in context cannot be NULL");
-		}
+		this.platformContext = platformContext;
+	}
+
+	public spade.reporter.audit.linux.platform.Context getPlatformContext(){
+		return platformContext;
 	}
 
 }
