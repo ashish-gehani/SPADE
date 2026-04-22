@@ -17,11 +17,11 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.provenance.event.type.process;
+package spade.reporter.audit.linux.provenance.event.type.process;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.platform.provenance.type.Context;
-import spade.reporter.audit.linux.platform.provenance.type.Process;
+import spade.reporter.audit.linux.provenance.type.Context;
+import spade.reporter.audit.linux.provenance.type.Process;
 
 public abstract class Control extends spade.reporter.audit.core.provenance.event.type.process.Control<Context>{
 

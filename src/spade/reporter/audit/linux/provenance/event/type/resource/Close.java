@@ -17,12 +17,12 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.provenance.event.type.resource;
+package spade.reporter.audit.linux.provenance.event.type.resource;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.platform.provenance.type.Context;
-import spade.reporter.audit.linux.platform.provenance.type.Process;
-import spade.reporter.audit.linux.platform.provenance.type.Resource;
+import spade.reporter.audit.linux.provenance.type.Context;
+import spade.reporter.audit.linux.provenance.type.Process;
+import spade.reporter.audit.linux.provenance.type.Resource;
 
 public abstract class Close extends spade.reporter.audit.core.provenance.event.type.resource.Close<Context>{
 

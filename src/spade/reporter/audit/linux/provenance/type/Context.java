@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.provenance.type;
+package spade.reporter.audit.linux.provenance.type;
 
 public class Context implements spade.reporter.audit.core.provenance.type.AbstractContext{
 

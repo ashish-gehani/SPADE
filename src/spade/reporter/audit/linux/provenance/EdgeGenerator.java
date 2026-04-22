@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.provenance;
+package spade.reporter.audit.linux.provenance;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
