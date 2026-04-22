@@ -20,7 +20,7 @@
 package spade.reporter.audit.core.event;
 
 
-public abstract class Event<T extends IDable, C extends EventHandlerContext> implements Comparable<Event<T, ?>>{
+public abstract class Event<T extends IDable, C extends HandlerContext> implements Comparable<Event<T, ?>>, Handler<C>{
 
 	private final T id;
 
@@ -51,7 +51,5 @@ public abstract class Event<T extends IDable, C extends EventHandlerContext> imp
 		if(!(obj instanceof Event)) return false;
 		return this.id.equals(((Event<?, ?>)obj).id);
 	}
-
-	public abstract void handle(C context);
 
 }

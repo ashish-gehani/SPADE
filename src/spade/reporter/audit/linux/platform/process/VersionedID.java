@@ -19,7 +19,7 @@
  */
 package spade.reporter.audit.linux.platform.process;
 
-import spade.reporter.audit.linux.platform.type.credential.PID;
+import spade.reporter.audit.linux.platform.util.credential.PID;
 
 public class VersionedID extends spade.reporter.audit.core.platform.process.ID<VersionedID>{
 

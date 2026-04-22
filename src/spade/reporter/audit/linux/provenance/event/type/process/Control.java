@@ -20,10 +20,10 @@
 package spade.reporter.audit.linux.provenance.event.type.process;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.type.ProvenanceContext;
-import spade.reporter.audit.linux.provenance.type.Process;
+import spade.reporter.audit.linux.provenance.Process;
+import spade.reporter.audit.linux.provenance.Context;
 
-public abstract class Control extends spade.reporter.audit.core.provenance.event.type.process.Control<ProvenanceContext>{
+public abstract class Control extends spade.reporter.audit.core.provenance.event.type.process.Control<Context>{
 
 	public Control(final ID id, final Process controller, final Process target){
 		super(id, controller, target);

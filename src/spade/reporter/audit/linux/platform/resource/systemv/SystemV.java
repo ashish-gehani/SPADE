@@ -20,8 +20,8 @@
 package spade.reporter.audit.linux.platform.resource.systemv;
 
 import spade.reporter.audit.linux.platform.resource.Resource;
-import spade.reporter.audit.linux.platform.type.credential.GID;
-import spade.reporter.audit.linux.platform.type.credential.UID;
+import spade.reporter.audit.linux.platform.util.credential.GID;
+import spade.reporter.audit.linux.platform.util.credential.UID;
 
 public class SystemV extends Resource{
 

@@ -24,15 +24,15 @@ import java.util.List;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.reporter.audit.core.provenance.Config;
+import spade.reporter.audit.core.provenance.Process;
+import spade.reporter.audit.core.provenance.Context;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
 import spade.reporter.audit.core.provenance.event.ProcessType;
-import spade.reporter.audit.core.provenance.type.ProvenanceContext;
-import spade.reporter.audit.core.provenance.type.Process;
 
-public abstract class Update<C extends ProvenanceContext> extends Event<C>{
+
+public abstract class Update<C extends Context> extends Event<C>{
 
 	private final Process<C> oldVersion;
 	private final Process<C> newVersion;
@@ -58,16 +58,16 @@ public abstract class Update<C extends ProvenanceContext> extends Event<C>{
 	}
 
 	@Override
-	public List<ProvenanceElement> handle(final C provContext, final Config managerConfig){
-		final AbstractVertex oldVertex = managerConfig.getVertexGenerator().generate();
+	public List<ProvenanceElement> handle(final C provContext){
+		final AbstractVertex oldVertex = provContext.getVertexGenerator().generate();
 		oldVertex.addAnnotations(oldVersion.getKeyAnnotations(provContext));
 		oldVertex.addAnnotations(oldVersion.getExtraAnnotations(provContext));
 
-		final AbstractVertex newVertex = managerConfig.getVertexGenerator().generate();
+		final AbstractVertex newVertex = provContext.getVertexGenerator().generate();
 		newVertex.addAnnotations(newVersion.getKeyAnnotations(provContext));
 		newVertex.addAnnotations(newVersion.getExtraAnnotations(provContext));
 
-		final AbstractEdge edge = managerConfig.getEdgeGenerator().generate(newVertex, oldVertex);
+		final AbstractEdge edge = provContext.getEdgeGenerator().generate(newVertex, oldVertex);
 		edge.addAnnotations(getKeyAnnotations(provContext));
 		edge.addAnnotations(getExtraAnnotations(provContext));
 

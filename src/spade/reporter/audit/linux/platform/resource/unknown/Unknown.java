@@ -20,7 +20,7 @@
 package spade.reporter.audit.linux.platform.resource.unknown;
 
 import spade.reporter.audit.linux.platform.resource.Resource;
-import spade.reporter.audit.linux.platform.type.fd.Num;
+import spade.reporter.audit.linux.platform.util.fd.Num;
 
 // Catch-all resource used when the resource type is unavailable or cannot be determined.
 public class Unknown extends Resource{

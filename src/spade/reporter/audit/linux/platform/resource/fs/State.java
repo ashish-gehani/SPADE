@@ -20,7 +20,7 @@
 package spade.reporter.audit.linux.platform.resource.fs;
 
 import spade.reporter.audit.linux.platform.resource.ID;
-import spade.reporter.audit.linux.platform.type.fs.Permission;
+import spade.reporter.audit.linux.platform.util.fs.Permission;
 
 public class State extends spade.reporter.audit.linux.platform.resource.State{
 

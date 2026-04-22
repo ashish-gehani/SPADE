@@ -20,10 +20,10 @@
 package spade.reporter.audit.linux.provenance.event.type.process;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.type.ProvenanceContext;
-import spade.reporter.audit.linux.provenance.type.Process;
+import spade.reporter.audit.linux.provenance.Process;
+import spade.reporter.audit.linux.provenance.Context;
 
-public abstract class Update extends spade.reporter.audit.core.provenance.event.type.process.Update<ProvenanceContext>{
+public abstract class Update extends spade.reporter.audit.core.provenance.event.type.process.Update<Context>{
 
 	public Update(final ID id, final Process oldVersion, final Process newVersion){
 		super(id, oldVersion, newVersion);

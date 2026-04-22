@@ -23,15 +23,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 import spade.core.AbstractVertex;
-import spade.reporter.audit.core.provenance.Config;
+import spade.reporter.audit.core.provenance.Process;
+import spade.reporter.audit.core.provenance.Context;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
 import spade.reporter.audit.core.provenance.event.ProcessType;
-import spade.reporter.audit.core.provenance.type.ProvenanceContext;
-import spade.reporter.audit.core.provenance.type.Process;
 
-public abstract class CreateSynthetic<C extends ProvenanceContext> extends Event<C>{
+
+public abstract class CreateSynthetic<C extends Context> extends Event<C>{
 
 	private final Process<C> process;
 
@@ -48,8 +48,8 @@ public abstract class CreateSynthetic<C extends ProvenanceContext> extends Event
 	}
 
 	@Override
-	public List<ProvenanceElement> handle(final C provContext, final Config managerConfig){
-		final AbstractVertex processVertex = managerConfig.getVertexGenerator().generate();
+	public List<ProvenanceElement> handle(final C provContext){
+		final AbstractVertex processVertex = provContext.getVertexGenerator().generate();
 		processVertex.addAnnotations(process.getKeyAnnotations(provContext));
 		processVertex.addAnnotations(process.getExtraAnnotations(provContext));
 

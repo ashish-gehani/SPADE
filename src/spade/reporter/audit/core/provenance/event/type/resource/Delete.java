@@ -24,16 +24,16 @@ import java.util.List;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.reporter.audit.core.provenance.Config;
+import spade.reporter.audit.core.provenance.Process;
+import spade.reporter.audit.core.provenance.Context;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
+import spade.reporter.audit.core.provenance.Resource;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
 import spade.reporter.audit.core.provenance.event.ResourceType;
-import spade.reporter.audit.core.provenance.type.ProvenanceContext;
-import spade.reporter.audit.core.provenance.type.Process;
-import spade.reporter.audit.core.provenance.type.Resource;
 
-public abstract class Delete<C extends ProvenanceContext> extends Event<C>{
+
+public abstract class Delete<C extends Context> extends Event<C>{
 
 	private final Process<C> deleter;
 	private final Resource<C> resource;
@@ -59,16 +59,16 @@ public abstract class Delete<C extends ProvenanceContext> extends Event<C>{
 	}
 
 	@Override
-	public List<ProvenanceElement> handle(final C provContext, final Config managerConfig){
-		final AbstractVertex deleterVertex = managerConfig.getVertexGenerator().generate();
+	public List<ProvenanceElement> handle(final C provContext){
+		final AbstractVertex deleterVertex = provContext.getVertexGenerator().generate();
 		deleterVertex.addAnnotations(deleter.getKeyAnnotations(provContext));
 		deleterVertex.addAnnotations(deleter.getExtraAnnotations(provContext));
 
-		final AbstractVertex resourceVertex = managerConfig.getVertexGenerator().generate();
+		final AbstractVertex resourceVertex = provContext.getVertexGenerator().generate();
 		resourceVertex.addAnnotations(resource.getKeyAnnotations(provContext));
 		resourceVertex.addAnnotations(resource.getExtraAnnotations(provContext));
 
-		final AbstractEdge edge = managerConfig.getEdgeGenerator().generate(deleterVertex, resourceVertex);
+		final AbstractEdge edge = provContext.getEdgeGenerator().generate(deleterVertex, resourceVertex);
 		edge.addAnnotations(getKeyAnnotations(provContext));
 		edge.addAnnotations(getExtraAnnotations(provContext));
 

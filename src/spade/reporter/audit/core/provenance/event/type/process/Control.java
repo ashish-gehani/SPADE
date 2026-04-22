@@ -24,15 +24,15 @@ import java.util.List;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.reporter.audit.core.provenance.Config;
+import spade.reporter.audit.core.provenance.Process;
+import spade.reporter.audit.core.provenance.Context;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
 import spade.reporter.audit.core.provenance.event.ProcessType;
-import spade.reporter.audit.core.provenance.type.ProvenanceContext;
-import spade.reporter.audit.core.provenance.type.Process;
 
-public abstract class Control<C extends ProvenanceContext> extends Event<C>{
+
+public abstract class Control<C extends Context> extends Event<C>{
 
 	private final Process<C> controller;
 	private final Process<C> target;
@@ -58,16 +58,16 @@ public abstract class Control<C extends ProvenanceContext> extends Event<C>{
 	}
 
 	@Override
-	public List<ProvenanceElement> handle(final C provContext, final Config managerConfig){
-		final AbstractVertex controllerVertex = managerConfig.getVertexGenerator().generate();
+	public List<ProvenanceElement> handle(final C provContext){
+		final AbstractVertex controllerVertex = provContext.getVertexGenerator().generate();
 		controllerVertex.addAnnotations(controller.getKeyAnnotations(provContext));
 		controllerVertex.addAnnotations(controller.getExtraAnnotations(provContext));
 
-		final AbstractVertex targetVertex = managerConfig.getVertexGenerator().generate();
+		final AbstractVertex targetVertex = provContext.getVertexGenerator().generate();
 		targetVertex.addAnnotations(target.getKeyAnnotations(provContext));
 		targetVertex.addAnnotations(target.getExtraAnnotations(provContext));
 
-		final AbstractEdge edge = managerConfig.getEdgeGenerator().generate(controllerVertex, targetVertex);
+		final AbstractEdge edge = provContext.getEdgeGenerator().generate(controllerVertex, targetVertex);
 		edge.addAnnotations(getKeyAnnotations(provContext));
 		edge.addAnnotations(getExtraAnnotations(provContext));
 

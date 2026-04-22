@@ -24,16 +24,16 @@ import java.util.List;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.reporter.audit.core.provenance.Config;
+import spade.reporter.audit.core.provenance.Process;
+import spade.reporter.audit.core.provenance.Context;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
+import spade.reporter.audit.core.provenance.Resource;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
 import spade.reporter.audit.core.provenance.event.ResourceType;
-import spade.reporter.audit.core.provenance.type.ProvenanceContext;
-import spade.reporter.audit.core.provenance.type.Process;
-import spade.reporter.audit.core.provenance.type.Resource;
 
-public abstract class Update<C extends ProvenanceContext> extends Event<C>{
+
+public abstract class Update<C extends Context> extends Event<C>{
 
 	private final Process<C> updater;
 	private final Resource<C> oldVersion;
@@ -73,24 +73,24 @@ public abstract class Update<C extends ProvenanceContext> extends Event<C>{
 	}
 
 	@Override
-	public List<ProvenanceElement> handle(final C provContext, final Config managerConfig){
-		final AbstractVertex updaterVertex = managerConfig.getVertexGenerator().generate();
+	public List<ProvenanceElement> handle(final C provContext){
+		final AbstractVertex updaterVertex = provContext.getVertexGenerator().generate();
 		updaterVertex.addAnnotations(updater.getKeyAnnotations(provContext));
 		updaterVertex.addAnnotations(updater.getExtraAnnotations(provContext));
 
-		final AbstractVertex oldVertex = managerConfig.getVertexGenerator().generate();
+		final AbstractVertex oldVertex = provContext.getVertexGenerator().generate();
 		oldVertex.addAnnotations(oldVersion.getKeyAnnotations(provContext));
 		oldVertex.addAnnotations(oldVersion.getExtraAnnotations(provContext));
 
-		final AbstractVertex newVertex = managerConfig.getVertexGenerator().generate();
+		final AbstractVertex newVertex = provContext.getVertexGenerator().generate();
 		newVertex.addAnnotations(newVersion.getKeyAnnotations(provContext));
 		newVertex.addAnnotations(newVersion.getExtraAnnotations(provContext));
 
-		final AbstractEdge updaterToNew = managerConfig.getEdgeGenerator().generate(updaterVertex, newVertex);
+		final AbstractEdge updaterToNew = provContext.getEdgeGenerator().generate(updaterVertex, newVertex);
 		updaterToNew.addAnnotations(getKeyAnnotations(provContext));
 		updaterToNew.addAnnotations(getExtraAnnotations(provContext));
 
-		final AbstractEdge newToOld = managerConfig.getEdgeGenerator().generate(newVertex, oldVertex);
+		final AbstractEdge newToOld = provContext.getEdgeGenerator().generate(newVertex, oldVertex);
 		newToOld.addAnnotations(getKeyAnnotations(provContext));
 		newToOld.addAnnotations(getExtraAnnotations(provContext));
 

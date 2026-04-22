@@ -20,11 +20,11 @@
 package spade.reporter.audit.linux.provenance.event.type.resource;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.type.ProvenanceContext;
-import spade.reporter.audit.linux.provenance.type.Process;
-import spade.reporter.audit.linux.provenance.type.Resource;
+import spade.reporter.audit.linux.provenance.Process;
+import spade.reporter.audit.linux.provenance.Context;
+import spade.reporter.audit.linux.provenance.Resource;
 
-public abstract class Delete extends spade.reporter.audit.core.provenance.event.type.resource.Delete<ProvenanceContext>{
+public abstract class Delete extends spade.reporter.audit.core.provenance.event.type.resource.Delete<Context>{
 
 	public Delete(final ID id, final Process deleter, final Resource resource){
 		super(id, deleter, resource);

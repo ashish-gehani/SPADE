@@ -19,8 +19,8 @@
  */
 package spade.reporter.audit.linux.platform.resource.fdpair;
 
-import spade.reporter.audit.linux.platform.type.fd.Num;
-import spade.reporter.audit.linux.platform.type.network.transport.Protocol;
+import spade.reporter.audit.linux.platform.util.fd.Num;
+import spade.reporter.audit.linux.platform.util.network.transport.Protocol;
 
 public class NetworkSocketPair extends FDPair{
 

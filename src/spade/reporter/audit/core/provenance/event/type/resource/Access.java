@@ -24,16 +24,16 @@ import java.util.List;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.reporter.audit.core.provenance.Config;
+import spade.reporter.audit.core.provenance.Process;
+import spade.reporter.audit.core.provenance.Context;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
+import spade.reporter.audit.core.provenance.Resource;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
 import spade.reporter.audit.core.provenance.event.ResourceType;
-import spade.reporter.audit.core.provenance.type.ProvenanceContext;
-import spade.reporter.audit.core.provenance.type.Process;
-import spade.reporter.audit.core.provenance.type.Resource;
 
-public abstract class Access<C extends ProvenanceContext> extends Event<C>{
+
+public abstract class Access<C extends Context> extends Event<C>{
 
 	private final Process<C> accessor;
 	private final Resource<C> resource;
@@ -59,16 +59,16 @@ public abstract class Access<C extends ProvenanceContext> extends Event<C>{
 	}
 
 	@Override
-	public List<ProvenanceElement> handle(final C provContext, final Config managerConfig){
-		final AbstractVertex accessorVertex = managerConfig.getVertexGenerator().generate();
+	public List<ProvenanceElement> handle(final C provContext){
+		final AbstractVertex accessorVertex = provContext.getVertexGenerator().generate();
 		accessorVertex.addAnnotations(accessor.getKeyAnnotations(provContext));
 		accessorVertex.addAnnotations(accessor.getExtraAnnotations(provContext));
 
-		final AbstractVertex resourceVertex = managerConfig.getVertexGenerator().generate();
+		final AbstractVertex resourceVertex = provContext.getVertexGenerator().generate();
 		resourceVertex.addAnnotations(resource.getKeyAnnotations(provContext));
 		resourceVertex.addAnnotations(resource.getExtraAnnotations(provContext));
 
-		final AbstractEdge edge = managerConfig.getEdgeGenerator().generate(accessorVertex, resourceVertex);
+		final AbstractEdge edge = provContext.getEdgeGenerator().generate(accessorVertex, resourceVertex);
 		edge.addAnnotations(getKeyAnnotations(provContext));
 		edge.addAnnotations(getExtraAnnotations(provContext));
 

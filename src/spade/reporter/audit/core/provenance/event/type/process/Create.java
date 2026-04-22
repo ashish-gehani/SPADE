@@ -24,15 +24,15 @@ import java.util.List;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.reporter.audit.core.provenance.Config;
+import spade.reporter.audit.core.provenance.Process;
+import spade.reporter.audit.core.provenance.Context;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
 import spade.reporter.audit.core.provenance.event.ProcessType;
-import spade.reporter.audit.core.provenance.type.ProvenanceContext;
-import spade.reporter.audit.core.provenance.type.Process;
 
-public abstract class Create<C extends ProvenanceContext> extends Event<C>{
+
+public abstract class Create<C extends Context> extends Event<C>{
 
 	private final Process<C> parent;
 	private final Process<C> child;
@@ -58,16 +58,16 @@ public abstract class Create<C extends ProvenanceContext> extends Event<C>{
 	}
 
 	@Override
-	public List<ProvenanceElement> handle(final C provContext, final Config managerConfig){
-		final AbstractVertex parentVertex = managerConfig.getVertexGenerator().generate();
+	public List<ProvenanceElement> handle(final C provContext){
+		final AbstractVertex parentVertex = provContext.getVertexGenerator().generate();
 		parentVertex.addAnnotations(parent.getKeyAnnotations(provContext));
 		parentVertex.addAnnotations(parent.getExtraAnnotations(provContext));
 
-		final AbstractVertex childVertex = managerConfig.getVertexGenerator().generate();
+		final AbstractVertex childVertex = provContext.getVertexGenerator().generate();
 		childVertex.addAnnotations(child.getKeyAnnotations(provContext));
 		childVertex.addAnnotations(child.getExtraAnnotations(provContext));
 
-		final AbstractEdge edge = managerConfig.getEdgeGenerator().generate(childVertex, parentVertex);
+		final AbstractEdge edge = provContext.getEdgeGenerator().generate(childVertex, parentVertex);
 		edge.addAnnotations(getKeyAnnotations(provContext));
 		edge.addAnnotations(getExtraAnnotations(provContext));
 

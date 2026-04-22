@@ -19,7 +19,7 @@
  */
 package spade.reporter.audit.linux.platform.process.info.credential;
 
-import spade.reporter.audit.linux.platform.type.credential.GID;
+import spade.reporter.audit.linux.platform.util.credential.GID;
 
 public class Group{
 

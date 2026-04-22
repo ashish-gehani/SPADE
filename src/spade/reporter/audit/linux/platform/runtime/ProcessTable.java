@@ -19,42 +19,39 @@
  */
 package spade.reporter.audit.linux.platform.runtime;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.TreeSet;
 
 import spade.reporter.audit.linux.platform.process.State;
 import spade.reporter.audit.linux.platform.process.VersionedID;
-import spade.reporter.audit.linux.platform.type.credential.PID;
+import spade.reporter.audit.linux.platform.util.credential.PID;
 
+/**
+ * Tracks versioned process states, maintaining the highest-seen version per PID.
+ */
 public class ProcessTable extends spade.reporter.audit.core.platform.runtime.ProcessTable<VersionedID, State>{
 
-	private final Map<PID, Long> maxVersions = new HashMap<>();
+	/** All versions stored per PID, sorted ascending; last() is the max. */
+	private final Map<PID, TreeSet<Long>> versions = new HashMap<>();
 
 	@Override
 	public void put(final VersionedID id, final State state){
 		super.put(id, state);
-		final PID pid = id.getPid();
-		final long version = id.getVersion();
-		maxVersions.merge(pid, version, Math::max);
+		versions.computeIfAbsent(id.getPid(), k -> new TreeSet<>()).add(id.getVersion());
 	}
 
 	@Override
 	public State remove(final VersionedID id){
 		final State removed = super.remove(id);
 		if(removed != null){
-			final PID pid = id.getPid();
-			final long version = id.getVersion();
-			final Long current = maxVersions.get(pid);
-			if(current != null && current == version){
-				final long newMax = ids().stream()
-					.filter(v -> v.getPid().equals(pid))
-					.mapToLong(VersionedID::getVersion)
-					.max()
-					.orElse(-1L);
-				if(newMax < 0){
-					maxVersions.remove(pid);
-				}else{
-					maxVersions.put(pid, newMax);
+			final TreeSet<Long> vset = versions.get(id.getPid());
+			if(vset != null){
+				vset.remove(id.getVersion());
+				if(vset.isEmpty()){
+					versions.remove(id.getPid());
 				}
 			}
 		}
@@ -64,11 +61,32 @@ public class ProcessTable extends spade.reporter.audit.core.platform.runtime.Pro
 	@Override
 	public void clear(){
 		super.clear();
-		maxVersions.clear();
+		versions.clear();
 	}
 
+	/**
+	 * Returns the highest version currently stored for pid, or null if none.
+	 */
 	public Long getMaxVersion(final PID pid){
-		return maxVersions.get(pid);
+		final TreeSet<Long> vset = versions.get(pid);
+		return vset != null ? vset.last() : null;
+	}
+
+	/**
+	 * Removes all versions of pid except the highest, freeing stale state.
+	 */
+	public void garbageCollect(final PID pid){
+		if(pid == null){
+			throw new IllegalArgumentException("pid cannot be NULL");
+		}
+		final TreeSet<Long> vset = versions.get(pid);
+		if(vset == null || vset.isEmpty()){
+			return;
+		}
+		final List<Long> stale = new ArrayList<>(vset.headSet(vset.last()));
+		for(final long version : stale){
+			remove(new VersionedID(pid, version));
+		}
 	}
 
 }

@@ -20,8 +20,8 @@
 package spade.reporter.audit.linux.platform.resource.network;
 
 import spade.reporter.audit.linux.platform.resource.Resource;
-import spade.reporter.audit.linux.platform.type.network.transport.Address;
-import spade.reporter.audit.linux.platform.type.network.transport.Protocol;
+import spade.reporter.audit.linux.platform.util.network.transport.Address;
+import spade.reporter.audit.linux.platform.util.network.transport.Protocol;
 
 public class Network extends Resource {
 

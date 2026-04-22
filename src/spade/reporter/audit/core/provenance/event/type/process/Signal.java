@@ -24,15 +24,15 @@ import java.util.List;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
-import spade.reporter.audit.core.provenance.Config;
+import spade.reporter.audit.core.provenance.Process;
+import spade.reporter.audit.core.provenance.Context;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 import spade.reporter.audit.core.provenance.event.ID;
 import spade.reporter.audit.core.provenance.event.ProcessType;
-import spade.reporter.audit.core.provenance.type.ProvenanceContext;
-import spade.reporter.audit.core.provenance.type.Process;
 
-public abstract class Signal<C extends ProvenanceContext> extends Event<C>{
+
+public abstract class Signal<C extends Context> extends Event<C>{
 
 	private final Process<C> sender;
 	private final Process<C> receiver;
@@ -58,16 +58,16 @@ public abstract class Signal<C extends ProvenanceContext> extends Event<C>{
 	}
 
 	@Override
-	public List<ProvenanceElement> handle(final C provContext, final Config managerConfig){
-		final AbstractVertex senderVertex = managerConfig.getVertexGenerator().generate();
+	public List<ProvenanceElement> handle(final C provContext){
+		final AbstractVertex senderVertex = provContext.getVertexGenerator().generate();
 		senderVertex.addAnnotations(sender.getKeyAnnotations(provContext));
 		senderVertex.addAnnotations(sender.getExtraAnnotations(provContext));
 
-		final AbstractVertex receiverVertex = managerConfig.getVertexGenerator().generate();
+		final AbstractVertex receiverVertex = provContext.getVertexGenerator().generate();
 		receiverVertex.addAnnotations(receiver.getKeyAnnotations(provContext));
 		receiverVertex.addAnnotations(receiver.getExtraAnnotations(provContext));
 
-		final AbstractEdge edge = managerConfig.getEdgeGenerator().generate(senderVertex, receiverVertex);
+		final AbstractEdge edge = provContext.getEdgeGenerator().generate(senderVertex, receiverVertex);
 		edge.addAnnotations(getKeyAnnotations(provContext));
 		edge.addAnnotations(getExtraAnnotations(provContext));
 

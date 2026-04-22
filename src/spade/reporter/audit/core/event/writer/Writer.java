@@ -20,7 +20,7 @@
 package spade.reporter.audit.core.event.writer;
 
 import spade.reporter.audit.core.event.Event;
-import spade.reporter.audit.core.event.EventHandlerContext;
+import spade.reporter.audit.core.event.HandlerContext;
 import spade.reporter.audit.core.event.IDable;
 
 /**
@@ -30,7 +30,7 @@ import spade.reporter.audit.core.event.IDable;
  * @param <C> the context type for event handling
  * @param <T> the concrete {@link Event} subtype this writer accepts
  */
-public abstract class Writer<V extends IDable, C extends EventHandlerContext, T extends Event<V, C>> implements AutoCloseable{
+public abstract class Writer<V extends IDable, C extends HandlerContext, T extends Event<V, C>> implements AutoCloseable{
 
 	protected Writer(){
 

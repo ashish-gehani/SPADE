@@ -19,15 +19,15 @@
  */
 package spade.reporter.audit.linux.platform.resource.fs;
 
-import spade.reporter.audit.linux.platform.type.device.Device;
-import spade.reporter.audit.linux.platform.type.fs.Inode;
+import spade.reporter.audit.linux.platform.util.device.Device;
+import spade.reporter.audit.linux.platform.util.fs.Inode;
 
 public class Link extends Path{
 
 	public Link(
 		final Device device,
 		final Inode inode,
-		final spade.reporter.audit.linux.platform.type.fs.Path path
+		final spade.reporter.audit.linux.platform.util.fs.Path path
 	){
 		super(Type.LINK, device, inode, path);
 	}

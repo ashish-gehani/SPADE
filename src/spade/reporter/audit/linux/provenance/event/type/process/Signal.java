@@ -20,10 +20,10 @@
 package spade.reporter.audit.linux.provenance.event.type.process;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.type.ProvenanceContext;
-import spade.reporter.audit.linux.provenance.type.Process;
+import spade.reporter.audit.linux.provenance.Process;
+import spade.reporter.audit.linux.provenance.Context;
 
-public abstract class Signal extends spade.reporter.audit.core.provenance.event.type.process.Signal<ProvenanceContext>{
+public abstract class Signal extends spade.reporter.audit.core.provenance.event.type.process.Signal<Context>{
 
 	public Signal(final ID id, final Process sender, final Process receiver){
 		super(id, sender, receiver);

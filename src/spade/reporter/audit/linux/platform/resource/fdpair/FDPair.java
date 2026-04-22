@@ -20,7 +20,7 @@
 package spade.reporter.audit.linux.platform.resource.fdpair;
 
 import spade.reporter.audit.linux.platform.resource.Resource;
-import spade.reporter.audit.linux.platform.type.fd.Num;
+import spade.reporter.audit.linux.platform.util.fd.Num;
 
 public abstract class FDPair extends Resource{
 

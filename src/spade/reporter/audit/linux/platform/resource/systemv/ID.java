@@ -47,7 +47,7 @@ public class ID extends spade.reporter.audit.linux.platform.resource.ID{
 		return getSystemV().getOwnerGID().getValue();
 	}
 
-	private spade.reporter.audit.linux.platform.type.namespace.ID ipcNamespace(){
+	private spade.reporter.audit.linux.platform.util.namespace.ID ipcNamespace(){
 		return getProcessState().getNamespace().getIpc();
 	}
 
@@ -72,8 +72,8 @@ public class ID extends spade.reporter.audit.linux.platform.resource.ID{
 		if(c != 0) return c;
 		c = Long.compare(this.ownerGid(), o.ownerGid());
 		if(c != 0) return c;
-		spade.reporter.audit.linux.platform.type.namespace.ID thisIpc = this.ipcNamespace();
-		spade.reporter.audit.linux.platform.type.namespace.ID otherIpc = o.ipcNamespace();
+		spade.reporter.audit.linux.platform.util.namespace.ID thisIpc = this.ipcNamespace();
+		spade.reporter.audit.linux.platform.util.namespace.ID otherIpc = o.ipcNamespace();
 		c = thisIpc.getType().compareTo(otherIpc.getType());
 		if(c != 0) return c;
 		return Long.compare(thisIpc.getInode().getValue(), otherIpc.getInode().getValue());
