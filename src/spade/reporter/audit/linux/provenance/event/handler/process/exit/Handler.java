@@ -17,36 +17,29 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.provenance;
+package spade.reporter.audit.linux.provenance.event.handler.process.exit;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
+import spade.core.AbstractVertex;
+import spade.reporter.audit.core.provenance.ProvenanceElement;
+import spade.reporter.audit.linux.provenance.ProvProcess;
 import spade.reporter.audit.linux.provenance.event.handler.Context;
-import spade.reporter.audit.linux.source.audit.event.ID;
+import spade.reporter.audit.linux.provenance.event.type.process.exit.Event;
 
-public class ProvEvent implements spade.reporter.audit.core.provenance.Eventable<Context>{
-
-	private final ID id;
-
-	public ProvEvent(final ID id){
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
-		}
-		this.id = id;
-	}
+public class Handler implements spade.reporter.audit.core.provenance.event.handler.Handler<Event, Context>{
 
 	@Override
-	public Map<String, String> getKeyAnnotations(final Context context){
-		final Map<String, String> map = new HashMap<>();
-		map.put("event_id", String.valueOf(id.getNum().getValue()));
-		map.put("time", id.getTimestamp().getSecondsInAuditFormat());
-		return map;
-	}
+	public void handle(final Event event, final Context provContext){
+		final ProvProcess provProcess = event.getProcess();
 
-	@Override
-	public Map<String, String> getExtraAnnotations(final Context context){
-		return new HashMap<>();
+		final AbstractVertex processVertex = provContext.getVertexGenerator().generate();
+		processVertex.addAnnotations(provProcess.getKeyAnnotations(provContext));
+		processVertex.addAnnotations(provProcess.getExtraAnnotations(provContext));
+
+		final List<ProvenanceElement> elements = new ArrayList<>();
+		elements.add(ProvenanceElement.of(processVertex));
 	}
 
 }

@@ -19,8 +19,8 @@
  */
 package spade.reporter.audit.core.provenance;
 
-import spade.reporter.audit.core.provenance.event.HandlerContext;
+import spade.reporter.audit.core.provenance.event.handler.Context;
 
-public interface Processable<C extends HandlerContext> extends Provenanceable<C>{
+public interface Processable<C extends Context> extends Provenanceable<C>{
 
 }

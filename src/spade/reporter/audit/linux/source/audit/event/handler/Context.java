@@ -17,36 +17,21 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.provenance;
+package spade.reporter.audit.linux.source.audit.event.handler;
 
-import java.util.HashMap;
-import java.util.Map;
+public class Context implements spade.reporter.audit.core.source.event.handler.Context{
 
-import spade.reporter.audit.linux.provenance.event.handler.Context;
-import spade.reporter.audit.linux.source.audit.event.ID;
+	private final spade.reporter.audit.linux.platform.Context platformContext;
 
-public class ProvEvent implements spade.reporter.audit.core.provenance.Eventable<Context>{
-
-	private final ID id;
-
-	public ProvEvent(final ID id){
-		if(id == null){
-			throw new IllegalArgumentException("id cannot be NULL");
+	public Context(final spade.reporter.audit.linux.platform.Context platformContext){
+		if(platformContext == null){
+			throw new IllegalArgumentException("platformContext cannot be NULL");
 		}
-		this.id = id;
+		this.platformContext = platformContext;
 	}
 
-	@Override
-	public Map<String, String> getKeyAnnotations(final Context context){
-		final Map<String, String> map = new HashMap<>();
-		map.put("event_id", String.valueOf(id.getNum().getValue()));
-		map.put("time", id.getTimestamp().getSecondsInAuditFormat());
-		return map;
-	}
-
-	@Override
-	public Map<String, String> getExtraAnnotations(final Context context){
-		return new HashMap<>();
+	public spade.reporter.audit.linux.platform.Context getPlatformContext(){
+		return platformContext;
 	}
 
 }
