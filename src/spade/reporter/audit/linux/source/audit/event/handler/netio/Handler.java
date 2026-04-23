@@ -20,6 +20,7 @@
 package spade.reporter.audit.linux.source.audit.event.handler.netio;
 
 
+import spade.reporter.audit.linux.source.audit.event.type.netio.Event;
 import spade.reporter.audit.linux.source.audit.event.handler.Context;
 import spade.reporter.audit.linux.source.audit.event.ID;
 

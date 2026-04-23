@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.source.audit.event;
+package spade.reporter.audit.linux.source.audit.event.creator;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -35,9 +35,6 @@ import spade.reporter.audit.linux.source.audit.event.record.Record;
  * {@link Creator#matches} on each until one accepts the record list from
  * the {@link Context}, then delegates to {@link Creator#create}.
  *
- * The syscall creator is listed first because a syscall event may contain
- * USER records alongside the SYSCALL record.
- *
  * Returns {@code null} if no creator matches or if event construction fails.
  */
 public final class Factory {
@@ -46,16 +43,17 @@ public final class Factory {
 
 	private final boolean verbose;
 
-	private final List<Creator> creators = Collections.unmodifiableList(Arrays.asList(
-		new spade.reporter.audit.linux.source.audit.event.type.syscall.Creator(),
-		new spade.reporter.audit.linux.source.audit.event.type.daemon_start.Creator(),
-		new spade.reporter.audit.linux.source.audit.event.type.ubsi_entry.Creator(),
-		new spade.reporter.audit.linux.source.audit.event.type.ubsi_exit.Creator(),
-		new spade.reporter.audit.linux.source.audit.event.type.ubsi_dep.Creator(),
-		new spade.reporter.audit.linux.source.audit.event.type.ubsi_raw.Creator(),
-		new spade.reporter.audit.linux.source.audit.event.type.netio.Creator(),
-		new spade.reporter.audit.linux.source.audit.event.type.netfilter.Creator()
-	));
+	private final List<spade.reporter.audit.linux.source.audit.event.creator.Creator> creators = 
+		Collections.unmodifiableList(Arrays.asList(
+			new spade.reporter.audit.linux.source.audit.event.type.daemon_start.Creator(),
+			new spade.reporter.audit.linux.source.audit.event.type.netfilter.Creator(),
+			new spade.reporter.audit.linux.source.audit.event.type.netio.Creator(),
+			new spade.reporter.audit.linux.source.audit.event.type.syscall.Creator(),
+			new spade.reporter.audit.linux.source.audit.event.type.ubsi_dep.Creator(),
+			new spade.reporter.audit.linux.source.audit.event.type.ubsi_entry.Creator(),
+			new spade.reporter.audit.linux.source.audit.event.type.ubsi_exit.Creator(),
+			new spade.reporter.audit.linux.source.audit.event.type.ubsi_raw.Creator()
+		));
 
 	public Factory(final boolean verbose){
 		this.verbose = verbose;
@@ -65,8 +63,8 @@ public final class Factory {
 		return verbose;
 	}
 
-	public Event create(
-		final Context context
+	public spade.reporter.audit.linux.source.audit.event.Event create(
+		final spade.reporter.audit.linux.source.audit.event.creator.Context context
 	) throws MalformedEventException{
 		if(context == null){
 			throw new IllegalArgumentException("Context cannot be NULL");
@@ -75,7 +73,7 @@ public final class Factory {
 		if(records == null || records.isEmpty()){
 			return null;
 		}
-		for(final Creator creator : creators){
+		for(final spade.reporter.audit.linux.source.audit.event.creator.Creator creator : creators){
 			if(creator.matches(records)){
 				return creator.create(records);
 			}

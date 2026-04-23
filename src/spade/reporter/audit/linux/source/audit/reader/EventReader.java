@@ -23,12 +23,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import spade.reporter.audit.core.source.reader.Reader;
-import spade.reporter.audit.linux.source.audit.event.Context;
 import spade.reporter.audit.linux.source.audit.event.Event;
-import spade.reporter.audit.linux.source.audit.event.Factory;
+import spade.reporter.audit.linux.source.audit.event.creator.Factory;
 import spade.reporter.audit.linux.source.audit.event.ID;
 import spade.reporter.audit.linux.source.audit.event.Num;
 import spade.reporter.audit.linux.source.audit.event.Timestamp;
+import spade.reporter.audit.linux.source.audit.event.creator.Context;
 import spade.reporter.audit.linux.source.audit.event.record.Record;
 
 /**

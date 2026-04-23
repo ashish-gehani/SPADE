@@ -20,6 +20,7 @@
 package spade.reporter.audit.linux.source.audit.event.handler.ubsi_dep;
 
 
+import spade.reporter.audit.linux.source.audit.event.type.ubsi_dep.Event;
 import spade.reporter.audit.linux.source.audit.event.handler.Context;
 import spade.reporter.audit.linux.source.audit.event.ID;
 

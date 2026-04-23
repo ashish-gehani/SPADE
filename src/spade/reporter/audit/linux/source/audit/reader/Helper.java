@@ -21,7 +21,7 @@ package spade.reporter.audit.linux.source.audit.reader;
 
 import spade.reporter.audit.core.util.channel.Unidirectional;
 import spade.reporter.audit.linux.source.audit.event.Event;
-import spade.reporter.audit.linux.source.audit.event.Factory;
+import spade.reporter.audit.linux.source.audit.event.creator.Factory;
 
 /**
  * Wires together the full audit-reading pipeline and returns a

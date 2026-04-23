@@ -17,18 +17,20 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.source.audit.event;
+package spade.reporter.audit.linux.source.audit.event.creator;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import spade.reporter.audit.linux.source.audit.event.Event;
+import spade.reporter.audit.linux.source.audit.event.ID;
 import spade.reporter.audit.linux.source.audit.event.record.Record;
 
 /**
  * Parsing context for Linux Audit Subsystem events.
  *
  * Accumulates the {@link Record}s that belong to the same event (identified by
- * {@link ID}) so that {@link Factory} can construct a
+ * {@link ID}) so that {@link Creator} can construct a
  * typed {@link Event} once all records have been collected.
  */
 public class Context{

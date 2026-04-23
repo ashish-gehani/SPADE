@@ -24,10 +24,10 @@ import java.util.List;
 import spade.reporter.audit.core.source.event.MalformedEventException;
 import spade.reporter.audit.linux.source.audit.event.record.Record;
 
-public class Creator extends spade.reporter.audit.linux.source.audit.event.Creator{
+public class Creator extends spade.reporter.audit.linux.source.audit.event.creator.Creator{
 
 	@Override
-	protected String validate(final List<Record> records){
+	public String validate(final List<Record> records){
 		if(records == null || records.size() != 1){
 			return "Expected exactly one record for UbsiDep, got: "
 				+ (records == null ? "null" : records.size());
@@ -43,7 +43,7 @@ public class Creator extends spade.reporter.audit.linux.source.audit.event.Creat
 	}
 
 	@Override
-	protected spade.reporter.audit.linux.source.audit.event.Event create(
+	public spade.reporter.audit.linux.source.audit.event.Event create(
 		final List<Record> records
 	) throws MalformedEventException{
 		final String error = validate(records);

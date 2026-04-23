@@ -17,10 +17,11 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.source.audit.event;
+package spade.reporter.audit.linux.source.audit.event.creator;
 
 import java.util.List;
 
+import spade.reporter.audit.linux.source.audit.event.Event;
 import spade.reporter.audit.core.source.event.MalformedEventException;
 import spade.reporter.audit.linux.source.audit.event.record.Record;
 
@@ -30,7 +31,7 @@ public abstract class Creator{
 		Returns null if the list of records is valid for this event type,
 		or a detailed error message string if not.
 	*/
-	protected abstract String validate(final List<Record> records);
+	public abstract String validate(final List<Record> records);
 
 	/*
 		Given a list of records, check whether the event of class
@@ -38,11 +39,11 @@ public abstract class Creator{
 
 		Returns true if yes, else false
 	*/
-	protected final boolean matches(final List<Record> records){
+	public final boolean matches(final List<Record> records){
 		return validate(records) == null;
 	}
 
-	protected abstract Event create(
+	public abstract Event create(
 		final List<Record> records
 	) throws MalformedEventException;
 
