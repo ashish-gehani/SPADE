@@ -33,17 +33,17 @@ import spade.reporter.audit.linux.source.audit.event.record.helper.StringHelper;
 public final class Unit{
 
 	/** Process ID of the unit's thread. */
-	public final String pid;
+	private final String pid;
 	/** Timestamp at which the thread started. */
-	public final String threadStartTime;
+	private final String threadStartTime;
 	/** Unit identifier. */
-	public final String id;
+	private final String id;
 	/** Iteration number of the unit. */
-	public final String iteration;
+	private final String iteration;
 	/** Timestamp of the unit. */
-	public final String time;
+	private final String time;
 	/** Count value of the unit. */
-	public final String count;
+	private final String count;
 
 	public Unit(
 		final String pid,
@@ -102,5 +102,29 @@ public final class Unit{
 		}
 
 		return new Unit(pid, threadTime, unitId, iteration, time, count);
+	}
+
+	public String getPid(){
+		return pid;
+	}
+
+	public String getThreadStartTime(){
+		return threadStartTime;
+	}
+
+	public String getId(){
+		return id;
+	}
+
+	public String getIteration(){
+		return iteration;
+	}
+
+	public String getTime(){
+		return time;
+	}
+
+	public String getCount(){
+		return count;
 	}
 }

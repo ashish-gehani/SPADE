@@ -37,8 +37,8 @@ import spade.reporter.audit.linux.source.audit.event.record.helper.KeyValueParse
  */
 public class FdPair extends Record{
 
-	public final String fd0;
-	public final String fd1;
+	private final String fd0;
+	private final String fd1;
 
 	public FdPair(
 		final ID id, final String rawRecord

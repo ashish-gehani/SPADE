@@ -42,9 +42,9 @@ import spade.reporter.audit.linux.source.audit.event.record.helper.ProcessInfo;
 public class UbsiExit extends Record{
 
 	/** Process identity fields. */
-	public final ProcessInfo processInfo;
+	private final ProcessInfo processInfo;
 	/** Path of the executable. */
-	public final String exe;
+	private final String exe;
 
 	public UbsiExit(
 		final ID id, final String rawRecord

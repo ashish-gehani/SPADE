@@ -44,11 +44,11 @@ import spade.reporter.audit.linux.source.audit.event.record.helper.StringHelper;
 public class UbsiEntry extends Record{
 
 	/** The unit that started execution. */
-	public final Unit unit;
+	private final Unit unit;
 	/** Process identity fields. */
-	public final ProcessInfo processInfo;
+	private final ProcessInfo processInfo;
 	/** Path of the executable. */
-	public final String exe;
+	private final String exe;
 
 	public UbsiEntry(
 		final ID id, final String rawRecord

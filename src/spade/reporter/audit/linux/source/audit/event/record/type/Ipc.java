@@ -35,9 +35,9 @@ import spade.reporter.audit.linux.source.audit.event.record.helper.KeyValueParse
  */
 public class Ipc extends Record{
 
-	public final String ouid;
-	public final String ogid;
-	public final String mode;
+	private final String ouid;
+	private final String ogid;
+	private final String mode;
 
 	public Ipc(
 		final ID id, final String rawRecord

@@ -22,6 +22,8 @@ package spade.reporter.audit.linux.source.audit.event.type.ubsi_entry;
 import java.util.Arrays;
 
 import spade.reporter.audit.linux.source.audit.event.Type;
+import spade.reporter.audit.linux.source.audit.event.record.helper.ProcessInfo;
+import spade.reporter.audit.linux.source.audit.event.record.type.ubsi.Unit;
 
 /**
  * Event for UBSI_ENTRY events.
@@ -41,23 +43,11 @@ public class Event extends spade.reporter.audit.linux.source.audit.event.Event{
 		return record;
 	}
 
-	public String getPid(){
-		return record.processInfo.pid;
+	public ProcessInfo getProcessInfo(){
+		return record.getProcessInfo();
 	}
 
-	public String getUnitId(){
-		return record.unit.id;
-	}
-
-	public String getUnitIteration(){
-		return record.unit.iteration;
-	}
-
-	public String getUnitCount(){
-		return record.unit.count;
-	}
-
-	public String getUnitStartTime(){
-		return record.unit.time;
+	public Unit getUnit(){
+		return record.getUnit();
 	}
 }

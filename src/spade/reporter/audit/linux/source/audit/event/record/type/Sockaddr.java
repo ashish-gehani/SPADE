@@ -38,7 +38,7 @@ import spade.reporter.audit.linux.source.audit.event.record.helper.KeyValueParse
 public class Sockaddr extends Record{
 
 	/** Raw socket address value. */
-	public final String saddr;
+	private final String saddr;
 
 	public Sockaddr(
 		final ID id, final String rawRecord

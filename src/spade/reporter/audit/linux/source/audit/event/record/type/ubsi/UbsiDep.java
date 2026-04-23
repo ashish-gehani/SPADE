@@ -50,13 +50,13 @@ import spade.reporter.audit.linux.source.audit.event.record.helper.StringHelper;
 public class UbsiDep extends Record{
 
 	/** The unit that performed the read. */
-	public final Unit readingUnit;
+	private final Unit readingUnit;
 	/** The unit that performed the write. */
-	public final Unit writingUnit;
+	private final Unit writingUnit;
 	/** Process identity fields. */
-	public final ProcessInfo processInfo;
+	private final ProcessInfo processInfo;
 	/** Path of the executable. */
-	public final String exe;
+	private final String exe;
 
 	public UbsiDep(
 		final ID id, final String rawRecord

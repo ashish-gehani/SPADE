@@ -43,25 +43,25 @@ import spade.reporter.audit.linux.source.audit.event.record.helper.ProcessInfo;
 public class Syscall extends Record{
 
 	/** Syscall number. */
-	public final String syscall;
+	private final String syscall;
 	/** Whether the syscall succeeded. */
-	public final String success;
+	private final String success;
 	/** Return value / exit code of the syscall. */
-	public final String exit;
+	private final String exit;
 	/** Syscall argument 0. */
-	public final String arg0;
+	private final String arg0;
 	/** Syscall argument 1. */
-	public final String arg1;
+	private final String arg1;
 	/** Syscall argument 2. */
-	public final String arg2;
+	private final String arg2;
 	/** Syscall argument 3. */
-	public final String arg3;
+	private final String arg3;
 	/** Number of PATH records associated with this syscall. */
-	public final String items;
+	private final String items;
 	/** Path of the executable. */
-	public final String exe;
+	private final String exe;
 	/** Process identity fields. */
-	public final ProcessInfo processInfo;
+	private final ProcessInfo processInfo;
 
 	public Syscall(
 		final ID id, final String rawRecord
@@ -120,48 +120,8 @@ public class Syscall extends Record{
 		return arg3;
 	}
 
-	public String getPid(){
-		return processInfo.pid;
-	}
-
-	public String getPpid(){
-		return processInfo.ppid;
-	}
-
-	public String getUid(){
-		return processInfo.uid;
-	}
-
-	public String getEuid(){
-		return processInfo.euid;
-	}
-
-	public String getSuid(){
-		return processInfo.suid;
-	}
-
-	public String getFsuid(){
-		return processInfo.fsuid;
-	}
-
-	public String getGid(){
-		return processInfo.gid;
-	}
-
-	public String getEgid(){
-		return processInfo.egid;
-	}
-
-	public String getSgid(){
-		return processInfo.sgid;
-	}
-
-	public String getFsgid(){
-		return processInfo.fsgid;
-	}
-
-	public String getComm(){
-		return processInfo.comm;
+	public ProcessInfo getProcessInfo(){
+		return processInfo;
 	}
 
 	public String getExe(){

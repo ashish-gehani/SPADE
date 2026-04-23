@@ -24,17 +24,17 @@ package spade.reporter.audit.linux.source.audit.event.record.helper;
  */
 public final class ProcessInfo{
 
-	public final String pid;
-	public final String ppid;
-	public final String uid;
-	public final String euid;
-	public final String suid;
-	public final String fsuid;
-	public final String gid;
-	public final String egid;
-	public final String sgid;
-	public final String fsgid;
-	public final String comm;
+	private final String pid;
+	private final String ppid;
+	private final String uid;
+	private final String euid;
+	private final String suid;
+	private final String fsuid;
+	private final String gid;
+	private final String egid;
+	private final String sgid;
+	private final String fsgid;
+	private final String comm;
 
 	public ProcessInfo(final String pid, final String ppid,
 			final String uid, final String euid, final String suid, final String fsuid,
@@ -52,4 +52,16 @@ public final class ProcessInfo{
 		this.fsgid = fsgid;
 		this.comm = comm;
 	}
+
+	public String getPid(){ return pid; }
+	public String getPpid(){ return ppid; }
+	public String getUid(){ return uid; }
+	public String getEuid(){ return euid; }
+	public String getSuid(){ return suid; }
+	public String getFsuid(){ return fsuid; }
+	public String getGid(){ return gid; }
+	public String getEgid(){ return egid; }
+	public String getSgid(){ return sgid; }
+	public String getFsgid(){ return fsgid; }
+	public String getComm(){ return comm; }
 }

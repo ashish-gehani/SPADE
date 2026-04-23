@@ -31,6 +31,7 @@ public class Handler implements spade.reporter.audit.core.source.event.handler.H
 
 	@Override
 	public List<spade.reporter.audit.core.provenance.event.Event> handle(final Event event, final Context context){
+		
 		return Collections.emptyList();
 	}
 

@@ -35,11 +35,11 @@ import spade.reporter.audit.linux.source.audit.event.record.helper.KeyValueParse
  */
 public class MqSendRecv extends Record{
 
-	public final String mqdes;
-	public final String msgLen;
-	public final String msgPrio;
-	public final String absTimeoutSec;
-	public final String absTimeoutNsec;
+	private final String mqdes;
+	private final String msgLen;
+	private final String msgPrio;
+	private final String absTimeoutSec;
+	private final String absTimeoutNsec;
 
 	public MqSendRecv(
 		final ID id, final String rawRecord

@@ -37,8 +37,8 @@ import spade.reporter.audit.linux.source.audit.event.record.helper.KeyValueParse
  */
 public class Mmap extends Record{
 
-	public final String fd;
-	public final String flags;
+	private final String fd;
+	private final String flags;
 
 	public Mmap(
 		final ID id, final String rawRecord
