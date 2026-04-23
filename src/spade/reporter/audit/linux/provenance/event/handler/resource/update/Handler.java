@@ -34,7 +34,7 @@ import spade.reporter.audit.linux.provenance.event.type.resource.update.Event;
 public class Handler implements spade.reporter.audit.core.provenance.event.handler.Handler<Event, Context>{
 
 	@Override
-	public void handle(final Event event, final Context provContext){
+	public List<ProvenanceElement> handle(final Event event, final Context provContext){
 		final ProvProcess provUpdater = event.getUpdater();
 		final ProvResource provOldVersion = event.getOldVersion();
 		final ProvResource provNewVersion = event.getNewVersion();
@@ -66,6 +66,7 @@ public class Handler implements spade.reporter.audit.core.provenance.event.handl
 		elements.add(ProvenanceElement.of(newVertex));
 		elements.add(ProvenanceElement.of(updaterToNew));
 		elements.add(ProvenanceElement.of(newToOld));
+		return elements;
 	}
 
 }

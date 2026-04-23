@@ -21,8 +21,9 @@ package spade.reporter.audit.linux.provenance.event.handler;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -37,12 +38,12 @@ public final class Factory{
 
 	private final boolean verbose;
 
-	private final Map<Type, BiConsumer<Event, Context>> handlers;
+	private final Map<Type, BiFunction<Event, Context, List<spade.reporter.audit.core.provenance.ProvenanceElement>>> handlers;
 
 	public Factory(final boolean verbose){
 		this.verbose = verbose;
 
-		final Map<Type, BiConsumer<Event, Context>> map = new HashMap<>();
+		final Map<Type, BiFunction<Event, Context, List<spade.reporter.audit.core.provenance.ProvenanceElement>>> map = new HashMap<>();
 
 		{
 			final spade.reporter.audit.linux.provenance.event.handler.process.control.Handler h =
@@ -118,21 +119,21 @@ public final class Factory{
 		return verbose;
 	}
 
-	public void handle(final Event event, final Context context){
+	public List<spade.reporter.audit.core.provenance.ProvenanceElement> handle(final Event event, final Context context){
 		if(event == null){
 			throw new IllegalArgumentException("event cannot be NULL");
 		}
 		if(context == null){
 			throw new IllegalArgumentException("context cannot be NULL");
 		}
-		final BiConsumer<Event, Context> handler = handlers.get(event.getType());
+		final BiFunction<Event, Context, List<spade.reporter.audit.core.provenance.ProvenanceElement>> handler = handlers.get(event.getType());
 		if(handler == null){
 			if(verbose){
 				logger.log(Level.INFO, "No handler for event type: {0}", event.getType());
 			}
-			return;
+			return Collections.emptyList();
 		}
-		handler.accept(event, context);
+		return handler.apply(event, context);
 	}
 
 }

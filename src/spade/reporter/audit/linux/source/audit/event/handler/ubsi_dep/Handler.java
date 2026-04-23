@@ -20,6 +20,9 @@
 package spade.reporter.audit.linux.source.audit.event.handler.ubsi_dep;
 
 
+import java.util.Collections;
+import java.util.List;
+
 import spade.reporter.audit.linux.source.audit.event.type.ubsi_dep.Event;
 import spade.reporter.audit.linux.source.audit.event.handler.Context;
 import spade.reporter.audit.linux.source.audit.event.ID;
@@ -27,8 +30,8 @@ import spade.reporter.audit.linux.source.audit.event.ID;
 public class Handler implements spade.reporter.audit.core.source.event.handler.Handler<ID, Event, Context>{
 
 	@Override
-	public void handle(final Event event, final Context context){
-		// no-op
+	public List<spade.reporter.audit.core.provenance.event.Event> handle(final Event event, final Context context){
+		return Collections.emptyList();
 	}
 
 }

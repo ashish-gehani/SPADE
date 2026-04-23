@@ -31,7 +31,7 @@ import spade.reporter.audit.linux.provenance.event.type.process.create_synthetic
 public class Handler implements spade.reporter.audit.core.provenance.event.handler.Handler<Event, Context>{
 
 	@Override
-	public void handle(final Event event, final Context provContext){
+	public List<ProvenanceElement> handle(final Event event, final Context provContext){
 		final ProvProcess provProcess = event.getProcess();
 
 		final AbstractVertex processVertex = provContext.getVertexGenerator().generate();
@@ -40,6 +40,7 @@ public class Handler implements spade.reporter.audit.core.provenance.event.handl
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(processVertex));
+		return elements;
 	}
 
 }

@@ -19,10 +19,13 @@
  */
 package spade.reporter.audit.core.provenance.event.handler;
 
+import java.util.List;
+
+import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.core.provenance.event.Event;
 
 public interface Handler<T extends Event, C extends Context>{
 
-	public void handle(final T event, final C provContext);
+	public List<ProvenanceElement> handle(final T event, final C provContext);
 
 }
