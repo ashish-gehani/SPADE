@@ -19,13 +19,9 @@
  */
 package spade.reporter.audit.linux.source.audit.event.record;
 
-import java.util.Map;
-
 import spade.reporter.audit.linux.source.audit.event.ID;
-import spade.reporter.audit.linux.source.audit.event.record.helper.AuditStringParser;
 import spade.reporter.audit.linux.source.audit.event.record.helper.Header;
-import spade.reporter.audit.linux.source.audit.event.record.helper.KeyValueParser;
-import spade.reporter.audit.linux.source.audit.event.record.helper.ProcessInfo;
+import spade.reporter.audit.linux.source.audit.event.record.helper.SyscallInfo;
 
 /**
  * Record subclass for SYSCALL audit records.
@@ -39,95 +35,16 @@ import spade.reporter.audit.linux.source.audit.event.record.helper.ProcessInfo;
  */
 public class Syscall extends Record{
 
-	/** Syscall number. */
-	private final String syscall;
-	/** Whether the syscall succeeded. */
-	private final String success;
-	/** Return value / exit code of the syscall. */
-	private final String exit;
-	/** Syscall argument 0. */
-	private final String arg0;
-	/** Syscall argument 1. */
-	private final String arg1;
-	/** Syscall argument 2. */
-	private final String arg2;
-	/** Syscall argument 3. */
-	private final String arg3;
-	/** Number of PATH records associated with this syscall. */
-	private final String items;
-	/** Path of the executable. */
-	private final String exe;
-	/** Process identity fields. */
-	private final ProcessInfo processInfo;
+	private final SyscallInfo syscallInfo;
 
 	public Syscall(
 		final ID id, final String rawRecord
 	) throws MalformedRecordException{
 		super(id, Type.SYSCALL, rawRecord);
-		final Map<String, String> parsedFields = KeyValueParser.parseKeyValuePairs(rawRecord);
-		this.syscall = parsedFields.get("syscall");
-		this.success = parsedFields.get("success");
-		this.exit = parsedFields.get("exit");
-		this.arg0 = parsedFields.get("a0");
-		this.arg1 = parsedFields.get("a1");
-		this.arg2 = parsedFields.get("a2");
-		this.arg3 = parsedFields.get("a3");
-		this.items = parsedFields.get("items");
-		this.exe = parsedFields.get("exe");
-		this.processInfo = new ProcessInfo(
-			parsedFields.get("pid"),
-			parsedFields.get("ppid"),
-			parsedFields.get("uid"),
-			parsedFields.get("euid"),
-			parsedFields.get("suid"),
-			parsedFields.get("fsuid"),
-			parsedFields.get("gid"),
-			parsedFields.get("egid"),
-			parsedFields.get("sgid"),
-			parsedFields.get("fsgid"),
-			AuditStringParser.mustParse(rawRecord, "comm")
-		);
+		this.syscallInfo = SyscallInfo.parse(rawRecord);
 	}
 
-	public String getSyscall(){
-		return syscall;
-	}
-
-	public String getSuccess(){
-		return success;
-	}
-
-	public String getExit(){
-		return exit;
-	}
-
-	public String getArg0(){
-		return arg0;
-	}
-
-	public String getArg1(){
-		return arg1;
-	}
-
-	public String getArg2(){
-		return arg2;
-	}
-
-	public String getArg3(){
-		return arg3;
-	}
-
-	public ProcessInfo getProcessInfo(){
-		return processInfo;
-	}
-
-	public String getExe(){
-		return exe;
-	}
-
-	public String getItems(){
-		return items;
-	}
+	public SyscallInfo getSyscallInfo(){ return syscallInfo; }
 
 	public static class Creator extends Record.Creator{
 

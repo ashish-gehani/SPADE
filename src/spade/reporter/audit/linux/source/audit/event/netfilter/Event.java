@@ -29,17 +29,17 @@ import spade.reporter.audit.linux.source.audit.event.Type;
  */
 public class Event extends spade.reporter.audit.linux.source.audit.event.Event{
 
-	private final spade.reporter.audit.linux.source.audit.event.record.Netfilter record;
+	private final spade.reporter.audit.linux.source.audit.event.record.netfilter.Netfilter record;
 
 	protected Event(
-		final spade.reporter.audit.linux.source.audit.event.record.Netfilter record
+		final spade.reporter.audit.linux.source.audit.event.record.netfilter.Netfilter record
 	){
 		super(record.getId(), Type.NETFILTER);
 		setRecords(Arrays.asList(record));
 		this.record = record;
 	}
 
-	public spade.reporter.audit.linux.source.audit.event.record.Netfilter getNetfilterRecord(){
+	public spade.reporter.audit.linux.source.audit.event.record.netfilter.Netfilter getNetfilterRecord(){
 		return record;
 	}
 }

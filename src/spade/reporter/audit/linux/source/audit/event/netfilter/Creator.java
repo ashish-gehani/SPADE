@@ -36,7 +36,7 @@ public class Creator extends spade.reporter.audit.linux.source.audit.event.creat
 		if(!(r.getType() == spade.reporter.audit.linux.source.audit.event.record.Type.NETFILTER)){
 			return "Expected Netfilter record, got type: " + r.getType();
 		}
-		if(!(r instanceof spade.reporter.audit.linux.source.audit.event.record.Netfilter)){
+		if(!(r instanceof spade.reporter.audit.linux.source.audit.event.record.netfilter.Netfilter)){
 			return "Expected Netfilter record, got class: " + r.getClass().getName();
 		}
 		return null;
@@ -49,6 +49,6 @@ public class Creator extends spade.reporter.audit.linux.source.audit.event.creat
 		final String error = validate(records);
 		if(error != null) throw new MalformedEventException(error);
 		return new Event(
-			(spade.reporter.audit.linux.source.audit.event.record.Netfilter) records.get(0));
+			(spade.reporter.audit.linux.source.audit.event.record.netfilter.Netfilter) records.get(0));
 	}
 }

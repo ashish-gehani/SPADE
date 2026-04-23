@@ -12,6 +12,7 @@ All parsing uses `indexOf`/`substring` — no regexes.
 | `KeyValueParser` | Parses space-separated `key=value` pairs into a `Map<String, String>` |
 | `AuditStringParser` | Parses individual audit string values in quoted, hex-encoded, or parenthesized format |
 | `ProcessInfo` | Data class holding process identity fields common to multiple record types |
+| `SyscallInfo` | Data class holding syscall execution fields common to SYSCALL and UBSI_RAW records |
 
 ## ProcessInfo Fields
 

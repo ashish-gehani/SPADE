@@ -19,16 +19,13 @@
  */
 package spade.reporter.audit.linux.source.audit.event.record.ubsi;
 
-import java.util.Map;
-
 import spade.reporter.audit.linux.source.audit.event.ID;
 import spade.reporter.audit.linux.source.audit.event.record.MalformedRecordException;
 import spade.reporter.audit.linux.source.audit.event.record.Record;
 import spade.reporter.audit.linux.source.audit.event.record.Type;
 import spade.reporter.audit.linux.source.audit.event.record.helper.Header;
-import spade.reporter.audit.linux.source.audit.event.record.helper.KeyValueParser;
-import spade.reporter.audit.linux.source.audit.event.record.helper.ProcessInfo;
 import spade.reporter.audit.linux.source.audit.event.record.helper.StringHelper;
+import spade.reporter.audit.linux.source.audit.event.record.helper.SyscallInfo;
 
 /**
  * Record subclass for USER records with ubsi_intercepted subtype.
@@ -46,15 +43,7 @@ public class UbsiRaw extends Record{
 		UBSI_RAW_RECORD_KEY + "="
 	);
 
-	private final int syscall;
-	private final boolean success;
-	private final long exit;
-	private final long a0;
-	private final long a1;
-	private final long a2;
-	private final long a3;
-	private final int items;
-	private final ProcessInfo processInfo;
+	private final SyscallInfo syscallInfo;
 
 	public UbsiRaw(
 		final ID id, final String rawRecord
@@ -68,33 +57,10 @@ public class UbsiRaw extends Record{
 					"Missing ubsi_intercepted sub-record in USER record", rawRecord);
 		}
 
-		final Map<String, String> fields = KeyValueParser.parseKeyValuePairs(subRecord);
-		this.syscall = Integer.parseInt(fields.get("syscall"));
-		this.success = parseSuccess(fields.get("success"));
-		this.exit = Long.parseLong(fields.get("exit"));
-		this.a0 = Long.parseUnsignedLong(fields.get("a0"), 16);
-		this.a1 = Long.parseUnsignedLong(fields.get("a1"), 16);
-		this.a2 = Long.parseUnsignedLong(fields.get("a2"), 16);
-		this.a3 = Long.parseUnsignedLong(fields.get("a3"), 16);
-		this.items = Integer.parseInt(fields.get("items"));
-		this.processInfo = ProcessInfo.parse(subRecord);
+		this.syscallInfo = SyscallInfo.parse(subRecord);
 	}
 
-	public int getSyscall(){ return syscall; }
-	public boolean getSuccess(){ return success; }
-	public long getExit(){ return exit; }
-	public long getArg0(){ return a0; }
-	public long getArg1(){ return a1; }
-	public long getArg2(){ return a2; }
-	public long getArg3(){ return a3; }
-	public int getItems(){ return items; }
-	public ProcessInfo getProcessInfo(){ return processInfo; }
-
-	private static boolean parseSuccess(final String value){
-		return "true".equalsIgnoreCase(value)
-			|| "yes".equalsIgnoreCase(value)
-			|| "1".equals(value);
-	}
+	public SyscallInfo getSyscallInfo(){ return syscallInfo; }
 
 	public static class Creator extends Record.Creator{
 

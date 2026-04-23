@@ -24,6 +24,7 @@ import java.util.Map;
 import spade.reporter.audit.linux.source.audit.event.ID;
 import spade.reporter.audit.linux.source.audit.event.record.helper.Header;
 import spade.reporter.audit.linux.source.audit.event.record.helper.KeyValueParser;
+import spade.reporter.audit.linux.source.audit.event.record.type.saddr.Saddr;
 
 /**
  * Record subclass for SOCKADDR audit records.
@@ -34,18 +35,17 @@ import spade.reporter.audit.linux.source.audit.event.record.helper.KeyValueParse
  */
 public class Sockaddr extends Record{
 
-	/** Raw socket address value. */
-	private final String saddr;
+	private final Saddr saddr;
 
 	public Sockaddr(
 		final ID id, final String rawRecord
 	){
 		super(id, Type.SOCKADDR, rawRecord);
 		final Map<String, String> parsedFields = KeyValueParser.parseKeyValuePairs(rawRecord);
-		this.saddr = parsedFields.get("saddr");
+		this.saddr = Saddr.parse(parsedFields.get("saddr"));
 	}
 
-	public String getSaddr(){
+	public Saddr getSaddr(){
 		return saddr;
 	}
 
