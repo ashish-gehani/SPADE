@@ -23,7 +23,7 @@ import spade.reporter.audit.linux.platform.process.fd.Table;
 import spade.reporter.audit.linux.platform.process.info.Info;
 import spade.reporter.audit.linux.platform.process.info.credential.Group;
 import spade.reporter.audit.linux.platform.process.info.credential.User;
-import spade.reporter.audit.linux.platform.util.namespace.Tuple;
+import spade.reporter.audit.linux.type.namespace.Tuple;
 
 public class State extends spade.reporter.audit.core.platform.process.State<VersionedID>{
 

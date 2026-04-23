@@ -19,8 +19,8 @@
  */
 package spade.reporter.audit.linux.platform.resource.systemv;
 
-import spade.reporter.audit.linux.platform.util.credential.GID;
-import spade.reporter.audit.linux.platform.util.credential.UID;
+import spade.reporter.audit.linux.type.credential.GID;
+import spade.reporter.audit.linux.type.credential.UID;
 
 public class MessageQueue extends SystemV{
 

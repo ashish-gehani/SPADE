@@ -23,7 +23,7 @@ package spade.reporter.audit.linux.source.audit.event.handler.netio;
 import java.util.Collections;
 import java.util.List;
 
-import spade.reporter.audit.linux.source.audit.event.type.netio.Event;
+import spade.reporter.audit.linux.source.audit.event.netio.Event;
 import spade.reporter.audit.linux.source.audit.event.handler.Context;
 import spade.reporter.audit.linux.source.audit.event.ID;
 

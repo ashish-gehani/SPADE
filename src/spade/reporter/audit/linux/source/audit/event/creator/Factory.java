@@ -45,14 +45,14 @@ public final class Factory {
 
 	private final List<spade.reporter.audit.linux.source.audit.event.creator.Creator> creators = 
 		Collections.unmodifiableList(Arrays.asList(
-			new spade.reporter.audit.linux.source.audit.event.type.daemon_start.Creator(),
-			new spade.reporter.audit.linux.source.audit.event.type.netfilter.Creator(),
-			new spade.reporter.audit.linux.source.audit.event.type.netio.Creator(),
-			new spade.reporter.audit.linux.source.audit.event.type.syscall.Creator(),
-			new spade.reporter.audit.linux.source.audit.event.type.ubsi_dep.Creator(),
-			new spade.reporter.audit.linux.source.audit.event.type.ubsi_entry.Creator(),
-			new spade.reporter.audit.linux.source.audit.event.type.ubsi_exit.Creator(),
-			new spade.reporter.audit.linux.source.audit.event.type.ubsi_raw.Creator()
+			new spade.reporter.audit.linux.source.audit.event.daemon_start.Creator(),
+			new spade.reporter.audit.linux.source.audit.event.netfilter.Creator(),
+			new spade.reporter.audit.linux.source.audit.event.netio.Creator(),
+			new spade.reporter.audit.linux.source.audit.event.syscall.Creator(),
+			new spade.reporter.audit.linux.source.audit.event.ubsi_dep.Creator(),
+			new spade.reporter.audit.linux.source.audit.event.ubsi_entry.Creator(),
+			new spade.reporter.audit.linux.source.audit.event.ubsi_exit.Creator(),
+			new spade.reporter.audit.linux.source.audit.event.ubsi_raw.Creator()
 		));
 
 	public Factory(final boolean verbose){

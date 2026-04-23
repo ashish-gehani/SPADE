@@ -19,9 +19,9 @@
  */
 package spade.reporter.audit.linux.platform.process.info;
 
-import spade.reporter.audit.linux.platform.util.fs.Path;
-import spade.reporter.audit.linux.platform.util.namespace.Tuple;
-import spade.reporter.audit.linux.platform.util.time.Time;
+import spade.reporter.audit.linux.type.fs.Path;
+import spade.reporter.audit.linux.type.namespace.Tuple;
+import spade.reporter.audit.linux.type.time.Time;
 
 public class Info{
 

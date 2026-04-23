@@ -47,49 +47,49 @@ public final class Factory{
 			final spade.reporter.audit.linux.source.audit.event.handler.daemon_start.Handler h =
 				new spade.reporter.audit.linux.source.audit.event.handler.daemon_start.Handler();
 			map.put(Type.DAEMON_START, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.source.audit.event.type.daemon_start.Event) event, ctx));
+				(spade.reporter.audit.linux.source.audit.event.daemon_start.Event) event, ctx));
 		}
 		{
 			final spade.reporter.audit.linux.source.audit.event.handler.netfilter.Handler h =
 				new spade.reporter.audit.linux.source.audit.event.handler.netfilter.Handler();
 			map.put(Type.NETFILTER, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.source.audit.event.type.netfilter.Event) event, ctx));
+				(spade.reporter.audit.linux.source.audit.event.netfilter.Event) event, ctx));
 		}
 		{
 			final spade.reporter.audit.linux.source.audit.event.handler.netio.Handler h =
 				new spade.reporter.audit.linux.source.audit.event.handler.netio.Handler();
 			map.put(Type.NETIO, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.source.audit.event.type.netio.Event) event, ctx));
+				(spade.reporter.audit.linux.source.audit.event.netio.Event) event, ctx));
 		}
 		{
 			final spade.reporter.audit.linux.source.audit.event.handler.syscall.Handler h =
 				new spade.reporter.audit.linux.source.audit.event.handler.syscall.Handler();
 			map.put(Type.SYSCALL, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.source.audit.event.type.syscall.Event) event, ctx));
+				(spade.reporter.audit.linux.source.audit.event.syscall.Event) event, ctx));
 		}
 		{
 			final spade.reporter.audit.linux.source.audit.event.handler.ubsi_dep.Handler h =
 				new spade.reporter.audit.linux.source.audit.event.handler.ubsi_dep.Handler();
 			map.put(Type.UBSI_DEP, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.source.audit.event.type.ubsi_dep.Event) event, ctx));
+				(spade.reporter.audit.linux.source.audit.event.ubsi_dep.Event) event, ctx));
 		}
 		{
 			final spade.reporter.audit.linux.source.audit.event.handler.ubsi_entry.Handler h =
 				new spade.reporter.audit.linux.source.audit.event.handler.ubsi_entry.Handler();
 			map.put(Type.UBSI_ENTRY, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.source.audit.event.type.ubsi_entry.Event) event, ctx));
+				(spade.reporter.audit.linux.source.audit.event.ubsi_entry.Event) event, ctx));
 		}
 		{
 			final spade.reporter.audit.linux.source.audit.event.handler.ubsi_exit.Handler h =
 				new spade.reporter.audit.linux.source.audit.event.handler.ubsi_exit.Handler();
 			map.put(Type.UBSI_EXIT, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.source.audit.event.type.ubsi_exit.Event) event, ctx));
+				(spade.reporter.audit.linux.source.audit.event.ubsi_exit.Event) event, ctx));
 		}
 		{
 			final spade.reporter.audit.linux.source.audit.event.handler.ubsi_raw.Handler h =
 				new spade.reporter.audit.linux.source.audit.event.handler.ubsi_raw.Handler();
 			map.put(Type.UBSI_RAW, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.source.audit.event.type.ubsi_raw.Event) event, ctx));
+				(spade.reporter.audit.linux.source.audit.event.ubsi_raw.Event) event, ctx));
 		}
 
 		handlers = Collections.unmodifiableMap(map);

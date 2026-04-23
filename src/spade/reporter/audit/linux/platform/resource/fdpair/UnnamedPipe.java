@@ -19,7 +19,7 @@
  */
 package spade.reporter.audit.linux.platform.resource.fdpair;
 
-import spade.reporter.audit.linux.platform.util.fd.Num;
+import spade.reporter.audit.linux.type.fd.Num;
 
 public class UnnamedPipe extends FDPair{
 

@@ -23,6 +23,16 @@ public class Path {
 
 	public final String DEFAULT_ROOT = "/";
 	public final String SEPARATOR = "/";
+	
+	public final int
+		STAT_IFIFO		= 0010000,
+		STAT_IFREG		= 0100000,
+		STAT_IFSOCK		= 0140000,
+		STAT_IFLNK		= 0120000,
+		STAT_IFBLK		= 0060000,
+		STAT_IFDIR		= 0040000,
+		STAT_IFCHR		= 0020000,
+		STAT_IFMT		= 00170000;
 
     protected Path () {}
 

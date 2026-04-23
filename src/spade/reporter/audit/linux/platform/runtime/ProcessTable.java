@@ -27,7 +27,7 @@ import java.util.TreeSet;
 
 import spade.reporter.audit.linux.platform.process.State;
 import spade.reporter.audit.linux.platform.process.VersionedID;
-import spade.reporter.audit.linux.platform.util.credential.PID;
+import spade.reporter.audit.linux.type.credential.PID;
 
 /**
  * Tracks versioned process states, maintaining the highest-seen version per PID.

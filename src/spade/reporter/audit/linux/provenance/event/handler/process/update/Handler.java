@@ -28,7 +28,7 @@ import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.linux.provenance.ProvEvent;
 import spade.reporter.audit.linux.provenance.ProvProcess;
 import spade.reporter.audit.linux.provenance.event.handler.Context;
-import spade.reporter.audit.linux.provenance.event.type.process.update.Event;
+import spade.reporter.audit.linux.provenance.event.process.update.Event;
 
 public class Handler implements spade.reporter.audit.core.provenance.event.handler.Handler<Event, Context>{
 

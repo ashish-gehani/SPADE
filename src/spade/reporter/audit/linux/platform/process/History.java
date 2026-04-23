@@ -23,7 +23,7 @@ import spade.reporter.audit.core.util.history.Timestamp;
 import spade.reporter.audit.core.util.history.Timestamped;
 import spade.reporter.audit.linux.platform.process.info.credential.Group;
 import spade.reporter.audit.linux.platform.process.info.credential.User;
-import spade.reporter.audit.linux.platform.util.namespace.Tuple;
+import spade.reporter.audit.linux.type.namespace.Tuple;
 
 public class History{
 

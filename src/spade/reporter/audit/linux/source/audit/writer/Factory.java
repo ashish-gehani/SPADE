@@ -27,16 +27,16 @@ public class Factory {
         }
         switch (config.getLineWriterType()) {
             case FILE:
-                return new spade.reporter.audit.linux.source.audit.writer.type.file.LineWriter(
+                return new spade.reporter.audit.linux.source.audit.writer.file.LineWriter(
                     config.getFilePath()
                 );
             case ROTATING_FILE:
-                return new spade.reporter.audit.linux.source.audit.writer.type.rotating.file.LineWriter(
+                return new spade.reporter.audit.linux.source.audit.writer.rotating.file.LineWriter(
                     config.getFilePath(),
                     config.getRotationBytes()
                 );
             case NO_OP:
-                return new spade.reporter.audit.linux.source.audit.writer.type.noop.LineWriter();
+                return new spade.reporter.audit.linux.source.audit.writer.noop.LineWriter();
             default:
                 throw new IllegalArgumentException("Unknown line writer type: " + config.getLineWriterType());
         }

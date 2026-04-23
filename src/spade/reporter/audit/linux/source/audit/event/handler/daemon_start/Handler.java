@@ -23,7 +23,7 @@ package spade.reporter.audit.linux.source.audit.event.handler.daemon_start;
 import java.util.Collections;
 import java.util.List;
 
-import spade.reporter.audit.linux.source.audit.event.type.daemon_start.Event;
+import spade.reporter.audit.linux.source.audit.event.daemon_start.Event;
 import spade.reporter.audit.linux.source.audit.event.handler.Context;
 import spade.reporter.audit.linux.source.audit.event.ID;
 

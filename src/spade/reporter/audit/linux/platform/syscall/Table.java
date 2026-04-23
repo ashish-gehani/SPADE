@@ -19,27 +19,33 @@
  */
 package spade.reporter.audit.linux.platform.syscall;
 
-public class Table extends spade.reporter.audit.core.util.statetable.Table<Syscall, State>{
+import java.util.HashMap;
+import java.util.Map;
 
-	public State getFromName(final String name) throws NoSuchSyscall{
-		if(name == null){
-			throw new IllegalArgumentException("name cannot be NULL");
+public abstract class Table {
+
+	private final Map<Integer, Syscall> table = new HashMap<>();
+
+	protected void put(final int num, final Syscall syscall){
+		if(syscall == null){
+			throw new IllegalArgumentException("syscall cannot be NULL");
 		}
-		for(final Syscall syscall : ids()){
-			if(syscall.name.equals(name)){
-				return get(syscall);
-			}
+		if(table.containsKey(num)){
+			throw new IllegalArgumentException("Duplicate syscall number: " + num);
 		}
-		throw NoSuchSyscall.forName(name);
+		table.put(num, syscall);
 	}
 
-	public State getFromNum(final int num) throws NoSuchSyscall{
-		for(final Syscall syscall : ids()){
-			if(syscall.num == num){
-				return get(syscall);
-			}
+	public Syscall get(final int num) throws NoSuchSyscall{
+		final Syscall syscall = table.get(num);
+		if(syscall == null){
+			throw NoSuchSyscall.forNum(num);
 		}
-		throw NoSuchSyscall.forNum(num);
+		return syscall;
+	}
+
+	public boolean contains(final int num){
+		return table.containsKey(num);
 	}
 
 }

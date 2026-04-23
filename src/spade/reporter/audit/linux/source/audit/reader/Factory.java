@@ -19,7 +19,7 @@
  */
 package spade.reporter.audit.linux.source.audit.reader;
 
-import spade.reporter.audit.linux.source.audit.reader.type.bridge.LineReader;
+import spade.reporter.audit.linux.source.audit.reader.bridge.LineReader;
 
 /**
  * Creates {@link spade.reporter.audit.linux.source.audit.reader.LineReader}

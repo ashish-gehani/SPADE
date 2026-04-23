@@ -20,21 +20,21 @@
 package spade.reporter.audit.linux.platform.resource.fs;
 
 import spade.reporter.audit.linux.platform.resource.Resource;
-import spade.reporter.audit.linux.platform.util.device.Device;
-import spade.reporter.audit.linux.platform.util.fs.Inode;
+import spade.reporter.audit.linux.type.device.Device;
+import spade.reporter.audit.linux.type.fs.Inode;
 
 public abstract class Path extends Resource {
 
 	private final Type pathType;
 	private final Device device;
 	private final Inode inode;
-	private final spade.reporter.audit.linux.platform.util.fs.Path path;
+	private final spade.reporter.audit.linux.type.fs.Path path;
 
 	public Path(
 		final Type pathType,
 		final Device device,
 		final Inode inode,
-		final spade.reporter.audit.linux.platform.util.fs.Path path
+		final spade.reporter.audit.linux.type.fs.Path path
 	){
 		super(spade.reporter.audit.linux.platform.resource.Type.FS);
 		if(pathType == null){
@@ -67,7 +67,7 @@ public abstract class Path extends Resource {
 		return inode;
 	}
 
-	public spade.reporter.audit.linux.platform.util.fs.Path getPath(){
+	public spade.reporter.audit.linux.type.fs.Path getPath(){
 		return path;
 	}
 

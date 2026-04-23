@@ -29,8 +29,8 @@ import java.util.logging.Logger;
 
 import spade.reporter.audit.core.provenance.event.Type;
 import spade.reporter.audit.linux.provenance.event.Event;
-import spade.reporter.audit.linux.provenance.event.type.ProcessType;
-import spade.reporter.audit.linux.provenance.event.type.ResourceType;
+import spade.reporter.audit.linux.provenance.event.ProcessType;
+import spade.reporter.audit.linux.provenance.event.ResourceType;
 
 public final class Factory{
 
@@ -49,67 +49,67 @@ public final class Factory{
 			final spade.reporter.audit.linux.provenance.event.handler.process.control.Handler h =
 				new spade.reporter.audit.linux.provenance.event.handler.process.control.Handler();
 			map.put(ProcessType.CONTROL, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.provenance.event.type.process.control.Event) event, ctx));
+				(spade.reporter.audit.linux.provenance.event.process.control.Event) event, ctx));
 		}
 		{
 			final spade.reporter.audit.linux.provenance.event.handler.process.create.Handler h =
 				new spade.reporter.audit.linux.provenance.event.handler.process.create.Handler();
 			map.put(ProcessType.CREATE, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.provenance.event.type.process.create.Event) event, ctx));
+				(spade.reporter.audit.linux.provenance.event.process.create.Event) event, ctx));
 		}
 		{
 			final spade.reporter.audit.linux.provenance.event.handler.process.create_synthetic.Handler h =
 				new spade.reporter.audit.linux.provenance.event.handler.process.create_synthetic.Handler();
 			map.put(ProcessType.CREATE_SYNTHETIC, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.provenance.event.type.process.create_synthetic.Event) event, ctx));
+				(spade.reporter.audit.linux.provenance.event.process.create_synthetic.Event) event, ctx));
 		}
 		{
 			final spade.reporter.audit.linux.provenance.event.handler.process.exit.Handler h =
 				new spade.reporter.audit.linux.provenance.event.handler.process.exit.Handler();
 			map.put(ProcessType.EXIT, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.provenance.event.type.process.exit.Event) event, ctx));
+				(spade.reporter.audit.linux.provenance.event.process.exit.Event) event, ctx));
 		}
 		{
 			final spade.reporter.audit.linux.provenance.event.handler.process.signal.Handler h =
 				new spade.reporter.audit.linux.provenance.event.handler.process.signal.Handler();
 			map.put(ProcessType.SIGNAL, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.provenance.event.type.process.signal.Event) event, ctx));
+				(spade.reporter.audit.linux.provenance.event.process.signal.Event) event, ctx));
 		}
 		{
 			final spade.reporter.audit.linux.provenance.event.handler.process.update.Handler h =
 				new spade.reporter.audit.linux.provenance.event.handler.process.update.Handler();
 			map.put(ProcessType.UPDATE, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.provenance.event.type.process.update.Event) event, ctx));
+				(spade.reporter.audit.linux.provenance.event.process.update.Event) event, ctx));
 		}
 		{
 			final spade.reporter.audit.linux.provenance.event.handler.resource.access.Handler h =
 				new spade.reporter.audit.linux.provenance.event.handler.resource.access.Handler();
 			map.put(ResourceType.ACCESS, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.provenance.event.type.resource.access.Event) event, ctx));
+				(spade.reporter.audit.linux.provenance.event.resource.access.Event) event, ctx));
 		}
 		{
 			final spade.reporter.audit.linux.provenance.event.handler.resource.close.Handler h =
 				new spade.reporter.audit.linux.provenance.event.handler.resource.close.Handler();
 			map.put(ResourceType.CLOSE, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.provenance.event.type.resource.close.Event) event, ctx));
+				(spade.reporter.audit.linux.provenance.event.resource.close.Event) event, ctx));
 		}
 		{
 			final spade.reporter.audit.linux.provenance.event.handler.resource.create.Handler h =
 				new spade.reporter.audit.linux.provenance.event.handler.resource.create.Handler();
 			map.put(ResourceType.CREATE, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.provenance.event.type.resource.create.Event) event, ctx));
+				(spade.reporter.audit.linux.provenance.event.resource.create.Event) event, ctx));
 		}
 		{
 			final spade.reporter.audit.linux.provenance.event.handler.resource.delete.Handler h =
 				new spade.reporter.audit.linux.provenance.event.handler.resource.delete.Handler();
 			map.put(ResourceType.DELETE, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.provenance.event.type.resource.delete.Event) event, ctx));
+				(spade.reporter.audit.linux.provenance.event.resource.delete.Event) event, ctx));
 		}
 		{
 			final spade.reporter.audit.linux.provenance.event.handler.resource.update.Handler h =
 				new spade.reporter.audit.linux.provenance.event.handler.resource.update.Handler();
 			map.put(ResourceType.UPDATE, (event, ctx) -> h.handle(
-				(spade.reporter.audit.linux.provenance.event.type.resource.update.Event) event, ctx));
+				(spade.reporter.audit.linux.provenance.event.resource.update.Event) event, ctx));
 		}
 
 		handlers = Collections.unmodifiableMap(map);

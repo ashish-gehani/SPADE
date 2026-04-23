@@ -23,7 +23,7 @@ package spade.reporter.audit.linux.source.audit.event.handler.ubsi_entry;
 import java.util.Collections;
 import java.util.List;
 
-import spade.reporter.audit.linux.source.audit.event.type.ubsi_entry.Event;
+import spade.reporter.audit.linux.source.audit.event.ubsi_entry.Event;
 import spade.reporter.audit.linux.source.audit.event.handler.Context;
 import spade.reporter.audit.linux.source.audit.event.ID;
 

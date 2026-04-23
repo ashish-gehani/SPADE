@@ -20,10 +20,10 @@
 package spade.reporter.audit.linux.platform.resource.network;
 
 import spade.reporter.audit.linux.platform.process.State;
-import spade.reporter.audit.linux.platform.util.network.ip.V4;
-import spade.reporter.audit.linux.platform.util.network.ip.V6;
-import spade.reporter.audit.linux.platform.util.network.transport.Address;
-import spade.reporter.audit.linux.platform.util.network.transport.Protocol;
+import spade.reporter.audit.linux.type.network.ip.V4;
+import spade.reporter.audit.linux.type.network.ip.V6;
+import spade.reporter.audit.linux.type.network.transport.Address;
+import spade.reporter.audit.linux.type.network.transport.Protocol;
 
 public class ID extends spade.reporter.audit.linux.platform.resource.ID{
 
@@ -51,7 +51,7 @@ public class ID extends spade.reporter.audit.linux.platform.resource.ID{
 		return getNetwork().getProtocol();
 	}
 
-	private spade.reporter.audit.linux.platform.util.namespace.ID netns(){
+	private spade.reporter.audit.linux.type.namespace.ID netns(){
 		return getProcessState().getNamespace().getNet();
 	}
 
@@ -70,8 +70,8 @@ public class ID extends spade.reporter.audit.linux.platform.resource.ID{
 	}
 
 	private static int compareNetns(
-		final spade.reporter.audit.linux.platform.util.namespace.ID a,
-		final spade.reporter.audit.linux.platform.util.namespace.ID b
+		final spade.reporter.audit.linux.type.namespace.ID a,
+		final spade.reporter.audit.linux.type.namespace.ID b
 	){
 		int c = a.getType().compareTo(b.getType());
 		if(c != 0) return c;

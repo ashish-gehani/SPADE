@@ -21,7 +21,7 @@ package spade.reporter.audit.linux.platform.process.fd;
 
 import spade.reporter.audit.core.util.statetable.State;
 import spade.reporter.audit.linux.platform.resource.Resource;
-import spade.reporter.audit.linux.platform.util.fd.Num;
+import spade.reporter.audit.linux.type.fd.Num;
 
 public class Descriptor extends State<Num>{
 

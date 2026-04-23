@@ -19,9 +19,8 @@
  */
 package spade.reporter.audit.linux.platform.syscall;
 
-import spade.reporter.audit.core.util.statetable.Indexable;
 
-public final class Syscall implements Indexable<Syscall>{
+public final class Syscall {
 
 	public final int num;
 	public final String name;
@@ -32,11 +31,6 @@ public final class Syscall implements Indexable<Syscall>{
 		}
 		this.num = num;
 		this.name = name;
-	}
-
-	@Override
-	public int compareTo(final Syscall other){
-		return Integer.compare(this.num, other.num);
 	}
 
 	@Override

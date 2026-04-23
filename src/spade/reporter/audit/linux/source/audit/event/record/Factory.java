@@ -27,23 +27,13 @@ import java.util.logging.Logger;
 
 import spade.reporter.audit.linux.source.audit.event.record.Record.Creator;
 import spade.reporter.audit.linux.source.audit.event.record.helper.Header;
-import spade.reporter.audit.linux.source.audit.event.record.type.Cwd;
-import spade.reporter.audit.linux.source.audit.event.record.type.DaemonStart;
-import spade.reporter.audit.linux.source.audit.event.record.type.Execve;
-import spade.reporter.audit.linux.source.audit.event.record.type.FdPair;
-import spade.reporter.audit.linux.source.audit.event.record.type.Ipc;
-import spade.reporter.audit.linux.source.audit.event.record.type.Mmap;
-import spade.reporter.audit.linux.source.audit.event.record.type.MqSendRecv;
-import spade.reporter.audit.linux.source.audit.event.record.type.Namespace;
-import spade.reporter.audit.linux.source.audit.event.record.type.Netfilter;
-import spade.reporter.audit.linux.source.audit.event.record.type.Netio;
-import spade.reporter.audit.linux.source.audit.event.record.type.Sockaddr;
-import spade.reporter.audit.linux.source.audit.event.record.type.Syscall;
-import spade.reporter.audit.linux.source.audit.event.record.type.path.Path;
-import spade.reporter.audit.linux.source.audit.event.record.type.ubsi.UbsiDep;
-import spade.reporter.audit.linux.source.audit.event.record.type.ubsi.UbsiEntry;
-import spade.reporter.audit.linux.source.audit.event.record.type.ubsi.UbsiExit;
-import spade.reporter.audit.linux.source.audit.event.record.type.ubsi.UbsiRaw;
+import spade.reporter.audit.linux.source.audit.event.record.namespace.Namespace;
+import spade.reporter.audit.linux.source.audit.event.record.netfilter.Netfilter;
+import spade.reporter.audit.linux.source.audit.event.record.path.Path;
+import spade.reporter.audit.linux.source.audit.event.record.ubsi.UbsiDep;
+import spade.reporter.audit.linux.source.audit.event.record.ubsi.UbsiEntry;
+import spade.reporter.audit.linux.source.audit.event.record.ubsi.UbsiExit;
+import spade.reporter.audit.linux.source.audit.event.record.ubsi.UbsiRaw;
 
 /**
  * Factory class for creating Record subclass instances from raw audit log lines.
@@ -64,23 +54,23 @@ public final class Factory{
 	private final Map<Type, Record.Creator> creators = Collections.unmodifiableMap(
 		new HashMap<Type, Record.Creator>(){
 			{
-				put(Type.DAEMON_START, new DaemonStart.Creator());
-				put(Type.SYSCALL, new Syscall.Creator());
 				put(Type.CWD, new Cwd.Creator());
-				put(Type.PATH, new Path.Creator());
+				put(Type.DAEMON_START, new DaemonStart.Creator());
 				put(Type.EXECVE, new Execve.Creator());
 				put(Type.FD_PAIR, new FdPair.Creator());
-				put(Type.SOCKADDR, new Sockaddr.Creator());
-				put(Type.MMAP, new Mmap.Creator());
 				put(Type.IPC, new Ipc.Creator());
+				put(Type.MMAP, new Mmap.Creator());
 				put(Type.MQ_SENDRECV, new MqSendRecv.Creator());
+				put(Type.NAMESPACE, new Namespace.Creator());
+				put(Type.NETFILTER, new Netfilter.Creator());
+				put(Type.NETIO, new Netio.Creator());
+				put(Type.PATH, new Path.Creator());
+				put(Type.SOCKADDR, new Sockaddr.Creator());
+				put(Type.SYSCALL, new Syscall.Creator());
+				put(Type.UBSI_DEP, new UbsiDep.Creator());
 				put(Type.UBSI_ENTRY, new UbsiEntry.Creator());
 				put(Type.UBSI_EXIT, new UbsiExit.Creator());
-				put(Type.UBSI_DEP, new UbsiDep.Creator());
 				put(Type.UBSI_RAW, new UbsiRaw.Creator());
-				put(Type.NETIO, new Netio.Creator());
-				put(Type.NETFILTER, new Netfilter.Creator());
-				put(Type.NAMESPACE, new Namespace.Creator());
 			}
 		}
 	);

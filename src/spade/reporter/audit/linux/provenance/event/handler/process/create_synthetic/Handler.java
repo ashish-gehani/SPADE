@@ -26,7 +26,7 @@ import spade.core.AbstractVertex;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.linux.provenance.ProvProcess;
 import spade.reporter.audit.linux.provenance.event.handler.Context;
-import spade.reporter.audit.linux.provenance.event.type.process.create_synthetic.Event;
+import spade.reporter.audit.linux.provenance.event.process.create_synthetic.Event;
 
 public class Handler implements spade.reporter.audit.core.provenance.event.handler.Handler<Event, Context>{
 
