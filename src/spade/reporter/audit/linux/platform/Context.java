@@ -36,6 +36,7 @@ public class Context
 {
 
     private final Table syscallTable;
+	private long provEventIdCounter = 0;
 
 	public Context(
         final ID id,
@@ -52,6 +53,10 @@ public class Context
 
 	public Table getSyscallTable(){
 		return syscallTable;
+	}
+
+	public spade.reporter.audit.core.provenance.event.ID nextProvEventId(){
+		return new spade.reporter.audit.core.provenance.event.ID(provEventIdCounter++);
 	}
 
 }

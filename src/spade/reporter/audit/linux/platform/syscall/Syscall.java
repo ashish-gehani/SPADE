@@ -24,13 +24,18 @@ public final class Syscall {
 
 	public final int num;
 	public final String name;
+	public final String operation;
 
-	public Syscall(final int num, final String name){
+	public Syscall(final int num, final String name, final String operation){
 		if(name == null){
 			throw new IllegalArgumentException("name cannot be NULL");
 		}
+		if(operation == null){
+			throw new IllegalArgumentException("operation cannot be NULL");
+		}
 		this.num = num;
 		this.name = name;
+		this.operation = operation;
 	}
 
 	@Override
@@ -38,18 +43,21 @@ public final class Syscall {
 		if(this == obj) return true;
 		if(!(obj instanceof Syscall)) return false;
 		final Syscall other = (Syscall) obj;
-		return this.num == other.num && this.name.equals(other.name);
+		return this.num == other.num
+			&& this.name.equals(other.name)
+			&& this.operation.equals(other.operation);
 	}
 
 	@Override
 	public String toString(){
-		return Syscall.class.getName() + "(" + num + ":" + name + ")";
+		return Syscall.class.getName() + "(" + num + ":" + name + ":" + operation + ")";
 	}
 
 	@Override
 	public int hashCode(){
 		int result = Integer.hashCode(num);
 		result = 31 * result + name.hashCode();
+		result = 31 * result + operation.hashCode();
 		return result;
 	}
 

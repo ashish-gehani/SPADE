@@ -21,42 +21,32 @@ package spade.reporter.audit.linux.source.audit.event.handler.syscall.helper;
 
 import java.util.List;
 
+import spade.reporter.audit.linux.platform.process.VersionedID;
 import spade.reporter.audit.linux.platform.resource.ID;
-import spade.reporter.audit.linux.platform.runtime.ResourceTable;
 import spade.reporter.audit.linux.provenance.ProvEvent;
 import spade.reporter.audit.linux.provenance.ProvProcess;
 import spade.reporter.audit.linux.provenance.ProvResource;
-import spade.reporter.audit.linux.provenance.event.resource.create.Event;
 import spade.reporter.audit.linux.source.audit.event.handler.Context;
 import spade.reporter.audit.linux.source.audit.event.record.Syscall;
 
-public class Resource{
+public class Event{
 
-	public static void create(
+	public static void access(
 		final List<spade.reporter.audit.core.provenance.event.Event> result,
 		final Context context,
 		final Syscall syscallRecord,
-		final spade.reporter.audit.linux.platform.process.State processState,
+		final VersionedID processId,
 		final ID resourceId
 	){
-		final ResourceTable resourceTable = context.getPlatformContext().getRuntimeState().getResourceTable();
-
-		spade.reporter.audit.linux.platform.resource.State resourceState = resourceTable.get(resourceId);
-		if(resourceState != null){
-			resourceState.incrementEpoch();
-		}else{
-            resourceState = new spade.reporter.audit.linux.platform.resource.State(resourceId);
-		    resourceTable.put(resourceId, resourceState);
-        }
-
 		final spade.reporter.audit.linux.source.audit.event.ID auditEventId = syscallRecord.getId();
-		final Event createEvent = new Event(
-			context.getPlatformContext().nextProvEventId(),
-			new ProvEvent(auditEventId),
-			new ProvProcess(processState.getId()),
-			new ProvResource(resourceId)
-		);
-		result.add(createEvent);
+		final spade.reporter.audit.linux.provenance.event.resource.access.Event accessEvent =
+			new spade.reporter.audit.linux.provenance.event.resource.access.Event(
+				context.getPlatformContext().nextProvEventId(),
+				new ProvEvent(auditEventId),
+				new ProvProcess(processId),
+				new ProvResource(resourceId)
+			);
+		result.add(accessEvent);
 	}
 
 }

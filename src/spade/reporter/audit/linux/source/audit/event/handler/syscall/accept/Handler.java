@@ -87,7 +87,7 @@ public class Handler implements spade.reporter.audit.core.source.event.handler.H
 				handleNetwork(result, event, context, syscallRecord, processState, sockFd, descriptor, fd, (IPv6Saddr) saddr);
 				break;
 			case UNIX:
-				handleUnix(result, event, context, processState, sockFd, descriptor, fd, (UnixSaddr) saddr);
+				handleUnix(result, event, context, syscallRecord, processState, sockFd, descriptor, fd, (UnixSaddr) saddr);
 				break;
 			default:
 				break;
@@ -128,14 +128,32 @@ public class Handler implements spade.reporter.audit.core.source.event.handler.H
 		processState.getFdTable().put(fd, fdObj);
 
 		Resource.create(result, context, syscallRecord, processState, fdResourceID);
+
+		spade.reporter.audit.linux.source.audit.event.handler.syscall.helper.Event.access(
+			result, context, syscallRecord, processState.getId(), fdResourceID
+		);
 	}
 
 	private void handleUnix(
 		final List<spade.reporter.audit.core.provenance.event.Event> result,
 		final Event event, final Context context,
-		final State processState, final Num sockFd, final Descriptor sockFdDescriptor, final Num fd, final UnixSaddr fdSaddr
+		final Syscall syscallRecord, final State processState, final Num sockFd, final Descriptor sockFdDescriptor, final Num fd, final UnixSaddr fdSaddr
 	){
+		if(sockFdDescriptor == null || !(sockFdDescriptor.getResource() instanceof spade.reporter.audit.linux.platform.resource.fs.UnixSocket)){
+			return;
+		}
+		final spade.reporter.audit.linux.platform.resource.fs.UnixSocket unixSocket =
+			(spade.reporter.audit.linux.platform.resource.fs.UnixSocket) sockFdDescriptor.getResource();
 
+		final spade.reporter.audit.linux.platform.resource.fs.ID fdResourceID =
+			new spade.reporter.audit.linux.platform.resource.fs.ID(unixSocket, processState);
+		final Descriptor fdObj = new Descriptor(Type.UNIX_SOCKET, fd, OpenMode.READ_WRITE, unixSocket);
+		processState.getFdTable().put(fd, fdObj);
+
+		Resource.create(result, context, syscallRecord, processState, fdResourceID);
+		spade.reporter.audit.linux.source.audit.event.handler.syscall.helper.Event.access(
+			result, context, syscallRecord, processState.getId(), fdResourceID
+		);
 	}
 
 }

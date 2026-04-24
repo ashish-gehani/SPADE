@@ -66,10 +66,8 @@ public class Process{
 		final VersionedID processVersionedId = new VersionedID(pid);
 		processState = createSynthetic(processVersionedId, processInfo, auditEventId);
 		processTable.put(processVersionedId, processState);
-		final long auditEventNum = auditEventId.getNum().getValue();
-		// TODO the prov event id doesn't have to be audit event id
 		final Event createSyntheticEvent = new Event(
-			new spade.reporter.audit.core.provenance.event.ID(auditEventNum),
+			context.getPlatformContext().nextProvEventId(),
 			new ProvEvent(auditEventId),
 			new ProvProcess(processVersionedId)
 		);
