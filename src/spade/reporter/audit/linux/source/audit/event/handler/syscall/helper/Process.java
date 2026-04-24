@@ -30,8 +30,8 @@ import spade.reporter.audit.linux.platform.process.info.credential.Group;
 import spade.reporter.audit.linux.platform.process.info.credential.Tuple;
 import spade.reporter.audit.linux.platform.process.info.credential.User;
 import spade.reporter.audit.linux.platform.runtime.ProcessTable;
-import spade.reporter.audit.linux.provenance.ProvEvent;
-import spade.reporter.audit.linux.provenance.ProvProcess;
+import spade.reporter.audit.linux.provenance.SourceEvent;
+import spade.reporter.audit.linux.provenance.PlatformProcess;
 import spade.reporter.audit.linux.provenance.event.process.create_synthetic.Event;
 import spade.reporter.audit.linux.source.audit.event.handler.Context;
 import spade.reporter.audit.linux.source.audit.event.record.Syscall;
@@ -68,8 +68,8 @@ public class Process{
 		processTable.put(processVersionedId, processState);
 		final Event createSyntheticEvent = new Event(
 			context.getPlatformContext().nextProvEventId(),
-			new ProvEvent(auditEventId),
-			new ProvProcess(processVersionedId)
+			new SourceEvent(auditEventId),
+			new PlatformProcess(processVersionedId)
 		);
 		result.add(createSyntheticEvent);
 		return processState;

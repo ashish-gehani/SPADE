@@ -20,17 +20,17 @@
 package spade.reporter.audit.linux.provenance.event.process.control;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.ProvEvent;
-import spade.reporter.audit.linux.provenance.ProvProcess;
+import spade.reporter.audit.linux.provenance.SourceEvent;
+import spade.reporter.audit.linux.provenance.PlatformProcess;
 import spade.reporter.audit.linux.provenance.event.ProcessType;
 
 public class Event extends spade.reporter.audit.linux.provenance.event.Event{
 
-	private final ProvProcess controller;
-	private final ProvProcess target;
+	private final PlatformProcess controller;
+	private final PlatformProcess target;
 
-	public Event(final ID id, final ProvEvent provEvent, final ProvProcess controller, final ProvProcess target){
-		super(ProcessType.CONTROL, id, provEvent);
+	public Event(final ID id, final SourceEvent sourceEvent, final PlatformProcess controller, final PlatformProcess target){
+		super(ProcessType.CONTROL, id, sourceEvent);
 		if(controller == null){
 			throw new IllegalArgumentException("controller cannot be NULL");
 		}
@@ -41,11 +41,11 @@ public class Event extends spade.reporter.audit.linux.provenance.event.Event{
 		this.target = target;
 	}
 
-	public ProvProcess getController(){
+	public PlatformProcess getController(){
 		return controller;
 	}
 
-	public ProvProcess getTarget(){
+	public PlatformProcess getTarget(){
 		return target;
 	}
 }

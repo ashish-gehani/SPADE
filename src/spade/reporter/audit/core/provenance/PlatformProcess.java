@@ -19,9 +19,8 @@
  */
 package spade.reporter.audit.core.provenance;
 
-
 import spade.reporter.audit.core.provenance.event.handler.Context;
 
-public interface Eventable<C extends Context> extends Provenanceable<C>{
+public abstract class PlatformProcess<C extends Context> implements Provenanceable<C>{
 
 }

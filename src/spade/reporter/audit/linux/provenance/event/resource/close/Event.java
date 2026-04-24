@@ -20,18 +20,18 @@
 package spade.reporter.audit.linux.provenance.event.resource.close;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.ProvEvent;
-import spade.reporter.audit.linux.provenance.ProvProcess;
-import spade.reporter.audit.linux.provenance.ProvResource;
+import spade.reporter.audit.linux.provenance.SourceEvent;
+import spade.reporter.audit.linux.provenance.PlatformProcess;
+import spade.reporter.audit.linux.provenance.PlatformResource;
 import spade.reporter.audit.linux.provenance.event.ResourceType;
 
 public class Event extends spade.reporter.audit.linux.provenance.event.Event{
 
-	private final ProvProcess closer;
-	private final ProvResource resource;
+	private final PlatformProcess closer;
+	private final PlatformResource resource;
 
-	public Event(final ID id, final ProvEvent provEvent, final ProvProcess closer, final ProvResource resource){
-		super(ResourceType.CLOSE, id, provEvent);
+	public Event(final ID id, final SourceEvent sourceEvent, final PlatformProcess closer, final PlatformResource resource){
+		super(ResourceType.CLOSE, id, sourceEvent);
 		if(closer == null){
 			throw new IllegalArgumentException("closer cannot be NULL");
 		}
@@ -42,11 +42,11 @@ public class Event extends spade.reporter.audit.linux.provenance.event.Event{
 		this.resource = resource;
 	}
 
-	public ProvProcess getCloser(){
+	public PlatformProcess getCloser(){
 		return closer;
 	}
 
-	public ProvResource getResource(){
+	public PlatformResource getResource(){
 		return resource;
 	}
 }

@@ -20,17 +20,17 @@
 package spade.reporter.audit.linux.provenance.event.process.signal;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.ProvEvent;
-import spade.reporter.audit.linux.provenance.ProvProcess;
+import spade.reporter.audit.linux.provenance.SourceEvent;
+import spade.reporter.audit.linux.provenance.PlatformProcess;
 import spade.reporter.audit.linux.provenance.event.ProcessType;
 
 public class Event extends spade.reporter.audit.linux.provenance.event.Event{
 
-	private final ProvProcess sender;
-	private final ProvProcess receiver;
+	private final PlatformProcess sender;
+	private final PlatformProcess receiver;
 
-	public Event(final ID id, final ProvEvent provEvent, final ProvProcess sender, final ProvProcess receiver){
-		super(ProcessType.SIGNAL, id, provEvent);
+	public Event(final ID id, final SourceEvent sourceEvent, final PlatformProcess sender, final PlatformProcess receiver){
+		super(ProcessType.SIGNAL, id, sourceEvent);
 		if(sender == null){
 			throw new IllegalArgumentException("sender cannot be NULL");
 		}
@@ -41,11 +41,11 @@ public class Event extends spade.reporter.audit.linux.provenance.event.Event{
 		this.receiver = receiver;
 	}
 
-	public ProvProcess getSender(){
+	public PlatformProcess getSender(){
 		return sender;
 	}
 
-	public ProvProcess getReceiver(){
+	public PlatformProcess getReceiver(){
 		return receiver;
 	}
 }

@@ -25,8 +25,8 @@ import java.util.List;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
-import spade.reporter.audit.linux.provenance.ProvEvent;
-import spade.reporter.audit.linux.provenance.ProvProcess;
+import spade.reporter.audit.linux.provenance.SourceEvent;
+import spade.reporter.audit.linux.provenance.PlatformProcess;
 import spade.reporter.audit.linux.provenance.event.handler.Context;
 import spade.reporter.audit.linux.provenance.event.process.create.Event;
 
@@ -34,9 +34,9 @@ public class Handler implements spade.reporter.audit.core.provenance.event.handl
 
 	@Override
 	public List<ProvenanceElement> handle(final Event event, final Context provContext){
-		final ProvProcess provParent = event.getParent();
-		final ProvProcess provChild = event.getChild();
-		final ProvEvent provEvent = event.getProvEvent();
+		final PlatformProcess provParent = event.getParent();
+		final PlatformProcess provChild = event.getChild();
+		final SourceEvent sourceEvent = event.getSourceEvent();
 
 		final AbstractVertex parentVertex = provContext.getVertexGenerator().generate();
 		parentVertex.addAnnotations(provParent.getKeyAnnotations(provContext));
@@ -47,8 +47,8 @@ public class Handler implements spade.reporter.audit.core.provenance.event.handl
 		childVertex.addAnnotations(provChild.getExtraAnnotations(provContext));
 
 		final AbstractEdge edge = provContext.getEdgeGenerator().generate(childVertex, parentVertex);
-		edge.addAnnotations(provEvent.getKeyAnnotations(provContext));
-		edge.addAnnotations(provEvent.getExtraAnnotations(provContext));
+		edge.addAnnotations(sourceEvent.getKeyAnnotations(provContext));
+		edge.addAnnotations(sourceEvent.getExtraAnnotations(provContext));
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(parentVertex));

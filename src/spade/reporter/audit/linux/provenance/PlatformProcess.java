@@ -22,14 +22,14 @@ package spade.reporter.audit.linux.provenance;
 import java.util.HashMap;
 import java.util.Map;
 
+import spade.reporter.audit.linux.platform.process.VersionedID;
 import spade.reporter.audit.linux.provenance.event.handler.Context;
-import spade.reporter.audit.linux.source.audit.event.ID;
 
-public class ProvEvent implements spade.reporter.audit.core.provenance.Eventable<Context>{
+public class PlatformProcess extends spade.reporter.audit.core.provenance.PlatformProcess<Context>{
 
-	private final ID id;
+	private final VersionedID id;
 
-	public ProvEvent(final ID id){
+	public PlatformProcess(final VersionedID id){
 		if(id == null){
 			throw new IllegalArgumentException("id cannot be NULL");
 		}
@@ -39,8 +39,9 @@ public class ProvEvent implements spade.reporter.audit.core.provenance.Eventable
 	@Override
 	public Map<String, String> getKeyAnnotations(final Context context){
 		final Map<String, String> map = new HashMap<>();
-		map.put("event_id", String.valueOf(id.getNum().getValue()));
-		map.put("time", id.getTimestamp().getSecondsInAuditFormat());
+		map.put("type", "Process");
+		map.put("pid", String.valueOf(id.getPid().getValue()));
+		map.put("version", String.valueOf(id.getVersion()));
 		return map;
 	}
 

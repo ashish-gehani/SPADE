@@ -24,7 +24,7 @@ import java.util.List;
 
 import spade.core.AbstractVertex;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
-import spade.reporter.audit.linux.provenance.ProvProcess;
+import spade.reporter.audit.linux.provenance.PlatformProcess;
 import spade.reporter.audit.linux.provenance.event.handler.Context;
 import spade.reporter.audit.linux.provenance.event.process.create_synthetic.Event;
 
@@ -32,7 +32,7 @@ public class Handler implements spade.reporter.audit.core.provenance.event.handl
 
 	@Override
 	public List<ProvenanceElement> handle(final Event event, final Context provContext){
-		final ProvProcess provProcess = event.getProcess();
+		final PlatformProcess provProcess = event.getProcess();
 
 		final AbstractVertex processVertex = provContext.getVertexGenerator().generate();
 		processVertex.addAnnotations(provProcess.getKeyAnnotations(provContext));

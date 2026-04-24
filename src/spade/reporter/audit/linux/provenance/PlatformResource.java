@@ -23,13 +23,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 import spade.reporter.audit.linux.platform.process.VersionedID;
+import spade.reporter.audit.linux.platform.resource.ID;
 import spade.reporter.audit.linux.provenance.event.handler.Context;
 
-public class ProvProcess implements spade.reporter.audit.core.provenance.Resourcable<Context>{
+public class PlatformResource extends spade.reporter.audit.core.provenance.PlatformResource<Context>{
 
-	private final VersionedID id;
+	private final ID id;
 
-	public ProvProcess(final VersionedID id){
+	public PlatformResource(final ID id){
 		if(id == null){
 			throw new IllegalArgumentException("id cannot be NULL");
 		}
@@ -39,9 +40,11 @@ public class ProvProcess implements spade.reporter.audit.core.provenance.Resourc
 	@Override
 	public Map<String, String> getKeyAnnotations(final Context context){
 		final Map<String, String> map = new HashMap<>();
-		map.put("type", "Process");
-		map.put("pid", String.valueOf(id.getPid().getValue()));
-		map.put("version", String.valueOf(id.getVersion()));
+		map.put("type", "Artifact");
+		map.put("subtype", id.getResource().getType().name);
+		final VersionedID processId = id.getProcessState().getId();
+		map.put("pid", String.valueOf(processId.getPid().getValue()));
+		map.put("pid_version", String.valueOf(processId.getVersion()));
 		return map;
 	}
 

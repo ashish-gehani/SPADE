@@ -25,9 +25,9 @@ import java.util.List;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
-import spade.reporter.audit.linux.provenance.ProvEvent;
-import spade.reporter.audit.linux.provenance.ProvProcess;
-import spade.reporter.audit.linux.provenance.ProvResource;
+import spade.reporter.audit.linux.provenance.SourceEvent;
+import spade.reporter.audit.linux.provenance.PlatformProcess;
+import spade.reporter.audit.linux.provenance.PlatformResource;
 import spade.reporter.audit.linux.provenance.event.handler.Context;
 import spade.reporter.audit.linux.provenance.event.resource.update.Event;
 
@@ -35,10 +35,10 @@ public class Handler implements spade.reporter.audit.core.provenance.event.handl
 
 	@Override
 	public List<ProvenanceElement> handle(final Event event, final Context provContext){
-		final ProvProcess provUpdater = event.getUpdater();
-		final ProvResource provOldVersion = event.getOldVersion();
-		final ProvResource provNewVersion = event.getNewVersion();
-		final ProvEvent provEvent = event.getProvEvent();
+		final PlatformProcess provUpdater = event.getUpdater();
+		final PlatformResource provOldVersion = event.getOldVersion();
+		final PlatformResource provNewVersion = event.getNewVersion();
+		final SourceEvent sourceEvent = event.getSourceEvent();
 
 		final AbstractVertex updaterVertex = provContext.getVertexGenerator().generate();
 		updaterVertex.addAnnotations(provUpdater.getKeyAnnotations(provContext));
@@ -53,12 +53,12 @@ public class Handler implements spade.reporter.audit.core.provenance.event.handl
 		newVertex.addAnnotations(provNewVersion.getExtraAnnotations(provContext));
 
 		final AbstractEdge updaterToNew = provContext.getEdgeGenerator().generate(updaterVertex, newVertex);
-		updaterToNew.addAnnotations(provEvent.getKeyAnnotations(provContext));
-		updaterToNew.addAnnotations(provEvent.getExtraAnnotations(provContext));
+		updaterToNew.addAnnotations(sourceEvent.getKeyAnnotations(provContext));
+		updaterToNew.addAnnotations(sourceEvent.getExtraAnnotations(provContext));
 
 		final AbstractEdge newToOld = provContext.getEdgeGenerator().generate(newVertex, oldVertex);
-		newToOld.addAnnotations(provEvent.getKeyAnnotations(provContext));
-		newToOld.addAnnotations(provEvent.getExtraAnnotations(provContext));
+		newToOld.addAnnotations(sourceEvent.getKeyAnnotations(provContext));
+		newToOld.addAnnotations(sourceEvent.getExtraAnnotations(provContext));
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(updaterVertex));

@@ -21,22 +21,22 @@ package spade.reporter.audit.linux.provenance.event;
 
 import spade.reporter.audit.core.provenance.event.ID;
 import spade.reporter.audit.core.provenance.event.Type;
-import spade.reporter.audit.linux.provenance.ProvEvent;
+import spade.reporter.audit.linux.provenance.SourceEvent;
 
 public abstract class Event extends spade.reporter.audit.core.provenance.event.Event{
 
-	private final ProvEvent provEvent;
+	private final SourceEvent sourceEvent;
 	
-	public Event(final Type type, final ID id, final ProvEvent provEvent) {
+	public Event(final Type type, final ID id, final SourceEvent sourceEvent) {
 		super(type, id);
-		if (provEvent == null) {
-			throw new IllegalArgumentException("provEvent cannot be null");
+		if (sourceEvent == null) {
+			throw new IllegalArgumentException("sourceEvent cannot be null");
 		}
-		this.provEvent = provEvent;
+		this.sourceEvent = sourceEvent;
 	}
 
-	public ProvEvent getProvEvent(){
-		return provEvent;
+	public SourceEvent getSourceEvent(){
+		return sourceEvent;
 	}
 
 }

@@ -25,8 +25,8 @@ import java.util.List;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
-import spade.reporter.audit.linux.provenance.ProvEvent;
-import spade.reporter.audit.linux.provenance.ProvProcess;
+import spade.reporter.audit.linux.provenance.SourceEvent;
+import spade.reporter.audit.linux.provenance.PlatformProcess;
 import spade.reporter.audit.linux.provenance.event.handler.Context;
 import spade.reporter.audit.linux.provenance.event.process.signal.Event;
 
@@ -34,9 +34,9 @@ public class Handler implements spade.reporter.audit.core.provenance.event.handl
 
 	@Override
 	public List<ProvenanceElement> handle(final Event event, final Context provContext){
-		final ProvProcess provSender = event.getSender();
-		final ProvProcess provReceiver = event.getReceiver();
-		final ProvEvent provEvent = event.getProvEvent();
+		final PlatformProcess provSender = event.getSender();
+		final PlatformProcess provReceiver = event.getReceiver();
+		final SourceEvent sourceEvent = event.getSourceEvent();
 
 		final AbstractVertex senderVertex = provContext.getVertexGenerator().generate();
 		senderVertex.addAnnotations(provSender.getKeyAnnotations(provContext));
@@ -47,8 +47,8 @@ public class Handler implements spade.reporter.audit.core.provenance.event.handl
 		receiverVertex.addAnnotations(provReceiver.getExtraAnnotations(provContext));
 
 		final AbstractEdge edge = provContext.getEdgeGenerator().generate(senderVertex, receiverVertex);
-		edge.addAnnotations(provEvent.getKeyAnnotations(provContext));
-		edge.addAnnotations(provEvent.getExtraAnnotations(provContext));
+		edge.addAnnotations(sourceEvent.getKeyAnnotations(provContext));
+		edge.addAnnotations(sourceEvent.getExtraAnnotations(provContext));
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(senderVertex));
