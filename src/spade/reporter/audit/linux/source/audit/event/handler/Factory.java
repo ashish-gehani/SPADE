@@ -23,25 +23,30 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiFunction;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import spade.reporter.audit.core.source.event.handler.EventHandlingException;
 import spade.reporter.audit.linux.source.audit.event.Event;
 import spade.reporter.audit.linux.source.audit.event.Type;
 
 public final class Factory{
 
+	@FunctionalInterface
+	private interface Handler{
+		List<spade.reporter.audit.core.provenance.event.Event> handle(Event event, Context context) throws EventHandlingException;
+	}
+
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
 	private final boolean verbose;
 
-	private final Map<Type, BiFunction<Event, Context, List<spade.reporter.audit.core.provenance.event.Event>>> handlers;
+	private final Map<Type, Handler> handlers;
 
 	public Factory(final boolean verbose){
 		this.verbose = verbose;
 
-		final Map<Type, BiFunction<Event, Context, List<spade.reporter.audit.core.provenance.event.Event>>> map = new EnumMap<>(Type.class);
+		final Map<Type, Handler> map = new EnumMap<>(Type.class);
 
 		{
 			final spade.reporter.audit.linux.source.audit.event.handler.daemon_start.Handler h =
@@ -99,21 +104,23 @@ public final class Factory{
 		return verbose;
 	}
 
-	public List<spade.reporter.audit.core.provenance.event.Event> handle(final Event event, final Context context){
+	public List<spade.reporter.audit.core.provenance.event.Event> handle(
+		final Event event, final Context context
+	) throws EventHandlingException{
 		if(event == null){
 			throw new IllegalArgumentException("event cannot be NULL");
 		}
 		if(context == null){
 			throw new IllegalArgumentException("context cannot be NULL");
 		}
-		final BiFunction<Event, Context, List<spade.reporter.audit.core.provenance.event.Event>> handler = handlers.get(event.getType());
+		final Handler handler = handlers.get(event.getType());
 		if(handler == null){
 			if(verbose){
 				logger.log(Level.INFO, "No handler for event type: {0}", event.getType());
 			}
 			return Collections.emptyList();
 		}
-		return handler.apply(event, context);
+		return handler.handle(event, context);
 	}
 
 }

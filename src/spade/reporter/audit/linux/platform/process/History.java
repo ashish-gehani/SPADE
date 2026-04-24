@@ -47,32 +47,32 @@ public class History{
 		return namespace.has(ns);
 	}
 
-	public Tuple getNamespace(final String eventTime){
+	public Tuple getNamespace(final double eventTime){
 		return namespace.closestTo(toTimestamp(eventTime));
 	}
 
-	public User getUser(final String eventTime){
+	public User getUser(final double eventTime){
 		return user.closestTo(toTimestamp(eventTime));
 	}
 
-	public Group getGroup(final String eventTime){
+	public Group getGroup(final double eventTime){
 		return group.closestTo(toTimestamp(eventTime));
 	}
 
-	public void addNamespace(final String eventTime, final Tuple ns){
+	public void addNamespace(final double eventTime, final Tuple ns){
 		namespace.add(toTimestamp(eventTime), ns);
 	}
 
-	public void addUser(final String eventTime, final User u){
+	public void addUser(final double eventTime, final User u){
 		user.add(toTimestamp(eventTime), u);
 	}
 
-	public void addGroup(final String eventTime, final Group g){
+	public void addGroup(final double eventTime, final Group g){
 		group.add(toTimestamp(eventTime), g);
 	}
 
-	private static Timestamp toTimestamp(final String eventTime){
-		return Timestamp.fromAuditFormat(eventTime);
+	private static Timestamp toTimestamp(final double eventTime){
+		return new Timestamp(eventTime);
 	}
 
 }

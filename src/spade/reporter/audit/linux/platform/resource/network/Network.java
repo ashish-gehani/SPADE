@@ -25,8 +25,8 @@ import spade.reporter.audit.linux.type.network.transport.Protocol;
 
 public class Network extends Resource {
 
-	private final Address src;
-	private final Address dst;
+	private final Address src; // local
+	private final Address dst; // remote
 	private final Protocol protocol;
 
 	public Network(

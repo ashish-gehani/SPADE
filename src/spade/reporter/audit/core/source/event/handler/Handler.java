@@ -26,6 +26,6 @@ import spade.reporter.audit.core.source.event.IDable;
 
 public interface Handler<I extends IDable, T extends Event<I>, C extends Context>{
 
-	public List<spade.reporter.audit.core.provenance.event.Event> handle(T event, C context);
+	public List<spade.reporter.audit.core.provenance.event.Event> handle(T event, C context) throws EventHandlingException;
 
 }

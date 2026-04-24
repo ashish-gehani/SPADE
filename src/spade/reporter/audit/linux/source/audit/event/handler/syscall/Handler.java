@@ -20,19 +20,48 @@
 package spade.reporter.audit.linux.source.audit.event.handler.syscall;
 
 
-import java.util.Collections;
 import java.util.List;
 
-import spade.reporter.audit.linux.source.audit.event.syscall.Event;
-import spade.reporter.audit.linux.source.audit.event.handler.Context;
+import spade.reporter.audit.core.source.event.handler.EventHandlingException;
+import spade.reporter.audit.linux.platform.syscall.Table;
 import spade.reporter.audit.linux.source.audit.event.ID;
+import spade.reporter.audit.linux.source.audit.event.handler.Context;
+import spade.reporter.audit.linux.source.audit.event.record.Syscall;
+import spade.reporter.audit.linux.source.audit.event.record.helper.SyscallInfo;
+import spade.reporter.audit.linux.source.audit.event.syscall.Event;
 
 public class Handler implements spade.reporter.audit.core.source.event.handler.Handler<ID, Event, Context>{
 
+	private final Registry registry = new Registry();
+
 	@Override
-	public List<spade.reporter.audit.core.provenance.event.Event> handle(final Event event, final Context context){
-		
-		return Collections.emptyList();
+	public List<spade.reporter.audit.core.provenance.event.Event> handle(final Event event, final Context context) throws EventHandlingException{
+		try{
+			return _handle(event, context);
+		}catch(Exception e){
+			throw new EventHandlingException(event, e);
+		}
+	}
+
+	public List<spade.reporter.audit.core.provenance.event.Event> _handle(final Event event, final Context context) throws Exception{
+		final Syscall syscallRecord = event.getSyscallRecord();
+		final SyscallInfo syscallInfo = syscallRecord.getSyscallInfo();
+		final int syscallNum = syscallInfo.getSyscall();
+
+		final Table syscallTable = context.getPlatformContext().getSyscallTable();
+		final spade.reporter.audit.linux.platform.syscall.Syscall syscallObj = syscallTable.get(syscallNum);
+
+		final Registry.Entry entry = registry.get(syscallObj.name);
+		if(entry == null){
+			return null;
+		}
+
+		final String error = entry.validator.validate(event, context);
+		if(error != null){
+			throw new Exception("Validation failed for syscall '" + syscallObj.name + "': " + error);
+		}
+
+		return entry.handler.handle(event, context);
 	}
 
 }

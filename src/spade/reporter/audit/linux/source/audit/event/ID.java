@@ -79,4 +79,9 @@ public final class ID implements IDable{
 		return result;
 	}
 
+	@Override
+	public String toString(){
+		return ID.class.getName() + "(" + timestamp + ":" + num + ")";
+	}
+
 }

@@ -20,5 +20,5 @@
 package spade.reporter.audit.linux.platform.process.fd;
 
 public enum OpenMode{
-	READ, WRITE, UNKNOWN
+	READ, WRITE, READ_WRITE, UNKNOWN
 }

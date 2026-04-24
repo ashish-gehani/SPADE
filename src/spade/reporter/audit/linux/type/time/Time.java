@@ -21,13 +21,10 @@ package spade.reporter.audit.linux.type.time;
 
 public class Time{
 
-	private final String value;
+	private final double value;
 	private final Type type;
 
-	public Time(final String value, final Type type){
-		if(value == null){
-			throw new IllegalArgumentException("value cannot be NULL");
-		}
+	public Time(final double value, final Type type){
 		if(type == null){
 			throw new IllegalArgumentException("type cannot be NULL");
 		}
@@ -35,7 +32,7 @@ public class Time{
 		this.type = type;
 	}
 
-	public String getValue(){ return value; }
+	public double getValue(){ return value; }
 	public Type getType(){ return type; }
 
 	public Time(final Time other){
@@ -47,13 +44,13 @@ public class Time{
 		if(this == obj) return true;
 		if(!(obj instanceof Time)) return false;
 		final Time other = (Time) obj;
-		return this.type == other.type && this.value.equals(other.value);
+		return this.type == other.type && Double.compare(this.value, other.value) == 0;
 	}
 
 	@Override
 	public int hashCode(){
 		int result = type.hashCode();
-		result = 31 * result + value.hashCode();
+		result = 31 * result + Double.hashCode(value);
 		return result;
 	}
 

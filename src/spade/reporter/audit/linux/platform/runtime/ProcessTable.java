@@ -65,6 +65,17 @@ public class ProcessTable extends spade.reporter.audit.core.platform.runtime.Pro
 	}
 
 	/**
+	 * Returns the state for pid at its highest version, or null if pid is not tracked.
+	 */
+	public State getLatest(final PID pid){
+		final Long maxVersion = getMaxVersion(pid);
+		if(maxVersion == null){
+			return null;
+		}
+		return get(new VersionedID(pid, maxVersion));
+	}
+
+	/**
 	 * Returns the highest version currently stored for pid, or null if none.
 	 */
 	public Long getMaxVersion(final PID pid){

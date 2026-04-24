@@ -21,6 +21,7 @@ package spade.reporter.audit.linux.platform;
 
 import spade.reporter.audit.core.platform.ID;
 import spade.reporter.audit.core.platform.info.Info;
+import spade.reporter.audit.linux.platform.syscall.arch.x86_64.Table;
 
 public class Context
         extends spade.reporter.audit.core.platform.Context<
@@ -34,8 +35,23 @@ public class Context
         >
 {
 
-	public Context(final ID id, final Info info, final spade.reporter.audit.linux.platform.runtime.State runtimeState){
+    private final Table syscallTable;
+
+	public Context(
+        final ID id,
+        final Info info,
+        final Table syscallTable,
+        final spade.reporter.audit.linux.platform.runtime.State runtimeState
+    ){
 		super(id, info, runtimeState);
+        if(syscallTable == null){
+            throw new IllegalArgumentException("syscallTable cannot be null");
+        }
+        this.syscallTable = syscallTable;
+	}
+
+	public Table getSyscallTable(){
+		return syscallTable;
 	}
 
 }

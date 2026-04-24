@@ -21,4 +21,13 @@ package spade.reporter.audit.core.source.event;
 
 public interface IDable extends Comparable<IDable>{
 
+    @Override
+    public int hashCode();
+
+    @Override
+    public boolean equals(Object o);
+
+    @Override
+    public String toString();
+
 }

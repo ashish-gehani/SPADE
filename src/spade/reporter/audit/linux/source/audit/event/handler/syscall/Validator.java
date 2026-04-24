@@ -17,40 +17,19 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.syscall;
+package spade.reporter.audit.linux.source.audit.event.handler.syscall;
 
+import spade.reporter.audit.core.source.event.handler.EventHandlingException;
+import spade.reporter.audit.linux.source.audit.event.handler.Context;
+import spade.reporter.audit.linux.source.audit.event.syscall.Event;
 
-public final class Syscall {
+public interface Validator {
 
-	public final int num;
-	public final String name;
-
-	public Syscall(final int num, final String name){
-		if(name == null){
-			throw new IllegalArgumentException("name cannot be NULL");
-		}
-		this.num = num;
-		this.name = name;
-	}
-
-	@Override
-	public boolean equals(final Object obj){
-		if(this == obj) return true;
-		if(!(obj instanceof Syscall)) return false;
-		final Syscall other = (Syscall) obj;
-		return this.num == other.num && this.name.equals(other.name);
-	}
-
-	@Override
-	public String toString(){
-		return Syscall.class.getName() + "(" + num + ":" + name + ")";
-	}
-
-	@Override
-	public int hashCode(){
-		int result = Integer.hashCode(num);
-		result = 31 * result + name.hashCode();
-		return result;
-	}
+	/**
+	 * Validates the event before handling.
+	 *
+	 * @return null if valid, or an error message describing why the event is invalid
+	 */
+	public String validate(Event event, Context context) throws EventHandlingException;
 
 }

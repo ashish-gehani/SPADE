@@ -19,43 +19,41 @@
  */
 package spade.reporter.audit.linux.source.audit.event.record.type.saddr;
 
+import java.net.Inet6Address;
+import java.net.InetAddress;
+
+import spade.reporter.audit.linux.type.network.ip.V6;
+import spade.reporter.audit.linux.type.network.transport.Address;
+
 /** AF_INET6 sockaddr: colon-separated hextet address and decimal port. */
 public class IPv6Saddr extends Saddr{
 
-	private final String address;
-	private final String port;
+	private final Address address;
 
-	private IPv6Saddr(final String hex, final String address, final String port){
+	private IPv6Saddr(final String hex, final Address address){
 		super(hex, Family.IPV6);
 		this.address = address;
-		this.port = port;
 	}
 
 	static IPv6Saddr create(final String hex){
-		String address = null, port = null;
+		Address address = null;
 		if(hex.length() >= 49){
 			try{
-				port = Integer.toString(Integer.parseInt(hex.substring(4, 8), 16));
-				address = String.format("%s:%s:%s:%s:%s:%s:%s:%s",
-					hex.substring(16, 20), hex.substring(20, 24),
-					hex.substring(24, 28), hex.substring(28, 32),
-					hex.substring(32, 36), hex.substring(36, 40),
-					hex.substring(40, 44), hex.substring(44, 48));
+				final int port = Integer.parseInt(hex.substring(4, 8), 16);
+				final byte[] bytes = new byte[16];
+				for(int i = 0; i < 16; i++){
+					bytes[i] = (byte) Integer.parseInt(hex.substring(16 + i * 2, 18 + i * 2), 16);
+				}
+				address = new Address(new V6((Inet6Address) InetAddress.getByAddress(bytes)), port);
 			}catch(final Exception e){
 				address = null;
-				port = null;
 			}
 		}
-		return new IPv6Saddr(hex, address, port);
+		return new IPv6Saddr(hex, address);
 	}
 
-	/** Colon-separated hextet address, or null if the hex was too short or unparseable. */
-	public String getAddress(){
+	/** Transport-layer address (IPv6 + port), or null if the hex was too short or unparseable. */
+	public Address getAddress(){
 		return address;
-	}
-
-	/** Decimal port number as a string, or null if the hex was too short or unparseable. */
-	public String getPort(){
-		return port;
 	}
 }

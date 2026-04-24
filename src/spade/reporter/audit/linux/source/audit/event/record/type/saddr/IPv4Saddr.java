@@ -19,43 +19,43 @@
  */
 package spade.reporter.audit.linux.source.audit.event.record.type.saddr;
 
+import java.net.Inet4Address;
+import java.net.InetAddress;
+
+import spade.reporter.audit.linux.type.network.ip.V4;
+import spade.reporter.audit.linux.type.network.transport.Address;
+
 /** AF_INET sockaddr: dotted-decimal address and decimal port. */
 public class IPv4Saddr extends Saddr{
 
-	private final String address;
-	private final String port;
+	private final Address address;
 
-	private IPv4Saddr(final String hex, final String address, final String port){
+	private IPv4Saddr(final String hex, final Address address){
 		super(hex, Family.IPV4);
 		this.address = address;
-		this.port = port;
 	}
 
 	static IPv4Saddr create(final String hex){
-		String address = null, port = null;
+		Address address = null;
 		if(hex.length() >= 17){
 			try{
-				port = Integer.toString(Integer.parseInt(hex.substring(4, 8), 16));
-				final int oct1 = Integer.parseInt(hex.substring(8, 10), 16);
-				final int oct2 = Integer.parseInt(hex.substring(10, 12), 16);
-				final int oct3 = Integer.parseInt(hex.substring(12, 14), 16);
-				final int oct4 = Integer.parseInt(hex.substring(14, 16), 16);
-				address = String.format("%d.%d.%d.%d", oct1, oct2, oct3, oct4);
+				final int port = Integer.parseInt(hex.substring(4, 8), 16);
+				final byte[] bytes = new byte[]{
+					(byte) Integer.parseInt(hex.substring(8, 10), 16),
+					(byte) Integer.parseInt(hex.substring(10, 12), 16),
+					(byte) Integer.parseInt(hex.substring(12, 14), 16),
+					(byte) Integer.parseInt(hex.substring(14, 16), 16)
+				};
+				address = new Address(new V4((Inet4Address) InetAddress.getByAddress(bytes)), port);
 			}catch(final Exception e){
 				address = null;
-				port = null;
 			}
 		}
-		return new IPv4Saddr(hex, address, port);
+		return new IPv4Saddr(hex, address);
 	}
 
-	/** Dotted-decimal address, or null if the hex was too short or unparseable. */
-	public String getAddress(){
+	/** Transport-layer address (IPv4 + port), or null if the hex was too short or unparseable. */
+	public Address getAddress(){
 		return address;
-	}
-
-	/** Decimal port number as a string, or null if the hex was too short or unparseable. */
-	public String getPort(){
-		return port;
 	}
 }

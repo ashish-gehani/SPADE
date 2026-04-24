@@ -23,6 +23,8 @@ import spade.reporter.audit.linux.type.credential.PID;
 
 public class VersionedID extends spade.reporter.audit.core.platform.process.ID<VersionedID>{
 
+	private static final long STARTING_VERSION = 0L;
+
 	private final PID pid;
 	private final long version;
 
@@ -36,6 +38,10 @@ public class VersionedID extends spade.reporter.audit.core.platform.process.ID<V
 		}
 		this.pid = pid;
 		this.version = version;
+	}
+
+	public VersionedID(final PID pid){
+		this(pid, STARTING_VERSION);
 	}
 
 	public PID getPid(){

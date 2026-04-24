@@ -23,8 +23,6 @@ import java.util.Map;
 
 import spade.reporter.audit.linux.source.audit.event.record.MalformedRecordException;
 import spade.reporter.audit.linux.type.credential.GID;
-import spade.reporter.audit.linux.source.audit.event.record.helper.AuditStringParser;
-import spade.reporter.audit.linux.source.audit.event.record.helper.KeyValueParser;
 import spade.reporter.audit.linux.type.credential.PID;
 import spade.reporter.audit.linux.type.credential.UID;
 

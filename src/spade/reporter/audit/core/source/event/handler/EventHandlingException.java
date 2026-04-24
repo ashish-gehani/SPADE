@@ -17,40 +17,19 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.syscall;
+package spade.reporter.audit.core.source.event.handler;
 
+import spade.reporter.audit.core.source.event.Event;
+import spade.reporter.audit.core.source.event.IDable;
 
-public final class Syscall {
+public class EventHandlingException extends Exception{
 
-	public final int num;
-	public final String name;
-
-	public Syscall(final int num, final String name){
-		if(name == null){
-			throw new IllegalArgumentException("name cannot be NULL");
-		}
-		this.num = num;
-		this.name = name;
+	public EventHandlingException(final Event<? extends IDable> event){
+		super("Failed to handle event: " + String.valueOf(event.getId()));
 	}
 
-	@Override
-	public boolean equals(final Object obj){
-		if(this == obj) return true;
-		if(!(obj instanceof Syscall)) return false;
-		final Syscall other = (Syscall) obj;
-		return this.num == other.num && this.name.equals(other.name);
-	}
-
-	@Override
-	public String toString(){
-		return Syscall.class.getName() + "(" + num + ":" + name + ")";
-	}
-
-	@Override
-	public int hashCode(){
-		int result = Integer.hashCode(num);
-		result = 31 * result + name.hashCode();
-		return result;
+	public EventHandlingException(final Event<? extends IDable> event, final Throwable cause){
+		super("Failed to handle event: " + String.valueOf(event.getId()), cause);
 	}
 
 }

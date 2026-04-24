@@ -62,7 +62,7 @@ public class State extends spade.reporter.audit.core.platform.process.State<Vers
 		);
 	}
 
-	public Table getTable(){
+	public Table getFdTable(){
 		return fdTable;
 	}
 
@@ -74,7 +74,7 @@ public class State extends spade.reporter.audit.core.platform.process.State<Vers
 		return info.getNamespace();
 	}
 
-	public void setNamespace(final String eventTime, final Tuple namespace){
+	public void setNamespace(final double eventTime, final Tuple namespace){
 		if(namespace == null){
 			throw new IllegalArgumentException("namespace cannot be NULL");
 		}
@@ -86,7 +86,7 @@ public class State extends spade.reporter.audit.core.platform.process.State<Vers
 		return info.getCred();
 	}
 
-	public void setCred(final String eventTime, final spade.reporter.audit.linux.platform.process.info.credential.Tuple cred){
+	public void setCred(final double eventTime, final spade.reporter.audit.linux.platform.process.info.credential.Tuple cred){
 		if(cred == null){
 			throw new IllegalArgumentException("cred cannot be NULL");
 		}
@@ -101,19 +101,19 @@ public class State extends spade.reporter.audit.core.platform.process.State<Vers
 		return history.hasNamespace(namespace);
 	}
 
-	public Tuple getHistoricalNamespace(final String closestToEventTime){
+	public Tuple getHistoricalNamespace(final double closestToEventTime){
 		return history.getNamespace(closestToEventTime);
 	}
 
-	public User getHistoricalUser(final String closestToEventTime){
+	public User getHistoricalUser(final double closestToEventTime){
 		return history.getUser(closestToEventTime);
 	}
 
-	public Group getHistoricalGroup(final String closestToEventTime){
+	public Group getHistoricalGroup(final double closestToEventTime){
 		return history.getGroup(closestToEventTime);
 	}
 
-	private void initHistories(final String eventTime){
+	private void initHistories(final double eventTime){
 		history.addNamespace(eventTime, info.getNamespace());
 		history.addUser(eventTime, info.getCred().getUser());
 		history.addGroup(eventTime, info.getCred().getGroup());
