@@ -19,9 +19,8 @@
  */
 package spade.reporter.audit.core.provenance;
 
-
 import spade.reporter.audit.core.provenance.event.handler.Context;
 
-public abstract class SourceEvent<C extends Context> implements Provenanceable<C>{
+public abstract class ModelResource<C extends Context> implements Provenanceable<C>{
 
 }

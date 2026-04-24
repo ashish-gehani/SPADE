@@ -20,22 +20,22 @@
 package spade.reporter.audit.linux.provenance.event;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.PlatformProcess;
-import spade.reporter.audit.linux.provenance.SourceEvent;
+import spade.reporter.audit.linux.provenance.ModelProcess;
+import spade.reporter.audit.linux.provenance.ModelEvent;
 
 public class ProcessExit extends Event{
 
-	private final PlatformProcess process;
+	private final ModelProcess process;
 
-	public ProcessExit(final ID id, final SourceEvent sourceEvent, final PlatformProcess process){
-		super(Type.PROCESS_EXIT, id, sourceEvent);
+	public ProcessExit(final ID id, final ModelEvent modelEvent, final ModelProcess process){
+		super(Type.PROCESS_EXIT, id, modelEvent);
 		if(process == null){
 			throw new IllegalArgumentException("process cannot be NULL");
 		}
 		this.process = process;
 	}
 
-	public PlatformProcess getProcess(){
+	public ModelProcess getProcess(){
 		return process;
 	}
 }

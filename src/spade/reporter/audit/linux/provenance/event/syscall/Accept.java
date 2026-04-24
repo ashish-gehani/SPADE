@@ -17,36 +17,32 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.provenance.event;
+package spade.reporter.audit.linux.provenance.event.syscall;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.ModelEvent;
 import spade.reporter.audit.linux.provenance.ModelProcess;
 import spade.reporter.audit.linux.provenance.ModelResource;
+import spade.reporter.audit.linux.provenance.ModelEvent;
+import spade.reporter.audit.linux.platform.syscall.Syscall;
+import spade.reporter.audit.linux.provenance.event.ResourceAccess;
+import spade.reporter.audit.linux.provenance.type.syscall.Operation;
 
+public class Accept extends ResourceAccess{
 
-public class ResourceClose extends spade.reporter.audit.linux.provenance.event.Event{
+	public static final Operation OPERATION = Operation.ACCEPT;
 
-	private final ModelProcess closer;
-	private final ModelResource resource;
+	private final Syscall syscall;
 
-	public ResourceClose(final ID id, final ModelEvent modelEvent, final ModelProcess closer, final ModelResource resource){
-		super(Type.RESOURCE_CLOSE, id, modelEvent);
-		if(closer == null){
-			throw new IllegalArgumentException("closer cannot be NULL");
+	public Accept(final ID id, final ModelEvent modelEvent, final ModelProcess accessor, final ModelResource resource, final Syscall syscall){
+		super(id, modelEvent, accessor, resource);
+		if(syscall == null){
+			throw new IllegalArgumentException("syscall cannot be NULL");
 		}
-		if(resource == null){
-			throw new IllegalArgumentException("resource cannot be NULL");
-		}
-		this.closer = closer;
-		this.resource = resource;
+		this.syscall = syscall;
 	}
 
-	public ModelProcess getCloser(){
-		return closer;
+	public Syscall getSyscall(){
+		return syscall;
 	}
 
-	public ModelResource getResource(){
-		return resource;
-	}
 }

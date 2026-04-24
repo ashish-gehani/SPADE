@@ -20,22 +20,22 @@
 package spade.reporter.audit.linux.provenance.event;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.PlatformProcess;
-import spade.reporter.audit.linux.provenance.SourceEvent;
+import spade.reporter.audit.linux.provenance.ModelProcess;
+import spade.reporter.audit.linux.provenance.ModelEvent;
 
 public class ProcessCreateSynthetic extends Event{
 
-	private final PlatformProcess process;
+	private final ModelProcess process;
 
-	public ProcessCreateSynthetic(final ID id, final SourceEvent sourceEvent, final PlatformProcess process){
-		super(Type.PROCESS_CREATE_SYNTHETIC, id, sourceEvent);
+	public ProcessCreateSynthetic(final ID id, final ModelEvent modelEvent, final ModelProcess process){
+		super(Type.PROCESS_CREATE_SYNTHETIC, id, modelEvent);
 		if(process == null){
 			throw new IllegalArgumentException("process cannot be NULL");
 		}
 		this.process = process;
 	}
 
-	public PlatformProcess getProcess(){
+	public ModelProcess getProcess(){
 		return process;
 	}
 }

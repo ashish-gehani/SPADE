@@ -20,18 +20,18 @@
 package spade.reporter.audit.linux.provenance.event;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.SourceEvent;
-import spade.reporter.audit.linux.provenance.PlatformProcess;
-import spade.reporter.audit.linux.provenance.PlatformResource;
+import spade.reporter.audit.linux.provenance.ModelEvent;
+import spade.reporter.audit.linux.provenance.ModelProcess;
+import spade.reporter.audit.linux.provenance.ModelResource;
 
 
 public class ResourceDelete extends spade.reporter.audit.linux.provenance.event.Event{
 
-	private final PlatformProcess deleter;
-	private final PlatformResource resource;
+	private final ModelProcess deleter;
+	private final ModelResource resource;
 
-	public ResourceDelete(final ID id, final SourceEvent sourceEvent, final PlatformProcess deleter, final PlatformResource resource){
-		super(Type.RESOURCE_DELETE, id, sourceEvent);
+	public ResourceDelete(final ID id, final ModelEvent modelEvent, final ModelProcess deleter, final ModelResource resource){
+		super(Type.RESOURCE_DELETE, id, modelEvent);
 		if(deleter == null){
 			throw new IllegalArgumentException("deleter cannot be NULL");
 		}
@@ -42,11 +42,11 @@ public class ResourceDelete extends spade.reporter.audit.linux.provenance.event.
 		this.resource = resource;
 	}
 
-	public PlatformProcess getDeleter(){
+	public ModelProcess getDeleter(){
 		return deleter;
 	}
 
-	public PlatformResource getResource(){
+	public ModelResource getResource(){
 		return resource;
 	}
 }

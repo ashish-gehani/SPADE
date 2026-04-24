@@ -20,25 +20,25 @@
 package spade.reporter.audit.linux.provenance.event;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.SourceEvent;
-import spade.reporter.audit.linux.provenance.PlatformProcess;
-import spade.reporter.audit.linux.provenance.PlatformResource;
+import spade.reporter.audit.linux.provenance.ModelEvent;
+import spade.reporter.audit.linux.provenance.ModelProcess;
+import spade.reporter.audit.linux.provenance.ModelResource;
 
 
 public class ResourceUpdate extends spade.reporter.audit.linux.provenance.event.Event{
 
-	private final PlatformProcess updater;
-	private final PlatformResource oldVersion;
-	private final PlatformResource newVersion;
+	private final ModelProcess updater;
+	private final ModelResource oldVersion;
+	private final ModelResource newVersion;
 
 	public ResourceUpdate(
 		final ID id,
-		final SourceEvent sourceEvent,
-		final PlatformProcess updater,
-		final PlatformResource oldVersion,
-		final PlatformResource newVersion
+		final ModelEvent modelEvent,
+		final ModelProcess updater,
+		final ModelResource oldVersion,
+		final ModelResource newVersion
 	){
-		super(Type.RESOURCE_UPDATE, id, sourceEvent);
+		super(Type.RESOURCE_UPDATE, id, modelEvent);
 		if(updater == null){
 			throw new IllegalArgumentException("updater cannot be NULL");
 		}
@@ -53,15 +53,15 @@ public class ResourceUpdate extends spade.reporter.audit.linux.provenance.event.
 		this.newVersion = newVersion;
 	}
 
-	public PlatformProcess getUpdater(){
+	public ModelProcess getUpdater(){
 		return updater;
 	}
 
-	public PlatformResource getOldVersion(){
+	public ModelResource getOldVersion(){
 		return oldVersion;
 	}
 
-	public PlatformResource getNewVersion(){
+	public ModelResource getNewVersion(){
 		return newVersion;
 	}
 }

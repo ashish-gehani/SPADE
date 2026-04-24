@@ -20,16 +20,16 @@
 package spade.reporter.audit.linux.provenance.event;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.PlatformProcess;
-import spade.reporter.audit.linux.provenance.SourceEvent;
+import spade.reporter.audit.linux.provenance.ModelProcess;
+import spade.reporter.audit.linux.provenance.ModelEvent;
 
 public class ProcessCreate extends Event{
 
-	private final PlatformProcess parent;
-	private final PlatformProcess child;
+	private final ModelProcess parent;
+	private final ModelProcess child;
 
-	public ProcessCreate(final ID id, final SourceEvent sourceEvent, final PlatformProcess parent, final PlatformProcess child){
-		super(Type.PROCESS_CREATE, id, sourceEvent);
+	public ProcessCreate(final ID id, final ModelEvent modelEvent, final ModelProcess parent, final ModelProcess child){
+		super(Type.PROCESS_CREATE, id, modelEvent);
 		if(parent == null){
 			throw new IllegalArgumentException("parent cannot be NULL");
 		}
@@ -40,11 +40,11 @@ public class ProcessCreate extends Event{
 		this.child = child;
 	}
 
-	public PlatformProcess getParent(){
+	public ModelProcess getParent(){
 		return parent;
 	}
 
-	public PlatformProcess getChild(){
+	public ModelProcess getChild(){
 		return child;
 	}
 }

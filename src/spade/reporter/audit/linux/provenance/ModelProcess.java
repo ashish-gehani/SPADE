@@ -25,11 +25,11 @@ import java.util.Map;
 import spade.reporter.audit.linux.platform.process.VersionedID;
 import spade.reporter.audit.linux.provenance.event.handler.Context;
 
-public class PlatformProcess extends spade.reporter.audit.core.provenance.PlatformProcess<Context>{
+public class ModelProcess extends spade.reporter.audit.core.provenance.ModelProcess<Context>{
 
 	private final VersionedID id;
 
-	public PlatformProcess(final VersionedID id){
+	public ModelProcess(final VersionedID id){
 		if(id == null){
 			throw new IllegalArgumentException("id cannot be NULL");
 		}

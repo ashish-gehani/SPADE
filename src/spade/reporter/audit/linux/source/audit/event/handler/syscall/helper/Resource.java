@@ -23,9 +23,9 @@ import java.util.List;
 
 import spade.reporter.audit.linux.platform.resource.ID;
 import spade.reporter.audit.linux.platform.runtime.ResourceTable;
-import spade.reporter.audit.linux.provenance.SourceEvent;
-import spade.reporter.audit.linux.provenance.PlatformProcess;
-import spade.reporter.audit.linux.provenance.PlatformResource;
+import spade.reporter.audit.linux.provenance.ModelEvent;
+import spade.reporter.audit.linux.provenance.ModelProcess;
+import spade.reporter.audit.linux.provenance.ModelResource;
 import spade.reporter.audit.linux.source.audit.event.handler.Context;
 import spade.reporter.audit.linux.source.audit.event.record.Syscall;
 
@@ -52,9 +52,9 @@ public class Resource{
 		final spade.reporter.audit.linux.provenance.event.ResourceCreate createEvent =
 			new spade.reporter.audit.linux.provenance.event.ResourceCreate(
 				context.getPlatformContext().nextProvEventId(),
-				new SourceEvent(auditEventId),
-				new PlatformProcess(processState.getId()),
-				new PlatformResource(resourceId)
+				new ModelEvent(auditEventId),
+				new ModelProcess(processState.getId()),
+				new ModelResource(resourceId)
 			);
 		result.add(createEvent);
 	}

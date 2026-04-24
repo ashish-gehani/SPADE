@@ -20,16 +20,16 @@
 package spade.reporter.audit.linux.provenance.event;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.PlatformProcess;
-import spade.reporter.audit.linux.provenance.SourceEvent;
+import spade.reporter.audit.linux.provenance.ModelProcess;
+import spade.reporter.audit.linux.provenance.ModelEvent;
 
 public class ProcessSignal extends Event{
 
-	private final PlatformProcess sender;
-	private final PlatformProcess receiver;
+	private final ModelProcess sender;
+	private final ModelProcess receiver;
 
-	public ProcessSignal(final ID id, final SourceEvent sourceEvent, final PlatformProcess sender, final PlatformProcess receiver){
-		super(Type.PROCESS_SIGNAL, id, sourceEvent);
+	public ProcessSignal(final ID id, final ModelEvent modelEvent, final ModelProcess sender, final ModelProcess receiver){
+		super(Type.PROCESS_SIGNAL, id, modelEvent);
 		if(sender == null){
 			throw new IllegalArgumentException("sender cannot be NULL");
 		}
@@ -40,11 +40,11 @@ public class ProcessSignal extends Event{
 		this.receiver = receiver;
 	}
 
-	public PlatformProcess getSender(){
+	public ModelProcess getSender(){
 		return sender;
 	}
 
-	public PlatformProcess getReceiver(){
+	public ModelProcess getReceiver(){
 		return receiver;
 	}
 }

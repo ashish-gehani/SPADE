@@ -25,17 +25,17 @@ import java.util.List;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
-import spade.reporter.audit.linux.provenance.PlatformProcess;
-import spade.reporter.audit.linux.provenance.PlatformResource;
-import spade.reporter.audit.linux.provenance.SourceEvent;
+import spade.reporter.audit.linux.provenance.ModelProcess;
+import spade.reporter.audit.linux.provenance.ModelResource;
+import spade.reporter.audit.linux.provenance.ModelEvent;
 
 public class ResourceClose implements spade.reporter.audit.core.provenance.event.handler.Handler<spade.reporter.audit.linux.provenance.event.ResourceClose, Context>{
 
 	@Override
 	public List<ProvenanceElement> handle(final spade.reporter.audit.linux.provenance.event.ResourceClose event, final Context provContext){
-		final PlatformProcess provCloser = event.getCloser();
-		final PlatformResource provResource = event.getResource();
-		final SourceEvent sourceEvent = event.getSourceEvent();
+		final ModelProcess provCloser = event.getCloser();
+		final ModelResource provResource = event.getResource();
+		final ModelEvent modelEvent = event.getModelEvent();
 
 		final AbstractVertex closerVertex = provContext.getVertexGenerator().generate();
 		closerVertex.addAnnotations(provCloser.getKeyAnnotations(provContext));
@@ -46,8 +46,8 @@ public class ResourceClose implements spade.reporter.audit.core.provenance.event
 		resourceVertex.addAnnotations(provResource.getExtraAnnotations(provContext));
 
 		final AbstractEdge edge = provContext.getEdgeGenerator().generate(closerVertex, resourceVertex);
-		edge.addAnnotations(sourceEvent.getKeyAnnotations(provContext));
-		edge.addAnnotations(sourceEvent.getExtraAnnotations(provContext));
+		edge.addAnnotations(modelEvent.getKeyAnnotations(provContext));
+		edge.addAnnotations(modelEvent.getExtraAnnotations(provContext));
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(closerVertex));

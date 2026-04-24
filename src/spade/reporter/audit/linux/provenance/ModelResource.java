@@ -26,11 +26,11 @@ import spade.reporter.audit.linux.platform.process.VersionedID;
 import spade.reporter.audit.linux.platform.resource.ID;
 import spade.reporter.audit.linux.provenance.event.handler.Context;
 
-public class PlatformResource extends spade.reporter.audit.core.provenance.PlatformResource<Context>{
+public class ModelResource extends spade.reporter.audit.core.provenance.ModelResource<Context>{
 
 	private final ID id;
 
-	public PlatformResource(final ID id){
+	public ModelResource(final ID id){
 		if(id == null){
 			throw new IllegalArgumentException("id cannot be NULL");
 		}

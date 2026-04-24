@@ -23,9 +23,9 @@ import java.util.List;
 
 import spade.reporter.audit.linux.platform.process.VersionedID;
 import spade.reporter.audit.linux.platform.resource.ID;
-import spade.reporter.audit.linux.provenance.SourceEvent;
-import spade.reporter.audit.linux.provenance.PlatformProcess;
-import spade.reporter.audit.linux.provenance.PlatformResource;
+import spade.reporter.audit.linux.provenance.ModelEvent;
+import spade.reporter.audit.linux.provenance.ModelProcess;
+import spade.reporter.audit.linux.provenance.ModelResource;
 import spade.reporter.audit.linux.source.audit.event.handler.Context;
 import spade.reporter.audit.linux.source.audit.event.record.Syscall;
 
@@ -42,9 +42,9 @@ public class Event{
 		final spade.reporter.audit.linux.provenance.event.ResourceAccess accessEvent =
 			new spade.reporter.audit.linux.provenance.event.ResourceAccess(
 				context.getPlatformContext().nextProvEventId(),
-				new SourceEvent(auditEventId),
-				new PlatformProcess(processId),
-				new PlatformResource(resourceId)
+				new ModelEvent(auditEventId),
+				new ModelProcess(processId),
+				new ModelResource(resourceId)
 			);
 		result.add(accessEvent);
 	}

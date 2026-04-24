@@ -25,17 +25,17 @@ import java.util.List;
 import spade.core.AbstractEdge;
 import spade.core.AbstractVertex;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
-import spade.reporter.audit.linux.provenance.PlatformProcess;
-import spade.reporter.audit.linux.provenance.PlatformResource;
-import spade.reporter.audit.linux.provenance.SourceEvent;
+import spade.reporter.audit.linux.provenance.ModelProcess;
+import spade.reporter.audit.linux.provenance.ModelResource;
+import spade.reporter.audit.linux.provenance.ModelEvent;
 
 public class ResourceDelete implements spade.reporter.audit.core.provenance.event.handler.Handler<spade.reporter.audit.linux.provenance.event.ResourceDelete, Context>{
 
 	@Override
 	public List<ProvenanceElement> handle(final spade.reporter.audit.linux.provenance.event.ResourceDelete event, final Context provContext){
-		final PlatformProcess provDeleter = event.getDeleter();
-		final PlatformResource provResource = event.getResource();
-		final SourceEvent sourceEvent = event.getSourceEvent();
+		final ModelProcess provDeleter = event.getDeleter();
+		final ModelResource provResource = event.getResource();
+		final ModelEvent modelEvent = event.getModelEvent();
 
 		final AbstractVertex deleterVertex = provContext.getVertexGenerator().generate();
 		deleterVertex.addAnnotations(provDeleter.getKeyAnnotations(provContext));
@@ -46,8 +46,8 @@ public class ResourceDelete implements spade.reporter.audit.core.provenance.even
 		resourceVertex.addAnnotations(provResource.getExtraAnnotations(provContext));
 
 		final AbstractEdge edge = provContext.getEdgeGenerator().generate(deleterVertex, resourceVertex);
-		edge.addAnnotations(sourceEvent.getKeyAnnotations(provContext));
-		edge.addAnnotations(sourceEvent.getExtraAnnotations(provContext));
+		edge.addAnnotations(modelEvent.getKeyAnnotations(provContext));
+		edge.addAnnotations(modelEvent.getExtraAnnotations(provContext));
 
 		final List<ProvenanceElement> elements = new ArrayList<>();
 		elements.add(ProvenanceElement.of(deleterVertex));

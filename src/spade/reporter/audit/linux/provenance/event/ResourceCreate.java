@@ -20,18 +20,18 @@
 package spade.reporter.audit.linux.provenance.event;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.SourceEvent;
-import spade.reporter.audit.linux.provenance.PlatformProcess;
-import spade.reporter.audit.linux.provenance.PlatformResource;
+import spade.reporter.audit.linux.provenance.ModelEvent;
+import spade.reporter.audit.linux.provenance.ModelProcess;
+import spade.reporter.audit.linux.provenance.ModelResource;
 
 
 public class ResourceCreate extends spade.reporter.audit.linux.provenance.event.Event{
 
-	private final PlatformProcess creator;
-	private final PlatformResource resource;
+	private final ModelProcess creator;
+	private final ModelResource resource;
 
-	public ResourceCreate(final ID id, final SourceEvent sourceEvent, final PlatformProcess creator, final PlatformResource resource){
-		super(Type.RESOURCE_CREATE, id, sourceEvent);
+	public ResourceCreate(final ID id, final ModelEvent modelEvent, final ModelProcess creator, final ModelResource resource){
+		super(Type.RESOURCE_CREATE, id, modelEvent);
 		if(creator == null){
 			throw new IllegalArgumentException("creator cannot be NULL");
 		}
@@ -42,11 +42,11 @@ public class ResourceCreate extends spade.reporter.audit.linux.provenance.event.
 		this.resource = resource;
 	}
 
-	public PlatformProcess getCreator(){
+	public ModelProcess getCreator(){
 		return creator;
 	}
 
-	public PlatformResource getResource(){
+	public ModelResource getResource(){
 		return resource;
 	}
 }

@@ -17,34 +17,10 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.provenance.event;
+package spade.reporter.audit.core.provenance;
 
-import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.ModelProcess;
-import spade.reporter.audit.linux.provenance.ModelEvent;
+import spade.reporter.audit.core.provenance.event.handler.Context;
 
-public class ProcessControl extends Event{
+public abstract class ModelProcess<C extends Context> implements Provenanceable<C>{
 
-	private final ModelProcess controller;
-	private final ModelProcess target;
-
-	public ProcessControl(final ID id, final ModelEvent modelEvent, final ModelProcess controller, final ModelProcess target){
-		super(Type.PROCESS_CONTROL, id, modelEvent);
-		if(controller == null){
-			throw new IllegalArgumentException("controller cannot be NULL");
-		}
-		if(target == null){
-			throw new IllegalArgumentException("target cannot be NULL");
-		}
-		this.controller = controller;
-		this.target = target;
-	}
-
-	public ModelProcess getController(){
-		return controller;
-	}
-
-	public ModelProcess getTarget(){
-		return target;
-	}
 }

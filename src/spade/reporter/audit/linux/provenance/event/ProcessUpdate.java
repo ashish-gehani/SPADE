@@ -20,16 +20,16 @@
 package spade.reporter.audit.linux.provenance.event;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.PlatformProcess;
-import spade.reporter.audit.linux.provenance.SourceEvent;
+import spade.reporter.audit.linux.provenance.ModelProcess;
+import spade.reporter.audit.linux.provenance.ModelEvent;
 
 public class ProcessUpdate extends Event{
 
-	private final PlatformProcess oldVersion;
-	private final PlatformProcess newVersion;
+	private final ModelProcess oldVersion;
+	private final ModelProcess newVersion;
 
-	public ProcessUpdate(final ID id, final SourceEvent sourceEvent, final PlatformProcess oldVersion, final PlatformProcess newVersion){
-		super(Type.PROCESS_UPDATE, id, sourceEvent);
+	public ProcessUpdate(final ID id, final ModelEvent modelEvent, final ModelProcess oldVersion, final ModelProcess newVersion){
+		super(Type.PROCESS_UPDATE, id, modelEvent);
 		if(oldVersion == null){
 			throw new IllegalArgumentException("oldVersion cannot be NULL");
 		}
@@ -40,11 +40,11 @@ public class ProcessUpdate extends Event{
 		this.newVersion = newVersion;
 	}
 
-	public PlatformProcess getOldVersion(){
+	public ModelProcess getOldVersion(){
 		return oldVersion;
 	}
 
-	public PlatformProcess getNewVersion(){
+	public ModelProcess getNewVersion(){
 		return newVersion;
 	}
 }

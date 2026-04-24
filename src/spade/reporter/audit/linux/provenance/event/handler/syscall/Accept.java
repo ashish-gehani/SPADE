@@ -17,7 +17,7 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.provenance.event.handler;
+package spade.reporter.audit.linux.provenance.event.handler.syscall;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,11 +28,12 @@ import spade.reporter.audit.core.provenance.ProvenanceElement;
 import spade.reporter.audit.linux.provenance.ModelProcess;
 import spade.reporter.audit.linux.provenance.ModelResource;
 import spade.reporter.audit.linux.provenance.ModelEvent;
+import spade.reporter.audit.linux.provenance.event.handler.Context;
 
-public class ResourceAccess implements spade.reporter.audit.core.provenance.event.handler.Handler<spade.reporter.audit.linux.provenance.event.ResourceAccess, Context>{
+public class Accept implements spade.reporter.audit.core.provenance.event.handler.Handler<spade.reporter.audit.linux.provenance.event.syscall.Accept, Context>{
 
 	@Override
-	public List<ProvenanceElement> handle(final spade.reporter.audit.linux.provenance.event.ResourceAccess event, final Context provContext){
+	public List<ProvenanceElement> handle(final spade.reporter.audit.linux.provenance.event.syscall.Accept event, final Context provContext){
 		final ModelProcess provAccessor = event.getAccessor();
 		final ModelResource provResource = event.getResource();
 		final ModelEvent modelEvent = event.getModelEvent();

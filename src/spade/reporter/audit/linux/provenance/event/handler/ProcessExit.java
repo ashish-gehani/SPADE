@@ -24,13 +24,13 @@ import java.util.List;
 
 import spade.core.AbstractVertex;
 import spade.reporter.audit.core.provenance.ProvenanceElement;
-import spade.reporter.audit.linux.provenance.PlatformProcess;
+import spade.reporter.audit.linux.provenance.ModelProcess;
 
 public class ProcessExit implements spade.reporter.audit.core.provenance.event.handler.Handler<spade.reporter.audit.linux.provenance.event.ProcessExit, Context>{
 
 	@Override
 	public List<ProvenanceElement> handle(final spade.reporter.audit.linux.provenance.event.ProcessExit event, final Context provContext){
-		final PlatformProcess provProcess = event.getProcess();
+		final ModelProcess provProcess = event.getProcess();
 
 		final AbstractVertex processVertex = provContext.getVertexGenerator().generate();
 		processVertex.addAnnotations(provProcess.getKeyAnnotations(provContext));

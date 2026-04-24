@@ -20,18 +20,18 @@
 package spade.reporter.audit.linux.provenance.event;
 
 import spade.reporter.audit.core.provenance.event.ID;
-import spade.reporter.audit.linux.provenance.SourceEvent;
-import spade.reporter.audit.linux.provenance.PlatformProcess;
-import spade.reporter.audit.linux.provenance.PlatformResource;
+import spade.reporter.audit.linux.provenance.ModelEvent;
+import spade.reporter.audit.linux.provenance.ModelProcess;
+import spade.reporter.audit.linux.provenance.ModelResource;
 
 
 public class ResourceAccess extends spade.reporter.audit.linux.provenance.event.Event{
 
-	private final PlatformProcess accessor;
-	private final PlatformResource resource;
+	private final ModelProcess accessor;
+	private final ModelResource resource;
 
-	public ResourceAccess(final ID id, final SourceEvent sourceEvent, final PlatformProcess accessor, final PlatformResource resource){
-		super(Type.RESOURCE_ACCESS, id, sourceEvent);
+	public ResourceAccess(final ID id, final ModelEvent modelEvent, final ModelProcess accessor, final ModelResource resource){
+		super(Type.RESOURCE_ACCESS, id, modelEvent);
 		if(accessor == null){
 			throw new IllegalArgumentException("accessor cannot be NULL");
 		}
@@ -42,11 +42,11 @@ public class ResourceAccess extends spade.reporter.audit.linux.provenance.event.
 		this.resource = resource;
 	}
 
-	public PlatformProcess getAccessor(){
+	public ModelProcess getAccessor(){
 		return accessor;
 	}
 
-	public PlatformResource getResource(){
+	public ModelResource getResource(){
 		return resource;
 	}
 }

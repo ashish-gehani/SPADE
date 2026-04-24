@@ -17,10 +17,10 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.core.provenance;
+package spade.reporter.audit.linux.provenance.type.syscall;
 
-import spade.reporter.audit.core.provenance.event.handler.Context;
+public enum Operation{
 
-public abstract class PlatformResource<C extends Context> implements Provenanceable<C>{
+    ACCEPT
 
 }

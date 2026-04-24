@@ -32,7 +32,7 @@ import static spade.reporter.audit.linux.provenance.event.Type.*;
 
 import spade.reporter.audit.linux.provenance.event.Event;
 
-public final class Factory{
+public final class Handler{
 
 	private final Logger logger = Logger.getLogger(this.getClass().getName());
 
@@ -40,7 +40,7 @@ public final class Factory{
 
 	private final Map<Type, BiFunction<Event, Context, List<spade.reporter.audit.core.provenance.ProvenanceElement>>> handlers;
 
-	public Factory(final boolean verbose){
+	public Handler(final boolean verbose){
 		this.verbose = verbose;
 
 		final Map<Type, BiFunction<Event, Context, List<spade.reporter.audit.core.provenance.ProvenanceElement>>> map = new HashMap<>();
