@@ -32,9 +32,11 @@ public class Validator implements spade.reporter.audit.linux.source.audit.event.
 	public String validate(final Event event, final Context context) throws EventHandlingException{
 		try{
 			final int syscallNum = event.getSyscallRecord().getSyscallInfo().getSyscall();
-			final String name = context.getPlatformContext().getSyscallTable().get(syscallNum).name;
-			if(!name.equals("accept") && !name.equals("accept4")){
-				return "Expected accept or accept4, got: " + name;
+			final spade.reporter.audit.linux.platform.syscall.Name name =
+				context.getPlatformContext().getSyscallTable().get(syscallNum).name;
+			if(name != spade.reporter.audit.linux.platform.syscall.arch.x86_64.Name.ACCEPT
+					&& name != spade.reporter.audit.linux.platform.syscall.arch.x86_64.Name.ACCEPT4){
+				return "Expected accept or accept4, got: " + name.value();
 			}
 			int sockaddrCount = 0;
 			for(final Record r : event.getRecords()){

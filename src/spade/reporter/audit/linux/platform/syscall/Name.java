@@ -19,38 +19,6 @@
  */
 package spade.reporter.audit.linux.platform.syscall;
 
-
-public final class Syscall {
-
-	public final int num;
-	public final Name name;
-
-	public Syscall(final int num, final Name name){
-		if(name == null){
-			throw new IllegalArgumentException("name cannot be NULL");
-		}
-		this.num = num;
-		this.name = name;
-	}
-
-	@Override
-	public boolean equals(final Object obj){
-		if(this == obj) return true;
-		if(!(obj instanceof Syscall)) return false;
-		final Syscall other = (Syscall) obj;
-		return this.num == other.num && this.name.equals(other.name);
-	}
-
-	@Override
-	public String toString(){
-		return Syscall.class.getName() + "(" + num + ":" + name.value() + ")";
-	}
-
-	@Override
-	public int hashCode(){
-		int result = Integer.hashCode(num);
-		result = 31 * result + name.hashCode();
-		return result;
-	}
-
+public interface Name{
+	String value();
 }

@@ -73,7 +73,8 @@ public class Handler implements spade.reporter.audit.core.source.event.handler.H
 			}
 		}
 
-		final State processState = Process.getState(result, context, syscallRecord, true);
+		final boolean createSyntheticIfNotFound = true;
+		final State processState = Process.getState(result, context, syscallRecord, createSyntheticIfNotFound);
 
 		final Descriptor descriptor = processState.getFdTable().get(sockFd);
 

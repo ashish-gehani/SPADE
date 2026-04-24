@@ -36,6 +36,10 @@ public abstract class Table {
 		table.put(num, syscall);
 	}
 
+	protected void put(final Syscall syscall){
+		put(syscall.num, syscall);
+	}
+
 	public Syscall get(final int num) throws NoSuchSyscall{
 		final Syscall syscall = table.get(num);
 		if(syscall == null){

@@ -51,14 +51,14 @@ public class Handler implements spade.reporter.audit.core.source.event.handler.H
 		final Table syscallTable = context.getPlatformContext().getSyscallTable();
 		final spade.reporter.audit.linux.platform.syscall.Syscall syscallObj = syscallTable.get(syscallNum);
 
-		final Registry.Entry entry = registry.get(syscallObj.name);
+		final Registry.Entry entry = registry.get(syscallObj.name.value());
 		if(entry == null){
 			return null;
 		}
 
 		final String error = entry.validator.validate(event, context);
 		if(error != null){
-			throw new Exception("Validation failed for syscall '" + syscallObj.name + "': " + error);
+			throw new Exception("Validation failed for syscall '" + syscallObj.name.value() + "': " + error);
 		}
 
 		return entry.handler.handle(event, context);
