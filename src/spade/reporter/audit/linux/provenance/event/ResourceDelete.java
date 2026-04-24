@@ -17,36 +17,36 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.source.audit.event.handler.syscall.helper;
+package spade.reporter.audit.linux.provenance.event;
 
-import java.util.List;
-
-import spade.reporter.audit.linux.platform.process.VersionedID;
-import spade.reporter.audit.linux.platform.resource.ID;
+import spade.reporter.audit.core.provenance.event.ID;
 import spade.reporter.audit.linux.provenance.SourceEvent;
 import spade.reporter.audit.linux.provenance.PlatformProcess;
 import spade.reporter.audit.linux.provenance.PlatformResource;
-import spade.reporter.audit.linux.source.audit.event.handler.Context;
-import spade.reporter.audit.linux.source.audit.event.record.Syscall;
 
-public class Event{
 
-	public static void access(
-		final List<spade.reporter.audit.core.provenance.event.Event> result,
-		final Context context,
-		final Syscall syscallRecord,
-		final VersionedID processId,
-		final ID resourceId
-	){
-		final spade.reporter.audit.linux.source.audit.event.ID auditEventId = syscallRecord.getId();
-		final spade.reporter.audit.linux.provenance.event.ResourceAccess accessEvent =
-			new spade.reporter.audit.linux.provenance.event.ResourceAccess(
-				context.getPlatformContext().nextProvEventId(),
-				new SourceEvent(auditEventId),
-				new PlatformProcess(processId),
-				new PlatformResource(resourceId)
-			);
-		result.add(accessEvent);
+public class ResourceDelete extends spade.reporter.audit.linux.provenance.event.Event{
+
+	private final PlatformProcess deleter;
+	private final PlatformResource resource;
+
+	public ResourceDelete(final ID id, final SourceEvent sourceEvent, final PlatformProcess deleter, final PlatformResource resource){
+		super(Type.RESOURCE_DELETE, id, sourceEvent);
+		if(deleter == null){
+			throw new IllegalArgumentException("deleter cannot be NULL");
+		}
+		if(resource == null){
+			throw new IllegalArgumentException("resource cannot be NULL");
+		}
+		this.deleter = deleter;
+		this.resource = resource;
 	}
 
+	public PlatformProcess getDeleter(){
+		return deleter;
+	}
+
+	public PlatformResource getResource(){
+		return resource;
+	}
 }
