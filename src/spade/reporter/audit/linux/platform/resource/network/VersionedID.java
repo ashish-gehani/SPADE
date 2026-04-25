@@ -19,40 +19,53 @@
  */
 package spade.reporter.audit.linux.platform.resource.network;
 
-import spade.reporter.audit.linux.platform.process.State;
+import spade.reporter.audit.linux.type.namespace.ID;
 import spade.reporter.audit.linux.type.network.ip.V4;
 import spade.reporter.audit.linux.type.network.ip.V6;
 import spade.reporter.audit.linux.type.network.transport.Address;
-import spade.reporter.audit.linux.type.network.transport.Protocol;
 
-public class ID extends spade.reporter.audit.linux.platform.resource.ID{
+public class VersionedID extends spade.reporter.audit.linux.platform.resource.VersionedID{
 
-	public ID(final Network network, final State processState){
-		super(network, processState);
+	private final ID netns;
+
+	public VersionedID(
+		final Network network,
+		final ID netns,
+		final long version
+	){
+		super(network, version);
+		if(netns == null){
+			throw new IllegalArgumentException("netns cannot be NULL");
+		}
+		this.netns = netns;
+	}
+
+	public VersionedID(
+		final Network network,
+		final ID netns
+	){
+		super(network);
+		if(netns == null){
+			throw new IllegalArgumentException("netns cannot be NULL");
+		}
+		this.netns = netns;
+	}
+
+	public VersionedID(final VersionedID other){
+		this(new Network(other.getNetwork()), new ID(other.netns), other.getVersion());
 	}
 
 	public Network getNetwork(){
 		return (Network) getResource();
 	}
 
-	private spade.reporter.audit.linux.platform.resource.Type type(){
-		return getResource().getType();
+	public ID getNetns(){
+		return netns;
 	}
 
-	private Address src(){
-		return getNetwork().getSrc();
-	}
-
-	private Address dst(){
-		return getNetwork().getDst();
-	}
-
-	private Protocol protocol(){
-		return getNetwork().getProtocol();
-	}
-
-	private spade.reporter.audit.linux.type.namespace.ID netns(){
-		return getProcessState().getNamespace().getNet();
+	@Override
+	public VersionedID nextVersion(){
+		return new VersionedID(new Network(getNetwork()), new ID(netns), getVersion() + 1);
 	}
 
 	private static int compareAddress(final Address a, final Address b){
@@ -69,58 +82,44 @@ public class ID extends spade.reporter.audit.linux.platform.resource.ID{
 		return Integer.compare(a.getPort(), b.getPort());
 	}
 
-	private static int compareNetns(
-		final spade.reporter.audit.linux.type.namespace.ID a,
-		final spade.reporter.audit.linux.type.namespace.ID b
-	){
-		int c = a.getType().compareTo(b.getType());
-		if(c != 0) return c;
-		return Long.compare(a.getInode().getValue(), b.getInode().getValue());
-	}
-
 	@Override
-	public int compareTo(final spade.reporter.audit.linux.platform.resource.ID other){
+	public int compareTo(final spade.reporter.audit.linux.platform.resource.VersionedID other){
 		if(other == null){
 			throw new IllegalArgumentException("Cannot compare to NULL");
 		}
 		if(this == other) return 0;
-		if(!(other instanceof ID)){
-			return Integer.compare(
-				this.getResource().getType().ordinal(),
-				other.getResource().getType().ordinal()
-			);
+		if(!(other instanceof VersionedID)){
+			return super.compareTo(other);
 		}
-		final ID o = (ID) other;
-		int c = this.type().compareTo(o.type());
+		final VersionedID o = (VersionedID) other;
+		int c = this.getNetwork().getProtocol().compareTo(o.getNetwork().getProtocol());
 		if(c != 0) return c;
-		c = this.protocol().compareTo(o.protocol());
+		c = compareAddress(this.getNetwork().getSrc(), o.getNetwork().getSrc());
 		if(c != 0) return c;
-		c = compareAddress(this.src(), o.src());
+		c = compareAddress(this.getNetwork().getDst(), o.getNetwork().getDst());
 		if(c != 0) return c;
-		c = compareAddress(this.dst(), o.dst());
+		c = this.netns.getType().compareTo(o.netns.getType());
 		if(c != 0) return c;
-		return compareNetns(this.netns(), o.netns());
+		c = Long.compare(this.netns.getInode().getValue(), o.netns.getInode().getValue());
+		if(c != 0) return c;
+		return Long.compare(this.getVersion(), o.getVersion());
 	}
 
 	@Override
 	public boolean equals(final Object obj){
 		if(this == obj) return true;
-		if(!(obj instanceof ID)) return false;
-		final ID other = (ID) obj;
-		return this.type() == other.type()
-			&& this.protocol() == other.protocol()
-			&& this.src().equals(other.src())
-			&& this.dst().equals(other.dst())
-			&& this.netns().equals(other.netns());
+		if(!(obj instanceof VersionedID)) return false;
+		final VersionedID other = (VersionedID) obj;
+		return this.getNetwork().equals(other.getNetwork())
+			&& this.netns.equals(other.netns)
+			&& this.getVersion() == other.getVersion();
 	}
 
 	@Override
 	public int hashCode(){
-		int result = type().hashCode();
-		result = 31 * result + protocol().hashCode();
-		result = 31 * result + src().hashCode();
-		result = 31 * result + dst().hashCode();
-		result = 31 * result + netns().hashCode();
+		int result = getNetwork().hashCode();
+		result = 31 * result + netns.hashCode();
+		result = 31 * result + Long.hashCode(getVersion());
 		return result;
 	}
 

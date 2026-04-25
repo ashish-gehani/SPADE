@@ -24,31 +24,31 @@ import spade.reporter.audit.core.platform.info.Info;
 import spade.reporter.audit.linux.platform.syscall.arch.x86_64.Table;
 
 public class Context
-        extends spade.reporter.audit.core.platform.Context<
-            spade.reporter.audit.linux.platform.process.VersionedID,
-            spade.reporter.audit.linux.platform.process.State,
-            spade.reporter.audit.linux.platform.runtime.ProcessTable,
-            spade.reporter.audit.linux.platform.resource.ID,
-            spade.reporter.audit.linux.platform.resource.State,
-            spade.reporter.audit.linux.platform.runtime.ResourceTable,
-            spade.reporter.audit.linux.platform.runtime.State
-        >
+	extends spade.reporter.audit.core.platform.Context<
+		spade.reporter.audit.linux.platform.process.VersionedID,
+		spade.reporter.audit.linux.platform.process.State,
+		spade.reporter.audit.linux.platform.runtime.ProcessTable,
+		spade.reporter.audit.linux.platform.resource.VersionedID,
+		spade.reporter.audit.linux.platform.resource.State,
+		spade.reporter.audit.linux.platform.runtime.ResourceTable,
+		spade.reporter.audit.linux.platform.runtime.State
+	>
 {
 
-    private final Table syscallTable;
+	private final Table syscallTable;
 	private long provEventIdCounter = 0;
 
 	public Context(
-        final ID id,
-        final Info info,
-        final Table syscallTable,
-        final spade.reporter.audit.linux.platform.runtime.State runtimeState
-    ){
+		final ID id,
+		final Info info,
+		final Table syscallTable,
+		final spade.reporter.audit.linux.platform.runtime.State runtimeState
+	){
 		super(id, info, runtimeState);
-        if(syscallTable == null){
-            throw new IllegalArgumentException("syscallTable cannot be null");
-        }
-        this.syscallTable = syscallTable;
+		if(syscallTable == null){
+			throw new IllegalArgumentException("syscallTable cannot be null");
+		}
+		this.syscallTable = syscallTable;
 	}
 
 	public Table getSyscallTable(){

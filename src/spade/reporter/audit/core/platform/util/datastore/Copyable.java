@@ -17,12 +17,10 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.resource.fdpair;
+package spade.reporter.audit.core.platform.util.datastore;
 
-public class State extends spade.reporter.audit.linux.platform.resource.State{
+public interface Copyable{
 
-	public State(final ID id){
-		super(id);
-	}
+	public Copyable deepCopy();
 
 }

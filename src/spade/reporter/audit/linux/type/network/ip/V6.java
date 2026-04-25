@@ -25,6 +25,10 @@ public class V6 extends IP{
 
 	private final Inet6Address address;
 
+	public V6(final V6 other){
+		this(other.address);
+	}
+
 	public V6(
 		final Inet6Address address
 	){

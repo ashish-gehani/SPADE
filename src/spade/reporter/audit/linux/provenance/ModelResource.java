@@ -22,15 +22,14 @@ package spade.reporter.audit.linux.provenance;
 import java.util.HashMap;
 import java.util.Map;
 
-import spade.reporter.audit.linux.platform.process.VersionedID;
-import spade.reporter.audit.linux.platform.resource.ID;
+import spade.reporter.audit.linux.platform.resource.VersionedID;
 import spade.reporter.audit.linux.provenance.event.handler.Context;
 
 public class ModelResource extends spade.reporter.audit.core.provenance.ModelResource<Context>{
 
-	private final ID id;
+	private final VersionedID id;
 
-	public ModelResource(final ID id){
+	public ModelResource(final VersionedID id){
 		if(id == null){
 			throw new IllegalArgumentException("id cannot be NULL");
 		}
@@ -42,9 +41,6 @@ public class ModelResource extends spade.reporter.audit.core.provenance.ModelRes
 		final Map<String, String> map = new HashMap<>();
 		map.put("type", "Artifact");
 		map.put("subtype", id.getResource().getType().name);
-		final VersionedID processId = id.getProcessState().getId();
-		map.put("pid", String.valueOf(processId.getPid().getValue()));
-		map.put("pid_version", String.valueOf(processId.getVersion()));
 		return map;
 	}
 

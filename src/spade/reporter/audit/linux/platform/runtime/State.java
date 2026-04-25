@@ -19,18 +19,19 @@
  */
 package spade.reporter.audit.linux.platform.runtime;
 
-public abstract class State extends spade.reporter.audit.core.platform.runtime.State<
-    spade.reporter.audit.linux.platform.process.VersionedID,
-    spade.reporter.audit.linux.platform.process.State,
-    spade.reporter.audit.linux.platform.runtime.ProcessTable,
-    spade.reporter.audit.linux.platform.resource.ID,
-    spade.reporter.audit.linux.platform.resource.State,
-    spade.reporter.audit.linux.platform.runtime.ResourceTable
->{
+public abstract class State
+	extends spade.reporter.audit.core.platform.runtime.State<
+		spade.reporter.audit.linux.platform.process.VersionedID,
+		spade.reporter.audit.linux.platform.process.State,
+		ProcessTable,
+		spade.reporter.audit.linux.platform.resource.VersionedID,
+		spade.reporter.audit.linux.platform.resource.State,
+		ResourceTable
+	>{
 
 	public State(
-		final spade.reporter.audit.linux.platform.runtime.ProcessTable processTable,
-		final spade.reporter.audit.linux.platform.runtime.ResourceTable resourceTable
+		final ProcessTable processTable,
+		final ResourceTable resourceTable
 	){
 		super(processTable, resourceTable);
 	}

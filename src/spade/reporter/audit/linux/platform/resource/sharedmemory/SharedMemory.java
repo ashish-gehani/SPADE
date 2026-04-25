@@ -17,17 +17,33 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.resource.fdpair;
+package spade.reporter.audit.linux.platform.resource.sharedmemory;
 
-import spade.reporter.audit.linux.type.fd.Num;
+import spade.reporter.audit.linux.platform.resource.systemv.SystemV;
+import spade.reporter.audit.linux.platform.resource.Type;
+import spade.reporter.audit.linux.type.credential.GID;
+import spade.reporter.audit.linux.type.credential.UID;
 
-public class UnixSocketPair extends FDPair{
+public class SharedMemory extends SystemV{
 
-	public UnixSocketPair(
-		final Num fd0,
-		final Num fd1
-	){
-		super(Type.UNIX_SOCKET_PAIR, fd0, fd1);
+	public SharedMemory(final String id, final UID ownerUID, final GID ownerGID){
+		super(Type.SYSTEMV_SHARED_MEMORY, id, ownerUID, ownerGID);
+	}
+
+	public SharedMemory(final SharedMemory other){
+		this(other.getId(), new UID(other.getOwnerUID()), new GID(other.getOwnerGID()));
+	}
+
+	@Override
+	public boolean equals(final Object o){
+		if(this == o) return true;
+		if(!(o instanceof SharedMemory)) return false;
+		return super.equals(o);
+	}
+
+	@Override
+	public int hashCode(){
+		return super.hashCode();
 	}
 
 }

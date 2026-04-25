@@ -17,15 +17,35 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.resource.systemv;
+package spade.reporter.audit.linux.platform.resource.unixsocketpair;
 
-import spade.reporter.audit.linux.type.credential.GID;
-import spade.reporter.audit.linux.type.credential.UID;
+import spade.reporter.audit.core.platform.util.datastore.DataStore;
 
-public class SharedMemory extends SystemV{
+public class State extends spade.reporter.audit.linux.platform.resource.State{
 
-	public SharedMemory(final String id, final UID ownerUID, final GID ownerGID){
-		super(Type.SYSTEMV_SHARED_MEMORY, id, ownerUID, ownerGID);
+	public State(
+		final VersionedID id,
+		final DataStore dataStore
+	){
+		super(id, dataStore);
+	}
+
+	public State(final State other){
+		this(
+			new VersionedID((VersionedID) other.getId()),
+			new DataStore(other.getDataStore())
+		);
+	}
+
+	@Override
+	public State copyWithVersionId(final spade.reporter.audit.linux.platform.resource.VersionedID newId){
+		if(newId == null){
+			throw new IllegalArgumentException("newId cannot be NULL");
+		}
+		return new State(
+			(VersionedID) newId,
+			new DataStore(this.getDataStore())
+		);
 	}
 
 }

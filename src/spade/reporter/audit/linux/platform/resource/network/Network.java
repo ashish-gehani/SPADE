@@ -29,6 +29,10 @@ public class Network extends Resource {
 	private final Address dst; // remote
 	private final Protocol protocol;
 
+	public Network(final Network other){
+		this(other.protocol, new Address(other.src), new Address(other.dst));
+	}
+
 	public Network(
 			final Protocol protocol,
 			final Address src,

@@ -19,33 +19,14 @@
  */
 package spade.reporter.audit.linux.platform.resource;
 
-public class State extends spade.reporter.audit.core.platform.resource.State<ID>{
+import spade.reporter.audit.core.platform.util.datastore.DataStore;
 
-	private static final long STARTING_VERSION = 0;
-	private static final long STARTING_EPOCH = 0;
+public abstract class State extends spade.reporter.audit.core.platform.resource.State<VersionedID>{
 
-	private long version = STARTING_VERSION;
-	private long epoch = STARTING_EPOCH;
-
-	public State(final ID id){
-		super(id);
+	public State(final VersionedID id, final DataStore dataStore){
+		super(id, dataStore);
 	}
 
-	public long getVersion(){
-		return version;
-	}
-
-	public void incrementVersion(){
-		this.version++;
-	}
-
-	public long getEpoch(){
-		return epoch;
-	}
-
-	public void incrementEpoch(){
-		this.epoch++;
-		this.version = STARTING_VERSION;
-	}
+	public abstract State copyWithVersionId(final VersionedID newId);
 
 }

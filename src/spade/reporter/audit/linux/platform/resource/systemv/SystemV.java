@@ -19,27 +19,26 @@
  */
 package spade.reporter.audit.linux.platform.resource.systemv;
 
+import java.util.Objects;
+
+import spade.reporter.audit.linux.platform.resource.Type;
 import spade.reporter.audit.linux.platform.resource.Resource;
 import spade.reporter.audit.linux.type.credential.GID;
 import spade.reporter.audit.linux.type.credential.UID;
 
 public class SystemV extends Resource{
 
-	private final Type systemVType;
 	private final String id;
 	private final UID ownerUID;
 	private final GID ownerGID;
 
 	protected SystemV(
-		final Type systemVType,
+		final Type type,
 		final String id,
 		final UID ownerUID,
 		final GID ownerGID
 	){
-		super(spade.reporter.audit.linux.platform.resource.Type.SYSTEMV);
-		if(systemVType == null){
-			throw new IllegalArgumentException("systemVType cannot be NULL");
-		}
+		super(type);
 		if(id == null){
 			throw new IllegalArgumentException("id cannot be NULL");
 		}
@@ -49,14 +48,13 @@ public class SystemV extends Resource{
 		if(ownerGID == null){
 			throw new IllegalArgumentException("ownerGID cannot be NULL");
 		}
-		this.systemVType = systemVType;
 		this.id = id;
 		this.ownerUID = ownerUID;
 		this.ownerGID = ownerGID;
 	}
 
-	public Type getSystemVType(){
-		return systemVType;
+	protected SystemV(final SystemV other){
+		this(other.getType(), other.id, new UID(other.ownerUID), new GID(other.ownerGID));
 	}
 
 	public String getId(){
@@ -69,6 +67,22 @@ public class SystemV extends Resource{
 
 	public GID getOwnerGID(){
 		return ownerGID;
+	}
+
+	@Override
+	public boolean equals(final Object o){
+		if(this == o) return true;
+		if(!(o instanceof SystemV)) return false;
+		final SystemV other = (SystemV)o;
+		return Objects.equals(getType(), other.getType())
+			&& Objects.equals(id, other.id)
+			&& Objects.equals(ownerUID, other.ownerUID)
+			&& Objects.equals(ownerGID, other.ownerGID);
+	}
+
+	@Override
+	public int hashCode(){
+		return Objects.hash(getType(), id, ownerUID, ownerGID);
 	}
 
 }

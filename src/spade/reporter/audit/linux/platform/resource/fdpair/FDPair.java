@@ -20,36 +20,32 @@
 package spade.reporter.audit.linux.platform.resource.fdpair;
 
 import spade.reporter.audit.linux.platform.resource.Resource;
+import spade.reporter.audit.linux.platform.resource.Type;
 import spade.reporter.audit.linux.type.fd.Num;
 
 public abstract class FDPair extends Resource{
 
-	private final Type fdPairType;
 	private final Num fd0;
 	private final Num fd1;
 
 	protected FDPair(
-		final Type fdPairType,
+		final Type type,
 		final Num fd0,
 		final Num fd1
 	){
-		super(spade.reporter.audit.linux.platform.resource.Type.FD_PAIR);
-		if(fdPairType == null){
-			throw new IllegalArgumentException("fdPairType cannot be NULL");
-		}
+		super(type);
 		if(fd0 == null){
 			throw new IllegalArgumentException("fd0 cannot be NULL");
 		}
 		if(fd1 == null){
 			throw new IllegalArgumentException("fd1 cannot be NULL");
 		}
-		this.fdPairType = fdPairType;
 		this.fd0 = fd0;
 		this.fd1 = fd1;
 	}
 
-	public Type getFdPairType(){
-		return fdPairType;
+	protected FDPair(final FDPair other){
+		this(other.getType(), new Num(other.fd0), new Num(other.fd1));
 	}
 
 	public Num getFd0(){
@@ -58,6 +54,24 @@ public abstract class FDPair extends Resource{
 
 	public Num getFd1(){
 		return fd1;
+	}
+
+	@Override
+	public boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof FDPair)) return false;
+		final FDPair other = (FDPair) obj;
+		return this.getType() == other.getType()
+			&& this.fd0.equals(other.fd0)
+			&& this.fd1.equals(other.fd1);
+	}
+
+	@Override
+	public int hashCode(){
+		int result = getType().hashCode();
+		result = 31 * result + fd0.hashCode();
+		result = 31 * result + fd1.hashCode();
+		return result;
 	}
 
 }

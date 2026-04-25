@@ -21,12 +21,23 @@ package spade.reporter.audit.linux.platform.resource;
 
 public enum Type{
 
-	FD_PAIR("fd pair"),
+	PATH_BLOCK_DEVICE("block device"),
+	PATH_CHARACTER_DEVICE("character device"),
+	PATH_DIRECTORY("directory"),
+	PATH_FILE("file"),
+	PATH_LINK("link"),
+	PATH_NAMED_PIPE("named pipe"),
+	PATH_POSIX_MESSAGE_QUEUE("posix message queue"),
+	PATH_UNIX_SOCKET("unix socket"),
 	MEMORY("memory"),
 	NETWORK("network"),
-	FS("file system"),
-	SYSTEMV("system v"),
-	UNKNOWN("unknown");
+	NETWORK_SOCKET_PAIR("network socket pair"),
+	SYSTEMV_MESSAGE_QUEUE("systemv message queue"),
+	SYSTEMV_SHARED_MEMORY("systemv shared memory"),
+	UNKNOWN("unknown"),
+	UNIX_SOCKET_PAIR("unix socket pair"),
+	UNNAMED_PIPE("unnamed pipe")
+	;
 
 	public final String name;
 

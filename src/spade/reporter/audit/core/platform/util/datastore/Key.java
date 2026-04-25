@@ -17,42 +17,56 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.type.network.ip;
+package spade.reporter.audit.core.platform.util.datastore;
 
-import java.net.Inet4Address;
+import spade.reporter.audit.core.util.statetable.Indexable;
 
-public class V4 extends IP{
+public final class Key implements Indexable<Key>{
 
-	private final Inet4Address address;
+	public final long id;
+	public final String tag;
 
-	public V4(final V4 other){
-		this(other.address);
-	}
-
-	public V4(
-		final Inet4Address address
-	){
-		super(Type.V4);
-		if(address == null){
-			throw new IllegalArgumentException("address cannot be NULL");
+	public Key(final long id, final String tag){
+		if(tag == null){
+			throw new IllegalArgumentException("tag cannot be NULL");
 		}
-		this.address = address;
+		this.id = id;
+		this.tag = tag;
 	}
 
-	public Inet4Address getAddress(){
-		return address;
+	public Key(final Key key) {
+		this(key.id, key.tag);
+	}
+
+	public long getId(){
+		return id;
+	}
+
+	public String getTag(){
+		return tag;
+	}
+
+	@Override
+	public String toString(){
+		return "Key(id=" + id + ", tag=" + tag + ")";
+	}
+
+	@Override
+	public int compareTo(final Key other){
+		return Long.compare(this.id, other.id);
 	}
 
 	@Override
 	public boolean equals(final Object obj){
 		if(this == obj) return true;
-		if(!(obj instanceof V4)) return false;
-		return this.address.equals(((V4) obj).address);
+		if(!(obj instanceof Key)) return false;
+		final Key other = (Key) obj;
+		return this.id == other.id;
 	}
 
 	@Override
 	public int hashCode(){
-		return address.hashCode();
+		return Long.hashCode(id);
 	}
 
 }

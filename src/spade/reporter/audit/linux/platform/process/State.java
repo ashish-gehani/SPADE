@@ -19,6 +19,7 @@
  */
 package spade.reporter.audit.linux.platform.process;
 
+import spade.reporter.audit.core.platform.util.datastore.DataStore;
 import spade.reporter.audit.linux.platform.process.fd.Table;
 import spade.reporter.audit.linux.platform.process.info.Info;
 import spade.reporter.audit.linux.platform.process.info.credential.Group;
@@ -33,11 +34,12 @@ public class State extends spade.reporter.audit.core.platform.process.State<Vers
 
 	public State(
 		final VersionedID id,
+		final DataStore dataStore,
 		final Info info,
 		final Table fdTable,
 		final History history
 	){
-		super(id);
+		super(id, dataStore);
 		if(info == null){
 			throw new IllegalArgumentException("info cannot be NULL");
 		}
@@ -53,9 +55,23 @@ public class State extends spade.reporter.audit.core.platform.process.State<Vers
 		initHistories(this.info.getTime().getValue());
 	}
 
-	public State nextVersion(){
+	public State(final State that){
+		this(
+			new VersionedID(that.getId()),
+			new DataStore(that.getDataStore()),
+			new Info(that.info),
+			new Table(that.fdTable),
+			new History(that.history)
+		);
+	}
+
+	public State copyWithVersionedId(final VersionedID newID){
+		if (newID == null) {
+			throw new IllegalArgumentException("newID cannot be NULL");
+		}
 		return new State(
-			getId().nextVersion(),
+			newID,
+			new DataStore(this.getDataStore()),
 			new Info(this.info),
 			new Table(this.fdTable),
 			new History(this.history)

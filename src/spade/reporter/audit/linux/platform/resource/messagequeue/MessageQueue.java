@@ -17,19 +17,33 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.resource.fs;
+package spade.reporter.audit.linux.platform.resource.messagequeue;
 
-import spade.reporter.audit.linux.type.device.Device;
-import spade.reporter.audit.linux.type.fs.Inode;
+import spade.reporter.audit.linux.platform.resource.systemv.SystemV;
+import spade.reporter.audit.linux.platform.resource.Type;
+import spade.reporter.audit.linux.type.credential.GID;
+import spade.reporter.audit.linux.type.credential.UID;
 
-public class PosixMessageQueue extends Path{
+public class MessageQueue extends SystemV{
 
-	public PosixMessageQueue(
-		final Device device,
-		final Inode inode,
-		final spade.reporter.audit.linux.type.fs.Path path
-	){
-		super(Type.POSIX_MESSAGE_QUEUE, device, inode, path);
+	public MessageQueue(final String id, final UID ownerUID, final GID ownerGID){
+		super(Type.SYSTEMV_MESSAGE_QUEUE, id, ownerUID, ownerGID);
+	}
+
+	public MessageQueue(final MessageQueue other){
+		this(other.getId(), new UID(other.getOwnerUID()), new GID(other.getOwnerGID()));
+	}
+
+	@Override
+	public boolean equals(final Object o){
+		if(this == o) return true;
+		if(!(o instanceof MessageQueue)) return false;
+		return super.equals(o);
+	}
+
+	@Override
+	public int hashCode(){
+		return super.hashCode();
 	}
 
 }

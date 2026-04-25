@@ -20,11 +20,23 @@
 package spade.reporter.audit.linux.type.network.transport;
 
 import spade.reporter.audit.linux.type.network.ip.IP;
+import spade.reporter.audit.linux.type.network.ip.V4;
+import spade.reporter.audit.linux.type.network.ip.V6;
 
 public class Address{
 
 	private final IP ip;
 	private final int port;
+
+	public Address(final Address other){
+		this(copyIP(other.ip), other.port);
+	}
+
+	private static IP copyIP(final IP ip){
+		if(ip instanceof V4) return new V4((V4) ip);
+		if(ip instanceof V6) return new V6((V6) ip);
+		throw new IllegalArgumentException("Unknown IP type: " + ip.getClass());
+	}
 
 	public Address(
 		final IP ip,

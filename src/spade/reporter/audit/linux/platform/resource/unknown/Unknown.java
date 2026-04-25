@@ -35,8 +35,24 @@ public class Unknown extends Resource{
 		this.num = num;
 	}
 
+	public Unknown(final Unknown other){
+		this(new Num(other.num));
+	}
+
 	public Num getNum(){
 		return num;
+	}
+
+	@Override
+	public boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof Unknown)) return false;
+		return this.num.equals(((Unknown) obj).num);
+	}
+
+	@Override
+	public int hashCode(){
+		return num.hashCode();
 	}
 
 }

@@ -17,19 +17,35 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.resource.fs;
+package spade.reporter.audit.linux.platform.resource.sharedmemory;
 
-import spade.reporter.audit.linux.type.device.Device;
-import spade.reporter.audit.linux.type.fs.Inode;
+import spade.reporter.audit.core.platform.util.datastore.DataStore;
 
-public class CharacterDevice extends Path{
+public class State extends spade.reporter.audit.linux.platform.resource.State{
 
-	public CharacterDevice(
-		final Device device,
-		final Inode inode,
-		final spade.reporter.audit.linux.type.fs.Path path
+	public State(
+		final VersionedID id,
+		final DataStore dataStore
 	){
-		super(Type.CHARACTER_DEVICE, device, inode, path);
+		super(id, dataStore);
+	}
+
+	public State(final State other){
+		this(
+			new VersionedID((VersionedID) other.getId()),
+			new DataStore(other.getDataStore())
+		);
+	}
+
+	@Override
+	public State copyWithVersionId(final spade.reporter.audit.linux.platform.resource.VersionedID newId){
+		if(newId == null){
+			throw new IllegalArgumentException("newId cannot be NULL");
+		}
+		return new State(
+			(VersionedID) newId,
+			new DataStore(this.getDataStore())
+		);
 	}
 
 }

@@ -17,32 +17,35 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.resource;
+package spade.reporter.audit.linux.platform.resource.messagequeue;
 
-import spade.reporter.audit.linux.platform.process.State;
+import spade.reporter.audit.core.platform.util.datastore.DataStore;
 
-public abstract class ID extends spade.reporter.audit.core.platform.resource.ID<ID>{
+public class State extends spade.reporter.audit.linux.platform.resource.State{
 
-	private final Resource resource;
-	private final State processState;
-
-	public ID(final Resource resource, final State processState){
-		if(resource == null){
-			throw new IllegalArgumentException("resource cannot be NULL");
-		}
-		if(processState == null){
-			throw new IllegalArgumentException("processState cannot be NULL");
-		}
-		this.resource = resource;
-		this.processState = processState;
+	public State(
+		final VersionedID id,
+		final DataStore dataStore
+	){
+		super(id, dataStore);
 	}
 
-	public Resource getResource(){
-		return resource;
+	public State(final State other){
+		this(
+			new VersionedID((VersionedID) other.getId()),
+			new DataStore(other.getDataStore())
+		);
 	}
 
-	public State getProcessState(){
-		return processState;
+	@Override
+	public State copyWithVersionId(final spade.reporter.audit.linux.platform.resource.VersionedID newId){
+		if(newId == null){
+			throw new IllegalArgumentException("newId cannot be NULL");
+		}
+		return new State(
+			(VersionedID) newId,
+			new DataStore(this.getDataStore())
+		);
 	}
 
 }

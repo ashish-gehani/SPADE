@@ -23,23 +23,23 @@ import spade.reporter.audit.linux.platform.resource.Resource;
 import spade.reporter.audit.linux.type.device.Device;
 import spade.reporter.audit.linux.type.fs.Inode;
 
-public abstract class Path extends Resource {
+public class Path extends Resource {
 
-	private final Type pathType;
 	private final Device device;
 	private final Inode inode;
 	private final spade.reporter.audit.linux.type.fs.Path path;
 
+	protected Path(final Path other){
+		this(other.getType(), other.device, other.inode, other.path);
+	}
+
 	public Path(
-		final Type pathType,
+		final spade.reporter.audit.linux.platform.resource.Type type,
 		final Device device,
 		final Inode inode,
 		final spade.reporter.audit.linux.type.fs.Path path
 	){
-		super(spade.reporter.audit.linux.platform.resource.Type.FS);
-		if(pathType == null){
-			throw new IllegalArgumentException("pathType cannot be NULL");
-		}
+		super(type);
 		if(device == null){
 			throw new IllegalArgumentException("device cannot be NULL");
 		}
@@ -49,14 +49,9 @@ public abstract class Path extends Resource {
 		if(path == null){
 			throw new IllegalArgumentException("path cannot be NULL");
 		}
-		this.pathType = pathType;
 		this.device = device;
 		this.inode = inode;
 		this.path = path;
-	}
-
-	public Type getPathType(){
-		return pathType;
 	}
 
 	public Device getDevice(){
@@ -76,7 +71,7 @@ public abstract class Path extends Resource {
 		if(this == obj) return true;
 		if(!(obj instanceof Path)) return false;
 		final Path other = (Path) obj;
-		return this.pathType == other.pathType
+		return this.getType() == other.getType()
 				&& this.device.equals(other.device)
 				&& this.inode.getValue() == other.inode.getValue()
 				&& this.path.getResolvedPath().equals(other.path.getResolvedPath());
@@ -84,7 +79,7 @@ public abstract class Path extends Resource {
 
 	@Override
 	public int hashCode(){
-		int result = pathType.hashCode();
+		int result = getType().hashCode();
 		result = 31 * result + device.hashCode();
 		result = 31 * result + Long.hashCode(inode.getValue());
 		result = 31 * result + path.getResolvedPath().hashCode();

@@ -19,16 +19,40 @@
  */
 package spade.reporter.audit.linux.platform.resource.fs;
 
-import spade.reporter.audit.linux.platform.resource.ID;
+import spade.reporter.audit.core.platform.util.datastore.DataStore;
 import spade.reporter.audit.linux.type.fs.Permission;
 
 public class State extends spade.reporter.audit.linux.platform.resource.State{
 
 	private Permission permission;
 
-	public State(final ID id, final Permission permission){
-		super(id);
+	public State(
+		final VersionedID id,
+		final DataStore dataStore,
+		final Permission permission
+	){
+		super(id, dataStore);
 		this.permission = permission;
+	}
+
+	public State(final State other){
+		this(
+			new VersionedID((VersionedID) other.getId()),
+			new DataStore(other.getDataStore()),
+			other.permission
+		);
+	}
+
+	@Override
+	public State copyWithVersionId(final spade.reporter.audit.linux.platform.resource.VersionedID newId){
+		if(newId == null){
+			throw new IllegalArgumentException("newId cannot be NULL");
+		}
+		return new State(
+			(VersionedID) newId,
+			new DataStore(this.getDataStore()),
+			this.permission
+		);
 	}
 
 	public boolean hasPermission(){

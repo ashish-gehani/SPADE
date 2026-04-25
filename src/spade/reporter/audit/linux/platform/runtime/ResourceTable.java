@@ -19,9 +19,10 @@
  */
 package spade.reporter.audit.linux.platform.runtime;
 
-import spade.reporter.audit.linux.platform.resource.ID;
 import spade.reporter.audit.linux.platform.resource.State;
+import spade.reporter.audit.linux.platform.resource.VersionedID;
 
-public class ResourceTable extends spade.reporter.audit.core.platform.runtime.ResourceTable<ID, State>{
+public class ResourceTable
+	extends spade.reporter.audit.core.platform.runtime.ResourceTable<VersionedID, State>{
 
 }

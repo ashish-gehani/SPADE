@@ -19,10 +19,22 @@
  */
 package spade.reporter.audit.core.platform.resource;
 
+import spade.reporter.audit.core.platform.util.datastore.DataStore;
+
 public abstract class State<T extends ID<T>> extends spade.reporter.audit.core.util.statetable.State<T> {
 
-	protected State(final T id) {
+	private final DataStore dataStore;
+
+	protected State(final T id, final DataStore dataStore) {
 		super(id);
+		if(dataStore == null){
+			throw new IllegalArgumentException("dataStore cannot be NULL");
+		}
+		this.dataStore = dataStore;
+	}
+
+	public DataStore getDataStore(){
+		return dataStore;
 	}
 
 }

@@ -25,27 +25,21 @@ import spade.reporter.audit.linux.type.fd.Num;
 
 public class Descriptor extends State<Num>{
 
-	public final Type type;
 	private final Resource resource;
 	private final OpenMode openMode;
 
 	public Descriptor(final Descriptor other){
-		this(other.type, new Num(other.getId()), other.openMode, other.resource);
+		this(new Num(other.getId()), other.openMode, other.resource);
 	}
 
-	public Descriptor(final Type type, final Num num, final OpenMode openMode, final Resource resource){
+	public Descriptor(final Num num, final OpenMode openMode, final Resource resource){
 		super(num);
-		if(type == null){
-			throw new IllegalArgumentException("type cannot be NULL");
-		}
 		if(resource == null){
 			throw new IllegalArgumentException("resource cannot be NULL");
 		}
 		if(openMode == null){
 			throw new IllegalArgumentException("openMode cannot be NULL");
 		}
-		Validate.validate(type, resource);
-		this.type = type;
 		this.resource = resource;
 		this.openMode = openMode;
 	}

@@ -17,17 +17,31 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.resource.fdpair;
+package spade.reporter.audit.core.platform.util.datastore;
 
-import spade.reporter.audit.linux.type.fd.Num;
+import spade.reporter.audit.core.util.statetable.State;
 
-public class UnnamedPipe extends FDPair{
+public class Data extends State<Key>{
 
-	public UnnamedPipe(
-		final Num fd0,
-		final Num fd1
-	){
-		super(Type.UNNAMED_PIPE, fd0, fd1);
+	private final Copyable value;
+
+	public Data(final Key id, final Copyable value){
+		super(id);
+		if(value == null){
+			throw new IllegalArgumentException("value cannot be NULL");
+		}
+		this.value = value;
+	}
+
+	public Data(final Data that){
+		this(
+			new Key(that.getId()),
+			that.getValue().deepCopy()
+		);
+	}
+
+	public Copyable getValue(){
+		return value;
 	}
 
 }

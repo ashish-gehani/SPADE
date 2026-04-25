@@ -17,8 +17,10 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.resource.fdpair;
+package spade.reporter.audit.linux.platform.resource.networksocketpair;
 
+import spade.reporter.audit.linux.platform.resource.fdpair.FDPair;
+import spade.reporter.audit.linux.platform.resource.Type;
 import spade.reporter.audit.linux.type.fd.Num;
 import spade.reporter.audit.linux.type.network.transport.Protocol;
 
@@ -38,8 +40,26 @@ public class NetworkSocketPair extends FDPair{
 		this.protocol = protocol;
 	}
 
+	public NetworkSocketPair(final NetworkSocketPair other){
+		this(new Num(other.getFd0()), new Num(other.getFd1()), other.protocol);
+	}
+
 	public Protocol getProtocol(){
 		return protocol;
+	}
+
+	@Override
+	public boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof NetworkSocketPair)) return false;
+		final NetworkSocketPair other = (NetworkSocketPair) obj;
+		return super.equals(other)
+			&& this.protocol == other.protocol;
+	}
+
+	@Override
+	public int hashCode(){
+		return 31 * super.hashCode() + protocol.hashCode();
 	}
 
 }

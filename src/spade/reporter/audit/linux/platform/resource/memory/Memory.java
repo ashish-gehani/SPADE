@@ -26,6 +26,10 @@ public class Memory extends Resource{
 	private final long address;
 	private final long size;
 
+	public Memory(final Memory other){
+		this(other.address, other.size);
+	}
+
 	public Memory(
 		final long address,
 		final long size
@@ -41,6 +45,22 @@ public class Memory extends Resource{
 
 	public long getSize(){
 		return size;
+	}
+
+	@Override
+	public boolean equals(final Object obj){
+		if(this == obj) return true;
+		if(!(obj instanceof Memory)) return false;
+		final Memory other = (Memory) obj;
+		return this.address == other.address
+			&& this.size == other.size;
+	}
+
+	@Override
+	public int hashCode(){
+		int result = Long.hashCode(address);
+		result = 31 * result + Long.hashCode(size);
+		return result;
 	}
 
 }

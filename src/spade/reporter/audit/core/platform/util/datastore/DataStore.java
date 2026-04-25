@@ -17,19 +17,22 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.resource.fs;
+package spade.reporter.audit.core.platform.util.datastore;
 
-import spade.reporter.audit.linux.type.device.Device;
-import spade.reporter.audit.linux.type.fs.Inode;
+import spade.reporter.audit.core.util.statetable.Table;
 
-public class Link extends Path{
+public class DataStore extends Table<Key, Data>{
 
-	public Link(
-		final Device device,
-		final Inode inode,
-		final spade.reporter.audit.linux.type.fs.Path path
-	){
-		super(Type.LINK, device, inode, path);
+	public DataStore(){
+	}
+
+	public DataStore(final DataStore other){
+		if(other == null){
+			throw new IllegalArgumentException("other cannot be NULL");
+		}
+		for(final Key key : other.ids()){
+			this.put(key, new Data(other.get(key)));
+		}
 	}
 
 }

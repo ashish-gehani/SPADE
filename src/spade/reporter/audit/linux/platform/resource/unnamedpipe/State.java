@@ -17,31 +17,35 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.process.fd;
+package spade.reporter.audit.linux.platform.resource.unnamedpipe;
 
-public enum Type{
+import spade.reporter.audit.core.platform.util.datastore.DataStore;
 
-	BLOCK_DEVICE("block device"),
-	CHARACTER_DEVICE("character device"),
-	DIRECTORY("directory"),
-	FILE("file"),
-	LINK("link"),
-	MEMORY("memory"),
-	NAMED_PIPE("named pipe"),
-	NETWORK_SOCKET("network socket"),
-	NETWORK_SOCKET_PAIR("network socket pair"),
-	POSIX_MESSAGE_QUEUE("posix message queue"),
-	SYSV_MESSAGE_QUEUE("system v message queue"),
-	SYSV_SHARED_MEMORY("system v shared memory"),
-	UNIX_SOCKET("unix socket"),
-	UNIX_SOCKET_PAIR("unix socket pair"),
-	UNKNOWN("unknown"),
-	UNNAMED_PIPE("unnamed pipe");
+public class State extends spade.reporter.audit.linux.platform.resource.State{
 
-	public final String subtype;
+	public State(
+		final VersionedID id,
+		final DataStore dataStore
+	){
+		super(id, dataStore);
+	}
 
-	Type(final String subtype){
-		this.subtype = subtype;
+	public State(final State other){
+		this(
+			new VersionedID((VersionedID) other.getId()),
+			new DataStore(other.getDataStore())
+		);
+	}
+
+	@Override
+	public State copyWithVersionId(final spade.reporter.audit.linux.platform.resource.VersionedID newId){
+		if(newId == null){
+			throw new IllegalArgumentException("newId cannot be NULL");
+		}
+		return new State(
+			(VersionedID) newId,
+			new DataStore(this.getDataStore())
+		);
 	}
 
 }

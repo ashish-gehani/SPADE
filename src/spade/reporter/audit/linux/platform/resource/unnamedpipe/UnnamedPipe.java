@@ -17,19 +17,23 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.resource.fs;
+package spade.reporter.audit.linux.platform.resource.unnamedpipe;
 
-import spade.reporter.audit.linux.type.device.Device;
-import spade.reporter.audit.linux.type.fs.Inode;
+import spade.reporter.audit.linux.platform.resource.fdpair.FDPair;
+import spade.reporter.audit.linux.platform.resource.Type;
+import spade.reporter.audit.linux.type.fd.Num;
 
-public class UnixSocket extends Path{
+public class UnnamedPipe extends FDPair{
 
-	public UnixSocket(
-		final Device device,
-		final Inode inode,
-		final spade.reporter.audit.linux.type.fs.Path path
+	public UnnamedPipe(
+		final Num fd0,
+		final Num fd1
 	){
-		super(Type.UNIX_SOCKET, device, inode, path);
+		super(Type.UNNAMED_PIPE, fd0, fd1);
+	}
+
+	public UnnamedPipe(final UnnamedPipe other){
+		this(new Num(other.getFd0()), new Num(other.getFd1()));
 	}
 
 }

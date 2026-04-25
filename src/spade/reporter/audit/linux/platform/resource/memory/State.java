@@ -19,10 +19,33 @@
  */
 package spade.reporter.audit.linux.platform.resource.memory;
 
+import spade.reporter.audit.core.platform.util.datastore.DataStore;
+
 public class State extends spade.reporter.audit.linux.platform.resource.State{
 
-	public State(final ID id){
-		super(id);
+	public State(
+		final VersionedID id,
+		final DataStore dataStore
+	){
+		super(id, dataStore);
+	}
+
+	public State(final State other){
+		this(
+			new VersionedID((VersionedID) other.getId()),
+			new DataStore(other.getDataStore())
+		);
+	}
+
+	@Override
+	public State copyWithVersionId(final spade.reporter.audit.linux.platform.resource.VersionedID newId){
+		if(newId == null){
+			throw new IllegalArgumentException("newId cannot be NULL");
+		}
+		return new State(
+			(VersionedID) newId,
+			new DataStore(this.getDataStore())
+		);
 	}
 
 }

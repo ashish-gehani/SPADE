@@ -17,15 +17,23 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.reporter.audit.linux.platform.resource.systemv;
+package spade.reporter.audit.linux.platform.resource.unixsocketpair;
 
-import spade.reporter.audit.linux.type.credential.GID;
-import spade.reporter.audit.linux.type.credential.UID;
+import spade.reporter.audit.linux.platform.resource.fdpair.FDPair;
+import spade.reporter.audit.linux.platform.resource.Type;
+import spade.reporter.audit.linux.type.fd.Num;
 
-public class MessageQueue extends SystemV{
+public class UnixSocketPair extends FDPair{
 
-	public MessageQueue(final String id, final UID ownerUID, final GID ownerGID){
-		super(Type.SYSTEMV_MESSAGE_QUEUE, id, ownerUID, ownerGID);
+	public UnixSocketPair(
+		final Num fd0,
+		final Num fd1
+	){
+		super(Type.UNIX_SOCKET_PAIR, fd0, fd1);
+	}
+
+	public UnixSocketPair(final UnixSocketPair other){
+		this(new Num(other.getFd0()), new Num(other.getFd1()));
 	}
 
 }
