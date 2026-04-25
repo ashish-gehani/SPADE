@@ -48,6 +48,8 @@ public abstract class VersionedID extends spade.reporter.audit.core.platform.res
 
 	public abstract VersionedID nextVersion();
 
+	public abstract State createNewState();
+
 	@Override
 	public int compareTo(final VersionedID other){
 		if(other == null){

@@ -68,6 +68,11 @@ public class VersionedID extends spade.reporter.audit.linux.platform.resource.Ve
 		return new VersionedID(new Network(getNetwork()), new ID(netns), getVersion() + 1);
 	}
 
+	@Override
+	public State createNewState(){
+		return new State(this, new spade.reporter.audit.core.platform.util.datastore.DataStore());
+	}
+
 	private static int compareAddress(final Address a, final Address b){
 		int c = a.getIP().getIPType().compareTo(b.getIP().getIPType());
 		if(c != 0) return c;

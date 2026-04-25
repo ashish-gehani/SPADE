@@ -43,6 +43,11 @@ public class VersionedID extends spade.reporter.audit.linux.platform.resource.Ve
 	}
 
 	@Override
+	public State createNewState(){
+		return new State(this, new spade.reporter.audit.core.platform.util.datastore.DataStore(), null);
+	}
+
+	@Override
 	public int compareTo(final spade.reporter.audit.linux.platform.resource.VersionedID other){
 		if(other == null){
 			throw new IllegalArgumentException("Cannot compare to NULL");

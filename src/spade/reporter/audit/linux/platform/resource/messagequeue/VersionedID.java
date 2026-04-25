@@ -66,6 +66,11 @@ public class VersionedID extends spade.reporter.audit.linux.platform.resource.Ve
 		return new VersionedID(new MessageQueue(getMessageQueue()), new ID(ipcNamespace), getVersion() + 1);
 	}
 
+	@Override
+	public State createNewState(){
+		return new State(this, new spade.reporter.audit.core.platform.util.datastore.DataStore());
+	}
+
 	private Type type(){
 		return getMessageQueue().getType();
 	}

@@ -65,6 +65,11 @@ public class VersionedID extends spade.reporter.audit.linux.platform.resource.Ve
 		return new VersionedID(new UnixSocketPair(getUnixSocketPair()), new PID(pid), getVersion() + 1);
 	}
 
+	@Override
+	public State createNewState(){
+		return new State(this, new spade.reporter.audit.core.platform.util.datastore.DataStore());
+	}
+
 	private int fd0(){
 		return getUnixSocketPair().getFd0().getValue();
 	}
