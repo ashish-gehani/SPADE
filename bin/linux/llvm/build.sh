@@ -3,6 +3,9 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
+SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../.. && pwd )"
+SPADE_SRC="${SPADE_ROOT}/src"
+SPADE_BIN_LLVM="${SPADE_ROOT}/bin/llvm"
 
 # TODO This script will conflict with https://github.com/ashish-gehani/SPADE/blob/master/bin/llvm/llvmTrace.sh
 # TODO This script will not work!
@@ -48,8 +51,8 @@ clang++ \
     -MF "llvmTracer.d.tmp" \
     -MT "llvmTracer.o" \
     -MT "llvmTracer.d" \
-    src/spade/reporter/llvm/llvmTracer.cpp \
-    -o src/spade/reporter/llvm/llvmTracer.o
+    "${SPADE_SRC}/spade/reporter/llvm/llvmTracer.cpp" \
+    -o "${SPADE_SRC}/spade/reporter/llvm/llvmTracer.o"
 
 
 echo 'llvm[0]: Linking "Loadable Module" LLVMTrace.so'
@@ -62,13 +65,13 @@ clang++ \
     -L./ \
     -L./ \
     -shared \
-    -o bin/llvm/LLVMTrace.so \
-    src/spade/reporter/llvm/llvmTracer.o \
+    -o "${SPADE_BIN_LLVM}/LLVMTrace.so" \
+    "${SPADE_SRC}/spade/reporter/llvm/llvmTracer.o" \
     -lpthread \
     -ltinfo \
     -ldl \
     -lm
-clang -emit-llvm -c src/spade/reporter/llvm/flushModule.c -o bin/llvm/flush.bc
+clang -emit-llvm -c "${SPADE_SRC}/spade/reporter/llvm/flushModule.c" -o "${SPADE_BIN_LLVM}/flush.bc"
 
 
 echo llvm[0]: "Compiling WrapperPass.cpp for Release+Asserts build" "(PIC)"
@@ -104,8 +107,8 @@ clang++ \
     -MMD \
     -MP \
     -MT "WrapperPass.o" \
-    src/spade/reporter/llvm/LibcWrapper.cpp \
-    -o src/spade/reporter/llvm/LibcWrapper.o
+    "${SPADE_SRC}/spade/reporter/llvm/LibcWrapper.cpp" \
+    -o "${SPADE_SRC}/spade/reporter/llvm/LibcWrapper.o"
 
 
 echo llvm[0]: Linking "Loadable Module build/WrapperPass.so"
@@ -118,8 +121,8 @@ clang++ \
     -L./ \
     -Lm./ \
     -shared \
-    -o bin/llvm/LibcWrapper.so \
-    src/spade/reporter/llvm/LibcWrapper.o \
+    -o "${SPADE_BIN_LLVM}/LibcWrapper.so" \
+    "${SPADE_SRC}/spade/reporter/llvm/LibcWrapper.o" \
     -lpthread \
     -ltinfo \
     -ldl \
