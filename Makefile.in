@@ -184,15 +184,18 @@ android-start:
  
 android-stop:
 	bin/android/stop.sh
- 
+
+android-clean:
+	bin/android/clean.sh
+
 graph-utility:
 	java -cp 'build:lib/*' spade.utility.GraphUtility
  
 # ---------- Removing files ----------
 # Remove Java classes and native libraries, executables that we compiled.
-clean: clean-macfuse clean-linuxfuse
+clean: clean-macfuse clean-linuxfuse android-clean
 	@echo 'Removing Java classes, native libraries, executables...'
-	@rm -rf build android-build android-lib
+	@rm -rf build
 	@rm -rf lib/spade.jar
 	@rm -rf lib/spadeOpenBSM lib/spadeAuditBridge
 	@rm -rf cfg/ssl
