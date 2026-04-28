@@ -8,14 +8,7 @@ JAVAC_CP = $(shell ./bin/classpath.sh)
 JAVAC_OPTIONS =$(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none
 
 KERNEL_MODULES ?= false
-AUDIT_KERNEL_MODULES_SRC ?= src/spade/reporter/audit/kernel-modules/
-AUDIT_KERNEL_MODULES_INSTALL ?= $(PWD)/lib/kernel-modules
 KERNEL_MODULES_DEBUG ?= false
-ifeq ($(KERNEL_MODULES_DEBUG),true)
-    KERNEL_MODULES_BUILD_TARGET = debug
-else
-    KERNEL_MODULES_BUILD_TARGET = release
-endif
 
 OS_NAME = $(shell uname)
 
@@ -128,19 +121,11 @@ lib/spade.jar: build-java $$(OS_BUILD)
 	$(JAR) cvf lib/spade.jar -C build .
 
 # Build the LinuxAudit reporter.
-build-linuxaudit: build/spade/reporter/Audit.class bin/spadeAuditBridge audit-kernel-module
-	@echo '-----> IMPORTANT: To use the LinuxAudit reporter, please run the following commands to allow SPADE access to the audit stream:'
-	@echo '----->        	sudo chown root bin/spadeAuditBridge'
-	@echo '----->        	sudo chmod ug+s bin/spadeAuditBridge'
-	@echo ''
-bin/spadeAuditBridge: src/spade/reporter/spadeAuditBridge.c
-	gcc -o bin/spadeAuditBridge src/spade/reporter/spadeAuditBridge.c
-audit-kernel-module:
-	@if [ "$(KERNEL_MODULES)" = "true" ]; then \
-		$(MAKE) --no-print-directory -C $(AUDIT_KERNEL_MODULES_SRC) INSTALL_DIR=$(AUDIT_KERNEL_MODULES_INSTALL) $(KERNEL_MODULES_BUILD_TARGET) install; \
-	else \
-		echo 'Skipping kernel modules build. KERNEL_MODULES is not set to true'; \
-	fi
+build-linuxaudit:
+	KERNEL_MODULES=$(KERNEL_MODULES) KERNEL_MODULES_DEBUG=$(KERNEL_MODULES_DEBUG) bin/linux/audit/build.sh
+
+clean-linuxaudit:
+	KERNEL_MODULES=$(KERNEL_MODULES) bin/linux/audit/clean.sh
 
 # Build the LinuxFUSE reporter.
 build-linuxfuse:
@@ -193,15 +178,14 @@ graph-utility:
  
 # ---------- Removing files ----------
 # Remove Java classes and native libraries, executables that we compiled.
-clean: clean-macfuse clean-linuxfuse android-clean
+clean: clean-macfuse clean-linuxfuse android-clean clean-linuxaudit
 	@echo 'Removing Java classes, native libraries, executables...'
 	@rm -rf build
 	@rm -rf lib/spade.jar
-	@rm -rf lib/spadeOpenBSM lib/spadeAuditBridge
+	@rm -rf lib/spadeOpenBSM
 	@rm -rf cfg/ssl
 	@rm -rf log
 	@rm -rf tmp
-	@$(MAKE) --no-print-directory -C $(AUDIT_KERNEL_MODULES_SRC) INSTALL_DIR=$(AUDIT_KERNEL_MODULES_INSTALL) clean
  
 DESTDIR = @prefix@
 install:
