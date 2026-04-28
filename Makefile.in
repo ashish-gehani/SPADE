@@ -143,15 +143,11 @@ audit-kernel-module:
 	fi
 
 # Build the LinuxFUSE reporter.
-build-linuxfuse: src/spade/reporter/spade_reporter_LinuxFUSE.h lib/libLinuxFUSE.so
-	@echo ''
-	@echo '-----> IMPORTANT: To use the LinuxFUSE reporter, please enable "user_allow_other" in /etc/fuse.conf'
-	@echo ''
-src/spade/reporter/spade_reporter_LinuxFUSE.h: build/spade/reporter/LinuxFUSE.class
-	$(JAVAC) -classpath 'build:lib/*' -h src/spade/reporter src/spade/reporter/LinuxFUSE.java
-lib/libLinuxFUSE.so: src/spade/reporter/libLinuxFUSE.c utilities
-	export PKG_CONFIG_PATH=$(OS_CONFIG_PATH);\
-	gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome) -I$(shell java -classpath build spade.utility.JavaHome)/linux -Wall src/spade/reporter/libLinuxFUSE.c `pkg-config fuse --cflags --libs` -o lib/libLinuxFUSE.so
+build-linuxfuse:
+	bin/linux/fuse/build.sh
+
+clean-linuxfuse:
+	bin/linux/fuse/clean.sh
  
 # Build the OpenBSM reporter.
 build-openbsm: build/spade/reporter/OpenBSM.class src/spade/reporter/spadeOpenBSM.c lib/spadeOpenBSM
@@ -194,10 +190,9 @@ graph-utility:
  
 # ---------- Removing files ----------
 # Remove Java classes and native libraries, executables that we compiled.
-clean: clean-macfuse
+clean: clean-macfuse clean-linuxfuse
 	@echo 'Removing Java classes, native libraries, executables...'
 	@rm -rf build android-build android-lib
-	@rm -rf src/spade/reporter/spade_reporter_LinuxFUSE.h lib/libLinuxFUSE.*
 	@rm -rf lib/spade.jar
 	@rm -rf lib/spadeOpenBSM lib/spadeAuditBridge
 	@rm -rf cfg/ssl
