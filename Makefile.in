@@ -169,7 +169,7 @@ llvm:
 	@make $(LLVM_RULE)
  
 build-mac-llvm:
-	bin/mac/llvm.sh --target $(LLVM_TARGET) --llvm-target $(LLVM_LLVM_TARGET)
+	bin/mac/llvm/build.sh --target $(LLVM_TARGET) --llvm-target $(LLVM_LLVM_TARGET)
  
 build-linux-llvm:
 	bin/linux/llvm.sh

@@ -3,6 +3,10 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
+SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../.. && pwd )"
+SPADE_LIB="${SPADE_ROOT}/lib"
+SPADE_SRC="${SPADE_ROOT}/src"
+
 # TODO Meaning unknown
 TARGET=
 # TODO Meaning unknown
@@ -14,10 +18,10 @@ function compile_and_build(){
     local CLANG="${LLVM_PATH}/bin/clang"
     local OPT="${LLVM_PATH}/bin/opt"
     local LLC="${LLVM_PATH}/bin/llc"
-    local LLVM_TRACER="src/spade/reporter/llvmTracer"
-    local LLVM_BRIDGE="src/spade/reporter/llvmBridge"
-    local LLVM_CLOSE="src/spade/reporter/llvmClose"
-    local LLVM_TRACER_DYLIB="lib/llvmTracer.dylib"
+    local LLVM_TRACER="${SPADE_SRC}/spade/reporter/llvmTracer"
+    local LLVM_BRIDGE="${SPADE_SRC}/spade/reporter/llvmBridge"
+    local LLVM_CLOSE="${SPADE_SRC}/spade/reporter/llvmClose"
+    local LLVM_TRACER_DYLIB="${SPADE_LIB}/llvmTracer.dylib"
     local CXX_FLAGS="$(${LLVM_PATH}/bin/llvm-config --cxxflags)"
     local C_FLAGS="$(${LLVM_PATH}/bin/llvm-config --cflags)"
     local CLANG_FLAGS="-cc1 -triple x86_64-apple-macosx10.6.8 -emit-obj -mrelax-all -disable-free ${C_FLAGS}"
