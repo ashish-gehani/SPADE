@@ -165,7 +165,10 @@ lib/spadeOpenBSM: src/spade/reporter/spadeOpenBSM.c
 # Build the MacFUSE reporter.
 build-macfuse:
 	bin/mac/fuse/build.sh
- 
+
+clean-macfuse:
+	bin/mac/fuse/clean.sh
+
 llvm:
 	@make $(LLVM_RULE)
  
@@ -191,10 +194,10 @@ graph-utility:
  
 # ---------- Removing files ----------
 # Remove Java classes and native libraries, executables that we compiled.
-clean:
+clean: clean-macfuse
 	@echo 'Removing Java classes, native libraries, executables...'
 	@rm -rf build android-build android-lib
-	@rm -rf src/spade/reporter/spade_reporter_LinuxFUSE.h lib/libLinuxFUSE.* lib/libMacFUSE.*
+	@rm -rf src/spade/reporter/spade_reporter_LinuxFUSE.h lib/libLinuxFUSE.*
 	@rm -rf lib/spade.jar
 	@rm -rf lib/spadeOpenBSM lib/spadeAuditBridge
 	@rm -rf cfg/ssl
