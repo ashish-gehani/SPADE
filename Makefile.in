@@ -21,6 +21,9 @@ endif
 
 OS_NAME = $(shell uname)
 
+LLVM_TARGET = 
+LLVM_LLVM_TARGET = 
+
 #
 # In Ubuntu, when you install llvm headers, it puts llvm and llvm-c inside version folder.
 # sudo ln -s  llvm-3.6/llvm/ llvm
@@ -180,21 +183,9 @@ build-macfuse: build/spade/reporter/MacFUSE.class src/spade/reporter/MacFUSE.jav
 llvm:
 	@make $(LLVM_RULE)
  
- 
+
 build-mac-llvm:
-	$(eval CXX_FLAGS = $(shell $(LLVM_PATH)/bin/llvm-config --cxxflags))
-	$(eval C_FLAGS = $(shell $(LLVM_PATH)/bin/llvm-config --cflags))
-	$(eval CLANG_FLAGS = -cc1 -triple x86_64-apple-macosx10.6.8 -emit-obj -mrelax-all -disable-free ${C_FLAGS})
-	$(eval CLANG++_FLAGS = ${CXX_FLAGS} -m64 -Wl,-flat_namespace -Wl,-undefined,suppress -dynamiclib -mmacosx-version-min=10.6)
-	$(LLVM_PATH)/bin/clang ${CLANG_FLAGS} -g -o src/spade/reporter/llvmTracer.o -x c++ src/spade/reporter/llvmTracer.cpp
-	$(LLVM_PATH)/bin/clang ${CLANG++_FLAGS} -o lib/llvmTracer.dylib src/spade/reporter/llvmTracer.o
-	$(LLVM_PATH)/bin/clang -static ${REPLIB_OSFLAG} src/spade/reporter/llvmBridge.c -c -o src/spade/reporter/llvmBridge.o
-	$(LLVM_PATH)/bin/clang -c -emit-llvm ${TARGET}.c -o ${LLVM_TARGET}.bc
-	$(LLVM_PATH)/bin/opt -load lib/llvmTracer.dylib -provenance ${LLVM_TARGET}.bc -o ${LLVM_TARGET}.bc
-	$(LLVM_PATH)/bin/llc ${LLVM_TARGET}.bc -o ${LLVM_TARGET}.s
-	$(LLVM_PATH)/bin/clang src/spade/reporter/llvmClose.c -c -o src/spade/reporter/llvmClose.o
-	$(LLVM_PATH)/bin/clang ${LLVM_TARGET}.s src/spade/reporter/llvmClose.o -dynamiclib -Wl,-flat_namespace -Wl,-undefined,suppress -o ${LLVM_TARGET}.dylib
-	$(LLVM_PATH)/bin/clang src/spade/reporter/llvmBridge.o ${LLVM_TARGET}.dylib -o ${LLVM_TARGET}
+	bin/mac/llvm.sh --target $(LLVM_TARGET) --llvm-target $(LLVM_LLVM_TARGET)
  
 build-linux-llvm:
 	echo llvm[0]: "Compiling llvmTracer.cpp for Release+Asserts build" "(PIC)"
