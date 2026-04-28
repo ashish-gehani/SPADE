@@ -6,8 +6,6 @@ CC=@CC@
 JAR=@JAR@
 JAVAC_CP = $(shell ./bin/classpath.sh)
 JAVAC_OPTIONS =$(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none
-ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@
-ANDROID_SDK_TOOLS = @ANDROID_SDK_TOOLS@
 
 KERNEL_MODULES ?= false
 AUDIT_KERNEL_MODULES_SRC ?= src/spade/reporter/audit/kernel-modules/
