@@ -5,7 +5,7 @@
 
 set -e
 
-SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../ && pwd )"
+source "$( dirname "${BASH_SOURCE[0]}" )/../env.sh"
 
-rm -rf "${SPADE_ROOT}/android-build"
-rm -rf "${SPADE_ROOT}/android-lib"
+rm -rf "${ANDROID_BUILD}"
+rm -rf "${ANDROID_LIB}"

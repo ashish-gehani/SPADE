@@ -4,22 +4,14 @@
 # Copyright (C) 2026 SRI International.
 
 
-SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../ && pwd )"
-SPADE_BUILD="${SPADE_ROOT}/build"
-ANDROID_BUILD="${SPADE_ROOT}/android-build"
-
-EXTRA_JAVAC_OPTIONS=
-
-JAVAC="$(which javac)"
-JAVAC_CP="$("${SPADE_ROOT}/bin/classpath.sh")"
-JAVAC_OPTIONS="${EXTRA_JAVAC_OPTIONS} -Xlint:none -proc:none"
+source "$( dirname "${BASH_SOURCE[0]}" )/../env.sh"
 
 DX="$(which dx 2>/dev/null)"
-if [[ -n "${DX}" ]]; then
-    ANDROID_BUILD_TOOLS="$(dirname "${DX}")/"
-else
-    ANDROID_BUILD_TOOLS=""
+if [[ -z "${DX}" ]]; then
+    echo "Error: dx not found. Please install Android SDK build tools."
+    exit 1
 fi
+ANDROID_BUILD_TOOLS="$(dirname "${DX}")/"
 
 mkdir -p "${SPADE_BUILD}"
 ${JAVAC} ${JAVAC_OPTIONS} -cp "${JAVAC_CP}" -sourcepath src -d "${SPADE_BUILD}" src/spade/client/Android.java

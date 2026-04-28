@@ -3,9 +3,7 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../.. && pwd )"
-SPADE_LIB="${SPADE_ROOT}/lib"
-SPADE_SRC="${SPADE_ROOT}/src"
+source "$( dirname "${BASH_SOURCE[0]}" )/../../env.sh"
 
 # TODO Meaning unknown
 TARGET=

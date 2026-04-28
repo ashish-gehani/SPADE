@@ -5,12 +5,7 @@
 
 set -e
 
-SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../.. && pwd )"
-SPADE_BUILD="${SPADE_ROOT}/build"
-SPADE_LIB="${SPADE_ROOT}/lib"
-SPADE_SRC="${SPADE_ROOT}/src"
-
-JAVA_HOME_DIR="$(java -classpath "${SPADE_BUILD}" spade.utility.JavaHome)"
+source "$( dirname "${BASH_SOURCE[0]}" )/../../env.sh"
 
 javac -classpath "${SPADE_BUILD}:${SPADE_LIB}/*" -h "${SPADE_SRC}/spade/reporter" "${SPADE_SRC}/spade/reporter/LinuxFUSE.java"
 

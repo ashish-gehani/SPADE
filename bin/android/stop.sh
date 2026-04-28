@@ -4,11 +4,11 @@
 # Copyright (C) 2026 SRI International.
 
 
-ADB="$(which adb 2>/dev/null)"
-if [[ -n "${ADB}" ]]; then
-    ANDROID_SDK_TOOLS="$(dirname "${ADB}")/"
-else
-    ANDROID_SDK_TOOLS=""
+source "$( dirname "${BASH_SOURCE[0]}" )/../env.sh"
+
+if [[ -z "${ADB}" ]]; then
+    echo "Error: adb not found. Please install Android SDK platform tools."
+    exit 1
 fi
 
 # ${ANDROID_SDK_TOOLS}/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.client.Android shutdown"

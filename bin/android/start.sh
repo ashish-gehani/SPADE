@@ -4,14 +4,11 @@
 # Copyright (C) 2026 SRI International.
 
 
-SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../ && pwd )"
-ANDROID_BUILD="${SPADE_ROOT}/android-build"
+source "$( dirname "${BASH_SOURCE[0]}" )/../env.sh"
 
-ADB="$(which adb 2>/dev/null)"
-if [[ -n "${ADB}" ]]; then
-    ANDROID_SDK_TOOLS="$(dirname "${ADB}")/"
-else
-    ANDROID_SDK_TOOLS=""
+if [[ -z "${ADB}" ]]; then
+    echo "Error: adb not found. Please install Android SDK platform tools."
+    exit 1
 fi
 
 ${ANDROID_SDK_TOOLS}/adb shell start

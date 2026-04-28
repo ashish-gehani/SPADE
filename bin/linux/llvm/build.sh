@@ -3,9 +3,7 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../../.. && pwd )"
-SPADE_SRC="${SPADE_ROOT}/src"
-SPADE_BIN_LLVM="${SPADE_ROOT}/bin/llvm"
+source "$( dirname "${BASH_SOURCE[0]}" )/../../env.sh"
 
 # TODO This script will conflict with https://github.com/ashish-gehani/SPADE/blob/master/bin/llvm/llvmTrace.sh
 # TODO This script will not work!
