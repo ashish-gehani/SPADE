@@ -172,33 +172,19 @@ build-macfuse: build/spade/reporter/MacFUSE.class src/spade/reporter/MacFUSE.jav
 llvm:
 	@make $(LLVM_RULE)
  
-
 build-mac-llvm:
 	bin/mac/llvm.sh --target $(LLVM_TARGET) --llvm-target $(LLVM_LLVM_TARGET)
  
 build-linux-llvm:
 	bin/linux/llvm.sh
 
- 
 # Build for Android
 android-build:
 	bin/android/build.sh
  
 # Deploy to Android
 android-start:
-	$(ANDROID_SDK_TOOLS)/adb shell start
-	$(ANDROID_SDK_TOOLS)/adb shell "rm -r /sdcard/spade"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/log"
-	$(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/conf"
-	# $(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-lib"
-	# $(ANDROID_SDK_TOOLS)/adb shell "mkdir /sdcard/spade/android-build"
-	$(ANDROID_SDK_TOOLS)/adb shell "echo -e \"filter IORuns 0\\nstorage Graphviz /sdcard/spade/audit.dot\\nreporter Strace name=zygote user=radio user=system !name=/system/bin/surfaceflinger\" > /sdcard/spade/conf/spade.config"
-	# @for f in "android-build" "android-lib"; do $(ANDROID_SDK_TOOLS)/adb push $$f /sdcard/spade/$$f; done;
-	$(ANDROID_SDK_TOOLS)/adb push android-build/android-spade.jar /sdcard/spade/android-spade.jar;
-	$(ANDROID_SDK_TOOLS)/adb push android-build/control.sh /sdcard/spade/control.sh;
-	# $(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -Xmx512M -cp android-spade.jar spade.core.Kernel android"
-	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade; dalvikvm -Xmx512M -cp android-spade.jar spade.core.Kernel android"
+	bin/android/start.sh
  
 android-stop:
 	# $(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade/android-build; dalvikvm -cp android-spade.jar spade.client.Android shutdown"
