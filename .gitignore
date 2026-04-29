@@ -1,5 +1,6 @@
 build
 /Makefile
+/target
 bin/spadeAuditBridge
 cfg/control.history
 cfg/keys/
