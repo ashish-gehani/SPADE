@@ -7,7 +7,11 @@ set -e
 
 source "$( dirname "${BASH_SOURCE[0]}" )/../../env.sh"
 
-javac -classpath "${SPADE_BUILD}:${SPADE_LIB}/*" -h "${SPADE_SRC}/spade/reporter" "${SPADE_SRC}/spade/reporter/MacFUSE.java"
+JAVAC="$(which javac)"
+
+JAVA_HOME_DIR="$(java -classpath "${SPADE_BUILD}" spade.utility.JavaHome)"
+
+"${JAVAC}" -classpath "${SPADE_BUILD}:${SPADE_LIB}/*" -h "${SPADE_SRC}/spade/reporter" "${SPADE_SRC}/spade/reporter/MacFUSE.java"
 gcc -dynamiclib \
     -I"${JAVA_HOME_DIR}" \
     -I"${JAVA_HOME_DIR}/darwin" \

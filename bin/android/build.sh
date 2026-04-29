@@ -6,6 +6,9 @@
 
 source "$( dirname "${BASH_SOURCE[0]}" )/../env.sh"
 
+JAVAC_CP="$("${JAVAC_CP_PATH}")"
+JAVAC="$(which javac)"
+
 DX="$(which dx 2>/dev/null)"
 if [[ -z "${DX}" ]]; then
     echo "Error: dx not found. Please install Android SDK build tools."

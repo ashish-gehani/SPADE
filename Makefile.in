@@ -122,31 +122,41 @@ lib/spade.jar: build-java $$(OS_BUILD)
 
 # Build the LinuxAudit reporter.
 build-linuxaudit:
-	bin/linux/audit/build.sh --kernel-modules $(KERNEL_MODULES) --kernel-modules-debug $(KERNEL_MODULES_DEBUG)
+	bin/linux/audit/build.sh
 
-clean-linuxaudit:
-	bin/linux/audit/clean.sh --kernel-modules $(KERNEL_MODULES)
+clean-linuxaudit: clean-linuxaudit-kernel
+	@bin/linux/audit/clean.sh
+
+build-linuxaudit-kernel:
+	bin/linux/audit/kernel/build.sh --kernel-modules-debug $(KERNEL_MODULES_DEBUG)
+
+clean-linuxaudit-kernel:
+	@bin/linux/audit/kernel/clean.sh
+
+ifeq ($(KERNEL_MODULES),true)
+build-linuxaudit: build-linuxaudit-kernel
+endif
 
 # Build the LinuxFUSE reporter.
 build-linuxfuse:
 	bin/linux/fuse/build.sh
 
 clean-linuxfuse:
-	bin/linux/fuse/clean.sh
+	@bin/linux/fuse/clean.sh
  
 # Build the OpenBSM reporter.
 build-openbsm:
 	bin/mac/openbsm/build.sh
 
 clean-openbsm:
-	bin/mac/openbsm/clean.sh
+	@bin/mac/openbsm/clean.sh
  
 # Build the MacFUSE reporter.
 build-macfuse:
 	bin/mac/fuse/build.sh
 
 clean-macfuse:
-	bin/mac/fuse/clean.sh
+	@bin/mac/fuse/clean.sh
 
 llvm:
 	@make $(LLVM_RULE)
@@ -169,7 +179,7 @@ android-stop:
 	bin/android/stop.sh
 
 android-clean:
-	bin/android/clean.sh
+	@bin/android/clean.sh
 
 graph-utility:
 	java -cp 'build:lib/*' spade.utility.GraphUtility

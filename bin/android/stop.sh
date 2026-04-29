@@ -6,6 +6,9 @@
 
 source "$( dirname "${BASH_SOURCE[0]}" )/../env.sh"
 
+ADB="$(which adb 2>/dev/null)"
+ANDROID_SDK_TOOLS="$(dirname "${ADB}")/"
+
 if [[ -z "${ADB}" ]]; then
     echo "Error: adb not found. Please install Android SDK platform tools."
     exit 1
