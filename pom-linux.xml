@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.spade</groupId>
+    <artifactId>spade</artifactId>
+    <version>1</version>
+  </parent>
+
+  <artifactId>spade-linux</artifactId>
+  <packaging>pom</packaging>
+
+  <name>spade-linux</name>
+  <description>Linux native build targets for SPADE.</description>
+
+  <properties>
+    <kernel.modules.debug>false</kernel.modules.debug>
+  </properties>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <executions>
+
+          <!-- LinuxAudit -->
+          <execution>
+            <id>build-linuxaudit</id>
+            <phase>compile</phase>
+            <goals><goal>exec</goal></goals>
+            <configuration>
+              <executable>bin/linux/audit/build.sh</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+            </configuration>
+          </execution>
+
+          <execution>
+            <id>clean-linuxaudit-kernel</id>
+            <phase>clean</phase>
+            <goals><goal>exec</goal></goals>
+            <configuration>
+              <executable>bin/linux/audit/kernel/clean.sh</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+            </configuration>
+          </execution>
+
+          <execution>
+            <id>clean-linuxaudit</id>
+            <phase>clean</phase>
+            <goals><goal>exec</goal></goals>
+            <configuration>
+              <executable>bin/linux/audit/clean.sh</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+            </configuration>
+          </execution>
+
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+
+    <!-- FUSE: auto-activated when fuse is installed -->
+    <profile>
+      <id>fuse</id>
+      <activation>
+        <file>
+          <exists>/usr/lib/pkgconfig/fuse.pc</exists>
+        </file>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
+
+              <execution>
+                <id>build-linuxfuse</id>
+                <phase>compile</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>bin/linux/fuse/build.sh</executable>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                </configuration>
+              </execution>
+
+              <execution>
+                <id>clean-linuxfuse</id>
+                <phase>clean</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>bin/linux/fuse/clean.sh</executable>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                </configuration>
+              </execution>
+
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <!-- Kernel modules: activated with -Dkernel.modules on kernel [5.4,6.9) -->
+    <profile>
+      <id>kernel-modules</id>
+      <activation>
+        <property>
+          <name>kernel.modules</name>
+        </property>
+        <os>
+          <family>unix</family>
+          <name>Linux</name>
+          <version>[5.4,6.9)</version>
+        </os>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
+
+              <execution>
+                <id>build-linuxaudit-kernel</id>
+                <phase>compile</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>bin/linux/audit/kernel/build.sh</executable>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                  <arguments>
+                    <argument>--kernel-modules-debug</argument>
+                    <argument>${kernel.modules.debug}</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <!-- LLVM: activated with -Dllvm -->
+    <profile>
+      <id>llvm</id>
+      <activation>
+        <property>
+          <name>llvm</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
+
+              <execution>
+                <id>build-linux-llvm</id>
+                <phase>compile</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>bin/linux/llvm/build.sh</executable>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                </configuration>
+              </execution>
+
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+  </profiles>
+
+</project>
