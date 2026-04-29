@@ -122,10 +122,10 @@ lib/spade.jar: build-java $$(OS_BUILD)
 
 # Build the LinuxAudit reporter.
 build-linuxaudit:
-	KERNEL_MODULES=$(KERNEL_MODULES) KERNEL_MODULES_DEBUG=$(KERNEL_MODULES_DEBUG) bin/linux/audit/build.sh
+	bin/linux/audit/build.sh --kernel-modules $(KERNEL_MODULES) --kernel-modules-debug $(KERNEL_MODULES_DEBUG)
 
 clean-linuxaudit:
-	KERNEL_MODULES=$(KERNEL_MODULES) bin/linux/audit/clean.sh
+	bin/linux/audit/clean.sh --kernel-modules $(KERNEL_MODULES)
 
 # Build the LinuxFUSE reporter.
 build-linuxfuse:
