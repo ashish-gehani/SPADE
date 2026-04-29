@@ -10,14 +10,21 @@ JAVAC_OPTIONS =$(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(JAVAC_CP)'
 
 # build
 SPADE_BUILD_DIR = build
+SPADE_LIB_DIR = lib
 SPADE_SRC_DIR = src
 SPADE_AUDIT_BRIDGE = bin/spadeAuditBridge
+LINUX_FUSE_LIB_PATH = $(SPADE_LIB_DIR)/libLinuxFUSE.so
+LINUX_FUSE_LIB_JAVA_SRC = $(SPADE_SRC_DIR)/spade/reporter/LinuxFUSE.java
+LINUX_FUSE_LIB_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/libLinuxFUSE.c
+LINUX_FUSE_NATIVE_HEADER_DIR = $(SPADE_SRC_DIR)/spade/reporter
+LINUX_FUSE_NATIVE_HEADER_FILE = $(LINUX_FUSE_NATIVE_HEADER_DIR)/spade_reporter_LinuxFUSE.h
+LINUX_FUSE_JAVAC_OPTIONS = $(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(SPADE_BUILD_DIR):$(SPADE_LIB_DIR)/*'
 
 # kernel modules
 KERNEL_MODULES ?= false
 KERNEL_MODULES_DEBUG ?= false
 KERNEL_MODULES_SRC = $(SPADE_SRC_DIR)/spade/reporter/audit/kernel-modules
-KERNEL_MODULES_INSTALL = lib/kernel-modules
+KERNEL_MODULES_INSTALL = $(SPADE_LIB_DIR)/kernel-modules
 
 # android
 ANDROID_BUILD_DIR = android-build
@@ -165,10 +172,21 @@ endif
 
 # Build the LinuxFUSE reporter.
 build-linuxfuse:
-	bin/linux/fuse/build.sh
+	bin/linux/fuse/build.sh \
+		--javac $(JAVAC) \
+		--javac-options "$(LINUX_FUSE_JAVAC_OPTIONS)" \
+		--spade-build $(SPADE_BUILD_DIR) \
+		--spade-lib $(SPADE_LIB_DIR) \
+		--spade-src $(SPADE_SRC_DIR) \
+		--lib-java-src $(LINUX_FUSE_LIB_JAVA_SRC) \
+		--lib-c-src $(LINUX_FUSE_LIB_C_SRC) \
+		--native-header-dir $(LINUX_FUSE_NATIVE_HEADER_DIR) \
+		--lib-path $(LINUX_FUSE_LIB_PATH)
 
 clean-linuxfuse:
-	@bin/linux/fuse/clean.sh
+	@bin/linux/fuse/clean.sh \
+		--native-header-file $(LINUX_FUSE_NATIVE_HEADER_FILE) \
+		--lib-path $(LINUX_FUSE_LIB_PATH)
  
 # Build the OpenBSM reporter.
 build-openbsm:
