@@ -43,6 +43,12 @@
                 <configuration>
                   <executable>${spade.bin.dir}/linux/llvm/build.sh</executable>
                   <workingDirectory>${spade.root}</workingDirectory>
+                  <arguments>
+                    <argument>--spade-src</argument>
+                    <argument>${spade.src.dir}</argument>
+                    <argument>--spade-bin-llvm</argument>
+                    <argument>${spade.bin.dir}/llvm</argument>
+                  </arguments>
                 </configuration>
               </execution>
 
