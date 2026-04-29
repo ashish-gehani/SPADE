@@ -184,7 +184,8 @@ android-build:
  
 # Deploy to Android
 android-start:
-	bin/android/start.sh
+	bin/android/start.sh \
+		--android_build $(ANDROID_BUILD_DIR)
  
 android-stop:
 	bin/android/stop.sh

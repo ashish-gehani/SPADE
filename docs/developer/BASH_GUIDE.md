@@ -40,6 +40,10 @@ Every script must follow this structure:
 source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
 
 
+# constants
+FIXED_VAL="something"
+
+# globals
 FOO=""
 BAR=""
 
@@ -149,22 +153,19 @@ main() {
 
 ## Global Variables
 
-Declare variables shared across multiple functions at the top of the file, after `source`, with two blank lines on each side. Initialize them to empty strings.
+Top-level variables are either constants or globals. Constants are fixed values that never change. Globals are set by `parse_args` and updated at runtime. Constants come first, each group marked with a comment. Two blank lines on each side of the block.
 
 ```bash
-source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
+# constants
+DEVICE_SDCARD="/sdcard"
+DEVICE_SPADE_DIR="${DEVICE_SDCARD}/spade"
 
-
+# globals
 FOO=""
 BAR=""
-
-
-print_help() {
-    ...
-}
 ```
 
-If the script is intended to be sourced by other scripts, prefix all global variables with a unique identifier (e.g. the script name in uppercase with underscores) to avoid collisions.
+If the script is intended to be sourced by other scripts, prefix all top-level variables with a unique identifier (e.g. the script name in uppercase with underscores) to avoid collisions.
 
 ```bash
 # in build.sh
