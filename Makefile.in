@@ -11,6 +11,7 @@ JAVAC_OPTIONS =$(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(JAVAC_CP)'
 # build
 SPADE_BUILD_DIR = build
 SPADE_SRC_DIR = src
+SPADE_AUDIT_BRIDGE = bin/spadeAuditBridge
 
 # kernel modules
 KERNEL_MODULES ?= false
@@ -139,10 +140,13 @@ lib/spade.jar: build-java $$(OS_BUILD)
 
 # Build the LinuxAudit reporter.
 build-linuxaudit:
-	bin/linux/audit/build.sh
+	bin/linux/audit/build.sh \
+		--audit_bridge $(SPADE_AUDIT_BRIDGE) \
+		--spade_src $(SPADE_SRC_DIR)
 
 clean-linuxaudit: clean-linuxaudit-kernel
-	@bin/linux/audit/clean.sh
+	@bin/linux/audit/clean.sh \
+		--audit_bridge $(SPADE_AUDIT_BRIDGE)
 
 build-linuxaudit-kernel:
 	bin/linux/audit/kernel/build.sh \
