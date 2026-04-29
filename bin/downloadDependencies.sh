@@ -6,60 +6,44 @@
 # Downloads SPADE's Java dependencies from a git repository and copies the
 # jars listed in cfg/java.classpath into lib/. Existing jars are left in place.
 # The repo is cloned once to lib/.deps and reused on subsequent runs.
-#
-# Usage:
-#   downloadDependencies.sh --url <repo-url> --commit <commit>
-#
-# Options:
-#   --url     Git URL of the dependencies repository (required)
-#   --commit  Commit hash or tag to check out (required)
-#
-# Globals (set before calling or modify in this file):
-#   DEPS_REPO_SUBDIR  Subdirectory within the cloned repo where jars live.
-#                     Leave empty if jars are at the repo root.
 
-set -e
 
-source "$( dirname "${BASH_SOURCE[0]}" )/env.sh"
-
+# globals
 DEPS_REPO_URL=""
 DEPS_REPO_COMMIT=""
 DEPS_REPO_SUBDIR=""
-DEPS_REPO_DIR="${SPADE_LIB}/.deps"
-JAVA_CLASSPATH_FILE="${SPADE_ROOT}/cfg/java.classpath"
+SPADE_ROOT=""
+SPADE_LIB=""
+DEPS_REPO_DIR=""
+JAVA_CLASSPATH_FILE=""
 
-function usage(){
-    echo "Usage: $(basename "$0") --url <repo-url> --commit <commit>"
+
+function print_help() {
+    echo "Usage: $(basename "$0") --url <repo-url> --commit <commit> --spade-root <path>"
     echo ""
     echo "Options:"
-    echo "  --url     Git URL of the dependencies repository (required)"
-    echo "  --commit  Commit hash or tag to check out (required)"
-    echo "  -h, --help  Show this help message"
+    echo "    --url <repo-url>    Git URL of the dependencies repository"
+    echo "    --commit <commit>   Commit hash or tag to check out"
+    echo "    --spade-root <path> Path to the SPADE root directory"
+    echo "    --subdir <path>     Subdirectory within the cloned repo where jars live (optional)"
+    echo "    --help              Show this message and exit"
+    exit 0
 }
 
-function parse_args(){
+function parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --url)
-                DEPS_REPO_URL="$2"
-                shift 2
-                ;;
-            --commit)
-                DEPS_REPO_COMMIT="$2"
-                shift 2
-                ;;
-            -h|--help)
-                usage
-                exit 0
-                ;;
-            *)
-                echo "Unknown argument: $1"
-                usage
-                exit 1
-                ;;
+            --url)        DEPS_REPO_URL="$2";    shift 2 ;;
+            --commit)     DEPS_REPO_COMMIT="$2"; shift 2 ;;
+            --spade-root) SPADE_ROOT="$2";       shift 2 ;;
+            --subdir)     DEPS_REPO_SUBDIR="$2"; shift 2 ;;
+            --help)       print_help ;;
+            *) echo "Unknown argument: $1"; exit 1 ;;
         esac
     done
+}
 
+function validate_args() {
     if [[ -z "${DEPS_REPO_URL}" ]]; then
         echo "Error: --url is required"
         exit 1
@@ -68,16 +52,23 @@ function parse_args(){
         echo "Error: --commit is required"
         exit 1
     fi
+    if [[ -z "${SPADE_ROOT}" ]]; then
+        echo "Error: --spade-root is required"
+        exit 1
+    fi
+    SPADE_LIB="${SPADE_ROOT}/lib"
+    DEPS_REPO_DIR="${SPADE_LIB}/.deps"
+    JAVA_CLASSPATH_FILE="${SPADE_ROOT}/cfg/java.classpath"
 }
 
-function check_git(){
+function check_git() {
     if ! command -v git &>/dev/null; then
         echo "Error: git not found. Please install git."
         exit 1
     fi
 }
 
-function clone_deps_repo(){
+function clone_deps_repo() {
     if [[ -d "${DEPS_REPO_DIR}" ]]; then
         echo "Deps repo exists, skipping clone: ${DEPS_REPO_DIR}"
         return
@@ -87,10 +78,11 @@ function clone_deps_repo(){
     git -C "${DEPS_REPO_DIR}" checkout "${DEPS_REPO_COMMIT}"
 }
 
-function copy_jars(){
+function copy_jars() {
     while IFS= read -r line; do
-        # only process direct lib/*.jar entries
-        [[ "${line}" =~ ^lib/[^/]+\.jar$ ]] || continue
+        if [[ ! "${line}" =~ ^lib/[^/]+\.jar$ ]]; then
+            continue
+        fi
 
         local jar_name
         jar_name="$(basename "${line}")"
@@ -112,8 +104,9 @@ function copy_jars(){
     done < "${JAVA_CLASSPATH_FILE}"
 }
 
-function main(){
+function main() {
     parse_args "$@"
+    validate_args
     check_git
     clone_deps_repo
     copy_jars
