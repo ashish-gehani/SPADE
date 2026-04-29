@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.spade</groupId>
+    <artifactId>spade</artifactId>
+    <version>${revision}</version>
+    <relativePath>pom.xml</relativePath>
+  </parent>
+
+  <artifactId>spade-linux-audit</artifactId>
+  <packaging>pom</packaging>
+
+  <name>spade-linux-audit</name>
+  <description>LinuxAudit reporter build for SPADE.</description>
+
+  <modules>
+    <module>pom-linux-audit-kernel.xml</module>
+  </modules>
+
+  <properties>
+    <audit.bridge>${spade.bin.dir}/spadeAuditBridge</audit.bridge>
+  </properties>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <executions>
+
+          <execution>
+            <id>build-linuxaudit</id>
+            <phase>compile</phase>
+            <goals><goal>exec</goal></goals>
+            <configuration>
+              <executable>${spade.bin.dir}/linux/audit/build.sh</executable>
+              <workingDirectory>${spade.root}</workingDirectory>
+              <arguments>
+                <argument>--audit_bridge</argument>
+                <argument>${audit.bridge}</argument>
+                <argument>--spade_src</argument>
+                <argument>${spade.src.dir}</argument>
+              </arguments>
+            </configuration>
+          </execution>
+
+          <execution>
+            <id>clean-linuxaudit</id>
+            <phase>clean</phase>
+            <goals><goal>exec</goal></goals>
+            <configuration>
+              <executable>${spade.bin.dir}/linux/audit/clean.sh</executable>
+              <workingDirectory>${spade.root}</workingDirectory>
+              <arguments>
+                <argument>--audit_bridge</argument>
+                <argument>${audit.bridge}</argument>
+              </arguments>
+            </configuration>
+          </execution>
+
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+
+</project>

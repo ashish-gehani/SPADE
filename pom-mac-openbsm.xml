@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.spade</groupId>
+    <artifactId>spade</artifactId>
+    <version>${revision}</version>
+    <relativePath>pom.xml</relativePath>
+  </parent>
+
+  <artifactId>spade-mac-openbsm</artifactId>
+  <packaging>pom</packaging>
+
+  <name>spade-mac-openbsm</name>
+  <description>OpenBSM reporter build for SPADE.</description>
+
+  <properties>
+    <openbsm.mac.c.src>${spade.src.dir}/spade/reporter/spadeOpenBSM.c</openbsm.mac.c.src>
+    <openbsm.mac.output>${spade.lib.dir}/spadeOpenBSM</openbsm.mac.output>
+  </properties>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <executions>
+
+          <execution>
+            <id>build-openbsm</id>
+            <phase>compile</phase>
+            <goals><goal>exec</goal></goals>
+            <configuration>
+              <executable>${spade.bin.dir}/mac/openbsm/build.sh</executable>
+              <workingDirectory>${spade.root}</workingDirectory>
+              <arguments>
+                <argument>--c-src</argument>
+                <argument>${openbsm.mac.c.src}</argument>
+                <argument>--output</argument>
+                <argument>${openbsm.mac.output}</argument>
+              </arguments>
+            </configuration>
+          </execution>
+
+          <execution>
+            <id>clean-openbsm</id>
+            <phase>clean</phase>
+            <goals><goal>exec</goal></goals>
+            <configuration>
+              <executable>${spade.bin.dir}/mac/openbsm/clean.sh</executable>
+              <workingDirectory>${spade.root}</workingDirectory>
+              <arguments>
+                <argument>--output</argument>
+                <argument>${openbsm.mac.output}</argument>
+              </arguments>
+            </configuration>
+          </execution>
+
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>

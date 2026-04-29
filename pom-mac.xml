@@ -7,7 +7,8 @@
   <parent>
     <groupId>io.github.spade</groupId>
     <artifactId>spade</artifactId>
-    <version>1</version>
+    <version>${revision}</version>
+    <relativePath>pom.xml</relativePath>
   </parent>
 
   <artifactId>spade-mac</artifactId>
@@ -16,119 +17,10 @@
   <name>spade-mac</name>
   <description>macOS native build targets for SPADE.</description>
 
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <executions>
-
-          <!-- OpenBSM -->
-          <execution>
-            <id>build-openbsm</id>
-            <phase>compile</phase>
-            <goals><goal>exec</goal></goals>
-            <configuration>
-              <executable>bin/mac/openbsm/build.sh</executable>
-              <workingDirectory>${project.basedir}</workingDirectory>
-            </configuration>
-          </execution>
-
-          <execution>
-            <id>clean-openbsm</id>
-            <phase>clean</phase>
-            <goals><goal>exec</goal></goals>
-            <configuration>
-              <executable>bin/mac/openbsm/clean.sh</executable>
-              <workingDirectory>${project.basedir}</workingDirectory>
-            </configuration>
-          </execution>
-
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
-
-  <profiles>
-
-    <!-- FUSE: auto-activated when fuse is installed -->
-    <profile>
-      <id>fuse</id>
-      <activation>
-        <file>
-          <exists>/usr/local/lib/pkgconfig/fuse-t.pc</exists>
-        </file>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>exec-maven-plugin</artifactId>
-            <executions>
-
-              <execution>
-                <id>build-macfuse</id>
-                <phase>compile</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>bin/mac/fuse/build.sh</executable>
-                  <workingDirectory>${project.basedir}</workingDirectory>
-                </configuration>
-              </execution>
-
-              <execution>
-                <id>clean-macfuse</id>
-                <phase>clean</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>bin/mac/fuse/clean.sh</executable>
-                  <workingDirectory>${project.basedir}</workingDirectory>
-                </configuration>
-              </execution>
-
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-
-    <!-- LLVM: activated with -Dllvm -Dllvm.target=<target> -Dllvm.llvm-target=<llvm-target> -->
-    <profile>
-      <id>llvm</id>
-      <activation>
-        <property>
-          <name>llvm</name>
-        </property>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>exec-maven-plugin</artifactId>
-            <executions>
-
-              <execution>
-                <id>build-mac-llvm</id>
-                <phase>compile</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>bin/mac/llvm/build.sh</executable>
-                  <workingDirectory>${project.basedir}</workingDirectory>
-                  <arguments>
-                    <argument>--target</argument>
-                    <argument>${llvm.target}</argument>
-                    <argument>--llvm-target</argument>
-                    <argument>${llvm.llvm-target}</argument>
-                  </arguments>
-                </configuration>
-              </execution>
-
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-
-  </profiles>
+  <modules>
+    <module>pom-mac-openbsm.xml</module>
+    <module>pom-mac-fuse.xml</module>
+    <module>pom-mac-llvm.xml</module>
+  </modules>
 
 </project>

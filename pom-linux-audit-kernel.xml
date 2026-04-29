@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.spade</groupId>
+    <artifactId>spade</artifactId>
+    <version>${revision}</version>
+    <relativePath>pom.xml</relativePath>
+  </parent>
+
+  <artifactId>spade-linux-audit-kernel</artifactId>
+  <packaging>pom</packaging>
+
+  <name>spade-linux-audit-kernel</name>
+  <description>LinuxAudit kernel modules build for SPADE.</description>
+
+  <properties>
+    <kernel.modules.src>${spade.src.dir}/spade/reporter/audit/kernel-modules</kernel.modules.src>
+    <kernel.modules.install>${spade.lib.dir}/kernel-modules</kernel.modules.install>
+    <!-- override via -Dkernel.modules.debug=true -->
+    <kernel.modules.debug>false</kernel.modules.debug>
+  </properties>
+
+  <profiles>
+
+    <!-- activated with -Dkernel.modules on kernel [5.4,6.9) -->
+    <profile>
+      <id>kernel-modules</id>
+      <activation>
+        <property>
+          <name>kernel.modules</name>
+          <value>true</value>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
+
+              <execution>
+                <id>build-linuxaudit-kernel</id>
+                <phase>compile</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>${spade.bin.dir}/linux/audit/kernel/build.sh</executable>
+                  <workingDirectory>${spade.root}</workingDirectory>
+                  <arguments>
+                    <argument>--kernel_modules_src</argument>
+                    <argument>${kernel.modules.src}</argument>
+                    <argument>--kernel_modules_install</argument>
+                    <argument>${kernel.modules.install}</argument>
+                    <argument>--kernel_modules_debug</argument>
+                    <argument>${kernel.modules.debug}</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+
+              <execution>
+                <id>clean-linuxaudit-kernel</id>
+                <phase>clean</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>${spade.bin.dir}/linux/audit/kernel/clean.sh</executable>
+                  <workingDirectory>${spade.root}</workingDirectory>
+                  <arguments>
+                    <argument>--kernel_modules_src</argument>
+                    <argument>${kernel.modules.src}</argument>
+                    <argument>--kernel_modules_install</argument>
+                    <argument>${kernel.modules.install}</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+  </profiles>
+
+</project>

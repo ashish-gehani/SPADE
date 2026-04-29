@@ -15,7 +15,6 @@ SPADE_LIB_DIR = $(SPADE_ROOT)/lib
 SPADE_SRC_DIR = $(SPADE_ROOT)/src
 SPADE_BIN_DIR = $(SPADE_ROOT)/bin
 SPADE_JAR = $(SPADE_LIB_DIR)/spade.jar
-SPADE_AUDIT_BRIDGE = $(SPADE_BIN_DIR)/spadeAuditBridge
 
 # fuse linux
 FUSE_LINUX_LIB_PATH = $(SPADE_LIB_DIR)/libLinuxFUSE.so
@@ -37,7 +36,10 @@ FUSE_MAC_NATIVE_HEADER_DIR = $(SPADE_SRC_DIR)/spade/reporter
 FUSE_MAC_NATIVE_HEADER_FILE = $(FUSE_MAC_NATIVE_HEADER_DIR)/spade_reporter_MacFUSE.h
 FUSE_MAC_JAVAC_OPTIONS = $(JAVAC_OPTIONS)
 
-# kernel modules
+# audit linux bridge
+SPADE_AUDIT_BRIDGE = $(SPADE_BIN_DIR)/spadeAuditBridge
+
+# audit kernel modules
 KERNEL_MODULES ?= false
 KERNEL_MODULES_DEBUG ?= false
 KERNEL_MODULES_SRC = $(SPADE_SRC_DIR)/spade/reporter/audit/kernel-modules

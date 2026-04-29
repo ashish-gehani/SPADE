@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.spade</groupId>
+    <artifactId>spade</artifactId>
+    <version>${revision}</version>
+    <relativePath>pom.xml</relativePath>
+  </parent>
+
+  <artifactId>spade-linux-llvm</artifactId>
+  <packaging>pom</packaging>
+
+  <name>spade-linux-llvm</name>
+  <!-- WARNING: Linux LLVM reporter is not in working condition.
+       Please file an issue at https://github.com/ashish-gehani/SPADE/issues -->
+  <description>Linux LLVM reporter build for SPADE.</description>
+
+  <profiles>
+
+    <!-- activated with -Dllvm -->
+    <profile>
+      <id>llvm</id>
+      <activation>
+        <property>
+          <name>llvm</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
+
+              <execution>
+                <id>build-linux-llvm</id>
+                <phase>compile</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>${spade.bin.dir}/linux/llvm/build.sh</executable>
+                  <workingDirectory>${spade.root}</workingDirectory>
+                </configuration>
+              </execution>
+
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+  </profiles>
+
+</project>

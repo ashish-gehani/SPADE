@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.spade</groupId>
+    <artifactId>spade</artifactId>
+    <version>${revision}</version>
+    <relativePath>pom.xml</relativePath>
+  </parent>
+
+  <artifactId>spade-mac-fuse</artifactId>
+  <packaging>pom</packaging>
+
+  <name>spade-mac-fuse</name>
+  <description>MacFUSE reporter build for SPADE.</description>
+
+  <properties>
+    <fuse.mac.lib.java.src>${spade.src.dir}/spade/reporter/MacFUSE.java</fuse.mac.lib.java.src>
+    <fuse.mac.lib.c.src>${spade.src.dir}/spade/reporter/libMacFUSE.c</fuse.mac.lib.c.src>
+    <fuse.mac.native.header.dir>${spade.src.dir}/spade/reporter</fuse.mac.native.header.dir>
+    <fuse.mac.native.header.file>${fuse.mac.native.header.dir}/spade_reporter_MacFUSE.h</fuse.mac.native.header.file>
+    <fuse.mac.lib.path>${spade.lib.dir}/libMacFUSE.jnilib</fuse.mac.lib.path>
+  </properties>
+
+  <profiles>
+
+    <!-- auto-activated when fuse is installed -->
+    <profile>
+      <id>fuse</id>
+      <activation>
+        <file>
+          <exists>/usr/local/lib/pkgconfig/fuse-t.pc</exists>
+        </file>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-dependency-plugin</artifactId>
+          </plugin>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
+
+              <execution>
+                <id>build-macfuse</id>
+                <phase>compile</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>${spade.bin.dir}/mac/fuse/build.sh</executable>
+                  <workingDirectory>${spade.root}</workingDirectory>
+                  <arguments>
+                    <argument>--javac</argument>
+                    <argument>${javac}</argument>
+                    <argument>--javac-options</argument>
+                    <argument>${javac.options}</argument>
+                    <argument>--spade-build</argument>
+                    <argument>${spade.build.dir}</argument>
+                    <argument>--lib-java-src</argument>
+                    <argument>${fuse.mac.lib.java.src}</argument>
+                    <argument>--lib-c-src</argument>
+                    <argument>${fuse.mac.lib.c.src}</argument>
+                    <argument>--native-header-dir</argument>
+                    <argument>${fuse.mac.native.header.dir}</argument>
+                    <argument>--lib-path</argument>
+                    <argument>${fuse.mac.lib.path}</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+
+              <execution>
+                <id>clean-macfuse</id>
+                <phase>clean</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>${spade.bin.dir}/mac/fuse/clean.sh</executable>
+                  <workingDirectory>${spade.root}</workingDirectory>
+                  <arguments>
+                    <argument>--native-header-file</argument>
+                    <argument>${fuse.mac.native.header.file}</argument>
+                    <argument>--lib-path</argument>
+                    <argument>${fuse.mac.lib.path}</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+  </profiles>
+
+</project>

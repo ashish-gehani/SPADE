@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.spade</groupId>
+    <artifactId>spade</artifactId>
+    <version>${revision}</version>
+    <relativePath>pom.xml</relativePath>
+  </parent>
+
+  <artifactId>spade-mac-llvm</artifactId>
+  <packaging>pom</packaging>
+
+  <name>spade-mac-llvm</name>
+  <description>Mac LLVM reporter build for SPADE.</description>
+
+  <properties>
+    <!-- override via -Dllvm.target=<target> -Dllvm.llvm.target=<llvm-target> -->
+    <llvm.target></llvm.target>
+    <llvm.llvm.target></llvm.llvm.target>
+    <llvm.tracer>${spade.src.dir}/spade/reporter/llvmTracer</llvm.tracer>
+    <llvm.bridge>${spade.src.dir}/spade/reporter/llvmBridge</llvm.bridge>
+    <llvm.close>${spade.src.dir}/spade/reporter/llvmClose</llvm.close>
+    <llvm.tracer.dylib>${spade.lib.dir}/llvmTracer.dylib</llvm.tracer.dylib>
+  </properties>
+
+  <profiles>
+
+    <!-- activated with -Dllvm -Dllvm.target=<target> -Dllvm.llvm.target=<llvm-target> -->
+    <profile>
+      <id>llvm</id>
+      <activation>
+        <property>
+          <name>llvm</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
+
+              <execution>
+                <id>build-mac-llvm</id>
+                <phase>compile</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>${spade.bin.dir}/mac/llvm/build.sh</executable>
+                  <workingDirectory>${spade.root}</workingDirectory>
+                  <arguments>
+                    <argument>--target</argument>
+                    <argument>${llvm.target}</argument>
+                    <argument>--llvm-target</argument>
+                    <argument>${llvm.llvm.target}</argument>
+                    <argument>--spade-src</argument>
+                    <argument>${spade.src.dir}</argument>
+                    <argument>--spade-lib</argument>
+                    <argument>${spade.lib.dir}</argument>
+                    <argument>--llvm-tracer</argument>
+                    <argument>${llvm.tracer}</argument>
+                    <argument>--llvm-bridge</argument>
+                    <argument>${llvm.bridge}</argument>
+                    <argument>--llvm-close</argument>
+                    <argument>${llvm.close}</argument>
+                    <argument>--llvm-tracer-dylib</argument>
+                    <argument>${llvm.tracer.dylib}</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+  </profiles>
+
+</project>
