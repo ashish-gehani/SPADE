@@ -9,6 +9,7 @@ JAVAC_OPTIONS =$(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(JAVAC_CP)'
 
 SPADE_BUILD_DIR = build
 ANDROID_BUILD_DIR = android-build
+ANDROID_LIB_DIR = android-lib
 JAVA_SRC_DIR = src
 
 
@@ -189,7 +190,9 @@ android-stop:
 	bin/android/stop.sh
 
 android-clean:
-	@bin/android/clean.sh
+	@bin/android/clean.sh \
+		--android_build $(ANDROID_BUILD_DIR) \
+		--android_lib $(ANDROID_LIB_DIR)
 
 graph-utility:
 	java -cp '$(SPADE_BUILD_DIR):lib/*' spade.utility.GraphUtility
