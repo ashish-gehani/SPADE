@@ -75,10 +75,6 @@ validate_args() {
         echo "Error: --javac is required"
         exit 1
     fi
-    if [[ ! -x "${JAVAC}" ]]; then
-        echo "Error: --javac '${JAVAC}' is not executable"
-        exit 1
-    fi
     if [[ -z "${SPADE_BUILD}" ]]; then
         echo "Error: --spade-build is required"
         exit 1

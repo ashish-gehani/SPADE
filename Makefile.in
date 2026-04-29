@@ -6,13 +6,16 @@ JAVAC=@JAVAC@
 CC=@CC@
 JAR=@JAR@
 JAVAC_CP = $(shell ./bin/classpath.sh)
-JAVAC_OPTIONS =$(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(JAVAC_CP)'
+JAVAC_OPTIONS = $(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(JAVAC_CP)'
 
 # build
-SPADE_BUILD_DIR = build
-SPADE_LIB_DIR = lib
-SPADE_SRC_DIR = src
-SPADE_AUDIT_BRIDGE = bin/spadeAuditBridge
+SPADE_ROOT = $(shell pwd)
+SPADE_BUILD_DIR = $(SPADE_ROOT)/build
+SPADE_LIB_DIR = $(SPADE_ROOT)/lib
+SPADE_SRC_DIR = $(SPADE_ROOT)/src
+SPADE_BIN_DIR = $(SPADE_ROOT)/bin
+SPADE_JAR = $(SPADE_LIB_DIR)/spade.jar
+SPADE_AUDIT_BRIDGE = $(SPADE_BIN_DIR)/spadeAuditBridge
 
 # fuse linux
 FUSE_LINUX_LIB_PATH = $(SPADE_LIB_DIR)/libLinuxFUSE.so
@@ -20,7 +23,7 @@ FUSE_LINUX_LIB_JAVA_SRC = $(SPADE_SRC_DIR)/spade/reporter/LinuxFUSE.java
 FUSE_LINUX_LIB_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/libLinuxFUSE.c
 FUSE_LINUX_NATIVE_HEADER_DIR = $(SPADE_SRC_DIR)/spade/reporter
 FUSE_LINUX_NATIVE_HEADER_FILE = $(FUSE_LINUX_NATIVE_HEADER_DIR)/spade_reporter_LinuxFUSE.h
-FUSE_LINUX_JAVAC_OPTIONS = $(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(SPADE_BUILD_DIR):$(SPADE_LIB_DIR)/*'
+FUSE_LINUX_JAVAC_OPTIONS = $(JAVAC_OPTIONS)
 
 # openbsm mac
 OPENBSM_MAC_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/spadeOpenBSM.c
@@ -32,7 +35,7 @@ FUSE_MAC_LIB_JAVA_SRC = $(SPADE_SRC_DIR)/spade/reporter/MacFUSE.java
 FUSE_MAC_LIB_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/libMacFUSE.c
 FUSE_MAC_NATIVE_HEADER_DIR = $(SPADE_SRC_DIR)/spade/reporter
 FUSE_MAC_NATIVE_HEADER_FILE = $(FUSE_MAC_NATIVE_HEADER_DIR)/spade_reporter_MacFUSE.h
-FUSE_MAC_JAVAC_OPTIONS = $(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(SPADE_BUILD_DIR):$(SPADE_LIB_DIR)/*'
+FUSE_MAC_JAVAC_OPTIONS = $(JAVAC_OPTIONS)
 
 # kernel modules
 KERNEL_MODULES ?= false
@@ -93,12 +96,15 @@ help:
 	@echo '  	make                	- to compile the code'
 	@echo '  	make clean          	- to remove the compiled code'
 	@echo ' '
+
+echo-javac-options:
+	@echo "$(JAVAC_OPTIONS)"
  
 # ---------- Building SPADE ----------    
 .SECONDEXPANSION:
 
 build: | prepare-dirs
-build: build-java $$(OS_BUILD) lib/spade.jar
+build: build-java $$(OS_BUILD) $(SPADE_JAR)
 # No sketches at the moment available
 #build-java: download-neo4j core clients utilities storages filters query analyzers sketches transformers reporters
 build-java: download-neo4j core clients utilities storages screens filters query analyzers transformers reporters
@@ -110,58 +116,56 @@ download-neo4j:
  
 prepare-dirs:
 	mkdir -p $(SPADE_BUILD_DIR)
-	mkdir -p db/scaffold
 	mkdir -p tmp
 
 $(SPADE_BUILD_DIR)/%.class : $(SPADE_SRC_DIR)/%.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $<
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $<
 
 core:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/core/*.java
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/core/*.java
 	@echo "--- Built Core ---"
 clients:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/client/*.java
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/client/*.java
 	@echo "--- Built Clients ---"
 reporters: $$(foreach f,$$(REPORTERS), $(SPADE_BUILD_DIR)/spade/reporter/$$(f).class )
 	@echo "--- Built Reporters ---"
 query:
-	mkdir -p tmp
 	find $(SPADE_SRC_DIR)/spade/query -name "*.java" > tmp/query.classes
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) @tmp/query.classes
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) @tmp/query.classes
 	rm tmp/query.classes
 	@echo "--- Built Queries ---"
 analyzers:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/analyzer/*.java
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/analyzer/*.java
 	@echo "--- Built Analyzers ---"
 storages:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/storage/*.java
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/storage/*.java
 	@echo "--- Built Storages ---"
 screens:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/screen/*.java
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/screen/*.java
 	@echo "--- Built Screens ---"
 utilities:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/*.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/profile/*.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/*.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/cache/*.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/screen/*.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/store/*.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/store/db/*.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/store/db/berkeleydb/*.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/store/db/leveldb/*.java
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/*.java
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/profile/*.java
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/*.java
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/cache/*.java
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/screen/*.java
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/store/*.java
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/store/db/*.java
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/store/db/berkeleydb/*.java
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/store/db/leveldb/*.java
 	@echo "--- Built Utilities ---"
 filters:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/filter/*.java
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/filter/*.java
 	@echo "--- Built Filters ---"
 sketches:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/sketch/*.java
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/sketch/*.java
 	@echo "--- Built Sketches ---"
 transformers:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/transformer/*.java
+	$(JAVAC) $(JAVAC_OPTIONS) -sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/transformer/*.java
 	@echo "--- Built Transformers ---"
 
-lib/spade.jar: build-java $$(OS_BUILD)
-	$(JAR) cvf lib/spade.jar -C $(SPADE_BUILD_DIR) .
+$(SPADE_JAR): build-java $$(OS_BUILD)
+	$(JAR) cvf $(SPADE_JAR) -C $(SPADE_BUILD_DIR) .
 
 # Build the LinuxAudit reporter.
 build-linuxaudit:
@@ -190,14 +194,15 @@ endif
 
 # Build the LinuxFUSE reporter.
 build-linuxfuse:
-	bin/linux/fuse/build.sh \
-		--javac $(JAVAC) \
-		--javac-options "$(FUSE_LINUX_JAVAC_OPTIONS)" \
-		--spade-build $(SPADE_BUILD_DIR) \
-		--lib-java-src $(FUSE_LINUX_LIB_JAVA_SRC) \
-		--lib-c-src $(FUSE_LINUX_LIB_C_SRC) \
-		--native-header-dir $(FUSE_LINUX_NATIVE_HEADER_DIR) \
-		--lib-path $(FUSE_LINUX_LIB_PATH)
+	@echo 'WARNING: The LinuxFUSE reporter is not in working condition. Please file an issue at https://github.com/ashish-gehani/SPADE/issues'
+	#bin/linux/fuse/build.sh \
+	#	--javac $(JAVAC) \
+	#	--javac-options "$(FUSE_LINUX_JAVAC_OPTIONS)" \
+	#	--spade-build $(SPADE_BUILD_DIR) \
+	#	--lib-java-src $(FUSE_LINUX_LIB_JAVA_SRC) \
+	#	--lib-c-src $(FUSE_LINUX_LIB_C_SRC) \
+	#	--native-header-dir $(FUSE_LINUX_NATIVE_HEADER_DIR) \
+	#	--lib-path $(FUSE_LINUX_LIB_PATH)
 
 clean-linuxfuse:
 	@bin/linux/fuse/clean.sh \
@@ -276,14 +281,14 @@ android-clean:
 		--android_lib $(ANDROID_LIB_DIR)
 
 graph-utility:
-	java -cp '$(SPADE_BUILD_DIR):lib/*' spade.utility.GraphUtility
+	java -cp '$(JAVAC_CP)' spade.utility.GraphUtility
  
 # ---------- Removing files ----------
 # Remove Java classes and native libraries, executables that we compiled.
 clean: clean-macfuse clean-linuxfuse android-clean clean-linuxaudit clean-openbsm
 	@echo 'Removing Java classes, native libraries, executables...'
 	@rm -rf $(SPADE_BUILD_DIR)
-	@rm -rf lib/spade.jar
+	@rm -rf $(SPADE_JAR)
 	@rm -rf cfg/ssl
 	@rm -rf log
 	@rm -rf tmp

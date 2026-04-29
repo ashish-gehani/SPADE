@@ -40,8 +40,8 @@ parse_args() {
 }
 
 validate_args() {
-    if [[ ! -x "${JAVAC}" ]]; then
-        echo "Error: --javac '${JAVAC}' is not executable"
+    if [[ -z "${JAVAC}" ]]; then
+        echo "Error: --javac '${JAVAC}' is required"
         exit 1
     fi
     if [[ -z "${SPADE_BUILD}" ]]; then

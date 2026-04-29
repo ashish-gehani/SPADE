@@ -21,7 +21,7 @@ print_help() {
 parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --native-header-dir)
+            --native-header-file)
                 NATIVE_HEADER_FILE="$2"
                 shift 2
                 ;;
