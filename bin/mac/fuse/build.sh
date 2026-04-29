@@ -3,18 +3,157 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-set -e
 
-source "$( dirname "${BASH_SOURCE[0]}" )/../../env.sh"
+# globals
+JAVAC=""
+JAVAC_OPTIONS=""
+SPADE_BUILD=""
+SPADE_LIB=""
+SPADE_SRC=""
+LIB_JAVA_SRC=""
+LIB_C_SRC=""
+NATIVE_HEADER_DIR=""
+LIB_PATH=""
 
-JAVAC="$(which javac)"
 
-JAVA_HOME_DIR="$(java -classpath "${SPADE_BUILD}" spade.utility.JavaHome)"
+print_help() {
+    echo "Usage: $(basename "$0") --javac <path> --spade-build <path> --spade-lib <path> --spade-src <path> --lib-java-src <path> --lib-c-src <path> --native-header-dir <path> --lib-path <path> [--javac-options <opts>]"
+    echo ""
+    echo "Options:"
+    echo "    --javac <path>              Path to the javac executable"
+    echo "    --javac-options <opts>      Additional options passed to javac"
+    echo "    --spade-build <path>        Path to the SPADE build directory"
+    echo "    --spade-lib <path>          Path to the SPADE lib directory"
+    echo "    --spade-src <path>          Path to the SPADE source directory"
+    echo "    --lib-java-src <path>       Path to the Java source file"
+    echo "    --lib-c-src <path>          Path to the C source file"
+    echo "    --native-header-dir <path>  Path for JNI header output"
+    echo "    --lib-path <path>           Output path for the shared library"
+    echo "    --help                      Show this message and exit"
+    exit 0
+}
 
-"${JAVAC}" -classpath "${SPADE_BUILD}:${SPADE_LIB}/*" -h "${SPADE_SRC}/spade/reporter" "${SPADE_SRC}/spade/reporter/MacFUSE.java"
-gcc -dynamiclib \
-    -I"${JAVA_HOME_DIR}" \
-    -I"${JAVA_HOME_DIR}/darwin" \
-    "${SPADE_SRC}/spade/reporter/libMacFUSE.c" \
-    $(pkg-config fuse --cflags --libs) \
-    -o "${SPADE_LIB}/libMacFUSE.jnilib"
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --javac)
+                JAVAC="$2"
+                shift 2
+                ;;
+            --javac-options)
+                JAVAC_OPTIONS="$2"
+                shift 2
+                ;;
+            --spade-build)
+                SPADE_BUILD="$2"
+                shift 2
+                ;;
+            --spade-lib)
+                SPADE_LIB="$2"
+                shift 2
+                ;;
+            --spade-src)
+                SPADE_SRC="$2"
+                shift 2
+                ;;
+            --lib-java-src)
+                LIB_JAVA_SRC="$2"
+                shift 2
+                ;;
+            --lib-c-src)
+                LIB_C_SRC="$2"
+                shift 2
+                ;;
+            --native-header-dir)
+                NATIVE_HEADER_DIR="$2"
+                shift 2
+                ;;
+            --lib-path)
+                LIB_PATH="$2"
+                shift 2
+                ;;
+            --help)
+                print_help
+                ;;
+            *)
+                echo "Unknown argument: $1"
+                exit 1
+                ;;
+        esac
+    done
+}
+
+validate_args() {
+    if [[ -z "${JAVAC}" ]]; then
+        echo "Error: --javac is required"
+        exit 1
+    fi
+    if [[ ! -x "${JAVAC}" ]]; then
+        echo "Error: --javac '${JAVAC}' is not executable"
+        exit 1
+    fi
+    if [[ -z "${SPADE_BUILD}" ]]; then
+        echo "Error: --spade-build is required"
+        exit 1
+    fi
+    if [[ ! -d "${SPADE_BUILD}" ]]; then
+        echo "Error: --spade-build '${SPADE_BUILD}' is not a directory"
+        exit 1
+    fi
+    if [[ -z "${SPADE_LIB}" ]]; then
+        echo "Error: --spade-lib is required"
+        exit 1
+    fi
+    if [[ ! -d "${SPADE_LIB}" ]]; then
+        echo "Error: --spade-lib '${SPADE_LIB}' is not a directory"
+        exit 1
+    fi
+    if [[ -z "${SPADE_SRC}" ]]; then
+        echo "Error: --spade-src is required"
+        exit 1
+    fi
+    if [[ ! -d "${SPADE_SRC}" ]]; then
+        echo "Error: --spade-src '${SPADE_SRC}' is not a directory"
+        exit 1
+    fi
+    if [[ -z "${LIB_JAVA_SRC}" ]]; then
+        echo "Error: --lib-java-src is required"
+        exit 1
+    fi
+    if [[ -z "${LIB_C_SRC}" ]]; then
+        echo "Error: --lib-c-src is required"
+        exit 1
+    fi
+    if [[ -z "${NATIVE_HEADER_DIR}" ]]; then
+        echo "Error: --native-header-dir is required"
+        exit 1
+    fi
+    if [[ -z "${LIB_PATH}" ]]; then
+        echo "Error: --lib-path is required"
+        exit 1
+    fi
+}
+
+compile_java() {
+    "${JAVAC}" ${JAVAC_OPTIONS} -h "${NATIVE_HEADER_DIR}" "${LIB_JAVA_SRC}"
+}
+
+build_native() {
+    local java_home_dir
+    java_home_dir="$(java -classpath "${SPADE_BUILD}" spade.utility.JavaHome)"
+    gcc -dynamiclib \
+        -I"${java_home_dir}" \
+        -I"${java_home_dir}/darwin" \
+        "${LIB_C_SRC}" \
+        $(pkg-config fuse --cflags --libs) \
+        -o "${LIB_PATH}"
+}
+
+main() {
+    parse_args "$@"
+    validate_args
+    compile_java
+    build_native
+}
+
+main "$@"

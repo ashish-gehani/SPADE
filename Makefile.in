@@ -13,12 +13,22 @@ SPADE_BUILD_DIR = build
 SPADE_LIB_DIR = lib
 SPADE_SRC_DIR = src
 SPADE_AUDIT_BRIDGE = bin/spadeAuditBridge
+
+# fuse linux
 LINUX_FUSE_LIB_PATH = $(SPADE_LIB_DIR)/libLinuxFUSE.so
 LINUX_FUSE_LIB_JAVA_SRC = $(SPADE_SRC_DIR)/spade/reporter/LinuxFUSE.java
 LINUX_FUSE_LIB_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/libLinuxFUSE.c
 LINUX_FUSE_NATIVE_HEADER_DIR = $(SPADE_SRC_DIR)/spade/reporter
 LINUX_FUSE_NATIVE_HEADER_FILE = $(LINUX_FUSE_NATIVE_HEADER_DIR)/spade_reporter_LinuxFUSE.h
 LINUX_FUSE_JAVAC_OPTIONS = $(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(SPADE_BUILD_DIR):$(SPADE_LIB_DIR)/*'
+
+# fuse mac
+MAC_FUSE_LIB_PATH = $(SPADE_LIB_DIR)/libMacFUSE.jnilib
+MAC_FUSE_LIB_JAVA_SRC = $(SPADE_SRC_DIR)/spade/reporter/MacFUSE.java
+MAC_FUSE_LIB_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/libMacFUSE.c
+MAC_FUSE_NATIVE_HEADER_DIR = $(SPADE_SRC_DIR)/spade/reporter
+MAC_FUSE_NATIVE_HEADER_FILE = $(MAC_FUSE_NATIVE_HEADER_DIR)/spade_reporter_MacFUSE.h
+MAC_FUSE_JAVAC_OPTIONS = $(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(SPADE_BUILD_DIR):$(SPADE_LIB_DIR)/*'
 
 # kernel modules
 KERNEL_MODULES ?= false
@@ -194,13 +204,24 @@ build-openbsm:
 
 clean-openbsm:
 	@bin/mac/openbsm/clean.sh
- 
+
 # Build the MacFUSE reporter.
 build-macfuse:
-	bin/mac/fuse/build.sh
+	bin/mac/fuse/build.sh \
+		--javac $(JAVAC) \
+		--javac-options "$(MAC_FUSE_JAVAC_OPTIONS)" \
+		--spade-build $(SPADE_BUILD_DIR) \
+		--spade-lib $(SPADE_LIB_DIR) \
+		--spade-src $(SPADE_SRC_DIR) \
+		--lib-java-src $(MAC_FUSE_LIB_JAVA_SRC) \
+		--lib-c-src $(MAC_FUSE_LIB_C_SRC) \
+		--native-header-dir $(MAC_FUSE_NATIVE_HEADER_DIR) \
+		--lib-path $(MAC_FUSE_LIB_PATH)
 
 clean-macfuse:
-	@bin/mac/fuse/clean.sh
+	@bin/mac/fuse/clean.sh \
+		--native-header-file $(MAC_FUSE_NATIVE_HEADER_FILE) \
+		--lib-path $(MAC_FUSE_LIB_PATH)
 
 llvm:
 	@make $(LLVM_RULE)
