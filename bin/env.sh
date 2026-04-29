@@ -28,3 +28,5 @@ JAVA_HOME_DIR="$(java -classpath "${SPADE_BUILD}" spade.utility.JavaHome)"
 
 AUDIT_KERNEL_MODULES_SRC="${AUDIT_KERNEL_MODULES_SRC:-${SPADE_SRC}/spade/reporter/audit/kernel-modules/}"
 AUDIT_KERNEL_MODULES_INSTALL="${AUDIT_KERNEL_MODULES_INSTALL:-${SPADE_LIB}/kernel-modules}"
+
+SPADE_AUDIT_BRIDGE="${SPADE_BIN}/spadeAuditBridge"

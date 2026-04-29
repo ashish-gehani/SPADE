@@ -7,12 +7,33 @@ set -e
 
 source "$( dirname "${BASH_SOURCE[0]}" )/../../env.sh"
 
-KERNEL_MODULES="${KERNEL_MODULES:-false}"
+KERNEL_MODULES=false
 
-rm -f "${SPADE_BIN}/spadeAuditBridge"
+function parse_args(){
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --kernel-modules)
+                KERNEL_MODULES="$2"
+                shift 2
+                ;;
+            *)
+                echo "Unknown argument: $1"
+                exit 1
+                ;;
+        esac
+    done
+}
 
-if [[ "${KERNEL_MODULES}" == "true" ]]; then
-    make --no-print-directory -C "${AUDIT_KERNEL_MODULES_SRC}" \
-        INSTALL_DIR="${AUDIT_KERNEL_MODULES_INSTALL}" \
-        clean
-fi
+function main(){
+    parse_args "$@"
+
+    rm -f "${SPADE_AUDIT_BRIDGE}"
+
+    if [[ "${KERNEL_MODULES}" == "true" ]]; then
+        make --no-print-directory -C "${AUDIT_KERNEL_MODULES_SRC}" \
+            INSTALL_DIR="${AUDIT_KERNEL_MODULES_INSTALL}" \
+            clean
+    fi
+}
+
+main "$@"
