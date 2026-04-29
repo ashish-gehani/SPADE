@@ -8,8 +8,6 @@
 JAVAC=""
 JAVAC_OPTIONS=""
 SPADE_BUILD=""
-SPADE_LIB=""
-SPADE_SRC=""
 LIB_JAVA_SRC=""
 LIB_C_SRC=""
 NATIVE_HEADER_DIR=""
@@ -17,14 +15,12 @@ LIB_PATH=""
 
 
 print_help() {
-    echo "Usage: $(basename "$0") --javac <path> --spade-build <path> --spade-lib <path> --spade-src <path> --lib-java-src <path> --lib-c-src <path> --native-header-dir <path> --lib-path <path> [--javac-options <opts>]"
+    echo "Usage: $(basename "$0") --javac <path> --spade-build <path> --lib-java-src <path> --lib-c-src <path> --native-header-dir <path> --lib-path <path> [--javac-options <opts>]"
     echo ""
     echo "Options:"
     echo "    --javac <path>              Path to the javac executable"
     echo "    --javac-options <opts>      Additional options passed to javac"
     echo "    --spade-build <path>        Path to the SPADE build directory"
-    echo "    --spade-lib <path>          Path to the SPADE lib directory"
-    echo "    --spade-src <path>          Path to the SPADE source directory"
     echo "    --lib-java-src <path>       Path to the Java source file"
     echo "    --lib-c-src <path>          Path to the C source file"
     echo "    --native-header-dir <path>  Path for JNI header output"
@@ -46,14 +42,6 @@ parse_args() {
                 ;;
             --spade-build)
                 SPADE_BUILD="$2"
-                shift 2
-                ;;
-            --spade-lib)
-                SPADE_LIB="$2"
-                shift 2
-                ;;
-            --spade-src)
-                SPADE_SRC="$2"
                 shift 2
                 ;;
             --lib-java-src)
@@ -98,22 +86,6 @@ validate_args() {
     fi
     if [[ ! -d "${SPADE_BUILD}" ]]; then
         echo "Error: --spade-build '${SPADE_BUILD}' is not a directory"
-        exit 1
-    fi
-    if [[ -z "${SPADE_LIB}" ]]; then
-        echo "Error: --spade-lib is required"
-        exit 1
-    fi
-    if [[ ! -d "${SPADE_LIB}" ]]; then
-        echo "Error: --spade-lib '${SPADE_LIB}' is not a directory"
-        exit 1
-    fi
-    if [[ -z "${SPADE_SRC}" ]]; then
-        echo "Error: --spade-src is required"
-        exit 1
-    fi
-    if [[ ! -d "${SPADE_SRC}" ]]; then
-        echo "Error: --spade-src '${SPADE_SRC}' is not a directory"
         exit 1
     fi
     if [[ -z "${LIB_JAVA_SRC}" ]]; then

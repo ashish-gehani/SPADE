@@ -186,8 +186,6 @@ build-linuxfuse:
 		--javac $(JAVAC) \
 		--javac-options "$(FUSE_LINUX_JAVAC_OPTIONS)" \
 		--spade-build $(SPADE_BUILD_DIR) \
-		--spade-lib $(SPADE_LIB_DIR) \
-		--spade-src $(SPADE_SRC_DIR) \
 		--lib-java-src $(FUSE_LINUX_LIB_JAVA_SRC) \
 		--lib-c-src $(FUSE_LINUX_LIB_C_SRC) \
 		--native-header-dir $(FUSE_LINUX_NATIVE_HEADER_DIR) \
@@ -211,8 +209,6 @@ build-macfuse:
 		--javac $(JAVAC) \
 		--javac-options "$(FUSE_MAC_JAVAC_OPTIONS)" \
 		--spade-build $(SPADE_BUILD_DIR) \
-		--spade-lib $(SPADE_LIB_DIR) \
-		--spade-src $(SPADE_SRC_DIR) \
 		--lib-java-src $(FUSE_MAC_LIB_JAVA_SRC) \
 		--lib-c-src $(FUSE_MAC_LIB_C_SRC) \
 		--native-header-dir $(FUSE_MAC_NATIVE_HEADER_DIR) \
