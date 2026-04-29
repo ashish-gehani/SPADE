@@ -22,6 +22,10 @@ FUSE_LINUX_NATIVE_HEADER_DIR = $(SPADE_SRC_DIR)/spade/reporter
 FUSE_LINUX_NATIVE_HEADER_FILE = $(FUSE_LINUX_NATIVE_HEADER_DIR)/spade_reporter_LinuxFUSE.h
 FUSE_LINUX_JAVAC_OPTIONS = $(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(SPADE_BUILD_DIR):$(SPADE_LIB_DIR)/*'
 
+# openbsm mac
+OPENBSM_MAC_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/spadeOpenBSM.c
+OPENBSM_MAC_OUTPUT = $(SPADE_LIB_DIR)/spadeOpenBSM
+
 # fuse mac
 FUSE_MAC_LIB_PATH = $(SPADE_LIB_DIR)/libMacFUSE.jnilib
 FUSE_MAC_LIB_JAVA_SRC = $(SPADE_SRC_DIR)/spade/reporter/MacFUSE.java
@@ -202,10 +206,13 @@ clean-linuxfuse:
  
 # Build the OpenBSM reporter.
 build-openbsm:
-	bin/mac/openbsm/build.sh
+	bin/mac/openbsm/build.sh \
+		--c-src $(OPENBSM_MAC_C_SRC) \
+		--output $(OPENBSM_MAC_OUTPUT)
 
 clean-openbsm:
-	@bin/mac/openbsm/clean.sh
+	@bin/mac/openbsm/clean.sh \
+		--output $(OPENBSM_MAC_OUTPUT)
 
 # Build the MacFUSE reporter.
 build-macfuse:

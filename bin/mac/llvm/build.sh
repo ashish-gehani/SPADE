@@ -3,11 +3,6 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-# TODO
-# 1. mac/llvm
-# 2. mac/openbsm
-# 3. remove env unless needed for things relative to spade project.
-
 
 # constants
 LLVM_PATH="/var/clang+llvm-3.0-x86_64-apple-darwin11"
