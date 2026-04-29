@@ -1,29 +1,36 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2015 SRI International.
 
+# toolchain
 JAVAC=@JAVAC@
 CC=@CC@
 JAR=@JAR@
 JAVAC_CP = $(shell ./bin/classpath.sh)
 JAVAC_OPTIONS =$(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(JAVAC_CP)'
 
+# build
 SPADE_BUILD_DIR = build
 SPADE_SRC_DIR = src
 
+# kernel modules
+KERNEL_MODULES ?= false
+KERNEL_MODULES_DEBUG ?= false
+KERNEL_MODULES_SRC = $(SPADE_SRC_DIR)/spade/reporter/audit/kernel-modules
+KERNEL_MODULES_INSTALL = lib/kernel-modules
+
+# android
 ANDROID_BUILD_DIR = android-build
 ANDROID_LIB_DIR = android-lib
 ANDROID_SPADE_JAR = android-spade.jar
 ANDROID_DEVICE_SDCARD = /sdcard
 ANDROID_DEVICE_SPADE_DIR = $(ANDROID_DEVICE_SDCARD)/spade
 
-
-KERNEL_MODULES ?= false
-KERNEL_MODULES_DEBUG ?= false
-
-OS_NAME = $(shell uname)
-
+# llvm
 LLVM_TARGET = 
 LLVM_LLVM_TARGET = 
+
+# runtime
+OS_NAME = $(shell uname)
 
  
 # System and architecture-specific configuration
@@ -138,10 +145,15 @@ clean-linuxaudit: clean-linuxaudit-kernel
 	@bin/linux/audit/clean.sh
 
 build-linuxaudit-kernel:
-	bin/linux/audit/kernel/build.sh --kernel-modules-debug $(KERNEL_MODULES_DEBUG)
+	bin/linux/audit/kernel/build.sh \
+		--kernel_modules_src $(KERNEL_MODULES_SRC) \
+		--kernel_modules_install $(KERNEL_MODULES_INSTALL) \
+		--kernel_modules_debug $(KERNEL_MODULES_DEBUG)
 
 clean-linuxaudit-kernel:
-	@bin/linux/audit/kernel/clean.sh
+	@bin/linux/audit/kernel/clean.sh \
+		--kernel_modules_src $(KERNEL_MODULES_SRC) \
+		--kernel_modules_install $(KERNEL_MODULES_INSTALL)
 
 ifeq ($(KERNEL_MODULES),true)
 build-linuxaudit: build-linuxaudit-kernel
