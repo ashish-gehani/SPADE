@@ -8,9 +8,13 @@ JAVAC_CP = $(shell ./bin/classpath.sh)
 JAVAC_OPTIONS =$(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(JAVAC_CP)'
 
 SPADE_BUILD_DIR = build
+SPADE_SRC_DIR = src
+
 ANDROID_BUILD_DIR = android-build
 ANDROID_LIB_DIR = android-lib
-JAVA_SRC_DIR = src
+ANDROID_SPADE_JAR = android-spade.jar
+ANDROID_DEVICE_SDCARD = /sdcard
+ANDROID_DEVICE_SPADE_DIR = $(ANDROID_DEVICE_SDCARD)/spade
 
 
 KERNEL_MODULES ?= false
@@ -76,51 +80,51 @@ prepare-dirs:
 	mkdir -p db/scaffold
 	mkdir -p tmp
 
-$(SPADE_BUILD_DIR)/%.class : $(JAVA_SRC_DIR)/%.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $<
+$(SPADE_BUILD_DIR)/%.class : $(SPADE_SRC_DIR)/%.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $<
 
 core:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $(JAVA_SRC_DIR)/spade/core/*.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/core/*.java
 	@echo "--- Built Core ---"
 clients:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $(JAVA_SRC_DIR)/spade/client/*.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/client/*.java
 	@echo "--- Built Clients ---"
 reporters: $$(foreach f,$$(REPORTERS), $(SPADE_BUILD_DIR)/spade/reporter/$$(f).class )
 	@echo "--- Built Reporters ---"
 query:
 	mkdir -p tmp
-	find $(JAVA_SRC_DIR)/spade/query -name "*.java" > tmp/query.classes
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) @tmp/query.classes
+	find $(SPADE_SRC_DIR)/spade/query -name "*.java" > tmp/query.classes
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) @tmp/query.classes
 	rm tmp/query.classes
 	@echo "--- Built Queries ---"
 analyzers:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $(JAVA_SRC_DIR)/spade/analyzer/*.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/analyzer/*.java
 	@echo "--- Built Analyzers ---"
 storages:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $(JAVA_SRC_DIR)/spade/storage/*.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/storage/*.java
 	@echo "--- Built Storages ---"
 screens:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $(JAVA_SRC_DIR)/spade/screen/*.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/screen/*.java
 	@echo "--- Built Screens ---"
 utilities:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $(JAVA_SRC_DIR)/spade/utility/*.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $(JAVA_SRC_DIR)/spade/utility/profile/*.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $(JAVA_SRC_DIR)/spade/utility/map/external/*.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $(JAVA_SRC_DIR)/spade/utility/map/external/cache/*.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $(JAVA_SRC_DIR)/spade/utility/map/external/screen/*.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $(JAVA_SRC_DIR)/spade/utility/map/external/store/*.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $(JAVA_SRC_DIR)/spade/utility/map/external/store/db/*.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $(JAVA_SRC_DIR)/spade/utility/map/external/store/db/berkeleydb/*.java
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $(JAVA_SRC_DIR)/spade/utility/map/external/store/db/leveldb/*.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/*.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/profile/*.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/*.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/cache/*.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/screen/*.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/store/*.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/store/db/*.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/store/db/berkeleydb/*.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/utility/map/external/store/db/leveldb/*.java
 	@echo "--- Built Utilities ---"
 filters:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $(JAVA_SRC_DIR)/spade/filter/*.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/filter/*.java
 	@echo "--- Built Filters ---"
 sketches:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $(JAVA_SRC_DIR)/spade/sketch/*.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/sketch/*.java
 	@echo "--- Built Sketches ---"
 transformers:
-	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(JAVA_SRC_DIR) -d $(SPADE_BUILD_DIR) $(JAVA_SRC_DIR)/spade/transformer/*.java
+	$(JAVAC) $(JAVAC_OPTIONS)-sourcepath $(SPADE_SRC_DIR) -d $(SPADE_BUILD_DIR) $(SPADE_SRC_DIR)/spade/transformer/*.java
 	@echo "--- Built Transformers ---"
 
 lib/spade.jar: build-java $$(OS_BUILD)
@@ -180,15 +184,21 @@ android-build:
 		--spade_build $(SPADE_BUILD_DIR) \
 		--android_build $(ANDROID_BUILD_DIR) \
 		--javac_options '$(JAVAC_OPTIONS)' \
-		--java_src $(JAVA_SRC_DIR)
+		--java_src $(SPADE_SRC_DIR)
  
 # Deploy to Android
 android-start:
 	bin/android/start.sh \
-		--android_build $(ANDROID_BUILD_DIR)
- 
+		--android_build $(ANDROID_BUILD_DIR) \
+		--device_sdcard $(ANDROID_DEVICE_SDCARD) \
+		--device_spade_dir $(ANDROID_DEVICE_SPADE_DIR) \
+		--spade_jar $(ANDROID_SPADE_JAR)
+
 android-stop:
-	bin/android/stop.sh
+	bin/android/stop.sh \
+		--device_sdcard $(ANDROID_DEVICE_SDCARD) \
+		--device_spade_dir $(ANDROID_DEVICE_SPADE_DIR) \
+		--spade_jar $(ANDROID_SPADE_JAR)
 
 android-clean:
 	@bin/android/clean.sh \
