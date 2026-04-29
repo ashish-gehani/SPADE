@@ -44,8 +44,12 @@ ANDROID_DEVICE_SDCARD = /sdcard
 ANDROID_DEVICE_SPADE_DIR = $(ANDROID_DEVICE_SDCARD)/spade
 
 # llvm
-LLVM_TARGET = 
-LLVM_LLVM_TARGET = 
+LLVM_TARGET =
+LLVM_LLVM_TARGET =
+LLVM_TRACER = $(SPADE_SRC_DIR)/spade/reporter/llvmTracer
+LLVM_BRIDGE = $(SPADE_SRC_DIR)/spade/reporter/llvmBridge
+LLVM_CLOSE = $(SPADE_SRC_DIR)/spade/reporter/llvmClose
+LLVM_TRACER_DYLIB = $(SPADE_LIB_DIR)/llvmTracer.dylib
 
 # runtime
 OS_NAME = $(shell uname)
@@ -223,7 +227,15 @@ llvm:
 	@make $(LLVM_RULE)
  
 build-mac-llvm:
-	bin/mac/llvm/build.sh --target $(LLVM_TARGET) --llvm-target $(LLVM_LLVM_TARGET)
+	bin/mac/llvm/build.sh \
+		--target $(LLVM_TARGET) \
+		--llvm-target $(LLVM_LLVM_TARGET) \
+		--spade-src $(SPADE_SRC_DIR) \
+		--spade-lib $(SPADE_LIB_DIR) \
+		--llvm-tracer $(LLVM_TRACER) \
+		--llvm-bridge $(LLVM_BRIDGE) \
+		--llvm-close $(LLVM_CLOSE) \
+		--llvm-tracer-dylib $(LLVM_TRACER_DYLIB)
  
 build-linux-llvm:
 	bin/linux/llvm/build.sh

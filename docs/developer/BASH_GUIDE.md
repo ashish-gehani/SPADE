@@ -48,19 +48,19 @@ FOO=""
 BAR=""
 
 
-print_help() {
+function print_help() {
     ...
 }
 
-parse_args() {
+function parse_args() {
     ...
 }
 
-validate_args() {
+function validate_args() {
     ...
 }
 
-main() {
+function main() {
     parse_args "$@"
     validate_args
     do_foo
@@ -75,7 +75,7 @@ main "$@"
 Define a `print_help` function that prints usage and exits. Call it when `--help` is passed or when required arguments are missing.
 
 ```bash
-print_help() {
+function print_help() {
     echo "Usage: $(basename "$0") --foo <path> --bar <path>"
     echo ""
     echo "Options:"
@@ -89,7 +89,7 @@ print_help() {
 Handle `--help` inside `parse_args`:
 
 ```bash
-parse_args() {
+function parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --help) print_help ;;
@@ -104,7 +104,7 @@ parse_args() {
 Scripts must accept named arguments (e.g. `--foo bar`). Parse them in a dedicated `parse_args` function using a `while`/`case` loop. Unknown arguments are an error.
 
 ```bash
-parse_args() {
+function parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --foo) FOO="$2"; shift 2 ;;
@@ -120,7 +120,7 @@ parse_args() {
 Validate arguments in a separate `validate_args` function. Do not mix validation into `parse_args`.
 
 ```bash
-validate_args() {
+function validate_args() {
     if [[ ! -x "${FOO}" ]]; then
         echo "Error: --foo '${FOO}' is not executable"
         exit 1
@@ -134,7 +134,7 @@ validate_args() {
 
 ```bash
 # correct
-main() {
+function main() {
     parse_args "$@"
     validate_args
     compile
@@ -142,7 +142,7 @@ main() {
 }
 
 # incorrect
-main() {
+function main() {
     parse_args "$@"
     validate_args
     mkdir -p "${BUILD}"
@@ -182,7 +182,7 @@ ENV_SPADE_ROOT=""
 Declare all variables used only within a single function with `local`. Only variables shared across multiple functions should be global (see Global Variables above).
 
 ```bash
-my_func() {
+function my_func() {
     local result
     result="$(some_command)"
     echo "${result}"
