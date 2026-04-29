@@ -15,20 +15,20 @@ SPADE_SRC_DIR = src
 SPADE_AUDIT_BRIDGE = bin/spadeAuditBridge
 
 # fuse linux
-LINUX_FUSE_LIB_PATH = $(SPADE_LIB_DIR)/libLinuxFUSE.so
-LINUX_FUSE_LIB_JAVA_SRC = $(SPADE_SRC_DIR)/spade/reporter/LinuxFUSE.java
-LINUX_FUSE_LIB_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/libLinuxFUSE.c
-LINUX_FUSE_NATIVE_HEADER_DIR = $(SPADE_SRC_DIR)/spade/reporter
-LINUX_FUSE_NATIVE_HEADER_FILE = $(LINUX_FUSE_NATIVE_HEADER_DIR)/spade_reporter_LinuxFUSE.h
-LINUX_FUSE_JAVAC_OPTIONS = $(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(SPADE_BUILD_DIR):$(SPADE_LIB_DIR)/*'
+FUSE_LINUX_LIB_PATH = $(SPADE_LIB_DIR)/libLinuxFUSE.so
+FUSE_LINUX_LIB_JAVA_SRC = $(SPADE_SRC_DIR)/spade/reporter/LinuxFUSE.java
+FUSE_LINUX_LIB_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/libLinuxFUSE.c
+FUSE_LINUX_NATIVE_HEADER_DIR = $(SPADE_SRC_DIR)/spade/reporter
+FUSE_LINUX_NATIVE_HEADER_FILE = $(FUSE_LINUX_NATIVE_HEADER_DIR)/spade_reporter_LinuxFUSE.h
+FUSE_LINUX_JAVAC_OPTIONS = $(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(SPADE_BUILD_DIR):$(SPADE_LIB_DIR)/*'
 
 # fuse mac
-MAC_FUSE_LIB_PATH = $(SPADE_LIB_DIR)/libMacFUSE.jnilib
-MAC_FUSE_LIB_JAVA_SRC = $(SPADE_SRC_DIR)/spade/reporter/MacFUSE.java
-MAC_FUSE_LIB_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/libMacFUSE.c
-MAC_FUSE_NATIVE_HEADER_DIR = $(SPADE_SRC_DIR)/spade/reporter
-MAC_FUSE_NATIVE_HEADER_FILE = $(MAC_FUSE_NATIVE_HEADER_DIR)/spade_reporter_MacFUSE.h
-MAC_FUSE_JAVAC_OPTIONS = $(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(SPADE_BUILD_DIR):$(SPADE_LIB_DIR)/*'
+FUSE_MAC_LIB_PATH = $(SPADE_LIB_DIR)/libMacFUSE.jnilib
+FUSE_MAC_LIB_JAVA_SRC = $(SPADE_SRC_DIR)/spade/reporter/MacFUSE.java
+FUSE_MAC_LIB_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/libMacFUSE.c
+FUSE_MAC_NATIVE_HEADER_DIR = $(SPADE_SRC_DIR)/spade/reporter
+FUSE_MAC_NATIVE_HEADER_FILE = $(FUSE_MAC_NATIVE_HEADER_DIR)/spade_reporter_MacFUSE.h
+FUSE_MAC_JAVAC_OPTIONS = $(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(SPADE_BUILD_DIR):$(SPADE_LIB_DIR)/*'
 
 # kernel modules
 KERNEL_MODULES ?= false
@@ -184,19 +184,19 @@ endif
 build-linuxfuse:
 	bin/linux/fuse/build.sh \
 		--javac $(JAVAC) \
-		--javac-options "$(LINUX_FUSE_JAVAC_OPTIONS)" \
+		--javac-options "$(FUSE_LINUX_JAVAC_OPTIONS)" \
 		--spade-build $(SPADE_BUILD_DIR) \
 		--spade-lib $(SPADE_LIB_DIR) \
 		--spade-src $(SPADE_SRC_DIR) \
-		--lib-java-src $(LINUX_FUSE_LIB_JAVA_SRC) \
-		--lib-c-src $(LINUX_FUSE_LIB_C_SRC) \
-		--native-header-dir $(LINUX_FUSE_NATIVE_HEADER_DIR) \
-		--lib-path $(LINUX_FUSE_LIB_PATH)
+		--lib-java-src $(FUSE_LINUX_LIB_JAVA_SRC) \
+		--lib-c-src $(FUSE_LINUX_LIB_C_SRC) \
+		--native-header-dir $(FUSE_LINUX_NATIVE_HEADER_DIR) \
+		--lib-path $(FUSE_LINUX_LIB_PATH)
 
 clean-linuxfuse:
 	@bin/linux/fuse/clean.sh \
-		--native-header-file $(LINUX_FUSE_NATIVE_HEADER_FILE) \
-		--lib-path $(LINUX_FUSE_LIB_PATH)
+		--native-header-file $(FUSE_LINUX_NATIVE_HEADER_FILE) \
+		--lib-path $(FUSE_LINUX_LIB_PATH)
  
 # Build the OpenBSM reporter.
 build-openbsm:
@@ -209,19 +209,19 @@ clean-openbsm:
 build-macfuse:
 	bin/mac/fuse/build.sh \
 		--javac $(JAVAC) \
-		--javac-options "$(MAC_FUSE_JAVAC_OPTIONS)" \
+		--javac-options "$(FUSE_MAC_JAVAC_OPTIONS)" \
 		--spade-build $(SPADE_BUILD_DIR) \
 		--spade-lib $(SPADE_LIB_DIR) \
 		--spade-src $(SPADE_SRC_DIR) \
-		--lib-java-src $(MAC_FUSE_LIB_JAVA_SRC) \
-		--lib-c-src $(MAC_FUSE_LIB_C_SRC) \
-		--native-header-dir $(MAC_FUSE_NATIVE_HEADER_DIR) \
-		--lib-path $(MAC_FUSE_LIB_PATH)
+		--lib-java-src $(FUSE_MAC_LIB_JAVA_SRC) \
+		--lib-c-src $(FUSE_MAC_LIB_C_SRC) \
+		--native-header-dir $(FUSE_MAC_NATIVE_HEADER_DIR) \
+		--lib-path $(FUSE_MAC_LIB_PATH)
 
 clean-macfuse:
 	@bin/mac/fuse/clean.sh \
-		--native-header-file $(MAC_FUSE_NATIVE_HEADER_FILE) \
-		--lib-path $(MAC_FUSE_LIB_PATH)
+		--native-header-file $(FUSE_MAC_NATIVE_HEADER_FILE) \
+		--lib-path $(FUSE_MAC_LIB_PATH)
 
 llvm:
 	@make $(LLVM_RULE)
