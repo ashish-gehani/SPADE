@@ -135,13 +135,11 @@ clean-linuxfuse:
 	bin/linux/fuse/clean.sh
  
 # Build the OpenBSM reporter.
-build-openbsm: build/spade/reporter/OpenBSM.class src/spade/reporter/spadeOpenBSM.c lib/spadeOpenBSM
-	@echo '-----> IMPORTANT: To use the OpenBSM reporter, please run the following commands to allow SPADE access to the audit stream:'
-	@echo '----->        	sudo chown root lib/spadeOpenBSM'
-	@echo '----->        	sudo chmod ug+s lib/spadeOpenBSM'
-	@echo ''
-lib/spadeOpenBSM: src/spade/reporter/spadeOpenBSM.c
-	gcc -o lib/spadeOpenBSM -lbsm src/spade/reporter/spadeOpenBSM.c
+build-openbsm:
+	bin/mac/openbsm/build.sh
+
+clean-openbsm:
+	bin/mac/openbsm/clean.sh
  
 # Build the MacFUSE reporter.
 build-macfuse:
@@ -178,11 +176,10 @@ graph-utility:
  
 # ---------- Removing files ----------
 # Remove Java classes and native libraries, executables that we compiled.
-clean: clean-macfuse clean-linuxfuse android-clean clean-linuxaudit
+clean: clean-macfuse clean-linuxfuse android-clean clean-linuxaudit clean-openbsm
 	@echo 'Removing Java classes, native libraries, executables...'
 	@rm -rf build
 	@rm -rf lib/spade.jar
-	@rm -rf lib/spadeOpenBSM
 	@rm -rf cfg/ssl
 	@rm -rf log
 	@rm -rf tmp
