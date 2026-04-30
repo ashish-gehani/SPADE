@@ -24,6 +24,32 @@
     <kernel.modules.debug>false</kernel.modules.debug>
   </properties>
 
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>clean-linuxaudit-kernel</id>
+            <phase>clean</phase>
+            <goals><goal>exec</goal></goals>
+            <configuration>
+              <executable>${spade.bin.dir}/linux/audit/kernel/clean.sh</executable>
+              <workingDirectory>${spade.root}</workingDirectory>
+              <arguments>
+                <argument>--kernel_modules_src</argument>
+                <argument>${kernel.modules.src}</argument>
+                <argument>--kernel_modules_install</argument>
+                <argument>${kernel.modules.install}</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
   <profiles>
 
     <!-- activated with -Dkernel.modules on kernel [5.4,6.9) -->
@@ -41,7 +67,6 @@
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
             <executions>
-
               <execution>
                 <id>build-linuxaudit-kernel</id>
                 <phase>compile</phase>
@@ -59,23 +84,6 @@
                   </arguments>
                 </configuration>
               </execution>
-
-              <execution>
-                <id>clean-linuxaudit-kernel</id>
-                <phase>clean</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>${spade.bin.dir}/linux/audit/kernel/clean.sh</executable>
-                  <workingDirectory>${spade.root}</workingDirectory>
-                  <arguments>
-                    <argument>--kernel_modules_src</argument>
-                    <argument>${kernel.modules.src}</argument>
-                    <argument>--kernel_modules_install</argument>
-                    <argument>${kernel.modules.install}</argument>
-                  </arguments>
-                </configuration>
-              </execution>
-
             </executions>
           </plugin>
         </plugins>
