@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>io.github.spade</groupId>
+    <artifactId>spade</artifactId>
+    <version>${revision}</version>
+    <relativePath>../../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>spade-android</artifactId>
+  <packaging>pom</packaging>
+
+  <name>spade-android</name>
+  <description>Android build for SPADE.</description>
+
+  <properties>
+    <android.build.dir>${spade.root}/android-build</android.build.dir>
+    <android.lib.dir>${spade.root}/android-lib</android.lib.dir>
+  </properties>
+
+  <profiles>
+
+    <!-- activated with -Dandroid -->
+    <profile>
+      <id>android</id>
+      <activation>
+        <property>
+          <name>android</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
+
+              <execution>
+                <id>build-android</id>
+                <phase>compile</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>${spade.bin.dir}/android/build.sh</executable>
+                  <workingDirectory>${spade.root}</workingDirectory>
+                  <arguments>
+                    <argument>--javac</argument>
+                    <argument>${javac}</argument>
+                    <argument>--spade_build</argument>
+                    <argument>${spade.build.dir}</argument>
+                    <argument>--android_build</argument>
+                    <argument>${android.build.dir}</argument>
+                    <argument>--javac_options</argument>
+                    <argument>${javac.options}</argument>
+                    <argument>--java_src</argument>
+                    <argument>${spade.src.dir}</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+
+              <execution>
+                <id>clean-android</id>
+                <phase>clean</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>${spade.bin.dir}/android/clean.sh</executable>
+                  <workingDirectory>${spade.root}</workingDirectory>
+                  <arguments>
+                    <argument>--android_build</argument>
+                    <argument>${android.build.dir}</argument>
+                    <argument>--android_lib</argument>
+                    <argument>${android.lib.dir}</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+  </profiles>
+
+</project>
