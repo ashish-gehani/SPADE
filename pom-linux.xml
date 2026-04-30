@@ -19,7 +19,7 @@
 
   <modules>
     <module>module/linux/audit/pom.xml</module>
-    <module>pom-linux-fuse.xml</module>
+    <module>module/linux/fuse/pom.xml</module>
     <module>pom-linux-llvm.xml</module>
   </modules>
 
