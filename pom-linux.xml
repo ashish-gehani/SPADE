@@ -20,7 +20,7 @@
   <modules>
     <module>module/linux/audit/pom.xml</module>
     <module>module/linux/fuse/pom.xml</module>
-    <module>pom-linux-llvm.xml</module>
+    <module>module/linux/llvm/pom.xml</module>
   </modules>
 
 </project>
