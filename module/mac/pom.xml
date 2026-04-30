@@ -8,7 +8,7 @@
     <groupId>io.github.spade</groupId>
     <artifactId>spade</artifactId>
     <version>${revision}</version>
-    <relativePath>pom.xml</relativePath>
+    <relativePath>../../pom.xml</relativePath>
   </parent>
 
   <artifactId>spade-mac</artifactId>
@@ -18,9 +18,9 @@
   <description>macOS native build targets for SPADE.</description>
 
   <modules>
-    <module>module/mac/openbsm/pom.xml</module>
-    <module>module/mac/fuse/pom.xml</module>
-    <module>module/mac/llvm/pom.xml</module>
+    <module>openbsm/pom.xml</module>
+    <module>fuse/pom.xml</module>
+    <module>llvm/pom.xml</module>
   </modules>
 
 </project>

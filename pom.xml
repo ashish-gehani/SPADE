@@ -89,7 +89,7 @@
         </os>
       </activation>
       <modules>
-        <module>pom-mac.xml</module>
+        <module>module/mac/pom.xml</module>
       </modules>
     </profile>
   </profiles>
