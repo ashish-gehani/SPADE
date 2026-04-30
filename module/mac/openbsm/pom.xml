@@ -8,7 +8,7 @@
     <groupId>io.github.spade</groupId>
     <artifactId>spade</artifactId>
     <version>${revision}</version>
-    <relativePath>pom.xml</relativePath>
+    <relativePath>../../../pom.xml</relativePath>
   </parent>
 
   <artifactId>spade-mac-openbsm</artifactId>

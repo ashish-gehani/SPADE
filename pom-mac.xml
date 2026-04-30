@@ -18,7 +18,7 @@
   <description>macOS native build targets for SPADE.</description>
 
   <modules>
-    <module>pom-mac-openbsm.xml</module>
+    <module>module/mac/openbsm/pom.xml</module>
     <module>module/mac/fuse/pom.xml</module>
     <module>module/mac/llvm/pom.xml</module>
   </modules>
