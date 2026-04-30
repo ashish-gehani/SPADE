@@ -43,8 +43,9 @@
     <revision>1</revision>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>11</maven.compiler.source>
-    <maven.compiler.target>11</maven.compiler.target>
+    <!-- <maven.compiler.source>17</maven.compiler.source> -->
+    <!-- <maven.compiler.target>17</maven.compiler.target> -->
+    <maven.compiler.release>17</maven.compiler.release>
 
     <javac>${java.home}/bin/javac</javac>
     <cc>/usr/bin/cc</cc>
@@ -55,6 +56,7 @@
     <spade.lib.dir>${spade.root}/lib</spade.lib.dir>
     <spade.src.dir>${spade.root}/src</spade.src.dir>
     <spade.bin.dir>${spade.root}/bin</spade.bin.dir>
+    <spade.resource.dir>${spade.root}/src/resource</spade.resource.dir>
     <spade.jar>${spade.lib.dir}/spade.jar</spade.jar>
 
     <!-- spade.javac.cp is populated at runtime by maven-dependency-plugin (build-classpath) -->
@@ -108,32 +110,24 @@
       <groupId>local</groupId>
       <artifactId>libany_proto-speed</artifactId>
       <version>1.0</version>
-      <scope>system</scope>
-      <systemPath>${spade.root}/lib/libany_proto-speed.jar</systemPath>
     </dependency>
 
     <dependency>
       <groupId>local</groupId>
       <artifactId>libdifferentialprivacy</artifactId>
       <version>1.0</version>
-      <scope>system</scope>
-      <systemPath>${spade.root}/lib/libdifferentialprivacy.jar</systemPath>
     </dependency>
 
     <dependency>
       <groupId>local</groupId>
       <artifactId>libprotobuf_java</artifactId>
       <version>1.0</version>
-      <scope>system</scope>
-      <systemPath>${spade.root}/lib/libprotobuf_java.jar</systemPath>
     </dependency>
 
     <dependency>
       <groupId>local</groupId>
       <artifactId>libsummary-proto-speed</artifactId>
       <version>1.0</version>
-      <scope>system</scope>
-      <systemPath>${spade.root}/lib/libsummary-proto-speed.jar</systemPath>
     </dependency>
 
     <dependency>
@@ -146,8 +140,6 @@
       <groupId>local</groupId>
       <artifactId>libOoaBFilter</artifactId>
       <version>1.0</version>
-      <scope>system</scope>
-      <systemPath>${spade.root}/lib/OoaBFilter_commit_31792eb.jar</systemPath>
     </dependency>
 
     <dependency>
@@ -226,16 +218,12 @@
       <groupId>local</groupId>
       <artifactId>libiris</artifactId>
       <version>1.0</version>
-      <scope>system</scope>
-      <systemPath>${spade.root}/lib/iris-0.60.jar</systemPath>
     </dependency>
 
     <dependency>
       <groupId>local</groupId>
       <artifactId>libirisparser</artifactId>
       <version>1.0</version>
-      <scope>system</scope>
-      <systemPath>${spade.root}/lib/iris-parser-0.60.jar</systemPath>
     </dependency>
 
     <dependency>
@@ -266,8 +254,6 @@
       <groupId>local</groupId>
       <artifactId>libje</artifactId>
       <version>1.0</version>
-      <scope>system</scope>
-      <systemPath>${spade.root}/lib/je-7.3.7.jar</systemPath>
     </dependency>
 
     <dependency>
@@ -340,8 +326,6 @@
       <groupId>local</groupId>
       <artifactId>libkafkaclientCDM</artifactId>
       <version>1.0</version>
-      <scope>system</scope>
-      <systemPath>${spade.root}/lib/kafkaclients-CDM20.jar</systemPath>
     </dependency>
 
     <dependency>
@@ -373,8 +357,6 @@
       <groupId>local</groupId>
       <artifactId>liborgjson</artifactId>
       <version>1.0</version>
-      <scope>system</scope>
-      <systemPath>${spade.root}/lib/org.json-20120521.jar</systemPath>
     </dependency>
 
     <dependency>
@@ -406,6 +388,15 @@
   <build>
     <sourceDirectory>${spade.src.dir}</sourceDirectory>
     <outputDirectory>${spade.build.dir}</outputDirectory>
+
+    <resources>
+      <resource>
+        <directory>${spade.resource.dir}</directory>
+        <includes>
+          <include>**/*.html</include>
+        </includes>
+      </resource>
+    </resources>
 
     <pluginManagement>
       <plugins>
@@ -460,6 +451,31 @@
         <artifactId>maven-dependency-plugin</artifactId>
       </plugin>
 
+      <plugin>
+        <artifactId>maven-resources-plugin</artifactId>
+        <inherited>false</inherited>
+        <executions>
+          <execution>
+            <id>copy-html-resources</id>
+            <phase>process-resources</phase>
+            <goals><goal>copy-resources</goal></goals>
+            <configuration>
+              <outputDirectory>${spade.build.dir}</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${spade.resource.dir}</directory>
+                  <includes>
+                    <include>**/*.html</include>
+                  <include>**/*.js</include>
+                  <include>**/*.css</include>
+                  </includes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
       <!-- compile and jar steps are root-only; child modules must not inherit them -->
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -511,5 +527,12 @@
     </plugins>
 
   </build>
+
+  <repositories>
+    <repository>
+      <id>spade-local-jar</id>
+      <url>file://${project.basedir}/lib</url>
+    </repository>
+  </repositories>
 
 </project>

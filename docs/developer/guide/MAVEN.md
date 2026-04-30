@@ -169,6 +169,53 @@ Profile-gated example (build guarded, clean unconditional):
 </profiles>
 ```
 
+## Adding a Local JAR Dependency
+
+Use this when you have a JAR that is not available on Maven Central and needs to be
+bundled with the project under `lib/`.
+
+1. **Deploy the JAR to the project-local Maven repository** at `lib/`:
+
+   ```bash
+   mvn deploy:deploy-file \
+     -Durl=file:///path/to/spade/lib \
+     -Dfile=path/to/your.jar \
+     -DgroupId=local \
+     -DartifactId=<artifactId> \
+     -Dversion=1.0 \
+     -Dpackaging=jar
+   ```
+
+   Replace `<artifactId>` with a descriptive name (e.g. `libmything`). Use `groupId=local`
+   to stay consistent with the other local JARs.
+
+2. **Add the dependency to `pom.xml`**:
+
+   ```xml
+   <dependency>
+     <groupId>local</groupId>
+     <artifactId>libmything</artifactId>
+     <version>1.0</version>
+   </dependency>
+   ```
+
+3. **Add the JAR to `cfg/java.classpath`** so the runtime launch script (`bin/spade`)
+   picks it up. Append a line using the flat filename you copied to `lib/`:
+
+   ```
+   lib/your.jar
+   ```
+
+   Note: the deploy step in (1) places the JAR inside `lib/local/<artifactId>/1.0/` for
+   Maven resolution. The classpath entry points to the original flat copy in `lib/` used
+   by the runtime script — both are needed.
+
+4. **Force Maven to re-resolve** if it cached a previous failed lookup:
+
+   ```bash
+   mvn dependency:resolve -U -DincludeArtifactIds=<artifactId>
+   ```
+
 ## Adding a Subcomponent
 
 1. Create the POM at the appropriate path under `module/`:
