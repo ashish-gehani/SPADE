@@ -19,7 +19,7 @@
 
   <modules>
     <module>pom-mac-openbsm.xml</module>
-    <module>pom-mac-fuse.xml</module>
+    <module>module/mac/fuse/pom.xml</module>
     <module>pom-mac-llvm.xml</module>
   </modules>
 
