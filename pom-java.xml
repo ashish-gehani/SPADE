@@ -18,6 +18,9 @@
   <description>Compiles all Java sources and produces lib/spade.jar.</description>
 
   <build>
+    <sourceDirectory>${spade.src.dir}</sourceDirectory>
+    <outputDirectory>${spade.build.dir}</outputDirectory>
+
     <plugins>
 
       <plugin>

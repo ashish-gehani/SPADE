@@ -403,9 +403,6 @@
   </dependencies>
 
   <build>
-    <sourceDirectory>${spade.src.dir}</sourceDirectory>
-    <outputDirectory>${spade.build.dir}</outputDirectory>
-
     <pluginManagement>
       <plugins>
         <plugin>
