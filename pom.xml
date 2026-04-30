@@ -78,7 +78,7 @@
         </os>
       </activation>
       <modules>
-        <module>pom-linux.xml</module>
+        <module>module/linux/pom.xml</module>
       </modules>
     </profile>
     <profile>
