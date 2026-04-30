@@ -6,9 +6,9 @@
 
   <parent>
     <groupId>io.github.spade</groupId>
-    <artifactId>spade</artifactId>
+    <artifactId>spade-mac</artifactId>
     <version>${revision}</version>
-    <relativePath>../../../pom.xml</relativePath>
+    <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>spade-mac-fuse</artifactId>
