@@ -398,6 +398,12 @@
           <include>**/*.js</include>
         </includes>
       </resource>
+      <resource>
+        <directory>${spade.src.dir}</directory>
+        <includes>
+          <include>spade/query/quickgrail/README.md</include>
+        </includes>
+      </resource>
     </resources>
 
     <pluginManagement>
@@ -470,6 +476,12 @@
                     <include>**/*.html</include>
                   <include>**/*.js</include>
                   <include>**/*.css</include>
+                  </includes>
+                </resource>
+                <resource>
+                  <directory>${spade.src.dir}</directory>
+                  <includes>
+                    <include>spade/query/quickgrail/README.md</include>
                   </includes>
                 </resource>
               </resources>
