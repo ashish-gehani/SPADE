@@ -199,7 +199,7 @@ bundled with the project under `lib/`.
    </dependency>
    ```
 
-3. **Add the JAR to `cfg/java.classpath`** so the runtime launch script (`bin/spade`)
+3. (OPTIONAL) **Add the JAR to `cfg/java.classpath`** so the runtime launch script (`bin/spade`)
    picks it up. Append a line using the flat filename you copied to `lib/`:
 
    ```
