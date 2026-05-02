@@ -51,7 +51,7 @@ public class Http extends Server {
                 .build();
 
         final StreamableSyncSpecification mcpServerBuilder = McpServer.sync(transportProvider);
-        mcpServerBuilder.serverInfo("spade", "1.0");
+        mcpServerBuilder.serverInfo(NAME, VERSION);
         for (final Tool tool : this.getToolRegistry().getTools()) {
             mcpServerBuilder.toolCall(tool.build(), tool::handle);
         }

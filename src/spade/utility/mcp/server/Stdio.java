@@ -43,7 +43,7 @@ public class Stdio extends Server {
             new StdioServerTransportProvider(McpJsonDefaults.getMapper());
 
         final SingleSessionSyncSpecification builder = McpServer.sync(transport);
-        builder.serverInfo("spade", "1.0");
+        builder.serverInfo(NAME, VERSION);
         for (final Tool tool : this.getToolRegistry().getTools()) {
             builder.toolCall(tool.build(), tool::handle);
         }

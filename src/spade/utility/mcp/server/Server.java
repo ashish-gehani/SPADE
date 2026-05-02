@@ -26,6 +26,9 @@ import spade.utility.mcp.tool.Registry;
 
 public abstract class Server {
 
+    public static final String NAME    = "spade";
+    public static final String VERSION = "1.0";
+
     private final State state = new State();
     private final Arg arg;
     private final Registry toolRegistry;
