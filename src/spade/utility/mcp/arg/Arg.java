@@ -19,18 +19,36 @@ package spade.utility.mcp.arg;
 
 public class Arg {
 
-    private final String host;
+    private final String spadeHost;
     private final int spadeQueryPort;
     private final int spadeControlPort;
 
-    public Arg(final String host, final int spadeQueryPort, final int spadeControlPort) {
-        this.host = host;
+    private final MCPServerMode mcpServerMode;
+
+    private final String mcpHttpHostName;
+    private final int mcpHttpHostPort;
+    private final String mcpHttpHostEndpoint;
+
+    public Arg(
+        final String spadeHost,
+        final int spadeQueryPort,
+        final int spadeControlPort,
+        final MCPServerMode mcpServerMode,
+        final String mcpHttpHostName,
+        final int mcpHttpHostPort,
+        final String mcpHttpHostEndpoint
+    ) {
+        this.spadeHost = spadeHost;
         this.spadeQueryPort = spadeQueryPort;
         this.spadeControlPort = spadeControlPort;
+        this.mcpServerMode = mcpServerMode;
+        this.mcpHttpHostName = mcpHttpHostName;
+        this.mcpHttpHostPort = mcpHttpHostPort;
+        this.mcpHttpHostEndpoint = mcpHttpHostEndpoint;
     }
 
-    public String getHost() {
-        return host;
+    public String getSpadeHost() {
+        return spadeHost;
     }
 
     public int getSpadeQueryPort() {
@@ -41,11 +59,31 @@ public class Arg {
         return spadeControlPort;
     }
 
+    public MCPServerMode getMCPServerMode() {
+        return mcpServerMode;
+    }
+
+    public String getMCPHttpHostName() {
+        return mcpHttpHostName;
+    }
+
+    public int getMCPHttpHostPort() {
+        return mcpHttpHostPort;
+    }
+
+    public String getMCPHttpHostEndpoint() {
+        return mcpHttpHostEndpoint;
+    }
+
     @Override
     public String toString() {
-        return "Arg[host=" + host
+        return "Arg[spadeHost=" + spadeHost
             + ", spadeQueryPort=" + spadeQueryPort
             + ", spadeControlPort=" + spadeControlPort
+            + ", mcpServerMode=" + mcpServerMode.name
+            + ", mcpHttpHostName=" + mcpHttpHostName
+            + ", mcpHttpHostPort=" + mcpHttpHostPort
+            + ", mcpHttpHostEndpoint=" + mcpHttpHostEndpoint
             + "]";
     }
 

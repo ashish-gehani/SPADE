@@ -24,8 +24,6 @@ import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.security.KeyStore;
 import java.security.SecureRandom;
-import java.util.logging.Level;
-
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
@@ -33,7 +31,6 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
 import spade.core.Settings;
-import spade.utility.mcp.Server;
 
 public class SPADEControl implements AutoCloseable {
 

@@ -15,22 +15,43 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.tool.handler;
+package spade.utility.mcp.tool;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 
 import spade.utility.mcp.connection.Context;
 
-public class ReadQuickGrail extends Handler {
+public class ReadQuickGrailDoc extends Tool {
 
     private static final String RESOURCE_PATH = "spade/query/quickgrail/README.md";
 
-    public ReadQuickGrail(final Context context) {
+    public ReadQuickGrailDoc(final Context context) {
         super(context);
+    }
+
+    @Override
+    public McpSchema.Tool build() {
+        final Map<String, Object> properties = new HashMap<>();
+
+        return McpSchema.Tool.builder()
+            .name("read_quickgrail_doc")
+            .description("Return the QuickGrail query language reference (README)")
+            .inputSchema(new McpSchema.JsonSchema(
+                "object",
+                properties,
+                Collections.emptyList(),
+                false,
+                null,
+                null
+            ))
+            .build();
     }
 
     @Override

@@ -15,32 +15,32 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.tool;
+package spade.utility.mcp.server;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+public class State {
 
-import io.modelcontextprotocol.spec.McpSchema;
+    private volatile boolean shutdown;
+    private volatile boolean isRunning;
 
-public class ReadQuickGrail implements Tool {
+    public State() {
+        this.shutdown = false;
+        this.isRunning = false;
+    }
 
-    @Override
-    public McpSchema.Tool build() {
-        final Map<String, Object> properties = new HashMap<>();
+    public boolean isRunning() {
+        return isRunning;
+    }
 
-        return McpSchema.Tool.builder()
-            .name("read_quickgrail")
-            .description("Return the QuickGrail query language reference (README)")
-            .inputSchema(new McpSchema.JsonSchema(
-                "object",
-                properties,
-                Collections.emptyList(),
-                false,
-                null,
-                null
-            ))
-            .build();
+    public void setRunning(final boolean isRunning) {
+        this.isRunning = isRunning;
+    }
+
+    public boolean isShutdown() {
+        return shutdown;
+    }
+
+    public void setShutdown(final boolean shutdown) {
+        this.shutdown = shutdown;
     }
 
 }

@@ -15,38 +15,36 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.tool.handler;
+package spade.utility.mcp.tool;
 
-import io.modelcontextprotocol.server.McpSyncServerExchange;
-import io.modelcontextprotocol.spec.McpSchema;
+import java.util.List;
 
 import spade.utility.mcp.connection.Context;
 
-public class ListStorages extends Handler {
+public class Registry {
 
-    public ListStorages(final Context context) {
-        super(context);
+    private final Context ctx;
+
+    public Registry(final Context ctx) {
+        if (ctx == null) {
+            throw new IllegalArgumentException("NULL ctx");
+        }
+        this.ctx = ctx;
     }
 
-    @Override
-    public McpSchema.CallToolResult handle(
-        final McpSyncServerExchange exchange,
-        final McpSchema.CallToolRequest request
-    ) {
-        final String result;
-        try {
-            result = this.context.getSpadeControl().send("list storages");
-        } catch (Exception e) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("Error: " + e.getMessage())
-                .isError(true)
-                .build();
-        }
+    public Context getContext(){
+        return ctx;
+    }
 
-        return McpSchema.CallToolResult.builder()
-            .addTextContent(result)
-            .isError(false)
-            .build();
+    public List<Tool> getTools(){
+        return List.of(
+            new AddStorage(this.ctx),
+            new ListStorages(this.ctx),
+            new PrintStorage(this.ctx),
+            new QuickGrailQuery(this.ctx),
+            new ReadQuickGrailDoc(this.ctx),
+            new SetStorage(this.ctx)
+        );
     }
 
 }

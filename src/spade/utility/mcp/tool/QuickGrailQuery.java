@@ -21,9 +21,17 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 
-public class QuickGrailQuery implements Tool {
+import spade.core.Query;
+import spade.utility.mcp.connection.Context;
+
+public class QuickGrailQuery extends Tool {
+
+    public QuickGrailQuery(final Context context) {
+        super(context);
+    }
 
     @Override
     public McpSchema.Tool build() {
@@ -45,6 +53,43 @@ public class QuickGrailQuery implements Tool {
                 null,
                 null
             ))
+            .build();
+    }
+
+    @Override
+    public McpSchema.CallToolResult handle(
+        final McpSyncServerExchange exchange,
+        final McpSchema.CallToolRequest request
+    ) {
+        final String rawQuery = (String) request.arguments().get("query");
+        if (rawQuery == null) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: null query argument")
+                .isError(true)
+                .build();
+        }
+
+        final Query result;
+        try {
+            result = this.getContext().getSpadeQuery().query(rawQuery);
+        } catch (Exception e) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: " + e.getMessage())
+                .isError(true)
+                .build();
+        }
+
+        if (!result.wasQuerySuccessful()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: " + result.getError())
+                .isError(true)
+                .build();
+        }
+
+        final String resultText = result.getResult() != null ? result.getResult().toString() : "";
+        return McpSchema.CallToolResult.builder()
+            .addTextContent(resultText)
+            .isError(false)
             .build();
     }
 

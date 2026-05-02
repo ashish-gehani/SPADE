@@ -15,27 +15,17 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.tool.handler;
+package spade.utility.mcp.arg;
 
-import io.modelcontextprotocol.server.McpSyncServerExchange;
-import io.modelcontextprotocol.spec.McpSchema;
+public enum MCPServerMode {
 
-import spade.utility.mcp.connection.Context;
+    STDIO("stdio"),
+    HTTP("http");
 
-public abstract class Handler {
+    public final String name;
 
-    protected final Context context;
-
-    public Handler(final Context context) {
-        if (context == null) {
-            throw new IllegalArgumentException("NULL context");
-        }
-        this.context = context;
+    MCPServerMode(final String name) {
+        this.name = name;
     }
-
-    public abstract McpSchema.CallToolResult handle(
-        final McpSyncServerExchange exchange,
-        final McpSchema.CallToolRequest request
-    );
 
 }

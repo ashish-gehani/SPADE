@@ -22,9 +22,16 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 
-public class AddStorage implements Tool {
+import spade.utility.mcp.connection.Context;
+
+public class AddStorage extends Tool {
+
+    public AddStorage(final Context ctx){
+        super(ctx);
+    }
 
     @Override
     public McpSchema.Tool build() {
@@ -50,4 +57,32 @@ public class AddStorage implements Tool {
             .build();
     }
 
+    @Override
+    public McpSchema.CallToolResult handle(
+        final McpSyncServerExchange exchange,
+        final McpSchema.CallToolRequest request
+    ) {
+        final String storageName = (String) request.arguments().get("storageName");
+        if (storageName == null || storageName.isBlank()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: null/empty storageName argument")
+                .isError(true)
+                .build();
+        }
+
+        final String result;
+        try {
+            result = this.getContext().getSpadeControl().send("add storage " + storageName);
+        } catch (Exception e) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: " + e.getMessage())
+                .isError(true)
+                .build();
+        }
+
+        return McpSchema.CallToolResult.builder()
+            .addTextContent(result)
+            .isError(false)
+            .build();
+    }
 }

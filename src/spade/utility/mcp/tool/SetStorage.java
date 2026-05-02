@@ -22,9 +22,17 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 
-public class SetStorage implements Tool {
+import spade.core.Query;
+import spade.utility.mcp.connection.Context;
+
+public class SetStorage extends Tool {
+
+    public SetStorage(final Context context) {
+        super(context);
+    }
 
     @Override
     public McpSchema.Tool build() {
@@ -47,6 +55,43 @@ public class SetStorage implements Tool {
                 null,
                 null
             ))
+            .build();
+    }
+
+    @Override
+    public McpSchema.CallToolResult handle(
+        final McpSyncServerExchange exchange,
+        final McpSchema.CallToolRequest request
+    ) {
+        final String storageName = (String) request.arguments().get("storageName");
+        if (storageName == null || storageName.isBlank()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: null/empty storageName argument")
+                .isError(true)
+                .build();
+        }
+
+        final Query result;
+        try {
+            result = this.getContext().getSpadeQuery().query("set storage " + storageName);
+        } catch (Exception e) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: " + e.getMessage())
+                .isError(true)
+                .build();
+        }
+
+        if (!result.wasQuerySuccessful()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: " + result.getError())
+                .isError(true)
+                .build();
+        }
+
+        final String resultText = result.getResult() != null ? result.getResult().toString() : "";
+        return McpSchema.CallToolResult.builder()
+            .addTextContent(resultText)
+            .isError(false)
             .build();
     }
 

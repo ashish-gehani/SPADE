@@ -20,9 +20,17 @@ package spade.utility.mcp.tool;
 import java.util.Collections;
 import java.util.HashMap;
 
+import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 
-public class PrintStorage implements Tool {
+import spade.core.Query;
+import spade.utility.mcp.connection.Context;
+
+public class PrintStorage extends Tool {
+
+    public PrintStorage(final Context ctx){
+        super(ctx);
+    }
 
     @Override
     public McpSchema.Tool build() {
@@ -40,4 +48,32 @@ public class PrintStorage implements Tool {
             .build();
     }
 
+    @Override
+    public McpSchema.CallToolResult handle(
+        final McpSyncServerExchange exchange,
+        final McpSchema.CallToolRequest request
+    ) {
+        final Query result;
+        try {
+            result = this.getContext().getSpadeQuery().query("print storage");
+        } catch (Exception e) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: " + e.getMessage())
+                .isError(true)
+                .build();
+        }
+
+        if (!result.wasQuerySuccessful()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: " + result.getError())
+                .isError(true)
+                .build();
+        }
+
+        final String resultText = result.getResult() != null ? result.getResult().toString() : "";
+        return McpSchema.CallToolResult.builder()
+            .addTextContent(resultText)
+            .isError(false)
+            .build();
+    }
 }

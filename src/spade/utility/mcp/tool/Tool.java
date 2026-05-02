@@ -17,10 +17,31 @@
 
 package spade.utility.mcp.tool;
 
+import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 
-public interface Tool {
+import spade.utility.mcp.connection.Context;
 
-    public McpSchema.Tool build();
+public abstract class Tool {
+
+    private final Context ctx;
+
+    public Tool(final Context ctx) {
+        if (ctx == null) {
+            throw new IllegalArgumentException("NULL ctx");
+        }
+        this.ctx = ctx;
+    }
+
+    public final Context getContext(){
+        return ctx;
+    }
+
+    public abstract McpSchema.Tool build();
+
+    public abstract McpSchema.CallToolResult handle(
+        final McpSyncServerExchange exchange,
+        final McpSchema.CallToolRequest request
+    );
 
 }

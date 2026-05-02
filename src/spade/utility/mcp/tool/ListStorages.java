@@ -20,9 +20,16 @@ package spade.utility.mcp.tool;
 import java.util.Collections;
 import java.util.HashMap;
 
+import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 
-public class ListStorages implements Tool {
+import spade.utility.mcp.connection.Context;
+
+public class ListStorages extends Tool {
+
+    public ListStorages(final Context ctx){
+        super(ctx);
+    }
 
     @Override
     public McpSchema.Tool build() {
@@ -37,6 +44,27 @@ public class ListStorages implements Tool {
                 null,
                 null
             ))
+            .build();
+    }
+
+    @Override
+    public McpSchema.CallToolResult handle(
+        final McpSyncServerExchange exchange,
+        final McpSchema.CallToolRequest request
+    ) {
+        final String result;
+        try {
+            result = this.getContext().getSpadeControl().send("list storages");
+        } catch (Exception e) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: " + e.getMessage())
+                .isError(true)
+                .build();
+        }
+
+        return McpSchema.CallToolResult.builder()
+            .addTextContent(result)
+            .isError(false)
             .build();
     }
 
