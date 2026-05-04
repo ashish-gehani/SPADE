@@ -43,9 +43,9 @@
     <revision>1</revision>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <!-- <maven.compiler.source>17</maven.compiler.source> -->
-    <!-- <maven.compiler.target>17</maven.compiler.target> -->
-    <maven.compiler.release>17</maven.compiler.release>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <!-- <maven.compiler.release>17</maven.compiler.release> -->
 
     <javac>${java.home}/bin/javac</javac>
     <cc>/usr/bin/cc</cc>
@@ -98,6 +98,19 @@
 
   <dependencies>
 
+
+    <dependency>
+        <groupId>org.eclipse.jetty</groupId>
+        <artifactId>jetty-server</artifactId>
+        <version>12.0.10</version>
+    </dependency>
+
+    <dependency>
+        <groupId>org.eclipse.jetty.ee10</groupId>
+        <artifactId>jetty-ee10-servlet</artifactId>
+        <version>12.0.10</version>
+    </dependency>
+
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
@@ -134,6 +147,12 @@
       <groupId>org.neo4j</groupId>
       <artifactId>neo4j</artifactId>
       <version>4.1.1</version>
+    </dependency>
+
+    <dependency>
+        <groupId>jakarta.servlet</groupId>
+        <artifactId>jakarta.servlet-api</artifactId>
+        <version>6.1.0</version>
     </dependency>
 
     <dependency>
@@ -520,6 +539,10 @@
         <artifactId>maven-jar-plugin</artifactId>
         <inherited>false</inherited>
         <executions>
+          <execution>
+            <id>default-jar</id>
+            <phase>none</phase>
+          </execution>
           <execution>
             <id>jar-spade</id>
             <phase>compile</phase>
