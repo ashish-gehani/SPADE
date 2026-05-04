@@ -1,8 +1,13 @@
+.DS_Store
+.classpath
+.claude
 build
 /Makefile
 /target
 module/**/target
 bin/spadeAuditBridge
+lib/spadeOpenBSM
+*.class
 cfg/control.history
 cfg/keys/
 cfg/spade.storage.CDM.out
