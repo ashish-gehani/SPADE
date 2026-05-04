@@ -32,7 +32,7 @@
       <id>fuse</id>
       <activation>
         <file>
-          <exists>/usr/local/lib/pkgconfig/fuse-t.pc</exists>
+          <exists>/usr/local/include/fuse/fuse.h</exists>
         </file>
       </activation>
       <build>
