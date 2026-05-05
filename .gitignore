@@ -30,3 +30,4 @@ src/spade/reporter/spade_reporter_LinuxFUSE.h
 cfg/query.history
 Module.symvers
 modules.order
+lib/neo4j-community*
