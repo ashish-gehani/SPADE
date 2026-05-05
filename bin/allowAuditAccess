@@ -30,9 +30,17 @@ if sudo test ! -f "${af_unix_path}"; then
     af_unix_path="/etc/audit/plugins.d/af_unix.conf"
 fi
 
-sudo chmod ug+s `which auditctl`
-sudo chmod ug+s `which iptables`
-sudo chmod ug+s `which kmod`
-sudo chown root "${spadeAuditBridgePath}"
-sudo chmod ug+s "${spadeAuditBridgePath}"
 sudo sed -i "s/active = no/active = yes/" "$af_unix_path"
+
+echo "Setting setuid bits on binaries is not done automatically due to a security"
+echo "vulnerability in how Linux distributions handle setuid on copied binaries."
+echo "See: https://xint.io/blog/copy-fail-linux-distributions"
+echo ""
+echo "To grant SPADE the required privileges, please run the following commands manually:"
+echo ""
+echo "  sudo chmod ug+s \$(which auditctl)"
+echo "  sudo chmod ug+s \$(which iptables)"
+echo "  sudo chmod ug+s \$(which kmod)"
+echo "  sudo chown root \"${spadeAuditBridgePath}\""
+echo "  sudo chmod ug+s \"${spadeAuditBridgePath}\""
+
