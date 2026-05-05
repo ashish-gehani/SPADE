@@ -151,10 +151,17 @@ public class DatabaseManager{
 		
 		try{
 			DatabaseManagementServiceBuilder dbServiceBuilder = new DatabaseManagementServiceBuilder(
-					new File(storage.getConfiguration().dbHomeDirectoryFile.getAbsolutePath()));
+				java.nio.file.Path.of(
+					storage.getConfiguration().dbHomeDirectoryFile.getAbsolutePath()
+				)
+			);
 
 			if(storage.getConfiguration().neo4jConfigFilePath != null){
-				dbServiceBuilder = dbServiceBuilder.loadPropertiesFromFile(storage.getConfiguration().neo4jConfigFilePath.getAbsolutePath());
+				dbServiceBuilder = dbServiceBuilder.loadPropertiesFromFile(
+					java.nio.file.Path.of(
+						storage.getConfiguration().neo4jConfigFilePath.getAbsolutePath()
+					)
+				);
 			}
 
 			dbServiceBuilder = dbServiceBuilder.setConfig(
