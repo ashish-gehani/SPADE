@@ -1,30 +1,87 @@
 #!/bin/bash
 
-set -e
+# SPADE - Support for Provenance Auditing in Distributed Environments.
+# Copyright (C) 2026 SRI International.
 
-os_name=$(uname)
 
-download_url="https://neo4j.com/artifact.php?name=neo4j-community-4.1.1-unix.tar.gz"
-download_dir_path="lib"
-downloaded_file_path="${download_dir_path}/neo4j-community-4.1.1.tar.gz"
-neo4j_dir_path="lib/neo4j-community-4.1.1"
+# globals
+DOWNLOAD_URL=""
+DOWNLOAD_DIR_PATH=""
+NEO4J_DIR_PATH=""
 
-if [ -d "${neo4j_dir_path}" ]
-then
-  echo "Neo4j exists: ${neo4j_dir_path}"
-  exit 0
-fi
 
-if [[ "$os_name" = "Linux" ]] || [[ "$os_name" = *"CYGWIN"* ]]
-then
-  wget -O "$downloaded_file_path" "$download_url"
-elif [ "$os_name" = "Darwin" ]
-then
-  curl -L -o "$downloaded_file_path" "$download_url"
-else
-  echo "Platform not supported: $os_name"
-  exit 1
-fi
+function print_help() {
+    echo "Usage: $(basename "$0") --url <url> --download-dir <path> --neo4j-dir <path>"
+    echo ""
+    echo "Options:"
+    echo "    --url <url>             Download URL"
+    echo "    --download-dir <path>   Download directory"
+    echo "    --neo4j-dir <path>      Neo4j installation directory"
+    echo "    --help                  Show this message and exit"
+    exit 0
+}
 
-tar -xf "${downloaded_file_path}" -C "${download_dir_path}/"
-rm "$downloaded_file_path"
+function parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --help) print_help ;;
+            --url) DOWNLOAD_URL="$2"; shift 2 ;;
+            --download-dir) DOWNLOAD_DIR_PATH="$2"; shift 2 ;;
+            --neo4j-dir) NEO4J_DIR_PATH="$2"; shift 2 ;;
+            *) echo "Unknown argument: $1"; exit 1 ;;
+        esac
+    done
+}
+
+function validate_args() {
+    if [[ -z "${DOWNLOAD_URL}" ]]; then
+        echo "Error: --url is required"
+        exit 1
+    fi
+    if [[ -z "${DOWNLOAD_DIR_PATH}" ]]; then
+        echo "Error: --download-dir is required"
+        exit 1
+    fi
+    if [[ -z "${NEO4J_DIR_PATH}" ]]; then
+        echo "Error: --neo4j-dir is required"
+        exit 1
+    fi
+}
+
+function check_existing() {
+    if [[ -d "${NEO4J_DIR_PATH}" ]]; then
+        echo "Neo4j exists: ${NEO4J_DIR_PATH}"
+        exit 0
+    fi
+}
+
+function download() {
+    local os_name
+    local downloaded_file_path
+    os_name="$(uname)"
+    downloaded_file_path="${DOWNLOAD_DIR_PATH}/neo4j-community.tar.gz"
+
+    if [[ "${os_name}" = "Linux" ]] || [[ "${os_name}" = *"CYGWIN"* ]]; then
+        wget -O "${downloaded_file_path}" "${DOWNLOAD_URL}"
+    elif [[ "${os_name}" = "Darwin" ]]; then
+        curl -L -o "${downloaded_file_path}" "${DOWNLOAD_URL}"
+    else
+        echo "Platform not supported: ${os_name}"
+        exit 1
+    fi
+
+    local extracted_dir
+    extracted_dir="$(tar -tf "${downloaded_file_path}" | head -1 | cut -d/ -f1)"
+    tar -xf "${downloaded_file_path}" -C "${DOWNLOAD_DIR_PATH}/"
+    rm "${downloaded_file_path}"
+    mv "${DOWNLOAD_DIR_PATH}/${extracted_dir}" "${NEO4J_DIR_PATH}"
+}
+
+function main() {
+    parse_args "$@"
+    validate_args
+    check_existing
+    download
+}
+
+main "$@"
