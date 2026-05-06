@@ -43,9 +43,8 @@
     <revision>1</revision>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>17</maven.compiler.source>
-    <maven.compiler.target>17</maven.compiler.target>
-    <!-- <maven.compiler.release>17</maven.compiler.release> -->
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
 
     <javac>${java.home}/bin/javac</javac>
     <cc>/usr/bin/cc</cc>
