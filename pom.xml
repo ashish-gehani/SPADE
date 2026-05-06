@@ -158,12 +158,6 @@
     </dependency>
 
     <dependency>
-      <groupId>org.kohsuke</groupId>
-      <artifactId>akuma</artifactId>
-      <version>1.9</version>
-    </dependency>
-
-    <dependency>
       <groupId>org.antlr</groupId>
       <artifactId>antlr4</artifactId>
       <version>4.7</version>
@@ -324,12 +318,6 @@
       <groupId>org.jgrapht</groupId>
       <artifactId>jgrapht-core</artifactId>
       <version>0.9.2</version>
-    </dependency>
-
-    <dependency>
-      <groupId>net.java.dev.jna</groupId>
-      <artifactId>jna</artifactId>
-      <version>4.1.0</version>
     </dependency>
 
     <dependency>
@@ -528,6 +516,9 @@
             <arg>-Xlint:none</arg>
             <arg>-proc:none</arg>
           </compilerArgs>
+          <excludes>
+            <exclude>spade/utility/Daemonizer.java</exclude>
+          </excludes>
         </configuration>
       </plugin>
 
