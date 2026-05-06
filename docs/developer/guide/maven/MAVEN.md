@@ -19,7 +19,7 @@ Each non-Java module is managed by a set of Bash scripts that mirror Maven's lif
 |---|---|---|
 | `compile.sh` | `compile` | Compiles or links the module artifact. |
 | `clean.sh` | `clean` | Removes build artifacts. |
-| `filter.sh` | *(pre-compile gate)* | Decides whether Maven should proceed with the build. Documentation to be added. |
+| `filter.sh` | *(pre-compile gate)* | Decides whether Maven should proceed with the build. See [FILTER.md](FILTER.md). |
 
 These scripts live under `bin/` and are invoked by the module's POM via `exec-maven-plugin`. The POM passes all required inputs as named arguments; the script contains the build logic.
 
