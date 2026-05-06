@@ -582,7 +582,7 @@
   <repositories>
     <repository>
       <id>spade-local-jar</id>
-      <url>file://${project.basedir}/lib</url>
+      <url>file://${spade.root}/lib</url>
     </repository>
   </repositories>
 
