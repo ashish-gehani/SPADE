@@ -2,12 +2,28 @@
 
 ## Overview
 
+SPADE is a polyglot project spanning Java, C, Clang, and kernel modules. Maven serves as the unified build frontend because the project is primarily Java. Non-Java modules (C libraries, kernel modules, LLVM passes, etc.) are built by Bash scripts that Maven invokes at the appropriate lifecycle phase via `exec-maven-plugin`.
+
 The Maven build has two responsibilities:
 
 1. **Java compilation** — the root `pom.xml` compiles all Java sources and produces `lib/spade.jar`.
-2. **Subcomponent coordination** — each subcomponent has its own POM that delegates its build and clean steps to scripts under `bin/`. The POM owns the variable definitions; scripts own the build logic.
+2. **Module coordination** — each module has its own POM that delegates its build and clean steps to scripts under `bin/`. The POM owns the variable definitions; scripts own the build logic.
 
 This mirrors the Make build. The key difference is that Maven enforces the structure through parent-child inheritance rather than explicit variable passing.
+
+## Shell Script Lifecycle Pattern
+
+Each non-Java module is managed by a set of Bash scripts that mirror Maven's lifecycle phases as closely as possible. This makes it straightforward to reason about what each script does in terms Maven users already understand.
+
+| Script | Maven phase equivalent | Purpose |
+|---|---|---|
+| `build.sh` | `compile` | Compiles or links the module artifact. |
+| `clean.sh` | `clean` | Removes build artifacts. |
+| `filter.sh` | *(pre-compile gate)* | Decides whether Maven should proceed with the build. Documentation to be added. |
+
+> **Note:** The compile-equivalent script is currently named `build.sh`, not `compile.sh`, but it maps to the Maven `compile` phase.
+
+These scripts live under `bin/` and are invoked by the module's POM via `exec-maven-plugin`. The POM passes all required inputs as named arguments; the script contains the build logic.
 
 ## Module Hierarchy
 
@@ -51,7 +67,7 @@ The root `pom.xml` is the single parent for the entire build. It owns:
 <javac.options>-Xlint:none -proc:none -cp ${spade.build.dir}:${spade.javac.cp}</javac.options>
 ```
 
-`spade.root` always resolves to the project root regardless of which module is being built. All subcomponent scripts receive paths derived from these properties.
+`spade.root` always resolves to the project root regardless of which module is being built. All module scripts receive paths derived from these properties.
 
 ### javac.options and spade.javac.cp
 
@@ -68,9 +84,9 @@ Platform poms are included in the reactor through OS-activated profiles in the r
 
 `module/android/pom.xml` is always in the reactor (unconditional `<modules>` entry). Its build steps are guarded by an internal profile (see below).
 
-## Subcomponent Poms
+## Module Poms
 
-Each subcomponent POM follows the same pattern:
+Each module POM follows the same pattern:
 
 1. Declares `<parent>` pointing to the nearest ancestor (platform pom or root pom).
 2. Defines only the properties it needs — paths to its source files, output files, and any flags. Shared paths (`spade.src.dir`, `spade.bin.dir`, etc.) come from the root via inheritance.
@@ -113,13 +129,13 @@ Each subcomponent POM follows the same pattern:
 </build>
 ```
 
-Properties local to a subcomponent are declared in that POM only. Do not add them to the root.
+Properties local to a module are declared in that POM only. Do not add them to the root.
 
 ## Profile-Gated Build Steps
 
-Some subcomponents are optional. Their build step is wrapped in a profile, but the clean step is always unconditional (at the top-level `<build>`, not inside the profile) so that `mvn clean` always removes artifacts regardless of whether the build was activated.
+Some modules are optional. Their build step is wrapped in a profile, but the clean step is always unconditional (at the top-level `<build>`, not inside the profile) so that `mvn clean` always removes artifacts regardless of whether the build was activated.
 
-| Subcomponent | Activation |
+| Module | Activation |
 |---|---|
 | `linux`, `mac` | OS profile in root (auto) |
 | `linux-fuse`, `mac-fuse` | File exists: `fuse.pc` (auto) |
@@ -216,7 +232,7 @@ bundled with the project under `lib/`.
    mvn dependency:resolve -U -DincludeArtifactIds=<artifactId>
    ```
 
-## Adding a Subcomponent
+## Adding a Module
 
 1. Create the POM at the appropriate path under `module/`:
 
@@ -235,10 +251,10 @@ bundled with the project under `lib/`.
    </parent>
    ```
 
-3. Define only subcomponent-specific properties. Use inherited shared properties for everything else.
+3. Define only module-specific properties. Use inherited shared properties for everything else.
 
-4. Add `build-` and `clean-` executions via `exec-maven-plugin`. Put clean unconditionally in `<build>`; put build inside a profile if the subcomponent is optional.
+4. Add `build-` and `clean-` executions via `exec-maven-plugin` (and a `filter-` execution if the module uses a filter script). Put clean unconditionally in `<build>`; put build inside a profile if the module is optional.
 
 5. Register the new POM in the parent's `<modules>` list.
 
-6. If the subcomponent is platform-conditional and no suitable platform pom exists, add an OS-activated profile to the root POM (following the `linux` / `mac` pattern).
+6. If the module is platform-conditional and no suitable platform pom exists, add an OS-activated profile to the root POM (following the `linux` / `mac` pattern).
