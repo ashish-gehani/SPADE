@@ -112,7 +112,7 @@ build: build-java $$(OS_BUILD) $(SPADE_JAR)
 build-java: download-neo4j core clients utilities storages screens filters query analyzers transformers reporters
 
 download-neo4j:
-	@bin/downloadNeo4j
+	@bin/manage-neo4j.sh install
 
 .SUFFIXES : .class .java
  
