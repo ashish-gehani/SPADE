@@ -1,8 +1,8 @@
-# Filter Script Guide
+# Check Script Guide
 
 ## Overview
 
-A `filter.sh` script is the pre-compile gate for a module. Before Maven runs `compile.sh`, it runs `filter.sh`. The exit code tells Maven whether to proceed.
+A `check.sh` script is the pre-compile gate for a module. Before Maven runs `compile.sh`, it runs `check.sh`. The exit code tells Maven whether to proceed.
 
 This mirrors the role of a CI pre-check: if the environment does not satisfy the module's prerequisites, the build is skipped rather than attempted and failed.
 
@@ -18,11 +18,11 @@ The distinction between "not met" and "fatal" matters: a missing optional depend
 
 ## Argument: `--silent`
 
-By default, `filter.sh` prints a `checking <what>... <result>` line for each unmet prerequisite. Pass `--silent` to suppress that output. Fatal errors are always printed regardless of `--silent`.
+By default, `check.sh` prints a `checking <what>... <result>` line for each unmet prerequisite. Pass `--silent` to suppress that output. Fatal errors are always printed regardless of `--silent`.
 
 ```bash
-filter.sh           # prints checking messages for unmet prerequisites
-filter.sh --silent  # suppresses prerequisite checking messages
+check.sh           # prints checking messages for unmet prerequisites
+check.sh --silent  # suppresses prerequisite checking messages
 ```
 
 ## Output Format

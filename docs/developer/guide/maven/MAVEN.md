@@ -19,7 +19,7 @@ Each non-Java module is managed by a set of Bash scripts that mirror Maven's lif
 |---|---|---|
 | `compile.sh` | `compile` | Compiles or links the module artifact. |
 | `clean.sh` | `clean` | Removes build artifacts. |
-| `filter.sh` | *(pre-compile gate)* | Decides whether Maven should proceed with the build. See [FILTER.md](FILTER.md). |
+| `check.sh` | *(pre-compile gate)* | Decides whether Maven should proceed with the build. See [CHECK.md](CHECK.md). |
 
 These scripts live under `bin/` and are invoked by the module's POM via `exec-maven-plugin`. The POM passes all required inputs as named arguments; the script contains the build logic.
 
@@ -251,7 +251,7 @@ bundled with the project under `lib/`.
 
 3. Define only module-specific properties. Use inherited shared properties for everything else.
 
-4. Add `build-` and `clean-` executions via `exec-maven-plugin` (and a `filter-` execution if the module uses a filter script). Put clean unconditionally in `<build>`; put build inside a profile if the module is optional.
+4. Add `build-` and `clean-` executions via `exec-maven-plugin` (and a `check-` execution if the module uses a check script). Put clean unconditionally in `<build>`; put build inside a profile if the module is optional.
 
 5. Register the new POM in the parent's `<modules>` list.
 
