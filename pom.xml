@@ -447,6 +447,7 @@
           <artifactId>maven-dependency-plugin</artifactId>
           <version>3.8.1</version>
           <executions>
+            <!-- Workaround: child modules that do a custom build (e.g. JNI, LLVM) need the Java classpath. Maven properties set by a plugin goal are module-scoped, so this must run per-module rather than once at the root. -->
             <execution>
               <id>build-classpath</id>
               <phase>initialize</phase>
@@ -469,38 +470,7 @@
         <artifactId>maven-dependency-plugin</artifactId>
       </plugin>
 
-      <plugin>
-        <artifactId>maven-resources-plugin</artifactId>
-        <inherited>false</inherited>
-        <executions>
-          <execution>
-            <id>copy-html-resources</id>
-            <phase>process-resources</phase>
-            <goals><goal>copy-resources</goal></goals>
-            <configuration>
-              <outputDirectory>${spade.build.dir}</outputDirectory>
-              <resources>
-                <resource>
-                  <directory>${spade.resource.dir}</directory>
-                  <includes>
-                    <include>**/*.html</include>
-                  <include>**/*.js</include>
-                  <include>**/*.css</include>
-                  </includes>
-                </resource>
-                <resource>
-                  <directory>${spade.src.dir}</directory>
-                  <includes>
-                    <include>spade/query/quickgrail/README.md</include>
-                  </includes>
-                </resource>
-              </resources>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-
-      <!-- compile and jar steps are root-only; child modules must not inherit them -->
+<!-- compile and jar steps are root-only; child modules must not inherit them -->
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <inherited>false</inherited>
