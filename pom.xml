@@ -560,6 +560,7 @@
         <artifactId>exec-maven-plugin</artifactId>
         <inherited>false</inherited>
         <executions>
+          <!-- Neo4j dependencies are on the classpath via <dependency>; this only fetches the tarball, analogous to manage-postgres and manage-quickstep. -->
           <execution>
             <id>install-neo4j</id>
             <phase>compile</phase>
