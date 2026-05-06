@@ -551,6 +551,12 @@
               <directory>${spade.lib.dir}</directory>
               <includes><include>spade.jar</include></includes>
             </fileset>
+            <fileset>
+              <directory>${spade.build.dir}</directory>
+            </fileset>
+            <fileset>
+              <directory>${project.build.directory}</directory>
+            </fileset>
           </filesets>
         </configuration>
       </plugin>
