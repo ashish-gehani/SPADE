@@ -72,7 +72,7 @@
                 <phase>compile</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <executable>${spade.bin.dir}/linux/audit/kernel/build.sh</executable>
+                  <executable>${spade.bin.dir}/linux/audit/kernel/compile.sh</executable>
                   <workingDirectory>${spade.root}</workingDirectory>
                   <arguments>
                     <argument>--kernel_modules_src</argument>

@@ -41,7 +41,7 @@
                 <phase>compile</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <executable>${spade.bin.dir}/linux/llvm/build.sh</executable>
+                  <executable>${spade.bin.dir}/linux/llvm/compile.sh</executable>
                   <workingDirectory>${spade.root}</workingDirectory>
                   <arguments>
                     <argument>--spade-src</argument>

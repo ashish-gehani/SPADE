@@ -47,7 +47,7 @@
                 <phase>compile</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <executable>${spade.bin.dir}/mac/fuse/build.sh</executable>
+                  <executable>${spade.bin.dir}/mac/fuse/compile.sh</executable>
                   <workingDirectory>${spade.root}</workingDirectory>
                   <arguments>
                     <argument>--javac</argument>

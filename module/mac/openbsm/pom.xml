@@ -34,7 +34,7 @@
             <phase>compile</phase>
             <goals><goal>exec</goal></goals>
             <configuration>
-              <executable>${spade.bin.dir}/mac/openbsm/build.sh</executable>
+              <executable>${spade.bin.dir}/mac/openbsm/compile.sh</executable>
               <workingDirectory>${spade.root}</workingDirectory>
               <arguments>
                 <argument>--c-src</argument>

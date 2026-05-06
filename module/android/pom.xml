@@ -44,7 +44,7 @@
                 <phase>compile</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <executable>${spade.bin.dir}/android/build.sh</executable>
+                  <executable>${spade.bin.dir}/android/compile.sh</executable>
                   <workingDirectory>${spade.root}</workingDirectory>
                   <arguments>
                     <argument>--javac</argument>

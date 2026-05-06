@@ -17,11 +17,9 @@ Each non-Java module is managed by a set of Bash scripts that mirror Maven's lif
 
 | Script | Maven phase equivalent | Purpose |
 |---|---|---|
-| `build.sh` | `compile` | Compiles or links the module artifact. |
+| `compile.sh` | `compile` | Compiles or links the module artifact. |
 | `clean.sh` | `clean` | Removes build artifacts. |
 | `filter.sh` | *(pre-compile gate)* | Decides whether Maven should proceed with the build. Documentation to be added. |
-
-> **Note:** The compile-equivalent script is currently named `build.sh`, not `compile.sh`, but it maps to the Maven `compile` phase.
 
 These scripts live under `bin/` and are invoked by the module's POM via `exec-maven-plugin`. The POM passes all required inputs as named arguments; the script contains the build logic.
 
@@ -90,7 +88,7 @@ Each module POM follows the same pattern:
 
 1. Declares `<parent>` pointing to the nearest ancestor (platform pom or root pom).
 2. Defines only the properties it needs — paths to its source files, output files, and any flags. Shared paths (`spade.src.dir`, `spade.bin.dir`, etc.) come from the root via inheritance.
-3. Uses `exec-maven-plugin` to run its `build.sh` at `compile` and its `clean.sh` at `clean`.
+3. Uses `exec-maven-plugin` to run its `compile.sh` at `compile` and its `clean.sh` at `clean`.
 4. Passes all required inputs to the script as named arguments.
 
 ```xml
@@ -110,7 +108,7 @@ Each module POM follows the same pattern:
           <phase>compile</phase>
           <goals><goal>exec</goal></goals>
           <configuration>
-            <executable>${spade.bin.dir}/mac/openbsm/build.sh</executable>
+            <executable>${spade.bin.dir}/mac/openbsm/compile.sh</executable>
             <workingDirectory>${spade.root}</workingDirectory>
             <arguments>
               <argument>--c-src</argument>  <argument>${openbsm.mac.c.src}</argument>

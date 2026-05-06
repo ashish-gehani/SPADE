@@ -37,7 +37,7 @@
             <phase>compile</phase>
             <goals><goal>exec</goal></goals>
             <configuration>
-              <executable>${spade.bin.dir}/linux/audit/build.sh</executable>
+              <executable>${spade.bin.dir}/linux/audit/compile.sh</executable>
               <workingDirectory>${spade.root}</workingDirectory>
               <arguments>
                 <argument>--audit_bridge</argument>
