@@ -9,11 +9,11 @@ ANDROID_LIB=""
 
 
 print_help() {
-    echo "Usage: $(basename "$0") --android_build <path> --android_lib <path>"
+    echo "Usage: $(basename "$0") [--android_build <path>] [--android_lib <path>]"
     echo ""
     echo "Options:"
-    echo "    --android_build <path>    Path to the Android build output directory"
-    echo "    --android_lib <path>      Path to the Android lib directory"
+    echo "    --android_build <path>    Path to the Android build output directory (optional)"
+    echo "    --android_lib <path>      Path to the Android lib directory (optional)"
     echo "    --help                    Show this message and exit"
     exit 0
 }
@@ -30,19 +30,16 @@ parse_args() {
 }
 
 validate_args() {
-    if [[ -z "${ANDROID_BUILD}" ]]; then
-        echo "Error: --android_build is required"
-        exit 1
-    fi
-    if [[ -z "${ANDROID_LIB}" ]]; then
-        echo "Error: --android_lib is required"
-        exit 1
-    fi
+    :
 }
 
 clean() {
-    rm -rf "${ANDROID_BUILD}"
-    rm -rf "${ANDROID_LIB}"
+    if [[ -n "${ANDROID_BUILD}" ]]; then
+        rm -rf "${ANDROID_BUILD}"
+    fi
+    if [[ -n "${ANDROID_LIB}" ]]; then
+        rm -rf "${ANDROID_LIB}"
+    fi
 }
 
 main() {
