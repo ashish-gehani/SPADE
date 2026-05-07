@@ -4,9 +4,9 @@
 # Copyright (C) 2026 SRI International.
 
 
-source "$(dirname "$0")/../../../util/check/os"
-source "$(dirname "$0")/../../../util/check/distro"
-source "$(dirname "$0")/../../../util/check/pkg"
+source "$(dirname "$0")/../../util/check/os"
+source "$(dirname "$0")/../../util/check/distro"
+source "$(dirname "$0")/../../util/check/pkg"
 
 # constants
 MIN_KERNEL_VERSION="5.4"

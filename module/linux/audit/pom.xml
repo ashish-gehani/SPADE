@@ -17,9 +17,6 @@
   <name>spade-linux-audit</name>
   <description>LinuxAudit reporter build for SPADE.</description>
 
-  <modules>
-    <module>kernel/pom.xml</module>
-  </modules>
 
   <properties>
     <audit.bridge>${spade.bin.dir}/spadeAuditBridge</audit.bridge>
