@@ -7,7 +7,7 @@
           dir="${spade.root}"
           failonerror="true">
       <arg value="--c-src"/>  <arg value="${openbsm.mac.c.src}"/>
-      <arg value="--output"/> <arg value="${openbsm.mac.output}"/>
+      <arg value="--output"/> <arg value="${openbsm.mac.output.build}"/>
     </exec>
   </target>
 

@@ -10,6 +10,15 @@ A `compile.sh` script builds the artifacts for a module. It is invoked by the An
 
 ## Conventions
 
+### Design principle
+
+`compile.sh` has one responsibility: build. It writes all output — final artifacts and intermediates — into `${project.build.directory}` (Maven's per-module `target/` directory). It does not install, copy, or notify.
+
+- **Final artifacts** (binaries, shared libraries, jars) are placed in `target/` by `compile.sh`. Maven's `process-classes` execution in the POM copies them to their final location (`lib/`, `bin/`, etc.). This keeps the script focused on building and lets Maven own the placement step.
+- **Intermediate files** (JNI headers, object files, bitcode) also go into `target/`, not into the source tree. Maven's clean plugin removes `target/` automatically, so intermediates are never left behind and never pollute the source.
+
+Post-build notices (e.g. `chown`/`chmod` instructions for setuid binaries) belong in the POM's `process-classes` execution, not in `compile.sh`, so they reference the final installed path.
+
 ### Arguments
 
 Each argument names an input path, output path, or build flag. Arguments map directly to the properties declared in the module's `pom.xml` and passed through `build.xml`.
@@ -45,16 +54,34 @@ OUTPUT=
 
 The build logic lives in one or more named functions called from `main`. Multi-step builds split into separate functions (e.g. `compile_java` then `build_native`). Keep each function focused on one build step.
 
-### Post-build notices
+### Output path and build directory
 
-When the built artifact requires a manual post-build step (e.g. `chown`/`chmod` for a setuid binary), print the instructions from a dedicated `print_notice` function called at the end of `main`:
+The POM declares two properties for each output artifact:
+
+```xml
+<artifact.path>${spade.lib.dir}/libFoo.so</artifact.path>
+<artifact.path.build>${project.build.directory}/libFoo.so</artifact.path.build>
+```
+
+`build.xml` passes `${artifact.path.build}` to `compile.sh`. The POM's `install-*` execution at `process-classes` copies from `${artifact.path.build}` to `${artifact.path}`. `clean.sh` only needs to remove `${artifact.path}` — Maven's clean plugin handles `target/`.
+
+When the build tool has its own install step (e.g. a Makefile with a separate `install` target), point that tool's install destination at `${project.build.directory}`. The tool's build step populates the build dir; its install step copies into it. The POM then copies to the final location at `process-classes`. `clean.sh` still receives the final location so the build tool's clean step removes installed artifacts there.
+
+### JNI header directory
+
+Pass `${project.build.directory}` as the `javac -h` output directory. Since the header is no longer co-located with the C source, add it explicitly to the compiler's include path:
 
 ```bash
-function print_notice() {
-    echo ''
-    echo '-----> IMPORTANT: ...'
-    echo ''
-}
+gcc ... -I"${NATIVE_HEADER_DIR}" ...
+```
+
+### Post-build notices
+
+Post-build notices belong in the POM's `install-*` execution, not in `compile.sh`:
+
+```xml
+<echo message="-----> IMPORTANT: sudo chown root ${artifact.path}"/>
+<echo message="-----> IMPORTANT: sudo chmod ug+s ${artifact.path}"/>
 ```
 
 ## Structure

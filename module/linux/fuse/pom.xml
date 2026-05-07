@@ -22,9 +22,9 @@
   <properties>
     <fuse.linux.lib.java.src>${spade.src.dir}/spade/reporter/LinuxFUSE.java</fuse.linux.lib.java.src>
     <fuse.linux.lib.c.src>${spade.src.dir}/spade/reporter/libLinuxFUSE.c</fuse.linux.lib.c.src>
-    <fuse.linux.native.header.dir>${spade.src.dir}/spade/reporter</fuse.linux.native.header.dir>
-    <fuse.linux.native.header.file>${fuse.linux.native.header.dir}/spade_reporter_LinuxFUSE.h</fuse.linux.native.header.file>
+    <fuse.linux.native.header.dir.build>${project.build.directory}</fuse.linux.native.header.dir.build>
     <fuse.linux.lib.path>${spade.lib.dir}/libLinuxFUSE.so</fuse.linux.lib.path>
+    <fuse.linux.lib.path.build>${project.build.directory}/libLinuxFUSE.so</fuse.linux.lib.path.build>
     <!-- <linux.fuse.skip>false</linux.fuse.skip> exported by check-linuxfuse (validate); true skips compile-linuxfuse -->
   </properties>
 
@@ -69,6 +69,20 @@
               <skip>${linux.fuse.skip}</skip>
               <target>
                 <ant antfile="${project.basedir}/build.xml" target="compile"/>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>install-linuxfuse</id>
+            <phase>process-classes</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <skip>${linux.fuse.skip}</skip>
+              <target>
+                <copy file="${fuse.linux.lib.path.build}" tofile="${fuse.linux.lib.path}"/>
+                <echo message=""/>
+                <echo message="-----> IMPORTANT: To use the LinuxFUSE reporter, please enable &quot;user_allow_other&quot; in /etc/fuse.conf"/>
+                <echo message=""/>
               </target>
             </configuration>
           </execution>

@@ -20,9 +20,9 @@
   <properties>
     <fuse.mac.lib.java.src>${spade.src.dir}/spade/reporter/MacFUSE.java</fuse.mac.lib.java.src>
     <fuse.mac.lib.c.src>${spade.src.dir}/spade/reporter/libMacFUSE.c</fuse.mac.lib.c.src>
-    <fuse.mac.native.header.dir>${spade.src.dir}/spade/reporter</fuse.mac.native.header.dir>
-    <fuse.mac.native.header.file>${fuse.mac.native.header.dir}/spade_reporter_MacFUSE.h</fuse.mac.native.header.file>
+    <fuse.mac.native.header.dir.build>${project.build.directory}</fuse.mac.native.header.dir.build>
     <fuse.mac.lib.path>${spade.lib.dir}/libMacFUSE.jnilib</fuse.mac.lib.path>
+    <fuse.mac.lib.path.build>${project.build.directory}/libMacFUSE.jnilib</fuse.mac.lib.path.build>
     <!-- <fuse.mac.skip>false</fuse.mac.skip> exported by check-macfuse (validate); true skips compile-macfuse -->
   </properties>
 
@@ -67,6 +67,17 @@
               <skip>${fuse.mac.skip}</skip>
               <target>
                 <ant antfile="${project.basedir}/build.xml" target="compile"/>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>install-macfuse</id>
+            <phase>process-classes</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <skip>${fuse.mac.skip}</skip>
+              <target>
+                <copy file="${fuse.mac.lib.path.build}" tofile="${fuse.mac.lib.path}"/>
               </target>
             </configuration>
           </execution>

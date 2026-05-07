@@ -21,6 +21,7 @@
 
   <properties>
     <llvm.linux.bin.dir>${spade.bin.dir}/llvm</llvm.linux.bin.dir>
+    <llvm.linux.bin.dir.build>${project.build.directory}/llvm</llvm.linux.bin.dir.build>
     <!-- <linux.llvm.skip>false</linux.llvm.skip> exported by check-linuxllvm (validate); true skips compile-linuxllvm -->
   </properties>
 
@@ -65,6 +66,19 @@
               <skip>${linux.llvm.skip}</skip>
               <target>
                 <ant antfile="${project.basedir}/build.xml" target="compile"/>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>install-linuxllvm</id>
+            <phase>process-classes</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <skip>${linux.llvm.skip}</skip>
+              <target>
+                <copy todir="${llvm.linux.bin.dir}">
+                  <fileset dir="${llvm.linux.bin.dir.build}"/>
+                </copy>
               </target>
             </configuration>
           </execution>

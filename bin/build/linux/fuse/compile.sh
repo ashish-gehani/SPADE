@@ -114,16 +114,11 @@ build_native() {
         -Wl,-soname,$(basename "${LIB_PATH}") \
         -I"${java_home_dir}" \
         -I"${java_home_dir}/linux" \
+        -I"${NATIVE_HEADER_DIR}" \
         -Wall \
         "${LIB_C_SRC}" \
         $(pkg-config fuse --cflags --libs) \
         -o "${LIB_PATH}"
-}
-
-print_notice() {
-    echo ''
-    echo '-----> IMPORTANT: To use the LinuxFUSE reporter, please enable "user_allow_other" in /etc/fuse.conf'
-    echo ''
 }
 
 main() {
@@ -131,7 +126,6 @@ main() {
     validate_args
     compile_java
     build_native
-    print_notice
 }
 
 main "$@"

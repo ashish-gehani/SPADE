@@ -112,6 +112,7 @@ build_native() {
     gcc -dynamiclib \
         -I"${java_home_dir}" \
         -I"${java_home_dir}/darwin" \
+        -I"${NATIVE_HEADER_DIR}" \
         "${LIB_C_SRC}" \
         $(pkg-config fuse --cflags --libs) \
         -o "${LIB_PATH}"

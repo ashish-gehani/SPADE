@@ -20,6 +20,7 @@
   <properties>
     <openbsm.mac.c.src>${spade.src.dir}/spade/reporter/spadeOpenBSM.c</openbsm.mac.c.src>
     <openbsm.mac.output>${spade.lib.dir}/spadeOpenBSM</openbsm.mac.output>
+    <openbsm.mac.output.build>${project.build.directory}/spadeOpenBSM</openbsm.mac.output.build>
     <!-- <openbsm.mac.skip>false</openbsm.mac.skip> exported by check-mac-openbsm (validate); true skips compile-mac-openbsm -->
   </properties>
 
@@ -64,6 +65,22 @@
               <skip>${openbsm.mac.skip}</skip>
               <target>
                 <ant antfile="${project.basedir}/build.xml" target="compile"/>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>install-mac-openbsm</id>
+            <phase>process-classes</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <skip>${openbsm.mac.skip}</skip>
+              <target>
+                <copy file="${openbsm.mac.output.build}" tofile="${openbsm.mac.output}"/>
+                <echo message=""/>
+                <echo message="-----> IMPORTANT: To use the OpenBSM reporter, please run the following commands to allow SPADE access to the audit stream:"/>
+                <echo message="----->             sudo chown root ${openbsm.mac.output}"/>
+                <echo message="----->             sudo chmod ug+s ${openbsm.mac.output}"/>
+                <echo message=""/>
               </target>
             </configuration>
           </execution>

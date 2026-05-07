@@ -19,6 +19,7 @@
 
   <properties>
     <android.build.dir>${spade.root}/android-build</android.build.dir>
+    <android.build.dir.build>${project.build.directory}/android-build</android.build.dir.build>
     <android.lib.dir>${spade.root}/android-lib</android.lib.dir>
     <!-- <android.skip>false</android.skip> exported by check-android (validate); true skips compile-android -->
   </properties>
@@ -64,6 +65,19 @@
               <skip>${android.skip}</skip>
               <target>
                 <ant antfile="${project.basedir}/build.xml" target="compile"/>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>install-android</id>
+            <phase>process-classes</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <skip>${android.skip}</skip>
+              <target>
+                <copy todir="${android.build.dir}">
+                  <fileset dir="${android.build.dir.build}"/>
+                </copy>
               </target>
             </configuration>
           </execution>

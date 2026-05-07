@@ -20,6 +20,7 @@
 
   <properties>
     <audit.bridge>${spade.bin.dir}/spadeAuditBridge</audit.bridge>
+    <audit.bridge.build>${project.build.directory}/spadeAuditBridge</audit.bridge.build>
     <!-- <linux.audit.skip>false</linux.audit.skip> exported by check-linuxaudit (validate); true skips compile-linuxaudit -->
   </properties>
 
@@ -64,6 +65,22 @@
               <skip>${linux.audit.skip}</skip>
               <target>
                 <ant antfile="${project.basedir}/build.xml" target="compile"/>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>install-linuxaudit</id>
+            <phase>process-classes</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <skip>${linux.audit.skip}</skip>
+              <target>
+                <copy file="${audit.bridge.build}" tofile="${audit.bridge}"/>
+                <echo message=""/>
+                <echo message="-----> IMPORTANT: To use the LinuxAudit reporter, please run the following commands to allow SPADE access to the audit stream:"/>
+                <echo message="----->             sudo chown root ${audit.bridge}"/>
+                <echo message="----->             sudo chmod ug+s ${audit.bridge}"/>
+                <echo message=""/>
               </target>
             </configuration>
           </execution>

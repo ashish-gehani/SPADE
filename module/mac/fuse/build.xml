@@ -11,8 +11,8 @@
       <arg value="--spade-build"/>        <arg value="${spade.build.dir}"/>
       <arg value="--lib-java-src"/>       <arg value="${fuse.mac.lib.java.src}"/>
       <arg value="--lib-c-src"/>          <arg value="${fuse.mac.lib.c.src}"/>
-      <arg value="--native-header-dir"/>  <arg value="${fuse.mac.native.header.dir}"/>
-      <arg value="--lib-path"/>           <arg value="${fuse.mac.lib.path}"/>
+      <arg value="--native-header-dir"/>  <arg value="${fuse.mac.native.header.dir.build}"/>
+      <arg value="--lib-path"/>           <arg value="${fuse.mac.lib.path.build}"/>
     </exec>
   </target>
 
@@ -20,8 +20,7 @@
     <exec executable="${spade.bin.dir}/build/mac/fuse/clean.sh"
           dir="${spade.root}"
           failonerror="true">
-      <arg value="--native-header-file"/> <arg value="${fuse.mac.native.header.file}"/>
-      <arg value="--lib-path"/>           <arg value="${fuse.mac.lib.path}"/>
+      <arg value="--lib-path"/> <arg value="${fuse.mac.lib.path}"/>
     </exec>
   </target>
 

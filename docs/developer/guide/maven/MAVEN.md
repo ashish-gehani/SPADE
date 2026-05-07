@@ -21,6 +21,14 @@ Each non-Java module follows a uniform three-execution pattern using `maven-antr
 | `compile-*` | `compile` | Skipped if `<module>.skip` is `true`; otherwise runs `<ant antfile="build.xml" target="compile"/>`. See [COMPILE.md](COMPILE.md). |
 | `clean-*` | `clean` | Always runs `<ant antfile="build.xml" target="clean"/>` (unconditional). See [CLEAN.md](CLEAN.md). |
 
+Modules whose build produces a final artifact at a location outside `target/` add a fourth execution:
+
+| Execution id | Maven phase | What it does |
+|---|---|---|
+| `install-*` | `process-classes` | Skipped if `<module>.skip` is `true`; copies the artifact from `${project.build.directory}` to its final location. |
+
+`process-classes` is used rather than `install` because it runs as part of `mvn compile` — no separate invocation is needed. The `compile` execution builds into `${project.build.directory}`; `process-classes` places the result where the rest of the project expects it.
+
 `build.xml` is an Ant buildfile in the module's POM directory. It contains the `compile` and `clean` targets. Properties defined in the POM are available to Ant implicitly through the `<ant>` task.
 
 ## Module Hierarchy

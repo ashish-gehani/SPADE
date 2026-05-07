@@ -13,7 +13,7 @@
       <arg value="--llvm-tracer"/>       <arg value="${llvm.tracer}"/>
       <arg value="--llvm-bridge"/>       <arg value="${llvm.bridge}"/>
       <arg value="--llvm-close"/>        <arg value="${llvm.close}"/>
-      <arg value="--llvm-tracer-dylib"/> <arg value="${llvm.tracer.dylib}"/>
+      <arg value="--llvm-tracer-dylib"/> <arg value="${llvm.tracer.dylib.build}"/>
     </exec>
   </target>
 

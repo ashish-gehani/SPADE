@@ -45,19 +45,10 @@ function build() {
     gcc -o "${OUTPUT}" -lbsm "${C_SRC}"
 }
 
-function print_notice() {
-    echo ''
-    echo '-----> IMPORTANT: To use the OpenBSM reporter, please run the following commands to allow SPADE access to the audit stream:'
-    echo '----->             sudo chown root '"${OUTPUT}"
-    echo '----->             sudo chmod ug+s '"${OUTPUT}"
-    echo ''
-}
-
 function main() {
     parse_args "$@"
     validate_args
     build
-    print_notice
 }
 
 main "$@"

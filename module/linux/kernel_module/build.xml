@@ -7,7 +7,7 @@
           dir="${spade.root}"
           failonerror="true">
       <arg value="--kernel_modules_src"/>     <arg value="${kernel.modules.src}"/>
-      <arg value="--kernel_modules_install"/> <arg value="${kernel.modules.install}"/>
+      <arg value="--kernel_modules_install"/> <arg value="${kernel.modules.install.build}"/>
       <arg value="--kernel_modules_debug"/>   <arg value="${kernel.modules.debug}"/>
     </exec>
   </target>

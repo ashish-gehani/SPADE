@@ -20,6 +20,7 @@
   <properties>
     <kernel.modules.src>${spade.src.dir}/spade/reporter/audit/kernel-modules</kernel.modules.src>
     <kernel.modules.install>${spade.lib.dir}/kernel-modules</kernel.modules.install>
+    <kernel.modules.install.build>${project.build.directory}/kernel-modules</kernel.modules.install.build>
     <!-- override via -Dkernel.modules.debug=true -->
     <kernel.modules.debug>false</kernel.modules.debug>
     <!-- <linux.audit.kernel.skip>false</linux.audit.kernel.skip> exported by check-linuxaudit-kernel (validate); true skips compile-linuxaudit-kernel -->
@@ -66,6 +67,19 @@
               <skip>${linux.audit.kernel.skip}</skip>
               <target>
                 <ant antfile="${project.basedir}/build.xml" target="compile"/>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>install-linuxaudit-kernel</id>
+            <phase>process-classes</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <skip>${linux.audit.kernel.skip}</skip>
+              <target>
+                <copy todir="${kernel.modules.install}">
+                  <fileset dir="${kernel.modules.install.build}"/>
+                </copy>
               </target>
             </configuration>
           </execution>

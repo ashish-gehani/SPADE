@@ -8,7 +8,7 @@
           failonerror="true">
       <arg value="--javac"/>          <arg value="${javac}"/>
       <arg value="--spade_build"/>    <arg value="${spade.build.dir}"/>
-      <arg value="--android_build"/>  <arg value="${android.build.dir}"/>
+      <arg value="--android_build"/>  <arg value="${android.build.dir.build}"/>
       <arg value="--javac_options"/>  <arg value="${javac.options}"/>
       <arg value="--java_src"/>       <arg value="${spade.src.dir}"/>
     </exec>
