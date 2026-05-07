@@ -1,0 +1,17 @@
+# SPADE - Support for Provenance Auditing in Distributed Environments.
+# Copyright (C) 2026 SRI International.
+#
+# Sourced by check scripts. Do not execute directly.
+
+
+source "$(dirname "${BASH_SOURCE[0]}")/check"
+
+
+function util_check_compiler_has_gcc() {
+    if command -v gcc &>/dev/null; then
+        util_check_checking "gcc" "found"
+        return 0
+    fi
+    util_check_checking "gcc" "not found"
+    return 1
+}

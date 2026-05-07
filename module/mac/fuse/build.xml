@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="spade-mac-fuse">
+
+  <target name="compile">
+    <exec executable="${spade.bin.dir}/mac/fuse/compile.sh"
+          dir="${spade.root}"
+          failonerror="true">
+      <arg value="--javac"/>              <arg value="${javac}"/>
+      <arg value="--javac-options"/>      <arg value="${javac.options}"/>
+      <arg value="--spade-build"/>        <arg value="${spade.build.dir}"/>
+      <arg value="--lib-java-src"/>       <arg value="${fuse.mac.lib.java.src}"/>
+      <arg value="--lib-c-src"/>          <arg value="${fuse.mac.lib.c.src}"/>
+      <arg value="--native-header-dir"/>  <arg value="${fuse.mac.native.header.dir}"/>
+      <arg value="--lib-path"/>           <arg value="${fuse.mac.lib.path}"/>
+    </exec>
+  </target>
+
+  <target name="clean">
+    <exec executable="${spade.bin.dir}/mac/fuse/clean.sh"
+          dir="${spade.root}"
+          failonerror="true">
+      <arg value="--native-header-file"/> <arg value="${fuse.mac.native.header.file}"/>
+      <arg value="--lib-path"/>           <arg value="${fuse.mac.lib.path}"/>
+    </exec>
+  </target>
+
+</project>
