@@ -4,7 +4,7 @@
 # Sourced by check scripts. Do not execute directly.
 
 
-source "$(dirname "${BASH_SOURCE[0]}")/check"
+source "$(dirname "${BASH_SOURCE[0]}")/check.sh"
 
 
 function util_check_pkg_has_pkg_config() {

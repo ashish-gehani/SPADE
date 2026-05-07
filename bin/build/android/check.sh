@@ -4,7 +4,7 @@
 # Copyright (C) 2026 SRI International.
 
 
-source "$(dirname "$0")/../util/check/pkg"
+source "$(dirname "$0")/../util/check/pkg.sh"
 
 
 function check_prereqs() {

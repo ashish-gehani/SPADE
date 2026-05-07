@@ -4,8 +4,8 @@
 # Copyright (C) 2026 SRI International.
 
 
-source "$(dirname "$0")/../../util/check/distro"
-source "$(dirname "$0")/../../util/check/compiler"
+source "$(dirname "$0")/../../util/check/distro.sh"
+source "$(dirname "$0")/../../util/check/compiler.sh"
 
 
 function check_prereqs() {

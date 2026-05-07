@@ -285,9 +285,9 @@ Because each topic file already sources `check`, sourcing multiple topic files d
 ## Structure
 
 ```bash
-source "$(dirname "$0")/../../util/check/os"
-source "$(dirname "$0")/../../util/check/compiler"
-source "$(dirname "$0")/../../util/check/pkg"
+source "$(dirname "$0")/../../util/check/os.sh"
+source "$(dirname "$0")/../../util/check/compiler.sh"
+source "$(dirname "$0")/../../util/check/pkg.sh"
 
 function check_<name>() {
     if <prerequisite_met>; then

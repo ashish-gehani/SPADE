@@ -4,7 +4,7 @@
 # Copyright (C) 2026 SRI International.
 
 
-source "$(dirname "$0")/../../util/check/os"
+source "$(dirname "$0")/../../util/check/os.sh"
 
 # constants
 LLVM_PATH="/var/clang+llvm-3.0-x86_64-apple-darwin11"
