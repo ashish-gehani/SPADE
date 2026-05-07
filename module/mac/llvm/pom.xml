@@ -25,59 +25,66 @@
     <llvm.bridge>${spade.src.dir}/spade/reporter/llvmBridge</llvm.bridge>
     <llvm.close>${spade.src.dir}/spade/reporter/llvmClose</llvm.close>
     <llvm.tracer.dylib>${spade.lib.dir}/llvmTracer.dylib</llvm.tracer.dylib>
+    <!-- <llvm.mac.skip>false</llvm.mac.skip> exported by check-mac-llvm (validate); true skips compile-mac-llvm -->
   </properties>
 
-  <profiles>
-
-    <!-- activated with -Dllvm -Dllvm.target=<target> -Dllvm.llvm.target=<llvm-target> -->
-    <profile>
-      <id>llvm</id>
-      <activation>
-        <property>
-          <name>llvm</name>
-        </property>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>exec-maven-plugin</artifactId>
-            <executions>
-
-              <execution>
-                <id>build-mac-llvm</id>
-                <phase>compile</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>${spade.bin.dir}/mac/llvm/compile.sh</executable>
-                  <workingDirectory>${spade.root}</workingDirectory>
-                  <arguments>
-                    <argument>--target</argument>
-                    <argument>${llvm.target}</argument>
-                    <argument>--llvm-target</argument>
-                    <argument>${llvm.llvm.target}</argument>
-                    <argument>--spade-src</argument>
-                    <argument>${spade.src.dir}</argument>
-                    <argument>--spade-lib</argument>
-                    <argument>${spade.lib.dir}</argument>
-                    <argument>--llvm-tracer</argument>
-                    <argument>${llvm.tracer}</argument>
-                    <argument>--llvm-bridge</argument>
-                    <argument>${llvm.bridge}</argument>
-                    <argument>--llvm-close</argument>
-                    <argument>${llvm.close}</argument>
-                    <argument>--llvm-tracer-dylib</argument>
-                    <argument>${llvm.tracer.dylib}</argument>
-                  </arguments>
-                </configuration>
-              </execution>
-
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-
-  </profiles>
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>check-mac-llvm</id>
+            <phase>validate</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <exportAntProperties>true</exportAntProperties>
+              <target>
+                <mkdir dir="${project.build.directory}"/>
+                <exec executable="${spade.bin.dir}/mac/llvm/check.sh"
+                      dir="${spade.root}">
+                  <arg value="--status-file"/> <arg value="${project.build.directory}/check.status"/>
+                </exec>
+                <loadfile property="check.result"
+                          srcFile="${project.build.directory}/check.status"
+                          failonerror="true">
+                  <filterchain>
+                    <tailfilter lines="1"/>
+                  </filterchain>
+                </loadfile>
+                <condition property="llvm.mac.skip" value="true">
+                  <not><equals arg1="${check.result}" arg2="continue" trim="true"/></not>
+                </condition>
+                <condition property="llvm.mac.skip" value="false">
+                  <equals arg1="${check.result}" arg2="continue" trim="true"/>
+                </condition>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>compile-mac-llvm</id>
+            <phase>compile</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <skip>${llvm.mac.skip}</skip>
+              <target>
+                <ant antfile="${project.basedir}/build.xml" target="compile"/>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>clean-mac-llvm</id>
+            <phase>clean</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <target>
+                <ant antfile="${project.basedir}/build.xml" target="clean"/>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 
 </project>
