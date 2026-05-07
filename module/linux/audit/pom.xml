@@ -23,45 +23,63 @@
 
   <properties>
     <audit.bridge>${spade.bin.dir}/spadeAuditBridge</audit.bridge>
+    <!-- <linux.audit.skip>false</linux.audit.skip> exported by check-linuxaudit (validate); true skips compile-linuxaudit -->
   </properties>
 
   <build>
     <plugins>
       <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
+        <artifactId>maven-antrun-plugin</artifactId>
         <executions>
-
           <execution>
-            <id>build-linuxaudit</id>
-            <phase>compile</phase>
-            <goals><goal>exec</goal></goals>
+            <id>check-linuxaudit</id>
+            <phase>validate</phase>
+            <goals><goal>run</goal></goals>
             <configuration>
-              <executable>${spade.bin.dir}/linux/audit/compile.sh</executable>
-              <workingDirectory>${spade.root}</workingDirectory>
-              <arguments>
-                <argument>--audit_bridge</argument>
-                <argument>${audit.bridge}</argument>
-                <argument>--spade_src</argument>
-                <argument>${spade.src.dir}</argument>
-              </arguments>
+              <exportAntProperties>true</exportAntProperties>
+              <target>
+                <mkdir dir="${project.build.directory}"/>
+                <exec executable="${spade.bin.dir}/linux/audit/check.sh"
+                      dir="${spade.root}">
+                  <arg value="--status-file"/> <arg value="${project.build.directory}/check.status"/>
+                </exec>
+                <loadfile property="check.result"
+                          srcFile="${project.build.directory}/check.status"
+                          failonerror="true">
+                  <filterchain>
+                    <tailfilter lines="1"/>
+                  </filterchain>
+                </loadfile>
+                <condition property="linux.audit.skip" value="true">
+                  <not><equals arg1="${check.result}" arg2="continue" trim="true"/></not>
+                </condition>
+                <condition property="linux.audit.skip" value="false">
+                  <equals arg1="${check.result}" arg2="continue" trim="true"/>
+                </condition>
+              </target>
             </configuration>
           </execution>
-
+          <execution>
+            <id>compile-linuxaudit</id>
+            <phase>compile</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <skip>${linux.audit.skip}</skip>
+              <target>
+                <ant antfile="${project.basedir}/build.xml" target="compile"/>
+              </target>
+            </configuration>
+          </execution>
           <execution>
             <id>clean-linuxaudit</id>
             <phase>clean</phase>
-            <goals><goal>exec</goal></goals>
+            <goals><goal>run</goal></goals>
             <configuration>
-              <executable>${spade.bin.dir}/linux/audit/clean.sh</executable>
-              <workingDirectory>${spade.root}</workingDirectory>
-              <arguments>
-                <argument>--audit_bridge</argument>
-                <argument>${audit.bridge}</argument>
-              </arguments>
+              <target>
+                <ant antfile="${project.basedir}/build.xml" target="clean"/>
+              </target>
             </configuration>
           </execution>
-
         </executions>
       </plugin>
     </plugins>

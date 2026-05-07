@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="spade-linux-audit">
+
+  <target name="compile">
+    <exec executable="${spade.bin.dir}/linux/audit/compile.sh"
+          dir="${spade.root}"
+          failonerror="true">
+      <arg value="--audit_bridge"/> <arg value="${audit.bridge}"/>
+      <arg value="--spade_src"/>    <arg value="${spade.src.dir}"/>
+    </exec>
+  </target>
+
+  <target name="clean">
+    <exec executable="${spade.bin.dir}/linux/audit/clean.sh"
+          dir="${spade.root}"
+          failonerror="true">
+      <arg value="--audit_bridge"/> <arg value="${audit.bridge}"/>
+    </exec>
+  </target>
+
+</project>

@@ -9,10 +9,10 @@ AUDIT_BRIDGE=""
 
 
 print_help() {
-    echo "Usage: $(basename "$0") --audit_bridge <path>"
+    echo "Usage: $(basename "$0") [--audit_bridge <path>]"
     echo ""
     echo "Options:"
-    echo "    --audit_bridge <path>   Path to the audit bridge binary"
+    echo "    --audit_bridge <path>   Path to the audit bridge binary (optional)"
     echo "    --help                  Show this message and exit"
     exit 0
 }
@@ -28,14 +28,13 @@ parse_args() {
 }
 
 validate_args() {
-    if [[ -z "${AUDIT_BRIDGE}" ]]; then
-        echo "Error: --audit_bridge is required"
-        exit 1
-    fi
+    :
 }
 
 clean() {
-    rm -f "${AUDIT_BRIDGE}"
+    if [[ -n "${AUDIT_BRIDGE}" ]]; then
+        rm -f "${AUDIT_BRIDGE}"
+    fi
 }
 
 main() {
