@@ -70,7 +70,7 @@
           </execution>
           <execution>
             <id>install-mac-openbsm</id>
-            <phase>process-classes</phase>
+            <phase>package</phase>
             <goals><goal>run</goal></goals>
             <configuration>
               <skip>${openbsm.mac.skip}</skip>

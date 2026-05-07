@@ -72,7 +72,7 @@
           </execution>
           <execution>
             <id>install-linuxaudit-kernel</id>
-            <phase>process-classes</phase>
+            <phase>package</phase>
             <goals><goal>run</goal></goals>
             <configuration>
               <skip>${linux.audit.kernel.skip}</skip>

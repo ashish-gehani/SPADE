@@ -25,9 +25,9 @@ Modules whose build produces a final artifact at a location outside `target/` ad
 
 | Execution id | Maven phase | What it does |
 |---|---|---|
-| `install-*` | `process-classes` | Skipped if `<module>.skip` is `true`; copies the artifact from `${project.build.directory}` to its final location. |
+| `install-*` | `package` | Skipped if `<module>.skip` is `true`; copies the artifact from `${project.build.directory}` to its final location. |
 
-`process-classes` is used rather than `install` because it runs as part of `mvn compile` — no separate invocation is needed. The `compile` execution builds into `${project.build.directory}`; `process-classes` places the result where the rest of the project expects it.
+`package` is used rather than `install` because `install` semantically means installing to the local Maven repository (`~/.m2`), not project-local placement. `mvn compile` builds into `${project.build.directory}`; `mvn package` additionally places artifacts in their final locations.
 
 `build.xml` is an Ant buildfile in the module's POM directory. It contains the `compile` and `clean` targets. Properties defined in the POM are available to Ant implicitly through the `<ant>` task.
 

@@ -75,7 +75,7 @@
           </execution>
           <execution>
             <id>install-mac-llvm</id>
-            <phase>process-classes</phase>
+            <phase>package</phase>
             <goals><goal>run</goal></goals>
             <configuration>
               <skip>${llvm.mac.skip}</skip>
