@@ -8,25 +8,6 @@ MOD_DEFINES ?=
 CFLAGS ?=
 
 
-# Variables for prerequisite checking
-OS_KERNEL_RELEASE ?= $(shell uname -r)
-OS_KERNEL_MAJOR ?= $(shell uname -r | cut -d '.' -f 1)
-OS_KERNEL_MINOR ?= $(shell uname -r | cut -d '.' -f 2 | xargs printf "%02d")
-OS_KERNEL_NUMBER ?= $(OS_KERNEL_MAJOR)$(OS_KERNEL_MINOR)
-MIN_OS_KERNEL_NUMBER ?= 504
-MIN_OS_KERNEL_NUMBER_PRINTABLE ?= 5.4
-MAX_OS_KERNEL_NUMBER ?= 608
-MAX_OS_KERNEL_NUMBER_PRINTABLE ?= 6.8
-OS_ARCH ?= $(shell uname -m)
-
-# Prerequisite status variables (true/false)
-IS_MICROSOFT_KERNEL := $(if $(findstring Microsoft,$(OS_KERNEL_RELEASE)),true,false)
-HAS_KERNEL_NUMBER := $(if $(OS_KERNEL_NUMBER),true,false)
-IS_KERNEL_VERSION_GTE_MIN := $(shell [ -n "$(OS_KERNEL_NUMBER)" ] && [ $(OS_KERNEL_NUMBER) -ge $(MIN_OS_KERNEL_NUMBER) ] && echo true || echo false)
-IS_KERNEL_VERSION_LTE_MAX := $(shell [ -n "$(OS_KERNEL_NUMBER)" ] && [ $(OS_KERNEL_NUMBER) -le $(MAX_OS_KERNEL_NUMBER) ] && echo true || echo false)
-IS_KERNEL_VERSION_OK := $(shell [ "$(IS_KERNEL_VERSION_GTE_MIN)" = "true" ] && [ "$(IS_KERNEL_VERSION_LTE_MAX)" = "true" ] && echo true || echo false)
-IS_X86_64 := $(if $(filter x86_64,$(OS_ARCH)),true,false)
-
 ###
 
 GEN_BUILD_HASH_FILE_NAME := build_hash
@@ -265,7 +246,7 @@ $(TEST_MODULE_NAME)-y := \
 
 ###
 
-.PHONY: help debug release all all-prereq clean test-user install check-full check hash-print hash-update
+.PHONY: help debug release all clean test-user install check-full check hash-print hash-update
 
 help:
 	@echo "Kernel Module Build System"
@@ -322,26 +303,7 @@ test/user/bin/ubsi/%: test/user/src/ubsi/%.c
 	@mkdir -p $(dir $@)
 	gcc $(CFLAGS) -o $@ $<
 
-all-prereq: hash-update
-	@if [ "$(IS_MICROSOFT_KERNEL)" = "true" ]; then \
-		echo 'ERROR: OS Kernel not supported (Microsoft/WSL detected)'; \
-		exit 1; \
-	fi
-	@if [ "$(IS_X86_64)" != "true" ]; then \
-		echo 'ERROR: Architecture not supported. Only x86_64 is supported. Current: $(OS_ARCH)'; \
-		exit 1; \
-	fi
-	@if [ "$(HAS_KERNEL_NUMBER)" != "true" ]; then \
-		echo 'ERROR: Kernel modules build failed. Failed to get current kernel release number.'; \
-		exit 1; \
-	fi
-	@if [ "$(IS_KERNEL_VERSION_OK)" != "true" ]; then \
-		echo 'ERROR: Kernel modules build failed. Kernel version $(shell uname -r) must be between $(MIN_OS_KERNEL_NUMBER_PRINTABLE) and $(MAX_OS_KERNEL_NUMBER_PRINTABLE).'; \
-		exit 1; \
-	fi
-	@echo 'All prerequisites satisfied'
-
-all: all-prereq test-user
+all: hash-update test-user
 	$(MAKE) -C $(KDIR) M=$(CURDIR) EXTRA_CFLAGS="$(MOD_DEFINES) $(EXTRA_CFLAGS)" modules;
 	@mkdir -p $(BUILD_DIR); \
 	for file in $(MOD_OUT_FILES); do \

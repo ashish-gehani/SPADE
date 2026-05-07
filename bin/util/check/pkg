@@ -15,3 +15,12 @@ function util_check_pkg_has_pkg_config() {
     util_check_checking "pkg-config" "not found"
     return 1
 }
+
+function util_check_pkg_has_make() {
+    if command -v make &>/dev/null; then
+        util_check_checking "make" "found"
+        return 0
+    fi
+    util_check_checking "make" "not found"
+    return 1
+}

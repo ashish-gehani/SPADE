@@ -22,74 +22,66 @@
     <kernel.modules.install>${spade.lib.dir}/kernel-modules</kernel.modules.install>
     <!-- override via -Dkernel.modules.debug=true -->
     <kernel.modules.debug>false</kernel.modules.debug>
+    <!-- <linux.audit.kernel.skip>false</linux.audit.kernel.skip> exported by check-linuxaudit-kernel (validate); true skips compile-linuxaudit-kernel -->
   </properties>
 
   <build>
     <plugins>
       <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
+        <artifactId>maven-antrun-plugin</artifactId>
         <executions>
+          <execution>
+            <id>check-linuxaudit-kernel</id>
+            <phase>validate</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <exportAntProperties>true</exportAntProperties>
+              <target>
+                <mkdir dir="${project.build.directory}"/>
+                <exec executable="${spade.bin.dir}/linux/audit/kernel/check.sh"
+                      dir="${spade.root}">
+                  <arg value="--status-file"/> <arg value="${project.build.directory}/check.status"/>
+                </exec>
+                <loadfile property="check.result"
+                          srcFile="${project.build.directory}/check.status"
+                          failonerror="true">
+                  <filterchain>
+                    <tailfilter lines="1"/>
+                  </filterchain>
+                </loadfile>
+                <condition property="linux.audit.kernel.skip" value="true">
+                  <not><equals arg1="${check.result}" arg2="continue" trim="true"/></not>
+                </condition>
+                <condition property="linux.audit.kernel.skip" value="false">
+                  <equals arg1="${check.result}" arg2="continue" trim="true"/>
+                </condition>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>compile-linuxaudit-kernel</id>
+            <phase>compile</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <skip>${linux.audit.kernel.skip}</skip>
+              <target>
+                <ant antfile="${project.basedir}/build.xml" target="compile"/>
+              </target>
+            </configuration>
+          </execution>
           <execution>
             <id>clean-linuxaudit-kernel</id>
             <phase>clean</phase>
-            <goals><goal>exec</goal></goals>
+            <goals><goal>run</goal></goals>
             <configuration>
-              <executable>${spade.bin.dir}/linux/audit/kernel/clean.sh</executable>
-              <workingDirectory>${spade.root}</workingDirectory>
-              <arguments>
-                <argument>--kernel_modules_src</argument>
-                <argument>${kernel.modules.src}</argument>
-                <argument>--kernel_modules_install</argument>
-                <argument>${kernel.modules.install}</argument>
-              </arguments>
+              <target>
+                <ant antfile="${project.basedir}/build.xml" target="clean"/>
+              </target>
             </configuration>
           </execution>
         </executions>
       </plugin>
     </plugins>
   </build>
-
-  <profiles>
-
-    <!-- activated with -Dkernel.modules on kernel [5.4,6.9) -->
-    <profile>
-      <id>kernel-modules</id>
-      <activation>
-        <property>
-          <name>kernel.modules</name>
-          <value>true</value>
-        </property>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>exec-maven-plugin</artifactId>
-            <executions>
-              <execution>
-                <id>build-linuxaudit-kernel</id>
-                <phase>compile</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>${spade.bin.dir}/linux/audit/kernel/compile.sh</executable>
-                  <workingDirectory>${spade.root}</workingDirectory>
-                  <arguments>
-                    <argument>--kernel_modules_src</argument>
-                    <argument>${kernel.modules.src}</argument>
-                    <argument>--kernel_modules_install</argument>
-                    <argument>${kernel.modules.install}</argument>
-                    <argument>--kernel_modules_debug</argument>
-                    <argument>${kernel.modules.debug}</argument>
-                  </arguments>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-
-  </profiles>
 
 </project>
