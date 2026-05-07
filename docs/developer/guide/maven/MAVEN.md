@@ -4,6 +4,8 @@
 
 SPADE is a polyglot project spanning Java, C, Clang, and kernel modules. Maven serves as the unified build frontend because the project is primarily Java. Non-Java modules (C libraries, kernel modules, LLVM passes, etc.) are built by Ant buildfiles that Maven invokes at the appropriate lifecycle phase via `maven-antrun-plugin`.
 
+For common commands see [HOW-TO.md](HOW-TO.md).
+
 The Maven build has two responsibilities:
 
 1. **Java compilation** — the root `pom.xml` compiles all Java sources and produces `lib/spade.jar`.
@@ -89,11 +91,11 @@ The root `pom.xml` is the single parent for the entire build. It owns:
 
 ## Module Inclusion
 
-Module inclusion is a two-level gate.
+There are two orthogonal ways to control which modules execute.
 
-**Platform gate (profiles):** The root `pom.xml` declares a `linux` and a `mac` profile, each activated automatically by OS detection. Each profile adds its platform's top-level module to `<modules>`, so only the matching platform enters the reactor. You cannot build artifacts of one platform on another — Linux modules never appear in the reactor on macOS, and vice versa. Android has no activating profile and is always excluded for now.
+**Profiles.** Each platform module (except Android) belongs to a profile — `linux` or `mac` — that is activated automatically by OS detection. The active profile declares which top-level platform module enters the reactor, making it impossible to build artifacts for one platform on another. Android has no activating profile and is always excluded for now. See [HOW-TO.md](HOW-TO.md) for how to override profile activation manually.
 
-**Module gate (check scripts):** Within an active platform, whether a specific module actually compiles is determined by its `check.sh` script at the `validate` phase. If prerequisites are not met the module is skipped without failing the build. See [CHECK.md](CHECK.md).
+**Skip flags.** Each leaf module exposes a `spade.skip.<platform>.<module>` property. When set to `true` via `-D` on the command line, the module is unconditionally skipped — `check.sh` is not run. When left unset (the normal case), `check.sh` runs at the `validate` phase and decides whether the module should be skipped based on whether prerequisites are met. The skip flag overrides the profile: even if the platform profile is active, `-Dspade.skip.<platform>.<module>=true` forces the module out. See [CHECK.md](CHECK.md).
 
 ## Module Poms
 
