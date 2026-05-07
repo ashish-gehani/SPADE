@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="spade-linux-llvm">
+
+  <target name="compile">
+    <exec executable="${spade.bin.dir}/linux/llvm/compile.sh"
+          dir="${spade.root}"
+          failonerror="true">
+      <arg value="--spade-src"/>      <arg value="${spade.src.dir}"/>
+      <arg value="--spade-bin-llvm"/> <arg value="${llvm.linux.bin.dir}"/>
+    </exec>
+  </target>
+
+  <target name="clean">
+    <exec executable="${spade.bin.dir}/linux/llvm/clean.sh"
+          dir="${spade.root}"
+          failonerror="true">
+      <arg value="--spade-src"/>      <arg value="${spade.src.dir}"/>
+      <arg value="--spade-bin-llvm"/> <arg value="${llvm.linux.bin.dir}"/>
+    </exec>
+  </target>
+
+</project>

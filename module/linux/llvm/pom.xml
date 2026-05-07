@@ -19,45 +19,68 @@
        Please file an issue at https://github.com/ashish-gehani/SPADE/issues -->
   <description>Linux LLVM reporter build for SPADE.</description>
 
-  <profiles>
+  <properties>
+    <llvm.linux.bin.dir>${spade.bin.dir}/llvm</llvm.linux.bin.dir>
+    <!-- <linux.llvm.skip>false</linux.llvm.skip> exported by check-linuxllvm (validate); true skips compile-linuxllvm -->
+  </properties>
 
-    <!-- activated with -Dllvm -->
-    <profile>
-      <id>llvm</id>
-      <activation>
-        <property>
-          <name>llvm</name>
-        </property>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>exec-maven-plugin</artifactId>
-            <executions>
-
-              <execution>
-                <id>build-linux-llvm</id>
-                <phase>compile</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>${spade.bin.dir}/linux/llvm/compile.sh</executable>
-                  <workingDirectory>${spade.root}</workingDirectory>
-                  <arguments>
-                    <argument>--spade-src</argument>
-                    <argument>${spade.src.dir}</argument>
-                    <argument>--spade-bin-llvm</argument>
-                    <argument>${spade.bin.dir}/llvm</argument>
-                  </arguments>
-                </configuration>
-              </execution>
-
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-
-  </profiles>
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>check-linuxllvm</id>
+            <phase>validate</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <exportAntProperties>true</exportAntProperties>
+              <target>
+                <mkdir dir="${project.build.directory}"/>
+                <exec executable="${spade.bin.dir}/linux/llvm/check.sh"
+                      dir="${spade.root}">
+                  <arg value="--status-file"/> <arg value="${project.build.directory}/check.status"/>
+                </exec>
+                <loadfile property="check.result"
+                          srcFile="${project.build.directory}/check.status"
+                          failonerror="true">
+                  <filterchain>
+                    <tailfilter lines="1"/>
+                  </filterchain>
+                </loadfile>
+                <condition property="linux.llvm.skip" value="true">
+                  <not><equals arg1="${check.result}" arg2="continue" trim="true"/></not>
+                </condition>
+                <condition property="linux.llvm.skip" value="false">
+                  <equals arg1="${check.result}" arg2="continue" trim="true"/>
+                </condition>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>compile-linuxllvm</id>
+            <phase>compile</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <skip>${linux.llvm.skip}</skip>
+              <target>
+                <ant antfile="${project.basedir}/build.xml" target="compile"/>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>clean-linuxllvm</id>
+            <phase>clean</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <target>
+                <ant antfile="${project.basedir}/build.xml" target="clean"/>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 
 </project>

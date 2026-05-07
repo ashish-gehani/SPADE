@@ -15,3 +15,21 @@ function util_check_compiler_has_gcc() {
     util_check_checking "gcc" "not found"
     return 1
 }
+
+function util_check_compiler_has_clang() {
+    if command -v clang &>/dev/null; then
+        util_check_checking "clang" "found"
+        return 0
+    fi
+    util_check_checking "clang" "not found"
+    return 1
+}
+
+function util_check_compiler_has_clang_plus_plus() {
+    if command -v clang++ &>/dev/null; then
+        util_check_checking "clang++" "found"
+        return 0
+    fi
+    util_check_checking "clang++" "not found"
+    return 1
+}
