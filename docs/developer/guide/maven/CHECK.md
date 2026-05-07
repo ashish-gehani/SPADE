@@ -2,7 +2,7 @@
 
 ## Overview
 
-A `check.sh` script is the pre-compile gate for a module. Before Maven runs `compile.sh`, it runs `check.sh`. The result tells Maven whether to proceed with compilation.
+A `check.sh` script is the pre-compile gate for a module. Before the Ant buildfile runs `compile.sh`, Maven runs `check.sh`. The result tells Maven whether to proceed with compilation.
 
 If the environment does not satisfy the module's prerequisites, the build is skipped rather than attempted and failed.
 
@@ -128,7 +128,15 @@ Make the script executable:
 chmod +x bin/mac/fuse/check.sh
 ```
 
-### 2. Create `build.xml`
+### 2. Create `compile.sh` and `clean.sh`
+
+Create `bin/<platform>/<module>/compile.sh` and `bin/<platform>/<module>/clean.sh`. These are the scripts that `build.xml` delegates to — they contain the actual build and clean logic. Make them executable:
+
+```bash
+chmod +x bin/mac/fuse/compile.sh bin/mac/fuse/clean.sh
+```
+
+### 3. Create `build.xml`
 
 Create `module/<platform>/<module>/build.xml`. Include only `compile` and `clean` targets. Do not add a `check` target — the check is invoked directly from `pom.xml`.
 
@@ -160,7 +168,7 @@ module/mac/fuse/build.xml
 </project>
 ```
 
-### 3. Create `pom.xml`
+### 4. Create `pom.xml`
 
 Create `module/<platform>/<module>/pom.xml`. Choose a skip property name scoped to the module (e.g. `fuse.mac.skip`) and wire up the three executions following the [Maven Integration](#maven-integration) pattern. Document the skip property as a comment in `<properties>`.
 
@@ -205,7 +213,7 @@ module/mac/fuse/pom.xml
 </project>
 ```
 
-### 4. Register in the parent `pom.xml`
+### 5. Register in the parent `pom.xml`
 
 Add the new module to the `<modules>` list of its parent `pom.xml`:
 
@@ -223,8 +231,9 @@ Add the new module to the `<modules>` list of its parent `pom.xml`:
 |---|---|
 | `check` | Core globals, argument parsing, status writing, and `util_check_finalize`. Source this when no topic-specific file fits. |
 | `os` | OS detection. Sources `check`. |
+| `distro` | Linux distro detection. Sources `check`. |
 | `compiler` | Compiler detection. Sources `check`. |
-| `pkg` | Build-tool detection (`pkg-config`). Sources `check`. |
+| `pkg` | Build-tool detection (`pkg-config`, `make`, `dx`). Sources `check`. |
 
 Because each topic file already sources `check`, sourcing multiple topic files does not duplicate the core.
 
@@ -249,18 +258,29 @@ Because each topic file already sources `check`, sourcing multiple topic files d
 | Name | Type | Description |
 |---|---|---|
 | `util_check_os_is_darwin` | function | Checks that the OS is macOS; prints a `checking os...` message either way. |
+| `util_check_os_is_linux` | function | Checks that the OS is Linux; prints a `checking os...` message either way. |
+
+### `distro`
+
+| Name | Type | Description |
+|---|---|---|
+| `util_check_distro_is_ubuntu` | function | Checks that `/etc/os-release` identifies the distro as Ubuntu; prints a `checking distro...` message either way. |
 
 ### `compiler`
 
 | Name | Type | Description |
 |---|---|---|
 | `util_check_compiler_has_gcc` | function | Checks that `gcc` is on `PATH`; prints a `checking gcc...` message either way. |
+| `util_check_compiler_has_clang` | function | Checks that `clang` is on `PATH`; prints a `checking clang...` message either way. |
+| `util_check_compiler_has_clang_plus_plus` | function | Checks that `clang++` is on `PATH`; prints a `checking clang++...` message either way. |
 
 ### `pkg`
 
 | Name | Type | Description |
 |---|---|---|
 | `util_check_pkg_has_pkg_config` | function | Checks that `pkg-config` is on `PATH`; prints a `checking pkg-config...` message either way. |
+| `util_check_pkg_has_make` | function | Checks that `make` is on `PATH`; prints a `checking make...` message either way. |
+| `util_check_pkg_has_dx` | function | Checks that `dx` is on `PATH`; prints a `checking dx...` message either way. |
 
 ## Structure
 

@@ -2,46 +2,46 @@
 
 ## Overview
 
-SPADE is a polyglot project spanning Java, C, Clang, and kernel modules. Maven serves as the unified build frontend because the project is primarily Java. Non-Java modules (C libraries, kernel modules, LLVM passes, etc.) are built by Bash scripts that Maven invokes at the appropriate lifecycle phase via `exec-maven-plugin`.
+SPADE is a polyglot project spanning Java, C, Clang, and kernel modules. Maven serves as the unified build frontend because the project is primarily Java. Non-Java modules (C libraries, kernel modules, LLVM passes, etc.) are built by Ant buildfiles that Maven invokes at the appropriate lifecycle phase via `maven-antrun-plugin`.
 
 The Maven build has two responsibilities:
 
 1. **Java compilation** — the root `pom.xml` compiles all Java sources and produces `lib/spade.jar`.
-2. **Module coordination** — each module has its own POM that delegates its build and clean steps to scripts under `bin/`. The POM owns the variable definitions; scripts own the build logic.
+2. **Module coordination** — each module has its own POM that delegates its build and clean steps to a `build.xml` Ant buildfile in the module directory. The POM owns the variable definitions; the buildfile owns the build logic.
 
 This mirrors the Make build. The key difference is that Maven enforces the structure through parent-child inheritance rather than explicit variable passing.
 
-## Shell Script Lifecycle Pattern
+## Build Lifecycle Pattern
 
-Each non-Java module is managed by a set of Bash scripts that mirror Maven's lifecycle phases as closely as possible. This makes it straightforward to reason about what each script does in terms Maven users already understand.
+Each non-Java module follows a uniform three-execution pattern using `maven-antrun-plugin`:
 
-| Script | Maven phase equivalent | Purpose |
+| Execution id | Maven phase | What it does |
 |---|---|---|
-| `compile.sh` | `compile` | Compiles or links the module artifact. |
-| `clean.sh` | `clean` | Removes build artifacts. |
-| `check.sh` | *(pre-compile gate)* | Decides whether Maven should proceed with the build. See [CHECK.md](CHECK.md). |
+| `check-*` | `validate` | Runs `bin/<platform>/<module>/check.sh`; sets a `<module>.skip` property based on output. See [CHECK.md](CHECK.md). |
+| `compile-*` | `compile` | Skipped if `<module>.skip` is `true`; otherwise runs `<ant antfile="build.xml" target="compile"/>`. See [COMPILE.md](COMPILE.md). |
+| `clean-*` | `clean` | Always runs `<ant antfile="build.xml" target="clean"/>` (unconditional). See [CLEAN.md](CLEAN.md). |
 
-These scripts live under `bin/` and are invoked by the module's POM via `exec-maven-plugin`. The POM passes all required inputs as named arguments; the script contains the build logic.
+`build.xml` is an Ant buildfile in the module's POM directory. It contains the `compile` and `clean` targets. Properties defined in the POM are available to Ant implicitly through the `<ant>` task.
 
 ## Module Hierarchy
 
 The directory structure maps directly to the parent-child POM hierarchy:
 
 ```
-pom.xml                         (root: spade)
-  module/android/pom.xml        (spade-android)
-  module/linux/pom.xml          (spade-linux)
-    linux/audit/pom.xml         (spade-linux-audit)
-      audit/kernel/pom.xml      (spade-linux-audit-kernel)
-    linux/fuse/pom.xml          (spade-linux-fuse)
-    linux/llvm/pom.xml          (spade-linux-llvm)
-  module/mac/pom.xml            (spade-mac)
-    mac/openbsm/pom.xml         (spade-mac-openbsm)
-    mac/fuse/pom.xml            (spade-mac-fuse)
-    mac/llvm/pom.xml            (spade-mac-llvm)
+pom.xml                                   (root: spade)
+  module/android/pom.xml                  (spade-android)
+  module/linux/pom.xml                    (spade-linux)
+    module/linux/audit/pom.xml            (spade-linux-audit)
+      module/linux/audit/kernel/pom.xml   (spade-linux-audit-kernel)
+    module/linux/fuse/pom.xml             (spade-linux-fuse)
+    module/linux/llvm/pom.xml             (spade-linux-llvm)
+  module/mac/pom.xml                      (spade-mac)
+    module/mac/openbsm/pom.xml            (spade-mac-openbsm)
+    module/mac/fuse/pom.xml               (spade-mac-fuse)
+    module/mac/llvm/pom.xml               (spade-mac-llvm)
 ```
 
-Each child declares its parent via `<relativePath>`. Platform poms (`spade-linux`, `spade-mac`) are pure aggregators — they have no build logic of their own, only a `<modules>` list.
+Each child declares its parent via `<relativePath>`. `spade-linux` and `spade-mac` are pure aggregators — they have no build logic of their own, only a `<modules>` list. `spade-linux-audit` is both an aggregator (it owns `spade-linux-audit-kernel`) and a leaf (it builds `spadeAuditBridge`).
 
 ## Root POM
 
@@ -56,31 +56,32 @@ The root `pom.xml` is the single parent for the entire build. It owns:
 ### Shared properties
 
 ```xml
+<javac>${java.home}/bin/javac</javac>
+<cc>/usr/bin/cc</cc>
+<jar>${java.home}/bin/jar</jar>
+
 <spade.root>${maven.multiModuleProjectDirectory}</spade.root>
 <spade.build.dir>${spade.root}/build</spade.build.dir>
 <spade.lib.dir>${spade.root}/lib</spade.lib.dir>
 <spade.src.dir>${spade.root}/src</spade.src.dir>
 <spade.bin.dir>${spade.root}/bin</spade.bin.dir>
+<spade.resource.dir>${spade.root}/resource</spade.resource.dir>
+<spade.jar>${spade.lib.dir}/spade.jar</spade.jar>
 
-<javac.options>-Xlint:none -proc:none -cp ${spade.build.dir}:${spade.javac.cp}</javac.options>
+<!-- override via -Djavac.user.options=... -->
+<javac.user.options></javac.user.options>
+<javac.options>${javac.user.options} -Xlint:none -proc:none -cp ${spade.build.dir}:${spade.javac.cp}</javac.options>
 ```
 
-`spade.root` always resolves to the project root regardless of which module is being built. All module scripts receive paths derived from these properties.
+`spade.root` always resolves to the project root regardless of which module is being built. All module buildfiles receive paths derived from these properties.
 
 ### javac.options and spade.javac.cp
 
 `javac.options` includes `${spade.javac.cp}`, which is populated at build time by `maven-dependency-plugin:build-classpath` during the `initialize` phase. Because the plugin is in `<build><plugins>` without `<inherited>false</inherited>`, it runs in every module's lifecycle. Child modules that pass `javac.options` to a build script therefore receive a fully resolved classpath that includes all inherited dependencies.
 
-## Platform Activation
+## Module Inclusion
 
-Platform poms are included in the reactor through OS-activated profiles in the root POM:
-
-| Profile | Activation | Modules added |
-|---------|-----------|---------------|
-| `linux` | OS = Linux / amd64 | `module/linux/pom.xml` |
-| `mac`   | OS = macOS          | `module/mac/pom.xml`   |
-
-`module/android/pom.xml` is always in the reactor (unconditional `<modules>` entry). Its build steps are guarded by an internal profile (see below).
+All platform modules (`spade-android`, `spade-linux`, `spade-mac`) are listed unconditionally in the root `<modules>`. Whether a module's build actually runs is determined by its `check.sh` script at the `validate` phase, not by Maven profiles.
 
 ## Module Poms
 
@@ -88,100 +89,9 @@ Each module POM follows the same pattern:
 
 1. Declares `<parent>` pointing to the nearest ancestor (platform pom or root pom).
 2. Defines only the properties it needs — paths to its source files, output files, and any flags. Shared paths (`spade.src.dir`, `spade.bin.dir`, etc.) come from the root via inheritance.
-3. Uses `exec-maven-plugin` to run its `compile.sh` at `compile` and its `clean.sh` at `clean`.
-4. Passes all required inputs to the script as named arguments.
-
-```xml
-<properties>
-  <openbsm.mac.c.src>${spade.src.dir}/spade/reporter/spadeOpenBSM.c</openbsm.mac.c.src>
-  <openbsm.mac.output>${spade.lib.dir}/spadeOpenBSM</openbsm.mac.output>
-</properties>
-
-<build>
-  <plugins>
-    <plugin>
-      <groupId>org.codehaus.mojo</groupId>
-      <artifactId>exec-maven-plugin</artifactId>
-      <executions>
-        <execution>
-          <id>build-openbsm</id>
-          <phase>compile</phase>
-          <goals><goal>exec</goal></goals>
-          <configuration>
-            <executable>${spade.bin.dir}/mac/openbsm/compile.sh</executable>
-            <workingDirectory>${spade.root}</workingDirectory>
-            <arguments>
-              <argument>--c-src</argument>  <argument>${openbsm.mac.c.src}</argument>
-              <argument>--output</argument> <argument>${openbsm.mac.output}</argument>
-            </arguments>
-          </configuration>
-        </execution>
-        <execution>
-          <id>clean-openbsm</id>
-          <phase>clean</phase>
-          ...
-        </execution>
-      </executions>
-    </plugin>
-  </plugins>
-</build>
-```
+3. Uses `maven-antrun-plugin` with three executions: `check-*` (validate), `compile-*` (compile), `clean-*` (clean). See [CHECK.md](CHECK.md) and [CLEAN.md](CLEAN.md) for the full execution patterns.
 
 Properties local to a module are declared in that POM only. Do not add them to the root.
-
-## Profile-Gated Build Steps
-
-Some modules are optional. Their build step is wrapped in a profile, but the clean step is always unconditional (at the top-level `<build>`, not inside the profile) so that `mvn clean` always removes artifacts regardless of whether the build was activated.
-
-| Module | Activation |
-|---|---|
-| `linux`, `mac` | OS profile in root (auto) |
-| `linux-fuse`, `mac-fuse` | File exists: `fuse.pc` (auto) |
-| `android` | Property: `-Dandroid` |
-| `kernel-modules` | Property: `-Dkernel.modules=true` |
-| `llvm` | Property: `-Dllvm` |
-
-Profile-gated example (build guarded, clean unconditional):
-
-```xml
-<build>
-  <plugins>
-    <plugin>
-      <groupId>org.codehaus.mojo</groupId>
-      <artifactId>exec-maven-plugin</artifactId>
-      <executions>
-        <execution>
-          <id>clean-mycomponent</id>
-          <phase>clean</phase>
-          ...
-        </execution>
-      </executions>
-    </plugin>
-  </plugins>
-</build>
-
-<profiles>
-  <profile>
-    <id>mycomponent</id>
-    <activation>...</activation>
-    <build>
-      <plugins>
-        <plugin>
-          <groupId>org.codehaus.mojo</groupId>
-          <artifactId>exec-maven-plugin</artifactId>
-          <executions>
-            <execution>
-              <id>build-mycomponent</id>
-              <phase>compile</phase>
-              ...
-            </execution>
-          </executions>
-        </plugin>
-      </plugins>
-    </build>
-  </profile>
-</profiles>
-```
 
 ## Adding a Local JAR Dependency
 
@@ -251,8 +161,6 @@ bundled with the project under `lib/`.
 
 3. Define only module-specific properties. Use inherited shared properties for everything else.
 
-4. Add `build-` and `clean-` executions via `exec-maven-plugin` (and a `check-` execution if the module uses a check script). Put clean unconditionally in `<build>`; put build inside a profile if the module is optional.
+4. Follow [CHECK.md](CHECK.md), [COMPILE.md](COMPILE.md), and [CLEAN.md](CLEAN.md) to create the scripts, `build.xml`, and POM executions.
 
 5. Register the new POM in the parent's `<modules>` list.
-
-6. If the module is platform-conditional and no suitable platform pom exists, add an OS-activated profile to the root POM (following the `linux` / `mac` pattern).
