@@ -9,10 +9,10 @@ OUTPUT=
 
 
 function print_help() {
-    echo "Usage: $(basename "$0") --output <path>"
+    echo "Usage: $(basename "$0") [--output <path>]"
     echo ""
     echo "Options:"
-    echo "    --output  Path to the spadeOpenBSM binary"
+    echo "    --output  Path to the spadeOpenBSM binary; optional"
     echo "    --help    Show this message and exit"
     exit 0
 }
@@ -28,14 +28,11 @@ function parse_args() {
 }
 
 function validate_args() {
-    if [[ -z "${OUTPUT}" ]]; then
-        echo "Error: --output is required"
-        exit 1
-    fi
+    :
 }
 
 function clean() {
-    rm -f "${OUTPUT}"
+    [[ -n "${OUTPUT}" ]] && rm -f "${OUTPUT}"
 }
 
 function main() {

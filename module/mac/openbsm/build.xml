@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project name="spade-mac-openbsm">
+
+  <target name="compile">
+    <exec executable="${spade.bin.dir}/mac/openbsm/compile.sh"
+          dir="${spade.root}"
+          failonerror="true">
+      <arg value="--c-src"/>  <arg value="${openbsm.mac.c.src}"/>
+      <arg value="--output"/> <arg value="${openbsm.mac.output}"/>
+    </exec>
+  </target>
+
+  <target name="clean">
+    <exec executable="${spade.bin.dir}/mac/openbsm/clean.sh"
+          dir="${spade.root}"
+          failonerror="true">
+      <arg value="--output"/> <arg value="${openbsm.mac.output}"/>
+    </exec>
+  </target>
+
+</project>
