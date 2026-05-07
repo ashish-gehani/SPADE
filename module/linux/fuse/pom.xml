@@ -25,73 +25,66 @@
     <fuse.linux.native.header.dir>${spade.src.dir}/spade/reporter</fuse.linux.native.header.dir>
     <fuse.linux.native.header.file>${fuse.linux.native.header.dir}/spade_reporter_LinuxFUSE.h</fuse.linux.native.header.file>
     <fuse.linux.lib.path>${spade.lib.dir}/libLinuxFUSE.so</fuse.linux.lib.path>
+    <!-- <linux.fuse.skip>false</linux.fuse.skip> exported by check-linuxfuse (validate); true skips compile-linuxfuse -->
   </properties>
 
-  <profiles>
-
-    <!-- auto-activated when fuse is installed -->
-    <profile>
-      <id>fuse</id>
-      <activation>
-        <file>
-          <exists>/usr/lib/pkgconfig/fuse.pc</exists>
-        </file>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>exec-maven-plugin</artifactId>
-            <executions>
-
-              <execution>
-                <id>build-linuxfuse</id>
-                <phase>compile</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>${spade.bin.dir}/linux/fuse/compile.sh</executable>
-                  <workingDirectory>${spade.root}</workingDirectory>
-                  <arguments>
-                    <argument>--javac</argument>
-                    <argument>${javac}</argument>
-                    <argument>--javac-options</argument>
-                    <argument>${javac.options}</argument>
-                    <argument>--spade-build</argument>
-                    <argument>${spade.build.dir}</argument>
-                    <argument>--lib-java-src</argument>
-                    <argument>${fuse.linux.lib.java.src}</argument>
-                    <argument>--lib-c-src</argument>
-                    <argument>${fuse.linux.lib.c.src}</argument>
-                    <argument>--native-header-dir</argument>
-                    <argument>${fuse.linux.native.header.dir}</argument>
-                    <argument>--lib-path</argument>
-                    <argument>${fuse.linux.lib.path}</argument>
-                  </arguments>
-                </configuration>
-              </execution>
-
-              <execution>
-                <id>clean-linuxfuse</id>
-                <phase>clean</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>${spade.bin.dir}/linux/fuse/clean.sh</executable>
-                  <workingDirectory>${spade.root}</workingDirectory>
-                  <arguments>
-                    <argument>--native-header-file</argument>
-                    <argument>${fuse.linux.native.header.file}</argument>
-                    <argument>--lib-path</argument>
-                    <argument>${fuse.linux.lib.path}</argument>
-                  </arguments>
-                </configuration>
-              </execution>
-
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-
-  </profiles>
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>check-linuxfuse</id>
+            <phase>validate</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <exportAntProperties>true</exportAntProperties>
+              <target>
+                <mkdir dir="${project.build.directory}"/>
+                <exec executable="${spade.bin.dir}/linux/fuse/check.sh"
+                      dir="${spade.root}">
+                  <arg value="--status-file"/> <arg value="${project.build.directory}/check.status"/>
+                </exec>
+                <loadfile property="check.result"
+                          srcFile="${project.build.directory}/check.status"
+                          failonerror="true">
+                  <filterchain>
+                    <tailfilter lines="1"/>
+                  </filterchain>
+                </loadfile>
+                <condition property="linux.fuse.skip" value="true">
+                  <not><equals arg1="${check.result}" arg2="continue" trim="true"/></not>
+                </condition>
+                <condition property="linux.fuse.skip" value="false">
+                  <equals arg1="${check.result}" arg2="continue" trim="true"/>
+                </condition>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>compile-linuxfuse</id>
+            <phase>compile</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <skip>${linux.fuse.skip}</skip>
+              <target>
+                <ant antfile="${project.basedir}/build.xml" target="compile"/>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>clean-linuxfuse</id>
+            <phase>clean</phase>
+            <goals><goal>run</goal></goals>
+            <configuration>
+              <target>
+                <ant antfile="${project.basedir}/build.xml" target="clean"/>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 
 </project>

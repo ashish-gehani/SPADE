@@ -9,12 +9,12 @@ LIB_PATH=""
 
 
 print_help() {
-    echo "Usage: $(basename "$0") --native-header-file <path> --lib-path <path>"
+    echo "Usage: $(basename "$0") [--native-header-file <path>] [--lib-path <path>]"
     echo ""
     echo "Options:"
-    echo "    --native-header-file <path>  Path to the JNI header file to remove"
-    echo "    --lib-path <path>           Path to the shared library to remove"
-    echo "    --help                      Show this message and exit"
+    echo "    --native-header-file <path>  Path to the JNI header file to remove (optional)"
+    echo "    --lib-path <path>            Path to the shared library to remove (optional)"
+    echo "    --help                       Show this message and exit"
     exit 0
 }
 
@@ -41,19 +41,16 @@ parse_args() {
 }
 
 validate_args() {
-    if [[ -z "${NATIVE_HEADER_FILE}" ]]; then
-        echo "Error: --native-header-file is required"
-        exit 1
-    fi
-    if [[ -z "${LIB_PATH}" ]]; then
-        echo "Error: --lib-path is required"
-        exit 1
-    fi
+    :
 }
 
 clean() {
-    rm -f "${NATIVE_HEADER_FILE}"
-    rm -f "${LIB_PATH%.*}".*
+    if [[ -n "${NATIVE_HEADER_FILE}" ]]; then
+        rm -f "${NATIVE_HEADER_FILE}"
+    fi
+    if [[ -n "${LIB_PATH}" ]]; then
+        rm -f "${LIB_PATH%.*}".*
+    fi
 }
 
 main() {
