@@ -11,10 +11,10 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>spade-linux-audit-kernel</artifactId>
+  <artifactId>spade-linux-kernel-module</artifactId>
   <packaging>pom</packaging>
 
-  <name>spade-linux-audit-kernel</name>
+  <name>spade-linux-kernel-module</name>
   <description>LinuxAudit kernel modules build for SPADE.</description>
 
   <properties>

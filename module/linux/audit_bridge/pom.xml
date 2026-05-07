@@ -11,10 +11,10 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>spade-linux-audit</artifactId>
+  <artifactId>spade-linux-audit-bridge</artifactId>
   <packaging>pom</packaging>
 
-  <name>spade-linux-audit</name>
+  <name>spade-linux-audit-bridge</name>
   <description>LinuxAudit reporter build for SPADE.</description>
 
 
@@ -36,7 +36,7 @@
               <exportAntProperties>true</exportAntProperties>
               <target>
                 <mkdir dir="${project.build.directory}"/>
-                <exec executable="${spade.bin.dir}/build/linux/audit/check.sh"
+                <exec executable="${spade.bin.dir}/build/linux/audit_bridge/check.sh"
                       dir="${spade.root}">
                   <arg value="--status-file"/> <arg value="${project.build.directory}/check.status"/>
                 </exec>

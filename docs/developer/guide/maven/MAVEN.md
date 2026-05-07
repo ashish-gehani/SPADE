@@ -31,17 +31,17 @@ The directory structure maps directly to the parent-child POM hierarchy:
 pom.xml                                   (root: spade)
   module/android/pom.xml                  (spade-android)
   module/linux/pom.xml                    (spade-linux)
-    module/linux/audit/pom.xml            (spade-linux-audit)
+    module/linux/audit_bridge/pom.xml     (spade-linux-audit-bridge)
     module/linux/fuse/pom.xml             (spade-linux-fuse)
     module/linux/llvm/pom.xml             (spade-linux-llvm)
-    module/linux/kernel_module/pom.xml    (spade-linux-audit-kernel)
+    module/linux/kernel_module/pom.xml    (spade-linux-kernel-module)
   module/mac/pom.xml                      (spade-mac)
     module/mac/openbsm/pom.xml            (spade-mac-openbsm)
     module/mac/fuse/pom.xml               (spade-mac-fuse)
     module/mac/llvm/pom.xml               (spade-mac-llvm)
 ```
 
-Each child declares its parent via `<relativePath>`. `spade-linux` and `spade-mac` are pure aggregators — they have no build logic of their own, only a `<modules>` list. `spade-linux-audit` is a leaf — it builds `spadeAuditBridge` and has no sub-modules.
+Each child declares its parent via `<relativePath>`. `spade-linux` and `spade-mac` are pure aggregators — they have no build logic of their own, only a `<modules>` list. `spade-linux-audit-bridge` is a leaf — it builds `spadeAuditBridge` and has no sub-modules.
 
 ## Root POM
 
