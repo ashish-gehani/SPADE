@@ -66,34 +66,9 @@
 
   <modules>
     <module>module/android/pom.xml</module>
+    <module>module/linux/pom.xml</module>
+    <module>module/mac/pom.xml</module>
   </modules>
-
-  <profiles>
-    <profile>
-      <id>linux</id>
-      <activation>
-        <os>
-          <name>Linux</name>
-          <family>unix</family>
-          <arch>amd64</arch>
-        </os>
-      </activation>
-      <modules>
-        <module>module/linux/pom.xml</module>
-      </modules>
-    </profile>
-    <profile>
-      <id>mac</id>
-      <activation>
-        <os>
-          <family>mac</family>
-        </os>
-      </activation>
-      <modules>
-        <module>module/mac/pom.xml</module>
-      </modules>
-    </profile>
-  </profiles>
 
   <dependencies>
 
