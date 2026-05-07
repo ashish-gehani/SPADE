@@ -41,6 +41,14 @@ validate_args() {
     fi
 }
 
+# Special case: clean requires the same toolchain as compile (make, kernel headers).
+# Run check.sh silently and skip clean if prerequisites are not met.
+check() {
+    local result
+    result=$("$(dirname "$0")/check.sh" --silent)
+    [[ "${result}" == "continue" ]]
+}
+
 clean() {
     make --no-print-directory -C "${KERNEL_MODULES_SRC}" \
         INSTALL_DIR="${KERNEL_MODULES_INSTALL}" \
@@ -50,6 +58,7 @@ clean() {
 main() {
     parse_args "$@"
     validate_args
+    check || exit 0
     clean
 }
 
