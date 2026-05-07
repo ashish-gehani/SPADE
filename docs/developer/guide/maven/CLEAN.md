@@ -93,7 +93,7 @@ The `clean` target in `build.xml` calls `clean.sh`, passing the same artifact pa
 
 ```xml
 <target name="clean">
-  <exec executable="${spade.bin.dir}/<platform>/<module>/clean.sh"
+  <exec executable="${spade.bin.dir}/build/<platform>/<module>/clean.sh"
         dir="${spade.root}"
         failonerror="true">
     <arg value="--arg-one"/> <arg value="${module.artifact.path}"/>
@@ -120,10 +120,10 @@ The corresponding POM execution has no `<skip>` — it is always unconditional:
 
 ### 1. Write `clean.sh`
 
-Create `bin/<platform>/<module>/clean.sh`. Declare one global variable per artifact path. Implement `parse_args`, `validate_args`, `clean`, and `main` following the structure above. Make it executable:
+Create `bin/build/<platform>/<module>/clean.sh`. Declare one global variable per artifact path. Implement `parse_args`, `validate_args`, `clean`, and `main` following the structure above. Make it executable:
 
 ```bash
-chmod +x bin/<platform>/<module>/clean.sh
+chmod +x bin/build/<platform>/<module>/clean.sh
 ```
 
 ### 2. Add the `clean` target to `build.xml`
@@ -132,7 +132,7 @@ In `module/<platform>/<module>/build.xml`, add a `clean` target that calls `clea
 
 ```xml
 <target name="clean">
-  <exec executable="${spade.bin.dir}/<platform>/<module>/clean.sh"
+  <exec executable="${spade.bin.dir}/build/<platform>/<module>/clean.sh"
         dir="${spade.root}"
         failonerror="true">
     <arg value="--arg-one"/> <arg value="${module.artifact.path}"/>

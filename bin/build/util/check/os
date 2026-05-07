@@ -1,0 +1,26 @@
+# SPADE - Support for Provenance Auditing in Distributed Environments.
+# Copyright (C) 2026 SRI International.
+#
+# Sourced by check scripts. Do not execute directly.
+
+
+source "$(dirname "${BASH_SOURCE[0]}")/check"
+
+
+function util_check_os_is_darwin() {
+    if [[ "$(uname)" == "Darwin" ]]; then
+        util_check_checking "os" "$(uname)"
+        return 0
+    fi
+    util_check_checking "os" "$(uname) (only macOS supported)"
+    return 1
+}
+
+function util_check_os_is_linux() {
+    if [[ "$(uname)" == "Linux" ]]; then
+        util_check_checking "os" "$(uname)"
+        return 0
+    fi
+    util_check_checking "os" "$(uname) (only Linux supported)"
+    return 1
+}

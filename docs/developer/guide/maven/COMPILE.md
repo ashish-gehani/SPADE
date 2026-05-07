@@ -121,7 +121,7 @@ The `compile` target in `build.xml` calls `compile.sh`, passing POM properties a
 
 ```xml
 <target name="compile">
-  <exec executable="${spade.bin.dir}/<platform>/<module>/compile.sh"
+  <exec executable="${spade.bin.dir}/build/<platform>/<module>/compile.sh"
         dir="${spade.root}"
         failonerror="true">
     <arg value="--arg-one"/> <arg value="${module.arg.one}"/>
@@ -150,10 +150,10 @@ The corresponding POM execution reads the skip property set by the check executi
 
 ### 1. Write `compile.sh`
 
-Create `bin/<platform>/<module>/compile.sh`. Declare one global variable per argument. Implement `parse_args`, `validate_args`, one or more build functions, and `main` following the structure above. Make it executable:
+Create `bin/build/<platform>/<module>/compile.sh`. Declare one global variable per argument. Implement `parse_args`, `validate_args`, one or more build functions, and `main` following the structure above. Make it executable:
 
 ```bash
-chmod +x bin/<platform>/<module>/compile.sh
+chmod +x bin/build/<platform>/<module>/compile.sh
 ```
 
 ### 2. Add the `compile` target to `build.xml`
@@ -162,7 +162,7 @@ In `module/<platform>/<module>/build.xml`, add a `compile` target that calls `co
 
 ```xml
 <target name="compile">
-  <exec executable="${spade.bin.dir}/<platform>/<module>/compile.sh"
+  <exec executable="${spade.bin.dir}/build/<platform>/<module>/compile.sh"
         dir="${spade.root}"
         failonerror="true">
     <arg value="--arg-one"/> <arg value="${module.arg.one}"/>

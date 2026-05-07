@@ -17,7 +17,7 @@ Each non-Java module follows a uniform three-execution pattern using `maven-antr
 
 | Execution id | Maven phase | What it does |
 |---|---|---|
-| `check-*` | `validate` | Runs `bin/<platform>/<module>/check.sh`; sets a `<module>.skip` property based on output. See [CHECK.md](CHECK.md). |
+| `check-*` | `validate` | Runs `bin/build/<platform>/<module>/check.sh`; sets a `<module>.skip` property based on output. See [CHECK.md](CHECK.md). |
 | `compile-*` | `compile` | Skipped if `<module>.skip` is `true`; otherwise runs `<ant antfile="build.xml" target="compile"/>`. See [COMPILE.md](COMPILE.md). |
 | `clean-*` | `clean` | Always runs `<ant antfile="build.xml" target="clean"/>` (unconditional). See [CLEAN.md](CLEAN.md). |
 

@@ -1,0 +1,21 @@
+# SPADE - Support for Provenance Auditing in Distributed Environments.
+# Copyright (C) 2026 SRI International.
+#
+# Sourced by check scripts. Do not execute directly.
+
+
+source "$(dirname "${BASH_SOURCE[0]}")/check"
+
+
+function util_check_distro_is_ubuntu() {
+    local os_id=""
+    if [[ -f "/etc/os-release" ]]; then
+        os_id="$(. /etc/os-release && echo "${ID}")"
+    fi
+    if [[ "${os_id}" == "ubuntu" ]]; then
+        util_check_checking "distro" "Ubuntu"
+        return 0
+    fi
+    util_check_checking "distro" "${os_id:-unknown} (only Ubuntu supported)"
+    return 1
+}

@@ -63,7 +63,7 @@ The check execution runs in Maven's `validate` phase, before `compile`. It calls
     <exportAntProperties>true</exportAntProperties>
     <target>
       <mkdir dir="${project.build.directory}"/>
-      <exec executable="${spade.bin.dir}/<path>/check.sh"
+      <exec executable="${spade.bin.dir}/build/<platform>/<module>/check.sh"
             dir="${spade.root}">
         <arg value="--status-file"/> <arg value="${project.build.directory}/check.status"/>
       </exec>
@@ -116,24 +116,24 @@ This section walks through adding a new module that uses a `check.sh` gate. The 
 
 ### 1. Write `check.sh`
 
-Create `bin/<platform>/<module>/check.sh`. Source the utility files that cover the prerequisites you need to check (see [Shared Utilities](#shared-utilities-binutilcheck)), implement the checks, and wire everything through `check_prereqs` and `main`. See [Structure](#structure) for the full template.
+Create `bin/build/<platform>/<module>/check.sh`. Source the utility files that cover the prerequisites you need to check (see [Shared Utilities](#shared-utilities-binutilcheck)), implement the checks, and wire everything through `check_prereqs` and `main`. See [Structure](#structure) for the full template.
 
 ```
-bin/mac/fuse/check.sh
+bin/build/mac/fuse/check.sh
 ```
 
 Make the script executable:
 
 ```bash
-chmod +x bin/mac/fuse/check.sh
+chmod +x bin/build/mac/fuse/check.sh
 ```
 
 ### 2. Create `compile.sh` and `clean.sh`
 
-Create `bin/<platform>/<module>/compile.sh` and `bin/<platform>/<module>/clean.sh`. These are the scripts that `build.xml` delegates to — they contain the actual build and clean logic. Make them executable:
+Create `bin/build/<platform>/<module>/compile.sh` and `bin/build/<platform>/<module>/clean.sh`. These are the scripts that `build.xml` delegates to — they contain the actual build and clean logic. Make them executable:
 
 ```bash
-chmod +x bin/mac/fuse/compile.sh bin/mac/fuse/clean.sh
+chmod +x bin/build/mac/fuse/compile.sh bin/build/mac/fuse/clean.sh
 ```
 
 ### 3. Create `build.xml`
@@ -150,7 +150,7 @@ module/mac/fuse/build.xml
 <project name="spade-mac-fuse">
 
   <target name="compile">
-    <exec executable="${spade.bin.dir}/mac/fuse/compile.sh"
+    <exec executable="${spade.bin.dir}/build/mac/fuse/compile.sh"
           dir="${spade.root}"
           failonerror="true">
       <!-- module-specific arguments -->
@@ -158,7 +158,7 @@ module/mac/fuse/build.xml
   </target>
 
   <target name="clean">
-    <exec executable="${spade.bin.dir}/mac/fuse/clean.sh"
+    <exec executable="${spade.bin.dir}/build/mac/fuse/clean.sh"
           dir="${spade.root}"
           failonerror="true">
       <!-- module-specific arguments -->
@@ -223,9 +223,9 @@ Add the new module to the `<modules>` list of its parent `pom.xml`:
 </modules>
 ```
 
-## Shared Utilities: `bin/util/check`
+## Shared Utilities: `bin/build/util/check`
 
-`bin/util/check` provides the building blocks for every `check.sh`. It is organized into files by topic — each file is sourced independently:
+`bin/build/util/check` provides the building blocks for every `check.sh`. It is organized into files by topic — each file is sourced independently:
 
 | File | Description |
 |---|---|
