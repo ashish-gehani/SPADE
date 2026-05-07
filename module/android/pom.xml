@@ -35,23 +35,30 @@
             <goals><goal>run</goal></goals>
             <configuration>
               <exportAntProperties>true</exportAntProperties>
-              <target>
+              <target xmlns:unless="ant:unless">
                 <mkdir dir="${project.build.directory}"/>
+                <condition property="android.skip" value="true">
+                  <istrue value="${spade.skip.android}"/>
+                </condition>
                 <exec executable="${spade.bin.dir}/build/android/check.sh"
-                      dir="${spade.root}">
+                      dir="${spade.root}"
+                      unless:set="android.skip">
                   <arg value="--status-file"/> <arg value="${project.build.directory}/check.status"/>
                 </exec>
                 <loadfile property="check.result"
                           srcFile="${project.build.directory}/check.status"
-                          failonerror="true">
+                          failonerror="true"
+                          unless:set="android.skip">
                   <filterchain>
                     <tailfilter lines="1"/>
                   </filterchain>
                 </loadfile>
-                <condition property="android.skip" value="true">
+                <condition property="android.skip" value="true"
+                           unless:set="android.skip">
                   <not><equals arg1="${check.result}" arg2="continue" trim="true"/></not>
                 </condition>
-                <condition property="android.skip" value="false">
+                <condition property="android.skip" value="false"
+                           unless:set="android.skip">
                   <equals arg1="${check.result}" arg2="continue" trim="true"/>
                 </condition>
               </target>

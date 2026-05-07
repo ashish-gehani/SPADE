@@ -39,23 +39,30 @@
             <goals><goal>run</goal></goals>
             <configuration>
               <exportAntProperties>true</exportAntProperties>
-              <target>
+              <target xmlns:unless="ant:unless">
                 <mkdir dir="${project.build.directory}"/>
+                <condition property="linux.fuse.skip" value="true">
+                  <istrue value="${spade.skip.linux.fuse}"/>
+                </condition>
                 <exec executable="${spade.bin.dir}/build/linux/fuse/check.sh"
-                      dir="${spade.root}">
+                      dir="${spade.root}"
+                      unless:set="linux.fuse.skip">
                   <arg value="--status-file"/> <arg value="${project.build.directory}/check.status"/>
                 </exec>
                 <loadfile property="check.result"
                           srcFile="${project.build.directory}/check.status"
-                          failonerror="true">
+                          failonerror="true"
+                          unless:set="linux.fuse.skip">
                   <filterchain>
                     <tailfilter lines="1"/>
                   </filterchain>
                 </loadfile>
-                <condition property="linux.fuse.skip" value="true">
+                <condition property="linux.fuse.skip" value="true"
+                           unless:set="linux.fuse.skip">
                   <not><equals arg1="${check.result}" arg2="continue" trim="true"/></not>
                 </condition>
-                <condition property="linux.fuse.skip" value="false">
+                <condition property="linux.fuse.skip" value="false"
+                           unless:set="linux.fuse.skip">
                   <equals arg1="${check.result}" arg2="continue" trim="true"/>
                 </condition>
               </target>

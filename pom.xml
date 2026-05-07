@@ -64,11 +64,6 @@
     <javac.options>${javac.user.options} -Xlint:none -proc:none -cp ${spade.build.dir}:${spade.javac.cp}</javac.options>
   </properties>
 
-  <modules>
-    <module>module/android/pom.xml</module>
-    <module>module/linux/pom.xml</module>
-    <module>module/mac/pom.xml</module>
-  </modules>
 
   <dependencies>
 
@@ -534,6 +529,38 @@
     </plugins>
 
   </build>
+
+  <profiles>
+    <profile>
+      <id>linux</id>
+      <activation>
+        <os><name>linux</name></os>
+      </activation>
+      <modules>
+        <module>module/linux/pom.xml</module>
+      </modules>
+      <properties>
+        <spade.skip.linux.audit_bridge>false</spade.skip.linux.audit_bridge>
+        <spade.skip.linux.fuse>false</spade.skip.linux.fuse>
+        <spade.skip.linux.llvm>false</spade.skip.linux.llvm>
+        <spade.skip.linux.kernel_module>false</spade.skip.linux.kernel_module>
+      </properties>
+    </profile>
+    <profile>
+      <id>mac</id>
+      <activation>
+        <os><family>mac</family></os>
+      </activation>
+      <modules>
+        <module>module/mac/pom.xml</module>
+      </modules>
+      <properties>
+        <spade.skip.mac.openbsm>false</spade.skip.mac.openbsm>
+        <spade.skip.mac.fuse>false</spade.skip.mac.fuse>
+        <spade.skip.mac.llvm>false</spade.skip.mac.llvm>
+      </properties>
+    </profile>
+  </profiles>
 
   <repositories>
     <repository>

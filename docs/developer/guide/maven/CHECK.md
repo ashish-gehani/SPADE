@@ -61,23 +61,30 @@ The check execution runs in Maven's `validate` phase, before `compile`. It calls
   <goals><goal>run</goal></goals>
   <configuration>
     <exportAntProperties>true</exportAntProperties>
-    <target>
+    <target xmlns:unless="ant:unless">
       <mkdir dir="${project.build.directory}"/>
+      <condition property="<module>.skip" value="true">
+        <istrue value="${spade.skip.<module>}"/>
+      </condition>
       <exec executable="${spade.bin.dir}/build/<platform>/<module>/check.sh"
-            dir="${spade.root}">
+            dir="${spade.root}"
+            unless:set="<module>.skip">
         <arg value="--status-file"/> <arg value="${project.build.directory}/check.status"/>
       </exec>
       <loadfile property="check.result"
                 srcFile="${project.build.directory}/check.status"
-                failonerror="true">
+                failonerror="true"
+                unless:set="<module>.skip">
         <filterchain>
           <tailfilter lines="1"/>
         </filterchain>
       </loadfile>
-      <condition property="<module>.skip" value="true">
+      <condition property="<module>.skip" value="true"
+                 unless:set="<module>.skip">
         <not><equals arg1="${check.result}" arg2="continue" trim="true"/></not>
       </condition>
-      <condition property="<module>.skip" value="false">
+      <condition property="<module>.skip" value="false"
+                 unless:set="<module>.skip">
         <equals arg1="${check.result}" arg2="continue" trim="true"/>
       </condition>
     </target>
@@ -109,6 +116,28 @@ The check execution runs in Maven's `validate` phase, before `compile`. It calls
 ```
 
 The status file (`target/check.status`) is kept after the build for inspection.
+
+## Explicit Skip Flag
+
+The normal path is: platform profile brings the module into the reactor → `check.sh` decides whether to compile. Cross-platform exclusion is handled entirely by the profile gate; `check.sh` never runs for the wrong platform.
+
+As a last resort — when `check.sh` encounters an unfixable issue or has unacceptable side effects in the current environment — each module exposes a `spade.skip.<platform>.<module>` property that bypasses the check entirely and forces the module to be skipped. Because command-line `-D` properties take precedence over profile properties, this works even when the platform profile is active:
+
+```
+mvn compile -Dspade.skip.mac.fuse=true
+```
+
+| Module | Flag |
+|---|---|
+| `spade-linux-audit-bridge` | `-Dspade.skip.linux.audit_bridge=true` |
+| `spade-linux-fuse` | `-Dspade.skip.linux.fuse=true` |
+| `spade-linux-llvm` | `-Dspade.skip.linux.llvm=true` |
+| `spade-linux-kernel-module` | `-Dspade.skip.linux.kernel_module=true` |
+| `spade-mac-fuse` | `-Dspade.skip.mac.fuse=true` |
+| `spade-mac-llvm` | `-Dspade.skip.mac.llvm=true` |
+| `spade-mac-openbsm` | `-Dspade.skip.mac.openbsm=true` |
+
+When the flag is `true`, the check execution sets `<module>.skip=true` immediately via `<condition><istrue>` and skips `check.sh`, `<loadfile>`, and the result conditions using Ant's `unless:set` attribute.
 
 ## Adding a Module
 
@@ -196,7 +225,7 @@ module/mac/fuse/pom.xml
 
   <properties>
     <!-- module-specific properties -->
-    <!-- <fuse.mac.skip>false</fuse.mac.skip> exported by check-macfuse (validate); true skips compile-macfuse -->
+    <!-- <fuse.mac.skip> exported by check-macfuse (validate); true skips compile-macfuse -->
   </properties>
 
   <build>

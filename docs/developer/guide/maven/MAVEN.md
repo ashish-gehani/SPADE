@@ -49,7 +49,7 @@ pom.xml                                   (root: spade)
     module/mac/llvm/pom.xml               (spade-mac-llvm)
 ```
 
-Each child declares its parent via `<relativePath>`. `spade-linux` and `spade-mac` are pure aggregators — they have no build logic of their own, only a `<modules>` list. `spade-linux-audit-bridge` is a leaf — it builds `spadeAuditBridge` and has no sub-modules.
+Each child declares its parent via `<relativePath>`. `spade-linux` and `spade-mac` are pure aggregators — they have no build logic of their own, only a `<modules>` list. `spade-linux-audit-bridge` is a leaf — it builds `spadeAuditBridge` and has no sub-modules. `spade-android` exists but has no activating profile and is excluded from all builds for now.
 
 ## Root POM
 
@@ -89,7 +89,11 @@ The root `pom.xml` is the single parent for the entire build. It owns:
 
 ## Module Inclusion
 
-All platform modules (`spade-android`, `spade-linux`, `spade-mac`) are listed unconditionally in the root `<modules>`. Whether a module's build actually runs is determined by its `check.sh` script at the `validate` phase, not by Maven profiles.
+Module inclusion is a two-level gate.
+
+**Platform gate (profiles):** The root `pom.xml` declares a `linux` and a `mac` profile, each activated automatically by OS detection. Each profile adds its platform's top-level module to `<modules>`, so only the matching platform enters the reactor. You cannot build artifacts of one platform on another — Linux modules never appear in the reactor on macOS, and vice versa. Android has no activating profile and is always excluded for now.
+
+**Module gate (check scripts):** Within an active platform, whether a specific module actually compiles is determined by its `check.sh` script at the `validate` phase. If prerequisites are not met the module is skipped without failing the build. See [CHECK.md](CHECK.md).
 
 ## Module Poms
 
