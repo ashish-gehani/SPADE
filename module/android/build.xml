@@ -3,7 +3,7 @@
 <project name="spade-android">
 
   <target name="compile">
-    <exec executable="${spade.bin.dir}/android/compile.sh"
+    <exec executable="${spade.bin.dir}/build/android/compile.sh"
           dir="${spade.root}"
           failonerror="true">
       <arg value="--javac"/>          <arg value="${javac}"/>
@@ -15,7 +15,7 @@
   </target>
 
   <target name="clean">
-    <exec executable="${spade.bin.dir}/android/clean.sh"
+    <exec executable="${spade.bin.dir}/build/android/clean.sh"
           dir="${spade.root}"
           failonerror="true">
       <arg value="--android_build"/> <arg value="${android.build.dir}"/>

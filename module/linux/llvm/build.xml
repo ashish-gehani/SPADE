@@ -3,7 +3,7 @@
 <project name="spade-linux-llvm">
 
   <target name="compile">
-    <exec executable="${spade.bin.dir}/linux/llvm/compile.sh"
+    <exec executable="${spade.bin.dir}/build/linux/llvm/compile.sh"
           dir="${spade.root}"
           failonerror="true">
       <arg value="--spade-src"/>      <arg value="${spade.src.dir}"/>
@@ -12,7 +12,7 @@
   </target>
 
   <target name="clean">
-    <exec executable="${spade.bin.dir}/linux/llvm/clean.sh"
+    <exec executable="${spade.bin.dir}/build/linux/llvm/clean.sh"
           dir="${spade.root}"
           failonerror="true">
       <arg value="--spade-src"/>      <arg value="${spade.src.dir}"/>

@@ -39,7 +39,7 @@
               <exportAntProperties>true</exportAntProperties>
               <target>
                 <mkdir dir="${project.build.directory}"/>
-                <exec executable="${spade.bin.dir}/mac/fuse/check.sh"
+                <exec executable="${spade.bin.dir}/build/mac/fuse/check.sh"
                       dir="${spade.root}">
                   <arg value="--status-file"/> <arg value="${project.build.directory}/check.status"/>
                 </exec>

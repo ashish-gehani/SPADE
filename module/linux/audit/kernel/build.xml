@@ -3,7 +3,7 @@
 <project name="spade-linux-audit-kernel">
 
   <target name="compile">
-    <exec executable="${spade.bin.dir}/linux/audit/kernel/compile.sh"
+    <exec executable="${spade.bin.dir}/build/linux/audit/kernel/compile.sh"
           dir="${spade.root}"
           failonerror="true">
       <arg value="--kernel_modules_src"/>     <arg value="${kernel.modules.src}"/>
@@ -13,7 +13,7 @@
   </target>
 
   <target name="clean">
-    <exec executable="${spade.bin.dir}/linux/audit/kernel/clean.sh"
+    <exec executable="${spade.bin.dir}/build/linux/audit/kernel/clean.sh"
           dir="${spade.root}"
           failonerror="true">
       <arg value="--kernel_modules_src"/>     <arg value="${kernel.modules.src}"/>

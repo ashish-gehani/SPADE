@@ -1,7 +1,7 @@
 .DS_Store
 .classpath
 .claude
-build
+/build
 /Makefile
 /target
 module/**/target
