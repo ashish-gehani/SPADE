@@ -23,7 +23,7 @@
 
 print_help ()
 {
-	echo "spade start | stop | status | debug | control | query | mcp | help"
+	echo "spade start | stop | status | debug | control | query | mcp-server | mcp-client | help"
 	echo ""
 	echo "'spade start' : Starts SPADE"
 	echo "'spade stop' : Stops SPADE after buffers empty"
@@ -34,7 +34,8 @@ print_help ()
 	echo "'spade debug' : Starts the SPADE daemon, logs to standard out"
 	echo "'spade control' : Starts an interactive SPADE controller"
 	echo "'spade query' : Starts an interactive command line SPADE query client"
-	echo "'spade mcp' : Starts the MCP server"
+	echo "'spade mcp-server' : Starts the MCP server"
+	echo "'spade mcp-client' : Starts the MCP CLI client"
 	echo "'spade status' : Shows SPADE status"
 	echo "'spade help' : Prints this message"
 }
@@ -92,9 +93,12 @@ else
 		else
 			echo "SPADE is not running"
 		fi
-	elif [ $1 = "mcp" ] ; then
+	elif [ $1 = "mcp-server" ] ; then
 		mainClassName="spade.utility.mcp.server.Main"
-		java -Djava.library.path="$JAVALIBPATH" "@${CLASSPATH_FILE}" $JVMARGS $mainClassName "${@:1}"
+		java -Djava.library.path="$JAVALIBPATH" "@${CLASSPATH_FILE}" $JVMARGS $mainClassName "${@:2}"
+	elif [ $1 = "mcp-client" ] ; then
+		mainClassName="spade.utility.mcp.client.Main"
+		java -Djava.library.path="$JAVALIBPATH" "@${CLASSPATH_FILE}" $JVMARGS $mainClassName "${@:2}"
 	elif [ $1 = "debug" ] ; then
 		java -Djava.library.path="$JAVALIBPATH" "@${CLASSPATH_FILE}" $JVMARGSDEBUG spade.core.Kernel
 	elif [ $1 = "start" ]  || [ $1 = "remote-debug" ] || [ $1 = "unikernel" ] ; then
