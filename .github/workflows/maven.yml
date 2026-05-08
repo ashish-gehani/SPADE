@@ -9,10 +9,11 @@
 name: Java CI with Maven
 
 on:
-  push:
-    branches: [ "mcp-dev" ]
-  pull_request:
-    branches: [ "mcp-dev" ]
+  workflow_dispatch:
+  # push:
+  #   branches: [ "mcp-dev" ]
+  # pull_request:
+  #   branches: [ "mcp-dev" ]
 
 jobs:
   build:
@@ -47,7 +48,7 @@ jobs:
       run: |
         brew install git pkg-config maven
     - name: Build with Maven
-      run: mvn -B package --file pom.xml
+      run: mvn --batch-mode package --file pom.xml
 
     # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
     # - name: Update dependency graph
