@@ -55,8 +55,8 @@
     <spade.lib.dir>${spade.root}/lib</spade.lib.dir>
     <spade.src.dir>${spade.root}/src</spade.src.dir>
     <spade.bin.dir>${spade.root}/bin</spade.bin.dir>
-    <spade.resource.dir>${spade.root}/resource</spade.resource.dir>
     <spade.jar>${spade.lib.dir}/spade.jar</spade.jar>
+    <spade.src.resource.dir>${spade.src.dir}/resources</spade.src.resource.dir>
 
     <!-- spade.javac.cp is populated at runtime by maven-dependency-plugin (build-classpath) -->
     <!-- override via -Djavac.user.options=... -->
@@ -371,18 +371,13 @@
 
     <resources>
       <resource>
-        <directory>${spade.resource.dir}</directory>
-        <includes>
-          <include>**/*.html</include>
-          <include>**/*.css</include>
-          <include>**/*.js</include>
-        </includes>
-      </resource>
-      <resource>
         <directory>${spade.src.dir}</directory>
         <includes>
           <include>spade/query/quickgrail/README.md</include>
         </includes>
+      </resource>
+      <resource>
+        <directory>${spade.src.resource.dir}</directory>
       </resource>
     </resources>
 
