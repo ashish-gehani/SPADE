@@ -37,6 +37,7 @@
 
 
 MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("SPADE audit kernel module tests");
 
 const char* SPADE_MODULE_NAME = "spade_audit_test";
 

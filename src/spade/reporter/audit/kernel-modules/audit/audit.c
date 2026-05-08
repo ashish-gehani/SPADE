@@ -33,6 +33,7 @@
 
 
 MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("SPADE audit kernel module to supplement Linux Audit logging");
 
 
 const char *SPADE_MODULE_NAME = "spade_audit";

@@ -32,6 +32,7 @@
 
 
 MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("SPADE audit controller kernel module to control the audit module");
 
 
 extern const type_build_hash_t spade_build_hash;
