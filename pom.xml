@@ -57,6 +57,8 @@
     <spade.bin.dir>${spade.root}/bin</spade.bin.dir>
     <spade.jar>${spade.lib.dir}/spade.jar</spade.jar>
     <spade.src.resource.dir>${spade.src.dir}/resources</spade.src.resource.dir>
+    <spade.test.src.dir>${spade.src.dir}/test/java</spade.test.src.dir>
+    <spade.test.build.dir>${spade.build.dir}/test-classes</spade.test.build.dir>
 
     <!-- spade.javac.cp is populated at runtime by maven-dependency-plugin (build-classpath) -->
     <!-- override via -Djavac.user.options=... -->
@@ -169,11 +171,6 @@
       <version>1.4.187</version>
     </dependency>
 
-    <dependency>
-      <groupId>org.hamcrest</groupId>
-      <artifactId>hamcrest-core</artifactId>
-      <version>1.3</version>
-    </dependency>
 
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
@@ -297,9 +294,10 @@
     </dependency>
 
     <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.12</version>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <version>6.0.3</version>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
@@ -368,6 +366,8 @@
   <build>
     <sourceDirectory>${spade.src.dir}</sourceDirectory>
     <outputDirectory>${spade.build.dir}</outputDirectory>
+    <testSourceDirectory>${spade.test.src.dir}</testSourceDirectory>
+    <testOutputDirectory>${spade.test.build.dir}</testOutputDirectory>
 
     <resources>
       <resource>
@@ -406,6 +406,10 @@
         <plugin>
           <artifactId>maven-antrun-plugin</artifactId>
           <version>3.1.0</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>3.5.5</version>
         </plugin>
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
@@ -448,6 +452,11 @@
             <id>default-compile</id>
             <phase>compile</phase>
             <goals><goal>compile</goal></goals>
+          </execution>
+          <execution>
+            <id>default-test-compile</id>
+            <phase>test-compile</phase>
+            <goals><goal>testCompile</goal></goals>
           </execution>
         </executions>
         <configuration>
@@ -494,6 +503,9 @@
               <directory>${spade.build.dir}</directory>
             </fileset>
             <fileset>
+              <directory>${spade.test.build.dir}</directory>
+            </fileset>
+            <fileset>
               <directory>${project.build.directory}</directory>
             </fileset>
           </filesets>
@@ -519,6 +531,11 @@
             </configuration>
           </execution>
         </executions>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <inherited>false</inherited>
       </plugin>
 
     </plugins>
