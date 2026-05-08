@@ -47,7 +47,6 @@ jobs:
       shell: bash
       run: |
         brew install git pkg-config maven
-        brew install --cask osxfuse
     - name: Build with Maven
       run: mvn -B package --file pom.xml
 
