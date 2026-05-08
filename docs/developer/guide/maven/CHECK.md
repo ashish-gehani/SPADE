@@ -21,8 +21,7 @@ The result is written as the last line of the status file (or stdout). Maven rea
 
 | Argument | Description |
 |---|---|
-| `--status-file <path>` | Write output to a file instead of stdout. The last line is the result (`continue` or `skip`). |
-| `--silent` | Suppress `checking` messages. Has no effect when `--status-file` is given, since messages go to the file. |
+| `--status-file <path>` | Write output to a file in addition to stdout. The last line is the result (`continue` or `skip`). |
 | `--help` | Print usage and exit. |
 
 ## Output Format
@@ -270,12 +269,11 @@ Because each topic file already sources `check`, sourcing multiple topic files d
 
 | Name | Type | Description |
 |---|---|---|
-| `UTIL_CHECK_SILENT` | global | `0` by default; set to `1` by `--silent`. |
 | `UTIL_CHECK_STATUS_FILE` | global | Empty by default; set to the file path by `--status-file`. |
-| `util_check_parse_args` | function | Parses `--silent`, `--status-file`, and `--help`. |
+| `util_check_parse_args` | function | Parses `--status-file` and `--help`. |
 | `util_check_validate_args` | function | No-op stub; override per script if needed. |
 | `util_check_print_help` | function | Prints usage for the common arguments and exits. |
-| `util_check_checking` | function | Prints `checking <what>... <result>` to the file or stdout. |
+| `util_check_checking` | function | Prints `checking <what>... <result>` to stdout and to the file if given. |
 | `util_check_init_status_file` | function | Creates the status file's parent directory and clears the file. |
 | `util_check_write_status` | function | Appends the result value to the file or prints it to stdout. |
 | `util_check_write_status_continue` | function | Writes `continue`. |

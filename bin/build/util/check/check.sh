@@ -5,7 +5,6 @@
 
 
 # globals
-UTIL_CHECK_SILENT=0
 UTIL_CHECK_STATUS_FILE=""
 
 
@@ -16,7 +15,6 @@ function util_check_validate_args() {
 function util_check_parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --silent)      UTIL_CHECK_SILENT=1;         shift ;;
             --status-file) UTIL_CHECK_STATUS_FILE="$2"; shift 2 ;;
             --help)        util_check_print_help ;;
             *) echo "Unknown argument: $1"; util_check_print_help ;;
@@ -25,11 +23,10 @@ function util_check_parse_args() {
 }
 
 function util_check_print_help() {
-    echo "Usage: $(basename "$0") [--silent] [--status-file <path>]"
+    echo "Usage: $(basename "$0") [--status-file <path>]"
     echo ""
     echo "Options:"
-    echo "    --silent               Suppress messages for unmet prerequisites"
-    echo "    --status-file <path>   Write result (0 or 1) to file instead of stdout"
+    echo "    --status-file <path>   Write output to file; last line is result (continue or skip)"
     echo "    --help                 Show this message and exit"
     exit 0
 }
@@ -37,9 +34,8 @@ function util_check_print_help() {
 function util_check_checking() {
     if [[ -n "${UTIL_CHECK_STATUS_FILE}" ]]; then
         echo "checking $1... $2" >> "${UTIL_CHECK_STATUS_FILE}"
-    elif (( UTIL_CHECK_SILENT == 0 )); then
-        echo "checking $1... $2"
     fi
+    echo "checking $1... $2"
 }
 
 function util_check_init_status_file() {
