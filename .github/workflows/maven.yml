@@ -17,12 +17,11 @@ on:
 jobs:
   build:
 
-    # ubuntu-22.04 ships with kernel 6.8, which is within the supported range for the kernel modules.
-    # ubuntu-24.04 ships with kernel 6.17, which is outside the supported range.
+    # ubuntu-24.04 ships with kernel 6.17.
     # https://github.com/actions/runner-images/blob/21cc988dd143f7b70b40fc749eff96faebf35795/images/ubuntu/Ubuntu2204-Readme.md
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-24.04, macos-26]
+        os: [ubuntu-24.04, macos-26]
     runs-on: ${{ matrix.os }}
 
     steps:
