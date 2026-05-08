@@ -10,7 +10,7 @@ source "$(dirname "$0")/../../util/check/pkg.sh"
 
 # constants
 MIN_KERNEL_VERSION="5.4"
-MAX_KERNEL_VERSION="6.8"
+MAX_KERNEL_VERSION="6.17"
 
 
 function check_not_wsl() {
