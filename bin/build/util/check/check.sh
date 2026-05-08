@@ -52,9 +52,8 @@ function util_check_init_status_file() {
 function util_check_write_status() {
     if [[ -n "${UTIL_CHECK_STATUS_FILE}" ]]; then
         echo "$1" >> "${UTIL_CHECK_STATUS_FILE}"
-    else
-        echo "$1"
     fi
+    echo "$1"
 }
 
 function util_check_write_status_continue() {
