@@ -17,7 +17,13 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-24.04
+    # ubuntu-22.04 ships with kernel 6.8, which is within the supported range for the kernel modules.
+    # ubuntu-24.04 ships with kernel 6.17, which is outside the supported range.
+    # https://github.com/actions/runner-images/blob/21cc988dd143f7b70b40fc749eff96faebf35795/images/ubuntu/Ubuntu2204-Readme.md
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04, macos-26]
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v4
@@ -27,27 +33,21 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
         cache: maven
-    - name: Install dependencies
+    - name: Install dependencies (Linux)
+      if: runner.os == 'Linux'
       shell: bash
       run: |
         sudo apt-get update
         sudo apt-get install -y \
-          auditd \
-          bison \
-          clang \
-          cmake \
-          curl \
-          flex \
-          fuse \
-          git \
-          ifupdown \
-          libaudit-dev \
-          libfuse-dev \
-          linux-headers-`uname -r` \
-          lsof \
-          pkg-config \
-          unzip \
-          uthash-dev wget
+          auditd bison clang cmake curl flex fuse \
+          git ifupdown libaudit-dev libfuse-dev linux-headers-`uname -r` \
+          lsof pkg-config unzip uthash-dev wget
+    - name: Install dependencies (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        brew install git pkg-config maven
+        brew install --cask osxfuse
     - name: Build with Maven
       run: mvn -B package --file pom.xml
 
