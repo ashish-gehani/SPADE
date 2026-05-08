@@ -19,10 +19,10 @@ package spade.utility.mcp.server;
 
 import java.util.logging.Level;
 
-import spade.utility.mcp.arg.Arg;
-import spade.utility.mcp.connection.SPADEControl;
-import spade.utility.mcp.connection.SPADEQuery;
-import spade.utility.mcp.tool.Registry;
+import spade.utility.mcp.server.arg.Arg;
+import spade.utility.mcp.server.connection.SPADEControl;
+import spade.utility.mcp.server.connection.SPADEQuery;
+import spade.utility.mcp.server.tool.Registry;
 
 public abstract class Server {
 

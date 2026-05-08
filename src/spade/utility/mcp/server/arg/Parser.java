@@ -15,7 +15,7 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.arg;
+package spade.utility.mcp.server.arg;
 
 import spade.utility.HelperFunctions;
 import spade.utility.Result;

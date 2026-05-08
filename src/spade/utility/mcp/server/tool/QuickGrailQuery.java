@@ -15,10 +15,8 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.tool;
+package spade.utility.mcp.server.tool;
 
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,27 +24,31 @@ import java.util.Map;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 
-import spade.utility.mcp.connection.Context;
+import spade.core.Query;
+import spade.utility.mcp.server.connection.Context;
 
-public class ReadQuickGrailDoc extends Tool {
+public class QuickGrailQuery extends Tool {
 
-    private static final String RESOURCE_PATH = "spade/query/quickgrail/README.md";
-
-    public ReadQuickGrailDoc(final Context context) {
+    public QuickGrailQuery(final Context context) {
         super(context);
     }
 
     @Override
     public McpSchema.Tool build() {
+        final Map<String, Object> queryProp = new HashMap<>();
+        queryProp.put("type", "string");
+        queryProp.put("description", "The QuickGrail query to execute");
+
         final Map<String, Object> properties = new HashMap<>();
+        properties.put("query", queryProp);
 
         return McpSchema.Tool.builder()
-            .name("read_quickgrail_doc")
-            .description("Return the QuickGrail query language reference (README)")
+            .name("query")
+            .description("Execute a QuickGrail query and return the result")
             .inputSchema(new McpSchema.JsonSchema(
                 "object",
                 properties,
-                Collections.emptyList(),
+                Collections.singletonList("query"),
                 false,
                 null,
                 null
@@ -59,24 +61,36 @@ public class ReadQuickGrailDoc extends Tool {
         final McpSyncServerExchange exchange,
         final McpSchema.CallToolRequest request
     ) {
-        try (InputStream is = getClass().getClassLoader().getResourceAsStream(RESOURCE_PATH)) {
-            if (is == null) {
-                return McpSchema.CallToolResult.builder()
-                    .addTextContent("Error: QuickGrail README not found in classpath")
-                    .isError(true)
-                    .build();
-            }
-            final String content = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        final String rawQuery = (String) request.arguments().get("query");
+        if (rawQuery == null) {
             return McpSchema.CallToolResult.builder()
-                .addTextContent(content)
-                .isError(false)
-                .build();
-        } catch (Exception e) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("Error reading QuickGrail README: " + e.getMessage())
+                .addTextContent("Error: null query argument")
                 .isError(true)
                 .build();
         }
+
+        final Query result;
+        try {
+            result = this.getContext().getSpadeQuery().query(rawQuery);
+        } catch (Exception e) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: " + e.getMessage())
+                .isError(true)
+                .build();
+        }
+
+        if (!result.wasQuerySuccessful()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: " + result.getError())
+                .isError(true)
+                .build();
+        }
+
+        final String resultText = result.getResult() != null ? result.getResult().toString() : "";
+        return McpSchema.CallToolResult.builder()
+            .addTextContent(resultText)
+            .isError(false)
+            .build();
     }
 
 }

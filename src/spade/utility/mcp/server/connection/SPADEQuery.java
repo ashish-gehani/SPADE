@@ -15,33 +15,34 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.connection;
+package spade.utility.mcp.server.connection;
 
-import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.security.KeyStore;
 import java.security.SecureRandom;
+
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
+import spade.core.Query;
 import spade.core.Settings;
 
-public class SPADEControl implements AutoCloseable {
+public class SPADEQuery implements AutoCloseable {
 
     private final String host;
     private final int port;
 
     private SSLSocket socket;
-    private PrintStream out;
-    private BufferedReader in;
+    private ObjectOutputStream out;
+    private ObjectInputStream in;
 
-    public SPADEControl(final String host, final int port) {
+    public SPADEQuery(final String host, final int port) {
         this.host = host;
         this.port = port;
     }
@@ -73,33 +74,27 @@ public class SPADEControl implements AutoCloseable {
 
         final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
 
-        this.socket = (SSLSocket) sslSocketFactory.createSocket(this.host, this.port);
-        this.out = new PrintStream(this.socket.getOutputStream());
-        this.in = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
-
+        this.socket = (SSLSocket) sslSocketFactory.createSocket(this.host, port);
+        this.out = new ObjectOutputStream(this.socket.getOutputStream());
+        this.in = new ObjectInputStream(this.socket.getInputStream());
     }
 
-    public String send(final String command) throws Exception {
+    public Query query(final String queryStr) throws Exception {
         if (this.socket == null || this.socket.isClosed()) {
             throw new IllegalStateException("Not connected");
         }
-        this.out.println(command);
-        return readResponse();
-    }
+        final Query request = new Query(this.host, this.host, queryStr, null);
+        this.out.writeObject(request);
+        this.out.flush();
 
-    private String readResponse() throws Exception {
-        final StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = this.in.readLine()) != null) {
-            if (line.isEmpty()) {
-                break;
-            }
-            if (sb.length() > 0) {
-                sb.append('\n');
-            }
-            sb.append(line);
+        final Object response = this.in.readObject();
+        if (response == null) {
+            throw new Exception("Server closed the connection");
         }
-        return sb.toString();
+        if (!(response instanceof Query)) {
+            throw new Exception("Unexpected response type: " + response.getClass().getName());
+        }
+        return (Query) response;
     }
 
     @Override
@@ -108,7 +103,7 @@ public class SPADEControl implements AutoCloseable {
             try { this.in.close(); } catch (IOException e) { /* ignore */ }
         }
         if (this.out != null) {
-            this.out.close();
+            try { this.out.close(); } catch (IOException e) { /* ignore */ }
         }
         if (this.socket != null) {
             try { this.socket.close(); } catch (IOException e) { /* ignore */ }

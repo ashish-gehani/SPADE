@@ -15,7 +15,7 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.tool;
+package spade.utility.mcp.server.tool;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -23,19 +23,20 @@ import java.util.HashMap;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 
-import spade.utility.mcp.connection.Context;
+import spade.core.Query;
+import spade.utility.mcp.server.connection.Context;
 
-public class ListStorages extends Tool {
+public class PrintStorage extends Tool {
 
-    public ListStorages(final Context ctx){
+    public PrintStorage(final Context ctx){
         super(ctx);
     }
 
     @Override
     public McpSchema.Tool build() {
         return McpSchema.Tool.builder()
-            .name("list_storages")
-            .description("List all active SPADE storages")
+            .name("print_storage")
+            .description("Print the name of the currently active SPADE storage")
             .inputSchema(new McpSchema.JsonSchema(
                 "object",
                 new HashMap<>(),
@@ -52,9 +53,9 @@ public class ListStorages extends Tool {
         final McpSyncServerExchange exchange,
         final McpSchema.CallToolRequest request
     ) {
-        final String result;
+        final Query result;
         try {
-            result = this.getContext().getSpadeControl().send("list storages");
+            result = this.getContext().getSpadeQuery().query("print storage");
         } catch (Exception e) {
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Error: " + e.getMessage())
@@ -62,10 +63,17 @@ public class ListStorages extends Tool {
                 .build();
         }
 
+        if (!result.wasQuerySuccessful()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: " + result.getError())
+                .isError(true)
+                .build();
+        }
+
+        final String resultText = result.getResult() != null ? result.getResult().toString() : "";
         return McpSchema.CallToolResult.builder()
-            .addTextContent(result)
+            .addTextContent(resultText)
             .isError(false)
             .build();
     }
-
 }

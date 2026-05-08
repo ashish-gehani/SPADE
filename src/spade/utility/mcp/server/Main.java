@@ -15,18 +15,16 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp;
+package spade.utility.mcp.server;
 
 import java.util.logging.Level;
 
-import spade.utility.mcp.arg.Arg;
-import spade.utility.mcp.arg.Parser;
-import spade.utility.mcp.connection.Context;
-import spade.utility.mcp.connection.SPADEControl;
-import spade.utility.mcp.connection.SPADEQuery;
-import spade.utility.mcp.server.Http;
-import spade.utility.mcp.server.Stdio;
-import spade.utility.mcp.tool.Registry;
+import spade.utility.mcp.server.arg.Arg;
+import spade.utility.mcp.server.arg.Parser;
+import spade.utility.mcp.server.connection.Context;
+import spade.utility.mcp.server.connection.SPADEControl;
+import spade.utility.mcp.server.connection.SPADEQuery;
+import spade.utility.mcp.server.tool.Registry;
 
 public class Main {
 

@@ -93,7 +93,7 @@ else
 			echo "SPADE is not running"
 		fi
 	elif [ $1 = "mcp" ] ; then
-		mainClassName="spade.utility.mcp.Main"
+		mainClassName="spade.utility.mcp.server.Main"
 		java -Djava.library.path="$JAVALIBPATH" "@${CLASSPATH_FILE}" $JVMARGS $mainClassName "${@:1}"
 	elif [ $1 = "debug" ] ; then
 		java -Djava.library.path="$JAVALIBPATH" "@${CLASSPATH_FILE}" $JVMARGSDEBUG spade.core.Kernel

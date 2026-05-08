@@ -15,36 +15,30 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.tool;
+package spade.utility.mcp.server.connection;
 
-import java.util.List;
+public class Context {
 
-import spade.utility.mcp.connection.Context;
+    private final SPADEQuery spadeQuery;
+    private final SPADEControl spadeControl;
 
-public class Registry {
-
-    private final Context ctx;
-
-    public Registry(final Context ctx) {
-        if (ctx == null) {
-            throw new IllegalArgumentException("NULL ctx");
+    public Context(final SPADEQuery spadeQuery, final SPADEControl spadeControl) {
+        if (spadeQuery == null) {
+            throw new IllegalArgumentException("NULL spadeQuery");
         }
-        this.ctx = ctx;
+        if (spadeControl == null) {
+            throw new IllegalArgumentException("NULL spadeControl");
+        }
+        this.spadeQuery = spadeQuery;
+        this.spadeControl = spadeControl;
     }
 
-    public Context getContext(){
-        return ctx;
+    public SPADEQuery getSpadeQuery() {
+        return spadeQuery;
     }
 
-    public List<Tool> getTools(){
-        return List.of(
-            new AddStorage(this.ctx),
-            new ListStorages(this.ctx),
-            new PrintStorage(this.ctx),
-            new QuickGrailQuery(this.ctx),
-            new ReadQuickGrailDoc(this.ctx),
-            new SetStorage(this.ctx)
-        );
+    public SPADEControl getSpadeControl() {
+        return spadeControl;
     }
 
 }

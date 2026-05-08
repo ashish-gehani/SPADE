@@ -15,12 +15,12 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.tool;
+package spade.utility.mcp.server.tool;
 
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 
-import spade.utility.mcp.connection.Context;
+import spade.utility.mcp.server.connection.Context;
 
 public abstract class Tool {
 

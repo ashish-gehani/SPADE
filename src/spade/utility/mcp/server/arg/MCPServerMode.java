@@ -15,30 +15,17 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.connection;
+package spade.utility.mcp.server.arg;
 
-public class Context {
+public enum MCPServerMode {
 
-    private final SPADEQuery spadeQuery;
-    private final SPADEControl spadeControl;
+    STDIO("stdio"),
+    HTTP("http");
 
-    public Context(final SPADEQuery spadeQuery, final SPADEControl spadeControl) {
-        if (spadeQuery == null) {
-            throw new IllegalArgumentException("NULL spadeQuery");
-        }
-        if (spadeControl == null) {
-            throw new IllegalArgumentException("NULL spadeControl");
-        }
-        this.spadeQuery = spadeQuery;
-        this.spadeControl = spadeControl;
-    }
+    public final String name;
 
-    public SPADEQuery getSpadeQuery() {
-        return spadeQuery;
-    }
-
-    public SPADEControl getSpadeControl() {
-        return spadeControl;
+    MCPServerMode(final String name) {
+        this.name = name;
     }
 
 }

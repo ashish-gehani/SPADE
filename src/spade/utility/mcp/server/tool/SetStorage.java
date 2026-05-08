@@ -15,7 +15,7 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.tool;
+package spade.utility.mcp.server.tool;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -25,27 +25,28 @@ import java.util.Map;
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 
-import spade.utility.mcp.connection.Context;
+import spade.core.Query;
+import spade.utility.mcp.server.connection.Context;
 
-public class AddStorage extends Tool {
+public class SetStorage extends Tool {
 
-    public AddStorage(final Context ctx){
-        super(ctx);
+    public SetStorage(final Context context) {
+        super(context);
     }
 
     @Override
     public McpSchema.Tool build() {
         final Map<String, Object> storageNameProp = new HashMap<>();
         storageNameProp.put("type", "string");
-        storageNameProp.put("description", "Name of the SPADE storage to add");
+        storageNameProp.put("description", "Name of the SPADE storage to set for querying");
         storageNameProp.put("enum", Arrays.asList("Neo4j", "Quickstep", "PostgreSQL"));
 
         final Map<String, Object> properties = new HashMap<>();
         properties.put("storageName", storageNameProp);
 
         return McpSchema.Tool.builder()
-            .name("add_storage")
-            .description("Add a SPADE storage")
+            .name("set_storage")
+            .description("Set the active SPADE storage to query against")
             .inputSchema(new McpSchema.JsonSchema(
                 "object",
                 properties,
@@ -70,9 +71,9 @@ public class AddStorage extends Tool {
                 .build();
         }
 
-        final String result;
+        final Query result;
         try {
-            result = this.getContext().getSpadeControl().send("add storage " + storageName);
+            result = this.getContext().getSpadeQuery().query("set storage " + storageName);
         } catch (Exception e) {
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Error: " + e.getMessage())
@@ -80,9 +81,18 @@ public class AddStorage extends Tool {
                 .build();
         }
 
+        if (!result.wasQuerySuccessful()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: " + result.getError())
+                .isError(true)
+                .build();
+        }
+
+        final String resultText = result.getResult() != null ? result.getResult().toString() : "";
         return McpSchema.CallToolResult.builder()
-            .addTextContent(result)
+            .addTextContent(resultText)
             .isError(false)
             .build();
     }
+
 }

@@ -15,17 +15,36 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.arg;
+package spade.utility.mcp.server.tool;
 
-public enum MCPServerMode {
+import java.util.List;
 
-    STDIO("stdio"),
-    HTTP("http");
+import spade.utility.mcp.server.connection.Context;
 
-    public final String name;
+public class Registry {
 
-    MCPServerMode(final String name) {
-        this.name = name;
+    private final Context ctx;
+
+    public Registry(final Context ctx) {
+        if (ctx == null) {
+            throw new IllegalArgumentException("NULL ctx");
+        }
+        this.ctx = ctx;
+    }
+
+    public Context getContext(){
+        return ctx;
+    }
+
+    public List<Tool> getTools(){
+        return List.of(
+            new AddStorage(this.ctx),
+            new ListStorages(this.ctx),
+            new PrintStorage(this.ctx),
+            new QuickGrailQuery(this.ctx),
+            new ReadQuickGrailDoc(this.ctx),
+            new SetStorage(this.ctx)
+        );
     }
 
 }
