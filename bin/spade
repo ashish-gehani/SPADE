@@ -1,194 +1,538 @@
 #!/bin/bash
+
+# SPADE - Support for Provenance Auditing in Distributed Environments.
+# Copyright (C) 2026 SRI International.
+
+# This script manages two kinds of commands:
 #
-#  --------------------------------------------------------------------------------
-#  SPADE - Support for Provenance Auditing in Distributed Environments.
-#  Copyright (C) 2015 SRI International
-
-#  This program is free software: you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License as
-#  published by the Free Software Foundation, either version 3 of the
-#  License, or (at your option) any later version.
-
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-#  General Public License for more details.
-
-#  You should have received a copy of the GNU General Public License
-#  along with this program. If not, see <http://www.gnu.org/licenses/>.
-#  --------------------------------------------------------------------------------
+#   Server commands (start, unikernel, debug, java-start) launch a SPADE server
+#   process. start, unikernel, and java-start run the server in the background;
+#   debug runs it in the foreground.
 #
-# Hasanat Kazmi <hasanatkazmi@gmail.com>
+#   Non-server commands (stop, kill, status, control, query, mcp, run-util,
+#   java-stop, java-kill) operate on or alongside a running server.
 
 
-print_help ()
-{
-	echo "spade start | stop | status | debug | control | query | mcp-server | mcp-client | help"
-	echo ""
-	echo "'spade start' : Starts SPADE"
-	echo "'spade stop' : Stops SPADE after buffers empty"
-	echo "'spade kill' : Stops SPADE immediately"
-	#echo "'spade java-start' : Starts SPADE daemon (java-based)"
-	#echo "'spade java-stop' : Stops SPADE daemon after buffers empty (java-based)"
-	#echo "'spade java-kill' : Stops SPADE daemon immediately (java-based)"
-	echo "'spade debug' : Starts the SPADE daemon, logs to standard out"
-	echo "'spade control' : Starts an interactive SPADE controller"
-	echo "'spade query' : Starts an interactive command line SPADE query client"
-	echo "'spade mcp-server' : Starts the MCP server"
-	echo "'spade mcp-client' : Starts the MCP CLI client"
-	echo "'spade status' : Shows SPADE status"
-	echo "'spade help' : Prints this message"
-}
-
-spadePidFilePath=spade.pid
-
-is_spade_running(){
-	check_by_name=1
-	if [ -f "${spadePidFilePath}" ]; then
-		spadePid=`cat ${spadePidFilePath}`
-		if [ ! -z "$spadePid" ]; then
-			ps aux | grep -q "$spadePid" && echo 1 || echo 0
-			check_by_name=0
-		fi
-	fi
-	if [ "$check_by_name" -eq 1 ]; then
-		ps aux | grep -q "[s]pade.core.Kernel\|[s]pade.core.Unikernel" && echo 1 || echo 0
-	fi
-}
-
+# constants
+SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
 SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
-CYGWIN_JVM_JLINE_ARGS=
 
-if [[ `uname` == *"CYGWIN"* ]]
-then
-	SPADE_ROOT=`cygpath -w $SPADE_ROOT`
-	JAVALIBPATH="$SPADE_ROOT\\lib\\"
-	CYGWIN_JVM_JLINE_ARGS="-Djline.terminal=jline.UnixTerminal"
-else
-	JAVALIBPATH="$SPADE_ROOT/lib/"	
-fi
+SPADE_SERVER_PID_FILE="${SPADE_ROOT}/spade.pid"
 
-CLASSPATH=$(${SPADE_ROOT}/bin/classpath.sh)
+JAVALIBPATH="${SPADE_ROOT}/lib/"
+CLASSPATH_SCRIPT="${SPADE_ROOT}/bin/classpath.sh"
 CLASSPATH_FILE="${SPADE_ROOT}/build/java-cp.argfile"
-mkdir -p "${SPADE_ROOT}/build"
-printf -- '-cp\n%s\n' "${CLASSPATH}" > "${CLASSPATH_FILE}"
 
-JVMARGS="-server -Xms8G -Xmx16G"
-JVMARGSDEBUG="-server -Xms8G -Xmx16G -XX:+UseConcMarkSweepGC"
+JVM_SERVER_MEM_MIN_DEFAULT="8G"
+JVM_SERVER_MEM_MAX_DEFAULT="16G"
 
-pushd "${SPADE_ROOT}" > /dev/null
+JVM_NON_SERVER_MEM_MIN_DEFAULT="1G"
+JVM_NON_SERVER_MEM_MAX_DEFAULT="2G"
 
-if [ $# -eq 0 ] ; then
-	print_help
-else
-	if [ $1 = "java-start" ] || [ $1 = "java-stop" ] || [ $1 = "java-kill" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" "@${CLASSPATH_FILE}" $JVMARGS spade.utility.Daemonizer "$@"
-	elif [ $1 = "query" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" "@${CLASSPATH_FILE}" $CYGWIN_JVM_JLINE_ARGS spade.client.CommandLine "$@"
-	elif [ $1 = "control" ] ; then
-		output=$(is_spade_running)
-		if [ "$output" -eq 1 ]
-		then
-			java -Djava.library.path="$JAVALIBPATH" "@${CLASSPATH_FILE}" $CYGWIN_JVM_JLINE_ARGS spade.client.Control
-		else
-			echo "SPADE is not running"
-		fi
-	elif [ $1 = "mcp-server" ] ; then
-		mainClassName="spade.utility.mcp.server.Main"
-		java -Djava.library.path="$JAVALIBPATH" "@${CLASSPATH_FILE}" $JVMARGS $mainClassName "${@:2}"
-	elif [ $1 = "mcp-client" ] ; then
-		mainClassName="spade.utility.mcp.client.Main"
-		java -Djava.library.path="$JAVALIBPATH" "@${CLASSPATH_FILE}" $JVMARGS $mainClassName "${@:2}"
-	elif [ $1 = "debug" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" "@${CLASSPATH_FILE}" $JVMARGSDEBUG spade.core.Kernel
-	elif [ $1 = "start" ]  || [ $1 = "remote-debug" ] || [ $1 = "unikernel" ] ; then
-		remote_debugging_flags=
-		if [ $1 = "remote-debug" ] ; then
-			remote_debugging_flags="-Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=8000,suspend=n"
-		fi
-		running=0
-		if [ -f "$spadePidFilePath" ] ; then
-			existingSpadePid=`cat $spadePidFilePath`
-			if [ -n "$existingSpadePid" ] ; then
-				if ps -p "$existingSpadePid" 2>&1 > /dev/null ; then
-					running=1
-				fi
-			fi
-		fi
-		mainClassName="spade.core.Kernel"
-		if [ $1 = "unikernel" ]; then
-			mainClassName="spade.core.Unikernel"
-		fi
-		if [ "$running" -eq 0 ] ; then
-			nohup java $remote_debugging_flags -Djava.library.path="$JAVALIBPATH" "@${CLASSPATH_FILE}" $JVMARGS $mainClassName 2>&1 > /dev/null &
-			spadePid=$!
-			if [ $1 = "unikernel" ]; then
-				sleep 1 # wait for it to try to start up
-			fi
-			if ps -p "$spadePid" 2>&1 > /dev/null ; then
-				echo -n $spadePid > $spadePidFilePath
-				echo "Running SPADE with PID = $spadePid"
-			else
-				echo "Failed to start SPADE"
-			fi
-		else
-			echo "SPADE is already running with PID $existingSpadePid"
-		fi
-	elif [ $1 = "stop" ] || [ $1 = "kill" ] ; then
-		killSignal=
-		successMsg=
-		failureMsg=
-		if [ $1 = "stop" ] ; then
-			successMsg="SPADE will stop after buffers clear"
-			failureMsg="SPADE process could not be stopped"
-			killSignal=15
-		else
-			# force kill
-			successMsg="Stopping SPADE immediately"
-			failureMsg="SPADE process could not be killed"
-			killSignal=9
-		fi
-		if [ -f "$spadePidFilePath" ] ; then
-			existingSpadePid=`cat $spadePidFilePath`
-			if [ -n "$existingSpadePid" ] ; then
-				if ps -p "$existingSpadePid" 2>&1 > /dev/null ; then
-					kill -$killSignal $existingSpadePid
-					killResult=$?
-					if [ "$killResult" -eq 0 ] ; then
-						echo $successMsg
-						rm -f "$spadePidFilePath"
-					else
-						echo $failureMsg
-					fi
-				else
-					echo "SPADE is not running, but PID file exists"
-				fi
-			else
-				echo "PID file exists, but empty no pid present"
-			fi
-		else
-			echo "PID file does not exist"
-		fi
+# globals
+JVM_MEM_MIN=""
+JVM_MEM_MAX=""
+JVM_DEBUG_REMOTE_FLAGS=""
+JVM_DEBUG_REMOTE_PORT=""
+JVM_NON_SERVER_CYGWIN_FLAGS=""
+EXTRA_ARGS=()
+COMMAND=""
 
-	elif [ $1 = "status" ] ; then
-		output=$(is_spade_running)
-		if [ "$output" -eq 1 ]
-		then
-			echo "Running"
-		else
-			echo "Stopped"
-		fi
-	elif [ $1 = "run-util" ] || [ $1 = "debug-util" ] ; then
-		remote_debugging_flags=
-		if [ $1 = "debug-util" ] ; then
-			remote_debugging_flags="-Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=8000,suspend=n"
-		fi
-		mainClassName="spade.utility.${2}"
-		java ${remote_debugging_flags} -Djava.library.path="$JAVALIBPATH" "@${CLASSPATH_FILE}" $JVMARGS $mainClassName "${@:3}"
-	else
-		print_help
-	fi
 
-fi
+function log() {
+    echo "$1"
+}
 
-popd > /dev/null
+# java command construction
+
+function adjust_for_cygwin() {
+    if [[ "$(uname)" == *"CYGWIN"* ]]; then
+        SPADE_ROOT="$(cygpath -w "${SPADE_ROOT}")"
+        JAVALIBPATH="${SPADE_ROOT}\\lib\\"
+        JVM_NON_SERVER_FLAGS="-Djline.terminal=jline.UnixTerminal"
+    fi
+}
+
+function get_jvm_server_flags() {
+    local mem_min="${JVM_MEM_MIN:-${JVM_SERVER_MEM_MIN_DEFAULT}}"
+    local mem_max="${JVM_MEM_MAX:-${JVM_SERVER_MEM_MAX_DEFAULT}}"
+    echo "-server -Xms${mem_min} -Xmx${mem_max} ${JVM_DEBUG_REMOTE_FLAGS}"
+}
+
+function get_jvm_non_server_flags() {
+    local mem_min="${JVM_MEM_MIN:-${JVM_NON_SERVER_MEM_MIN_DEFAULT}}"
+    local mem_max="${JVM_MEM_MAX:-${JVM_NON_SERVER_MEM_MAX_DEFAULT}}"
+    echo "-Xms${mem_min} -Xmx${mem_max} ${JVM_DEBUG_REMOTE_FLAGS} ${JVM_NON_SERVER_FLAGS}"
+}
+
+function build_java_server_cmd() {
+    echo "java $(get_jvm_server_flags) -Djava.library.path=${JAVALIBPATH} @${CLASSPATH_FILE}"
+}
+
+function build_java_non_server_cmd() {
+    echo "java $(get_jvm_non_server_flags) -Djava.library.path=${JAVALIBPATH} @${CLASSPATH_FILE}"
+}
+
+function build_jvm_debug_remote_flags() {
+    if [ -n "${JVM_DEBUG_REMOTE_PORT}" ]; then
+        JVM_DEBUG_REMOTE_FLAGS="-Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=${JVM_DEBUG_REMOTE_PORT},suspend=n"
+    fi
+}
+
+function build_classpath_file() {
+    mkdir -p "${SPADE_ROOT}/build"
+    if [[ $? -ne 0 ]]; then
+        log "Failed to create build directory"
+        return 1
+    fi
+    local classpath
+    classpath="$("${CLASSPATH_SCRIPT}")"
+    if [[ $? -ne 0 ]]; then
+        log "Failed to generate classpath"
+        return 1
+    fi
+    printf -- '-cp\n%s\n' "${classpath}" > "${CLASSPATH_FILE}"
+    if [[ $? -ne 0 ]]; then
+        log "Failed to write classpath file"
+        return 1
+    fi
+}
+
+function prepare_java_env() {
+    adjust_for_cygwin
+    build_jvm_debug_remote_flags
+    build_classpath_file
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+}
+
+# server
+
+function spade_server_pid_file_create() {
+    touch "${SPADE_SERVER_PID_FILE}"
+}
+
+function spade_server_pid_file_write() {
+    echo -n "$1" > "${SPADE_SERVER_PID_FILE}"
+}
+
+function spade_server_pid_file_read() {
+    cat "${SPADE_SERVER_PID_FILE}"
+}
+
+function spade_server_pid_file_delete() {
+    rm -f "${SPADE_SERVER_PID_FILE}"
+}
+
+function spade_server_stop() {
+    local force="${1:-0}"
+
+    if [ ! -f "${SPADE_SERVER_PID_FILE}" ]; then
+        log "SPADE server is not running"
+        return
+    fi
+
+    local pid
+    pid=$(spade_server_pid_file_read)
+
+    if [ -z "${pid}" ]; then
+        log "PID file exists but is empty"
+        spade_server_pid_file_delete
+        return
+    fi
+
+    if ! ps -p "${pid}" > /dev/null 2>&1; then
+        log "SPADE server is not running, but PID file exists"
+        spade_server_pid_file_delete
+        return
+    fi
+
+    local signal
+    local success_msg
+    local failure_msg
+    if [ "${force}" -eq 1 ]; then
+        signal=9
+        success_msg="Stopping SPADE server immediately (PID ${pid})"
+        failure_msg="SPADE server process could not be killed (PID ${pid})"
+    else
+        signal=15
+        success_msg="SPADE server will stop after buffers clear (PID ${pid})"
+        failure_msg="SPADE server process could not be stopped (PID ${pid})"
+    fi
+
+    kill -"${signal}" "${pid}"
+    if [ $? -eq 0 ]; then
+        spade_server_pid_file_delete
+        log "${success_msg}"
+    else
+        log "${failure_msg}"
+    fi
+}
+
+function spade_server_status() {
+    if [ ! -f "${SPADE_SERVER_PID_FILE}" ]; then
+        log "Stopped"
+        return
+    fi
+
+    local pid
+    pid=$(spade_server_pid_file_read)
+
+    if [ -n "${pid}" ]; then
+        if ps -p "${pid}" > /dev/null 2>&1; then
+            log "Running (PID ${pid})"
+            return
+        fi
+    fi
+    log "Stopped"
+}
+
+function spade_server_check_not_running() {
+    if [ -f "${SPADE_SERVER_PID_FILE}" ]; then
+        local pid
+        pid=$(spade_server_pid_file_read)
+        if [ -n "${pid}" ]; then
+            if ps -p "${pid}" > /dev/null 2>&1; then
+                log "SPADE is already running with PID ${pid}"
+                return 1
+            fi
+        fi
+    fi
+}
+
+function spade_start() {
+    local main_class="$1"
+
+    spade_server_check_not_running
+    if [[ $? -ne 0 ]]; then
+        return
+    fi
+
+    prepare_java_env
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+
+    local java_cmd
+    java_cmd="$(build_java_server_cmd)"
+    local error_file
+    error_file="$(mktemp)"
+    nohup ${java_cmd} "${main_class}" "${EXTRA_ARGS[@]}" > /dev/null 2>"${error_file}" &
+    local pid=$!
+
+    if ! ps -p "${pid}" > /dev/null 2>&1; then
+        log "Failed to start SPADE"
+        if [ -s "${error_file}" ]; then
+            log "$(cat "${error_file}")"
+        fi
+        rm -f "${error_file}"
+        return 1
+    fi
+
+    # Two-second window to catch early JVM failures (bad classpath, missing
+    # class, port conflict). Errors that surface after this point are not
+    # detected here and require reviewing process output directly.
+    printf "Starting SPADE server..."
+    sleep 2
+
+    if ps -p "${pid}" > /dev/null 2>&1; then
+        spade_server_pid_file_write "${pid}"
+        printf " Running SPADE with PID = %s\n" "${pid}"
+    else
+        printf "\n"
+        log "Failed to start SPADE"
+        if [ -s "${error_file}" ]; then
+            log "$(cat "${error_file}")"
+        fi
+    fi
+    rm -f "${error_file}"
+}
+
+function spade_server_start() {
+    spade_start "spade.core.Kernel"
+}
+
+function spade_unikernel_start() {
+    spade_start "spade.core.Unikernel"
+}
+
+function spade_debug_start() {
+    log "Warning: 'debug' is deprecated"
+    JVM_MEM_MIN="${JVM_MEM_MIN:-${JVM_SERVER_MEM_MIN_DEFAULT}}"
+    JVM_MEM_MAX="${JVM_MEM_MAX:-${JVM_SERVER_MEM_MAX_DEFAULT}}"
+
+    spade_server_check_not_running
+    if [[ $? -ne 0 ]]; then
+        return
+    fi
+
+    prepare_java_env
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+
+    local java_cmd
+    java_cmd="$(build_java_server_cmd)"
+    ${java_cmd} spade.core.Kernel "${EXTRA_ARGS[@]}"
+}
+
+# client
+
+function spade_query_client_run() {
+    local pid
+    if [ -f "${SPADE_SERVER_PID_FILE}" ]; then
+        pid=$(spade_server_pid_file_read)
+    fi
+
+    if [ -z "${pid}" ]; then
+        log "SPADE is not running"
+        return
+    fi
+    if ! ps -p "${pid}" > /dev/null 2>&1; then
+        log "SPADE is not running"
+        return
+    fi
+
+    prepare_java_env
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+
+    local java_cmd
+    java_cmd="$(build_java_non_server_cmd)"
+    ${java_cmd} spade.client.CommandLine "$@"
+}
+
+function spade_control_client_run() {
+    local pid
+    if [ -f "${SPADE_SERVER_PID_FILE}" ]; then
+        pid=$(spade_server_pid_file_read)
+    fi
+
+    if [ -z "${pid}" ]; then
+        log "SPADE is not running"
+        return
+    fi
+    if ! ps -p "${pid}" > /dev/null 2>&1; then
+        log "SPADE is not running"
+        return
+    fi
+
+    prepare_java_env
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+
+    local java_cmd
+    java_cmd="$(build_java_non_server_cmd)"
+    ${java_cmd} spade.client.Control
+}
+
+function spade_mcp_server_run() {
+    prepare_java_env
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+
+    local java_cmd
+    java_cmd="$(build_java_non_server_cmd)"
+    ${java_cmd} spade.utility.mcp.server.Main "${EXTRA_ARGS[@]}"
+}
+
+# function spade_java_daemonizer_run() {
+#     prepare_java_env
+#     if [[ $? -ne 0 ]]; then
+#         return 1
+#     fi
+#     local java_cmd
+#     if [ "${COMMAND}" = "java-start" ]; then
+#         java_cmd="$(build_java_server_cmd)"
+#     else
+#         java_cmd="$(build_java_non_server_cmd)"
+#     fi
+#     ${java_cmd} spade.utility.Daemonizer "${COMMAND}" "${EXTRA_ARGS[@]}"
+# }
+
+function spade_run_util() {
+    local class_name="spade.utility.${1}"
+
+    prepare_java_env
+    if [[ $? -ne 0 ]]; then
+        return 1
+    fi
+
+    local java_cmd
+    java_cmd="$(build_java_non_server_cmd)"
+    ${java_cmd} "${class_name}" "${@:2}"
+}
+
+function handle_command() {
+    case "${COMMAND}" in
+        start)
+            spade_server_start
+            ;;
+        unikernel)
+            spade_unikernel_start
+            ;;
+        debug)
+            spade_debug_start
+            ;;
+        # java-start) spade_java_daemonizer_run ;; # legacy
+        # java-stop)  spade_java_daemonizer_run ;; # legacy
+        # java-kill)  spade_java_daemonizer_run ;; # legacy
+        stop)
+            spade_server_stop 0
+            ;;
+        kill)
+            spade_server_stop 1
+            ;;
+        status)
+            spade_server_status
+            ;;
+        control)
+            spade_control_client_run
+            ;;
+        query)
+            spade_query_client_run "${EXTRA_ARGS[@]}"
+            ;;
+        mcp)
+            spade_mcp_server_run
+            ;;
+        run-util)
+            spade_run_util "${EXTRA_ARGS[@]}"
+            ;;
+        help)
+            print_help
+            ;;
+        *)
+            print_help
+            ;;
+    esac
+}
+
+function run() {
+    pushd "${SPADE_ROOT}" > /dev/null
+    handle_command
+    popd > /dev/null
+}
+
+function print_help() {
+    echo "Usage: ${SCRIPT_NAME} <command> [--mem-min <size>] [--mem-max <size>] [--debug-remote-port <port>] [-- <extra-args>]"
+    echo ""
+    echo "Commands:"
+    echo "    start       Starts SPADE"
+    echo "    unikernel   Starts SPADE unikernel"
+    echo "    debug       Starts SPADE in the foreground without a PID file (deprecated)"
+    echo "    stop        Stops SPADE after buffers empty"
+    echo "    kill        Stops SPADE immediately"
+    echo "    status      Shows SPADE status"
+    echo "    control     Starts an interactive SPADE controller"
+    echo "    query       Starts an interactive SPADE query client"
+    echo "    mcp         Starts the MCP server (usage: ${SCRIPT_NAME} mcp -- <args...>, see docs/mcp/HOW-TO.md)"
+    echo "    run-util    Runs a SPADE utility class (usage: ${SCRIPT_NAME} run-util -- <class> [args...])"
+    echo "    help        Prints this message"
+    # echo "    java-start  Starts SPADE via Daemonizer (legacy)"
+    # echo "    java-stop   Stops SPADE via Daemonizer (legacy)"
+    # echo "    java-kill   Kills SPADE via Daemonizer (legacy)"
+    echo ""
+    echo "Options:"
+    echo "    --mem-min <size>            Minimum JVM heap size (default: ${JVM_SERVER_MEM_MIN_DEFAULT} for server, ${JVM_NON_SERVER_MEM_MIN_DEFAULT} otherwise)"
+    echo "    --mem-max <size>            Maximum JVM heap size (default: ${JVM_SERVER_MEM_MAX_DEFAULT} for server, ${JVM_NON_SERVER_MEM_MAX_DEFAULT} otherwise)"
+    echo "    --debug-remote-port <port>  Enable remote JVM debugging on the given port (1-65535, default: disabled)"
+    echo "    --                          Pass all following arguments to the invoked command"
+    echo "    --help                      Show this message and exit"
+    exit 0
+}
+
+function parse_args() {
+    COMMAND="${1:-}"
+    if [[ $# -gt 0 ]]; then
+        shift
+    fi
+
+    local past_separator=0
+    while [[ $# -gt 0 ]]; do
+        if [[ "${past_separator}" -eq 1 ]]; then
+            EXTRA_ARGS+=("$1")
+            shift
+            continue
+        fi
+        case "$1" in
+            --help)
+                print_help
+                ;;
+            --)
+                past_separator=1
+                shift
+                ;;
+            --mem-min)
+                JVM_MEM_MIN="$2"
+                shift 2
+                ;;
+            --mem-max)
+                JVM_MEM_MAX="$2"
+                shift 2
+                ;;
+            --debug-remote-port)
+                JVM_DEBUG_REMOTE_PORT="$2"
+                shift 2
+                ;;
+            *)
+                echo "Unknown argument: $1"
+                exit 1
+                ;;
+        esac
+    done
+}
+
+function validate_args() {
+    if [ -z "${COMMAND}" ]; then
+        log "Error: no command specified"
+        print_help
+        exit 1
+    fi
+
+    case "${COMMAND}" in
+        start|unikernel|debug|stop|kill|status|control|query|mcp|run-util|help)
+            ;;
+        *)
+            log "Error: unknown command '${COMMAND}'"
+            print_help
+            exit 1
+            ;;
+    esac
+
+    if [ -n "${JVM_MEM_MIN}" ]; then
+        if ! [[ "${JVM_MEM_MIN}" =~ ^[0-9]+[kKmMgG]$ ]]; then
+            log "Error: invalid --mem-min value '${JVM_MEM_MIN}' (expected e.g. 512m, 8g)"
+            exit 1
+        fi
+    fi
+
+    if [ -n "${JVM_MEM_MAX}" ]; then
+        if ! [[ "${JVM_MEM_MAX}" =~ ^[0-9]+[kKmMgG]$ ]]; then
+            log "Error: invalid --mem-max value '${JVM_MEM_MAX}' (expected e.g. 2g, 16g)"
+            exit 1
+        fi
+    fi
+
+    if [ -n "${JVM_DEBUG_REMOTE_PORT}" ]; then
+        if ! [[ "${JVM_DEBUG_REMOTE_PORT}" =~ ^[0-9]+$ ]]; then
+            log "Error: invalid --debug-remote-port value '${JVM_DEBUG_REMOTE_PORT}' (expected 1-65535)"
+            exit 1
+        fi
+        if [[ "${JVM_DEBUG_REMOTE_PORT}" -lt 1 || "${JVM_DEBUG_REMOTE_PORT}" -gt 65535 ]]; then
+            log "Error: invalid --debug-remote-port value '${JVM_DEBUG_REMOTE_PORT}' (expected 1-65535)"
+            exit 1
+        fi
+    fi
+}
+
+function main() {
+    parse_args "$@"
+    validate_args
+    run
+}
+
+main "$@"

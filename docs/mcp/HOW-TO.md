@@ -43,7 +43,7 @@ Exit the control client when done.
 ### 5. Start the MCP server in HTTP mode
 
 ```bash
-bin/spade mcp \
+bin/spade mcp -- \
   --spadeHost=localhost \
   --spadeQueryPort=19998 \
   --spadeControlPort=19999 \
