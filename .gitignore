@@ -31,3 +31,4 @@ cfg/query.history
 Module.symvers
 modules.order
 lib/neo4j-community*
+runtime.java-cp.argfile

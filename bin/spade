@@ -355,7 +355,7 @@ function spade_mcp_server_run() {
 # }
 
 function spade_run_util() {
-    local class_name="spade.utility.${1}"
+    local class_name="${1}"
 
     prepare_java_env
     if [[ $? -ne 0 ]]; then
@@ -430,7 +430,7 @@ function print_help() {
     echo "    control     Starts an interactive SPADE controller"
     echo "    query       Starts an interactive SPADE query client"
     echo "    mcp         Starts the MCP server (usage: ${SCRIPT_NAME} mcp -- <args...>, see docs/mcp/HOW-TO.md)"
-    echo "    run-util    Runs a SPADE utility class (usage: ${SCRIPT_NAME} run-util -- <class> [args...])"
+    echo "    run-util    Runs a utility class by fully-qualified name (usage: ${SCRIPT_NAME} run-util -- <fully.qualified.ClassName> [args...])"
     echo "    help        Prints this message"
     # echo "    java-start  Starts SPADE via Daemonizer (legacy)"
     # echo "    java-stop   Stops SPADE via Daemonizer (legacy)"
