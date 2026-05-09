@@ -60,6 +60,28 @@ mvn compile '--activate-profiles=mac' --projects module/mac/fuse/pom.xml
 mvn compile '--activate-profiles=mac' --projects module/mac/fuse/pom.xml --also-make
 ```
 
+## Install a local jar into the project repository
+
+Dependencies with `groupId=local` in `pom.xml` are resolved from the file-based repository at `lib/` (declared as `spade-local-jar`). To add or update such a jar, run `install:install-file` with `-DlocalRepositoryPath` pointing at `lib/`:
+
+```bash
+mvn install:install-file \
+  -Dfile=lib/<name>.jar \
+  -DgroupId=local \
+  -DartifactId=<name> \
+  -Dversion=1.0 \
+  -Dpackaging=jar \
+  -DlocalRepositoryPath=lib
+```
+
+Replace `<name>` with the jar's base filename and the matching `artifactId` from `pom.xml` (e.g. `libprotobuf_java`). The plugin creates the standard Maven directory layout under `lib/local/<artifactId>/1.0/`.
+
+To uninstall, delete that directory:
+
+```bash
+rm -rf lib/local/<name>/1.0
+```
+
 ## Skip a specific module
 
 Pass the module's skip flag on the command line. Command-line `-D` properties override profile properties, so this works even when the platform profile is active. See [CHECK.md](CHECK.md) for the full flag table.
