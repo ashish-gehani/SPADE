@@ -39,6 +39,14 @@ Note: `help:effective-pom` reflects profile-activated property values but not `-
 mvn help:evaluate --non-recursive -Dexpression=spade.skip.mac.fuse --quiet -DforceStdout -Dspade.skip.mac.fuse=true
 ```
 
+## Build with debug symbols
+
+Pass `-Dmaven.compiler.debuglevel` to include full debug information (line numbers, local variable names, and source file names) in the compiled classes:
+
+```bash
+mvn compile -Dmaven.compiler.debug=true -Dmaven.compiler.debuglevel=lines,vars,source
+```
+
 ## Dependency tree
 
 ```bash
