@@ -34,18 +34,26 @@ public class CLI extends Client {
         final BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try { reader.close(); } catch (Exception e) { /* ignore */ }
             shutdown();
         }));
 
         String line;
-        while ((line = reader.readLine()) != null) {
+        while (true) {
+            System.out.println("");
+            System.out.print("Enter LLM chat prompt > ");
+            System.out.flush();
+            line = reader.readLine();
+            if (line == null) {
+                break;
+            }
             line = line.trim();
             if (line.isEmpty()) {
                 continue;
             }
             final String response = getMCPClient().chat(line);
+            System.out.println();
             System.out.println(response);
+            System.out.println();
         }
     }
 
