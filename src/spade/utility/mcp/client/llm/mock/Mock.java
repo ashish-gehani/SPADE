@@ -17,6 +17,8 @@
 
 package spade.utility.mcp.client.llm.mock;
 
+import java.util.logging.Level;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -31,15 +33,23 @@ public class Mock extends LLM {
     private final Text text = new Text();
     private final java.util.Random random = new java.util.Random();
 
+    private void log(final String msg) {
+        System.err.println("[" + Level.INFO.getName() + "] [" + Mock.class.getName() + "] " + msg);
+    }
+
     @Override
     public JsonNode respond(final ArrayNode messages, final ArrayNode tools) {
+        log("respond: messages=" + messages.size() + " tools=" + tools.size());
         if (random.nextBoolean()) {
+            log("respond: chose tool call");
             return respondWithRandomToolCall();
         }
+        log("respond: chose text");
         return respondText(text.randomResponse());
     }
 
     public JsonNode respondText(final String text) {
+        log("respondText: text=" + text);
         final ObjectNode textBlock = mapper.createObjectNode();
         textBlock.put("type", "text");
         textBlock.put("text", text);
@@ -54,6 +64,7 @@ public class Mock extends LLM {
     }
 
     public JsonNode respondWithToolCall(final String toolUseId, final String toolName, final ObjectNode toolInput) {
+        log("respondWithToolCall: id=" + toolUseId + " tool=" + toolName + " input=" + toolInput);
         final ObjectNode toolBlock = mapper.createObjectNode();
         toolBlock.put("type", "tool_use");
         toolBlock.put("id", toolUseId);
@@ -71,6 +82,7 @@ public class Mock extends LLM {
 
     public JsonNode respondWithRandomToolCall() {
         final String toolName = tools.randomToolName();
+        log("respondWithRandomToolCall: tool=" + toolName);
         return respondWithToolCall(tools.randomToolUseId(), toolName, tools.randomInputFor(toolName));
     }
 
