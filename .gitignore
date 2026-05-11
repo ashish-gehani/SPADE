@@ -6,6 +6,7 @@
 module/android/Makefile
 module/linux/audit_bridge/Makefile
 module/linux/fuse/Makefile
+module/linux/kernel_module/Makefile
 /target
 module/**/target
 bin/spadeAuditBridge

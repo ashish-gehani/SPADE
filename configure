@@ -3693,7 +3693,7 @@ fi
 DUSER=spade
 
 
-ac_config_files="$ac_config_files Makefile module/android/Makefile"
+ac_config_files="$ac_config_files Makefile module/android/Makefile module/linux/audit_bridge/Makefile module/linux/fuse/Makefile module/linux/kernel_module/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -4350,6 +4350,9 @@ do
   case $ac_config_target in
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
     "module/android/Makefile") CONFIG_FILES="$CONFIG_FILES module/android/Makefile" ;;
+    "module/linux/audit_bridge/Makefile") CONFIG_FILES="$CONFIG_FILES module/linux/audit_bridge/Makefile" ;;
+    "module/linux/fuse/Makefile") CONFIG_FILES="$CONFIG_FILES module/linux/fuse/Makefile" ;;
+    "module/linux/kernel_module/Makefile") CONFIG_FILES="$CONFIG_FILES module/linux/kernel_module/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: '$ac_config_target'" "$LINENO" 5;;
   esac
