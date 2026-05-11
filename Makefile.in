@@ -45,7 +45,7 @@ KERNEL_MODULES_DEBUG ?= false
 KERNEL_MODULES_SRC = $(SPADE_SRC_DIR)/spade/reporter/audit/kernel-modules
 KERNEL_MODULES_INSTALL = $(SPADE_LIB_DIR)/kernel-modules
 
-include module/android/Makefile.android
+include module/android/Makefile
 
 # llvm
 LLVM_TARGET =

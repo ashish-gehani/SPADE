@@ -3,7 +3,7 @@
 .claude
 /build
 /Makefile
-module/android/Makefile.android
+module/android/Makefile
 /target
 module/**/target
 bin/spadeAuditBridge
