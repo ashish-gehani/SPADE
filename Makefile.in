@@ -19,9 +19,7 @@ SPADE_JAR = $(SPADE_LIB_DIR)/spade.jar
 
 include Makefile.java
 include module/android/Makefile
-include module/mac/fuse/Makefile
-include module/mac/llvm/Makefile
-include module/mac/openbsm/Makefile
+include module/mac/Makefile
 include module/linux/Makefile
 
 # runtime

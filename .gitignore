@@ -5,6 +5,7 @@
 /Makefile
 /Makefile.java
 module/android/Makefile
+module/mac/Makefile
 module/mac/fuse/Makefile
 module/mac/llvm/Makefile
 module/mac/openbsm/Makefile
