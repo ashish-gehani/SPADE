@@ -63,6 +63,7 @@ AC_CONFIG_FILES([
   Makefile
   module/android/Makefile
   module/mac/fuse/Makefile
+  module/mac/llvm/Makefile
   module/linux/audit_bridge/Makefile
   module/linux/fuse/Makefile
   module/linux/kernel_module/Makefile

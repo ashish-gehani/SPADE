@@ -24,18 +24,11 @@ OPENBSM_MAC_OUTPUT = $(SPADE_LIB_DIR)/spadeOpenBSM
 
 include module/android/Makefile
 include module/mac/fuse/Makefile
+include module/mac/llvm/Makefile
 include module/linux/audit_bridge/Makefile
 include module/linux/fuse/Makefile
 include module/linux/kernel_module/Makefile
 include module/linux/llvm/Makefile
-
-# llvm
-LLVM_TARGET =
-LLVM_LLVM_TARGET =
-LLVM_TRACER = $(SPADE_SRC_DIR)/spade/reporter/llvmTracer
-LLVM_BRIDGE = $(SPADE_SRC_DIR)/spade/reporter/llvmBridge
-LLVM_CLOSE = $(SPADE_SRC_DIR)/spade/reporter/llvmClose
-LLVM_TRACER_DYLIB = $(SPADE_LIB_DIR)/llvmTracer.dylib
 
 # runtime
 OS_NAME = $(shell uname)
@@ -171,17 +164,10 @@ clean-macfuse: macfuse-clean
 llvm: ## Build LLVM reporters (platform-detected)
 	@make $(LLVM_RULE)
  
-build-mac-llvm:
-	bin/mac/llvm/build.sh \
-		--target $(LLVM_TARGET) \
-		--llvm-target $(LLVM_LLVM_TARGET) \
-		--spade-src $(SPADE_SRC_DIR) \
-		--spade-lib $(SPADE_LIB_DIR) \
-		--llvm-tracer $(LLVM_TRACER) \
-		--llvm-bridge $(LLVM_BRIDGE) \
-		--llvm-close $(LLVM_CLOSE) \
-		--llvm-tracer-dylib $(LLVM_TRACER_DYLIB)
- 
+build-mac-llvm: macllvm-build ## Build the Mac LLVM reporter modules
+
+clean-mac-llvm: macllvm-clean
+
 build-linux-llvm: llvm-linux-build ## Build the Linux LLVM reporter modules
 
 clean-linux-llvm: llvm-linux-clean
@@ -191,7 +177,7 @@ graph-utility: ## Run the graph utility
  
 # ---------- Removing files ----------
 # Remove Java classes and native libraries, executables that we compiled.
-clean: clean-macfuse clean-linuxfuse android-clean clean-linuxaudit clean-linux-llvm clean-openbsm ## Remove compiled output and generated files
+clean: clean-macfuse clean-mac-llvm clean-linuxfuse android-clean clean-linuxaudit clean-linux-llvm clean-openbsm ## Remove compiled output and generated files
 	@echo 'Removing Java classes, native libraries, executables...'
 	@rm -rf $(SPADE_BUILD_DIR)
 	@rm -rf $(SPADE_JAR)
