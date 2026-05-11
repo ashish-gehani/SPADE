@@ -22,15 +22,8 @@ SPADE_JAR = $(SPADE_LIB_DIR)/spade.jar
 OPENBSM_MAC_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/spadeOpenBSM.c
 OPENBSM_MAC_OUTPUT = $(SPADE_LIB_DIR)/spadeOpenBSM
 
-# fuse mac
-FUSE_MAC_LIB_PATH = $(SPADE_LIB_DIR)/libMacFUSE.jnilib
-FUSE_MAC_LIB_JAVA_SRC = $(SPADE_SRC_DIR)/spade/reporter/MacFUSE.java
-FUSE_MAC_LIB_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/libMacFUSE.c
-FUSE_MAC_NATIVE_HEADER_DIR = $(SPADE_SRC_DIR)/spade/reporter
-FUSE_MAC_NATIVE_HEADER_FILE = $(FUSE_MAC_NATIVE_HEADER_DIR)/spade_reporter_MacFUSE.h
-FUSE_MAC_JAVAC_OPTIONS = $(JAVAC_OPTIONS)
-
 include module/android/Makefile
+include module/mac/fuse/Makefile
 include module/linux/audit_bridge/Makefile
 include module/linux/fuse/Makefile
 include module/linux/kernel_module/Makefile
@@ -171,20 +164,9 @@ clean-openbsm:
 	@bin/mac/openbsm/clean.sh \
 		--output $(OPENBSM_MAC_OUTPUT)
 
-build-macfuse: ## Build the MacFUSE reporter (macOS)
-	bin/mac/fuse/build.sh \
-		--javac $(JAVAC) \
-		--javac-options "$(FUSE_MAC_JAVAC_OPTIONS)" \
-		--spade-build $(SPADE_BUILD_DIR) \
-		--lib-java-src $(FUSE_MAC_LIB_JAVA_SRC) \
-		--lib-c-src $(FUSE_MAC_LIB_C_SRC) \
-		--native-header-dir $(FUSE_MAC_NATIVE_HEADER_DIR) \
-		--lib-path $(FUSE_MAC_LIB_PATH)
+build-macfuse: macfuse-build ## Build the MacFUSE reporter (macOS)
 
-clean-macfuse:
-	@bin/mac/fuse/clean.sh \
-		--native-header-file $(FUSE_MAC_NATIVE_HEADER_FILE) \
-		--lib-path $(FUSE_MAC_LIB_PATH)
+clean-macfuse: macfuse-clean
 
 llvm: ## Build LLVM reporters (platform-detected)
 	@make $(LLVM_RULE)
