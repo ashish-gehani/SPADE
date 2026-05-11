@@ -45,12 +45,7 @@ KERNEL_MODULES_DEBUG ?= false
 KERNEL_MODULES_SRC = $(SPADE_SRC_DIR)/spade/reporter/audit/kernel-modules
 KERNEL_MODULES_INSTALL = $(SPADE_LIB_DIR)/kernel-modules
 
-# android
-ANDROID_BUILD_DIR = android-build
-ANDROID_LIB_DIR = android-lib
-ANDROID_SPADE_JAR = android-spade.jar
-ANDROID_DEVICE_SDCARD = /sdcard
-ANDROID_DEVICE_SPADE_DIR = $(ANDROID_DEVICE_SDCARD)/spade
+include module/android/Makefile.android
 
 # llvm
 LLVM_TARGET =
@@ -88,16 +83,13 @@ endif
 REPORTERS = Graphviz DSL Network LLVM Facebook Bitcoin StraceLinux JSON CDM CamFlow ProcMon
 # -------------------------------------------
  
-.PHONY: build prepare-dirs core reporters filters query analyzers clients utilities storages screens android-build
+.PHONY: build prepare-dirs core reporters filters query analyzers clients utilities storages screens
 
-all:    build
+all: build ## Compile SPADE and generate keys
 	./bin/keys/generatekeys.sh
 
-help:
-	@echo 'Usage:'
-	@echo '  	make                	- to compile the code'
-	@echo '  	make clean          	- to remove the compiled code'
-	@echo ' '
+help: ## List available targets
+	@grep -E '^[a-zA-Z_-]+:.*?##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-28s %s\n", $$1, $$2}'
 
 echo-javac-options:
 	@echo "$(JAVAC_OPTIONS)"
@@ -105,7 +97,7 @@ echo-javac-options:
 # ---------- Building SPADE ----------    
 .SECONDEXPANSION:
 
-build: | prepare-dirs
+build: | prepare-dirs ## Compile Java sources and platform-specific reporters
 build: build-java $$(OS_BUILD) $(SPADE_JAR)
 # No sketches at the moment available
 #build-java: download-neo4j core clients utilities storages filters query analyzers sketches transformers reporters
@@ -169,8 +161,7 @@ transformers:
 $(SPADE_JAR): build-java $$(OS_BUILD)
 	$(JAR) cvf $(SPADE_JAR) -C $(SPADE_BUILD_DIR) .
 
-# Build the LinuxAudit reporter.
-build-linuxaudit:
+build-linuxaudit: ## Build the LinuxAudit reporter
 	bin/linux/audit/build.sh \
 		--audit_bridge $(SPADE_AUDIT_BRIDGE) \
 		--spade_src $(SPADE_SRC_DIR)
@@ -179,7 +170,7 @@ clean-linuxaudit: clean-linuxaudit-kernel
 	@bin/linux/audit/clean.sh \
 		--audit_bridge $(SPADE_AUDIT_BRIDGE)
 
-build-linuxaudit-kernel:
+build-linuxaudit-kernel: ## Build Linux audit kernel modules
 	bin/linux/audit/kernel/build.sh \
 		--kernel_modules_src $(KERNEL_MODULES_SRC) \
 		--kernel_modules_install $(KERNEL_MODULES_INSTALL) \
@@ -194,8 +185,7 @@ ifeq ($(KERNEL_MODULES),true)
 build-linuxaudit: build-linuxaudit-kernel
 endif
 
-# Build the LinuxFUSE reporter.
-build-linuxfuse:
+build-linuxfuse: ## Build the LinuxFUSE reporter (currently not functional)
 	@echo 'WARNING: The LinuxFUSE reporter is not in working condition. Please file an issue at https://github.com/ashish-gehani/SPADE/issues'
 	#bin/linux/fuse/build.sh \
 	#	--javac $(JAVAC) \
@@ -211,8 +201,7 @@ clean-linuxfuse:
 		--native-header-file $(FUSE_LINUX_NATIVE_HEADER_FILE) \
 		--lib-path $(FUSE_LINUX_LIB_PATH)
  
-# Build the OpenBSM reporter.
-build-openbsm:
+build-openbsm: ## Build the OpenBSM reporter (macOS)
 	bin/mac/openbsm/build.sh \
 		--c-src $(OPENBSM_MAC_C_SRC) \
 		--output $(OPENBSM_MAC_OUTPUT)
@@ -221,8 +210,7 @@ clean-openbsm:
 	@bin/mac/openbsm/clean.sh \
 		--output $(OPENBSM_MAC_OUTPUT)
 
-# Build the MacFUSE reporter.
-build-macfuse:
+build-macfuse: ## Build the MacFUSE reporter (macOS)
 	bin/mac/fuse/build.sh \
 		--javac $(JAVAC) \
 		--javac-options "$(FUSE_MAC_JAVAC_OPTIONS)" \
@@ -237,7 +225,7 @@ clean-macfuse:
 		--native-header-file $(FUSE_MAC_NATIVE_HEADER_FILE) \
 		--lib-path $(FUSE_MAC_LIB_PATH)
 
-llvm:
+llvm: ## Build LLVM reporters (platform-detected)
 	@make $(LLVM_RULE)
  
 build-mac-llvm:
@@ -254,40 +242,12 @@ build-mac-llvm:
 build-linux-llvm:
 	bin/linux/llvm/build.sh
 
-# Build for Android
-android-build:
-	bin/android/build.sh \
-		--javac $(JAVAC) \
-		--spade_build $(SPADE_BUILD_DIR) \
-		--android_build $(ANDROID_BUILD_DIR) \
-		--javac_options '$(JAVAC_OPTIONS)' \
-		--java_src $(SPADE_SRC_DIR)
- 
-# Deploy to Android
-android-start:
-	bin/android/start.sh \
-		--android_build $(ANDROID_BUILD_DIR) \
-		--device_sdcard $(ANDROID_DEVICE_SDCARD) \
-		--device_spade_dir $(ANDROID_DEVICE_SPADE_DIR) \
-		--spade_jar $(ANDROID_SPADE_JAR)
-
-android-stop:
-	bin/android/stop.sh \
-		--device_sdcard $(ANDROID_DEVICE_SDCARD) \
-		--device_spade_dir $(ANDROID_DEVICE_SPADE_DIR) \
-		--spade_jar $(ANDROID_SPADE_JAR)
-
-android-clean:
-	@bin/android/clean.sh \
-		--android_build $(ANDROID_BUILD_DIR) \
-		--android_lib $(ANDROID_LIB_DIR)
-
-graph-utility:
+graph-utility: ## Run the graph utility
 	java -cp '$(JAVAC_CP)' spade.utility.GraphUtility
  
 # ---------- Removing files ----------
 # Remove Java classes and native libraries, executables that we compiled.
-clean: clean-macfuse clean-linuxfuse android-clean clean-linuxaudit clean-openbsm
+clean: clean-macfuse clean-linuxfuse android-clean clean-linuxaudit clean-openbsm ## Remove compiled output and generated files
 	@echo 'Removing Java classes, native libraries, executables...'
 	@rm -rf $(SPADE_BUILD_DIR)
 	@rm -rf $(SPADE_JAR)

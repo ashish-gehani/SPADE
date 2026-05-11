@@ -3,6 +3,7 @@
 .claude
 /build
 /Makefile
+module/android/Makefile.android
 /target
 module/**/target
 bin/spadeAuditBridge
@@ -32,3 +33,5 @@ Module.symvers
 modules.order
 lib/neo4j-community*
 runtime.java-cp.argfile
+autom4te.cache
+configure~

@@ -24,6 +24,11 @@ if test "$JAR" = :; then
    AC_MSG_ERROR([This package needs jar utility installed and available in your path])
 fi
 
+AC_CHECK_PROGS([MVN], [mvn], [:])
+if test "$MVN" = :; then
+   AC_MSG_ERROR([This package needs maven installed and available in your path])
+fi
+
 AC_CHECK_PROGS([ADB], [adb], [:])
 if test "$ADB" != :; then
    ADB_PATH=`which adb`
@@ -46,6 +51,6 @@ AC_SUBST([ANDROID_BUILD_TOOLS])
 DUSER=spade
 AC_SUBST([DUSER])
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile module/android/Makefile.android])
 AC_OUTPUT
 
