@@ -1,0 +1,57 @@
+# SPADE - Support for Provenance Auditing in Distributed Environments.
+# Copyright (C) 2026 SRI International.
+
+# linux llvm
+LLVM_LINUX_INCLUDE_PATH = /usr/include/llvm-3.6
+LLVM_LINUX_SRC = $(SPADE_SRC_DIR)/spade/reporter/llvm
+LLVM_LINUX_BIN_DIR = $(SPADE_BIN_DIR)/llvm
+LLVM_LINUX_TRACER_OBJ = $(LLVM_LINUX_SRC)/llvmTracer.o
+LLVM_LINUX_TRACER_DEP = $(LLVM_LINUX_SRC)/llvmTracer.d.tmp
+LLVM_LINUX_WRAPPER_OBJ = $(LLVM_LINUX_SRC)/LibcWrapper.o
+LLVM_LINUX_TRACE_SO = $(LLVM_LINUX_BIN_DIR)/LLVMTrace.so
+LLVM_LINUX_FLUSH_BC = $(LLVM_LINUX_BIN_DIR)/flush.bc
+LLVM_LINUX_WRAPPER_SO = $(LLVM_LINUX_BIN_DIR)/LibcWrapper.so
+LLVM_LINUX_CXXFLAGS = \
+	-I$(LLVM_LINUX_INCLUDE_PATH) \
+	-I./ \
+	-D_DEBUG -D_GNU_SOURCE \
+	-D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS \
+	-O3 -fomit-frame-pointer -std=c++11 \
+	-fvisibility-inlines-hidden -fno-exceptions -fno-rtti \
+	-fPIC -ffunction-sections -fdata-sections \
+	-Wcast-qual -pedantic -Wno-long-long -Wall -W -Wno-unused-parameter \
+	-Wwrite-strings -Wcovered-switch-default \
+	-Wno-uninitialized -Wno-missing-field-initializers -Wno-comment
+LLVM_LINUX_LDFLAGS = \
+	-O3 -Wl,-R \
+	-Wl,'$$ORIGIN' \
+	-Wl,--gc-sections \
+	-rdynamic -L./ -shared \
+	-lpthread -ltinfo -ldl -lm
+
+.PHONY: llvm-linux-build llvm-linux-clean
+
+llvm-linux-build: ## Compile the Linux LLVM tracer and wrapper modules
+	@mkdir -p $(LLVM_LINUX_BIN_DIR)
+	$(CLANGXX) $(LLVM_LINUX_CXXFLAGS) -c -MMD -MP \
+		-MF $(LLVM_LINUX_TRACER_DEP) \
+		-MT $(LLVM_LINUX_TRACER_OBJ) \
+		$(LLVM_LINUX_SRC)/llvmTracer.cpp \
+		-o $(LLVM_LINUX_TRACER_OBJ)
+	$(CLANGXX) $(LLVM_LINUX_LDFLAGS) \
+		-o $(LLVM_LINUX_TRACE_SO) \
+		$(LLVM_LINUX_TRACER_OBJ)
+	$(CLANG) -emit-llvm -c \
+		$(LLVM_LINUX_SRC)/flushModule.c \
+		-o $(LLVM_LINUX_FLUSH_BC)
+	$(CLANGXX) $(LLVM_LINUX_CXXFLAGS) -c -MMD -MP \
+		-MT $(LLVM_LINUX_WRAPPER_OBJ) \
+		$(LLVM_LINUX_SRC)/LibcWrapper.cpp \
+		-o $(LLVM_LINUX_WRAPPER_OBJ)
+	$(CLANGXX) $(LLVM_LINUX_LDFLAGS) \
+		-o $(LLVM_LINUX_WRAPPER_SO) \
+		$(LLVM_LINUX_WRAPPER_OBJ)
+
+llvm-linux-clean: ## Remove the Linux LLVM tracer and wrapper modules
+	@rm -f $(LLVM_LINUX_TRACER_OBJ) $(LLVM_LINUX_TRACER_DEP) $(LLVM_LINUX_WRAPPER_OBJ)
+	@rm -f $(LLVM_LINUX_TRACE_SO) $(LLVM_LINUX_FLUSH_BC) $(LLVM_LINUX_WRAPPER_SO)

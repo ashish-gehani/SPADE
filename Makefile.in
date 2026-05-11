@@ -5,6 +5,8 @@
 JAVAC=@JAVAC@
 CC=@CC@
 JAR=@JAR@
+CLANG=@CLANG@
+CLANGXX=@CLANGXX@
 JAVAC_CP = $(shell ./bin/classpath.sh)
 JAVAC_OPTIONS = $(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none -cp '$(JAVAC_CP)'
 
@@ -32,6 +34,7 @@ include module/android/Makefile
 include module/linux/audit_bridge/Makefile
 include module/linux/fuse/Makefile
 include module/linux/kernel_module/Makefile
+include module/linux/llvm/Makefile
 
 # llvm
 LLVM_TARGET =
@@ -197,15 +200,16 @@ build-mac-llvm:
 		--llvm-close $(LLVM_CLOSE) \
 		--llvm-tracer-dylib $(LLVM_TRACER_DYLIB)
  
-build-linux-llvm:
-	bin/linux/llvm/build.sh
+build-linux-llvm: llvm-linux-build ## Build the Linux LLVM reporter modules
+
+clean-linux-llvm: llvm-linux-clean
 
 graph-utility: ## Run the graph utility
 	java -cp '$(JAVAC_CP)' spade.utility.GraphUtility
  
 # ---------- Removing files ----------
 # Remove Java classes and native libraries, executables that we compiled.
-clean: clean-macfuse clean-linuxfuse android-clean clean-linuxaudit clean-openbsm ## Remove compiled output and generated files
+clean: clean-macfuse clean-linuxfuse android-clean clean-linuxaudit clean-linux-llvm clean-openbsm ## Remove compiled output and generated files
 	@echo 'Removing Java classes, native libraries, executables...'
 	@rm -rf $(SPADE_BUILD_DIR)
 	@rm -rf $(SPADE_JAR)

@@ -52,10 +52,20 @@ else
 fi
 AC_SUBST([ANDROID_BUILD_TOOLS])
 
+AC_CHECK_PROGS([CLANG], [clang], [:])
+AC_CHECK_PROGS([CLANGXX], [clang++], [:])
+
 
 DUSER=spade
 AC_SUBST([DUSER])
 
-AC_CONFIG_FILES([Makefile module/android/Makefile module/linux/audit_bridge/Makefile module/linux/fuse/Makefile module/linux/kernel_module/Makefile])
+AC_CONFIG_FILES([
+  Makefile
+  module/android/Makefile
+  module/linux/audit_bridge/Makefile
+  module/linux/fuse/Makefile
+  module/linux/kernel_module/Makefile
+  module/linux/llvm/Makefile
+])
 AC_OUTPUT
 
