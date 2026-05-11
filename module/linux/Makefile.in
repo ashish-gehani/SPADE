@@ -1,0 +1,7 @@
+# SPADE - Support for Provenance Auditing in Distributed Environments.
+# Copyright (C) 2026 SRI International.
+
+include module/linux/audit_bridge/Makefile
+include module/linux/fuse/Makefile
+include module/linux/kernel_module/Makefile
+include module/linux/llvm/Makefile

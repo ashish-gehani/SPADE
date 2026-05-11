@@ -22,10 +22,7 @@ include module/android/Makefile
 include module/mac/fuse/Makefile
 include module/mac/llvm/Makefile
 include module/mac/openbsm/Makefile
-include module/linux/audit_bridge/Makefile
-include module/linux/fuse/Makefile
-include module/linux/kernel_module/Makefile
-include module/linux/llvm/Makefile
+include module/linux/Makefile
 
 # runtime
 OS_NAME = $(shell uname)

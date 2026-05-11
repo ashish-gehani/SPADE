@@ -66,6 +66,7 @@ AC_CONFIG_FILES([
   module/mac/fuse/Makefile
   module/mac/llvm/Makefile
   module/mac/openbsm/Makefile
+  module/linux/Makefile
   module/linux/audit_bridge/Makefile
   module/linux/fuse/Makefile
   module/linux/kernel_module/Makefile
