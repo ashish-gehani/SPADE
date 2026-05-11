@@ -16,14 +16,6 @@ SPADE_SRC_DIR = $(SPADE_ROOT)/src
 SPADE_BIN_DIR = $(SPADE_ROOT)/bin
 SPADE_JAR = $(SPADE_LIB_DIR)/spade.jar
 
-# fuse linux
-FUSE_LINUX_LIB_PATH = $(SPADE_LIB_DIR)/libLinuxFUSE.so
-FUSE_LINUX_LIB_JAVA_SRC = $(SPADE_SRC_DIR)/spade/reporter/LinuxFUSE.java
-FUSE_LINUX_LIB_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/libLinuxFUSE.c
-FUSE_LINUX_NATIVE_HEADER_DIR = $(SPADE_SRC_DIR)/spade/reporter
-FUSE_LINUX_NATIVE_HEADER_FILE = $(FUSE_LINUX_NATIVE_HEADER_DIR)/spade_reporter_LinuxFUSE.h
-FUSE_LINUX_JAVAC_OPTIONS = $(JAVAC_OPTIONS)
-
 # openbsm mac
 OPENBSM_MAC_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/spadeOpenBSM.c
 OPENBSM_MAC_OUTPUT = $(SPADE_LIB_DIR)/spadeOpenBSM
@@ -44,6 +36,7 @@ KERNEL_MODULES_INSTALL = $(SPADE_LIB_DIR)/kernel-modules
 
 include module/android/Makefile
 include module/linux/audit_bridge/Makefile
+include module/linux/fuse/Makefile
 
 # llvm
 LLVM_TARGET =
@@ -178,21 +171,9 @@ ifeq ($(KERNEL_MODULES),true)
 build-linuxaudit: build-linuxaudit-kernel
 endif
 
-build-linuxfuse: ## Build the LinuxFUSE reporter (currently not functional)
-	@echo 'WARNING: The LinuxFUSE reporter is not in working condition. Please file an issue at https://github.com/ashish-gehani/SPADE/issues'
-	#bin/linux/fuse/build.sh \
-	#	--javac $(JAVAC) \
-	#	--javac-options "$(FUSE_LINUX_JAVAC_OPTIONS)" \
-	#	--spade-build $(SPADE_BUILD_DIR) \
-	#	--lib-java-src $(FUSE_LINUX_LIB_JAVA_SRC) \
-	#	--lib-c-src $(FUSE_LINUX_LIB_C_SRC) \
-	#	--native-header-dir $(FUSE_LINUX_NATIVE_HEADER_DIR) \
-	#	--lib-path $(FUSE_LINUX_LIB_PATH)
+build-linuxfuse: linuxfuse-build ## Build the LinuxFUSE shared library
 
-clean-linuxfuse:
-	@bin/linux/fuse/clean.sh \
-		--native-header-file $(FUSE_LINUX_NATIVE_HEADER_FILE) \
-		--lib-path $(FUSE_LINUX_LIB_PATH)
+clean-linuxfuse: linuxfuse-clean
  
 build-openbsm: ## Build the OpenBSM reporter (macOS)
 	bin/mac/openbsm/build.sh \

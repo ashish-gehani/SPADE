@@ -56,6 +56,6 @@ AC_SUBST([ANDROID_BUILD_TOOLS])
 DUSER=spade
 AC_SUBST([DUSER])
 
-AC_CONFIG_FILES([Makefile module/android/Makefile module/linux/audit_bridge/Makefile])
+AC_CONFIG_FILES([Makefile module/android/Makefile module/linux/audit_bridge/Makefile module/linux/fuse/Makefile])
 AC_OUTPUT
 
