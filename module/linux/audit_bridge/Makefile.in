@@ -1,0 +1,14 @@
+# SPADE - Support for Provenance Auditing in Distributed Environments.
+# Copyright (C) 2026 SRI International.
+
+# audit bridge
+AUDIT_BRIDGE_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/spadeAuditBridge.c
+AUDIT_BRIDGE_OUTPUT = $(SPADE_BIN_DIR)/spadeAuditBridge
+
+.PHONY: audit-bridge-build audit-bridge-clean
+
+audit-bridge-build: ## Compile the Linux audit bridge binary
+	$(CC) -o $(AUDIT_BRIDGE_OUTPUT) $(AUDIT_BRIDGE_C_SRC)
+
+audit-bridge-clean: ## Remove the Linux audit bridge binary
+	@rm -f $(AUDIT_BRIDGE_OUTPUT)

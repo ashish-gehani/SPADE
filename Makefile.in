@@ -36,9 +36,6 @@ FUSE_MAC_NATIVE_HEADER_DIR = $(SPADE_SRC_DIR)/spade/reporter
 FUSE_MAC_NATIVE_HEADER_FILE = $(FUSE_MAC_NATIVE_HEADER_DIR)/spade_reporter_MacFUSE.h
 FUSE_MAC_JAVAC_OPTIONS = $(JAVAC_OPTIONS)
 
-# audit linux bridge
-SPADE_AUDIT_BRIDGE = $(SPADE_BIN_DIR)/spadeAuditBridge
-
 # audit kernel modules
 KERNEL_MODULES ?= false
 KERNEL_MODULES_DEBUG ?= false
@@ -46,6 +43,7 @@ KERNEL_MODULES_SRC = $(SPADE_SRC_DIR)/spade/reporter/audit/kernel-modules
 KERNEL_MODULES_INSTALL = $(SPADE_LIB_DIR)/kernel-modules
 
 include module/android/Makefile
+include module/linux/audit_bridge/Makefile
 
 # llvm
 LLVM_TARGET =
@@ -161,14 +159,9 @@ transformers:
 $(SPADE_JAR): build-java $$(OS_BUILD)
 	$(JAR) cvf $(SPADE_JAR) -C $(SPADE_BUILD_DIR) .
 
-build-linuxaudit: ## Build the LinuxAudit reporter
-	bin/linux/audit/build.sh \
-		--audit_bridge $(SPADE_AUDIT_BRIDGE) \
-		--spade_src $(SPADE_SRC_DIR)
+build-linuxaudit: audit-bridge-build ## Build the LinuxAudit reporter
 
-clean-linuxaudit: clean-linuxaudit-kernel
-	@bin/linux/audit/clean.sh \
-		--audit_bridge $(SPADE_AUDIT_BRIDGE)
+clean-linuxaudit: clean-linuxaudit-kernel audit-bridge-clean
 
 build-linuxaudit-kernel: ## Build Linux audit kernel modules
 	bin/linux/audit/kernel/build.sh \
