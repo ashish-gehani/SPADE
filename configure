@@ -3794,7 +3794,7 @@ test -n "$CLANGXX" || CLANGXX=":"
 DUSER=spade
 
 
-ac_config_files="$ac_config_files Makefile module/android/Makefile module/mac/fuse/Makefile module/mac/llvm/Makefile module/mac/openbsm/Makefile module/linux/audit_bridge/Makefile module/linux/fuse/Makefile module/linux/kernel_module/Makefile module/linux/llvm/Makefile"
+ac_config_files="$ac_config_files Makefile Makefile.java module/android/Makefile module/mac/fuse/Makefile module/mac/llvm/Makefile module/mac/openbsm/Makefile module/linux/audit_bridge/Makefile module/linux/fuse/Makefile module/linux/kernel_module/Makefile module/linux/llvm/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -4450,6 +4450,7 @@ for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+    "Makefile.java") CONFIG_FILES="$CONFIG_FILES Makefile.java" ;;
     "module/android/Makefile") CONFIG_FILES="$CONFIG_FILES module/android/Makefile" ;;
     "module/mac/fuse/Makefile") CONFIG_FILES="$CONFIG_FILES module/mac/fuse/Makefile" ;;
     "module/mac/llvm/Makefile") CONFIG_FILES="$CONFIG_FILES module/mac/llvm/Makefile" ;;

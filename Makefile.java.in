@@ -1,0 +1,12 @@
+# SPADE - Support for Provenance Auditing in Distributed Environments.
+# Copyright (C) 2026 SRI International.
+
+MVN = @MVN@
+
+.PHONY: java-build java-clean
+
+java-build: ## Compile Java sources and produce spade.jar
+	$(MVN) compile
+
+java-clean: ## Remove Java build output and spade.jar
+	$(MVN) clean

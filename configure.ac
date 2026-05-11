@@ -61,6 +61,7 @@ AC_SUBST([DUSER])
 
 AC_CONFIG_FILES([
   Makefile
+  Makefile.java
   module/android/Makefile
   module/mac/fuse/Makefile
   module/mac/llvm/Makefile

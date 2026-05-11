@@ -3,6 +3,7 @@
 .claude
 /build
 /Makefile
+/Makefile.java
 module/android/Makefile
 module/mac/fuse/Makefile
 module/mac/llvm/Makefile
