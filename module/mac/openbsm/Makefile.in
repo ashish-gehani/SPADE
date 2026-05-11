@@ -1,0 +1,14 @@
+# SPADE - Support for Provenance Auditing in Distributed Environments.
+# Copyright (C) 2026 SRI International.
+
+# mac openbsm
+OPENBSM_MAC_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/spadeOpenBSM.c
+OPENBSM_MAC_OUTPUT = $(SPADE_LIB_DIR)/spadeOpenBSM
+
+.PHONY: openbsm-build openbsm-clean
+
+openbsm-build: ## Compile the OpenBSM reporter binary
+	$(CC) -o $(OPENBSM_MAC_OUTPUT) -lbsm $(OPENBSM_MAC_C_SRC)
+
+openbsm-clean: ## Remove the OpenBSM reporter binary
+	@rm -f $(OPENBSM_MAC_OUTPUT)

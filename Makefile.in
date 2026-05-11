@@ -18,13 +18,10 @@ SPADE_SRC_DIR = $(SPADE_ROOT)/src
 SPADE_BIN_DIR = $(SPADE_ROOT)/bin
 SPADE_JAR = $(SPADE_LIB_DIR)/spade.jar
 
-# openbsm mac
-OPENBSM_MAC_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/spadeOpenBSM.c
-OPENBSM_MAC_OUTPUT = $(SPADE_LIB_DIR)/spadeOpenBSM
-
 include module/android/Makefile
 include module/mac/fuse/Makefile
 include module/mac/llvm/Makefile
+include module/mac/openbsm/Makefile
 include module/linux/audit_bridge/Makefile
 include module/linux/fuse/Makefile
 include module/linux/kernel_module/Makefile
@@ -148,14 +145,9 @@ build-linuxfuse: linuxfuse-build ## Build the LinuxFUSE shared library
 
 clean-linuxfuse: linuxfuse-clean
  
-build-openbsm: ## Build the OpenBSM reporter (macOS)
-	bin/mac/openbsm/build.sh \
-		--c-src $(OPENBSM_MAC_C_SRC) \
-		--output $(OPENBSM_MAC_OUTPUT)
+build-openbsm: openbsm-build ## Build the OpenBSM reporter (macOS)
 
-clean-openbsm:
-	@bin/mac/openbsm/clean.sh \
-		--output $(OPENBSM_MAC_OUTPUT)
+clean-openbsm: openbsm-clean
 
 build-macfuse: macfuse-build ## Build the MacFUSE reporter (macOS)
 
