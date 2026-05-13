@@ -1,0 +1,56 @@
+# SPADE - Support for Provenance Auditing in Distributed Environments.
+# Copyright (C) 2026 SRI International.
+
+AC_PREREQ([2.73])
+AC_INIT([spadeLinux], [1.0])
+AC_CONFIG_AUX_DIR([build-aux])
+AM_INIT_AUTOMAKE([1.18 -Wall -Werror foreign])
+
+# SPADE_SRC_DIR is declared here because it is used by all four sub-packages
+# (audit_bridge, fuse, kernel_module, llvm); sub-package-specific variables
+# (SPADE_BUILD_DIR, JAVA_HOME, JAVAC_OPTIONS, KDIR, etc.) are declared only
+# in their respective configure.ac files.
+AC_ARG_VAR([SPADE_SRC_DIR], [Path to SPADE source directory])
+
+AC_PATH_PROG([PKG_CONFIG], [pkg-config], [:])
+have_fuse=no
+if test "x${PKG_CONFIG}" != "x:"; then
+    if ${PKG_CONFIG} --exists fuse 2>/dev/null; then
+        have_fuse=yes
+    else
+        AC_MSG_WARN([fuse not found via pkg-config; skipping fuse submodule])
+    fi
+else
+    AC_MSG_WARN([pkg-config not found; skipping fuse submodule])
+fi
+AM_CONDITIONAL([HAVE_FUSE], [test "x${have_fuse}" = "xyes"])
+
+# --- llvm detection ---
+
+AC_PATH_PROG([LLVM_CONFIG], [llvm-config], [:])
+have_llvm=no
+if test "x${LLVM_CONFIG}" != "x:"; then
+    have_llvm=yes
+else
+    AC_MSG_WARN([llvm-config not found; skipping llvm submodule])
+fi
+AM_CONDITIONAL([HAVE_LLVM], [test "x${have_llvm}" = "xyes"])
+
+# --- kernel_module-specific variables ---
+
+AC_ARG_ENABLE([kernel-modules],
+    [AS_HELP_STRING([--enable-kernel-modules], [build Linux kernel modules (default: no)])],
+    [enable_kernel_modules=${enableval}],
+    [enable_kernel_modules=no])
+AM_CONDITIONAL([KERNEL_MODULES], [test "x${enable_kernel_modules}" = "xyes"])
+
+AC_CONFIG_SUBDIRS([audit_bridge kernel_module])
+if test "x${have_llvm}" = "xyes"; then
+    AC_CONFIG_SUBDIRS([llvm])
+fi
+if test "x${have_fuse}" = "xyes"; then
+    AC_CONFIG_SUBDIRS([fuse])
+fi
+
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT
