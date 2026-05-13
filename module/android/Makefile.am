@@ -21,3 +21,8 @@ uninstall-local:
 
 clean-local:
 	rm -rf "$(ANDROID_BUILD_DIR)"
+
+distclean-local: clean-local
+
+maintainer-clean-local: distclean-local
+	rm -rf configure Makefile.in aclocal.m4 build-aux autom4te.cache
