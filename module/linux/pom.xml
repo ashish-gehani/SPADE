@@ -18,7 +18,6 @@
   <description>Linux native build targets for SPADE.</description>
 
   <modules>
-    <module>fuse/pom.xml</module>
     <module>llvm/pom.xml</module>
     <module>kernel_module/pom.xml</module>
   </modules>
