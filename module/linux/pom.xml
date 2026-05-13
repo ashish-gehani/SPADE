@@ -19,7 +19,6 @@
 
   <modules>
     <module>llvm/pom.xml</module>
-    <module>kernel_module/pom.xml</module>
   </modules>
 
 </project>
