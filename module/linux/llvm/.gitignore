@@ -1,0 +1,8 @@
+target/
+build/
+Makefile
+config.log
+config.status
+configure~
+autom4te.cache
+install
