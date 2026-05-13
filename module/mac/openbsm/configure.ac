@@ -25,9 +25,9 @@ fi
 AM_CONDITIONAL([HAVE_LIBBSM], [test "x$HAVE_LIBBSM" = "xyes"])
 AC_SUBST([LIBBSM_LIBS])
 
-AC_ARG_VAR([SPADE_SRC_PATH], [Path to SPADE source directory containing spade/reporter/spadeOpenBSM.c])
-if test "x${SPADE_SRC_PATH}" = "x"; then
-    AC_MSG_ERROR([SPADE_SRC_PATH is required; set it with ./configure SPADE_SRC_PATH=<path>])
+AC_ARG_VAR([SPADE_SRC_DIR], [Path to SPADE source directory containing spade/reporter/spadeOpenBSM.c])
+if test "x${SPADE_SRC_DIR}" = "x"; then
+    AC_MSG_ERROR([SPADE_SRC_DIR is required; set it with ./configure SPADE_SRC_DIR=<path>])
 fi
 
 AC_CONFIG_FILES([Makefile])

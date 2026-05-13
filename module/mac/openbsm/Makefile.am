@@ -2,7 +2,7 @@
 # Copyright (C) 2026 SRI International.
 
 OPENBSM_MAC_OUTPUT = build/spadeOpenBSM
-OPENBSM_MAC_C_SRC = $(SPADE_SRC_PATH)/spade/reporter/spadeOpenBSM.c
+OPENBSM_MAC_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/spadeOpenBSM.c
 
 if HAVE_LIBBSM
 all-local:
