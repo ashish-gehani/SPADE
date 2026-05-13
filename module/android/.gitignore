@@ -4,6 +4,6 @@ Makefile
 config.log
 config.status
 configure~
-Makefile.in
+Makefile
 autom4te.cache
 install
