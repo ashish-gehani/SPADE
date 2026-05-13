@@ -23,12 +23,14 @@ uninstall-local:
 	rm -rf "$(KERNEL_MODULE_INSTALL_DIR)"
 
 clean-local:
-	$(MAKE) --no-print-directory -C "$(KERNEL_MODULE_SRC_DIR)" \
-		BUILD_DIR="$(CURDIR)/$(KERNEL_MODULE_BUILD_DIR)" \
-		INSTALL_DIR="$(CURDIR)/$(KERNEL_MODULE_INSTALL_STAGING)" \
-		$(if $(KDIR),KDIR="$(KDIR)") \
-		clean
-	rm -rf "$(KERNEL_MODULE_BUILD_DIR)"
+	@if test -d "$(KERNEL_MODULE_BUILD_DIR)"; then \
+		$(MAKE) --no-print-directory -C "$(KERNEL_MODULE_SRC_DIR)" \
+			BUILD_DIR="$(CURDIR)/$(KERNEL_MODULE_BUILD_DIR)" \
+			INSTALL_DIR="$(CURDIR)/$(KERNEL_MODULE_INSTALL_STAGING)" \
+			$(if $(KDIR),KDIR="$(KDIR)") \
+			clean; \
+		rm -rf "$(KERNEL_MODULE_BUILD_DIR)"; \
+	fi
 
 distclean-local: clean-local
 
