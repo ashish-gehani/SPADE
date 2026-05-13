@@ -593,6 +593,7 @@ ac_subst_vars='am__EXEEXT_FALSE
 am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
+SPADE_SRC_PATH
 LIBBSM_LIBS
 HAVE_LIBBSM_FALSE
 HAVE_LIBBSM_TRUE
@@ -697,7 +698,8 @@ CC
 CFLAGS
 LDFLAGS
 LIBS
-CPPFLAGS'
+CPPFLAGS
+SPADE_SRC_PATH'
 
 
 # Initialize some variables set by options.
@@ -1336,6 +1338,9 @@ Some influential environment variables:
   LIBS        libraries to pass to the linker, e.g. -l<library>
   CPPFLAGS    (Objective) C/C++ preprocessor flags, e.g. -I<include dir> if
               you have headers in a nonstandard directory <include dir>
+  SPADE_SRC_PATH
+              Path to SPADE source directory containing
+              spade/reporter/spadeOpenBSM.c
 
 Use these variables to override the choices made by 'configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2242,7 +2247,7 @@ main (int argc, char **argv)
 ac_aux_files="compile missing install-sh"
 
 # Locations in which to look for auxiliary files.
-ac_aux_dir_candidates="${srcdir}/build-aux"
+ac_aux_dir_candidates="${srcdir}/../build-aux"
 
 # Search for a directory containing all of the required auxiliary files,
 # $ac_aux_files, from the $PATH-style list $ac_aux_dir_candidates.
@@ -2426,6 +2431,7 @@ ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
 
 
 
@@ -4734,6 +4740,11 @@ else
 fi
 
 
+
+
+if test "x${SPADE_SRC_PATH}" = "x"; then
+    as_fn_error $? "SPADE_SRC_PATH is required; set it with ./configure SPADE_SRC_PATH=<path>" "$LINENO" 5
+fi
 
 ac_config_files="$ac_config_files Makefile"
 

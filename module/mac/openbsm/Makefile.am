@@ -2,7 +2,7 @@
 # Copyright (C) 2026 SRI International.
 
 OPENBSM_MAC_OUTPUT = build/spadeOpenBSM
-OPENBSM_MAC_C_SRC = src/spadeOpenBSM.c
+OPENBSM_MAC_C_SRC = $(SPADE_SRC_PATH)/spade/reporter/spadeOpenBSM.c
 
 if HAVE_LIBBSM
 all-local:
@@ -17,5 +17,13 @@ all-local install-exec-local:
 	@echo "Skipping OpenBSM: libbsm not found"
 endif
 
+uninstall-local:
+	rm -f "$(DESTDIR)$(prefix)/spadeOpenBSM"
+
 clean-local:
 	rm -f $(OPENBSM_MAC_OUTPUT)
+
+distclean-local: clean-local
+
+maintainer-clean-local: distclean-local
+	rm -rf configure configure~ Makefile.in aclocal.m4 build-aux autom4te.cache

@@ -123,10 +123,10 @@ am__can_run_installinfo = \
   esac
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 am__DIST_COMMON = $(srcdir)/Makefile.in \
-	$(top_srcdir)/build-aux/compile \
-	$(top_srcdir)/build-aux/install-sh \
-	$(top_srcdir)/build-aux/missing build-aux/compile \
-	build-aux/install-sh build-aux/missing
+	$(top_srcdir)/../build-aux/compile \
+	$(top_srcdir)/../build-aux/install-sh \
+	$(top_srcdir)/../build-aux/missing ../build-aux/compile \
+	../build-aux/install-sh ../build-aux/missing
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -192,6 +192,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SPADE_SRC_PATH = @SPADE_SRC_PATH@
 STRIP = @STRIP@
 VERSION = @VERSION@
 abs_builddir = @abs_builddir@
@@ -240,7 +241,7 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 OPENBSM_MAC_OUTPUT = build/spadeOpenBSM
-OPENBSM_MAC_C_SRC = src/spadeOpenBSM.c
+OPENBSM_MAC_C_SRC = $(SPADE_SRC_PATH)/spade/reporter/spadeOpenBSM.c
 all: all-am
 
 .SUFFIXES:
@@ -505,7 +506,7 @@ clean-am: clean-generic clean-local mostlyclean-am
 distclean: distclean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -f Makefile
-distclean-am: clean-am distclean-generic
+distclean-am: clean-am distclean-generic distclean-local
 
 dvi: dvi-am
 
@@ -551,7 +552,8 @@ maintainer-clean: maintainer-clean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
 	-rm -f Makefile
-maintainer-clean-am: distclean-am maintainer-clean-generic
+maintainer-clean-am: distclean-am maintainer-clean-generic \
+	maintainer-clean-local
 
 mostlyclean: mostlyclean-am
 
@@ -565,7 +567,7 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am:
+uninstall-am: uninstall-local
 
 .MAKE: install-am install-strip
 
@@ -573,16 +575,16 @@ uninstall-am:
 	clean-generic clean-local cscopelist-am ctags-am dist dist-all \
 	dist-bzip2 dist-bzip3 dist-gzip dist-lzip dist-shar dist-tarZ \
 	dist-xz dist-zip dist-zstd distcheck distclean \
-	distclean-generic distcleancheck distdir distuninstallcheck \
-	dvi dvi-am html html-am info info-am install install-am \
-	install-data install-data-am install-dvi install-dvi-am \
-	install-exec install-exec-am install-exec-local install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-generic pdf pdf-am ps ps-am tags-am uninstall \
-	uninstall-am
+	distclean-generic distclean-local distcleancheck distdir \
+	distuninstallcheck dvi dvi-am html html-am info info-am \
+	install install-am install-data install-data-am install-dvi \
+	install-dvi-am install-exec install-exec-am install-exec-local \
+	install-html install-html-am install-info install-info-am \
+	install-man install-pdf install-pdf-am install-ps \
+	install-ps-am install-strip installcheck installcheck-am \
+	installdirs maintainer-clean maintainer-clean-generic \
+	maintainer-clean-local mostlyclean mostlyclean-generic pdf \
+	pdf-am ps ps-am tags-am uninstall uninstall-am uninstall-local
 
 .PRECIOUS: Makefile
 
@@ -597,8 +599,16 @@ uninstall-am:
 @HAVE_LIBBSM_FALSE@all-local install-exec-local:
 @HAVE_LIBBSM_FALSE@	@echo "Skipping OpenBSM: libbsm not found"
 
+uninstall-local:
+	rm -f "$(DESTDIR)$(prefix)/spadeOpenBSM"
+
 clean-local:
 	rm -f $(OPENBSM_MAC_OUTPUT)
+
+distclean-local: clean-local
+
+maintainer-clean-local: distclean-local
+	rm -rf configure configure~ Makefile.in aclocal.m4 build-aux autom4te.cache
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
