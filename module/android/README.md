@@ -41,3 +41,7 @@ make clean
 ```
 
 Removes the `build/` directory.
+
+## Scripts
+
+See [bin/README.md](bin/README.md) for the host and device scripts used to deploy and run SPADE on an Android device.
