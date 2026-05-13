@@ -19,7 +19,6 @@
 
   <modules>
     <module>openbsm/pom.xml</module>
-    <module>llvm/pom.xml</module>
   </modules>
 
 </project>
