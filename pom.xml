@@ -544,21 +544,6 @@
 
   <profiles>
     <profile>
-      <id>linux</id>
-      <activation>
-        <os><name>linux</name></os>
-      </activation>
-      <modules>
-        <module>module/linux/pom.xml</module>
-      </modules>
-      <properties>
-        <spade.skip.linux.audit_bridge>false</spade.skip.linux.audit_bridge>
-        <spade.skip.linux.fuse>false</spade.skip.linux.fuse>
-        <spade.skip.linux.llvm>false</spade.skip.linux.llvm>
-        <spade.skip.linux.kernel_module>false</spade.skip.linux.kernel_module>
-      </properties>
-    </profile>
-    <profile>
       <id>mac</id>
       <activation>
         <os><family>mac</family></os>
