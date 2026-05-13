@@ -542,23 +542,6 @@
 
   </build>
 
-  <profiles>
-    <profile>
-      <id>mac</id>
-      <activation>
-        <os><family>mac</family></os>
-      </activation>
-      <modules>
-        <module>module/mac/pom.xml</module>
-      </modules>
-      <properties>
-        <spade.skip.mac.openbsm>false</spade.skip.mac.openbsm>
-        <spade.skip.mac.fuse>false</spade.skip.mac.fuse>
-        <spade.skip.mac.llvm>false</spade.skip.mac.llvm>
-      </properties>
-    </profile>
-  </profiles>
-
   <repositories>
     <repository>
       <id>spade-local-jar</id>

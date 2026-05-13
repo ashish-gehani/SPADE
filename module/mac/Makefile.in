@@ -1,6 +1,0 @@
-# SPADE - Support for Provenance Auditing in Distributed Environments.
-# Copyright (C) 2026 SRI International.
-
-include module/mac/fuse/Makefile
-include module/mac/llvm/Makefile
-include module/mac/openbsm/Makefile
