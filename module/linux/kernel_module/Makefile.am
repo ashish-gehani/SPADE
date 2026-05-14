@@ -6,6 +6,8 @@ KERNEL_MODULE_BUILD_DIR       = build
 KERNEL_MODULE_INSTALL_STAGING = $(KERNEL_MODULE_BUILD_DIR)/install
 KERNEL_MODULE_INSTALL_DIR     = $(DESTDIR)$(prefix)/lib/kernel-modules
 
+if KERNEL_MODULE_SUPPORTED
+
 all-local:
 	@$(MKDIR_P) "$(KERNEL_MODULE_BUILD_DIR)"
 	$(MAKE) --no-print-directory -C "$(KERNEL_MODULE_SRC_DIR)" \
@@ -14,6 +16,13 @@ all-local:
 		$(if $(KDIR),KDIR="$(KDIR)") \
 		$(if $(MOD_DEFINES),MOD_DEFINES="$(MOD_DEFINES)") \
 		@KERNEL_MODULE_TARGET@ install
+
+else
+
+all-local:
+	@echo "ERROR: kernel module build requires x86_64 and kernel in [5.4, 6.17]; got @kernel_ver@ on `shell uname -m`" >&2; exit 1
+
+endif
 
 install-exec-local:
 	$(MKDIR_P) "$(KERNEL_MODULE_INSTALL_DIR)"

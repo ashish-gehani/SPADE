@@ -593,6 +593,7 @@ enable_option_checking=no
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
 subdirs
+KERNEL_MODULES
 PLATFORM_LINUX_FALSE
 PLATFORM_LINUX_TRUE
 PLATFORM_MAC_FALSE
@@ -687,7 +688,8 @@ enable_silent_rules
 host_alias
 target_alias
 SPADE_ROOT
-JAVAC_HEADER_GEN_OPTIONS'
+JAVAC_HEADER_GEN_OPTIONS
+KERNEL_MODULES'
 ac_subdirs_all='module/java
 module/mac
 module/linux'
@@ -1325,6 +1327,8 @@ Some influential environment variables:
   JAVAC_HEADER_GEN_OPTIONS
               Options passed to javac for JNI header generation (default:
               -Xlint:none -proc:none)
+  KERNEL_MODULES
+              Set to "true" to enable building Linux kernel modules
 
 Use these variables to override the choices made by 'configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2937,6 +2941,11 @@ else
   PLATFORM_LINUX_FALSE=
 fi
 
+
+
+if test "x${KERNEL_MODULES}" = "xtrue"; then
+    ac_configure_args="$ac_configure_args --enable-kernel-modules"
+fi
 
 
 

@@ -591,6 +591,10 @@ PACKAGE_URL=''
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+KERNEL_MODULE_SUPPORTED_FALSE
+KERNEL_MODULE_SUPPORTED_TRUE
+kheaders_path
+kernel_ver
 MOD_DEFINES
 KDIR
 KERNEL_MODULE_TARGET
@@ -2814,6 +2818,60 @@ fi
 
 
 
+kernel_ver=`uname -r`
+kernel_major=`echo "${kernel_ver}" | cut -d. -f1`
+kernel_minor=`echo "${kernel_ver}" | cut -d. -f2`
+kver_in_range=no
+if test "${kernel_major}" -eq 5 2>/dev/null && test "${kernel_minor}" -ge 4 2>/dev/null; then
+    kver_in_range=yes
+elif test "${kernel_major}" -eq 6 2>/dev/null && test "${kernel_minor}" -le 17 2>/dev/null; then
+    kver_in_range=yes
+fi
+if test "x${kver_in_range}" = "xno"; then
+    { printf '%s\n' "$as_me:${as_lineno-$LINENO}: WARNING: kernel ${kernel_major}.${kernel_minor} is outside supported range [5.4, 6.17]" >&5
+printf '%s\n' "$as_me: WARNING: kernel ${kernel_major}.${kernel_minor} is outside supported range [5.4, 6.17]" >&2;}
+fi
+
+
+arch=`uname -m`
+if test "x${arch}" != "xx86_64"; then
+    { printf '%s\n' "$as_me:${as_lineno-$LINENO}: WARNING: architecture ${arch} is not supported; x86_64 is required" >&5
+printf '%s\n' "$as_me: WARNING: architecture ${arch} is not supported; x86_64 is required" >&2;}
+fi
+
+distro=`grep '^ID=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"'`
+if test "x${distro}" != "xubuntu"; then
+    { printf '%s\n' "$as_me:${as_lineno-$LINENO}: WARNING: OS distribution ${distro} is not supported; ubuntu is required" >&5
+printf '%s\n' "$as_me: WARNING: OS distribution ${distro} is not supported; ubuntu is required" >&2;}
+fi
+
+if test "x${KDIR}" != "x"; then
+    kheaders_path="${KDIR}"
+else
+    kheaders_path="/lib/modules/${kernel_ver}/build"
+fi
+kheaders_available=no
+if test -d "${kheaders_path}"; then
+    kheaders_available=yes
+else
+    { printf '%s\n' "$as_me:${as_lineno-$LINENO}: WARNING: kernel headers not found at ${kheaders_path}" >&5
+printf '%s\n' "$as_me: WARNING: kernel headers not found at ${kheaders_path}" >&2;}
+fi
+
+
+kernel_module_supported=no
+if test "x${kver_in_range}" = "xyes" && test "x${arch}" = "xx86_64" && test "x${kheaders_available}" = "xyes" && test "x${distro}" = "xubuntu"; then
+    kernel_module_supported=yes
+fi
+ if test "x${kernel_module_supported}" = "xyes"; then
+  KERNEL_MODULE_SUPPORTED_TRUE=
+  KERNEL_MODULE_SUPPORTED_FALSE='#'
+else
+  KERNEL_MODULE_SUPPORTED_TRUE='#'
+  KERNEL_MODULE_SUPPORTED_FALSE=
+fi
+
+
 ac_config_files="$ac_config_files Makefile"
 
 cat >confcache <<\_ACEOF
@@ -2943,6 +3001,10 @@ else
 fi
 
 
+if test -z "${KERNEL_MODULE_SUPPORTED_TRUE}" && test -z "${KERNEL_MODULE_SUPPORTED_FALSE}"; then
+  as_fn_error $? "conditional \"KERNEL_MODULE_SUPPORTED\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
 
 : "${CONFIG_STATUS=./config.status}"
 case $CONFIG_STATUS in #(

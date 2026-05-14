@@ -46,6 +46,11 @@ esac
 AM_CONDITIONAL([PLATFORM_MAC],   [test "x${platform}" = "xmac"])
 AM_CONDITIONAL([PLATFORM_LINUX], [test "x${platform}" = "xlinux"])
 
+AC_ARG_VAR([KERNEL_MODULES], [Set to "true" to enable building Linux kernel modules])
+if test "x${KERNEL_MODULES}" = "xtrue"; then
+    ac_configure_args="$ac_configure_args --enable-kernel-modules"
+fi
+
 AC_CONFIG_SUBDIRS([module/java])
 
 if test "x${platform}" = "xmac"; then

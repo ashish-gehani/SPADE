@@ -593,8 +593,8 @@ enable_option_checking=no
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
 subdirs
-KERNEL_MODULES_FALSE
-KERNEL_MODULES_TRUE
+HAVE_KERNEL_MODULES_FALSE
+HAVE_KERNEL_MODULES_TRUE
 HAVE_LLVM_FALSE
 HAVE_LLVM_TRUE
 LLVM_CONFIG
@@ -681,7 +681,8 @@ enable_kernel_modules
       ac_precious_vars='build_alias
 host_alias
 target_alias'
-ac_subdirs_all='audit_bridge kernel_module
+ac_subdirs_all='audit_bridge
+kernel_module
 llvm
 fuse'
 
@@ -2933,18 +2934,22 @@ esac
 fi
 
  if test "x${enable_kernel_modules}" = "xyes"; then
-  KERNEL_MODULES_TRUE=
-  KERNEL_MODULES_FALSE='#'
+  HAVE_KERNEL_MODULES_TRUE=
+  HAVE_KERNEL_MODULES_FALSE='#'
 else
-  KERNEL_MODULES_TRUE='#'
-  KERNEL_MODULES_FALSE=
+  HAVE_KERNEL_MODULES_TRUE='#'
+  HAVE_KERNEL_MODULES_FALSE=
 fi
 
 
 
 
-subdirs="$subdirs audit_bridge kernel_module"
+subdirs="$subdirs audit_bridge"
 
+if test "x${enable_kernel_modules}" = "xyes"; then
+    subdirs="$subdirs kernel_module"
+
+fi
 if test "x${have_llvm}" = "xyes"; then
     subdirs="$subdirs llvm"
 
@@ -3091,8 +3096,8 @@ if test -z "${HAVE_LLVM_TRUE}" && test -z "${HAVE_LLVM_FALSE}"; then
   as_fn_error $? "conditional \"HAVE_LLVM\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
-if test -z "${KERNEL_MODULES_TRUE}" && test -z "${KERNEL_MODULES_FALSE}"; then
-  as_fn_error $? "conditional \"KERNEL_MODULES\" was never defined.
+if test -z "${HAVE_KERNEL_MODULES_TRUE}" && test -z "${HAVE_KERNEL_MODULES_FALSE}"; then
+  as_fn_error $? "conditional \"HAVE_KERNEL_MODULES\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 

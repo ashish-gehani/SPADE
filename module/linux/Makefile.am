@@ -4,6 +4,11 @@
 DIST_SUBDIRS = audit_bridge
 SUBDIRS = audit_bridge
 
+if HAVE_KERNEL_MODULES
+DIST_SUBDIRS += kernel_module
+SUBDIRS += kernel_module
+endif
+
 if HAVE_FUSE
 DIST_SUBDIRS += fuse
 SUBDIRS += fuse
@@ -12,11 +17,6 @@ endif
 if HAVE_LLVM
 DIST_SUBDIRS += llvm
 SUBDIRS += llvm
-endif
-
-if KERNEL_MODULES
-DIST_SUBDIRS += kernel_module
-SUBDIRS += kernel_module
 endif
 
 maintainer-clean-local:

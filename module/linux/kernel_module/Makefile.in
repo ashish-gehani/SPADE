@@ -214,6 +214,8 @@ htmldir = @htmldir@
 includedir = @includedir@
 infodir = @infodir@
 install_sh = @install_sh@
+kernel_ver = @kernel_ver@
+kheaders_path = @kheaders_path@
 libdir = @libdir@
 libexecdir = @libexecdir@
 localedir = @localedir@
@@ -583,14 +585,17 @@ uninstall-am: uninstall-local
 .PRECIOUS: Makefile
 
 
-all-local:
-	@$(MKDIR_P) "$(KERNEL_MODULE_BUILD_DIR)"
-	$(MAKE) --no-print-directory -C "$(KERNEL_MODULE_SRC_DIR)" \
-		BUILD_DIR="$(CURDIR)/$(KERNEL_MODULE_BUILD_DIR)" \
-		INSTALL_DIR="$(CURDIR)/$(KERNEL_MODULE_INSTALL_STAGING)" \
-		$(if $(KDIR),KDIR="$(KDIR)") \
-		$(if $(MOD_DEFINES),MOD_DEFINES="$(MOD_DEFINES)") \
-		@KERNEL_MODULE_TARGET@ install
+@KERNEL_MODULE_SUPPORTED_TRUE@all-local:
+@KERNEL_MODULE_SUPPORTED_TRUE@	@$(MKDIR_P) "$(KERNEL_MODULE_BUILD_DIR)"
+@KERNEL_MODULE_SUPPORTED_TRUE@	$(MAKE) --no-print-directory -C "$(KERNEL_MODULE_SRC_DIR)" \
+@KERNEL_MODULE_SUPPORTED_TRUE@		BUILD_DIR="$(CURDIR)/$(KERNEL_MODULE_BUILD_DIR)" \
+@KERNEL_MODULE_SUPPORTED_TRUE@		INSTALL_DIR="$(CURDIR)/$(KERNEL_MODULE_INSTALL_STAGING)" \
+@KERNEL_MODULE_SUPPORTED_TRUE@		$(if $(KDIR),KDIR="$(KDIR)") \
+@KERNEL_MODULE_SUPPORTED_TRUE@		$(if $(MOD_DEFINES),MOD_DEFINES="$(MOD_DEFINES)") \
+@KERNEL_MODULE_SUPPORTED_TRUE@		@KERNEL_MODULE_TARGET@ install
+
+@KERNEL_MODULE_SUPPORTED_FALSE@all-local:
+@KERNEL_MODULE_SUPPORTED_FALSE@	@echo "ERROR: kernel module build requires x86_64 and kernel in [5.4, 6.17]; got @kernel_ver@ on `shell uname -m`" >&2; exit 1
 
 install-exec-local:
 	$(MKDIR_P) "$(KERNEL_MODULE_INSTALL_DIR)"
