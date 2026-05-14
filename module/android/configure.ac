@@ -12,10 +12,12 @@ if test "x${DX}" = "x:"; then
     AC_MSG_WARN([dx not found; android-build target will not work])
 fi
 
-AC_ARG_VAR([SPADE_BUILD_DIR], [Path to SPADE build directory containing compiled classes])
-if test "x${SPADE_BUILD_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_BUILD_DIR is required; set it with ./configure SPADE_BUILD_DIR=<path>])
+AC_ARG_VAR([SPADE_ROOT], [Path to SPADE root directory])
+if test "x${SPADE_ROOT}" = "x"; then
+    AC_MSG_ERROR([SPADE_ROOT is required; set it with ./configure SPADE_ROOT=<path>])
 fi
+SPADE_BUILD_DIR="${SPADE_ROOT}/build"
+AC_SUBST([SPADE_BUILD_DIR])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

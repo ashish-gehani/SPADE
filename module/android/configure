@@ -592,6 +592,7 @@ PACKAGE_URL=''
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
 SPADE_BUILD_DIR
+SPADE_ROOT
 DX
 am__xargs_n
 am__rm_f_notfound
@@ -672,7 +673,7 @@ enable_silent_rules
       ac_precious_vars='build_alias
 host_alias
 target_alias
-SPADE_BUILD_DIR'
+SPADE_ROOT'
 
 
 # Initialize some variables set by options.
@@ -1300,8 +1301,7 @@ Optional Features:
   --disable-silent-rules  verbose build output (undo: "make V=0")
 
 Some influential environment variables:
-  SPADE_BUILD_DIR
-              Path to SPADE build directory containing compiled classes
+  SPADE_ROOT  Path to SPADE root directory
 
 Use these variables to override the choices made by 'configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2837,9 +2837,11 @@ printf '%s\n' "$as_me: WARNING: dx not found; android-build target will not work
 fi
 
 
-if test "x${SPADE_BUILD_DIR}" = "x"; then
-    as_fn_error $? "SPADE_BUILD_DIR is required; set it with ./configure SPADE_BUILD_DIR=<path>" "$LINENO" 5
+if test "x${SPADE_ROOT}" = "x"; then
+    as_fn_error $? "SPADE_ROOT is required; set it with ./configure SPADE_ROOT=<path>" "$LINENO" 5
 fi
+SPADE_BUILD_DIR="${SPADE_ROOT}/build"
+
 
 ac_config_files="$ac_config_files Makefile"
 
