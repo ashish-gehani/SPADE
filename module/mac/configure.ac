@@ -7,11 +7,6 @@ AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIRS([m4])
 AM_INIT_AUTOMAKE([1.18 -Wall -Werror foreign])
 
-# SPADE_SRC_DIR is declared here because it is used by the fuse and llvm
-# sub-packages; sub-package-specific variables are declared in their respective
-# configure.ac files.
-AC_ARG_VAR([SPADE_SRC_DIR], [Path to SPADE source directory])
-
 # --- fuse detection ---
 
 AC_PATH_PROG([PKG_CONFIG], [pkg-config], [:])

@@ -619,7 +619,6 @@ LLVM_CONFIG
 HAVE_FUSE_FALSE
 HAVE_FUSE_TRUE
 PKG_CONFIG
-SPADE_SRC_DIR
 am__xargs_n
 am__rm_f_notfound
 AM_BACKSLASH
@@ -701,7 +700,6 @@ enable_dependency_tracking
       ac_precious_vars='build_alias
 host_alias
 target_alias
-SPADE_SRC_DIR
 CC
 CFLAGS
 LDFLAGS
@@ -1340,8 +1338,6 @@ Optional Features:
                           speeds up one-time build
 
 Some influential environment variables:
-  SPADE_SRC_DIR
-              Path to SPADE source directory
   CC          C compiler command
   CFLAGS      C compiler flags
   LDFLAGS     linker flags, e.g. -L<lib dir> if you have libraries in a
@@ -3335,11 +3331,6 @@ fi
 
 
 
-
-
-# SPADE_SRC_DIR is declared here because it is used by the fuse and llvm
-# sub-packages; sub-package-specific variables are declared in their respective
-# configure.ac files.
 
 
 # --- fuse detection ---
