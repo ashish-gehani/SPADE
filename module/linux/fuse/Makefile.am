@@ -10,7 +10,7 @@ FUSE_INSTALL_LIBDIR = $(DESTDIR)$(prefix)/lib
 
 all-local:
 	@$(MKDIR_P) "$(FUSE_BUILD_DIR)"
-	$(JAVAC) $(JAVAC_OPTIONS) -cp "$(SPADE_BUILD_DIR)" \
+	$(JAVAC) $(JAVAC_HEADER_GEN_OPTIONS) \
 		-h "$(FUSE_HEADER_DIR)" \
 		"$(FUSE_JAVA_SRC)"
 	$(CC) -fPIC -shared \
