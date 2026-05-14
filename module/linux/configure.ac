@@ -7,12 +7,6 @@ AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIRS([m4])
 AM_INIT_AUTOMAKE([1.18 -Wall -Werror foreign])
 
-# SPADE_SRC_DIR is declared here because it is used by all four sub-packages
-# (audit_bridge, fuse, kernel_module, llvm); sub-package-specific variables
-# (SPADE_BUILD_DIR, JAVA_HOME, JAVAC_OPTIONS, KDIR, etc.) are declared only
-# in their respective configure.ac files.
-AC_ARG_VAR([SPADE_SRC_DIR], [Path to SPADE source directory])
-
 AC_PATH_PROG([PKG_CONFIG], [pkg-config], [:])
 have_fuse=no
 if test "x${PKG_CONFIG}" != "x:"; then

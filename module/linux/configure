@@ -601,7 +601,6 @@ LLVM_CONFIG
 HAVE_FUSE_FALSE
 HAVE_FUSE_TRUE
 PKG_CONFIG
-SPADE_SRC_DIR
 am__xargs_n
 am__rm_f_notfound
 AM_BACKSLASH
@@ -681,8 +680,7 @@ enable_kernel_modules
 '
       ac_precious_vars='build_alias
 host_alias
-target_alias
-SPADE_SRC_DIR'
+target_alias'
 ac_subdirs_all='audit_bridge kernel_module
 llvm
 fuse'
@@ -1311,13 +1309,6 @@ Optional Features:
   --enable-silent-rules   less verbose build output (undo: "make V=1")
   --disable-silent-rules  verbose build output (undo: "make V=0")
   --enable-kernel-modules build Linux kernel modules (default: no)
-
-Some influential environment variables:
-  SPADE_SRC_DIR
-              Path to SPADE source directory
-
-Use these variables to override the choices made by 'configure' or to help
-it to find libraries and programs with nonstandard names/locations.
 
 Report bugs to the package provider.
 _ACEOF
@@ -2795,12 +2786,6 @@ fi
 
 
 
-
-
-# SPADE_SRC_DIR is declared here because it is used by all four sub-packages
-# (audit_bridge, fuse, kernel_module, llvm); sub-package-specific variables
-# (SPADE_BUILD_DIR, JAVA_HOME, JAVAC_OPTIONS, KDIR, etc.) are declared only
-# in their respective configure.ac files.
 
 
 # Extract the first word of "pkg-config", so it can be a program name with args.
