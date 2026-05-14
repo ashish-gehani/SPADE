@@ -598,6 +598,7 @@ PLATFORM_LINUX_TRUE
 PLATFORM_MAC_FALSE
 PLATFORM_MAC_TRUE
 SPADE_SRC_DIR
+SPADE_ROOT
 host_os
 host_vendor
 host_cpu
@@ -685,8 +686,10 @@ enable_silent_rules
       ac_precious_vars='build_alias
 host_alias
 target_alias
+SPADE_ROOT
 SPADE_SRC_DIR'
-ac_subdirs_all='mac
+ac_subdirs_all='java
+mac
 linux'
 
 # Initialize some variables set by options.
@@ -1318,8 +1321,9 @@ Optional Features:
   --disable-silent-rules  verbose build output (undo: "make V=0")
 
 Some influential environment variables:
+  SPADE_ROOT  Path to SPADE root directory
   SPADE_SRC_DIR
-              Path to SPADE source directory
+              Path to SPADE source directory (defaults to SPADE_ROOT/src)
 
 Use these variables to override the choices made by 'configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2881,6 +2885,14 @@ case $host_os in *\ *) host_os=`printf '%s\n' "$host_os" | sed 's/ /-/g'`;; esac
 
 
 
+if test "x${SPADE_ROOT}" = "x"; then
+    as_fn_error $? "SPADE_ROOT is required; set it with ./configure SPADE_ROOT=<path>" "$LINENO" 5
+fi
+
+if test "x${SPADE_SRC_DIR}" = "x"; then
+    SPADE_SRC_DIR="${SPADE_ROOT}/src"
+fi
+
 
 case "${host_os}" in
     darwin*)
@@ -2911,10 +2923,13 @@ else
 fi
 
 
+
+
+subdirs="$subdirs java"
+
+
 if test "x${platform}" = "xmac"; then
-
-
-subdirs="$subdirs mac"
+    subdirs="$subdirs mac"
 
 elif test "x${platform}" = "xlinux"; then
     subdirs="$subdirs linux"

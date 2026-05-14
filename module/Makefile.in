@@ -92,6 +92,10 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
+@PLATFORM_MAC_TRUE@am__append_1 = mac
+@PLATFORM_MAC_TRUE@am__append_2 = mac
+@PLATFORM_MAC_FALSE@am__append_3 = linux
+@PLATFORM_MAC_FALSE@am__append_4 = linux
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -243,6 +247,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
+SPADE_ROOT = @SPADE_ROOT@
 SPADE_SRC_DIR = @SPADE_SRC_DIR@
 STRIP = @STRIP@
 VERSION = @VERSION@
@@ -297,10 +302,8 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-@PLATFORM_MAC_FALSE@DIST_SUBDIRS = linux
-@PLATFORM_MAC_TRUE@DIST_SUBDIRS = mac
-@PLATFORM_MAC_FALSE@SUBDIRS = linux
-@PLATFORM_MAC_TRUE@SUBDIRS = mac
+DIST_SUBDIRS = java $(am__append_1) $(am__append_3)
+SUBDIRS = java $(am__append_2) $(am__append_4)
 all: all-recursive
 
 .SUFFIXES:
