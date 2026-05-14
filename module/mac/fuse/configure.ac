@@ -24,15 +24,14 @@ fi
 FUSE_CFLAGS=$(${PKG_CONFIG} fuse --cflags --libs)
 AC_SUBST([FUSE_CFLAGS])
 
-AC_ARG_VAR([SPADE_SRC_DIR], [Path to SPADE source directory containing spade/reporter/MacFUSE.java and libMacFUSE.c])
-if test "x${SPADE_SRC_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_SRC_DIR is required; set it with ./configure SPADE_SRC_DIR=<path>])
+AC_ARG_VAR([SPADE_ROOT], [Path to SPADE root directory])
+if test "x${SPADE_ROOT}" = "x"; then
+    AC_MSG_ERROR([SPADE_ROOT is required; set it with ./configure SPADE_ROOT=<path>])
 fi
-
-AC_ARG_VAR([SPADE_BUILD_DIR], [Path to SPADE build directory; used as javac classpath])
-if test "x${SPADE_BUILD_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_BUILD_DIR is required; set it with ./configure SPADE_BUILD_DIR=<path>])
-fi
+SPADE_SRC_DIR="${SPADE_ROOT}/src"
+AC_SUBST([SPADE_SRC_DIR])
+SPADE_BUILD_DIR="${SPADE_ROOT}/build"
+AC_SUBST([SPADE_BUILD_DIR])
 
 AC_ARG_VAR([JAVA_HOME], [Path to JDK home directory; include/ and include/darwin/ are used for JNI headers])
 if test "x${JAVA_HOME}" = "x"; then
