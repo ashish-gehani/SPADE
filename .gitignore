@@ -45,3 +45,15 @@ lib/neo4j-community*
 runtime.java-cp.argfile
 autom4te.cache
 configure~
+
+# Build temp files
+module/**/target/
+module/**/build/
+Makefile
+config.log
+config.status
+configure~
+autom4te.cache
+install
+confdefs.h
+conftest.*
