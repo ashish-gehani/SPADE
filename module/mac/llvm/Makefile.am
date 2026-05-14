@@ -2,7 +2,7 @@
 # Copyright (C) 2026 SRI International.
 
 LLVM_BUILD_DIR      = build
-LLVM_SRC_DIR        = $(SPADE_SRC_DIR)/spade/reporter
+LLVM_SRC_DIR        = $(SPADE_SRC_DIR)/spade/reporter/llvm
 LLVM_INSTALL_LIBDIR = $(DESTDIR)$(prefix)/lib
 
 LLVM_CXXFLAGS_ALL = \
