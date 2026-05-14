@@ -1,0 +1,50 @@
+# Build SPADE with the autoconf/automake-based build system.
+
+name: CI with Make
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches: [ "mcp-build-dev" ]
+  # pull_request:
+  #   branches: [ "mcp-build-dev" ]
+
+jobs:
+  build:
+
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, macos-26]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Install dependencies (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          auditd bison clang cmake curl flex fuse \
+          git ifupdown libaudit-dev libfuse-dev linux-headers-`uname -r` \
+          lsof maven pkg-config unzip uthash-dev wget
+
+    - name: Install dependencies (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        brew install git maven pkg-config
+
+    - name: Configure
+      run: ./configure
+
+    - name: Build
+      run: make
