@@ -14,11 +14,6 @@ if test "x${SPADE_ROOT}" = "x"; then
     AC_MSG_ERROR([SPADE_ROOT is required; set it with ./configure SPADE_ROOT=<path>])
 fi
 
-if test "x${SPADE_SRC_DIR}" = "x"; then
-    SPADE_SRC_DIR="${SPADE_ROOT}/src"
-fi
-AC_ARG_VAR([SPADE_SRC_DIR], [Path to SPADE source directory (defaults to SPADE_ROOT/src)])
-
 case "${host_os}" in
     darwin*)
         platform=mac

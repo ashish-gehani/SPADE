@@ -248,7 +248,6 @@ PATH_SEPARATOR = @PATH_SEPARATOR@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 SPADE_ROOT = @SPADE_ROOT@
-SPADE_SRC_DIR = @SPADE_SRC_DIR@
 STRIP = @STRIP@
 VERSION = @VERSION@
 abs_builddir = @abs_builddir@
@@ -777,7 +776,7 @@ uninstall-am:
 
 
 maintainer-clean-local:
-	rm -rf configure configure~ Makefile.in aclocal.m4 build-aux autom4te.cache conftest.*
+	rm -rf configure configure~ Makefile.in aclocal.m4 build-aux autom4te.cache conftest.* condefs.h
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
