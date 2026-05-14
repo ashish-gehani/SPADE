@@ -597,6 +597,12 @@ LIBOBJS
 subdirs
 HAVE_OPENBSM_FALSE
 HAVE_OPENBSM_TRUE
+HAVE_LLVM_FALSE
+HAVE_LLVM_TRUE
+LLVM_CONFIG
+HAVE_FUSE_FALSE
+HAVE_FUSE_TRUE
+PKG_CONFIG
 am__fastdepCC_FALSE
 am__fastdepCC_TRUE
 CCDEPMODE
@@ -613,12 +619,6 @@ CPPFLAGS
 LDFLAGS
 CFLAGS
 CC
-HAVE_LLVM_FALSE
-HAVE_LLVM_TRUE
-LLVM_CONFIG
-HAVE_FUSE_FALSE
-HAVE_FUSE_TRUE
-PKG_CONFIG
 am__xargs_n
 am__rm_f_notfound
 AM_BACKSLASH
@@ -696,6 +696,8 @@ ac_user_opts='
 enable_option_checking
 enable_silent_rules
 enable_dependency_tracking
+enable_llvm
+enable_openbsm
 '
       ac_precious_vars='build_alias
 host_alias
@@ -1336,6 +1338,8 @@ Optional Features:
                           do not reject slow dependency extractors
   --disable-dependency-tracking
                           speeds up one-time build
+  --enable-llvm           build Mac LLVM reporters (default: no)
+  --enable-openbsm        build OpenBSM reporter (default: no)
 
 Some influential environment variables:
   CC          C compiler command
@@ -3333,142 +3337,10 @@ fi
 
 
 
-# --- fuse detection ---
-
-# Extract the first word of "pkg-config", so it can be a program name with args.
-set dummy pkg-config; ac_word=$2
-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_path_PKG_CONFIG+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) case $PKG_CONFIG in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_PKG_CONFIG="$PKG_CONFIG" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_path_PKG_CONFIG="$as_dir$ac_word$ac_exec_ext"
-    printf '%s\n' "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  test -z "$ac_cv_path_PKG_CONFIG" && ac_cv_path_PKG_CONFIG=":"
-  ;;
-esac ;;
-esac
-fi
-PKG_CONFIG=$ac_cv_path_PKG_CONFIG
-if test -n "$PKG_CONFIG"; then
-  { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $PKG_CONFIG" >&5
-printf '%s\n' "$PKG_CONFIG" >&6; }
-else
-  { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf '%s\n' "no" >&6; }
-fi
-
-
-have_fuse=no
-if test "x${PKG_CONFIG}" != "x:"; then
-    if ${PKG_CONFIG} --exists fuse 2>/dev/null; then
-        have_fuse=yes
-    else
-        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: WARNING: fuse not found via pkg-config; skipping fuse submodule" >&5
-printf '%s\n' "$as_me: WARNING: fuse not found via pkg-config; skipping fuse submodule" >&2;}
-    fi
-else
-    { printf '%s\n' "$as_me:${as_lineno-$LINENO}: WARNING: pkg-config not found; skipping fuse submodule" >&5
-printf '%s\n' "$as_me: WARNING: pkg-config not found; skipping fuse submodule" >&2;}
-fi
- if test "x${have_fuse}" = "xyes"; then
-  HAVE_FUSE_TRUE=
-  HAVE_FUSE_FALSE='#'
-else
-  HAVE_FUSE_TRUE='#'
-  HAVE_FUSE_FALSE=
-fi
-
-
-# --- llvm detection ---
-
-# Extract the first word of "llvm-config", so it can be a program name with args.
-set dummy llvm-config; ac_word=$2
-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
-printf %s "checking for $ac_word... " >&6; }
-if test ${ac_cv_path_LLVM_CONFIG+y}
-then :
-  printf %s "(cached) " >&6
-else case e in #(
-  e) case $LLVM_CONFIG in
-  [\\/]* | ?:[\\/]*)
-  ac_cv_path_LLVM_CONFIG="$LLVM_CONFIG" # Let the user override the test with a path.
-  ;;
-  *)
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  case $as_dir in #(((
-    '') as_dir=./ ;;
-    */) ;;
-    *) as_dir=$as_dir/ ;;
-  esac
-    for ac_exec_ext in '' $ac_executable_extensions; do
-  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
-    ac_cv_path_LLVM_CONFIG="$as_dir$ac_word$ac_exec_ext"
-    printf '%s\n' "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-  done
-IFS=$as_save_IFS
-
-  test -z "$ac_cv_path_LLVM_CONFIG" && ac_cv_path_LLVM_CONFIG=":"
-  ;;
-esac ;;
-esac
-fi
-LLVM_CONFIG=$ac_cv_path_LLVM_CONFIG
-if test -n "$LLVM_CONFIG"; then
-  { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $LLVM_CONFIG" >&5
-printf '%s\n' "$LLVM_CONFIG" >&6; }
-else
-  { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf '%s\n' "no" >&6; }
-fi
-
-
-have_llvm=no
-if test "x${LLVM_CONFIG}" != "x:"; then
-    have_llvm=yes
-else
-    { printf '%s\n' "$as_me:${as_lineno-$LINENO}: WARNING: llvm-config not found; skipping llvm submodule" >&5
-printf '%s\n' "$as_me: WARNING: llvm-config not found; skipping llvm submodule" >&2;}
-fi
- if test "x${have_llvm}" = "xyes"; then
-  HAVE_LLVM_TRUE=
-  HAVE_LLVM_FALSE='#'
-else
-  HAVE_LLVM_TRUE='#'
-  HAVE_LLVM_FALSE=
-fi
-
-
-# --- openbsm detection ---
+# Must be called unconditionally so automake's AMDEP infrastructure is
+# initialized at the top level, not inside a conditional block (e.g. the
+# AC_CHECK_LIB call in the openbsm section would otherwise pull AC_PROG_CC
+# in conditionally, leaving AMDEP undefined when openbsm is disabled).
 
 
 
@@ -3479,71 +3351,6 @@ fi
 
 
 
-
-
-
-DEPDIR="${am__leading_dot}deps"
-
-ac_config_commands="$ac_config_commands depfiles"
-
-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether ${MAKE-make} supports the include directive" >&5
-printf %s "checking whether ${MAKE-make} supports the include directive... " >&6; }
-cat > confinc.mk << 'END'
-am__doit:
-	@echo this is the am__doit target >confinc.out
-.PHONY: am__doit
-END
-am__include="#"
-am__quote=
-# BSD make does it like this.
-echo '.include "confinc.mk" # ignored' > confmf.BSD
-# Other make implementations (GNU, Solaris 10, AIX) do it like this.
-echo 'include confinc.mk # ignored' > confmf.GNU
-_am_result=no
-for s in GNU BSD; do
-  { echo "$as_me:$LINENO: ${MAKE-make} -f confmf.$s && cat confinc.out" >&5
-   (${MAKE-make} -f confmf.$s && cat confinc.out) >&5 2>&5
-   ac_status=$?
-   echo "$as_me:$LINENO: \$? = $ac_status" >&5
-   (exit $ac_status); }
-  case $?:`cat confinc.out 2>/dev/null` in #(
-  '0:this is the am__doit target') :
-    case $s in #(
-  BSD) :
-    am__include='.include' am__quote='"' ;; #(
-  *) :
-    am__include='include' am__quote='' ;;
-esac ;; #(
-  *) :
-     ;;
-esac
-  if test "$am__include" != "#"; then
-    _am_result="yes ($s style)"
-    break
-  fi
-done
-rm -f confinc.* confmf.*
-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: ${_am_result}" >&5
-printf '%s\n' "${_am_result}" >&6; }
-
-# Check whether --enable-dependency-tracking was given.
-if test ${enable_dependency_tracking+y}
-then :
-  enableval=$enable_dependency_tracking;
-fi
-
-if test "x$enable_dependency_tracking" != xno; then
-  am_depcomp="$ac_aux_dir/depcomp"
-  AMDEPBACKSLASH='\'
-  am__nodep='_no'
-fi
- if test "x$enable_dependency_tracking" != xno; then
-  AMDEP_TRUE=
-  AMDEP_FALSE='#'
-else
-  AMDEP_TRUE='#'
-  AMDEP_FALSE=
-fi
 
 
 ac_ext=c
@@ -4675,6 +4482,70 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
+DEPDIR="${am__leading_dot}deps"
+
+ac_config_commands="$ac_config_commands depfiles"
+
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking whether ${MAKE-make} supports the include directive" >&5
+printf %s "checking whether ${MAKE-make} supports the include directive... " >&6; }
+cat > confinc.mk << 'END'
+am__doit:
+	@echo this is the am__doit target >confinc.out
+.PHONY: am__doit
+END
+am__include="#"
+am__quote=
+# BSD make does it like this.
+echo '.include "confinc.mk" # ignored' > confmf.BSD
+# Other make implementations (GNU, Solaris 10, AIX) do it like this.
+echo 'include confinc.mk # ignored' > confmf.GNU
+_am_result=no
+for s in GNU BSD; do
+  { echo "$as_me:$LINENO: ${MAKE-make} -f confmf.$s && cat confinc.out" >&5
+   (${MAKE-make} -f confmf.$s && cat confinc.out) >&5 2>&5
+   ac_status=$?
+   echo "$as_me:$LINENO: \$? = $ac_status" >&5
+   (exit $ac_status); }
+  case $?:`cat confinc.out 2>/dev/null` in #(
+  '0:this is the am__doit target') :
+    case $s in #(
+  BSD) :
+    am__include='.include' am__quote='"' ;; #(
+  *) :
+    am__include='include' am__quote='' ;;
+esac ;; #(
+  *) :
+     ;;
+esac
+  if test "$am__include" != "#"; then
+    _am_result="yes ($s style)"
+    break
+  fi
+done
+rm -f confinc.* confmf.*
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: ${_am_result}" >&5
+printf '%s\n' "${_am_result}" >&6; }
+
+# Check whether --enable-dependency-tracking was given.
+if test ${enable_dependency_tracking+y}
+then :
+  enableval=$enable_dependency_tracking;
+fi
+
+if test "x$enable_dependency_tracking" != xno; then
+  am_depcomp="$ac_aux_dir/depcomp"
+  AMDEPBACKSLASH='\'
+  am__nodep='_no'
+fi
+ if test "x$enable_dependency_tracking" != xno; then
+  AMDEP_TRUE=
+  AMDEP_FALSE='#'
+else
+  AMDEP_TRUE='#'
+  AMDEP_FALSE=
+fi
+
+
 
 depcc="$CC"   am_compiler_list=
 
@@ -4807,6 +4678,166 @@ fi
 
 
 
+# --- fuse detection ---
+
+# Extract the first word of "pkg-config", so it can be a program name with args.
+set dummy pkg-config; ac_word=$2
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_path_PKG_CONFIG+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) case $PKG_CONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PKG_CONFIG="$PKG_CONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_path_PKG_CONFIG="$as_dir$ac_word$ac_exec_ext"
+    printf '%s\n' "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_PKG_CONFIG" && ac_cv_path_PKG_CONFIG=":"
+  ;;
+esac ;;
+esac
+fi
+PKG_CONFIG=$ac_cv_path_PKG_CONFIG
+if test -n "$PKG_CONFIG"; then
+  { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $PKG_CONFIG" >&5
+printf '%s\n' "$PKG_CONFIG" >&6; }
+else
+  { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf '%s\n' "no" >&6; }
+fi
+
+
+have_fuse=no
+if test "x${PKG_CONFIG}" != "x:"; then
+    if ${PKG_CONFIG} --exists fuse 2>/dev/null; then
+        have_fuse=yes
+    else
+        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: WARNING: fuse not found via pkg-config; skipping fuse submodule" >&5
+printf '%s\n' "$as_me: WARNING: fuse not found via pkg-config; skipping fuse submodule" >&2;}
+    fi
+else
+    { printf '%s\n' "$as_me:${as_lineno-$LINENO}: WARNING: pkg-config not found; skipping fuse submodule" >&5
+printf '%s\n' "$as_me: WARNING: pkg-config not found; skipping fuse submodule" >&2;}
+fi
+ if test "x${have_fuse}" = "xyes"; then
+  HAVE_FUSE_TRUE=
+  HAVE_FUSE_FALSE='#'
+else
+  HAVE_FUSE_TRUE='#'
+  HAVE_FUSE_FALSE=
+fi
+
+
+# --- llvm detection ---
+
+# Check whether --enable-llvm was given.
+if test ${enable_llvm+y}
+then :
+  enableval=$enable_llvm; enable_llvm=${enableval}
+else case e in #(
+  e) enable_llvm=no ;;
+esac
+fi
+
+have_llvm=no
+if test "x${enable_llvm}" = "xyes"; then
+    # Extract the first word of "llvm-config", so it can be a program name with args.
+set dummy llvm-config; ac_word=$2
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+printf %s "checking for $ac_word... " >&6; }
+if test ${ac_cv_path_LLVM_CONFIG+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e) case $LLVM_CONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_LLVM_CONFIG="$LLVM_CONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  case $as_dir in #(((
+    '') as_dir=./ ;;
+    */) ;;
+    *) as_dir=$as_dir/ ;;
+  esac
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir$ac_word$ac_exec_ext"; then
+    ac_cv_path_LLVM_CONFIG="$as_dir$ac_word$ac_exec_ext"
+    printf '%s\n' "$as_me:${as_lineno-$LINENO}: found $as_dir$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_LLVM_CONFIG" && ac_cv_path_LLVM_CONFIG=":"
+  ;;
+esac ;;
+esac
+fi
+LLVM_CONFIG=$ac_cv_path_LLVM_CONFIG
+if test -n "$LLVM_CONFIG"; then
+  { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: $LLVM_CONFIG" >&5
+printf '%s\n' "$LLVM_CONFIG" >&6; }
+else
+  { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf '%s\n' "no" >&6; }
+fi
+
+
+    if test "x${LLVM_CONFIG}" != "x:"; then
+        have_llvm=yes
+    else
+        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: WARNING: llvm-config not found; skipping llvm submodule" >&5
+printf '%s\n' "$as_me: WARNING: llvm-config not found; skipping llvm submodule" >&2;}
+    fi
+fi
+ if test "x${have_llvm}" = "xyes"; then
+  HAVE_LLVM_TRUE=
+  HAVE_LLVM_FALSE='#'
+else
+  HAVE_LLVM_TRUE='#'
+  HAVE_LLVM_FALSE=
+fi
+
+
+# --- openbsm detection ---
+
+# Check whether --enable-openbsm was given.
+if test ${enable_openbsm+y}
+then :
+  enableval=$enable_openbsm; enable_openbsm=${enableval}
+else case e in #(
+  e) enable_openbsm=no ;;
+esac
+fi
+
+have_openbsm=no
+if test "x${enable_openbsm}" = "xyes"; then
+
 { printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for au_open in -lbsm" >&5
 printf %s "checking for au_open in -lbsm... " >&6; }
 if test ${ac_cv_lib_bsm_au_open+y}
@@ -4858,9 +4889,10 @@ else case e in #(
 esac
 fi
 
-if test "x${have_openbsm}" = "xno"; then
-    { printf '%s\n' "$as_me:${as_lineno-$LINENO}: WARNING: libbsm not found; skipping openbsm submodule" >&5
+    if test "x${have_openbsm}" = "xno"; then
+        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: WARNING: libbsm not found; skipping openbsm submodule" >&5
 printf '%s\n' "$as_me: WARNING: libbsm not found; skipping openbsm submodule" >&2;}
+    fi
 fi
  if test "x${have_openbsm}" = "xyes"; then
   HAVE_OPENBSM_TRUE=
@@ -5022,20 +5054,20 @@ else
   am__EXEEXT_FALSE=
 fi
 
-if test -z "${HAVE_FUSE_TRUE}" && test -z "${HAVE_FUSE_FALSE}"; then
-  as_fn_error $? "conditional \"HAVE_FUSE\" was never defined.
-Usually this means the macro was only invoked conditionally." "$LINENO" 5
-fi
-if test -z "${HAVE_LLVM_TRUE}" && test -z "${HAVE_LLVM_FALSE}"; then
-  as_fn_error $? "conditional \"HAVE_LLVM\" was never defined.
-Usually this means the macro was only invoked conditionally." "$LINENO" 5
-fi
 if test -z "${AMDEP_TRUE}" && test -z "${AMDEP_FALSE}"; then
   as_fn_error $? "conditional \"AMDEP\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${am__fastdepCC_TRUE}" && test -z "${am__fastdepCC_FALSE}"; then
   as_fn_error $? "conditional \"am__fastdepCC\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${HAVE_FUSE_TRUE}" && test -z "${HAVE_FUSE_FALSE}"; then
+  as_fn_error $? "conditional \"HAVE_FUSE\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${HAVE_LLVM_TRUE}" && test -z "${HAVE_LLVM_FALSE}"; then
+  as_fn_error $? "conditional \"HAVE_LLVM\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${HAVE_OPENBSM_TRUE}" && test -z "${HAVE_OPENBSM_FALSE}"; then

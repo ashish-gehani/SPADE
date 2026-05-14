@@ -7,6 +7,12 @@ AC_CONFIG_AUX_DIR([../../build-aux])
 AC_CONFIG_MACRO_DIRS([../../m4])
 AM_INIT_AUTOMAKE([1.18 -Wall -Werror foreign])
 
+# Must be called unconditionally so automake's AMDEP infrastructure is
+# initialized at the top level, not inside a conditional block (e.g. the
+# AC_CHECK_LIB call in the openbsm section would otherwise pull AC_PROG_CC
+# in conditionally, leaving AMDEP undefined when openbsm is disabled).
+AC_PROG_CC
+
 # --- fuse detection ---
 
 AC_PATH_PROG([PKG_CONFIG], [pkg-config], [:])
@@ -24,22 +30,35 @@ AM_CONDITIONAL([HAVE_FUSE], [test "x${have_fuse}" = "xyes"])
 
 # --- llvm detection ---
 
-AC_PATH_PROG([LLVM_CONFIG], [llvm-config], [:])
+AC_ARG_ENABLE([llvm],
+    [AS_HELP_STRING([--enable-llvm], [build Mac LLVM reporters (default: no)])],
+    [enable_llvm=${enableval}],
+    [enable_llvm=no])
 have_llvm=no
-if test "x${LLVM_CONFIG}" != "x:"; then
-    have_llvm=yes
-else
-    AC_MSG_WARN([llvm-config not found; skipping llvm submodule])
+if test "x${enable_llvm}" = "xyes"; then
+    AC_PATH_PROG([LLVM_CONFIG], [llvm-config], [:])
+    if test "x${LLVM_CONFIG}" != "x:"; then
+        have_llvm=yes
+    else
+        AC_MSG_WARN([llvm-config not found; skipping llvm submodule])
+    fi
 fi
 AM_CONDITIONAL([HAVE_LLVM], [test "x${have_llvm}" = "xyes"])
 
 # --- openbsm detection ---
 
-AC_CHECK_LIB([bsm], [au_open],
-    [have_openbsm=yes],
-    [have_openbsm=no])
-if test "x${have_openbsm}" = "xno"; then
-    AC_MSG_WARN([libbsm not found; skipping openbsm submodule])
+AC_ARG_ENABLE([openbsm],
+    [AS_HELP_STRING([--enable-openbsm], [build OpenBSM reporter (default: no)])],
+    [enable_openbsm=${enableval}],
+    [enable_openbsm=no])
+have_openbsm=no
+if test "x${enable_openbsm}" = "xyes"; then
+    AC_CHECK_LIB([bsm], [au_open],
+        [have_openbsm=yes],
+        [have_openbsm=no])
+    if test "x${have_openbsm}" = "xno"; then
+        AC_MSG_WARN([libbsm not found; skipping openbsm submodule])
+    fi
 fi
 AM_CONDITIONAL([HAVE_OPENBSM], [test "x${have_openbsm}" = "xyes"])
 

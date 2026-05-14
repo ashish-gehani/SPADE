@@ -1,8 +1,8 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-DIST_SUBDIRS =
-SUBDIRS =
+DIST_SUBDIRS = 
+SUBDIRS = 
 
 if HAVE_FUSE
 DIST_SUBDIRS += fuse
