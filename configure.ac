@@ -1,77 +1,42 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
-# Copyright (C) 2012 SRI International.
-# 
-# This file requires autoconf, libtool, autoconf-archive installed 
+# Copyright (C) 2026 SRI International.
 
-AC_INIT([spade], [2.0], [spade@csl.sri.com])
-AC_PREREQ([2.65])
-AC_PROG_CC
+AC_PREREQ([2.73])
+AC_INIT([spadeModule], [1.0])
+AC_CONFIG_AUX_DIR([build-aux])
+AC_CONFIG_MACRO_DIRS([m4])
+AM_INIT_AUTOMAKE([1.18 -Wall -Werror foreign])
 
-AC_CHECK_PROGS([JAVA], java, [:])
-if test "$JAVA" = :; then
-   AC_MSG_ERROR([This package needs java installed and available in your path])
+AC_CANONICAL_HOST
+
+AC_ARG_VAR([SPADE_ROOT], [Path to SPADE root directory (default: current directory)])
+if test "x${SPADE_ROOT}" = "x"; then
+    SPADE_ROOT=`pwd`
 fi
-AC_CHECK_PROGS([JAVAC], [javac], [:])
-if test "$JAVAC" = :; then
-   AC_MSG_ERROR([This package needs JDK installed and available in your path. You can get it from http://www.oracle.com/technetwork/java/javase/downloads/index.html])
+export SPADE_ROOT
+
+case "${host_os}" in
+    darwin*)
+        platform=mac
+        ;;
+    linux*)
+        platform=linux
+        ;;
+    *)
+        AC_MSG_ERROR([Unsupported platform: ${host_os}])
+        ;;
+esac
+
+AM_CONDITIONAL([PLATFORM_MAC],   [test "x${platform}" = "xmac"])
+AM_CONDITIONAL([PLATFORM_LINUX], [test "x${platform}" = "xlinux"])
+
+AC_CONFIG_SUBDIRS([module/java])
+
+if test "x${platform}" = "xmac"; then
+    AC_CONFIG_SUBDIRS([module/mac])
+elif test "x${platform}" = "xlinux"; then
+    AC_CONFIG_SUBDIRS([module/linux])
 fi
-if test "`$JAVAC -version 2>&1 | grep '11\|12\|13\|14'`" = ""; then
-  AC_MSG_ERROR([The java compiler version must be 11.0 or 12.0 or 13.0 or 14.0])
-fi
 
-AC_CHECK_PROGS([JAR], [jar], [:])
-if test "$JAR" = :; then
-   AC_MSG_ERROR([This package needs jar utility installed and available in your path])
-fi
-
-AC_CHECK_PROGS([MVN], [mvn], [:])
-if test "$MVN" = :; then
-   AC_MSG_ERROR([This package needs maven installed and available in your path])
-fi
-
-AC_CHECK_PROGS([PKG_CONFIG], [pkg-config], [:])
-if test "$PKG_CONFIG" = :; then
-   AC_MSG_ERROR([This package needs pkg-config installed and available in your path])
-fi
-
-AC_CHECK_PROGS([ADB], [adb], [:])
-if test "$ADB" != :; then
-   ADB_PATH=`which adb`
-   ANDROID_SDK_TOOLS=`dirname $ADB_PATH`/
-else
-   ANDROID_SDK_TOOLS=""
-fi
-AC_SUBST([ANDROID_SDK_TOOLS])
-
-AC_CHECK_PROGS([DX], [dx], [:])
-if test "$DX" != :; then
-   DX_PATH=`which dx`
-   ANDROID_BUILD_TOOLS=`dirname $DX_PATH`/
-else
-   ANDROID_BUILD_TOOLS=""
-fi
-AC_SUBST([ANDROID_BUILD_TOOLS])
-
-AC_CHECK_PROGS([CLANG], [clang], [:])
-AC_CHECK_PROGS([CLANGXX], [clang++], [:])
-
-
-DUSER=spade
-AC_SUBST([DUSER])
-
-AC_CONFIG_FILES([
-  Makefile
-  Makefile.java
-  module/android/Makefile
-  module/mac/Makefile
-  module/mac/fuse/Makefile
-  module/mac/llvm/Makefile
-  module/mac/openbsm/Makefile
-  module/linux/Makefile
-  module/linux/audit_bridge/Makefile
-  module/linux/fuse/Makefile
-  module/linux/kernel_module/Makefile
-  module/linux/llvm/Makefile
-])
+AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
-

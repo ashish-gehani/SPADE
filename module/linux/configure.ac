@@ -3,8 +3,8 @@
 
 AC_PREREQ([2.73])
 AC_INIT([spadeLinux], [1.0])
-AC_CONFIG_AUX_DIR([build-aux])
-AC_CONFIG_MACRO_DIRS([m4])
+AC_CONFIG_AUX_DIR([../../build-aux])
+AC_CONFIG_MACRO_DIRS([../../m4])
 AM_INIT_AUTOMAKE([1.18 -Wall -Werror foreign])
 
 AC_PATH_PROG([PKG_CONFIG], [pkg-config], [:])
