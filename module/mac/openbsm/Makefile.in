@@ -170,16 +170,13 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 ETAGS = @ETAGS@
 EXEEXT = @EXEEXT@
-FUSE_CFLAGS = @FUSE_CFLAGS@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
-JAVAC = @JAVAC@
-JAVAC_OPTIONS = @JAVAC_OPTIONS@
-JAVA_HOME = @JAVA_HOME@
 LDFLAGS = @LDFLAGS@
+LIBBSM_LIBS = @LIBBSM_LIBS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LTLIBOBJS = @LTLIBOBJS@
@@ -194,10 +191,8 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
-PKG_CONFIG = @PKG_CONFIG@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
-SPADE_BUILD_DIR = @SPADE_BUILD_DIR@
 SPADE_ROOT = @SPADE_ROOT@
 SPADE_SRC_DIR = @SPADE_SRC_DIR@
 STRIP = @STRIP@
@@ -247,12 +242,8 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-FUSE_BUILD_DIR = build
-FUSE_BINARY = libLinuxFUSE.so
-FUSE_JAVA_SRC = $(SPADE_SRC_DIR)/spade/reporter/LinuxFUSE.java
-FUSE_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/libLinuxFUSE.c
-FUSE_HEADER_DIR = $(FUSE_BUILD_DIR)
-FUSE_INSTALL_LIBDIR = $(DESTDIR)$(prefix)/lib
+OPENBSM_MAC_OUTPUT = build/spadeOpenBSM
+OPENBSM_MAC_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/spadeOpenBSM.c
 all: all-am
 
 .SUFFIXES:
@@ -476,6 +467,7 @@ distcleancheck: distclean
 	       exit 1; } >&2
 check-am: all-am
 check: check-am
+@HAVE_LIBBSM_FALSE@all-local:
 all-am: Makefile all-local
 installdirs:
 install: install-am
@@ -508,6 +500,7 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
+@HAVE_LIBBSM_FALSE@install-exec-local:
 clean: clean-am
 
 clean-am: clean-generic clean-local mostlyclean-am
@@ -598,36 +591,26 @@ uninstall-am: uninstall-local
 .PRECIOUS: Makefile
 
 
-all-local:
-	@$(MKDIR_P) "$(FUSE_BUILD_DIR)"
-	$(JAVAC) $(JAVAC_OPTIONS) -cp "$(SPADE_BUILD_DIR)" \
-		-h "$(FUSE_HEADER_DIR)" \
-		"$(FUSE_JAVA_SRC)"
-	$(CC) -fPIC -shared \
-		-Wl,-soname,$(FUSE_BINARY) \
-		-I"$(JAVA_HOME)/include" \
-		-I"$(JAVA_HOME)/include/linux" \
-		-I"$(FUSE_HEADER_DIR)" \
-		-Wall \
-		"$(FUSE_C_SRC)" \
-		$(FUSE_CFLAGS) \
-		-o "$(FUSE_BUILD_DIR)/$(FUSE_BINARY)"
+@HAVE_LIBBSM_TRUE@all-local:
+@HAVE_LIBBSM_TRUE@	$(MKDIR_P) build
+@HAVE_LIBBSM_TRUE@	$(CC) -o $(OPENBSM_MAC_OUTPUT) -lbsm $(OPENBSM_MAC_C_SRC)
 
-install-exec-local:
-	$(MKDIR_P) "$(FUSE_INSTALL_LIBDIR)"
-	$(INSTALL_PROGRAM) "$(FUSE_BUILD_DIR)/$(FUSE_BINARY)" \
-		"$(FUSE_INSTALL_LIBDIR)/$(FUSE_BINARY)"
+@HAVE_LIBBSM_TRUE@install-exec-local:
+@HAVE_LIBBSM_TRUE@	$(MKDIR_P) $(DESTDIR)$(prefix)
+@HAVE_LIBBSM_TRUE@	$(INSTALL_PROGRAM) $(OPENBSM_MAC_OUTPUT) $(DESTDIR)$(prefix)/spadeOpenBSM
+@HAVE_LIBBSM_FALSE@all-local install-exec-local:
+@HAVE_LIBBSM_FALSE@	@echo "Skipping OpenBSM: libbsm not found"
 
 uninstall-local:
-	rm -f "$(FUSE_INSTALL_LIBDIR)/$(FUSE_BINARY)"
+	rm -f "$(DESTDIR)$(prefix)/spadeOpenBSM"
 
 clean-local:
-	rm -rf "$(FUSE_BUILD_DIR)"
+	rm -f $(OPENBSM_MAC_OUTPUT)
 
 distclean-local: clean-local
 
 maintainer-clean-local: distclean-local
-	rm -rf configure Makefile.in aclocal.m4 build-aux autom4te.cache
+	rm -rf configure configure~ Makefile.in aclocal.m4 build-aux autom4te.cache
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

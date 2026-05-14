@@ -123,11 +123,9 @@ am__can_run_installinfo = \
   esac
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 am__DIST_COMMON = $(srcdir)/Makefile.in \
-	$(top_srcdir)/../../../build-aux/compile \
-	$(top_srcdir)/../../../build-aux/install-sh \
-	$(top_srcdir)/../../../build-aux/missing \
-	../../../build-aux/compile ../../../build-aux/install-sh \
-	../../../build-aux/missing
+	$(top_srcdir)/../../build-aux/install-sh \
+	$(top_srcdir)/../../build-aux/missing \
+	../../build-aux/install-sh ../../build-aux/missing
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -156,36 +154,28 @@ AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
-CC = @CC@
-CCDEPMODE = @CCDEPMODE@
-CFLAGS = @CFLAGS@
-CPPFLAGS = @CPPFLAGS@
 CSCOPE = @CSCOPE@
 CTAGS = @CTAGS@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
-DEPDIR = @DEPDIR@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 ETAGS = @ETAGS@
-EXEEXT = @EXEEXT@
-FUSE_CFLAGS = @FUSE_CFLAGS@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+JAR = @JAR@
+JAVA = @JAVA@
 JAVAC = @JAVAC@
-JAVAC_OPTIONS = @JAVAC_OPTIONS@
-JAVA_HOME = @JAVA_HOME@
-LDFLAGS = @LDFLAGS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
 MKDIR_P = @MKDIR_P@
-OBJEXT = @OBJEXT@
+MVN = @MVN@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
 PACKAGE_NAME = @PACKAGE_NAME@
@@ -194,22 +184,16 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
-PKG_CONFIG = @PKG_CONFIG@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
-SPADE_BUILD_DIR = @SPADE_BUILD_DIR@
 SPADE_ROOT = @SPADE_ROOT@
-SPADE_SRC_DIR = @SPADE_SRC_DIR@
 STRIP = @STRIP@
 VERSION = @VERSION@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
-ac_ct_CC = @ac_ct_CC@
-am__include = @am__include@
 am__leading_dot = @am__leading_dot@
-am__quote = @am__quote@
 am__rm_f_notfound = @am__rm_f_notfound@
 am__tar = @am__tar@
 am__untar = @am__untar@
@@ -247,12 +231,9 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-FUSE_BUILD_DIR = build
-FUSE_BINARY = libLinuxFUSE.so
-FUSE_JAVA_SRC = $(SPADE_SRC_DIR)/spade/reporter/LinuxFUSE.java
-FUSE_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/libLinuxFUSE.c
-FUSE_HEADER_DIR = $(FUSE_BUILD_DIR)
-FUSE_INSTALL_LIBDIR = $(DESTDIR)$(prefix)/lib
+JAVA_BUILD_DIR = build
+JAVA_JAR = $(JAVA_BUILD_DIR)/spade.jar
+JAVA_INSTALL_LIBDIR = $(DESTDIR)$(prefix)/lib
 all: all-am
 
 .SUFFIXES:
@@ -599,35 +580,26 @@ uninstall-am: uninstall-local
 
 
 all-local:
-	@$(MKDIR_P) "$(FUSE_BUILD_DIR)"
-	$(JAVAC) $(JAVAC_OPTIONS) -cp "$(SPADE_BUILD_DIR)" \
-		-h "$(FUSE_HEADER_DIR)" \
-		"$(FUSE_JAVA_SRC)"
-	$(CC) -fPIC -shared \
-		-Wl,-soname,$(FUSE_BINARY) \
-		-I"$(JAVA_HOME)/include" \
-		-I"$(JAVA_HOME)/include/linux" \
-		-I"$(FUSE_HEADER_DIR)" \
-		-Wall \
-		"$(FUSE_C_SRC)" \
-		$(FUSE_CFLAGS) \
-		-o "$(FUSE_BUILD_DIR)/$(FUSE_BINARY)"
+	@$(MKDIR_P) "$(JAVA_BUILD_DIR)"
+	$(MVN) -Dspade.root="$(SPADE_ROOT)" \
+		-Dspade.lib.dir="$(abs_builddir)/$(JAVA_BUILD_DIR)" \
+		compile
 
 install-exec-local:
-	$(MKDIR_P) "$(FUSE_INSTALL_LIBDIR)"
-	$(INSTALL_PROGRAM) "$(FUSE_BUILD_DIR)/$(FUSE_BINARY)" \
-		"$(FUSE_INSTALL_LIBDIR)/$(FUSE_BINARY)"
+	$(MKDIR_P) "$(JAVA_INSTALL_LIBDIR)"
+	$(INSTALL_DATA) "$(JAVA_JAR)" "$(JAVA_INSTALL_LIBDIR)/spade.jar"
 
 uninstall-local:
-	rm -f "$(FUSE_INSTALL_LIBDIR)/$(FUSE_BINARY)"
+	rm -f "$(JAVA_INSTALL_LIBDIR)/spade.jar"
 
 clean-local:
-	rm -rf "$(FUSE_BUILD_DIR)"
+	$(MVN) -Dspade.root="$(SPADE_ROOT)" clean
+	rm -rf "$(JAVA_BUILD_DIR)"
 
 distclean-local: clean-local
 
 maintainer-clean-local: distclean-local
-	rm -rf configure Makefile.in aclocal.m4 build-aux autom4te.cache
+	rm -rf configure configure~ Makefile.in aclocal.m4 build-aux autom4te.cache
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
