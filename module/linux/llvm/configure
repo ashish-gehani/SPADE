@@ -592,6 +592,7 @@ PACKAGE_URL=''
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
 SPADE_SRC_DIR
+SPADE_ROOT
 LLVM_CXXFLAGS
 CLANGXX
 CLANG
@@ -675,7 +676,7 @@ enable_silent_rules
       ac_precious_vars='build_alias
 host_alias
 target_alias
-SPADE_SRC_DIR'
+SPADE_ROOT'
 
 
 # Initialize some variables set by options.
@@ -1303,8 +1304,7 @@ Optional Features:
   --disable-silent-rules  verbose build output (undo: "make V=0")
 
 Some influential environment variables:
-  SPADE_SRC_DIR
-              Path to SPADE source directory containing spade/reporter/llvm
+  SPADE_ROOT  Path to SPADE root directory
 
 Use these variables to override the choices made by 'configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2946,9 +2946,11 @@ LLVM_CXXFLAGS=$(${LLVM_CONFIG} --cxxflags)
 
 
 
-if test "x${SPADE_SRC_DIR}" = "x"; then
-    as_fn_error $? "SPADE_SRC_DIR is required; set it with ./configure SPADE_SRC_DIR=<path>" "$LINENO" 5
+if test "x${SPADE_ROOT}" = "x"; then
+    as_fn_error $? "SPADE_ROOT is required; set it with ./configure SPADE_ROOT=<path>" "$LINENO" 5
 fi
+SPADE_SRC_DIR="${SPADE_ROOT}/src"
+
 
 ac_config_files="$ac_config_files Makefile"
 

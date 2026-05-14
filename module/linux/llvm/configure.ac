@@ -27,10 +27,12 @@ fi
 LLVM_CXXFLAGS=$(${LLVM_CONFIG} --cxxflags)
 AC_SUBST([LLVM_CXXFLAGS])
 
-AC_ARG_VAR([SPADE_SRC_DIR], [Path to SPADE source directory containing spade/reporter/llvm])
-if test "x${SPADE_SRC_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_SRC_DIR is required; set it with ./configure SPADE_SRC_DIR=<path>])
+AC_ARG_VAR([SPADE_ROOT], [Path to SPADE root directory])
+if test "x${SPADE_ROOT}" = "x"; then
+    AC_MSG_ERROR([SPADE_ROOT is required; set it with ./configure SPADE_ROOT=<path>])
 fi
+SPADE_SRC_DIR="${SPADE_ROOT}/src"
+AC_SUBST([SPADE_SRC_DIR])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
