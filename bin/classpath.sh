@@ -12,7 +12,10 @@ then
   classpath_separator=";"
 fi
 
-deps=$(cd "${spade_home_path}" && mvn -q --no-transfer-progress dependency:build-classpath \
+deps=$(cd "${spade_home_path}" && mvn -q --no-transfer-progress \
+    -f "${spade_home_path}/module/java/pom.xml" \
+    -Dspade.root="${spade_home_path}" \
+    dependency:build-classpath \
     -Dmdep.outputFile=/dev/stdout 2>/dev/null)
 
 echo "${spade_home_path}/build${classpath_separator}${deps}"
