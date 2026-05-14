@@ -594,6 +594,7 @@ am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
 SPADE_SRC_DIR
+SPADE_ROOT
 LIBBSM_LIBS
 HAVE_LIBBSM_FALSE
 HAVE_LIBBSM_TRUE
@@ -699,7 +700,7 @@ CFLAGS
 LDFLAGS
 LIBS
 CPPFLAGS
-SPADE_SRC_DIR'
+SPADE_ROOT'
 
 
 # Initialize some variables set by options.
@@ -1338,9 +1339,7 @@ Some influential environment variables:
   LIBS        libraries to pass to the linker, e.g. -l<library>
   CPPFLAGS    (Objective) C/C++ preprocessor flags, e.g. -I<include dir> if
               you have headers in a nonstandard directory <include dir>
-  SPADE_SRC_DIR
-              Path to SPADE source directory containing
-              spade/reporter/spadeOpenBSM.c
+  SPADE_ROOT  Path to SPADE root directory
 
 Use these variables to override the choices made by 'configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -4742,9 +4741,11 @@ fi
 
 
 
-if test "x${SPADE_SRC_DIR}" = "x"; then
-    as_fn_error $? "SPADE_SRC_DIR is required; set it with ./configure SPADE_SRC_DIR=<path>" "$LINENO" 5
+if test "x${SPADE_ROOT}" = "x"; then
+    as_fn_error $? "SPADE_ROOT is required; set it with ./configure SPADE_ROOT=<path>" "$LINENO" 5
 fi
+SPADE_SRC_DIR="${SPADE_ROOT}/src"
+
 
 ac_config_files="$ac_config_files Makefile"
 
