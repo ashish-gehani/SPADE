@@ -1,5 +1,7 @@
 # Compile Script Guide
 
+> No non-Java modules use Maven currently. This guide is preserved for when native modules are added back.
+
 ## Overview
 
 A `compile.sh` script builds the artifacts for a module. It is invoked by the Ant buildfile's `compile` target, which Maven triggers during the `compile` phase — but only when the module's `check.sh` did not skip it.

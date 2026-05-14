@@ -1,5 +1,7 @@
 # Check Script Guide
 
+> No non-Java modules use Maven currently. This guide is preserved for when native modules are added back. The utilities in `bin/build/util/check` are still present and ready to use.
+
 ## Overview
 
 A `check.sh` script is the pre-compile gate for a module. Before the Ant buildfile runs `compile.sh`, Maven runs `check.sh`. The result tells Maven whether to proceed with compilation.

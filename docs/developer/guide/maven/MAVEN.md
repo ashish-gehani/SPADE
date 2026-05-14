@@ -2,66 +2,43 @@
 
 ## Overview
 
-SPADE is a polyglot project spanning Java, C, Clang, and kernel modules. Maven serves as the unified build frontend because the project is primarily Java. Non-Java modules (C libraries, kernel modules, LLVM passes, etc.) are built by Ant buildfiles that Maven invokes at the appropriate lifecycle phase via `maven-antrun-plugin`.
+Maven builds Java code only. Non-Java modules (C libraries, kernel modules, LLVM passes) are built by the autoconf/automake build system (`configure` + `make`). Maven is invoked by `make` — not directly by the developer for routine builds.
 
-For common commands see [HOW-TO.md](HOW-TO.md).
-
-The Maven build has two responsibilities:
-
-1. **Java compilation** — the root `pom.xml` compiles all Java sources and produces `lib/spade.jar`.
-2. **Module coordination** — each module has its own POM that delegates its build and clean steps to a `build.xml` Ant buildfile in the module directory. The POM owns the variable definitions; the buildfile owns the build logic.
-
-This mirrors the Make build. The key difference is that Maven enforces the structure through parent-child inheritance rather than explicit variable passing.
-
-## Build Lifecycle Pattern
-
-Each non-Java module follows a uniform three-execution pattern using `maven-antrun-plugin`:
-
-| Execution id | Maven phase | What it does |
-|---|---|---|
-| `check-*` | `validate` | Runs `bin/build/<platform>/<module>/check.sh`; sets a `<module>.skip` property based on output. See [CHECK.md](CHECK.md). |
-| `compile-*` | `compile` | Skipped if `<module>.skip` is `true`; otherwise runs `<ant antfile="build.xml" target="compile"/>`. See [COMPILE.md](COMPILE.md). |
-| `clean-*` | `clean` | Always runs `<ant antfile="build.xml" target="clean"/>` (unconditional). See [CLEAN.md](CLEAN.md). |
-
-Modules whose build produces a final artifact at a location outside `target/` add a fourth execution:
-
-| Execution id | Maven phase | What it does |
-|---|---|---|
-| `install-*` | `package` | Skipped if `<module>.skip` is `true`; copies the artifact from `${project.build.directory}` to its final location. |
-
-`package` is used rather than `install` because `install` semantically means installing to the local Maven repository (`~/.m2`), not project-local placement. `mvn compile` builds into `${project.build.directory}`; `mvn package` additionally places artifacts in their final locations.
-
-`build.xml` is an Ant buildfile in the module's POM directory. It contains the `compile` and `clean` targets. Properties defined in the POM are available to Ant implicitly through the `<ant>` task.
-
-## Module Hierarchy
-
-The directory structure maps directly to the parent-child POM hierarchy:
+The single Maven POM is at `module/java/pom.xml`. It compiles all Java sources and produces `lib/spade.jar`. `module/java/Makefile.am` drives it:
 
 ```
-pom.xml                                   (root: spade)
-  module/android/pom.xml                  (spade-android)
-  module/linux/pom.xml                    (spade-linux)
-    module/linux/audit_bridge/pom.xml     (spade-linux-audit-bridge)
-    module/linux/fuse/pom.xml             (spade-linux-fuse)
-    module/linux/llvm/pom.xml             (spade-linux-llvm)
-    module/linux/kernel_module/pom.xml    (spade-linux-kernel-module)
-  module/mac/pom.xml                      (spade-mac)
-    module/mac/openbsm/pom.xml            (spade-mac-openbsm)
-    module/mac/fuse/pom.xml               (spade-mac-fuse)
-    module/mac/llvm/pom.xml               (spade-mac-llvm)
+make          # runs ./configure then make, which calls mvn compile
 ```
 
-Each child declares its parent via `<relativePath>`. `spade-linux` and `spade-mac` are pure aggregators — they have no build logic of their own, only a `<modules>` list. `spade-linux-audit-bridge` is a leaf — it builds `spadeAuditBridge` and has no sub-modules. `spade-android` exists but has no activating profile and is excluded from all builds for now.
+For common Maven commands see [HOW-TO.md](HOW-TO.md).
 
-## Root POM
+## Responsibilities
 
-The root `pom.xml` is the single parent for the entire build. It owns:
+Maven has one responsibility:
 
-- All Java dependencies (inherited by every child module).
+**Java compilation** — `module/java/pom.xml` compiles all Java sources under `src/` and produces `lib/spade.jar`.
+
+The native module build (formerly coordinated by Maven via `maven-antrun-plugin`) is now owned by `configure` + `make`. Each native module has its own `configure.ac` and `Makefile.am` instead of a `pom.xml`.
+
+## Make Integration
+
+`module/java/Makefile.am` invokes Maven with two overrides so that paths resolve correctly regardless of where `mvn` is run from:
+
+```
+mvn -Dspade.root=<SPADE_ROOT> -Dspade.lib.dir=<build-dir> compile
+```
+
+- `-Dspade.root` overrides `${maven.multiModuleProjectDirectory}` so all `spade.*` paths resolve to the SPADE project root.
+- `-Dspade.lib.dir` redirects the output jar into the local `build/` directory; `make install` then copies it to the final destination.
+
+## The POM
+
+`module/java/pom.xml` owns:
+
+- All Java dependencies (resolved from Maven Central and the project-local repository at `lib/`).
 - Shared properties (`spade.root`, `spade.build.dir`, `spade.src.dir`, etc.) and `javac.options`.
-- `<pluginManagement>` — declares plugin versions and the `maven-dependency-plugin:build-classpath` execution used by all modules.
-- Java compilation via `maven-compiler-plugin`, `maven-jar-plugin`, and `maven-clean-plugin`, each marked `<inherited>false</inherited>` so only the root performs the Java build.
-- `maven-dependency-plugin` in `<build><plugins>` without `<inherited>false</inherited>`, so every child module inherits and runs it.
+- `<pluginManagement>` — plugin versions and the `maven-dependency-plugin:build-classpath` execution.
+- Java compilation via `maven-compiler-plugin`, `maven-jar-plugin`, and `maven-clean-plugin`.
 
 ### Shared properties
 
@@ -75,7 +52,6 @@ The root `pom.xml` is the single parent for the entire build. It owns:
 <spade.lib.dir>${spade.root}/lib</spade.lib.dir>
 <spade.src.dir>${spade.root}/src</spade.src.dir>
 <spade.bin.dir>${spade.root}/bin</spade.bin.dir>
-<spade.resource.dir>${spade.root}/resource</spade.resource.dir>
 <spade.jar>${spade.lib.dir}/spade.jar</spade.jar>
 
 <!-- override via -Djavac.user.options=... -->
@@ -83,34 +59,11 @@ The root `pom.xml` is the single parent for the entire build. It owns:
 <javac.options>${javac.user.options} -Xlint:none -proc:none -cp ${spade.build.dir}:${spade.javac.cp}</javac.options>
 ```
 
-`spade.root` always resolves to the project root regardless of which module is being built. All module buildfiles receive paths derived from these properties.
-
-### javac.options and spade.javac.cp
-
-`javac.options` includes `${spade.javac.cp}`, which is populated at build time by `maven-dependency-plugin:build-classpath` during the `initialize` phase. Because the plugin is in `<build><plugins>` without `<inherited>false</inherited>`, it runs in every module's lifecycle. Child modules that pass `javac.options` to a build script therefore receive a fully resolved classpath that includes all inherited dependencies.
-
-## Module Inclusion
-
-There are two orthogonal ways to control which modules execute.
-
-**Profiles.** Each platform module (except Android) belongs to a profile — `linux` or `mac` — that is activated automatically by OS detection. The active profile declares which top-level platform module enters the reactor, making it impossible to build artifacts for one platform on another. Android has no activating profile and is always excluded for now. See [HOW-TO.md](HOW-TO.md) for how to override profile activation manually.
-
-**Skip flags.** Each leaf module exposes a `spade.skip.<platform>.<module>` property. When set to `true` via `-D` on the command line, the module is unconditionally skipped — `check.sh` is not run. When left unset (the normal case), `check.sh` runs at the `validate` phase and decides whether the module should be skipped based on whether prerequisites are met. The skip flag overrides the profile: even if the platform profile is active, `-Dspade.skip.<platform>.<module>=true` forces the module out. See [CHECK.md](CHECK.md).
-
-## Module Poms
-
-Each module POM follows the same pattern:
-
-1. Declares `<parent>` pointing to the nearest ancestor (platform pom or root pom).
-2. Defines only the properties it needs — paths to its source files, output files, and any flags. Shared paths (`spade.src.dir`, `spade.bin.dir`, etc.) come from the root via inheritance.
-3. Uses `maven-antrun-plugin` with three executions: `check-*` (validate), `compile-*` (compile), `clean-*` (clean). See [CHECK.md](CHECK.md) and [CLEAN.md](CLEAN.md) for the full execution patterns.
-
-Properties local to a module are declared in that POM only. Do not add them to the root.
+`spade.root` resolves to the project root when overridden via `-Dspade.root` (as `make` does). `spade.javac.cp` is populated at build time by `maven-dependency-plugin:build-classpath` during the `initialize` phase.
 
 ## Adding a Local JAR Dependency
 
-Use this when you have a JAR that is not available on Maven Central and needs to be
-bundled with the project under `lib/`.
+Use this when you have a JAR that is not available on Maven Central and needs to be bundled with the project under `lib/`.
 
 1. **Deploy the JAR to the project-local Maven repository** at `lib/`:
 
@@ -124,10 +77,7 @@ bundled with the project under `lib/`.
      -Dpackaging=jar
    ```
 
-   Replace `<artifactId>` with a descriptive name (e.g. `libmything`). Use `groupId=local`
-   to stay consistent with the other local JARs.
-
-2. **Add the dependency to `pom.xml`**:
+2. **Add the dependency to `module/java/pom.xml`**:
 
    ```xml
    <dependency>
@@ -137,44 +87,29 @@ bundled with the project under `lib/`.
    </dependency>
    ```
 
-3. (OPTIONAL) **Add the JAR to `cfg/java.classpath`** so the runtime launch script (`bin/spade`)
-   picks it up. Append a line using the flat filename you copied to `lib/`:
-
-   ```
-   lib/your.jar
-   ```
-
-   Note: the deploy step in (1) places the JAR inside `lib/local/<artifactId>/1.0/` for
-   Maven resolution. The classpath entry points to the original flat copy in `lib/` used
-   by the runtime script — both are needed.
-
-4. **Force Maven to re-resolve** if it cached a previous failed lookup:
+3. **Force Maven to re-resolve** if it cached a previous failed lookup:
 
    ```bash
    mvn dependency:resolve -U -DincludeArtifactIds=<artifactId>
    ```
 
-## Adding a Module
+## Build Lifecycle Pattern (for future non-Java modules)
 
-1. Create the POM at the appropriate path under `module/`:
+> No non-Java modules use Maven currently. This pattern is preserved for when native modules are added back under Maven.
 
-   ```
-   module/<platform>/<name>/pom.xml
-   ```
+Each non-Java module follows a uniform three-execution pattern using `maven-antrun-plugin`:
 
-2. Declare the parent (the platform pom or the root pom):
+| Execution id | Maven phase | What it does |
+|---|---|---|
+| `check-*` | `validate` | Runs `bin/build/<platform>/<module>/check.sh`; sets a `<module>.skip` property. See [CHECK.md](CHECK.md). |
+| `compile-*` | `compile` | Skipped if `<module>.skip` is `true`; otherwise runs `<ant antfile="build.xml" target="compile"/>`. See [COMPILE.md](COMPILE.md). |
+| `clean-*` | `clean` | Always runs `<ant antfile="build.xml" target="clean"/>`. See [CLEAN.md](CLEAN.md). |
 
-   ```xml
-   <parent>
-     <groupId>io.github.spade</groupId>
-     <artifactId>spade-linux</artifactId>
-     <version>${revision}</version>
-     <relativePath>../pom.xml</relativePath>
-   </parent>
-   ```
+## Adding a Non-Java Module (future)
 
-3. Define only module-specific properties. Use inherited shared properties for everything else.
+> The check/compile/clean scripts in `bin/build/util/check` are still present and ready to use.
 
-4. Follow [CHECK.md](CHECK.md), [COMPILE.md](COMPILE.md), and [CLEAN.md](CLEAN.md) to create the scripts, `build.xml`, and POM executions.
-
-5. Register the new POM in the parent's `<modules>` list.
+1. Create `module/<platform>/<name>/pom.xml` declaring `module/java/pom.xml` (or a platform pom) as parent.
+2. Define only module-specific properties. Shared paths come from the root via inheritance.
+3. Follow [CHECK.md](CHECK.md), [COMPILE.md](COMPILE.md), and [CLEAN.md](CLEAN.md) to create the scripts, `build.xml`, and POM executions.
+4. Register the new POM in the parent's `<modules>` list.

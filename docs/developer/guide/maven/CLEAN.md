@@ -1,5 +1,7 @@
 # Clean Script Guide
 
+> No non-Java modules use Maven currently. This guide is preserved for when native modules are added back.
+
 ## Overview
 
 A `clean.sh` script removes the build artifacts produced by a module's `compile.sh`. It is invoked by the Ant buildfile's `clean` target, which Maven triggers during the `clean` phase.
