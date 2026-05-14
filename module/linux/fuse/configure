@@ -597,6 +597,7 @@ JAVAC_OPTIONS
 JAVA_HOME
 SPADE_BUILD_DIR
 SPADE_SRC_DIR
+SPADE_ROOT
 FUSE_CFLAGS
 PKG_CONFIG
 JAVAC
@@ -702,8 +703,7 @@ CFLAGS
 LDFLAGS
 LIBS
 CPPFLAGS
-SPADE_SRC_DIR
-SPADE_BUILD_DIR
+SPADE_ROOT
 JAVA_HOME
 JAVAC_OPTIONS'
 
@@ -1344,11 +1344,7 @@ Some influential environment variables:
   LIBS        libraries to pass to the linker, e.g. -l<library>
   CPPFLAGS    (Objective) C/C++ preprocessor flags, e.g. -I<include dir> if
               you have headers in a nonstandard directory <include dir>
-  SPADE_SRC_DIR
-              Path to SPADE source directory containing
-              spade/reporter/LinuxFUSE.java and libLinuxFUSE.c
-  SPADE_BUILD_DIR
-              Path to SPADE build directory; used as javac classpath
+  SPADE_ROOT  Path to SPADE root directory
   JAVA_HOME   Path to JDK home directory; include/ and include/linux/ are used
               for JNI headers
   JAVAC_OPTIONS
@@ -4739,14 +4735,13 @@ FUSE_CFLAGS=$(${PKG_CONFIG} fuse --cflags --libs)
 
 
 
-if test "x${SPADE_SRC_DIR}" = "x"; then
-    as_fn_error $? "SPADE_SRC_DIR is required; set it with ./configure SPADE_SRC_DIR=<path>" "$LINENO" 5
+if test "x${SPADE_ROOT}" = "x"; then
+    as_fn_error $? "SPADE_ROOT is required; set it with ./configure SPADE_ROOT=<path>" "$LINENO" 5
 fi
+SPADE_SRC_DIR="${SPADE_ROOT}/src"
 
+SPADE_BUILD_DIR="${SPADE_ROOT}/build"
 
-if test "x${SPADE_BUILD_DIR}" = "x"; then
-    as_fn_error $? "SPADE_BUILD_DIR is required; set it with ./configure SPADE_BUILD_DIR=<path>" "$LINENO" 5
-fi
 
 
 if test "x${JAVA_HOME}" = "x"; then
