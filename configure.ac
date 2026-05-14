@@ -15,6 +15,11 @@ if test "x${SPADE_ROOT}" = "x"; then
 fi
 export SPADE_ROOT
 
+# Default install prefix to SPADE_ROOT so artifacts land in the project tree.
+if test "x${prefix}" = "xNONE"; then
+    prefix="${SPADE_ROOT}"
+fi
+
 AC_ARG_VAR([JAVAC_HEADER_GEN_OPTIONS], [Options passed to javac for JNI header generation (default: -Xlint:none -proc:none)])
 if test "x${JAVAC_HEADER_GEN_OPTIONS}" = "x"; then
     JAVAC_HEADER_GEN_OPTIONS="-Xlint:none -proc:none"

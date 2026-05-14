@@ -3,7 +3,7 @@
 
 LLVM_BUILD_DIR      = build
 LLVM_SRC_DIR        = $(SPADE_SRC_DIR)/spade/reporter
-LLVM_INSTALL_LIBDIR = $(DESTDIR)$(prefix)/lib/llvm
+LLVM_INSTALL_LIBDIR = $(DESTDIR)$(prefix)/lib
 
 LLVM_CXXFLAGS_ALL = \
 	@LLVM_CXXFLAGS@

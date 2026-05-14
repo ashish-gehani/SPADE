@@ -236,7 +236,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 LLVM_BUILD_DIR = build
 LLVM_SRC_DIR = $(SPADE_SRC_DIR)/spade/reporter/llvm
-LLVM_INSTALL_LIBDIR = $(DESTDIR)$(prefix)/lib/llvm
+LLVM_INSTALL_LIBDIR = $(DESTDIR)$(prefix)/lib
 LLVM_CXXFLAGS_ALL = \
 	@LLVM_CXXFLAGS@ \
 	-I./ \

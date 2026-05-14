@@ -4,21 +4,23 @@
 OPENBSM_MAC_OUTPUT = build/spadeOpenBSM
 OPENBSM_MAC_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/spadeOpenBSM.c
 
+OPENBSM_MAC_INSTALL_BINDIR = $(DESTDIR)$(prefix)/bin
+
 if HAVE_LIBBSM
 all-local:
 	$(MKDIR_P) build
 	$(CC) -o $(OPENBSM_MAC_OUTPUT) -lbsm $(OPENBSM_MAC_C_SRC)
 
 install-exec-local:
-	$(MKDIR_P) $(DESTDIR)$(prefix)
-	$(INSTALL_PROGRAM) $(OPENBSM_MAC_OUTPUT) $(DESTDIR)$(prefix)/spadeOpenBSM
+	$(MKDIR_P) "$(OPENBSM_MAC_INSTALL_BINDIR)"
+	$(INSTALL_PROGRAM) $(OPENBSM_MAC_OUTPUT) "$(OPENBSM_MAC_INSTALL_BINDIR)/spadeOpenBSM"
 else
 all-local install-exec-local:
 	@echo "Skipping OpenBSM: libbsm not found"
 endif
 
 uninstall-local:
-	rm -f "$(DESTDIR)$(prefix)/spadeOpenBSM"
+	rm -f "$(OPENBSM_MAC_INSTALL_BINDIR)/spadeOpenBSM"
 
 clean-local:
 	rm -f $(OPENBSM_MAC_OUTPUT)
