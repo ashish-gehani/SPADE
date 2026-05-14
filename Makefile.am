@@ -12,9 +12,15 @@ DIST_SUBDIRS += module/linux
 SUBDIRS += module/linux
 endif
 
-all-local:
+setup:
 	pushd "$(SPADE_ROOT)" && { bin/manage-neo4j.sh install; ret=$$?; popd; exit $$ret; }
 	$(SPADE_ROOT)/bin/keys/generatekeys.sh
+
+.PHONY: setup
+
+
+all-local: setup
+
 
 clean-local:
 	rm -rf "$(SPADE_ROOT)/cfg/ssl"
