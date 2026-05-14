@@ -596,6 +596,7 @@ KDIR
 KERNEL_MODULE_TARGET
 KERNEL_MODULES_DEBUG
 SPADE_SRC_DIR
+SPADE_ROOT
 am__xargs_n
 am__rm_f_notfound
 AM_BACKSLASH
@@ -675,7 +676,7 @@ enable_silent_rules
       ac_precious_vars='build_alias
 host_alias
 target_alias
-SPADE_SRC_DIR
+SPADE_ROOT
 KERNEL_MODULES_DEBUG
 KDIR
 MOD_DEFINES'
@@ -1307,9 +1308,7 @@ Optional Features:
   --disable-silent-rules  verbose build output (undo: "make V=0")
 
 Some influential environment variables:
-  SPADE_SRC_DIR
-              Path to SPADE source directory containing
-              spade/reporter/audit/kernel-modules
+  SPADE_ROOT  Path to SPADE root directory
   KERNEL_MODULES_DEBUG
               Set to "true" to build debug kernel modules (default: false)
   KDIR        Kernel build directory (default: /lib/modules/$(uname -r)/build)
@@ -2798,9 +2797,11 @@ fi
 
 
 
-if test "x${SPADE_SRC_DIR}" = "x"; then
-    as_fn_error $? "SPADE_SRC_DIR is required; set it with ./configure SPADE_SRC_DIR=<path>" "$LINENO" 5
+if test "x${SPADE_ROOT}" = "x"; then
+    as_fn_error $? "SPADE_ROOT is required; set it with ./configure SPADE_ROOT=<path>" "$LINENO" 5
 fi
+SPADE_SRC_DIR="${SPADE_ROOT}/src"
+
 
 
 if test "x${KERNEL_MODULES_DEBUG}" = "xtrue"; then

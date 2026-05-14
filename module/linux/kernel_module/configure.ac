@@ -7,10 +7,12 @@ AC_CONFIG_AUX_DIR([../build-aux])
 AC_CONFIG_MACRO_DIRS([../m4])
 AM_INIT_AUTOMAKE([1.18 -Wall -Werror foreign])
 
-AC_ARG_VAR([SPADE_SRC_DIR], [Path to SPADE source directory containing spade/reporter/audit/kernel-modules])
-if test "x${SPADE_SRC_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_SRC_DIR is required; set it with ./configure SPADE_SRC_DIR=<path>])
+AC_ARG_VAR([SPADE_ROOT], [Path to SPADE root directory])
+if test "x${SPADE_ROOT}" = "x"; then
+    AC_MSG_ERROR([SPADE_ROOT is required; set it with ./configure SPADE_ROOT=<path>])
 fi
+SPADE_SRC_DIR="${SPADE_ROOT}/src"
+AC_SUBST([SPADE_SRC_DIR])
 
 AC_ARG_VAR([KERNEL_MODULES_DEBUG], [Set to "true" to build debug kernel modules (default: false)])
 if test "x${KERNEL_MODULES_DEBUG}" = "xtrue"; then
