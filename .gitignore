@@ -1,59 +1,54 @@
+# --- IDE / editor ---
 .DS_Store
 .classpath
 .claude
-/build
-/Makefile
-/Makefile.java
-module/android/Makefile
-module/mac/Makefile
-module/mac/fuse/Makefile
-module/mac/llvm/Makefile
-module/mac/openbsm/Makefile
-module/linux/Makefile
-module/linux/audit_bridge/Makefile
-module/linux/fuse/Makefile
-module/linux/kernel_module/Makefile
-module/linux/llvm/Makefile
-/target
-module/**/target
-bin/spadeAuditBridge
-lib/spadeOpenBSM
-*.class
-cfg/control.history
-cfg/keys/
-cfg/spade.storage.CDM.out
-cfg/spade.utility.HostInfo.out
+.vscode
+
+# --- Autotools ---
+Makefile
+Makefile.java
 config.log
 config.status
+configure~
+autom4te.cache
+confdefs.h
+conftest.*
+install
+
+# --- Java build ---
+*.class
+/build
+/target
+module/**/target/
+runtime.java-cp.argfile
+build.java-cp.argfile
+
+# --- Module build ---
+module/**/build/
+
+# --- Kernel module build ---
+Module.symvers
+modules.order
+src/spade/reporter/audit/kernel-modules/build.h
+
+# --- Generated source files ---
+src/spade/reporter/spade_reporter_LinuxFUSE.h
+
+# --- Built binaries & libraries ---
+bin/spadeAuditBridge
 lib/kernel-modules/
 lib/libLinuxFUSE.so
-lib/neo4j-community-4.1.1/
+lib/neo4j-community*/
 lib/spade.jar
+lib/spadeOpenBSM
+
+# --- Runtime ---
+cfg/control.history
+cfg/keys/
+cfg/query.history
+cfg/spade.storage.CDM.out
+cfg/spade.utility.HostInfo.out
 /log/
 spade.host
 spade.pid
-src/spade/reporter/LinuxFUSE$1.class
-src/spade/reporter/LinuxFUSE.class
-src/spade/reporter/audit/kernel-modules/build.h
-src/spade/reporter/spade_reporter_LinuxFUSE.h
 /tmp/
-.vscode
-cfg/query.history
-Module.symvers
-modules.order
-lib/neo4j-community*
-runtime.java-cp.argfile
-autom4te.cache
-configure~
-
-# Build temp files
-module/**/target/
-module/**/build/
-Makefile
-config.log
-config.status
-configure~
-autom4te.cache
-install
-confdefs.h
-conftest.*

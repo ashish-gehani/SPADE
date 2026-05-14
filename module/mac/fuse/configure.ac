@@ -33,12 +33,16 @@ AC_SUBST([SPADE_SRC_DIR])
 SPADE_BUILD_DIR="${SPADE_ROOT}/build"
 AC_SUBST([SPADE_BUILD_DIR])
 
-AC_ARG_VAR([JAVA_HOME], [Path to JDK home directory; include/ and include/darwin/ are used for JNI headers])
+JAVA_HOME=`java -XshowSettings:all 2>&1 | awk '/java.home/{print $3}'`
 if test "x${JAVA_HOME}" = "x"; then
-    AC_MSG_ERROR([JAVA_HOME is required; set it with ./configure JAVA_HOME=<path>])
+    AC_MSG_ERROR([could not determine JAVA_HOME from java -XshowSettings:all])
 fi
+AC_SUBST([JAVA_HOME])
 
-AC_ARG_VAR([JAVAC_OPTIONS], [Extra options passed to javac])
+AC_ARG_VAR([JAVAC_HEADER_GEN_OPTIONS], [Options passed to javac for JNI header generation])
+if test "x${JAVAC_HEADER_GEN_OPTIONS}" = "x"; then
+    AC_MSG_ERROR([JAVAC_HEADER_GEN_OPTIONS is required; set it with ./configure JAVAC_HEADER_GEN_OPTIONS=<options>])
+fi
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

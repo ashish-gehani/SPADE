@@ -593,7 +593,7 @@ ac_subst_vars='am__EXEEXT_FALSE
 am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
-JAVAC_OPTIONS
+JAVAC_HEADER_GEN_OPTIONS
 JAVA_HOME
 SPADE_BUILD_DIR
 SPADE_SRC_DIR
@@ -704,8 +704,7 @@ LDFLAGS
 LIBS
 CPPFLAGS
 SPADE_ROOT
-JAVA_HOME
-JAVAC_OPTIONS'
+JAVAC_HEADER_GEN_OPTIONS'
 
 
 # Initialize some variables set by options.
@@ -1345,10 +1344,8 @@ Some influential environment variables:
   CPPFLAGS    (Objective) C/C++ preprocessor flags, e.g. -I<include dir> if
               you have headers in a nonstandard directory <include dir>
   SPADE_ROOT  Path to SPADE root directory
-  JAVA_HOME   Path to JDK home directory; include/ and include/darwin/ are
-              used for JNI headers
-  JAVAC_OPTIONS
-              Extra options passed to javac
+  JAVAC_HEADER_GEN_OPTIONS
+              Options passed to javac for JNI header generation
 
 Use these variables to override the choices made by 'configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -4743,12 +4740,16 @@ SPADE_SRC_DIR="${SPADE_ROOT}/src"
 SPADE_BUILD_DIR="${SPADE_ROOT}/build"
 
 
-
+JAVA_HOME=`java -XshowSettings:all 2>&1 | awk '/java.home/{print $3}'`
 if test "x${JAVA_HOME}" = "x"; then
-    as_fn_error $? "JAVA_HOME is required; set it with ./configure JAVA_HOME=<path>" "$LINENO" 5
+    as_fn_error $? "could not determine JAVA_HOME from java -XshowSettings:all" "$LINENO" 5
 fi
 
 
+
+if test "x${JAVAC_HEADER_GEN_OPTIONS}" = "x"; then
+    as_fn_error $? "JAVAC_HEADER_GEN_OPTIONS is required; set it with ./configure JAVAC_HEADER_GEN_OPTIONS=<options>" "$LINENO" 5
+fi
 
 ac_config_files="$ac_config_files Makefile"
 

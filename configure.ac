@@ -2,7 +2,7 @@
 # Copyright (C) 2026 SRI International.
 
 AC_PREREQ([2.73])
-AC_INIT([spadeModule], [1.0])
+AC_INIT([spade], [1.0])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIRS([m4])
 AM_INIT_AUTOMAKE([1.18 -Wall -Werror foreign])
@@ -14,6 +14,22 @@ if test "x${SPADE_ROOT}" = "x"; then
     SPADE_ROOT=`pwd`
 fi
 export SPADE_ROOT
+
+AC_ARG_VAR([JAVAC_HEADER_GEN_OPTIONS], [Options passed to javac for JNI header generation (default: -Xlint:none -proc:none)])
+if test "x${JAVAC_HEADER_GEN_OPTIONS}" = "x"; then
+    JAVAC_HEADER_GEN_OPTIONS="-Xlint:none -proc:none"
+fi
+
+# Build the Java classpath and append it to JAVAC_HEADER_GEN_OPTIONS via an argfile.
+AC_MSG_CHECKING([Java classpath])
+java_cp=`"${SPADE_ROOT}/bin/classpath.sh"`
+if test "x${java_cp}" = "x"; then
+    AC_MSG_ERROR([failed to build Java classpath; ensure mvn is available and dependencies are resolved])
+fi
+AC_MSG_RESULT([ok])
+printf -- '-cp %s\n' "${java_cp}" > "${SPADE_ROOT}/build.java-cp.argfile"
+JAVAC_HEADER_GEN_OPTIONS="${JAVAC_HEADER_GEN_OPTIONS} @${SPADE_ROOT}/build.java-cp.argfile"
+export JAVAC_HEADER_GEN_OPTIONS
 
 case "${host_os}" in
     darwin*)
