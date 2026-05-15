@@ -20,5 +20,11 @@ fi
 SPADE_BUILD_DIR="${SPADE_ROOT}/build"
 AC_SUBST([SPADE_BUILD_DIR])
 
+AC_ARG_VAR([ANDROID_BUILD_DIR], [Directory for Android build artifacts (default: <builddir>/build)])
+if test "x${ANDROID_BUILD_DIR}" = "x"; then
+    ANDROID_BUILD_DIR="${ac_pwd}/build"
+fi
+AC_SUBST([ANDROID_BUILD_DIR])
+
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

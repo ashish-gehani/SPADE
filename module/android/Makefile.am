@@ -1,7 +1,7 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-ANDROID_BUILD_DIR     = build
+ANDROID_BUILD_DIR     = @ANDROID_BUILD_DIR@
 ANDROID_SPADE_JAR     = android-spade.jar
 ANDROID_INSTALL_LIBDIR = $(DESTDIR)$(prefix)/lib
 
