@@ -611,7 +611,6 @@ clean-local:
 			INSTALL_DIR="$(CURDIR)/$(KERNEL_MODULE_INSTALL_STAGING)" \
 			$(if $(KDIR),KDIR="$(KDIR)") \
 			clean; \
-		rm -rf "$(KERNEL_MODULE_BUILD_DIR)"; \
 	fi
 
 distclean-local: clean-local

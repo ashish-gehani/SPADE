@@ -1,5 +1,6 @@
 /.vscode
 build
+!Makefile
 *.mod
 *.mod.cmd
 *.o.cmd

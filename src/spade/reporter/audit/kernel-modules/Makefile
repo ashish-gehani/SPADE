@@ -324,7 +324,8 @@ clean:
 	$(MAKE) -C $(KDIR) M=$(CURDIR) clean
 	-rm -f $(GEN_BUILD_HASH_SRC_FILE)
 	-rm -f $(GEN_BUILD_HASH_CACHE_FILE)
-	-rm -rf $(BUILD_DIR)
+	-rm -f $(BUILD_DIR)/$(MAIN_MODULE_NAME).ko
+	-rm -f $(BUILD_DIR)/$(CONTROLLER_MODULE_NAME).ko
 	-rm -f $(TEST_USER_BIN)
 	-rm -f $(INSTALL_DIR)/$(MAIN_MODULE_NAME).ko
 	-rm -f $(INSTALL_DIR)/$(CONTROLLER_MODULE_NAME).ko
