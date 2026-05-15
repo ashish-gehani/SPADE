@@ -16,5 +16,11 @@ fi
 SPADE_SRC_DIR="${SPADE_ROOT}/src"
 AC_SUBST([SPADE_SRC_DIR])
 
+AC_ARG_VAR([AUDIT_BRIDGE_BUILD_DIR], [Directory for audit bridge build artifacts (default: <builddir>/build)])
+if test "x${AUDIT_BRIDGE_BUILD_DIR}" = "x"; then
+    AUDIT_BRIDGE_BUILD_DIR="${ac_pwd}/build"
+fi
+AC_SUBST([AUDIT_BRIDGE_BUILD_DIR])
+
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

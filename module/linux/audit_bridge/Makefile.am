@@ -1,7 +1,7 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-AUDIT_BRIDGE_BUILD_DIR  = build
+AUDIT_BRIDGE_BUILD_DIR  = @AUDIT_BRIDGE_BUILD_DIR@
 AUDIT_BRIDGE_BINARY     = spadeAuditBridge
 AUDIT_BRIDGE_C_SRC      = $(SPADE_SRC_DIR)/spade/reporter/spadeAuditBridge.c
 AUDIT_BRIDGE_INSTALL_BINDIR = $(DESTDIR)$(prefix)/bin
