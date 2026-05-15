@@ -617,6 +617,7 @@ am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
 JAVAC_HEADER_GEN_OPTIONS
+FUSE_BUILD_DIR
 SPADE_BUILD_DIR
 SPADE_SRC_DIR
 SPADE_ROOT
@@ -725,6 +726,7 @@ LDFLAGS
 LIBS
 CPPFLAGS
 SPADE_ROOT
+FUSE_BUILD_DIR
 JAVAC_HEADER_GEN_OPTIONS'
 
 
@@ -1365,6 +1367,8 @@ Some influential environment variables:
   CPPFLAGS    (Objective) C/C++ preprocessor flags, e.g. -I<include dir> if
               you have headers in a nonstandard directory <include dir>
   SPADE_ROOT  Path to SPADE root directory
+  FUSE_BUILD_DIR
+              Directory for FUSE build artifacts (default: <builddir>/build)
   JAVAC_HEADER_GEN_OPTIONS
               Options passed to javac for JNI header generation
 
@@ -4202,6 +4206,12 @@ fi
 SPADE_SRC_DIR="${SPADE_ROOT}/src"
 
 SPADE_BUILD_DIR="${SPADE_ROOT}/build"
+
+
+
+if test "x${FUSE_BUILD_DIR}" = "x"; then
+    FUSE_BUILD_DIR="${ac_pwd}/build"
+fi
 
 
 
