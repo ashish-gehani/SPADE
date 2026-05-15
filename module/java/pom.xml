@@ -517,6 +517,30 @@
         <inherited>false</inherited>
       </plugin>
 
+      <plugin>
+        <artifactId>maven-resources-plugin</artifactId>
+        <inherited>false</inherited>
+        <executions>
+          <execution>
+            <id>copy-quickgrail-readme</id>
+            <phase>process-resources</phase>
+            <goals><goal>copy-resources</goal></goals>
+            <configuration>
+              <outputDirectory>${spade.build.dir}/spade/query/quickgrail</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${spade.src.dir}/spade/query/quickgrail</directory>
+                  <includes>
+                    <include>README.md</include>
+                  </includes>
+                  <filtering>false</filtering>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
     </plugins>
 
   </build>

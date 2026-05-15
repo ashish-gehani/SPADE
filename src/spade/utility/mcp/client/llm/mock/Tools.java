@@ -34,12 +34,13 @@ public class Tools {
     public static final String READ_QUICKGRAIL_DOC = "read_quickgrail_doc";
 
     private static final String[] ALL = {
-        ADD_STORAGE, SET_STORAGE, LIST_STORAGES,
+        // ADD_STORAGE, // Disabled because Mock llm can add ridiculously many.
+        SET_STORAGE, LIST_STORAGES,
         PRINT_STORAGE, QUERY, READ_QUICKGRAIL_DOC
     };
-    private static final String[] STORAGE_NAMES  = { "Neo4j", "Quickstep", "PostgreSQL" };
+    private static final String[] STORAGE_NAMES  = { "PostgreSQL" };
     private static final String[] SAMPLE_QUERIES = {
-        "$base = $base.getVertex()", "$result = $base.getEdge()", "$base = $base.limit(10)"
+        "stat $base"
     };
 
     private final ObjectMapper mapper;

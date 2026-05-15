@@ -22,14 +22,8 @@ import java.util.Random;
 public class Text {
 
     private static final String[] RESPONSES = {
-        "I found the provenance graph for the requested process.",
-        "The storage has been configured successfully.",
-        "No matching vertices were found for the given query.",
-        "The QuickGrail query returned 42 edges.",
-        "The audit log shows 3 write operations on the file.",
-        "Provenance data is currently being collected.",
-        "The requested storage is not currently active.",
-        "I executed the query and retrieved the subgraph.",
+        "I am mock llm's text response number one.",
+        "I am mock llm's text response number two."
     };
 
     private final Random random = new Random();

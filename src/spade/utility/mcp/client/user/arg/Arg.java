@@ -26,6 +26,8 @@ public class Arg {
     private final String webHost;
     private final int webPort;
     private final LLMType llmType;
+    private final boolean verbose;
+    private final boolean onlyTools;
 
     public Arg(
         final String mcpUrl,
@@ -34,7 +36,9 @@ public class Arg {
         final UserClientMode userClientMode,
         final String webHost,
         final int webPort,
-        final LLMType llmType
+        final LLMType llmType,
+        final boolean verbose,
+        final boolean onlyTools
     ) {
         this.mcpUrl = mcpUrl;
         this.anthropicApiKey = anthropicApiKey;
@@ -43,6 +47,8 @@ public class Arg {
         this.webHost = webHost;
         this.webPort = webPort;
         this.llmType = llmType;
+        this.verbose = verbose;
+        this.onlyTools = onlyTools;
     }
 
     public String getMcpUrl() {
@@ -73,6 +79,14 @@ public class Arg {
         return llmType;
     }
 
+    public boolean isVerbose() {
+        return verbose;
+    }
+
+    public boolean isOnlyTools() {
+        return onlyTools;
+    }
+
     @Override
     public String toString() {
         return "Arg[mcpUrl=" + mcpUrl
@@ -81,6 +95,8 @@ public class Arg {
             + ", webHost=" + webHost
             + ", webPort=" + webPort
             + ", llmType=" + llmType.name
+            + ", verbose=" + verbose
+            + ", onlyTools=" + onlyTools
             + "]";
     }
 

@@ -36,7 +36,7 @@ public class Main {
         }
 
         final LLM llm = Factory.create(arg);
-        final MCPClient mcpClient = new MCPClient(arg.getMcpUrl(), llm);
+        final MCPClient mcpClient = new MCPClient(arg.getMcpUrl(), llm, arg.isVerbose());
         mcpClient.initialize();
 
         spade.utility.mcp.client.user.Factory.create(arg, mcpClient, llm).run();

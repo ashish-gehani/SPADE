@@ -37,8 +37,9 @@ public class MCPClient {
     private final McpSyncClient mcpClient;
     private final LLM llm;
     private final ChatHistory chatHistory;
+    private final boolean verbose;
 
-    public MCPClient(final String url, final LLM llm) {
+    public MCPClient(final String url, final LLM llm, final boolean verbose) {
         if (llm == null) {
             throw new IllegalArgumentException("NULL llm");
         }
@@ -49,6 +50,7 @@ public class MCPClient {
             .build();
         this.llm = llm;
         this.chatHistory = new ChatHistory();
+        this.verbose = verbose;
     }
 
     public McpSchema.InitializeResult initialize() {
@@ -96,6 +98,11 @@ public class MCPClient {
                     chatHistory.getMapper().convertValue(block.get("input"), Map.class);
 
                 final McpSchema.CallToolResult result = callTool(toolName, toolInput);
+
+                if (verbose) {
+                    System.err.println("[MCP] tool=" + toolName
+                        + " response=" + chatHistory.getMapper().writeValueAsString(result.content()));
+                }
 
                 final ObjectNode toolResult = chatHistory.getMapper().createObjectNode();
                 toolResult.put("type", "tool_result");

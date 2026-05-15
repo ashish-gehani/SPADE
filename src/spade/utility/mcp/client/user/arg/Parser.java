@@ -26,6 +26,8 @@ public class Parser {
     private static final String argWebHost          = "--webHost";
     private static final String argWebPort          = "--webPort";
     private static final String argLlmType          = "--llmType";
+    private static final String argVerbose          = "--verbose";
+    private static final String argOnlyTools        = "--only-tools";
 
     public static void printHelp() {
         System.err.println("Usage:");
@@ -36,6 +38,8 @@ public class Parser {
         System.err.println("  " + argUserClientMode  + "=(cli|web)              (required) User client mode");
         System.err.println("  " + argWebHost         + "=<host>                 (required for web) Web server host");
         System.err.println("  " + argWebPort         + "=<port>                 (required for web) Web server port");
+        System.err.println("  " + argVerbose         + "                        (optional) Enable verbose output");
+        System.err.println("  " + argOnlyTools       + "                     (optional, mock only) LLM only respond with tool calls");
     }
 
     public static Arg parse(final String[] args) throws Exception {
@@ -50,6 +54,8 @@ public class Parser {
         String webHost = null;
         String rawWebPort = null;
         String rawLlmType = null;
+        boolean verbose = false;
+        boolean onlyTools = false;
 
         for (final String arg : args) {
             if (arg == null) {
@@ -69,6 +75,10 @@ public class Parser {
                 rawWebPort = arg.substring(argWebPort.length() + 1).trim();
             } else if (arg.startsWith(argLlmType + "=")) {
                 rawLlmType = arg.substring(argLlmType.length() + 1).trim();
+            } else if (arg.equals(argVerbose)) {
+                verbose = true;
+            } else if (arg.equals(argOnlyTools)) {
+                onlyTools = true;
             }
         }
 
@@ -128,7 +138,7 @@ public class Parser {
             }
         }
 
-        return new Arg(mcpUrl, anthropicApiKey, anthropicModel, userClientMode, webHost, webPort, llmType);
+        return new Arg(mcpUrl, anthropicApiKey, anthropicModel, userClientMode, webHost, webPort, llmType, verbose, onlyTools);
     }
 
 }

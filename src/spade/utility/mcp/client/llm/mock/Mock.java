@@ -32,6 +32,12 @@ public class Mock extends LLM {
     private final Tools tools = new Tools(mapper);
     private final Text text = new Text();
     private final java.util.Random random = new java.util.Random();
+    private final boolean onlyTools;
+    private boolean pendingTextResponse = false;
+
+    public Mock(final boolean onlyTools) {
+        this.onlyTools = onlyTools;
+    }
 
     private void log(final String msg) {
         System.err.println("[" + Level.INFO.getName() + "] [" + Mock.class.getName() + "] " + msg);
@@ -39,12 +45,26 @@ public class Mock extends LLM {
 
     @Override
     public JsonNode respond(final ArrayNode messages, final ArrayNode tools) {
-        log("respond: messages=" + messages.size() + " tools=" + tools.size());
+        // log("respond: messages=" + messages.size() + " tools=" + tools.size());
+        if (onlyTools) {
+            return respondOnlyTools();
+        }
         if (random.nextBoolean()) {
             log("respond: chose tool call");
             return respondWithRandomToolCall();
         }
         log("respond: chose text");
+        return respondText(text.randomResponse());
+    }
+
+    private JsonNode respondOnlyTools() {
+        if (!pendingTextResponse) {
+            pendingTextResponse = true;
+            log("respond: chose tool call (only-tools)");
+            return respondWithRandomToolCall();
+        }
+        pendingTextResponse = false;
+        log("respond: chose text (only-tools stop)");
         return respondText(text.randomResponse());
     }
 

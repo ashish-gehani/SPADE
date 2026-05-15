@@ -27,7 +27,7 @@ public class Factory {
     public static LLM create(final Arg arg) throws Exception {
         switch (arg.getLlmType()) {
             case ANTHROPIC: return new Anthropic(arg.getAnthropicApiKey(), arg.getAnthropicModel());
-            case MOCK:      return new Mock();
+            case MOCK:      return new Mock(arg.isOnlyTools());
             default: throw new Exception("Unknown LLM type: " + arg.getLlmType().name);
         }
     }

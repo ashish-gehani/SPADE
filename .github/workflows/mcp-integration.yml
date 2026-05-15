@@ -1,0 +1,98 @@
+# MCP integration test: start SPADE, configure storage and analyzer, run the MCP
+# server over HTTP, and exercise it with the mock LLM CLI client.
+
+name: MCP Integration Test
+
+on:
+  push:
+    branches: [ "mcp-dev" ]
+  pull_request:
+    branches: [ "mcp-dev" ]
+
+jobs:
+  mcp-test:
+    runs-on: macos-26
+
+    env:
+      JVM_MEM_MIN: 512m
+      JVM_MEM_MAX: 4g
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: maven
+
+    - name: Install dependencies
+      run: brew install autoconf automake git maven pkg-config
+
+    - name: Configure
+      run: ./configure
+
+    - name: Build
+      run: make
+
+    - name: Install PostgreSQL
+      run: bin/installPostgres
+
+    - name: Start SPADE
+      run: bin/spade start
+
+    - name: Wait for SPADE control port
+      run: |
+        for i in $(seq 1 30); do
+          nc -z localhost 19999 && echo "SPADE control port ready" && break
+          echo "Waiting for SPADE... ($i/30)"
+          sleep 2
+        done
+        nc -z localhost 19999 || (echo "SPADE control port never became ready" && exit 1)
+
+    - name: Configure SPADE (add analyzer and storage)
+      run: |
+        printf 'add analyzer CommandLine\nadd storage PostgreSQL\nset storage PostgreSQL\nexit\n' \
+          | bin/spade control
+
+    - name: Start MCP server
+      run: |
+        bin/spade mcp -- \
+          --spadeHost=localhost \
+          --spadeQueryPort=19998 \
+          --spadeControlPort=19999 \
+          --mcpServerMode=http \
+          --mcpHttpHostName=localhost \
+          --mcpHttpHostPort=3000 \
+          --mcpHttpHostEndpoint=/mcp > mcp-server.log 2>&1 &
+        echo $! > mcp-server.pid
+        echo "MCP server started (PID $(cat mcp-server.pid))"
+
+    - name: Wait for MCP server
+      run: |
+        for i in $(seq 1 30); do
+          nc -z localhost 3000 && echo "MCP server ready" && break
+          echo "Waiting for MCP server... ($i/30)"
+          sleep 2
+        done
+        nc -z localhost 3000 || (echo "MCP server never became ready" && cat mcp-server.log && exit 1)
+
+    - name: Run MCP client test
+      run: |
+        echo 'test message' | ./bin/spade run-util -- spade.utility.mcp.client.Main \
+          --mcpUrl=http://localhost:3000/mcp \
+          --llmType=mock \
+          --userClientMode=cli \
+          --verbose \
+          --only-tools
+
+    - name: MCP client test output header
+      run: |
+        echo '======== MCP CLIENT TEST ========'
+        echo 'Output shows the mock tool picked by the LLM, sent to the MCP server, and the MCP server response for that tool.'
+        echo '================================='
+
+    - name: Show MCP server log on failure
+      if: failure()
+      run: cat mcp-server.log 2>/dev/null || true
