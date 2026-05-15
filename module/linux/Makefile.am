@@ -1,13 +1,9 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-DIST_SUBDIRS = audit_bridge
-SUBDIRS = audit_bridge
-
-if HAVE_KERNEL_MODULES
-DIST_SUBDIRS += kernel_module
-SUBDIRS += kernel_module
-endif
+DIST_SUBDIRS = audit_bridge kernel_module
+SUBDIRS = audit_bridge kernel_module
+export KERNEL_MODULES
 
 if HAVE_FUSE
 DIST_SUBDIRS += fuse

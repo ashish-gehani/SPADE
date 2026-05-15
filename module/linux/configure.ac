@@ -33,16 +33,11 @@ AM_CONDITIONAL([HAVE_LLVM], [test "x${have_llvm}" = "xyes"])
 
 # --- kernel_module-specific variables ---
 
-AC_ARG_ENABLE([kernel-modules],
-    [AS_HELP_STRING([--enable-kernel-modules], [build Linux kernel modules (default: no)])],
-    [enable_kernel_modules=${enableval}],
-    [enable_kernel_modules=no])
-AM_CONDITIONAL([HAVE_KERNEL_MODULES], [test "x${enable_kernel_modules}" = "xyes"])
+AC_ARG_VAR([KERNEL_MODULES], [Set to 'true' to build Linux kernel modules])
+AC_SUBST([KERNEL_MODULES])
 
 AC_CONFIG_SUBDIRS([audit_bridge])
-if test "x${enable_kernel_modules}" = "xyes"; then
-    AC_CONFIG_SUBDIRS([kernel_module])
-fi
+AC_CONFIG_SUBDIRS([kernel_module])
 if test "x${have_llvm}" = "xyes"; then
     AC_CONFIG_SUBDIRS([llvm])
 fi
