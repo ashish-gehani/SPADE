@@ -20,6 +20,15 @@ if test "x${prefix}" = "xNONE"; then
     prefix="${SPADE_ROOT}"
 fi
 
+JAVA_BUILD_DIR="${SPADE_ROOT}/lib"
+ANDROID_BUILD_DIR="${SPADE_ROOT}/lib"
+AUDIT_BRIDGE_BUILD_DIR="${SPADE_ROOT}/bin"
+FUSE_BUILD_DIR="${SPADE_ROOT}/lib"
+KERNEL_MODULE_BUILD_DIR="${SPADE_ROOT}/lib/kernel-modules"
+LLVM_BUILD_DIR="${SPADE_ROOT}/lib"
+OPENBSM_BUILD_DIR="${SPADE_ROOT}/bin"
+export JAVA_BUILD_DIR ANDROID_BUILD_DIR AUDIT_BRIDGE_BUILD_DIR FUSE_BUILD_DIR KERNEL_MODULE_BUILD_DIR LLVM_BUILD_DIR OPENBSM_BUILD_DIR
+
 AC_ARG_VAR([JAVAC_HEADER_GEN_OPTIONS], [Options passed to javac for JNI header generation (default: -Xlint:none -proc:none)])
 if test "x${JAVAC_HEADER_GEN_OPTIONS}" = "x"; then
     JAVAC_HEADER_GEN_OPTIONS="-Xlint:none -proc:none"
