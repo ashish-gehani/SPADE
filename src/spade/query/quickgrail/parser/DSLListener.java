@@ -1,5 +1,4 @@
-// Generated from DSL.g4 by ANTLR 4.7
-
+// Generated from DSL.g4 by ANTLR 4.13.2
 package spade.query.quickgrail.parser;
 
 import spade.query.quickgrail.types.*;
