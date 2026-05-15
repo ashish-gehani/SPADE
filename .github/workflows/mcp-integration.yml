@@ -41,8 +41,8 @@ jobs:
     - name: Build
       run: make KERNEL_MODULES=true
 
-    - name: Install PostgreSQL
-      run: bin/installPostgres
+    - name: Install Neo4j
+      run: bin/manage-neo4j.sh install
 
     - name: Start SPADE
       run: bin/spade start
@@ -58,7 +58,7 @@ jobs:
 
     - name: Configure SPADE (add analyzer and storage)
       run: |
-        printf 'add analyzer CommandLine\nadd storage PostgreSQL\nset storage PostgreSQL\nexit\n' \
+        printf 'add analyzer CommandLine\nadd storage Neo4j\nset storage Neo4j\nexit\n' \
           | bin/spade control
 
     - name: Start MCP server
