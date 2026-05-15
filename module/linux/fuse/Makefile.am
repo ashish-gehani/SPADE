@@ -32,7 +32,8 @@ uninstall-local:
 	rm -f "$(FUSE_INSTALL_LIBDIR)/$(FUSE_BINARY)"
 
 clean-local:
-	rm -rf "$(FUSE_BUILD_DIR)"
+	rm -f "$(FUSE_BUILD_DIR)/$(FUSE_BINARY)"
+	rm -f "$(FUSE_HEADER_DIR)"/*.h
 
 distclean-local: clean-local
 
