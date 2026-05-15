@@ -15,6 +15,12 @@
 
 `JAVA_HOME` is derived per-submodule via `java -XshowSettings:all`; it is not yet declared in root configure.ac (see action items).
 
+### Module-specific (submodule configure.ac)
+
+| Variable     | Default              | Module          | Effect                                                                          |
+|--------------|----------------------|-----------------|---------------------------------------------------------------------------------|
+| `JAVA_DEBUG` | (unset → no effect)  | `module/java`   | Set to `1` or `true` to compile Java classes with full debug info (`-g`)        |
+
 ### Derived (not user-facing)
 
 | Variable               | Derived from           | Used by                                 |
@@ -27,6 +33,7 @@
 | `FUSE_CFLAGS`          | `pkg-config fuse`      | linux/fuse, mac/fuse                    |
 | `LLVM_CXXFLAGS`        | `llvm-config`          | linux/llvm, mac/llvm                    |
 | `LIBBSM_LIBS`          | `AC_CHECK_LIB bsm`     | mac/openbsm                             |
+| `MAVEN_DEBUG_FLAGS`    | `JAVA_DEBUG`           | module/java                             |
 
 ## Module build outputs and install paths
 

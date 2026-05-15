@@ -7,7 +7,7 @@ JAVA_INSTALL_LIBDIR = $(DESTDIR)$(prefix)/lib
 
 all-local:
 	@$(MKDIR_P) "$(JAVA_BUILD_DIR)"
-	$(MVN) -Dspade.root="$(SPADE_ROOT)" \
+	$(MVN) $(MAVEN_DEBUG_FLAGS) -Dspade.root="$(SPADE_ROOT)" \
 		-Dspade.lib.dir="$(abs_builddir)/$(JAVA_BUILD_DIR)" \
 		compile
 

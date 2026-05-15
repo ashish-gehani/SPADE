@@ -591,6 +591,8 @@ PACKAGE_URL=''
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+MAVEN_DEBUG_FLAGS
+JAVA_DEBUG
 SPADE_ROOT
 MVN
 JAR
@@ -675,7 +677,8 @@ enable_silent_rules
       ac_precious_vars='build_alias
 host_alias
 target_alias
-SPADE_ROOT'
+SPADE_ROOT
+JAVA_DEBUG'
 
 
 # Initialize some variables set by options.
@@ -1304,6 +1307,7 @@ Optional Features:
 
 Some influential environment variables:
   SPADE_ROOT  Path to SPADE root directory
+  JAVA_DEBUG  Build Java with Maven debug output (set to 1 or true)
 
 Use these variables to override the choices made by 'configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2999,6 +3003,13 @@ fi
 if test "x${SPADE_ROOT}" = "x"; then
     as_fn_error $? "SPADE_ROOT is required; set it with ./configure SPADE_ROOT=<path>" "$LINENO" 5
 fi
+
+
+MAVEN_DEBUG_FLAGS=
+if test "x${JAVA_DEBUG}" = "x1" || test "x${JAVA_DEBUG}" = "xtrue"; then
+    MAVEN_DEBUG_FLAGS="-Dmaven.compiler.debug=true -Dmaven.compiler.debuglevel=lines,vars,source"
+fi
+
 
 ac_config_files="$ac_config_files Makefile"
 

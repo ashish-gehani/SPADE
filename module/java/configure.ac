@@ -37,5 +37,12 @@ if test "x${SPADE_ROOT}" = "x"; then
     AC_MSG_ERROR([SPADE_ROOT is required; set it with ./configure SPADE_ROOT=<path>])
 fi
 
+AC_ARG_VAR([JAVA_DEBUG], [Build Java with Maven debug output (set to 1 or true)])
+MAVEN_DEBUG_FLAGS=
+if test "x${JAVA_DEBUG}" = "x1" || test "x${JAVA_DEBUG}" = "xtrue"; then
+    MAVEN_DEBUG_FLAGS="-Dmaven.compiler.debug=true -Dmaven.compiler.debuglevel=lines,vars,source"
+fi
+AC_SUBST([MAVEN_DEBUG_FLAGS])
+
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

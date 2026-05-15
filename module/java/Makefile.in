@@ -171,10 +171,12 @@ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 JAR = @JAR@
 JAVA = @JAVA@
 JAVAC = @JAVAC@
+JAVA_DEBUG = @JAVA_DEBUG@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
+MAVEN_DEBUG_FLAGS = @MAVEN_DEBUG_FLAGS@
 MKDIR_P = @MKDIR_P@
 MVN = @MVN@
 PACKAGE = @PACKAGE@
@@ -582,7 +584,7 @@ uninstall-am: uninstall-local
 
 all-local:
 	@$(MKDIR_P) "$(JAVA_BUILD_DIR)"
-	$(MVN) -Dspade.root="$(SPADE_ROOT)" \
+	$(MVN) $(MAVEN_DEBUG_FLAGS) -Dspade.root="$(SPADE_ROOT)" \
 		-Dspade.lib.dir="$(abs_builddir)/$(JAVA_BUILD_DIR)" \
 		compile
 
