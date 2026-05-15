@@ -20,7 +20,7 @@ uninstall-local:
 
 clean-local:
 	$(MVN) -Dspade.root="$(SPADE_ROOT)" clean
-	rm -rf "$(JAVA_BUILD_DIR)"
+	rm -f "$(JAVA_JAR)"
 
 distclean-local: clean-local
 
