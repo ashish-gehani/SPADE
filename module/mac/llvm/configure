@@ -614,6 +614,7 @@ PACKAGE_URL=''
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+LLVM_BUILD_DIR
 SPADE_SRC_DIR
 SPADE_ROOT
 LLVM_CXXFLAGS
@@ -697,7 +698,8 @@ enable_silent_rules
       ac_precious_vars='build_alias
 host_alias
 target_alias
-SPADE_ROOT'
+SPADE_ROOT
+LLVM_BUILD_DIR'
 
 
 # Initialize some variables set by options.
@@ -1326,6 +1328,8 @@ Optional Features:
 
 Some influential environment variables:
   SPADE_ROOT  Path to SPADE root directory
+  LLVM_BUILD_DIR
+              Directory for LLVM build artifacts (default: <builddir>/build)
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2649,6 +2653,12 @@ if test "x${SPADE_ROOT}" = "x"; then
     as_fn_error $? "SPADE_ROOT is required; set it with ./configure SPADE_ROOT=<path>" "$LINENO" 5
 fi
 SPADE_SRC_DIR="${SPADE_ROOT}/src"
+
+
+
+if test "x${LLVM_BUILD_DIR}" = "x"; then
+    LLVM_BUILD_DIR="${ac_pwd}/build"
+fi
 
 
 ac_config_files="$ac_config_files Makefile"

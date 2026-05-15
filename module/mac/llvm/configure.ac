@@ -34,5 +34,11 @@ fi
 SPADE_SRC_DIR="${SPADE_ROOT}/src"
 AC_SUBST([SPADE_SRC_DIR])
 
+AC_ARG_VAR([LLVM_BUILD_DIR], [Directory for LLVM build artifacts (default: <builddir>/build)])
+if test "x${LLVM_BUILD_DIR}" = "x"; then
+    LLVM_BUILD_DIR="${ac_pwd}/build"
+fi
+AC_SUBST([LLVM_BUILD_DIR])
+
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
