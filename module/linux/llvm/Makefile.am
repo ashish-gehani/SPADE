@@ -1,7 +1,7 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-LLVM_BUILD_DIR      = build
+LLVM_BUILD_DIR      = @LLVM_BUILD_DIR@
 LLVM_SRC_DIR        = $(SPADE_SRC_DIR)/spade/reporter/llvm
 LLVM_INSTALL_LIBDIR = $(DESTDIR)$(prefix)/lib
 
