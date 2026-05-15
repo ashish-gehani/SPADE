@@ -167,6 +167,7 @@ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 JAR = @JAR@
 JAVA = @JAVA@
 JAVAC = @JAVAC@
+JAVA_BUILD_DIR = @JAVA_BUILD_DIR@
 JAVA_DEBUG = @JAVA_DEBUG@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
@@ -228,7 +229,6 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-JAVA_BUILD_DIR = build
 JAVA_JAR = $(JAVA_BUILD_DIR)/spade.jar
 JAVA_INSTALL_LIBDIR = $(DESTDIR)$(prefix)/lib
 all: all-am
@@ -572,7 +572,7 @@ uninstall-am: uninstall-local
 all-local:
 	@$(MKDIR_P) "$(JAVA_BUILD_DIR)"
 	$(MVN) $(MAVEN_DEBUG_FLAGS) -Dspade.root="$(SPADE_ROOT)" \
-		-Dspade.lib.dir="$(abs_builddir)/$(JAVA_BUILD_DIR)" \
+		-Dspade.lib.dir="$(JAVA_BUILD_DIR)" \
 		compile
 
 install-exec-local:

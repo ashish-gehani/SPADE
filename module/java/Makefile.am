@@ -1,14 +1,14 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-JAVA_BUILD_DIR      = build
+JAVA_BUILD_DIR      = @JAVA_BUILD_DIR@
 JAVA_JAR            = $(JAVA_BUILD_DIR)/spade.jar
 JAVA_INSTALL_LIBDIR = $(DESTDIR)$(prefix)/lib
 
 all-local:
 	@$(MKDIR_P) "$(JAVA_BUILD_DIR)"
 	$(MVN) $(MAVEN_DEBUG_FLAGS) -Dspade.root="$(SPADE_ROOT)" \
-		-Dspade.lib.dir="$(abs_builddir)/$(JAVA_BUILD_DIR)" \
+		-Dspade.lib.dir="$(JAVA_BUILD_DIR)" \
 		compile
 
 install-exec-local:

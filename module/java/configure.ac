@@ -37,6 +37,12 @@ if test "x${SPADE_ROOT}" = "x"; then
     AC_MSG_ERROR([SPADE_ROOT is required; set it with ./configure SPADE_ROOT=<path>])
 fi
 
+AC_ARG_VAR([JAVA_BUILD_DIR], [Directory for Java build artifacts (default: <builddir>/build)])
+if test "x${JAVA_BUILD_DIR}" = "x"; then
+    JAVA_BUILD_DIR="${ac_pwd}/build"
+fi
+AC_SUBST([JAVA_BUILD_DIR])
+
 AC_ARG_VAR([JAVA_DEBUG], [Build Java with Maven debug output (set to 1 or true)])
 MAVEN_DEBUG_FLAGS=
 if test "x${JAVA_DEBUG}" = "x1" || test "x${JAVA_DEBUG}" = "xtrue"; then
