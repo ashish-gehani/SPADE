@@ -123,9 +123,10 @@ am__can_run_installinfo = \
   esac
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 am__DIST_COMMON = $(srcdir)/Makefile.in \
-	$(top_srcdir)/build-aux/install-sh \
-	$(top_srcdir)/build-aux/missing README.md build-aux/install-sh \
-	build-aux/missing
+	$(top_srcdir)/../../build-aux/install-sh \
+	$(top_srcdir)/../../build-aux/missing ../../build-aux/compile \
+	../../build-aux/config.guess ../../build-aux/config.sub \
+	../../build-aux/install-sh ../../build-aux/missing README.md
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -592,7 +593,7 @@ uninstall-local:
 	rm -f "$(ANDROID_INSTALL_LIBDIR)/$(ANDROID_SPADE_JAR)"
 
 clean-local:
-	rm -rf "$(ANDROID_BUILD_DIR)"
+	rm -f "$(ANDROID_BUILD_DIR)/$(ANDROID_SPADE_JAR)"
 
 distclean-local: clean-local
 

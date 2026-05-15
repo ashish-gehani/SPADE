@@ -20,7 +20,7 @@ uninstall-local:
 	rm -f "$(ANDROID_INSTALL_LIBDIR)/$(ANDROID_SPADE_JAR)"
 
 clean-local:
-	rm -rf "$(ANDROID_BUILD_DIR)"
+	rm -f "$(ANDROID_BUILD_DIR)/$(ANDROID_SPADE_JAR)"
 
 distclean-local: clean-local
 
