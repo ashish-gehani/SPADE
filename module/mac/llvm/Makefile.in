@@ -620,7 +620,9 @@ uninstall-local:
 	rm -f "$(LLVM_INSTALL_LIBDIR)/llvmClose.o"
 
 clean-local:
-	rm -rf "$(LLVM_BUILD_DIR)"
+	rm -f "$(LLVM_BUILD_DIR)/llvmTracer.o" "$(LLVM_BUILD_DIR)/llvmTracer.dylib"
+	rm -f "$(LLVM_BUILD_DIR)/llvmBridge.o"
+	rm -f "$(LLVM_BUILD_DIR)/llvmClose.o"
 
 distclean-local: clean-local
 
