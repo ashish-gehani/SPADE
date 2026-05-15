@@ -1,7 +1,7 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-OPENBSM_BUILD_DIR  = build
+OPENBSM_BUILD_DIR  = @OPENBSM_BUILD_DIR@
 OPENBSM_MAC_OUTPUT = $(OPENBSM_BUILD_DIR)/spadeOpenBSM
 OPENBSM_MAC_C_SRC  = $(SPADE_SRC_DIR)/spade/reporter/spadeOpenBSM.c
 

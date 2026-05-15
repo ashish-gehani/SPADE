@@ -32,5 +32,11 @@ fi
 SPADE_SRC_DIR="${SPADE_ROOT}/src"
 AC_SUBST([SPADE_SRC_DIR])
 
+AC_ARG_VAR([OPENBSM_BUILD_DIR], [Directory for OpenBSM build artifacts (default: <builddir>/build)])
+if test "x${OPENBSM_BUILD_DIR}" = "x"; then
+    OPENBSM_BUILD_DIR="${ac_pwd}/build"
+fi
+AC_SUBST([OPENBSM_BUILD_DIR])
+
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
