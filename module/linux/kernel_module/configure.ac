@@ -24,6 +24,11 @@ AC_SUBST([KERNEL_MODULE_TARGET])
 
 AC_ARG_VAR([KDIR], [Kernel build directory (default: /lib/modules/$(uname -r)/build)])
 AC_ARG_VAR([MOD_DEFINES], [Additional preprocessor defines passed to the kernel module build])
+AC_ARG_VAR([KERNEL_MODULE_BUILD_DIR], [Directory for kernel module build artifacts (default: <builddir>/build)])
+if test "x${KERNEL_MODULE_BUILD_DIR}" = "x"; then
+    KERNEL_MODULE_BUILD_DIR="${ac_pwd}/build"
+fi
+AC_SUBST([KERNEL_MODULE_BUILD_DIR])
 
 kernel_ver=`uname -r`
 kernel_major=`echo "${kernel_ver}" | cut -d. -f1`

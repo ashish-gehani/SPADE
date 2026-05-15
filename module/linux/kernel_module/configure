@@ -618,6 +618,7 @@ KERNEL_MODULE_SUPPORTED_FALSE
 KERNEL_MODULE_SUPPORTED_TRUE
 kheaders_path
 kernel_ver
+KERNEL_MODULE_BUILD_DIR
 MOD_DEFINES
 KDIR
 KERNEL_MODULE_TARGET
@@ -704,7 +705,8 @@ target_alias
 SPADE_ROOT
 KERNEL_MODULES_DEBUG
 KDIR
-MOD_DEFINES'
+MOD_DEFINES
+KERNEL_MODULE_BUILD_DIR'
 
 
 # Initialize some variables set by options.
@@ -1339,6 +1341,9 @@ Some influential environment variables:
   KDIR        Kernel build directory (default: /lib/modules/$(uname -r)/build)
   MOD_DEFINES Additional preprocessor defines passed to the kernel module
               build
+  KERNEL_MODULE_BUILD_DIR
+              Directory for kernel module build artifacts (default:
+              <builddir>/build)
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2518,6 +2523,11 @@ fi
 
 
 
+
+
+if test "x${KERNEL_MODULE_BUILD_DIR}" = "x"; then
+    KERNEL_MODULE_BUILD_DIR="${ac_pwd}/build"
+fi
 
 
 kernel_ver=`uname -r`
