@@ -629,7 +629,11 @@ uninstall-local:
 	rm -f "$(LLVM_INSTALL_LIBDIR)/LibcWrapper.so"
 
 clean-local:
-	rm -rf "$(LLVM_BUILD_DIR)"
+	rm -f "$(LLVM_BUILD_DIR)/llvmTracer.o" "$(LLVM_BUILD_DIR)/llvmTracer.d"
+	rm -f "$(LLVM_BUILD_DIR)/LLVMTrace.so"
+	rm -f "$(LLVM_BUILD_DIR)/flush.bc"
+	rm -f "$(LLVM_BUILD_DIR)/LibcWrapper.o"
+	rm -f "$(LLVM_BUILD_DIR)/LibcWrapper.so"
 
 distclean-local: clean-local
 
