@@ -1,14 +1,15 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-OPENBSM_MAC_OUTPUT = build/spadeOpenBSM
-OPENBSM_MAC_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/spadeOpenBSM.c
+OPENBSM_BUILD_DIR  = build
+OPENBSM_MAC_OUTPUT = $(OPENBSM_BUILD_DIR)/spadeOpenBSM
+OPENBSM_MAC_C_SRC  = $(SPADE_SRC_DIR)/spade/reporter/spadeOpenBSM.c
 
 OPENBSM_MAC_INSTALL_BINDIR = $(DESTDIR)$(prefix)/bin
 
 if HAVE_LIBBSM
 all-local:
-	$(MKDIR_P) build
+	$(MKDIR_P) "$(OPENBSM_BUILD_DIR)"
 	$(CC) -o $(OPENBSM_MAC_OUTPUT) -lbsm $(OPENBSM_MAC_C_SRC)
 
 install-exec-local:

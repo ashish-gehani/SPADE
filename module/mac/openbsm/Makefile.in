@@ -243,7 +243,8 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-OPENBSM_MAC_OUTPUT = build/spadeOpenBSM
+OPENBSM_BUILD_DIR = build
+OPENBSM_MAC_OUTPUT = $(OPENBSM_BUILD_DIR)/spadeOpenBSM
 OPENBSM_MAC_C_SRC = $(SPADE_SRC_DIR)/spade/reporter/spadeOpenBSM.c
 OPENBSM_MAC_INSTALL_BINDIR = $(DESTDIR)$(prefix)/bin
 all: all-am
@@ -594,7 +595,7 @@ uninstall-am: uninstall-local
 
 
 @HAVE_LIBBSM_TRUE@all-local:
-@HAVE_LIBBSM_TRUE@	$(MKDIR_P) build
+@HAVE_LIBBSM_TRUE@	$(MKDIR_P) "$(OPENBSM_BUILD_DIR)"
 @HAVE_LIBBSM_TRUE@	$(CC) -o $(OPENBSM_MAC_OUTPUT) -lbsm $(OPENBSM_MAC_C_SRC)
 
 @HAVE_LIBBSM_TRUE@install-exec-local:
