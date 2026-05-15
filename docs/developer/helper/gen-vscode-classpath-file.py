@@ -13,33 +13,30 @@ import tempfile
 # constants
 CLASSPATH_HEADER = '<?xml version="1.0" encoding="UTF-8"?>'
 SRC_ENTRY        = '\t<classpathentry kind="src" path="src"/>'
-JRE_ENTRY        = '\t<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>'
+JRE_ENTRY        = '\t<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-21"/>'
 OUTPUT_ENTRY     = '\t<classpathentry kind="output" path="build"/>'
 
 # globals
-ROOT   = ""
+POM    = ""
 OUTPUT = ""
 
 
 def parse_args():
-    global ROOT, OUTPUT
+    global POM, OUTPUT
     parser = argparse.ArgumentParser(
         prog="gen-vscode-classpath-file",
         description="Generate a VSCode .classpath file from Maven dependencies.",
     )
-    parser.add_argument("--root",   default=os.getcwd(),  help="SPADE project root (default: current directory)")
-    parser.add_argument("--output", default=None,         help="Output .classpath path (default: <root>/.classpath)")
+    parser.add_argument("--pom",    required=True, help="Path to pom.xml")
+    parser.add_argument("--output", required=True, help="Output .classpath path")
     args = parser.parse_args()
-    ROOT   = args.root
-    OUTPUT = args.output if args.output else os.path.join(ROOT, ".classpath")
+    POM    = args.pom
+    OUTPUT = args.output
 
 
 def validate_args():
-    if not os.path.isdir(ROOT):
-        print(f"Error: --root '{ROOT}' is not a directory")
-        sys.exit(1)
-    if not os.path.isfile(os.path.join(ROOT, "pom.xml")):
-        print(f"Error: no pom.xml found in '{ROOT}'")
+    if not os.path.isfile(POM):
+        print(f"Error: --pom '{POM}' is not a file")
         sys.exit(1)
 
 
@@ -47,8 +44,7 @@ def resolve_classpath():
     with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
         cp_file = f.name
     result = subprocess.run(
-        ["mvn", "-q", "dependency:build-classpath", f"-Dmdep.outputFile={cp_file}"],
-        cwd=ROOT,
+        ["mvn", "-q", "-f", POM, "dependency:build-classpath", f"-Dmdep.outputFile={cp_file}"],
         capture_output=True,
         text=True,
     )
