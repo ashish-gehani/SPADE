@@ -3,11 +3,11 @@
 name: CI with Make
 
 on:
-  # workflow_dispatch:
-  push:
-    branches: [ "mcp-dev" ]
-  pull_request:
-    branches: [ "mcp-dev" ]
+  workflow_dispatch:
+  # push:
+  #   branches: [ "mcp-dev" ]
+  # pull_request:
+  #   branches: [ "mcp-dev" ]
 
 jobs:
   build:

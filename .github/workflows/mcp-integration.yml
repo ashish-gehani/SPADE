@@ -11,7 +11,7 @@ on:
 
 jobs:
   mcp-test:
-    runs-on: macos-26
+    runs-on: ubuntu-24.04
 
     env:
       JVM_MEM_MIN: 512m
@@ -28,13 +28,18 @@ jobs:
         cache: maven
 
     - name: Install dependencies
-      run: brew install autoconf automake git maven pkg-config
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          auditd autoconf automake bison clang cmake curl flex fuse \
+          git ifupdown libaudit-dev libfuse-dev \
+          lsof maven pkg-config unzip uthash-dev wget
 
     - name: Configure
       run: ./configure
 
     - name: Build
-      run: make
+      run: make KERNEL_MODULES=true
 
     - name: Install PostgreSQL
       run: bin/installPostgres
