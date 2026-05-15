@@ -40,6 +40,12 @@ AC_SUBST([SPADE_SRC_DIR])
 SPADE_BUILD_DIR="${SPADE_ROOT}/build"
 AC_SUBST([SPADE_BUILD_DIR])
 
+AC_ARG_VAR([FUSE_BUILD_DIR], [Directory for FUSE build artifacts (default: <builddir>/build)])
+if test "x${FUSE_BUILD_DIR}" = "x"; then
+    FUSE_BUILD_DIR="${ac_pwd}/build"
+fi
+AC_SUBST([FUSE_BUILD_DIR])
+
 AC_ARG_VAR([JAVAC_HEADER_GEN_OPTIONS], [Options passed to javac for JNI header generation])
 if test "x${JAVAC_HEADER_GEN_OPTIONS}" = "x"; then
     AC_MSG_ERROR([JAVAC_HEADER_GEN_OPTIONS is required; set it with ./configure JAVAC_HEADER_GEN_OPTIONS=<options>])

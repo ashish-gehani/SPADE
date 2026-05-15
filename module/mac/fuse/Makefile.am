@@ -1,7 +1,7 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-FUSE_BUILD_DIR      = build
+FUSE_BUILD_DIR      = @FUSE_BUILD_DIR@
 FUSE_BINARY         = libMacFUSE.jnilib
 FUSE_JAVA_SRC       = $(SPADE_SRC_DIR)/spade/reporter/MacFUSE.java
 FUSE_C_SRC          = $(SPADE_SRC_DIR)/spade/reporter/libMacFUSE.c
