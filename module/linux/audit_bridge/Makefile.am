@@ -19,7 +19,7 @@ uninstall-local:
 	rm -f "$(AUDIT_BRIDGE_INSTALL_BINDIR)/$(AUDIT_BRIDGE_BINARY)"
 
 clean-local:
-	rm -rf "$(AUDIT_BRIDGE_BUILD_DIR)"
+	rm -f "$(AUDIT_BRIDGE_BUILD_DIR)/$(AUDIT_BRIDGE_BINARY)"
 
 distclean-local: clean-local
 
