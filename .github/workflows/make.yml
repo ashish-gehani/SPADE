@@ -3,11 +3,11 @@
 name: CI with Make
 
 on:
-  workflow_dispatch:
-  # push:
-  #   branches: [ "mcp-build-dev" ]
-  # pull_request:
-  #   branches: [ "mcp-build-dev" ]
+  # workflow_dispatch:
+  push:
+    branches: [ "mcp-dev" ]
+  pull_request:
+    branches: [ "mcp-dev" ]
 
 jobs:
   build:
@@ -33,7 +33,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y \
-          auditd bison clang cmake curl flex fuse \
+          auditd autoconf automake bison clang cmake curl flex fuse \
           git ifupdown libaudit-dev libfuse-dev linux-headers-`uname -r` \
           lsof maven pkg-config unzip uthash-dev wget
 
@@ -41,10 +41,15 @@ jobs:
       if: runner.os == 'macOS'
       shell: bash
       run: |
-        brew install git maven pkg-config
+        brew install autoconf automake git maven pkg-config
 
     - name: Configure
       run: ./configure
 
-    - name: Build
+    - name: Build (Linux)
+      if: runner.os == 'Linux'
+      run: make KERNEL_MODULES=true
+
+    - name: Build (macOS)
+      if: runner.os == 'macOS'
       run: make
