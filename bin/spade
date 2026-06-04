@@ -20,8 +20,7 @@ SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
 SPADE_SERVER_PID_FILE="${SPADE_ROOT}/spade.pid"
 
 JAVALIBPATH="${SPADE_ROOT}/lib/"
-CLASSPATH_SCRIPT="${SPADE_ROOT}/bin/classpath.sh"
-CLASSPATH_FILE="${SPADE_ROOT}/runtime.java-cp.argfile"
+SPADE_JAR="${SPADE_ROOT}/lib/spade.jar"
 
 JVM_SERVER_MEM_MIN_DEFAULT="8G"
 JVM_SERVER_MEM_MAX_DEFAULT="16G"
@@ -66,11 +65,11 @@ function get_jvm_non_server_flags() {
 }
 
 function build_java_server_cmd() {
-    echo "java $(get_jvm_server_flags) -Djava.library.path=${JAVALIBPATH} @${CLASSPATH_FILE}"
+    echo "java $(get_jvm_server_flags) -Djava.library.path=${JAVALIBPATH} -cp ${SPADE_JAR}"
 }
 
 function build_java_non_server_cmd() {
-    echo "java $(get_jvm_non_server_flags) -Djava.library.path=${JAVALIBPATH} @${CLASSPATH_FILE}"
+    echo "java $(get_jvm_non_server_flags) -Djava.library.path=${JAVALIBPATH} -cp ${SPADE_JAR}"
 }
 
 function build_jvm_debug_remote_flags() {
@@ -79,32 +78,9 @@ function build_jvm_debug_remote_flags() {
     fi
 }
 
-function build_classpath_file() {
-    mkdir -p "${SPADE_ROOT}/build"
-    if [[ $? -ne 0 ]]; then
-        log "Failed to create build directory"
-        return 1
-    fi
-    local classpath
-    classpath="$("${CLASSPATH_SCRIPT}")"
-    if [[ $? -ne 0 ]]; then
-        log "Failed to generate classpath"
-        return 1
-    fi
-    printf -- '-cp\n%s\n' "${classpath}" > "${CLASSPATH_FILE}"
-    if [[ $? -ne 0 ]]; then
-        log "Failed to write classpath file"
-        return 1
-    fi
-}
-
 function prepare_java_env() {
     adjust_for_cygwin
     build_jvm_debug_remote_flags
-    build_classpath_file
-    if [[ $? -ne 0 ]]; then
-        return 1
-    fi
 }
 
 # server

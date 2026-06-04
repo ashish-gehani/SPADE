@@ -7,7 +7,7 @@ Maven builds Java code only. Non-Java modules (C libraries, kernel modules, LLVM
 The single Maven POM is at `module/java/pom.xml`. It compiles all Java sources and produces `lib/spade.jar`. `module/java/Makefile.am` drives it:
 
 ```
-make          # runs ./configure then make, which calls mvn compile
+make          # runs ./configure then make, which calls mvn package
 ```
 
 For common Maven commands see [HOW-TO.md](HOW-TO.md).
@@ -22,44 +22,35 @@ The native module build (formerly coordinated by Maven via `maven-antrun-plugin`
 
 ## Make Integration
 
-`module/java/Makefile.am` invokes Maven with two overrides so that paths resolve correctly regardless of where `mvn` is run from:
+`module/java/Makefile.am` invokes Maven with one override so that paths resolve correctly regardless of where `mvn` is run from:
 
 ```
-mvn -Dspade.root=<SPADE_ROOT> -Dspade.lib.dir=<build-dir> compile
+mvn -Dspade.root=<SPADE_ROOT> package
 ```
 
-- `-Dspade.root` overrides `${maven.multiModuleProjectDirectory}` so all `spade.*` paths resolve to the SPADE project root.
-- `-Dspade.lib.dir` redirects the output jar into the local `build/` directory; `make install` then copies it to the final destination.
+- `-Dspade.root` overrides the default `${project.basedir}/../../` so all `spade.*` paths resolve to the SPADE project root.
 
 ## The POM
 
 `module/java/pom.xml` owns:
 
 - All Java dependencies (resolved from Maven Central and the project-local repository at `lib/`).
-- Shared properties (`spade.root`, `spade.build.dir`, `spade.src.dir`, etc.) and `javac.options`.
-- `<pluginManagement>` — plugin versions and the `maven-dependency-plugin:build-classpath` execution.
+- Shared properties (`spade.root`, `spade.build.dir`, `spade.src.dir`, etc.).
+- `<pluginManagement>` — plugin version pinning.
 - Java compilation via `maven-compiler-plugin`, `maven-jar-plugin`, and `maven-clean-plugin`.
 
 ### Shared properties
 
 ```xml
-<javac>${java.home}/bin/javac</javac>
-<cc>/usr/bin/cc</cc>
-<jar>${java.home}/bin/jar</jar>
-
-<spade.root>${maven.multiModuleProjectDirectory}</spade.root>
-<spade.build.dir>${spade.root}/build</spade.build.dir>
-<spade.lib.dir>${spade.root}/lib</spade.lib.dir>
+<spade.root>${project.basedir}/../../</spade.root>
 <spade.src.dir>${spade.root}/src</spade.src.dir>
-<spade.bin.dir>${spade.root}/bin</spade.bin.dir>
-<spade.jar>${spade.lib.dir}/spade.jar</spade.jar>
-
-<!-- override via -Djavac.user.options=... -->
-<javac.user.options></javac.user.options>
-<javac.options>${javac.user.options} -Xlint:none -proc:none -cp ${spade.build.dir}:${spade.javac.cp}</javac.options>
+<spade.src.resource.dir>${spade.src.dir}/resources</spade.src.resource.dir>
+<spade.build.dir>${spade.root}/build</spade.build.dir>
+<spade.build.native.include.dir>${spade.build.dir}/native/include</spade.build.native.include.dir>
+<spade.lib.dir>${spade.root}/lib</spade.lib.dir>
 ```
 
-`spade.root` resolves to the project root when overridden via `-Dspade.root` (as `make` does). `spade.javac.cp` is populated at build time by `maven-dependency-plugin:build-classpath` during the `initialize` phase.
+`spade.root` defaults to the project root relative to `module/java/`. Override it via `-Dspade.root` (as `make` does) when invoking Maven from a different directory.
 
 ## Adding a Local JAR Dependency
 

@@ -2,11 +2,13 @@
 
 ## Remote debugging
 
-Build with debug symbols:
+Build with debug symbols by passing `JAVA_DEBUG=1` to `configure` (run from `module/java/`):
 
 ```bash
-mvn compile -Dmaven.compiler.debug=true -Dmaven.compiler.debuglevel=lines,vars,source
+cd module/java && JAVA_DEBUG=1 ./configure SPADE_ROOT=../../ && make
 ```
+
+`JAVA_DEBUG=1` causes `configure` to bake `-Dmaven.compiler.debug=true -Dmaven.compiler.debuglevel=lines,vars,source` into the generated `Makefile`, so `make` passes them to Maven automatically.
 
 Start SPADE with `--debug-remote-port`:
 
@@ -24,8 +26,7 @@ Add the following configuration to `.vscode/launch.json`:
     "hostName": "localhost",
     "port": 8686,
     "sourcePaths": [
-        "${workspaceFolder}/src",
-        "${workspaceFolder}/src/test/java"
+        "${workspaceFolder}/src"
     ]
 }
 ```

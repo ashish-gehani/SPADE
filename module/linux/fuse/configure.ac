@@ -15,12 +15,6 @@ if test "x${JAVA_HOME}" = "x"; then
 fi
 AC_SUBST([JAVA_HOME])
 
-JAVAC="${JAVA_HOME}/bin/javac"
-if test ! -x "${JAVAC}"; then
-    AC_MSG_WARN([javac not found at ${JAVAC}; linuxfuse build will not work])
-fi
-AC_SUBST([JAVAC])
-
 AC_PATH_PROG([PKG_CONFIG], [pkg-config], [:])
 if test "x${PKG_CONFIG}" = "x:"; then
     AC_MSG_ERROR([pkg-config not found; it is required to locate fuse])
@@ -35,21 +29,12 @@ AC_ARG_VAR([SPADE_ROOT], [Path to SPADE root directory])
 if test "x${SPADE_ROOT}" = "x"; then
     AC_MSG_ERROR([SPADE_ROOT is required; set it with ./configure SPADE_ROOT=<path>])
 fi
-SPADE_SRC_DIR="${SPADE_ROOT}/src"
-AC_SUBST([SPADE_SRC_DIR])
-SPADE_BUILD_DIR="${SPADE_ROOT}/build"
-AC_SUBST([SPADE_BUILD_DIR])
 
 AC_ARG_VAR([FUSE_BUILD_DIR], [Directory for FUSE build artifacts (default: <builddir>/build)])
 if test "x${FUSE_BUILD_DIR}" = "x"; then
     FUSE_BUILD_DIR="${ac_pwd}/build"
 fi
 AC_SUBST([FUSE_BUILD_DIR])
-
-AC_ARG_VAR([JAVAC_HEADER_GEN_OPTIONS], [Options passed to javac for JNI header generation])
-if test "x${JAVAC_HEADER_GEN_OPTIONS}" = "x"; then
-    AC_MSG_ERROR([JAVAC_HEADER_GEN_OPTIONS is required; set it with ./configure JAVAC_HEADER_GEN_OPTIONS=<options>])
-fi
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT

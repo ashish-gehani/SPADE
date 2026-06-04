@@ -6,7 +6,7 @@ SPADE uses an autoconf/automake build system. `configure.ac` and `Makefile.am` a
 
 The build has two responsibilities:
 
-1. **Java compilation** — `module/java/Makefile.am` invokes Maven (`mvn compile`) to compile all Java sources and produce `lib/spade.jar`.
+1. **Java compilation** — `module/java/Makefile.am` invokes Maven (`mvn package`) to compile all Java sources and produce `lib/spade.jar`.
 2. **Native module builds** — each native submodule under `module/linux/` or `module/mac/` has its own `configure.ac` and `Makefile.am` that build it independently.
 
 ## Workflow
@@ -41,7 +41,6 @@ All variables can be passed on the `./configure` command line.
 | Variable                   | Default                                           | Description |
 |----------------------------|---------------------------------------------------|-------------|
 | `SPADE_ROOT`               | `pwd`                                             | Project root; all derived paths are based on this |
-| `JAVAC_HEADER_GEN_OPTIONS` | `-Xlint:none -proc:none @build.java-cp.argfile`   | Options passed to `javac` for JNI header generation |
 | `KERNEL_MODULES`           | (unset)                                           | Set to `true` to enable Linux kernel module build |
 | `JAVA_HOME`                | derived via `java -XshowSettings:all`             | JDK home; override if auto-detection fails |
 | `KERNEL_MODULES_DEBUG`     | `false`                                           | Set to `true` to build debug kernel modules |
@@ -67,8 +66,8 @@ Makefile.am               SUBDIRS: module/java + module/mac or module/linux
                           clean-local: removes cfg/ssl, log, tmp
 
 module/java/              Java build (always included)
-  configure.ac            checks java, javac (≥21), jar, mvn; requires SPADE_ROOT
-  Makefile.am             mvn compile → build/spade.jar; install → lib/spade.jar
+  configure.ac            checks java, javac (= 21), jar, mvn; requires SPADE_ROOT
+  Makefile.am             mvn package → build/spade.jar; install → lib/spade.jar
 
 module/linux/             Linux native modules (on Linux)
   configure.ac            detects fuse, llvm; --enable-kernel-modules
@@ -88,7 +87,7 @@ module/mac/               macOS native modules (on macOS)
 
 ## Java Build
 
-`module/java/Makefile.am` drives the Java build. At configure time, `bin/classpath.sh` resolves the full Maven dependency classpath and writes it to `build.java-cp.argfile`. This file is appended to `JAVAC_HEADER_GEN_OPTIONS` and exported to all submodules that need JNI header generation (`linux/fuse`, `mac/fuse`).
+`module/java/Makefile.am` drives the Java build. `all-local` calls `mvn package -Dspade.root=<SPADE_ROOT>`, which compiles all Java sources and writes native JNI headers to `build/native/include/`. Native submodules (`linux/fuse`, `mac/fuse`) include that directory directly; they do not invoke `javac` themselves.
 
 ## Platform Detection
 
@@ -133,7 +132,7 @@ Maven's own build directory (`module/java/build/`) is removed by `mvn clean`, wh
 
 ## Adding a Submodule
 
-1. Create `module/<platform>/<name>/configure.ac` and `Makefile.am` following the patterns in `module/HOWTO.md`.
+1. Create `module/<platform>/<name>/configure.ac` and `Makefile.am` following the patterns in `docs/developer/guide/make/MODULE.md`.
 2. Add detection logic and a conditional `AC_CONFIG_SUBDIRS` in `module/<platform>/configure.ac`.
 3. Add `AM_CONDITIONAL` and update `DIST_SUBDIRS`/`SUBDIRS` in `module/<platform>/Makefile.am`.
 4. Run `autoreconf -fi` in the submodule directory, then each parent up to the root.

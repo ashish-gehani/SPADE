@@ -16,18 +16,19 @@ Created by hand. Points `AC_CONFIG_AUX_DIR` and `AC_CONFIG_MACRO_DIRS` at the sh
 `module/linux/fuse/configure.ac`:
 
 ```autoconf
-AC_PREREQ([2.73])
+AC_PREREQ([2.71])
 AC_INIT([spadeLinuxFUSE], [1.0])
 AC_CONFIG_AUX_DIR([../../../build-aux])
 AC_CONFIG_MACRO_DIRS([../../../m4])
-AM_INIT_AUTOMAKE([1.18 -Wall -Werror foreign])
+AM_INIT_AUTOMAKE([1.16 -Wall -Werror foreign])
 
 AC_PROG_CC
 
-AC_PATH_PROG([JAVAC], [javac], [:])
-if test "x${JAVAC}" = "x:"; then
-    AC_MSG_WARN([javac not found; linuxfuse build will not work])
+JAVA_HOME=`java -XshowSettings:all 2>&1 | awk '/java.home/{print $3}'`
+if test "x${JAVA_HOME}" = "x"; then
+    AC_MSG_ERROR([could not determine JAVA_HOME from java -XshowSettings:all])
 fi
+AC_SUBST([JAVA_HOME])
 
 AC_PATH_PROG([PKG_CONFIG], [pkg-config], [:])
 if test "x${PKG_CONFIG}" = "x:"; then
@@ -43,21 +44,12 @@ AC_ARG_VAR([SPADE_ROOT], [Path to SPADE root directory])
 if test "x${SPADE_ROOT}" = "x"; then
     AC_MSG_ERROR([SPADE_ROOT is required; set it with ./configure SPADE_ROOT=<path>])
 fi
-SPADE_SRC_DIR="${SPADE_ROOT}/src"
-AC_SUBST([SPADE_SRC_DIR])
-SPADE_BUILD_DIR="${SPADE_ROOT}/build"
-AC_SUBST([SPADE_BUILD_DIR])
 
-JAVA_HOME=`java -XshowSettings:all 2>&1 | awk '/java.home/{print $3}'`
-if test "x${JAVA_HOME}" = "x"; then
-    AC_MSG_ERROR([could not determine JAVA_HOME from java -XshowSettings:all])
+AC_ARG_VAR([FUSE_BUILD_DIR], [Directory for FUSE build artifacts (default: <builddir>/build)])
+if test "x${FUSE_BUILD_DIR}" = "x"; then
+    FUSE_BUILD_DIR="${ac_pwd}/build"
 fi
-AC_SUBST([JAVA_HOME])
-
-AC_ARG_VAR([JAVAC_HEADER_GEN_OPTIONS], [Options passed to javac for JNI header generation])
-if test "x${JAVAC_HEADER_GEN_OPTIONS}" = "x"; then
-    AC_MSG_ERROR([JAVAC_HEADER_GEN_OPTIONS is required; set it with ./configure JAVAC_HEADER_GEN_OPTIONS=<options>])
-fi
+AC_SUBST([FUSE_BUILD_DIR])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
@@ -65,8 +57,9 @@ AC_OUTPUT
 
 Key rules:
 - Use `AC_PATH_PROG` for tools; warn if optional, error if required.
-- Derive paths (`SPADE_SRC_DIR`, `SPADE_BUILD_DIR`) from `SPADE_ROOT` via `AC_SUBST`; do not declare them as `AC_ARG_VAR`.
-- Use `AC_ARG_VAR` only for variables the user sets directly (e.g. `SPADE_ROOT`, `JAVAC_HEADER_GEN_OPTIONS`).
+- Derive `JAVA_HOME` inline via `java -XshowSettings:all`; do not declare it as `AC_ARG_VAR`.
+- Use `AC_ARG_VAR` for variables the user may set directly (e.g. `SPADE_ROOT`, `FUSE_BUILD_DIR`); provide a sensible default if unset rather than erroring.
+- Do not derive paths (e.g. `SPADE_SRC_DIR`) as separate `AC_SUBST` variables when the Makefile can compose them inline from `$(SPADE_ROOT)`.
 - After any change to `configure.ac` or `Makefile.am`, regenerate with `autoreconf -fi`.
 
 ### `Makefile.am`
@@ -83,23 +76,19 @@ Define these targets:
 `module/linux/fuse/Makefile.am`:
 
 ```makefile
-FUSE_BUILD_DIR      = build
+SPADE_BUILD_NATIVE_INCLUDE_DIR = $(SPADE_ROOT)/build/native/include
+FUSE_BUILD_DIR      = @FUSE_BUILD_DIR@
 FUSE_BINARY         = libLinuxFUSE.so
-FUSE_JAVA_SRC       = $(SPADE_SRC_DIR)/spade/reporter/LinuxFUSE.java
-FUSE_C_SRC          = $(SPADE_SRC_DIR)/spade/reporter/libLinuxFUSE.c
-FUSE_HEADER_DIR     = $(FUSE_BUILD_DIR)
+FUSE_C_SRC          = $(SPADE_ROOT)/src/spade/reporter/libLinuxFUSE.c
 FUSE_INSTALL_LIBDIR = $(DESTDIR)$(prefix)/lib
 
 all-local:
 	@$(MKDIR_P) "$(FUSE_BUILD_DIR)"
-	$(JAVAC) $(JAVAC_HEADER_GEN_OPTIONS) \
-		-h "$(FUSE_HEADER_DIR)" \
-		"$(FUSE_JAVA_SRC)"
 	$(CC) -fPIC -shared \
 		-Wl,-soname,$(FUSE_BINARY) \
 		-I"$(JAVA_HOME)/include" \
 		-I"$(JAVA_HOME)/include/linux" \
-		-I"$(FUSE_HEADER_DIR)" \
+		-I"$(SPADE_BUILD_NATIVE_INCLUDE_DIR)" \
 		-Wall \
 		"$(FUSE_C_SRC)" \
 		$(FUSE_CFLAGS) \
@@ -107,14 +96,14 @@ all-local:
 
 install-exec-local:
 	$(MKDIR_P) "$(FUSE_INSTALL_LIBDIR)"
-	$(INSTALL_PROGRAM) "$(FUSE_BUILD_DIR)/$(FUSE_BINARY)" \
+	$(INSTALL_DATA) "$(FUSE_BUILD_DIR)/$(FUSE_BINARY)" \
 		"$(FUSE_INSTALL_LIBDIR)/$(FUSE_BINARY)"
 
 uninstall-local:
 	rm -f "$(FUSE_INSTALL_LIBDIR)/$(FUSE_BINARY)"
 
 clean-local:
-	rm -rf "$(FUSE_BUILD_DIR)"
+	rm -f "$(FUSE_BUILD_DIR)/$(FUSE_BINARY)"
 
 distclean-local: clean-local
 
@@ -122,7 +111,9 @@ maintainer-clean-local: distclean-local
 	rm -rf configure configure~ Makefile.in aclocal.m4 build-aux autom4te.cache
 ```
 
-Use `$(INSTALL_PROGRAM)` for executables and shared libraries; use `$(INSTALL_DATA)` for data files and non-executable objects.
+JNI headers (`SPADE_BUILD_NATIVE_INCLUDE_DIR`) are produced by `mvn package` in `module/java` and must exist before the fuse module is built — the root build order guarantees this via `SUBDIRS`.
+
+Use `$(INSTALL_PROGRAM)` for standalone executables and plugin shared libraries; use `$(INSTALL_DATA)` for JNI shared libraries (`.so`, `.jnilib`) loaded by the JVM and for data files.
 
 ### `.gitignore`
 

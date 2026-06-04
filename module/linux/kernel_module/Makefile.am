@@ -52,8 +52,6 @@ clean-local:
 					$(if $(KDIR),KDIR="$(KDIR)") \
 					clean; \
 			fi; \
-		else \
-			echo "ERROR: kernel module build requires x86_64 and kernel in [5.4, 6.17]; got @kernel_ver@ on `uname -m`" >&2; exit 1; \
 		fi; \
 	fi
 

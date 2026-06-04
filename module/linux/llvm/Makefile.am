@@ -33,6 +33,7 @@ all-local:
 		"$(LLVM_SRC_DIR)/flushModule.c" \
 		-o "$(LLVM_BUILD_DIR)/flush.bc"
 	$(CLANGXX) $(LLVM_CXXFLAGS_ALL) -c -MMD -MP \
+		-MF "$(LLVM_BUILD_DIR)/LibcWrapper.d" \
 		-MT "$(LLVM_BUILD_DIR)/LibcWrapper.o" \
 		"$(LLVM_SRC_DIR)/LibcWrapper.cpp" \
 		-o "$(LLVM_BUILD_DIR)/LibcWrapper.o"
@@ -55,7 +56,7 @@ clean-local:
 	rm -f "$(LLVM_BUILD_DIR)/llvmTracer.o" "$(LLVM_BUILD_DIR)/llvmTracer.d"
 	rm -f "$(LLVM_BUILD_DIR)/LLVMTrace.so"
 	rm -f "$(LLVM_BUILD_DIR)/flush.bc"
-	rm -f "$(LLVM_BUILD_DIR)/LibcWrapper.o"
+	rm -f "$(LLVM_BUILD_DIR)/LibcWrapper.o" "$(LLVM_BUILD_DIR)/LibcWrapper.d"
 	rm -f "$(LLVM_BUILD_DIR)/LibcWrapper.so"
 
 distclean-local: clean-local

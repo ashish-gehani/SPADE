@@ -29,22 +29,6 @@ LLVM_BUILD_DIR="${SPADE_ROOT}/lib"
 OPENBSM_BUILD_DIR="${SPADE_ROOT}/bin"
 export JAVA_BUILD_DIR ANDROID_BUILD_DIR AUDIT_BRIDGE_BUILD_DIR FUSE_BUILD_DIR KERNEL_MODULE_BUILD_DIR LLVM_BUILD_DIR OPENBSM_BUILD_DIR
 
-AC_ARG_VAR([JAVAC_HEADER_GEN_OPTIONS], [Options passed to javac for JNI header generation (default: -Xlint:none -proc:none)])
-if test "x${JAVAC_HEADER_GEN_OPTIONS}" = "x"; then
-    JAVAC_HEADER_GEN_OPTIONS="-Xlint:none -proc:none"
-fi
-
-# Build the Java classpath and append it to JAVAC_HEADER_GEN_OPTIONS via an argfile.
-AC_MSG_CHECKING([Java classpath])
-java_cp=`"${SPADE_ROOT}/bin/classpath.sh"`
-if test "x${java_cp}" = "x"; then
-    AC_MSG_ERROR([failed to build Java classpath; ensure mvn is available and dependencies are resolved])
-fi
-AC_MSG_RESULT([ok])
-printf -- '-cp %s\n' "${java_cp}" > "${SPADE_ROOT}/build.java-cp.argfile"
-JAVAC_HEADER_GEN_OPTIONS="${JAVAC_HEADER_GEN_OPTIONS} @${SPADE_ROOT}/build.java-cp.argfile"
-export JAVAC_HEADER_GEN_OPTIONS
-
 case "${host_os}" in
     darwin*)
         platform=mac

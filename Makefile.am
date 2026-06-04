@@ -13,7 +13,7 @@ SUBDIRS += module/linux
 endif
 
 setup:
-	pushd "$(SPADE_ROOT)" && { bin/manage-neo4j.sh install; ret=$$?; popd; exit $$ret; }
+	cd "$(SPADE_ROOT)" && bin/manage-neo4j.sh install
 	$(SPADE_ROOT)/bin/keys/generatekeys.sh
 
 .PHONY: setup
@@ -28,4 +28,4 @@ clean-local:
 	rm -rf "$(SPADE_ROOT)/tmp"
 
 maintainer-clean-local:
-	rm -rf configure configure~ Makefile.in aclocal.m4 build-aux autom4te.cache conftest.* condefs.h
+	rm -rf configure configure~ Makefile.in aclocal.m4 build-aux autom4te.cache conftest.* confdefs.h

@@ -7,7 +7,6 @@
 | Variable                   | Default                                                     | Used by                               |
 |----------------------------|-------------------------------------------------------------|---------------------------------------|
 | `SPADE_ROOT`               | `pwd`                                                       | all                                   |
-| `JAVAC_HEADER_GEN_OPTIONS` | `-Xlint:none -proc:none @$SPADE_ROOT/build.java-cp.argfile` | linux/fuse, mac/fuse                  |
 | `KERNEL_MODULES`           | (unset → kernel modules disabled)                           | linux/kernel_module (via --enable)    |
 | `KERNEL_MODULES_DEBUG`     | `false`                                                     | linux/kernel_module                   |
 | `KDIR`                     | `/lib/modules/$(uname -r)/build`                            | linux/kernel_module                   |
@@ -61,6 +60,3 @@ The root `configure.ac` defaults `prefix` to `SPADE_ROOT`, so `make install` pla
 
 1. Add `AC_ARG_VAR` for `JAVA_HOME` in root `configure.ac`; guard derivation in
    `linux/fuse` and `mac/fuse` with: `if test "x${JAVA_HOME}" = "x"`
-
-2. Add `AC_SUBST([KDIR])` and `AC_SUBST([MOD_DEFINES])` in `linux/kernel_module/configure.ac`
-   so `./configure KDIR=...` flows into the Makefile without needing `make KDIR=...`.

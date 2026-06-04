@@ -7,7 +7,7 @@
   <groupId>io.github.spade</groupId>
   <artifactId>spade</artifactId>
   <version>${revision}</version>
-  <packaging>pom</packaging>
+  <packaging>jar</packaging>
 
   <name>spade</name>
   <description>Support for Provenance Auditing in Distributed Environments.</description>
@@ -40,30 +40,20 @@
   </developers>
 
   <properties>
-    <revision>1</revision>
+    <revision>2.0</revision>
 
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>21</maven.compiler.source>
     <maven.compiler.target>21</maven.compiler.target>
 
-    <javac>${java.home}/bin/javac</javac>
-    <cc>/usr/bin/cc</cc>
-    <jar>${java.home}/bin/jar</jar>
-
-    <spade.root>${maven.multiModuleProjectDirectory}</spade.root>
-    <spade.build.dir>${spade.root}/build</spade.build.dir>
-    <spade.lib.dir>${spade.root}/lib</spade.lib.dir>
+    <spade.root>${project.basedir}/../../</spade.root>
     <spade.src.dir>${spade.root}/src</spade.src.dir>
-    <spade.bin.dir>${spade.root}/bin</spade.bin.dir>
-    <spade.jar>${spade.lib.dir}/spade.jar</spade.jar>
     <spade.src.resource.dir>${spade.src.dir}/resources</spade.src.resource.dir>
-    <spade.test.src.dir>${spade.src.dir}/test/java</spade.test.src.dir>
-    <spade.test.build.dir>${spade.build.dir}/test-classes</spade.test.build.dir>
+    <spade.build.dir>${spade.root}/build</spade.build.dir>
+    <spade.build.native.include.dir>${spade.build.dir}/native/include</spade.build.native.include.dir>
+    <spade.lib.dir>${spade.root}/lib</spade.lib.dir>
 
-    <!-- spade.javac.cp is populated at runtime by maven-dependency-plugin (build-classpath) -->
-    <!-- override via -Djavac.user.options=... -->
-    <javac.user.options></javac.user.options>
-    <javac.options>${javac.user.options} -Xlint:none -proc:none -cp ${spade.build.dir}:${spade.javac.cp}</javac.options>
+    <spade.local.repository.url>file://${spade.root}/lib</spade.local.repository.url>
   </properties>
 
 
@@ -170,7 +160,6 @@
       <artifactId>h2</artifactId>
       <version>1.4.187</version>
     </dependency>
-
 
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
@@ -366,17 +355,17 @@
   <build>
     <sourceDirectory>${spade.src.dir}</sourceDirectory>
     <outputDirectory>${spade.build.dir}</outputDirectory>
-    <testSourceDirectory>${spade.test.src.dir}</testSourceDirectory>
-    <testOutputDirectory>${spade.test.build.dir}</testOutputDirectory>
 
     <resources>
       <resource>
+        <filtering>false</filtering>
         <directory>${spade.src.dir}</directory>
         <includes>
           <include>spade/query/quickgrail/README.md</include>
         </includes>
       </resource>
       <resource>
+        <filtering>false</filtering>
         <directory>${spade.src.resource.dir}</directory>
       </resource>
     </resources>
@@ -386,10 +375,6 @@
         <plugin>
           <artifactId>maven-clean-plugin</artifactId>
           <version>3.4.0</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-resources-plugin</artifactId>
-          <version>3.3.1</version>
         </plugin>
         <plugin>
           <artifactId>maven-compiler-plugin</artifactId>
@@ -404,46 +389,18 @@
           <version>3.1.2</version>
         </plugin>
         <plugin>
-          <artifactId>maven-antrun-plugin</artifactId>
-          <version>3.1.0</version>
-        </plugin>
-        <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
           <version>3.5.5</version>
         </plugin>
         <plugin>
-          <groupId>org.codehaus.mojo</groupId>
-          <artifactId>exec-maven-plugin</artifactId>
-          <version>3.6.3</version>
-        </plugin>
-        <plugin>
           <artifactId>maven-dependency-plugin</artifactId>
           <version>3.8.1</version>
-          <executions>
-            <!-- Workaround: child modules that do a custom build (e.g. JNI, LLVM) need the Java classpath. Maven properties set by a plugin goal are module-scoped, so this must run per-module rather than once at the root. -->
-            <execution>
-              <id>build-classpath</id>
-              <phase>initialize</phase>
-              <goals><goal>build-classpath</goal></goals>
-              <configuration>
-                <outputProperty>spade.javac.cp</outputProperty>
-                <includeScope>compile</includeScope>
-                <silent>true</silent>
-              </configuration>
-            </execution>
-          </executions>
         </plugin>
       </plugins>
     </pluginManagement>
 
     <plugins>
 
-      <!-- inherited by all child modules; populates spade.javac.cp for javac.options -->
-      <plugin>
-        <artifactId>maven-dependency-plugin</artifactId>
-      </plugin>
-
-<!-- compile and jar steps are root-only; child modules must not inherit them -->
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <inherited>false</inherited>
@@ -463,6 +420,8 @@
           <compilerArgs>
             <arg>-Xlint:none</arg>
             <arg>-proc:none</arg>
+            <arg>-h</arg>
+            <arg>${spade.build.native.include.dir}</arg>
           </compilerArgs>
           <excludes>
             <exclude>spade/utility/Daemonizer.java</exclude>
@@ -472,22 +431,18 @@
 
       <plugin>
         <artifactId>maven-jar-plugin</artifactId>
-        <inherited>false</inherited>
-        <executions>
-          <execution>
-            <id>default-jar</id>
-            <phase>none</phase>
-          </execution>
-          <execution>
-            <id>jar-spade</id>
-            <phase>compile</phase>
-            <goals><goal>jar</goal></goals>
-            <configuration>
-              <outputDirectory>${spade.lib.dir}</outputDirectory>
-              <finalName>spade</finalName>
-            </configuration>
-          </execution>
-        </executions>
+        <configuration>
+          <archive>
+            <manifest>
+              <addClasspath>true</addClasspath>
+              <classpathPrefix>${settings.localRepository}/</classpathPrefix>
+              <classpathLayoutType>repository</classpathLayoutType>
+            </manifest>
+            <manifestEntries>
+              <mode>local-development</mode>
+            </manifestEntries>
+          </archive>
+        </configuration>
       </plugin>
 
       <plugin>
@@ -497,13 +452,10 @@
           <filesets>
             <fileset>
               <directory>${spade.lib.dir}</directory>
-              <includes><include>spade.jar</include></includes>
+              <includes><include>spade.${project.packaging}</include></includes>
             </fileset>
             <fileset>
               <directory>${spade.build.dir}</directory>
-            </fileset>
-            <fileset>
-              <directory>${spade.test.build.dir}</directory>
             </fileset>
             <fileset>
               <directory>${project.build.directory}</directory>
@@ -513,29 +465,26 @@
       </plugin>
 
       <plugin>
-        <artifactId>maven-surefire-plugin</artifactId>
-        <inherited>false</inherited>
-      </plugin>
-
-      <plugin>
-        <artifactId>maven-resources-plugin</artifactId>
+        <artifactId>maven-dependency-plugin</artifactId>
         <inherited>false</inherited>
         <executions>
           <execution>
-            <id>copy-quickgrail-readme</id>
-            <phase>process-resources</phase>
-            <goals><goal>copy-resources</goal></goals>
+            <id>copy-final-artifact</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy</goal>
+            </goals>
             <configuration>
-              <outputDirectory>${spade.build.dir}/spade/query/quickgrail</outputDirectory>
-              <resources>
-                <resource>
-                  <directory>${spade.src.dir}/spade/query/quickgrail</directory>
-                  <includes>
-                    <include>README.md</include>
-                  </includes>
-                  <filtering>false</filtering>
-                </resource>
-              </resources>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>${project.groupId}</groupId>
+                  <artifactId>${project.artifactId}</artifactId>
+                  <version>${project.version}</version>
+                  <type>${project.packaging}</type>
+                  <destFileName>spade.${project.packaging}</destFileName>
+                </artifactItem>
+              </artifactItems>
+              <outputDirectory>${spade.lib.dir}</outputDirectory>
             </configuration>
           </execution>
         </executions>
@@ -548,7 +497,7 @@
   <repositories>
     <repository>
       <id>spade-local-jar</id>
-      <url>file://${spade.root}/lib</url>
+      <url>${spade.local.repository.url}</url>
     </repository>
   </repositories>
 
