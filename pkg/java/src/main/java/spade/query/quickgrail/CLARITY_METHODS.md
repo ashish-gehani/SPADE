@@ -218,3 +218,105 @@ to exist, they just have nothing to extract without it.
   boundaries are reachable today only via the existing `getVertex` /
   `getEdge` primitives against the corresponding annotation keys
   (`mount namespace`, `net namespace`, `ipc namespace`).
+
+## 7. Test design
+
+Tests live under `test/spade/query/quickgrail/instruction/`. There are
+two layers, each commit-separated per the project's history convention.
+
+### 7.1 Layering
+
+- **Unit tests** (`GetContainerBoundaryTest`, `GetContainerInitTest`)
+  cover the small, contract-only surface that production callers
+  depend on without ever touching a storage: constructor field
+  assignment, the `getLabel()` string used by the execution-plan
+  printer, and the inline (name, value) pairs `getFieldStringItems`
+  feeds back to it. These tests need no executor, no storage, and no
+  fixture data — they are essentially type-level guards against
+  refactor regressions on the {target, subject, parameters} contract
+  between resolver and instruction.
+- **Integration tests** (`GetContainerBoundaryIntegrationTest`,
+  `GetContainerInitIntegrationTest`) exercise the composite
+  `exec()` algorithm itself: they synthesize a realistic provenance
+  fixture, drive each instruction through a real
+  `QueryInstructionExecutor`, and check the resulting graph's vertex
+  and edge sets against the expected boundary or init subgraph.
+
+Splitting the layers keeps unit tests trivially fast (cents of
+milliseconds, no I/O) and keeps the integration tests' set-up costs
+isolated to the cases that genuinely need a fixture.
+
+### 7.2 In-memory harness
+
+`InMemoryQueryHarness` provides the executor and environment the
+integration tests run against. Two reasons for hand-writing it rather
+than running the tests against a real storage backend (H2, PostgreSQL,
+Neo4j):
+
+1. **Reproducibility.** No external service to install, no
+   database/lock state to clean up between runs. The fixture data is
+   built in Java, lives only as long as the test, and goes away when
+   the JVM exits.
+2. **Sharp failure surfaces.** Every executor primitive that neither
+   `GetContainerBoundary` nor `GetContainerInit` calls is implemented
+   as `throw new UnsupportedOperationException(...)`. If a future
+   refactor of the composite `exec()` ever reaches into an unintended
+   primitive, the integration tests fail loudly with the offending
+   method name rather than appearing to pass for the wrong reason.
+
+The implemented primitives are: `createEmptyGraph`, `unionGraph`,
+`intersectGraph`, `getWhereAnnotationsExist`, `getVertex`, `getEdge`,
+`getEdgeEndpoint`, `getAdjacentVertex`, `getSubgraph`, `getSimplePath`
+(BFS with per-source visited sets), `getGraphCount`,
+`insertLiteralEdge`, `exportVertices`, `exportEdges`, plus
+`distinctifyGraph` (the resolver appends one of these after every
+assignment). The implementations mirror the production storage
+executors' semantics — in particular, `getSubgraph` enforces the
+spanning-subgraph invariant and `getAdjacentVertex` honours direction.
+
+### 7.3 Per-method coverage
+
+For `getContainerBoundary` the fixture is one mixed host plus two
+container-labeled subgraphs sharing a single `containerd` parent. The
+scenarios are:
+
+| Scenario | Verifies |
+|---|---|
+| Single-container, known PID namespace | Processes and adjacent artifacts of the chosen container land in the result; the other container, the host-only artifact, and unrelated host reads are excluded. The host parent that cloned the in-container init is correctly pulled in by adjacency. |
+| Single-container, unknown PID namespace | Returns an empty graph with neither vertices nor edges and no exception. |
+| Two disjoint containers, two calls | The two result graphs share only the legitimately-shared host daemon, with all in-container vertices remaining in their own container's result. |
+| All-containers (no-arg) form | Both containers' boundaries appear in the union; the host-only artifact is excluded, which is what distinguishes "union of boundaries" from "the whole graph". |
+| Spanning-subgraph invariant | Every edge in the result is incident to two vertices that are also in the result — a property the composite must preserve regardless of fixture shape. |
+| Annotation faithfulness | Vertex annotations on the result come back identical to what was seeded, catching any export regression. |
+
+For `getContainerInit` the fixture varies per scenario so that the
+chain topology is visible adjacent to the assertions that depend on
+it. Scenarios:
+
+| Scenario | Verifies |
+|---|---|
+| Docker-style clone+execve chain | From in-container hello back to the boundary-crossing runC[Parent], inclusive; the engine chain above the boundary (runC, containerd-shim, containerd) is excluded per §4.2.2's prose definition. |
+| Unshare variant | The boundary edge is recognised even when no clone is present, and both endpoints plus the unshare edge itself land in the result. |
+| No PID-1 vertices anywhere | The method returns an empty graph rather than failing — a graph without containers is a legitimate "nothing to do" answer. |
+| Two independent containers, one clone one unshare | Both boundary-crossing edges are detected and both chains land in the result. |
+| PID-1 present, no boundary edges | The method throws a `RuntimeException` whose message names the missing boundary edges, so the user can tell that the trace was truncated rather than that the algorithm gave up. |
+| `maxDepth = 0` | The completeness check fires and the thrown message mentions `maxDepth`, surfacing the remediation knob (`env set maxDepth <N>`). |
+
+### 7.4 Out of scope for these tests
+
+- **Real storage backends.** The composite is written in terms of
+  abstract primitives, so behaviour against a particular SQL or
+  graph-database executor is a separate concern (one that the
+  per-storage executor's own test surface should cover).
+- **Concurrency.** Both methods are single-threaded query-side
+  operations; concurrency lives at the storage executor.
+- **Performance.** Fixture sizes are tiny by design so that the test
+  remains a behaviour check rather than a benchmark. Scaling
+  characteristics — particularly the `exportEdges` materialization in
+  `getContainerInit` discussed in §6 — would need a dedicated
+  benchmark on realistic traces.
+- **End-to-end via the parser.** The resolver case-statement that
+  dispatches `getContainerBoundary` / `getContainerInit` is exercised
+  indirectly by any future QuickGrail-text integration test against a
+  storage; the present integration tests skip the parser to keep each
+  test's intent obvious.
