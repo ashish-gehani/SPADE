@@ -43,6 +43,7 @@ import spade.query.quickgrail.instruction.EvaluateQuery;
 import spade.query.quickgrail.instruction.ExportGraph;
 import spade.query.quickgrail.instruction.GetAdjacentVertex;
 import spade.query.quickgrail.instruction.GetContainerBoundary;
+import spade.query.quickgrail.instruction.GetContainerInit;
 import spade.query.quickgrail.instruction.GetEdge;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint;
 import spade.query.quickgrail.instruction.GetGraphStatistic;
@@ -925,6 +926,8 @@ public class QuickGrailQueryResolver{
 			return resolveGetMatch(subject, arguments, ToGraph(outputEntity));
 		case "getContainerBoundary":
 			return resolveGetContainerBoundary(subject, arguments, ToGraph(outputEntity));
+		case "getContainerInit":
+			return resolveGetContainerInit(subject, arguments, ToGraph(outputEntity));
 		case "sample":
 			return resolveGetRandomSampleBoth(subject, arguments, ToGraph(outputEntity));
 		case "vertexSample":
@@ -1448,6 +1451,25 @@ public class QuickGrailQueryResolver{
 		}
 
 		instructions.add(new GetContainerBoundary(outputGraph, subjectGraph, pidNamespaceId));
+		return outputGraph;
+	}
+
+	private Graph resolveGetContainerInit(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
+		if(arguments.size() > 0){
+			throw new RuntimeException("Invalid number of arguments for getContainerInit: expected 0");
+		}
+
+		final EnvironmentVariable maxDepthVar = env.getEnvVarManager().get(EnvironmentVariableManager.Name.maxDepth);
+		if(maxDepthVar == null || maxDepthVar.getValue() == null){
+			throw new RuntimeException("Must set 'maxDepth' in environment to use getContainerInit");
+		}
+		final int maxDepth = (Integer)maxDepthVar.getValue();
+
+		if(outputGraph == null){
+			outputGraph = allocateEmptyGraph();
+		}
+
+		instructions.add(new GetContainerInit(outputGraph, subjectGraph, maxDepth));
 		return outputGraph;
 	}
 
