@@ -42,6 +42,7 @@ import spade.query.quickgrail.instruction.EraseSymbols;
 import spade.query.quickgrail.instruction.EvaluateQuery;
 import spade.query.quickgrail.instruction.ExportGraph;
 import spade.query.quickgrail.instruction.GetAdjacentVertex;
+import spade.query.quickgrail.instruction.GetContainerBoundary;
 import spade.query.quickgrail.instruction.GetEdge;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint;
 import spade.query.quickgrail.instruction.GetGraphStatistic;
@@ -922,6 +923,8 @@ public class QuickGrailQueryResolver{
 			return resolveLimit(subject, arguments, ToGraph(outputEntity));
 		case "getMatch":
 			return resolveGetMatch(subject, arguments, ToGraph(outputEntity));
+		case "getContainerBoundary":
+			return resolveGetContainerBoundary(subject, arguments, ToGraph(outputEntity));
 		case "sample":
 			return resolveGetRandomSampleBoth(subject, arguments, ToGraph(outputEntity));
 		case "vertexSample":
@@ -1423,6 +1426,28 @@ public class QuickGrailQueryResolver{
 
 		Graph sourceGraph = resolveGraphExpression(arguments.get(0), null, true);
 		instructions.add(new GetSubgraph(outputGraph, sourceGraph, subjectGraph));
+		return outputGraph;
+	}
+
+	private Graph resolveGetContainerBoundary(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
+		if(arguments.size() > 1){
+			throw new RuntimeException("Invalid number of arguments for getContainerBoundary: expected 0 or 1");
+		}
+
+		String pidNamespaceId = null;
+		if(arguments.size() == 1){
+			pidNamespaceId = QueryResolverHelper.resolveString(arguments.get(0));
+			if(HelperFunctions.isNullOrEmpty(pidNamespaceId)){
+				throw new RuntimeException("Invalid blank/null PID namespace id at "
+						+ arguments.get(0).getLocationString());
+			}
+		}
+
+		if(outputGraph == null){
+			outputGraph = allocateEmptyGraph();
+		}
+
+		instructions.add(new GetContainerBoundary(outputGraph, subjectGraph, pidNamespaceId));
 		return outputGraph;
 	}
 
