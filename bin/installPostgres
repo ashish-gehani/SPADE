@@ -1,4 +1,0 @@
-#!/bin/bash
-
-spade_home_path="$(cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd)"
-"${spade_home_path}/bin/manage-postgres.sh" install
