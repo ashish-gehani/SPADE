@@ -6,6 +6,7 @@ AC_INIT([spadeJava], [2.0])
 AC_CONFIG_AUX_DIR([../../build-aux])
 AC_CONFIG_MACRO_DIRS([../../m4])
 AM_INIT_AUTOMAKE([1.16 -Wall -Werror foreign])
+AM_MAINTAINER_MODE([disable])
 
 AC_PATH_PROG([JAVA], [java], [:])
 if test "x${JAVA}" = "x:"; then

@@ -6,6 +6,7 @@ AC_INIT([spadeAndroid], [2.0])
 AC_CONFIG_AUX_DIR([../../build-aux])
 AC_CONFIG_MACRO_DIRS([../../m4])
 AM_INIT_AUTOMAKE([1.16 -Wall -Werror foreign])
+AM_MAINTAINER_MODE([disable])
 
 # Check for dx (Android SDK build tools) — for building android code.
 AC_PATH_PROG([DX], [dx], [:])

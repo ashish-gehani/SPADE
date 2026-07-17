@@ -49,6 +49,17 @@ maintainer-clean-local: distclean-local
 	       Makefile.in
 ```
 
+## Maintainer mode
+
+Every `configure.ac` — root and subpackages alike — calls `AM_MAINTAINER_MODE([disable])` right after `AM_INIT_AUTOMAKE`:
+
+```autoconf
+AM_INIT_AUTOMAKE([1.16 -Wall -Werror foreign])
+AM_MAINTAINER_MODE([disable])
+```
+
+This disables, by default, the Automake-generated rules that regenerate `configure`/`Makefile.in`/`aclocal.m4` from `configure.ac`/`Makefile.am` whenever `make` notices a timestamp or recorded-tool-version mismatch. Without it, an end user building from a checkout with a different (or missing) autoconf/automake version than what generated the tree can get an unexpected, often-broken regeneration attempt. A developer who actually wants that behavior can opt back in with `./configure --enable-maintainer-mode`.
+
 ## Versioning
 
 Every `configure.ac` — root and subpackages alike — declares SPADE version `2.0`, e.g. `AC_INIT([spadeLinuxFUSE], [2.0])`.

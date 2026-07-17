@@ -38,6 +38,8 @@ make maintainer-clean
 
 Build output lands directly in the project tree (`lib/`, `bin/`, etc.) via the `SPADE_*_DIR` variables — `make install` with `prefix`/`DESTDIR` is a separate, optional copy step for packaging elsewhere.
 
+Every `configure.ac` disables maintainer mode by default (`AM_MAINTAINER_MODE([disable])`, see `CONVENTIONS.md`), so a plain `./configure` + `make` never tries to regenerate `configure`/`Makefile.in`/`aclocal.m4` on its own — `autoreconf -fi` is the only supported way to regenerate them, regardless of the autoconf/automake version installed.
+
 ## Configure Variables
 
 See the full, authoritative list — including every subpackage's variables — with:

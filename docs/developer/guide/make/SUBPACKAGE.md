@@ -21,6 +21,7 @@ AC_INIT([spadeLinuxFUSE], [2.0])
 AC_CONFIG_AUX_DIR([../../../build-aux])
 AC_CONFIG_MACRO_DIRS([../../../m4])
 AM_INIT_AUTOMAKE([1.16 -Wall -Werror foreign])
+AM_MAINTAINER_MODE([disable])
 
 AC_PROG_CC
 
@@ -65,6 +66,7 @@ AC_OUTPUT
 ```
 
 Key rules:
+- Call `AM_MAINTAINER_MODE([disable])` right after `AM_INIT_AUTOMAKE` (see `CONVENTIONS.md`), so this subpackage's generated `Makefile` never tries to regenerate itself from `configure.ac`/`Makefile.am` on a version mismatch.
 - Use `AC_PATH_PROG` for tools; warn if optional, error if required.
 - Derive `JAVA_HOME` inline via `java -XshowSettings:all`; do not declare it as `AC_ARG_VAR` — it isn't passed down from a parent, so it's just a local `AC_SUBST`ed variable.
 - Every variable the parent exports (e.g. `SPADE_ROOT`, `SPADE_FUSE_LIB_DIR`, `SPADE_JAVA_BUILD_NATIVE_INCLUDE_DIR`) is declared with `AC_ARG_VAR` and must error via `AC_MSG_ERROR` if unset — do not default it or re-derive it; the parent build script already computed it. `AC_ARG_VAR` performs the substitution itself, so don't also `AC_SUBST` these.
