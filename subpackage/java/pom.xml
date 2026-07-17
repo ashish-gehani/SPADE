@@ -1,0 +1,544 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>io.github.spade</groupId>
+  <artifactId>spade</artifactId>
+  <version>${revision}</version>
+  <packaging>jar</packaging>
+
+  <name>spade</name>
+  <description>Support for Provenance Auditing in Distributed Environments.</description>
+  <url>https://github.com/ashish-gehani/SPADE</url>
+
+  <licenses>
+    <license>
+      <name>GNU General Public License v3.0</name>
+      <url>https://www.gnu.org/licenses/gpl-3.0.txt</url>
+      <distribution>manual</distribution>
+      <comments>A copyleft license that requires derivatives to be distributed under the same license.</comments>
+    </license>
+  </licenses>
+
+  <organization>
+    <name>SPADE</name>
+    <url>https://github.com/ashish-gehani/SPADE.git</url>
+  </organization>
+
+  <developers>
+    <developer>
+      <id>irshadh</id>
+      <name>Hassaan Irshad</name>
+      <url>https://github.com/hassaanirshad</url>
+      <roles>
+        <role>Maintainer</role>
+      </roles>
+      <timezone>America/Los_Angeles</timezone>
+    </developer>
+  </developers>
+
+  <properties>
+    <revision>2.0</revision>
+
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
+
+    <!-- spade.src.dir, spade.src.resource.dir, spade.build.dir,
+         spade.build.native.include.dir, spade.lib.dir, and
+         spade.local.repository.url are expected to be passed in via -D
+         (see subpackage/java/Makefile.am); not derived here. -->
+  </properties>
+
+
+  <dependencies>
+
+    <dependency>
+        <groupId>org.eclipse.jetty</groupId>
+        <artifactId>jetty-server</artifactId>
+        <version>12.0.10</version>
+    </dependency>
+
+    <dependency>
+        <groupId>org.eclipse.jetty.ee10</groupId>
+        <artifactId>jetty-ee10-servlet</artifactId>
+        <version>12.0.10</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>30.1.1-jre</version>
+    </dependency>
+
+    <dependency>
+      <groupId>local</groupId>
+      <artifactId>libany_proto-speed</artifactId>
+      <version>1.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>local</groupId>
+      <artifactId>libdifferentialprivacy</artifactId>
+      <version>1.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>local</groupId>
+      <artifactId>libprotobuf_java</artifactId>
+      <version>1.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>local</groupId>
+      <artifactId>libsummary-proto-speed</artifactId>
+      <version>1.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.neo4j</groupId>
+      <artifactId>neo4j</artifactId>
+      <version>5.26.25</version>
+    </dependency>
+
+    <dependency>
+        <groupId>jakarta.servlet</groupId>
+        <artifactId>jakarta.servlet-api</artifactId>
+        <version>6.1.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>local</groupId>
+      <artifactId>libOoaBFilter</artifactId>
+      <version>1.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.antlr</groupId>
+      <artifactId>antlr4</artifactId>
+      <version>4.13.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.avro</groupId>
+      <artifactId>avro-tools</artifactId>
+      <version>1.8.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>commons-codec</groupId>
+      <artifactId>commons-codec</artifactId>
+      <version>1.10</version>
+    </dependency>
+
+    <dependency>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+      <version>2.6</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.18.0</version>
+  </dependency>
+
+    <dependency>
+      <groupId>com.google.code.externalsortinginjava</groupId>
+      <artifactId>externalsortinginjava</artifactId>
+      <version>0.1.9</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <version>1.4.187</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpclient</artifactId>
+      <version>4.2.6</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpclient-cache</artifactId>
+      <version>4.2.6</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpcore</artifactId>
+      <version>4.2.5</version>
+    </dependency>
+
+    <dependency>
+      <groupId>local</groupId>
+      <artifactId>libiris</artifactId>
+      <version>1.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>local</groupId>
+      <artifactId>libirisparser</artifactId>
+      <version>1.0</version>
+    </dependency>
+
+    <dependency>
+        <groupId>io.projectreactor</groupId>
+        <artifactId>reactor-core</artifactId>
+        <!-- Check for the latest version, 3.6+ is recommended -->
+        <version>3.6.6</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-annotations</artifactId>
+      <version>2.19.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-core</artifactId>
+      <version>2.3.3</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.3.3</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.codehaus.jackson</groupId>
+      <artifactId>jackson-mapper-asl</artifactId>
+      <version>1.9.13</version>
+    </dependency>
+
+    <dependency>
+      <groupId>local</groupId>
+      <artifactId>libje</artifactId>
+      <version>1.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>redis.clients</groupId>
+      <artifactId>jedis</artifactId>
+      <version>2.9.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.jena</groupId>
+      <artifactId>jena-arq</artifactId>
+      <version>3.0.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.jena</groupId>
+      <artifactId>jena-base</artifactId>
+      <version>3.0.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.jena</groupId>
+      <artifactId>jena-core</artifactId>
+      <version>3.0.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.jena</groupId>
+      <artifactId>jena-iri</artifactId>
+      <version>3.0.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.jena</groupId>
+      <artifactId>jena-shaded-guava</artifactId>
+      <version>3.0.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.jena</groupId>
+      <artifactId>jena-tdb</artifactId>
+      <version>3.0.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.jgrapht</groupId>
+      <artifactId>jgrapht-core</artifactId>
+      <version>0.9.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.github.jsonld-java</groupId>
+      <artifactId>jsonld-java</artifactId>
+      <version>0.5.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <version>6.0.3</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>local</groupId>
+      <artifactId>libkafkaclientCDM</artifactId>
+      <version>1.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.fusesource.leveldbjni</groupId>
+      <artifactId>leveldbjni-all</artifactId>
+      <version>1.8</version>
+    </dependency>
+
+    <!-- MCP SDK -->
+    <dependency>
+      <groupId>io.modelcontextprotocol.sdk</groupId>
+      <artifactId>mcp</artifactId>
+      <version>1.1.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>mysql</groupId>
+      <artifactId>mysql-connector-java</artifactId>
+      <version>5.1.38</version>
+    </dependency>
+
+    <dependency>
+      <groupId>net.sf.opencsv</groupId>
+      <artifactId>opencsv</artifactId>
+      <version>2.3</version>
+    </dependency>
+
+    <dependency>
+      <groupId>local</groupId>
+      <artifactId>liborgjson</artifactId>
+      <version>1.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.2.23</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.restfb</groupId>
+      <artifactId>restfb</artifactId>
+      <version>1.6.14</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.30</version>
+    </dependency>
+
+    <dependency>
+      <groupId>xerces</groupId>
+      <artifactId>xercesImpl</artifactId>
+      <version>2.11.0</version>
+    </dependency>
+
+  </dependencies>
+
+  <build>
+    <sourceDirectory>${spade.src.dir}</sourceDirectory>
+    <outputDirectory>${spade.build.dir}</outputDirectory>
+
+    <resources>
+      <resource>
+        <filtering>false</filtering>
+        <directory>${spade.src.dir}</directory>
+        <includes>
+          <include>spade/query/quickgrail/README.md</include>
+        </includes>
+      </resource>
+      <resource>
+        <filtering>false</filtering>
+        <directory>${spade.src.resource.dir}</directory>
+      </resource>
+    </resources>
+
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>3.4.0</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.13.0</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>3.4.2</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>3.1.2</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>3.5.5</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <version>3.8.1</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>3.6.3</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+
+    <plugins>
+
+      <plugin>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>require-spade-properties</id>
+            <phase>validate</phase>
+            <goals><goal>enforce</goal></goals>
+            <configuration>
+              <rules>
+                <requireProperty>
+                  <property>spade.src.dir</property>
+                  <message>spade.src.dir is required; pass it with -Dspade.src.dir=&lt;path&gt;</message>
+                </requireProperty>
+                <requireProperty>
+                  <property>spade.src.resource.dir</property>
+                  <message>spade.src.resource.dir is required; pass it with -Dspade.src.resource.dir=&lt;path&gt;</message>
+                </requireProperty>
+                <requireProperty>
+                  <property>spade.build.dir</property>
+                  <message>spade.build.dir is required; pass it with -Dspade.build.dir=&lt;path&gt;</message>
+                </requireProperty>
+                <requireProperty>
+                  <property>spade.build.native.include.dir</property>
+                  <message>spade.build.native.include.dir is required; pass it with -Dspade.build.native.include.dir=&lt;path&gt;</message>
+                </requireProperty>
+                <requireProperty>
+                  <property>spade.lib.dir</property>
+                  <message>spade.lib.dir is required; pass it with -Dspade.lib.dir=&lt;path&gt;</message>
+                </requireProperty>
+                <requireProperty>
+                  <property>spade.local.repository.url</property>
+                  <message>spade.local.repository.url is required; pass it with -Dspade.local.repository.url=&lt;url&gt;</message>
+                </requireProperty>
+              </rules>
+              <fail>true</fail>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <inherited>false</inherited>
+        <executions>
+          <execution>
+            <id>default-compile</id>
+            <phase>compile</phase>
+            <goals><goal>compile</goal></goals>
+          </execution>
+          <execution>
+            <id>default-test-compile</id>
+            <phase>test-compile</phase>
+            <goals><goal>testCompile</goal></goals>
+          </execution>
+        </executions>
+        <configuration>
+          <compilerArgs>
+            <arg>-Xlint:none</arg>
+            <arg>-proc:none</arg>
+            <arg>-h</arg>
+            <arg>${spade.build.native.include.dir}</arg>
+          </compilerArgs>
+          <excludes>
+            <exclude>spade/utility/Daemonizer.java</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <archive>
+            <manifest>
+              <addClasspath>true</addClasspath>
+              <classpathPrefix>${settings.localRepository}/</classpathPrefix>
+              <classpathLayoutType>repository</classpathLayoutType>
+            </manifest>
+            <manifestEntries>
+              <mode>local-development</mode>
+            </manifestEntries>
+          </archive>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-clean-plugin</artifactId>
+        <inherited>false</inherited>
+        <configuration>
+          <filesets>
+            <fileset>
+              <directory>${spade.lib.dir}</directory>
+              <includes><include>spade.${project.packaging}</include></includes>
+            </fileset>
+            <fileset>
+              <directory>${spade.build.dir}</directory>
+            </fileset>
+            <fileset>
+              <directory>${project.build.directory}</directory>
+            </fileset>
+          </filesets>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <inherited>false</inherited>
+        <executions>
+          <execution>
+            <id>copy-final-artifact</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy</goal>
+            </goals>
+            <configuration>
+              <artifactItems>
+                <artifactItem>
+                  <groupId>${project.groupId}</groupId>
+                  <artifactId>${project.artifactId}</artifactId>
+                  <version>${project.version}</version>
+                  <type>${project.packaging}</type>
+                  <destFileName>spade.${project.packaging}</destFileName>
+                </artifactItem>
+              </artifactItems>
+              <outputDirectory>${spade.lib.dir}</outputDirectory>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+    </plugins>
+
+  </build>
+
+  <repositories>
+    <repository>
+      <id>spade-local-jar</id>
+      <url>${spade.local.repository.url}</url>
+    </repository>
+  </repositories>
+
+</project>

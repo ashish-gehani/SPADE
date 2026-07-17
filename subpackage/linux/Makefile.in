@@ -88,12 +88,12 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-build_triplet = @build@
-host_triplet = @host@
-@HOST_OS_MAC_TRUE@am__append_1 = subpackage/mac
-@HOST_OS_MAC_TRUE@am__append_2 = subpackage/mac
-@HOST_OS_LINUX_TRUE@am__append_3 = subpackage/linux
-@HOST_OS_LINUX_TRUE@am__append_4 = subpackage/linux
+@CONFIGURE_KERNEL_MODULES_TRUE@am__append_1 = kernel_module
+@CONFIGURE_KERNEL_MODULES_TRUE@am__append_2 = kernel_module
+@HAVE_FUSE_TRUE@am__append_3 = fuse
+@HAVE_FUSE_TRUE@am__append_4 = fuse
+@HAVE_LLVM_TRUE@am__append_5 = llvm
+@HAVE_LLVM_TRUE@am__append_6 = llvm
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -159,12 +159,10 @@ am__define_uniq_tagged_files = \
     if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
   done | $(am__uniquify_input)`
 am__DIST_COMMON = $(srcdir)/Makefile.in \
-	$(top_srcdir)/build-aux/config.guess \
-	$(top_srcdir)/build-aux/config.sub \
-	$(top_srcdir)/build-aux/install-sh \
-	$(top_srcdir)/build-aux/missing README.md build-aux/compile \
-	build-aux/config.guess build-aux/config.sub \
-	build-aux/install-sh build-aux/missing
+	$(top_srcdir)/../../build-aux/install-sh \
+	$(top_srcdir)/../../build-aux/missing ../../build-aux/compile \
+	../../build-aux/config.guess ../../build-aux/config.sub \
+	../../build-aux/install-sh ../../build-aux/missing
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -231,6 +229,7 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
+LLVM_CONFIG = @LLVM_CONFIG@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
 MKDIR_P = @MKDIR_P@
@@ -242,9 +241,9 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
+PKG_CONFIG = @PKG_CONFIG@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
-SPADE_ROOT = @SPADE_ROOT@
 STRIP = @STRIP@
 VERSION = @VERSION@
 abs_builddir = @abs_builddir@
@@ -255,22 +254,14 @@ am__leading_dot = @am__leading_dot@
 am__tar = @am__tar@
 am__untar = @am__untar@
 bindir = @bindir@
-build = @build@
 build_alias = @build_alias@
-build_cpu = @build_cpu@
-build_os = @build_os@
-build_vendor = @build_vendor@
 builddir = @builddir@
 datadir = @datadir@
 datarootdir = @datarootdir@
 docdir = @docdir@
 dvidir = @dvidir@
 exec_prefix = @exec_prefix@
-host = @host@
 host_alias = @host_alias@
-host_cpu = @host_cpu@
-host_os = @host_os@
-host_vendor = @host_vendor@
 htmldir = @htmldir@
 includedir = @includedir@
 infodir = @infodir@
@@ -296,12 +287,9 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-
-# DIST included to enable maintainer targets like maintainer-clean-local.
-DIST_SUBDIRS = subpackage/java $(am__append_1) $(am__append_3)
-
-# For general build targets.
-SUBDIRS = subpackage/java $(am__append_2) $(am__append_4)
+DIST_SUBDIRS = audit_bridge $(am__append_1) $(am__append_3) \
+	$(am__append_5)
+SUBDIRS = audit_bridge $(am__append_2) $(am__append_4) $(am__append_6)
 all: all-recursive
 
 .SUFFIXES:
@@ -643,7 +631,7 @@ distcleancheck: distclean
 	       exit 1; } >&2
 check-am: all-am
 check: check-recursive
-all-am: Makefile all-local
+all-am: Makefile
 installdirs: installdirs-recursive
 installdirs-am:
 install: install-recursive
@@ -678,7 +666,7 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-recursive
 
-clean-am: clean-generic clean-local mostlyclean-am
+clean-am: clean-generic mostlyclean-am
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
@@ -748,46 +736,31 @@ uninstall-am:
 
 .MAKE: $(am__recursive_targets) install-am install-strip
 
-.PHONY: $(am__recursive_targets) CTAGS GTAGS TAGS all all-am all-local \
+.PHONY: $(am__recursive_targets) CTAGS GTAGS TAGS all all-am \
 	am--refresh check check-am clean clean-cscope clean-generic \
-	clean-local cscope cscopelist-am ctags ctags-am dist dist-all \
-	dist-bzip2 dist-gzip dist-lzip dist-shar dist-tarZ dist-xz \
-	dist-zip dist-zstd distcheck distclean distclean-generic \
-	distclean-tags distcleancheck distdir distuninstallcheck dvi \
-	dvi-am html html-am info info-am install install-am \
-	install-data install-data-am install-dvi install-dvi-am \
-	install-exec install-exec-am install-html install-html-am \
-	install-info install-info-am install-man install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs installdirs-am \
-	maintainer-clean maintainer-clean-generic \
-	maintainer-clean-local mostlyclean mostlyclean-generic pdf \
-	pdf-am ps ps-am tags tags-am uninstall uninstall-am
+	cscope cscopelist-am ctags ctags-am dist dist-all dist-bzip2 \
+	dist-gzip dist-lzip dist-shar dist-tarZ dist-xz dist-zip \
+	dist-zstd distcheck distclean distclean-generic distclean-tags \
+	distcleancheck distdir distuninstallcheck dvi dvi-am html \
+	html-am info info-am install install-am install-data \
+	install-data-am install-dvi install-dvi-am install-exec \
+	install-exec-am install-html install-html-am install-info \
+	install-info-am install-man install-pdf install-pdf-am \
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs installdirs-am maintainer-clean \
+	maintainer-clean-generic maintainer-clean-local mostlyclean \
+	mostlyclean-generic pdf pdf-am ps ps-am tags tags-am uninstall \
+	uninstall-am
 
 .PRECIOUS: Makefile
 
-
-setup:
-	cd "$(SPADE_ROOT)" && bin/manage-neo4j.sh install
-	cd "$(SPADE_ROOT)" && bin/keys/generatekeys.sh
-
-.PHONY: setup
-
-all-local: setup
-
-clean-local:
-	rm -rf "$(SPADE_ROOT)/cfg/ssl"
-	rm -rf "$(SPADE_ROOT)/log"
-	rm -rf "$(SPADE_ROOT)/tmp"
 
 maintainer-clean-local:
 	rm -rf aclocal.m4 \
 	       autom4te.cache \
 	       build-aux \
-	       confdefs.h \
-	       conftest.* \
 	       configure \
-	       configure~ \
+	       conftest.* \
 	       Makefile.in
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
