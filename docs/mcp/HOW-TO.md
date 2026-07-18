@@ -44,16 +44,18 @@ Exit the control client when done.
 
 ```bash
 bin/spade mcp -- \
-  --spadeHost=localhost \
-  --spadeQueryPort=19998 \
-  --spadeControlPort=19999 \
-  --mcpServerMode=http \
-  --mcpHttpHostName=localhost \
-  --mcpHttpHostPort=3000 \
-  --mcpHttpHostEndpoint=/mcp
+  spade_host=localhost \
+  spade_query_port=19998 \
+  spade_control_port=19999 \
+  mcp_server_mode=http \
+  mcp_http_host_name=localhost \
+  mcp_http_host_port=3000 \
+  mcp_http_host_endpoint=/mcp
 ```
 
 The server will listen at `http://localhost:3000/mcp`.
+
+All of these can also be set in `cfg/spade.utility.mcp.server.Server.config` instead of passing them on the command line (command-line arguments take precedence). `spade_query_port` and `spade_control_port` are optional — if omitted they fall back to `commandline_query_port` and `local_control_port` in `cfg/spade.core.Kernel.config`.
 
 ### 6. Add the MCP server to Claude Code
 
@@ -84,10 +86,10 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` and add t
       "command": "/path/to/spade/bin/spade",
       "args": [
         "mcp",
-        "--spadeHost=localhost",
-        "--spadeQueryPort=19998",
-        "--spadeControlPort=19999",
-        "--mcpServerMode=stdio"
+        "spade_host=localhost",
+        "spade_query_port=19998",
+        "spade_control_port=19999",
+        "mcp_server_mode=stdio"
       ]
     }
   }
@@ -109,3 +111,28 @@ Follow steps 2–4 from the HTTP section above.
 ### 4. Start Claude Desktop
 
 Launch the Claude Desktop app. It will spawn the MCP server process automatically using the configuration above. SPADE tools will be available in the conversation.
+
+---
+
+## MCP Client (CLI / Web)
+
+`spade.utility.mcp.client.Main` is a standalone client that connects an LLM (Anthropic or a mock) to a running MCP server, useful for testing tools without a full MCP-compatible app like Claude Code/Desktop.
+
+### 1. Start the MCP server in HTTP mode
+
+Follow the HTTP Transport section above.
+
+### 2. Run the client
+
+```bash
+bin/spade run-util -- spade.utility.mcp.client.Main \
+  llm_type=mock \
+  user_client_mode=cli \
+  verbose=true
+```
+
+`mcp_url` was intentionally omitted above — when absent it's constructed from `mcp_http_host_name`, `mcp_http_host_port`, and `mcp_http_host_endpoint` in `cfg/spade.utility.mcp.server.Server.config`. Pass `mcp_url=http://<host>:<port><endpoint>` explicitly to point at a different server.
+
+All of these can also be set in `cfg/spade.utility.mcp.client.user.Client.config` instead of passing them on the command line (command-line arguments take precedence). To use the real Anthropic API instead of the mock LLM, set `llm_type=anthropic anthropic_api_key=<key> anthropic_model=<model>`.
+
+`user_client_mode=web` is **experimental / not stable** and is not recommended for regular use; `user_client_mode=cli` is the supported mode.

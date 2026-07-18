@@ -55,20 +55,17 @@ jobs:
       if: runner.os == 'macOS'
       run: make
 
-    - name: Install Neo4j
-      run: bin/manage-neo4j.sh install
-
     - name: Start SPADE
       run: bin/spade start
 
-    - name: Wait for SPADE control port
+    - name: Wait for SPADE control to connect successfully
       run: |
         for i in $(seq 1 30); do
-          nc -z localhost 19999 && echo "SPADE control port ready" && break
+          printf 'exit\n' | bin/spade control && echo "SPADE control port ready" && break
           echo "Waiting for SPADE... ($i/30)"
           sleep 2
         done
-        nc -z localhost 19999 || (echo "SPADE control port never became ready" && exit 1)
+        printf 'exit\n' | bin/spade control || (echo "SPADE control port never became ready" && exit 1)
 
     - name: Configure SPADE (add analyzer and storage)
       run: |
@@ -77,34 +74,27 @@ jobs:
 
     - name: Start MCP server
       run: |
-        bin/spade mcp -- \
-          --spadeHost=localhost \
-          --spadeQueryPort=19998 \
-          --spadeControlPort=19999 \
-          --mcpServerMode=http \
-          --mcpHttpHostName=localhost \
-          --mcpHttpHostPort=3000 \
-          --mcpHttpHostEndpoint=/mcp > mcp-server.log 2>&1 &
+        bin/spade mcp > mcp-server.log 2>&1 &
         echo $! > mcp-server.pid
         echo "MCP server started (PID $(cat mcp-server.pid))"
 
     - name: Wait for MCP server
       run: |
+        MCP_HTTP_PORT=$(grep -E '^\s*mcp_http_host_port\s*=' cfg/spade.utility.mcp.server.Server.config | tail -1 | cut -d '=' -f2 | tr -d ' ')
         for i in $(seq 1 30); do
-          nc -z localhost 3000 && echo "MCP server ready" && break
+          nc -z localhost "${MCP_HTTP_PORT}" && echo "MCP server ready" && break
           echo "Waiting for MCP server... ($i/30)"
           sleep 2
         done
-        nc -z localhost 3000 || (echo "MCP server never became ready" && cat mcp-server.log && exit 1)
+        nc -z localhost "${MCP_HTTP_PORT}" || (echo "MCP server never became ready" && cat mcp-server.log && exit 1)
 
     - name: Run MCP client test
       run: |
         echo 'test message' | ./bin/spade run-util -- spade.utility.mcp.client.Main \
-          --mcpUrl=http://localhost:3000/mcp \
-          --llmType=mock \
-          --userClientMode=cli \
-          --verbose \
-          --only-tools
+          llm_type=mock \
+          user_client_mode=cli \
+          verbose=true \
+          only_tools=true
 
     - name: MCP client test output header
       run: |
