@@ -46,12 +46,16 @@
     <maven.compiler.source>21</maven.compiler.source>
     <maven.compiler.target>21</maven.compiler.target>
 
-    <!-- spade.src.dir, spade.src.resource.dir, spade.build.dir,
-         spade.build.native.include.dir, spade.lib.dir, and
-         spade.local.repository.url are expected to be passed in via -D
-         (see subpackage/java/Makefile.am); not derived here. -->
-  </properties>
+    <!-- LOCAL -->
+    <spade.build.header.dir>${project.build.directory}/native/include</spade.build.header.dir>
 
+    <!-- ARGUMENTS -->
+    <spade.jar.name>spade.jar</spade.jar.name>
+    <spade.package.lib.dir>../../lib</spade.package.lib.dir>
+    <spade.package.jar.path>${spade.package.lib.dir}/${spade.jar.name}</spade.package.jar.path>
+    <spade.package.header.include.java.dir>../../include/java</spade.package.header.include.java.dir>
+
+  </properties>
 
   <dependencies>
 
@@ -349,20 +353,18 @@
   </dependencies>
 
   <build>
-    <sourceDirectory>${spade.src.dir}</sourceDirectory>
-    <outputDirectory>${spade.build.dir}</outputDirectory>
 
     <resources>
       <resource>
         <filtering>false</filtering>
-        <directory>${spade.src.dir}</directory>
+        <directory>${project.build.sourceDirectory}</directory>
         <includes>
           <include>spade/query/quickgrail/README.md</include>
         </includes>
       </resource>
       <resource>
         <filtering>false</filtering>
-        <directory>${spade.src.resource.dir}</directory>
+        <directory>src/main/resources</directory>
       </resource>
     </resources>
 
@@ -389,57 +391,17 @@
           <version>3.5.5</version>
         </plugin>
         <plugin>
-          <artifactId>maven-dependency-plugin</artifactId>
-          <version>3.8.1</version>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>3.5.0</version>
         </plugin>
         <plugin>
-          <artifactId>maven-enforcer-plugin</artifactId>
-          <version>3.6.3</version>
+          <artifactId>maven-antrun-plugin</artifactId>
+          <version>3.2.0</version>
         </plugin>
       </plugins>
     </pluginManagement>
 
     <plugins>
-
-      <plugin>
-        <artifactId>maven-enforcer-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>require-spade-properties</id>
-            <phase>validate</phase>
-            <goals><goal>enforce</goal></goals>
-            <configuration>
-              <rules>
-                <requireProperty>
-                  <property>spade.src.dir</property>
-                  <message>spade.src.dir is required; pass it with -Dspade.src.dir=&lt;path&gt;</message>
-                </requireProperty>
-                <requireProperty>
-                  <property>spade.src.resource.dir</property>
-                  <message>spade.src.resource.dir is required; pass it with -Dspade.src.resource.dir=&lt;path&gt;</message>
-                </requireProperty>
-                <requireProperty>
-                  <property>spade.build.dir</property>
-                  <message>spade.build.dir is required; pass it with -Dspade.build.dir=&lt;path&gt;</message>
-                </requireProperty>
-                <requireProperty>
-                  <property>spade.build.native.include.dir</property>
-                  <message>spade.build.native.include.dir is required; pass it with -Dspade.build.native.include.dir=&lt;path&gt;</message>
-                </requireProperty>
-                <requireProperty>
-                  <property>spade.lib.dir</property>
-                  <message>spade.lib.dir is required; pass it with -Dspade.lib.dir=&lt;path&gt;</message>
-                </requireProperty>
-                <requireProperty>
-                  <property>spade.local.repository.url</property>
-                  <message>spade.local.repository.url is required; pass it with -Dspade.local.repository.url=&lt;url&gt;</message>
-                </requireProperty>
-              </rules>
-              <fail>true</fail>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
 
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -461,7 +423,7 @@
             <arg>-Xlint:none</arg>
             <arg>-proc:none</arg>
             <arg>-h</arg>
-            <arg>${spade.build.native.include.dir}</arg>
+            <arg>${spade.build.header.dir}</arg>
           </compilerArgs>
           <excludes>
             <exclude>spade/utility/Daemonizer.java</exclude>
@@ -486,48 +448,64 @@
       </plugin>
 
       <plugin>
-        <artifactId>maven-clean-plugin</artifactId>
+        <artifactId>maven-resources-plugin</artifactId>
         <inherited>false</inherited>
-        <configuration>
-          <filesets>
-            <fileset>
-              <directory>${spade.lib.dir}</directory>
-              <includes><include>spade.${project.packaging}</include></includes>
-            </fileset>
-            <fileset>
-              <directory>${spade.build.dir}</directory>
-            </fileset>
-            <fileset>
-              <directory>${project.build.directory}</directory>
-            </fileset>
-          </filesets>
-        </configuration>
+        <executions>
+          <execution>
+            <id>copy-native-headers</id>
+            <phase>prepare-package</phase>
+            <goals>
+              <goal>copy-resources</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${spade.package.header.include.java.dir}</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>${spade.build.header.dir}</directory>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
 
       <plugin>
-        <artifactId>maven-dependency-plugin</artifactId>
+        <artifactId>maven-antrun-plugin</artifactId>
         <inherited>false</inherited>
         <executions>
           <execution>
             <id>copy-final-artifact</id>
             <phase>package</phase>
             <goals>
-              <goal>copy</goal>
+              <goal>run</goal>
             </goals>
             <configuration>
-              <artifactItems>
-                <artifactItem>
-                  <groupId>${project.groupId}</groupId>
-                  <artifactId>${project.artifactId}</artifactId>
-                  <version>${project.version}</version>
-                  <type>${project.packaging}</type>
-                  <destFileName>spade.${project.packaging}</destFileName>
-                </artifactItem>
-              </artifactItems>
-              <outputDirectory>${spade.lib.dir}</outputDirectory>
+              <target>
+                <copy file="${project.build.directory}/${project.build.finalName}.${project.packaging}"
+                      tofile="${spade.package.jar.path}"/>
+              </target>
             </configuration>
           </execution>
         </executions>
+      </plugin>
+
+      <plugin>
+        <artifactId>maven-clean-plugin</artifactId>
+        <inherited>false</inherited>
+        <configuration>
+          <filesets>
+            <fileset>
+              <directory>${spade.package.lib.dir}</directory>
+              <includes><include>${spade.jar.name}</include></includes>
+            </fileset>
+            <fileset>
+              <directory>${project.build.directory}</directory>
+            </fileset>
+            <fileset>
+              <directory>${spade.package.header.include.java.dir}</directory>
+            </fileset>
+          </filesets>
+        </configuration>
       </plugin>
 
     </plugins>
@@ -536,8 +514,8 @@
 
   <repositories>
     <repository>
-      <id>spade-local-jar</id>
-      <url>${spade.local.repository.url}</url>
+      <id>spade-local-jars</id>
+      <url>file://lib</url>
     </repository>
   </repositories>
 

@@ -40,34 +40,24 @@ if test "x${JAVA_DEBUG}" = "x1" || test "x${JAVA_DEBUG}" = "xtrue" || test "x${J
 fi
 AC_SUBST([MAVEN_DEBUG_FLAGS])
 
-AC_ARG_VAR([SPADE_JAVA_BUILD_DIR], [Path to SPADE Java build directory])
-if test "x${SPADE_JAVA_BUILD_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_JAVA_BUILD_DIR is required; set it with ./configure SPADE_JAVA_BUILD_DIR=<path>])
+AC_ARG_VAR([SPADE_PACKAGE_LIB_DIR], [Path to SPADE top-level (i.e. package) lib directory])
+if test "x${SPADE_PACKAGE_LIB_DIR}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_LIB_DIR=<path>])
 fi
 
-AC_ARG_VAR([SPADE_JAVA_BUILD_NATIVE_INCLUDE_DIR], [Path to SPADE Java build native include directory])
-if test "x${SPADE_JAVA_BUILD_NATIVE_INCLUDE_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_JAVA_BUILD_NATIVE_INCLUDE_DIR is required; set it with ./configure SPADE_JAVA_BUILD_NATIVE_INCLUDE_DIR=<path>])
+AC_ARG_VAR([SPADE_JAR_NAME], [Name of SPADE top-level (i.e. package) jar])
+if test "x${SPADE_JAR_NAME}" = "x"; then
+    AC_MSG_ERROR([SPADE_JAR_NAME is required; set it with ./configure SPADE_JAR_NAME=<path>])
 fi
 
-AC_ARG_VAR([SPADE_JAVA_LIB_DIR], [Path to SPADE Java lib directory])
-if test "x${SPADE_JAVA_LIB_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_JAVA_LIB_DIR is required; set it with ./configure SPADE_JAVA_LIB_DIR=<path>])
+AC_ARG_VAR([SPADE_PACKAGE_JAR_PATH], [Path to SPADE top-level (i.e. package) jar])
+if test "x${SPADE_PACKAGE_JAR_PATH}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_JAR_PATH is required; set it with ./configure SPADE_PACKAGE_JAR_PATH=<path>])
 fi
 
-AC_ARG_VAR([SPADE_JAVA_SRC_DIR], [Path to SPADE Java src directory])
-if test "x${SPADE_JAVA_SRC_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_JAVA_SRC_DIR is required; set it with ./configure SPADE_JAVA_SRC_DIR=<path>])
-fi
-
-AC_ARG_VAR([SPADE_JAVA_SRC_RESOURCE_DIR], [Path to SPADE Java src resource directory])
-if test "x${SPADE_JAVA_SRC_RESOURCE_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_JAVA_SRC_RESOURCE_DIR is required; set it with ./configure SPADE_JAVA_SRC_RESOURCE_DIR=<path>])
-fi
-
-AC_ARG_VAR([SPADE_JAVA_LOCAL_REPOSITORY_URL], [URL of SPADE Java local repository])
-if test "x${SPADE_JAVA_LOCAL_REPOSITORY_URL}" = "x"; then
-    AC_MSG_ERROR([SPADE_JAVA_LOCAL_REPOSITORY_URL is required; set it with ./configure SPADE_JAVA_LOCAL_REPOSITORY_URL=<url>])
+AC_ARG_VAR([SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR], [Path to SPADE top-level (i.e. package) java header include directory])
+if test "x${SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR is required; set it with ./configure SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR=<path>])
 fi
 
 AC_CONFIG_FILES([Makefile])

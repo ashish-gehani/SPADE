@@ -1,6 +1,7 @@
 # --- IDE / editor ---
 .DS_Store
 .classpath
+.project
 .claude
 .vscode
 *~
@@ -20,12 +21,13 @@ install
 *.class
 /build
 /target
-module/**/target/
+/include
+subpackage/**/target/
 runtime.java-cp.argfile
 build.java-cp.argfile
 
-# --- Module build ---
-module/**/build/
+# --- Subpackage build ---
+subpackage/**/build/
 
 # --- Kernel module build ---
 Module.symvers
@@ -53,3 +55,6 @@ cfg/spade.utility.HostInfo.out
 spade.host
 spade.pid
 /tmp/
+
+# --- Dev workflow temp files ---
+/spade.wiki
