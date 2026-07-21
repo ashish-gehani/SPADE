@@ -1,24 +1,23 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-ANDROID_SPADE_JAR	= android-spade.jar
+BUILD_DIR                               = "build"
+BUILD_JAR_NAME                          = "android-spade.jar"
+OUTPUT_BUILD_JAR_PATH                   = "$(BUILD_DIR)/$(BUILD_JAR_NAME)"
+INPUT_SPADE_PACKAGE_JAR_PATH            = "$(SPADE_PACKAGE_JAR_PATH)"
+OUTPUT_SPADE_PACKAGE_ANDROID_JAR_PATH   = "$(SPADE_PACKAGE_ANDROID_JAR_PATH)"
 
 all-local:
-	@$(MKDIR_P) "$(SPADE_ANDROID_BUILD_DIR)"; \
+	@$(MKDIR_P) "$(BUILD_DIR)"; \
 	$(DX) --dex --verbose --no-strict \
-		--output="$(SPADE_ANDROID_BUILD_DIR)/$(ANDROID_SPADE_JAR)" \
-		"$(SPADE_JAVA_BUILD_DIR)"
-
-install-exec-local:
-	$(MKDIR_P) "$(SPADE_ANDROID_LIB_DIR)"
-	$(INSTALL_DATA) "$(SPADE_ANDROID_BUILD_DIR)/$(ANDROID_SPADE_JAR)" \
-		"$(SPADE_ANDROID_LIB_DIR)/$(ANDROID_SPADE_JAR)"
-
-uninstall-local:
-	rm -f "$(SPADE_ANDROID_LIB_DIR)/$(ANDROID_SPADE_JAR)"
+		--output="$(OUTPUT_BUILD_JAR_PATH)" \
+		"$(INPUT_SPADE_PACKAGE_JAR_PATH)"; \
+	cp "$(OUTPUT_BUILD_JAR_PATH)" \
+		"$(OUTPUT_SPADE_PACKAGE_ANDROID_JAR_PATH)"
 
 clean-local:
-	rm -f "$(SPADE_ANDROID_BUILD_DIR)/$(ANDROID_SPADE_JAR)"
+	rm -rf "$(BUILD_DIR)"
+	rm -f "$(OUTPUT_SPADE_PACKAGE_ANDROID_JAR_PATH)"
 
 distclean-local: clean-local
 
