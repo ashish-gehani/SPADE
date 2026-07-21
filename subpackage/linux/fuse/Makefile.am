@@ -1,32 +1,31 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-FUSE_BINARY         			= libLinuxFUSE.so
-FUSE_C_SRC          			= $(SPADE_ROOT)/src/spade/reporter/libLinuxFUSE.c
-FUSE_INSTALL_LIBDIR 			= $(DESTDIR)$(prefix)/lib
+SRC_DIR = src
+SRC_C_MAIN_PATH = $(SRC_DIR)/libLinuxFUSE.c
+
+BUILD_DIR                                    = build
+BUILD_SHARED_LIB_NAME                        = libLinuxFUSE.so
+BUILD_SHARED_LIB_PATH                        = $(BUILD_DIR)/$(BUILD_SHARED_LIB_NAME)
+INPUT_SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR  = $(SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR)
+OUTPUT_SPADE_PACKAGE_FUSE_SHARED_LIB_PATH    = $(SPADE_PACKAGE_FUSE_SHARED_LIB_DIR)/$(SPADE_PACKAGE_FUSE_SHARED_LIB_NAME)
 
 all-local:
-	@$(MKDIR_P) "$(SPADE_FUSE_LIB_DIR)"
+	@$(MKDIR_P) "$(BUILD_DIR)"
 	$(CC) -fPIC -shared \
-		-Wl,-soname,$(FUSE_BINARY) \
+		-Wl,-soname,$(BUILD_SHARED_LIB_NAME) \
 		-I"$(JAVA_HOME)/include" \
 		-I"$(JAVA_HOME)/include/linux" \
-		-I"$(SPADE_JAVA_BUILD_NATIVE_INCLUDE_DIR)" \
+		-I"$(INPUT_SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR)" \
 		-Wall \
-		"$(FUSE_C_SRC)" \
+		"$(SRC_C_MAIN_PATH)" \
 		$(FUSE_CFLAGS) \
-		-o "$(SPADE_FUSE_LIB_DIR)/$(FUSE_BINARY)"
-
-install-exec-local:
-	$(MKDIR_P) "$(FUSE_INSTALL_LIBDIR)"
-	$(INSTALL_DATA) "$(SPADE_FUSE_LIB_DIR)/$(FUSE_BINARY)" \
-		"$(FUSE_INSTALL_LIBDIR)/$(FUSE_BINARY)"
-
-uninstall-local:
-	rm -f "$(FUSE_INSTALL_LIBDIR)/$(FUSE_BINARY)"
+		-o "$(BUILD_SHARED_LIB_PATH)"
+	cp "$(BUILD_SHARED_LIB_PATH)" "$(OUTPUT_SPADE_PACKAGE_FUSE_SHARED_LIB_PATH)"
 
 clean-local:
-	rm -f "$(SPADE_FUSE_LIB_DIR)/$(FUSE_BINARY)"
+	rm -rf "$(BUILD_DIR)"
+	rm -f "$(OUTPUT_SPADE_PACKAGE_FUSE_SHARED_LIB_PATH)"
 
 distclean-local: clean-local
 
