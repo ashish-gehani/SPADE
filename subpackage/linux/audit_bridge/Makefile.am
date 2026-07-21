@@ -1,24 +1,21 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-AUDIT_BRIDGE_BINARY     = spadeAuditBridge
-AUDIT_BRIDGE_C_SRC      = $(SPADE_JAVA_SRC_DIR)/spade/reporter/spadeAuditBridge.c
-AUDIT_BRIDGE_INSTALL_BINDIR = $(DESTDIR)$(prefix)/bin
+SRC_DIR                                        = src
+SRC_C_MAIN_PATH                                = $(SRC_DIR)/spadeAuditBridge.c
+BUILD_DIR                                      = build
+BUILD_BIN_NAME                                 = spadeAuditBridge
+BUILD_BIN_PATH                                 = $(BUILD_DIR)/$(BUILD_BIN_NAME)
+OUTPUT_SPADE_PACKAGE_AUDIT_BRIDGE_BIN_PATH     = $(SPADE_PACKAGE_AUDIT_BRIDGE_BIN_DIR)/$(SPADE_PACKAGE_AUDIT_BRIDGE_BIN_NAME)
 
 all-local:
-	@$(MKDIR_P) "$(SPADE_AUDIT_BRIDGE_BIN_DIR)"
-	$(CC) -o "$(SPADE_AUDIT_BRIDGE_BIN_DIR)/$(AUDIT_BRIDGE_BINARY)" "$(AUDIT_BRIDGE_C_SRC)"
-
-install-exec-local:
-	$(MKDIR_P) "$(AUDIT_BRIDGE_INSTALL_BINDIR)"
-	$(INSTALL_PROGRAM) "$(SPADE_AUDIT_BRIDGE_BIN_DIR)/$(AUDIT_BRIDGE_BINARY)" \
-		"$(AUDIT_BRIDGE_INSTALL_BINDIR)/$(AUDIT_BRIDGE_BINARY)"
-
-uninstall-local:
-	rm -f "$(AUDIT_BRIDGE_INSTALL_BINDIR)/$(AUDIT_BRIDGE_BINARY)"
+	@$(MKDIR_P) "$(BUILD_DIR)"
+	$(CC) -o "$(BUILD_BIN_PATH)" "$(SRC_C_MAIN_PATH)"
+	cp "$(BUILD_BIN_PATH)" "$(OUTPUT_SPADE_PACKAGE_AUDIT_BRIDGE_BIN_PATH)"
 
 clean-local:
-	rm -f "$(SPADE_AUDIT_BRIDGE_BIN_DIR)/$(AUDIT_BRIDGE_BINARY)"
+	rm -rf "$(BUILD_DIR)"
+	rm -f "$(OUTPUT_SPADE_PACKAGE_AUDIT_BRIDGE_BIN_PATH)"
 
 distclean-local: clean-local
 
