@@ -616,8 +616,8 @@ ac_subst_vars='am__EXEEXT_FALSE
 am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
-SPADE_PACKAGE_FUSE_SHARED_LIB_NAME
-SPADE_PACKAGE_FUSE_SHARED_LIB_DIR
+SPADE_PACKAGE_MAC_FUSE_SHARED_LIB_NAME
+SPADE_PACKAGE_LIB_DIR
 SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR
 FUSE_CFLAGS
 PKG_CONFIG
@@ -728,8 +728,8 @@ LDFLAGS
 LIBS
 CPPFLAGS
 SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR
-SPADE_PACKAGE_FUSE_SHARED_LIB_DIR
-SPADE_PACKAGE_FUSE_SHARED_LIB_NAME'
+SPADE_PACKAGE_LIB_DIR
+SPADE_PACKAGE_MAC_FUSE_SHARED_LIB_NAME'
 
 
 # Initialize some variables set by options.
@@ -1374,11 +1374,10 @@ Some influential environment variables:
   SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR
               Path to SPADE top-level (i.e. package) java header include
               directory
-  SPADE_PACKAGE_FUSE_SHARED_LIB_DIR
-              Path to SPADE top-level (i.e. package) FUSE shared library
-              directory
-  SPADE_PACKAGE_FUSE_SHARED_LIB_NAME
-              Name of SPADE top-level (i.e. package) FUSE shared library
+  SPADE_PACKAGE_LIB_DIR
+              Path to SPADE top-level (i.e. package) lib directory
+  SPADE_PACKAGE_MAC_FUSE_SHARED_LIB_NAME
+              Name of SPADE top-level (i.e. package) Mac FUSE shared library
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -4280,13 +4279,13 @@ if test "x${SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR}" = "x"; then
 fi
 
 
-if test "x${SPADE_PACKAGE_FUSE_SHARED_LIB_DIR}" = "x"; then
-    as_fn_error $? "SPADE_PACKAGE_FUSE_SHARED_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_FUSE_SHARED_LIB_DIR=<path>" "$LINENO" 5
+if test "x${SPADE_PACKAGE_LIB_DIR}" = "x"; then
+    as_fn_error $? "SPADE_PACKAGE_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_LIB_DIR=<path>" "$LINENO" 5
 fi
 
 
-if test "x${SPADE_PACKAGE_FUSE_SHARED_LIB_NAME}" = "x"; then
-    as_fn_error $? "SPADE_PACKAGE_FUSE_SHARED_LIB_NAME is required; set it with ./configure SPADE_PACKAGE_FUSE_SHARED_LIB_NAME=<path>" "$LINENO" 5
+if test "x${SPADE_PACKAGE_MAC_FUSE_SHARED_LIB_NAME}" = "x"; then
+    as_fn_error $? "SPADE_PACKAGE_MAC_FUSE_SHARED_LIB_NAME is required; set it with ./configure SPADE_PACKAGE_MAC_FUSE_SHARED_LIB_NAME=<name>" "$LINENO" 5
 fi
 
 ac_config_files="$ac_config_files Makefile"

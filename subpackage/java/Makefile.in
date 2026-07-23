@@ -234,10 +234,10 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-OUTPUT_SPADE_PACKAGE_JAR_PATH = "$(SPADE_PACKAGE_LIB_DIR)/$(SPADE_PACKAGE_JAR_NAME)"
+OUTPUT_SPADE_PACKAGE_JAR_FILE = "$(SPADE_PACKAGE_LIB_DIR)/$(SPADE_PACKAGE_JAR_NAME)"
 MVN_SPADE_VARS = -Dspade.package.lib.dir="$(SPADE_PACKAGE_LIB_DIR)" \
 	-Dspade.jar.name="$(SPADE_PACKAGE_JAR_NAME)" \
-	-Dspade.package.jar.path="$(OUTPUT_SPADE_PACKAGE_JAR_PATH)" \
+	-Dspade.package.jar.path="$(OUTPUT_SPADE_PACKAGE_JAR_FILE)" \
 	-Dspade.package.header.include.java.dir="$(SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR)"
 
 all: all-am

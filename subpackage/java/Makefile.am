@@ -4,11 +4,11 @@
 # 'make all' compiles the Java module and places the resulting jar
 # in the java lib directory as well.
 
-OUTPUT_SPADE_PACKAGE_JAR_PATH = "$(SPADE_PACKAGE_LIB_DIR)/$(SPADE_PACKAGE_JAR_NAME)"
+OUTPUT_SPADE_PACKAGE_JAR_FILE = "$(SPADE_PACKAGE_LIB_DIR)/$(SPADE_PACKAGE_JAR_NAME)"
 
 MVN_SPADE_VARS = -Dspade.package.lib.dir="$(SPADE_PACKAGE_LIB_DIR)" \
 	-Dspade.jar.name="$(SPADE_PACKAGE_JAR_NAME)" \
-	-Dspade.package.jar.path="$(OUTPUT_SPADE_PACKAGE_JAR_PATH)" \
+	-Dspade.package.jar.path="$(OUTPUT_SPADE_PACKAGE_JAR_FILE)" \
 	-Dspade.package.header.include.java.dir="$(SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR)"
 
 all-local:

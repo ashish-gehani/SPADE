@@ -618,8 +618,8 @@ am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
 subdirs
-HAVE_OPENBSM_FALSE
-HAVE_OPENBSM_TRUE
+HAVE_OPENBSM_BRIDGE_FALSE
+HAVE_OPENBSM_BRIDGE_TRUE
 HAVE_LLVM_FALSE
 HAVE_LLVM_TRUE
 LLVM_CONFIG
@@ -723,7 +723,7 @@ enable_maintainer_mode
 enable_dependency_tracking
 enable_fuse
 enable_llvm
-enable_openbsm
+enable_openbsm_bridge
 '
       ac_precious_vars='build_alias
 host_alias
@@ -735,7 +735,7 @@ LIBS
 CPPFLAGS'
 ac_subdirs_all='fuse
 llvm
-openbsm'
+openbsm_bridge'
 
 # Initialize some variables set by options.
 ac_init_help=
@@ -1369,7 +1369,7 @@ Optional Features:
                           speeds up one-time build
   --enable-fuse           build Mac FUSE reporter (default: no)
   --enable-llvm           build Mac LLVM reporters (default: no)
-  --enable-openbsm        build OpenBSM reporter (default: no)
+  --enable-openbsm-bridge build OpenBSM reporter (default: no)
 
 Some influential environment variables:
   CC          C compiler command
@@ -2962,8 +2962,8 @@ fi
 
 # Must be called unconditionally so automake's AMDEP infrastructure is
 # initialized at the top level, not inside a conditional block (e.g. the
-# AC_CHECK_LIB call in the openbsm section would otherwise pull AC_PROG_CC
-# in conditionally, leaving AMDEP undefined when openbsm is disabled).
+# AC_CHECK_LIB call in the openbsm_bridge section would otherwise pull AC_PROG_CC
+# in conditionally, leaving AMDEP undefined when openbsm_bridge is disabled).
 
 
 
@@ -4365,18 +4365,18 @@ else
 fi
 
 
-# --- openbsm detection ---
+# --- openbsm_bridge detection ---
 
-# Check whether --enable-openbsm was given.
-if test ${enable_openbsm+y}
+# Check whether --enable-openbsm-bridge was given.
+if test ${enable_openbsm_bridge+y}
 then :
-  enableval=$enable_openbsm; enable_openbsm=${enableval}
+  enableval=$enable_openbsm_bridge; enable_openbsm_bridge=${enableval}
 else $as_nop
-  enable_openbsm=no
+  enable_openbsm_bridge=no
 fi
 
-have_openbsm=no
-if test "x${enable_openbsm}" = "xyes"; then
+have_openbsm_bridge=no
+if test "x${enable_openbsm_bridge}" = "xyes"; then
 
 { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for au_open in -lbsm" >&5
 printf %s "checking for au_open in -lbsm... " >&6; }
@@ -4415,21 +4415,21 @@ fi
 printf "%s\n" "$ac_cv_lib_bsm_au_open" >&6; }
 if test "x$ac_cv_lib_bsm_au_open" = xyes
 then :
-  have_openbsm=yes
+  have_openbsm_bridge=yes
 else $as_nop
-  have_openbsm=no
+  have_openbsm_bridge=no
 fi
 
-    if test "x${have_openbsm}" = "xno"; then
+    if test "x${have_openbsm_bridge}" = "xno"; then
         as_fn_error $? "libbsm not found" "$LINENO" 5
     fi
 fi
- if test "x${have_openbsm}" = "xyes"; then
-  HAVE_OPENBSM_TRUE=
-  HAVE_OPENBSM_FALSE='#'
+ if test "x${have_openbsm_bridge}" = "xyes"; then
+  HAVE_OPENBSM_BRIDGE_TRUE=
+  HAVE_OPENBSM_BRIDGE_FALSE='#'
 else
-  HAVE_OPENBSM_TRUE='#'
-  HAVE_OPENBSM_FALSE=
+  HAVE_OPENBSM_BRIDGE_TRUE='#'
+  HAVE_OPENBSM_BRIDGE_FALSE=
 fi
 
 
@@ -4443,8 +4443,8 @@ if test "x${have_llvm}" = "xyes"; then
     subdirs="$subdirs llvm"
 
 fi
-if test "x${have_openbsm}" = "xyes"; then
-    subdirs="$subdirs openbsm"
+if test "x${have_openbsm_bridge}" = "xyes"; then
+    subdirs="$subdirs openbsm_bridge"
 
 fi
 
@@ -4631,8 +4631,8 @@ if test -z "${HAVE_LLVM_TRUE}" && test -z "${HAVE_LLVM_FALSE}"; then
   as_fn_error $? "conditional \"HAVE_LLVM\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
-if test -z "${HAVE_OPENBSM_TRUE}" && test -z "${HAVE_OPENBSM_FALSE}"; then
-  as_fn_error $? "conditional \"HAVE_OPENBSM\" was never defined.
+if test -z "${HAVE_OPENBSM_BRIDGE_TRUE}" && test -z "${HAVE_OPENBSM_BRIDGE_FALSE}"; then
+  as_fn_error $? "conditional \"HAVE_OPENBSM_BRIDGE\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 

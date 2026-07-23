@@ -711,7 +711,7 @@ target_alias'
 ac_subdirs_all='audit_bridge
 llvm
 fuse
-kernel_module'
+kernel_modules'
 
 # Initialize some variables set by options.
 ac_init_help=
@@ -2713,7 +2713,7 @@ if test "x${have_fuse}" = "xyes"; then
 
 fi
 if test "x${enable_kernel_modules}" = "xyes"; then
-    subdirs="$subdirs kernel_module"
+    subdirs="$subdirs kernel_modules"
 
 fi
 

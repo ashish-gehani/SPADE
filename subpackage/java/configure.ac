@@ -47,7 +47,7 @@ fi
 
 AC_ARG_VAR([SPADE_PACKAGE_JAR_NAME], [Name of SPADE top-level (i.e. package) jar])
 if test "x${SPADE_PACKAGE_JAR_NAME}" = "x"; then
-    AC_MSG_ERROR([SPADE_PACKAGE_JAR_NAME is required; set it with ./configure SPADE_PACKAGE_JAR_NAME=<path>])
+    AC_MSG_ERROR([SPADE_PACKAGE_JAR_NAME is required; set it with ./configure SPADE_PACKAGE_JAR_NAME=<name>])
 fi
 
 AC_ARG_VAR([SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR], [Path to SPADE top-level (i.e. package) java header include directory])

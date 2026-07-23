@@ -21,7 +21,7 @@ fi
 
 AC_ARG_VAR([SPADE_PACKAGE_KERNEL_MODULE_DIR_NAME], [Name of SPADE top-level (i.e. package) kernel module directory])
 if test "x${SPADE_PACKAGE_KERNEL_MODULE_DIR_NAME}" = "x"; then
-    AC_MSG_ERROR([SPADE_PACKAGE_KERNEL_MODULE_DIR_NAME is required; set it with ./configure SPADE_PACKAGE_KERNEL_MODULE_DIR_NAME=<path>])
+    AC_MSG_ERROR([SPADE_PACKAGE_KERNEL_MODULE_DIR_NAME is required; set it with ./configure SPADE_PACKAGE_KERNEL_MODULE_DIR_NAME=<name>])
 fi
 
 AC_ARG_VAR([KERNEL_MODULES_DEBUG], [Set to "true" to build debug kernel modules (default: false)])

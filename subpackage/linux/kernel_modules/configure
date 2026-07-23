@@ -2535,7 +2535,7 @@ fi
 
 
 if test "x${SPADE_PACKAGE_KERNEL_MODULE_DIR_NAME}" = "x"; then
-    as_fn_error $? "SPADE_PACKAGE_KERNEL_MODULE_DIR_NAME is required; set it with ./configure SPADE_PACKAGE_KERNEL_MODULE_DIR_NAME=<path>" "$LINENO" 5
+    as_fn_error $? "SPADE_PACKAGE_KERNEL_MODULE_DIR_NAME is required; set it with ./configure SPADE_PACKAGE_KERNEL_MODULE_DIR_NAME=<name>" "$LINENO" 5
 fi
 
 

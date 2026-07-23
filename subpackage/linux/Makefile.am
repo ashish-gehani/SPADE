@@ -5,8 +5,8 @@ DIST_SUBDIRS = audit_bridge
 SUBDIRS = audit_bridge
 
 if CONFIGURE_KERNEL_MODULES
-DIST_SUBDIRS += kernel_module
-SUBDIRS += kernel_module
+DIST_SUBDIRS += kernel_modules
+SUBDIRS += kernel_modules
 endif
 
 if HAVE_FUSE

@@ -66,7 +66,7 @@ if test "x${have_fuse}" = "xyes"; then
     AC_CONFIG_SUBDIRS([fuse])
 fi
 if test "x${enable_kernel_modules}" = "xyes"; then
-    AC_CONFIG_SUBDIRS([kernel_module])
+    AC_CONFIG_SUBDIRS([kernel_modules])
 fi
 
 AC_CONFIG_FILES([Makefile])

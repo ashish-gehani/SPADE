@@ -332,8 +332,7 @@ clean:
 	-rm -f $(MOD_OUT_FILES)
 	-rm -f $(addprefix $(BUILD_DIR)/,$(MOD_OUT_FILES))
 	-rm -f $(TEST_USER_BIN)
-	-rm -f $(PACKAGE_DIR)/$(MAIN_MODULE_NAME).ko
-	-rm -f $(PACKAGE_DIR)/$(CONTROLLER_MODULE_NAME).ko
+	-rm -f $(addprefix $(PACKAGE_DIR)/,$(MOD_OUT_FILES))
 
 package:
 	@if [ ! -f "$(BUILD_DIR)/$(MAIN_MODULE_NAME).ko" ]; then \

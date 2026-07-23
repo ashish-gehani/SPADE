@@ -35,19 +35,19 @@ if test "x${SPADE_PACKAGE_LIB_DIR}" = "x"; then
     AC_MSG_ERROR([SPADE_PACKAGE_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_LIB_DIR=<path>])
 fi
 
-AC_ARG_VAR([SPADE_PACKAGE_LLVM_TRACE_LIB_NAME], [Name of SPADE top-level (i.e. package) llvm trace shared library])
-if test "x${SPADE_PACKAGE_LLVM_TRACE_LIB_NAME}" = "x"; then
-    AC_MSG_ERROR([SPADE_PACKAGE_LLVM_TRACE_LIB_NAME is required; set it with ./configure SPADE_PACKAGE_LLVM_TRACE_LIB_NAME=<path>])
+AC_ARG_VAR([SPADE_PACKAGE_LINUX_LLVM_TRACE_LIB_NAME], [Name of SPADE top-level (i.e. package) Linux llvm trace shared library])
+if test "x${SPADE_PACKAGE_LINUX_LLVM_TRACE_LIB_NAME}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_LINUX_LLVM_TRACE_LIB_NAME is required; set it with ./configure SPADE_PACKAGE_LINUX_LLVM_TRACE_LIB_NAME=<name>])
 fi
 
 AC_ARG_VAR([SPADE_PACKAGE_LLVM_FLUSH_BC_NAME], [Name of SPADE top-level (i.e. package) llvm bitcode object])
 if test "x${SPADE_PACKAGE_LLVM_FLUSH_BC_NAME}" = "x"; then
-    AC_MSG_ERROR([SPADE_PACKAGE_LLVM_FLUSH_BC_NAME is required; set it with ./configure SPADE_PACKAGE_LLVM_FLUSH_BC_NAME=<path>])
+    AC_MSG_ERROR([SPADE_PACKAGE_LLVM_FLUSH_BC_NAME is required; set it with ./configure SPADE_PACKAGE_LLVM_FLUSH_BC_NAME=<name>])
 fi
 
 AC_ARG_VAR([SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME], [Name of SPADE top-level (i.e. package) llvm libc wrapper library])
 if test "x${SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME}" = "x"; then
-    AC_MSG_ERROR([SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME is required; set it with ./configure SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME=<path>])
+    AC_MSG_ERROR([SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME is required; set it with ./configure SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME=<name>])
 fi
 
 AC_CONFIG_FILES([Makefile])

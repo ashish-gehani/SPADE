@@ -14,9 +14,9 @@ DIST_SUBDIRS += llvm
 SUBDIRS += llvm
 endif
 
-if HAVE_OPENBSM
-DIST_SUBDIRS += openbsm
-SUBDIRS += openbsm
+if HAVE_OPENBSM_BRIDGE
+DIST_SUBDIRS += openbsm_bridge
+SUBDIRS += openbsm_bridge
 endif
 
 maintainer-clean-local:

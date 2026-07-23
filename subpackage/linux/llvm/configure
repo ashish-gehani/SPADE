@@ -616,7 +616,7 @@ ac_subst_vars='LTLIBOBJS
 LIBOBJS
 SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME
 SPADE_PACKAGE_LLVM_FLUSH_BC_NAME
-SPADE_PACKAGE_LLVM_TRACE_LIB_NAME
+SPADE_PACKAGE_LINUX_LLVM_TRACE_LIB_NAME
 SPADE_PACKAGE_LIB_DIR
 LLVM_CXXFLAGS
 CLANGXX
@@ -704,7 +704,7 @@ enable_maintainer_mode
 host_alias
 target_alias
 SPADE_PACKAGE_LIB_DIR
-SPADE_PACKAGE_LLVM_TRACE_LIB_NAME
+SPADE_PACKAGE_LINUX_LLVM_TRACE_LIB_NAME
 SPADE_PACKAGE_LLVM_FLUSH_BC_NAME
 SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME'
 
@@ -1339,8 +1339,9 @@ Optional Features:
 Some influential environment variables:
   SPADE_PACKAGE_LIB_DIR
               Path to SPADE top-level (i.e. package) lib directory
-  SPADE_PACKAGE_LLVM_TRACE_LIB_NAME
-              Name of SPADE top-level (i.e. package) llvm trace shared library
+  SPADE_PACKAGE_LINUX_LLVM_TRACE_LIB_NAME
+              Name of SPADE top-level (i.e. package) Linux llvm trace shared
+              library
   SPADE_PACKAGE_LLVM_FLUSH_BC_NAME
               Name of SPADE top-level (i.e. package) llvm bitcode object
   SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME
@@ -2695,18 +2696,18 @@ if test "x${SPADE_PACKAGE_LIB_DIR}" = "x"; then
 fi
 
 
-if test "x${SPADE_PACKAGE_LLVM_TRACE_LIB_NAME}" = "x"; then
-    as_fn_error $? "SPADE_PACKAGE_LLVM_TRACE_LIB_NAME is required; set it with ./configure SPADE_PACKAGE_LLVM_TRACE_LIB_NAME=<path>" "$LINENO" 5
+if test "x${SPADE_PACKAGE_LINUX_LLVM_TRACE_LIB_NAME}" = "x"; then
+    as_fn_error $? "SPADE_PACKAGE_LINUX_LLVM_TRACE_LIB_NAME is required; set it with ./configure SPADE_PACKAGE_LINUX_LLVM_TRACE_LIB_NAME=<name>" "$LINENO" 5
 fi
 
 
 if test "x${SPADE_PACKAGE_LLVM_FLUSH_BC_NAME}" = "x"; then
-    as_fn_error $? "SPADE_PACKAGE_LLVM_FLUSH_BC_NAME is required; set it with ./configure SPADE_PACKAGE_LLVM_FLUSH_BC_NAME=<path>" "$LINENO" 5
+    as_fn_error $? "SPADE_PACKAGE_LLVM_FLUSH_BC_NAME is required; set it with ./configure SPADE_PACKAGE_LLVM_FLUSH_BC_NAME=<name>" "$LINENO" 5
 fi
 
 
 if test "x${SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME}" = "x"; then
-    as_fn_error $? "SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME is required; set it with ./configure SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME=<path>" "$LINENO" 5
+    as_fn_error $? "SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME is required; set it with ./configure SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME=<name>" "$LINENO" 5
 fi
 
 ac_config_files="$ac_config_files Makefile"

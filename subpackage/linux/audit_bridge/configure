@@ -4161,7 +4161,7 @@ fi
 
 
 if test "x${SPADE_PACKAGE_AUDIT_BRIDGE_BIN_NAME}" = "x"; then
-    as_fn_error $? "SPADE_PACKAGE_AUDIT_BRIDGE_BIN_NAME is required; set it with ./configure SPADE_PACKAGE_AUDIT_BRIDGE_BIN_NAME=<path>" "$LINENO" 5
+    as_fn_error $? "SPADE_PACKAGE_AUDIT_BRIDGE_BIN_NAME is required; set it with ./configure SPADE_PACKAGE_AUDIT_BRIDGE_BIN_NAME=<name>" "$LINENO" 5
 fi
 
 ac_config_files="$ac_config_files Makefile"

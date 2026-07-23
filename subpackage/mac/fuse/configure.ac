@@ -36,14 +36,14 @@ if test "x${SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR}" = "x"; then
     AC_MSG_ERROR([SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR is required; set it with ./configure SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR=<path>])
 fi
 
-AC_ARG_VAR([SPADE_PACKAGE_FUSE_SHARED_LIB_DIR], [Path to SPADE top-level (i.e. package) FUSE shared library directory])
-if test "x${SPADE_PACKAGE_FUSE_SHARED_LIB_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_PACKAGE_FUSE_SHARED_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_FUSE_SHARED_LIB_DIR=<path>])
+AC_ARG_VAR([SPADE_PACKAGE_LIB_DIR], [Path to SPADE top-level (i.e. package) lib directory])
+if test "x${SPADE_PACKAGE_LIB_DIR}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_LIB_DIR=<path>])
 fi
 
-AC_ARG_VAR([SPADE_PACKAGE_FUSE_SHARED_LIB_NAME], [Name of SPADE top-level (i.e. package) FUSE shared library])
-if test "x${SPADE_PACKAGE_FUSE_SHARED_LIB_NAME}" = "x"; then
-    AC_MSG_ERROR([SPADE_PACKAGE_FUSE_SHARED_LIB_NAME is required; set it with ./configure SPADE_PACKAGE_FUSE_SHARED_LIB_NAME=<path>])
+AC_ARG_VAR([SPADE_PACKAGE_MAC_FUSE_SHARED_LIB_NAME], [Name of SPADE top-level (i.e. package) Mac FUSE shared library])
+if test "x${SPADE_PACKAGE_MAC_FUSE_SHARED_LIB_NAME}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_MAC_FUSE_SHARED_LIB_NAME is required; set it with ./configure SPADE_PACKAGE_MAC_FUSE_SHARED_LIB_NAME=<name>])
 fi
 
 AC_CONFIG_FILES([Makefile])

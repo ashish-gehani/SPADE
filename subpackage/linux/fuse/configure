@@ -616,7 +616,7 @@ ac_subst_vars='am__EXEEXT_FALSE
 am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
-SPADE_PACKAGE_FUSE_SHARED_LIB_NAME
+SPADE_PACKAGE_LINUX_FUSE_SHARED_LIB_NAME
 SPADE_PACKAGE_LIB_DIR
 SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR
 FUSE_CFLAGS
@@ -729,7 +729,7 @@ LIBS
 CPPFLAGS
 SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR
 SPADE_PACKAGE_LIB_DIR
-SPADE_PACKAGE_FUSE_SHARED_LIB_NAME'
+SPADE_PACKAGE_LINUX_FUSE_SHARED_LIB_NAME'
 
 
 # Initialize some variables set by options.
@@ -1376,8 +1376,8 @@ Some influential environment variables:
               directory
   SPADE_PACKAGE_LIB_DIR
               Path to SPADE top-level (i.e. package) lib directory
-  SPADE_PACKAGE_FUSE_SHARED_LIB_NAME
-              Name of SPADE top-level (i.e. package) FUSE shared library
+  SPADE_PACKAGE_LINUX_FUSE_SHARED_LIB_NAME
+              Name of SPADE top-level (i.e. package) Linux FUSE shared library
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -4286,8 +4286,8 @@ if test "x${SPADE_PACKAGE_LIB_DIR}" = "x"; then
 fi
 
 
-if test "x${SPADE_PACKAGE_FUSE_SHARED_LIB_NAME}" = "x"; then
-    as_fn_error $? "SPADE_PACKAGE_FUSE_SHARED_LIB_NAME is required; set it with ./configure SPADE_PACKAGE_FUSE_SHARED_LIB_NAME=<path>" "$LINENO" 5
+if test "x${SPADE_PACKAGE_LINUX_FUSE_SHARED_LIB_NAME}" = "x"; then
+    as_fn_error $? "SPADE_PACKAGE_LINUX_FUSE_SHARED_LIB_NAME is required; set it with ./configure SPADE_PACKAGE_LINUX_FUSE_SHARED_LIB_NAME=<name>" "$LINENO" 5
 fi
 
 ac_config_files="$ac_config_files Makefile"

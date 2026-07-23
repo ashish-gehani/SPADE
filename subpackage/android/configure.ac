@@ -19,7 +19,7 @@ if test "x${SPADE_PACKAGE_LIB_DIR}" = "x"; then
     AC_MSG_ERROR([SPADE_PACKAGE_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_LIB_DIR=<path>])
 fi
 
-AC_ARG_VAR([SPADE_PACKAGE_SPADE_JAR_FILE], [Path to SPADE top-level jar path created by java subpackage])
+AC_ARG_VAR([SPADE_PACKAGE_SPADE_JAR_FILE], [Path to SPADE top-level jar file created by java subpackage])
 if test "x${SPADE_PACKAGE_SPADE_JAR_FILE}" = "x"; then
     AC_MSG_ERROR([SPADE_PACKAGE_SPADE_JAR_FILE is required; set it with ./configure SPADE_PACKAGE_SPADE_JAR_FILE=<path>])
 fi

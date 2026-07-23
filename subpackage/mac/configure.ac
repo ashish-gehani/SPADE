@@ -10,8 +10,8 @@ AM_MAINTAINER_MODE([disable])
 
 # Must be called unconditionally so automake's AMDEP infrastructure is
 # initialized at the top level, not inside a conditional block (e.g. the
-# AC_CHECK_LIB call in the openbsm section would otherwise pull AC_PROG_CC
-# in conditionally, leaving AMDEP undefined when openbsm is disabled).
+# AC_CHECK_LIB call in the openbsm_bridge section would otherwise pull AC_PROG_CC
+# in conditionally, leaving AMDEP undefined when openbsm_bridge is disabled).
 AC_PROG_CC
 
 AC_PATH_PROG([PKG_CONFIG], [pkg-config], [:])
@@ -53,22 +53,22 @@ if test "x${enable_llvm}" = "xyes"; then
 fi
 AM_CONDITIONAL([HAVE_LLVM], [test "x${have_llvm}" = "xyes"])
 
-# --- openbsm detection ---
+# --- openbsm_bridge detection ---
 
-AC_ARG_ENABLE([openbsm],
-    [AS_HELP_STRING([--enable-openbsm], [build OpenBSM reporter (default: no)])],
-    [enable_openbsm=${enableval}],
-    [enable_openbsm=no])
-have_openbsm=no
-if test "x${enable_openbsm}" = "xyes"; then
+AC_ARG_ENABLE([openbsm-bridge],
+    [AS_HELP_STRING([--enable-openbsm-bridge], [build OpenBSM reporter (default: no)])],
+    [enable_openbsm_bridge=${enableval}],
+    [enable_openbsm_bridge=no])
+have_openbsm_bridge=no
+if test "x${enable_openbsm_bridge}" = "xyes"; then
     AC_CHECK_LIB([bsm], [au_open],
-        [have_openbsm=yes],
-        [have_openbsm=no])
-    if test "x${have_openbsm}" = "xno"; then
+        [have_openbsm_bridge=yes],
+        [have_openbsm_bridge=no])
+    if test "x${have_openbsm_bridge}" = "xno"; then
         AC_MSG_ERROR([libbsm not found])
     fi
 fi
-AM_CONDITIONAL([HAVE_OPENBSM], [test "x${have_openbsm}" = "xyes"])
+AM_CONDITIONAL([HAVE_OPENBSM_BRIDGE], [test "x${have_openbsm_bridge}" = "xyes"])
 
 if test "x${have_fuse}" = "xyes"; then
     AC_CONFIG_SUBDIRS([fuse])
@@ -76,8 +76,8 @@ fi
 if test "x${have_llvm}" = "xyes"; then
     AC_CONFIG_SUBDIRS([llvm])
 fi
-if test "x${have_openbsm}" = "xyes"; then
-    AC_CONFIG_SUBDIRS([openbsm])
+if test "x${have_openbsm_bridge}" = "xyes"; then
+    AC_CONFIG_SUBDIRS([openbsm_bridge])
 fi
 
 AC_CONFIG_FILES([Makefile])

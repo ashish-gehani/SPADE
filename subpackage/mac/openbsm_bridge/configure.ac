@@ -2,7 +2,7 @@
 # Copyright (C) 2026 SRI International.
 
 AC_PREREQ([2.71])
-AC_INIT([spadeAuditBridge], [2.0])
+AC_INIT([spadeOpenBSMBridge], [2.0])
 AC_CONFIG_AUX_DIR([../../../build-aux])
 AC_CONFIG_MACRO_DIRS([../../../m4])
 AM_INIT_AUTOMAKE([1.16 -Wall -Werror foreign])
@@ -10,14 +10,19 @@ AM_MAINTAINER_MODE([disable])
 
 AC_PROG_CC
 
+# libbsm availability is checked by the parent configure.ac, which only
+# configures this subpackage when libbsm is found.
+LIBBSM_LIBS="-lbsm"
+AC_SUBST([LIBBSM_LIBS])
+
 AC_ARG_VAR([SPADE_PACKAGE_BIN_DIR], [Path to SPADE top-level path for binary output directory])
 if test "x${SPADE_PACKAGE_BIN_DIR}" = "x"; then
     AC_MSG_ERROR([SPADE_PACKAGE_BIN_DIR is required; set it with ./configure SPADE_PACKAGE_BIN_DIR=<path>])
 fi
 
-AC_ARG_VAR([SPADE_PACKAGE_AUDIT_BRIDGE_BIN_NAME], [Name of SPADE top-level binary output file])
-if test "x${SPADE_PACKAGE_AUDIT_BRIDGE_BIN_NAME}" = "x"; then
-    AC_MSG_ERROR([SPADE_PACKAGE_AUDIT_BRIDGE_BIN_NAME is required; set it with ./configure SPADE_PACKAGE_AUDIT_BRIDGE_BIN_NAME=<name>])
+AC_ARG_VAR([SPADE_PACKAGE_OPENBSM_BRIDGE_BIN_NAME], [Name of SPADE top-level binary output file])
+if test "x${SPADE_PACKAGE_OPENBSM_BRIDGE_BIN_NAME}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_OPENBSM_BRIDGE_BIN_NAME is required; set it with ./configure SPADE_PACKAGE_OPENBSM_BRIDGE_BIN_NAME=<name>])
 fi
 
 AC_CONFIG_FILES([Makefile])

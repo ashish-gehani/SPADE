@@ -3,21 +3,21 @@
 
 BUILD_DIR                               = "build"
 BUILD_JAR_NAME                          = "android-spade.jar"
-OUTPUT_BUILD_JAR_PATH                   = "$(BUILD_DIR)/$(BUILD_JAR_NAME)"
-INPUT_SPADE_PACKAGE_JAR_PATH            = "$(SPADE_PACKAGE_SPADE_JAR_FILE)"
-OUTPUT_SPADE_PACKAGE_ANDROID_JAR_PATH   = "$(SPADE_PACKAGE_LIB_DIR)/$(SPADE_PACKAGE_ANDROID_JAR_NAME)"
+BUILD_JAR_FILE                          = "$(BUILD_DIR)/$(BUILD_JAR_NAME)"
+INPUT_SPADE_PACKAGE_JAR_FILE            = "$(SPADE_PACKAGE_SPADE_JAR_FILE)"
+OUTPUT_SPADE_PACKAGE_ANDROID_JAR_FILE   = "$(SPADE_PACKAGE_LIB_DIR)/$(SPADE_PACKAGE_ANDROID_JAR_NAME)"
 
 all-local:
 	@$(MKDIR_P) "$(BUILD_DIR)"; \
 	$(DX) --dex --verbose --no-strict \
-		--output="$(OUTPUT_BUILD_JAR_PATH)" \
-		"$(INPUT_SPADE_PACKAGE_JAR_PATH)"; \
-	cp "$(OUTPUT_BUILD_JAR_PATH)" \
-		"$(OUTPUT_SPADE_PACKAGE_ANDROID_JAR_PATH)"
+		--output="$(BUILD_JAR_FILE)" \
+		"$(INPUT_SPADE_PACKAGE_JAR_FILE)"; \
+	cp "$(BUILD_JAR_FILE)" \
+		"$(OUTPUT_SPADE_PACKAGE_ANDROID_JAR_FILE)"
 
 clean-local:
 	rm -rf "$(BUILD_DIR)"
-	rm -f "$(OUTPUT_SPADE_PACKAGE_ANDROID_JAR_PATH)"
+	rm -f "$(OUTPUT_SPADE_PACKAGE_ANDROID_JAR_FILE)"
 
 distclean-local: clean-local
 
