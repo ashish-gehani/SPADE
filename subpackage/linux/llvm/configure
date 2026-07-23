@@ -617,7 +617,7 @@ LIBOBJS
 SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME
 SPADE_PACKAGE_LLVM_FLUSH_BC_NAME
 SPADE_PACKAGE_LLVM_TRACE_LIB_NAME
-SPADE_PACKAGE_LLVM_LIB_DIR
+SPADE_PACKAGE_LIB_DIR
 LLVM_CXXFLAGS
 CLANGXX
 CLANG
@@ -703,7 +703,7 @@ enable_maintainer_mode
       ac_precious_vars='build_alias
 host_alias
 target_alias
-SPADE_PACKAGE_LLVM_LIB_DIR
+SPADE_PACKAGE_LIB_DIR
 SPADE_PACKAGE_LLVM_TRACE_LIB_NAME
 SPADE_PACKAGE_LLVM_FLUSH_BC_NAME
 SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME'
@@ -1337,8 +1337,8 @@ Optional Features:
                           sometimes confusing) to the casual installer
 
 Some influential environment variables:
-  SPADE_PACKAGE_LLVM_LIB_DIR
-              Path to SPADE top-level (i.e. package) LLVM libraries directory
+  SPADE_PACKAGE_LIB_DIR
+              Path to SPADE top-level (i.e. package) lib directory
   SPADE_PACKAGE_LLVM_TRACE_LIB_NAME
               Name of SPADE top-level (i.e. package) llvm trace shared library
   SPADE_PACKAGE_LLVM_FLUSH_BC_NAME
@@ -2690,8 +2690,8 @@ LLVM_CXXFLAGS=$(${LLVM_CONFIG} --cxxflags)
 ###
 
 
-if test "x${SPADE_PACKAGE_LLVM_LIB_DIR}" = "x"; then
-    as_fn_error $? "SPADE_PACKAGE_LLVM_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_LLVM_LIB_DIR=<path>" "$LINENO" 5
+if test "x${SPADE_PACKAGE_LIB_DIR}" = "x"; then
+    as_fn_error $? "SPADE_PACKAGE_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_LIB_DIR=<path>" "$LINENO" 5
 fi
 
 

@@ -30,9 +30,9 @@ AC_SUBST([LLVM_CXXFLAGS])
 
 ###
 
-AC_ARG_VAR([SPADE_PACKAGE_LLVM_LIB_DIR], [Path to SPADE top-level (i.e. package) LLVM libraries directory])
-if test "x${SPADE_PACKAGE_LLVM_LIB_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_PACKAGE_LLVM_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_LLVM_LIB_DIR=<path>])
+AC_ARG_VAR([SPADE_PACKAGE_LIB_DIR], [Path to SPADE top-level (i.e. package) lib directory])
+if test "x${SPADE_PACKAGE_LIB_DIR}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_LIB_DIR=<path>])
 fi
 
 AC_ARG_VAR([SPADE_PACKAGE_LLVM_TRACE_LIB_NAME], [Name of SPADE top-level (i.e. package) llvm trace shared library])
