@@ -45,14 +45,9 @@ if test "x${SPADE_PACKAGE_LIB_DIR}" = "x"; then
     AC_MSG_ERROR([SPADE_PACKAGE_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_LIB_DIR=<path>])
 fi
 
-AC_ARG_VAR([SPADE_JAR_NAME], [Name of SPADE top-level (i.e. package) jar])
-if test "x${SPADE_JAR_NAME}" = "x"; then
-    AC_MSG_ERROR([SPADE_JAR_NAME is required; set it with ./configure SPADE_JAR_NAME=<path>])
-fi
-
-AC_ARG_VAR([SPADE_PACKAGE_JAR_PATH], [Path to SPADE top-level (i.e. package) jar])
-if test "x${SPADE_PACKAGE_JAR_PATH}" = "x"; then
-    AC_MSG_ERROR([SPADE_PACKAGE_JAR_PATH is required; set it with ./configure SPADE_PACKAGE_JAR_PATH=<path>])
+AC_ARG_VAR([SPADE_PACKAGE_JAR_NAME], [Name of SPADE top-level (i.e. package) jar])
+if test "x${SPADE_PACKAGE_JAR_NAME}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_JAR_NAME is required; set it with ./configure SPADE_PACKAGE_JAR_NAME=<path>])
 fi
 
 AC_ARG_VAR([SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR], [Path to SPADE top-level (i.e. package) java header include directory])

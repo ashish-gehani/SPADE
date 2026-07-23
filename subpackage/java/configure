@@ -614,12 +614,9 @@ PACKAGE_URL=''
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
-SPADE_JAVA_LOCAL_REPOSITORY_URL
-SPADE_JAVA_SRC_RESOURCE_DIR
-SPADE_JAVA_SRC_DIR
-SPADE_JAVA_LIB_DIR
-SPADE_JAVA_BUILD_NATIVE_INCLUDE_DIR
-SPADE_JAVA_BUILD_DIR
+SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR
+SPADE_PACKAGE_JAR_NAME
+SPADE_PACKAGE_LIB_DIR
 MAVEN_DEBUG_FLAGS
 JAVA_DEBUG
 MVN
@@ -708,12 +705,9 @@ enable_maintainer_mode
 host_alias
 target_alias
 JAVA_DEBUG
-SPADE_JAVA_BUILD_DIR
-SPADE_JAVA_BUILD_NATIVE_INCLUDE_DIR
-SPADE_JAVA_LIB_DIR
-SPADE_JAVA_SRC_DIR
-SPADE_JAVA_SRC_RESOURCE_DIR
-SPADE_JAVA_LOCAL_REPOSITORY_URL'
+SPADE_PACKAGE_LIB_DIR
+SPADE_PACKAGE_JAR_NAME
+SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR'
 
 
 # Initialize some variables set by options.
@@ -1345,18 +1339,13 @@ Optional Features:
 
 Some influential environment variables:
   JAVA_DEBUG  Build Java with Maven debug output (set to 1 or true)
-  SPADE_JAVA_BUILD_DIR
-              Path to SPADE Java build directory
-  SPADE_JAVA_BUILD_NATIVE_INCLUDE_DIR
-              Path to SPADE Java build native include directory
-  SPADE_JAVA_LIB_DIR
-              Path to SPADE Java lib directory
-  SPADE_JAVA_SRC_DIR
-              Path to SPADE Java src directory
-  SPADE_JAVA_SRC_RESOURCE_DIR
-              Path to SPADE Java src resource directory
-  SPADE_JAVA_LOCAL_REPOSITORY_URL
-              URL of SPADE Java local repository
+  SPADE_PACKAGE_LIB_DIR
+              Path to SPADE top-level (i.e. package) lib directory
+  SPADE_PACKAGE_JAR_NAME
+              Name of SPADE top-level (i.e. package) jar
+  SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR
+              Path to SPADE top-level (i.e. package) java header include
+              directory
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2757,33 +2746,18 @@ fi
 
 
 
-if test "x${SPADE_JAVA_BUILD_DIR}" = "x"; then
-    as_fn_error $? "SPADE_JAVA_BUILD_DIR is required; set it with ./configure SPADE_JAVA_BUILD_DIR=<path>" "$LINENO" 5
+if test "x${SPADE_PACKAGE_LIB_DIR}" = "x"; then
+    as_fn_error $? "SPADE_PACKAGE_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_LIB_DIR=<path>" "$LINENO" 5
 fi
 
 
-if test "x${SPADE_JAVA_BUILD_NATIVE_INCLUDE_DIR}" = "x"; then
-    as_fn_error $? "SPADE_JAVA_BUILD_NATIVE_INCLUDE_DIR is required; set it with ./configure SPADE_JAVA_BUILD_NATIVE_INCLUDE_DIR=<path>" "$LINENO" 5
+if test "x${SPADE_PACKAGE_JAR_NAME}" = "x"; then
+    as_fn_error $? "SPADE_PACKAGE_JAR_NAME is required; set it with ./configure SPADE_PACKAGE_JAR_NAME=<path>" "$LINENO" 5
 fi
 
 
-if test "x${SPADE_JAVA_LIB_DIR}" = "x"; then
-    as_fn_error $? "SPADE_JAVA_LIB_DIR is required; set it with ./configure SPADE_JAVA_LIB_DIR=<path>" "$LINENO" 5
-fi
-
-
-if test "x${SPADE_JAVA_SRC_DIR}" = "x"; then
-    as_fn_error $? "SPADE_JAVA_SRC_DIR is required; set it with ./configure SPADE_JAVA_SRC_DIR=<path>" "$LINENO" 5
-fi
-
-
-if test "x${SPADE_JAVA_SRC_RESOURCE_DIR}" = "x"; then
-    as_fn_error $? "SPADE_JAVA_SRC_RESOURCE_DIR is required; set it with ./configure SPADE_JAVA_SRC_RESOURCE_DIR=<path>" "$LINENO" 5
-fi
-
-
-if test "x${SPADE_JAVA_LOCAL_REPOSITORY_URL}" = "x"; then
-    as_fn_error $? "SPADE_JAVA_LOCAL_REPOSITORY_URL is required; set it with ./configure SPADE_JAVA_LOCAL_REPOSITORY_URL=<url>" "$LINENO" 5
+if test "x${SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR}" = "x"; then
+    as_fn_error $? "SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR is required; set it with ./configure SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR=<path>" "$LINENO" 5
 fi
 
 ac_config_files="$ac_config_files Makefile"
