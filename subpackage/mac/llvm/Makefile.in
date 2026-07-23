@@ -583,21 +583,18 @@ uninstall-am:
 
 all-local:
 	@$(MKDIR_P) "$(BUILD_DIR)"
-#	$(CLANGXX) $(LLVM_CXXFLAGS_ALL) -c \
-#		"$(SRC_DIR)/llvmTracer.cpp" \
-#		-o "$(BUILD_DIR)/llvmTracer.o"
-#	$(CLANGXX) $(LLVM_DYLIB_FLAGS) \
-#		-o "$(BUILD_DIR)/$(BUILD_LLVM_TRACE_LIB_NAME)" \
-#		"$(BUILD_DIR)/llvmTracer.o"
-#	$(CLANG) -D_LLVMREPORTER_MACOSX -c \
-#		"$(SRC_DIR)/llvmBridge.c" \
-#		-o "$(BUILD_DIR)/$(BUILD_LLVM_BRIDGE_OBJ_NAME)"
-#	$(CLANG) -c \
-#		"$(SRC_DIR)/llvmClose.c" \
-#		-o "$(BUILD_DIR)/$(BUILD_LLVM_CLOSE_OBJ_NAME)"
-	touch "$(BUILD_DIR)/$(BUILD_LLVM_TRACE_LIB_NAME)" \
-		"$(BUILD_DIR)/$(BUILD_LLVM_BRIDGE_OBJ_NAME)" \
-		"$(BUILD_DIR)/$(BUILD_LLVM_CLOSE_OBJ_NAME)"
+	$(CLANGXX) $(LLVM_CXXFLAGS_ALL) -c \
+		"$(SRC_DIR)/llvmTracer.cpp" \
+		-o "$(BUILD_DIR)/llvmTracer.o"
+	$(CLANGXX) $(LLVM_DYLIB_FLAGS) \
+		-o "$(BUILD_DIR)/$(BUILD_LLVM_TRACE_LIB_NAME)" \
+		"$(BUILD_DIR)/llvmTracer.o"
+	$(CLANG) -D_LLVMREPORTER_MACOSX -c \
+		"$(SRC_DIR)/llvmBridge.c" \
+		-o "$(BUILD_DIR)/$(BUILD_LLVM_BRIDGE_OBJ_NAME)"
+	$(CLANG) -c \
+		"$(SRC_DIR)/llvmClose.c" \
+		-o "$(BUILD_DIR)/$(BUILD_LLVM_CLOSE_OBJ_NAME)"
 	cp "$(BUILD_DIR)/$(BUILD_LLVM_TRACE_LIB_NAME)" \
 		"$(OUTPUT_SPADE_PACKAGE_LLVM_TRACE_LIB_PATH)"
 

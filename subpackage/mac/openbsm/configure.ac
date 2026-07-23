@@ -15,14 +15,14 @@ AC_PROG_CC
 LIBBSM_LIBS="-lbsm"
 AC_SUBST([LIBBSM_LIBS])
 
-AC_ARG_VAR([SPADE_JAVA_SRC_DIR], [Path to SPADE src directory])
-if test "x${SPADE_JAVA_SRC_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_JAVA_SRC_DIR is required; set it with ./configure SPADE_JAVA_SRC_DIR=<path>])
+AC_ARG_VAR([SPADE_PACKAGE_OPENBSM_BIN_DIR], [Path to SPADE top-level path for binary output directory])
+if test "x${SPADE_PACKAGE_OPENBSM_BIN_DIR}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_OPENBSM_BIN_DIR is required; set it with ./configure SPADE_PACKAGE_OPENBSM_BIN_DIR=<path>])
 fi
 
-AC_ARG_VAR([SPADE_OPENBSM_BIN_DIR], [Path to SPADE OpenBSM bin directory])
-if test "x${SPADE_OPENBSM_BIN_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_OPENBSM_BIN_DIR is required; set it with ./configure SPADE_OPENBSM_BIN_DIR=<path>])
+AC_ARG_VAR([SPADE_PACKAGE_OPENBSM_BIN_NAME], [Name of SPADE top-level binary output file])
+if test "x${SPADE_PACKAGE_OPENBSM_BIN_NAME}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_OPENBSM_BIN_NAME is required; set it with ./configure SPADE_PACKAGE_OPENBSM_BIN_NAME=<path>])
 fi
 
 AC_CONFIG_FILES([Makefile])

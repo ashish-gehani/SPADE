@@ -1,24 +1,21 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-OPENBSM_MAC_OUTPUT = $(SPADE_OPENBSM_BIN_DIR)/spadeOpenBSM
-OPENBSM_MAC_C_SRC  = $(SPADE_JAVA_SRC_DIR)/spade/reporter/spadeOpenBSM.c
-
-OPENBSM_MAC_INSTALL_BINDIR = $(DESTDIR)$(prefix)/bin
+SRC_DIR                                  = src
+SRC_C_MAIN_PATH                          = $(SRC_DIR)/spadeOpenBSM.c
+BUILD_DIR                                = build
+BUILD_BIN_NAME                           = spadeOpenBSM
+BUILD_BIN_PATH                           = $(BUILD_DIR)/$(BUILD_BIN_NAME)
+OUTPUT_SPADE_PACKAGE_OPENBSM_BIN_PATH    = $(SPADE_PACKAGE_OPENBSM_BIN_DIR)/$(SPADE_PACKAGE_OPENBSM_BIN_NAME)
 
 all-local:
-	@$(MKDIR_P) "$(SPADE_OPENBSM_BIN_DIR)"
-	$(CC) -o "$(OPENBSM_MAC_OUTPUT)" $(LIBBSM_LIBS) "$(OPENBSM_MAC_C_SRC)"
-
-install-exec-local:
-	$(MKDIR_P) "$(OPENBSM_MAC_INSTALL_BINDIR)"
-	$(INSTALL_PROGRAM) $(OPENBSM_MAC_OUTPUT) "$(OPENBSM_MAC_INSTALL_BINDIR)/spadeOpenBSM"
-
-uninstall-local:
-	rm -f "$(OPENBSM_MAC_INSTALL_BINDIR)/spadeOpenBSM"
+	@$(MKDIR_P) "$(BUILD_DIR)"
+	$(CC) -o "$(BUILD_BIN_PATH)" $(LIBBSM_LIBS) "$(SRC_C_MAIN_PATH)"
+	cp "$(BUILD_BIN_PATH)" "$(OUTPUT_SPADE_PACKAGE_OPENBSM_BIN_PATH)"
 
 clean-local:
-	rm -f $(OPENBSM_MAC_OUTPUT)
+	rm -rf "$(BUILD_DIR)"
+	rm -f "$(OUTPUT_SPADE_PACKAGE_OPENBSM_BIN_PATH)"
 
 distclean-local: clean-local
 
