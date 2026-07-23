@@ -614,9 +614,9 @@ PACKAGE_URL=''
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
-SPADE_JAVA_BUILD_DIR
-SPADE_ANDROID_LIB_DIR
-SPADE_ANDROID_BUILD_DIR
+SPADE_PACKAGE_ANDROID_JAR_NAME
+SPADE_PACKAGE_SPADE_JAR_FILE
+SPADE_PACKAGE_LIB_DIR
 DX
 MAINT
 MAINTAINER_MODE_FALSE
@@ -699,9 +699,9 @@ enable_maintainer_mode
       ac_precious_vars='build_alias
 host_alias
 target_alias
-SPADE_ANDROID_BUILD_DIR
-SPADE_ANDROID_LIB_DIR
-SPADE_JAVA_BUILD_DIR'
+SPADE_PACKAGE_LIB_DIR
+SPADE_PACKAGE_SPADE_JAR_FILE
+SPADE_PACKAGE_ANDROID_JAR_NAME'
 
 
 # Initialize some variables set by options.
@@ -1332,12 +1332,12 @@ Optional Features:
                           sometimes confusing) to the casual installer
 
 Some influential environment variables:
-  SPADE_ANDROID_BUILD_DIR
-              Path to SPADE build directory
-  SPADE_ANDROID_LIB_DIR
-              Path to SPADE lib directory
-  SPADE_JAVA_BUILD_DIR
-              Path to SPADE Java build directory
+  SPADE_PACKAGE_LIB_DIR
+              Path to SPADE top-level (i.e. package) lib directory
+  SPADE_PACKAGE_SPADE_JAR_FILE
+              Path to SPADE top-level jar path created by java subpackage
+  SPADE_PACKAGE_ANDROID_JAR_NAME
+              Name of SPADE top-level android jar
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2578,18 +2578,18 @@ printf "%s\n" "$as_me: WARNING: dx not found; android code will not be generated
 fi
 
 
-if test "x${SPADE_ANDROID_BUILD_DIR}" = "x"; then
-    as_fn_error $? "SPADE_ANDROID_BUILD_DIR is required; set it with ./configure SPADE_ANDROID_BUILD_DIR=<path>" "$LINENO" 5
+if test "x${SPADE_PACKAGE_LIB_DIR}" = "x"; then
+    as_fn_error $? "SPADE_PACKAGE_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_LIB_DIR=<path>" "$LINENO" 5
 fi
 
 
-if test "x${SPADE_ANDROID_LIB_DIR}" = "x"; then
-    as_fn_error $? "SPADE_ANDROID_LIB_DIR is required; set it with ./configure SPADE_ANDROID_LIB_DIR=<path>" "$LINENO" 5
+if test "x${SPADE_PACKAGE_SPADE_JAR_FILE}" = "x"; then
+    as_fn_error $? "SPADE_PACKAGE_SPADE_JAR_FILE is required; set it with ./configure SPADE_PACKAGE_SPADE_JAR_FILE=<path>" "$LINENO" 5
 fi
 
 
-if test "x${SPADE_JAVA_BUILD_DIR}" = "x"; then
-    as_fn_error $? "SPADE_JAVA_BUILD_DIR is required; set it with ./configure SPADE_JAVA_BUILD_DIR=<path>" "$LINENO" 5
+if test "x${SPADE_PACKAGE_ANDROID_JAR_NAME}" = "x"; then
+    as_fn_error $? "SPADE_PACKAGE_ANDROID_JAR_NAME is required; set it with ./configure SPADE_PACKAGE_ANDROID_JAR_NAME=<name>" "$LINENO" 5
 fi
 
 ac_config_files="$ac_config_files Makefile"

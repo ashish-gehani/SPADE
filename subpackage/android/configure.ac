@@ -14,14 +14,19 @@ if test "x${DX}" = "x:"; then
     AC_MSG_WARN([dx not found; android code will not be generated])
 fi
 
-AC_ARG_VAR([SPADE_PACKAGE_JAR_PATH], [Path to SPADE top-level jar path created by java subpackage])
-if test "x${SPADE_PACKAGE_JAR_PATH}" = "x"; then
-    AC_MSG_ERROR([SPADE_PACKAGE_JAR_PATH is required; set it with ./configure SPADE_PACKAGE_JAR_PATH=<path>])
+AC_ARG_VAR([SPADE_PACKAGE_LIB_DIR], [Path to SPADE top-level (i.e. package) lib directory])
+if test "x${SPADE_PACKAGE_LIB_DIR}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_LIB_DIR=<path>])
 fi
 
-AC_ARG_VAR([SPADE_PACKAGE_ANDROID_JAR_PATH], [Path to SPADE top-level android jar path to create])
-if test "x${SPADE_PACKAGE_ANDROID_JAR_PATH}" = "x"; then
-    AC_MSG_ERROR([SPADE_PACKAGE_ANDROID_JAR_PATH is required; set it with ./configure SPADE_PACKAGE_ANDROID_JAR_PATH=<path>])
+AC_ARG_VAR([SPADE_PACKAGE_SPADE_JAR_FILE], [Path to SPADE top-level jar path created by java subpackage])
+if test "x${SPADE_PACKAGE_SPADE_JAR_FILE}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_SPADE_JAR_FILE is required; set it with ./configure SPADE_PACKAGE_SPADE_JAR_FILE=<path>])
+fi
+
+AC_ARG_VAR([SPADE_PACKAGE_ANDROID_JAR_NAME], [Name of SPADE top-level android jar])
+if test "x${SPADE_PACKAGE_ANDROID_JAR_NAME}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_ANDROID_JAR_NAME is required; set it with ./configure SPADE_PACKAGE_ANDROID_JAR_NAME=<name>])
 fi
 
 AC_CONFIG_FILES([Makefile])

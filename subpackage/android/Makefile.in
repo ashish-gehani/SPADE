@@ -181,9 +181,9 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
-SPADE_ANDROID_BUILD_DIR = @SPADE_ANDROID_BUILD_DIR@
-SPADE_ANDROID_LIB_DIR = @SPADE_ANDROID_LIB_DIR@
-SPADE_JAVA_BUILD_DIR = @SPADE_JAVA_BUILD_DIR@
+SPADE_PACKAGE_ANDROID_JAR_NAME = @SPADE_PACKAGE_ANDROID_JAR_NAME@
+SPADE_PACKAGE_LIB_DIR = @SPADE_PACKAGE_LIB_DIR@
+SPADE_PACKAGE_SPADE_JAR_FILE = @SPADE_PACKAGE_SPADE_JAR_FILE@
 STRIP = @STRIP@
 VERSION = @VERSION@
 abs_builddir = @abs_builddir@
@@ -226,7 +226,11 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-ANDROID_SPADE_JAR = android-spade.jar
+BUILD_DIR = "build"
+BUILD_JAR_NAME = "android-spade.jar"
+OUTPUT_BUILD_JAR_PATH = "$(BUILD_DIR)/$(BUILD_JAR_NAME)"
+INPUT_SPADE_PACKAGE_JAR_PATH = "$(SPADE_PACKAGE_SPADE_JAR_FILE)"
+OUTPUT_SPADE_PACKAGE_ANDROID_JAR_PATH = "$(SPADE_PACKAGE_LIB_DIR)/$(SPADE_PACKAGE_ANDROID_JAR_NAME)"
 all: all-am
 
 .SUFFIXES:
@@ -502,7 +506,7 @@ install-dvi: install-dvi-am
 
 install-dvi-am:
 
-install-exec-am: install-exec-local
+install-exec-am:
 
 install-html: install-html-am
 
@@ -543,7 +547,7 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-local
+uninstall-am:
 
 .MAKE: install-am install-strip
 
@@ -554,33 +558,28 @@ uninstall-am: uninstall-local
 	distclean-local distcleancheck distdir distuninstallcheck dvi \
 	dvi-am html html-am info info-am install install-am \
 	install-data install-data-am install-dvi install-dvi-am \
-	install-exec install-exec-am install-exec-local install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic \
-	maintainer-clean-local mostlyclean mostlyclean-generic pdf \
-	pdf-am ps ps-am tags-am uninstall uninstall-am uninstall-local
+	install-exec install-exec-am install-html install-html-am \
+	install-info install-info-am install-man install-pdf \
+	install-pdf-am install-ps install-ps-am install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic maintainer-clean-local mostlyclean \
+	mostlyclean-generic pdf pdf-am ps ps-am tags-am uninstall \
+	uninstall-am
 
 .PRECIOUS: Makefile
 
 
 all-local:
-	@$(MKDIR_P) "$(SPADE_ANDROID_BUILD_DIR)"; \
+	@$(MKDIR_P) "$(BUILD_DIR)"; \
 	$(DX) --dex --verbose --no-strict \
-		--output="$(SPADE_ANDROID_BUILD_DIR)/$(ANDROID_SPADE_JAR)" \
-		"$(SPADE_JAVA_BUILD_DIR)"
-
-install-exec-local:
-	$(MKDIR_P) "$(SPADE_ANDROID_LIB_DIR)"
-	$(INSTALL_DATA) "$(SPADE_ANDROID_BUILD_DIR)/$(ANDROID_SPADE_JAR)" \
-		"$(SPADE_ANDROID_LIB_DIR)/$(ANDROID_SPADE_JAR)"
-
-uninstall-local:
-	rm -f "$(SPADE_ANDROID_LIB_DIR)/$(ANDROID_SPADE_JAR)"
+		--output="$(OUTPUT_BUILD_JAR_PATH)" \
+		"$(INPUT_SPADE_PACKAGE_JAR_PATH)"; \
+	cp "$(OUTPUT_BUILD_JAR_PATH)" \
+		"$(OUTPUT_SPADE_PACKAGE_ANDROID_JAR_PATH)"
 
 clean-local:
-	rm -f "$(SPADE_ANDROID_BUILD_DIR)/$(ANDROID_SPADE_JAR)"
+	rm -rf "$(BUILD_DIR)"
+	rm -f "$(OUTPUT_SPADE_PACKAGE_ANDROID_JAR_PATH)"
 
 distclean-local: clean-local
 
