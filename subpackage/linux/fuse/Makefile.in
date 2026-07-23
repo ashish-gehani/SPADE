@@ -194,9 +194,9 @@ PATH_SEPARATOR = @PATH_SEPARATOR@
 PKG_CONFIG = @PKG_CONFIG@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
-SPADE_FUSE_LIB_DIR = @SPADE_FUSE_LIB_DIR@
-SPADE_JAVA_BUILD_NATIVE_INCLUDE_DIR = @SPADE_JAVA_BUILD_NATIVE_INCLUDE_DIR@
-SPADE_ROOT = @SPADE_ROOT@
+SPADE_PACKAGE_FUSE_SHARED_LIB_NAME = @SPADE_PACKAGE_FUSE_SHARED_LIB_NAME@
+SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR = @SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR@
+SPADE_PACKAGE_LIB_DIR = @SPADE_PACKAGE_LIB_DIR@
 STRIP = @STRIP@
 VERSION = @VERSION@
 abs_builddir = @abs_builddir@
@@ -242,9 +242,13 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-FUSE_BINARY = libLinuxFUSE.so
-FUSE_C_SRC = $(SPADE_ROOT)/src/spade/reporter/libLinuxFUSE.c
-FUSE_INSTALL_LIBDIR = $(DESTDIR)$(prefix)/lib
+SRC_DIR = src
+SRC_C_MAIN_PATH = $(SRC_DIR)/libLinuxFUSE.c
+BUILD_DIR = build
+BUILD_SHARED_LIB_NAME = libLinuxFUSE.so
+BUILD_SHARED_LIB_PATH = $(BUILD_DIR)/$(BUILD_SHARED_LIB_NAME)
+INPUT_SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR = $(SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR)
+OUTPUT_SPADE_PACKAGE_FUSE_SHARED_LIB_PATH = $(SPADE_PACKAGE_LIB_DIR)/$(SPADE_PACKAGE_FUSE_SHARED_LIB_NAME)
 all: all-am
 
 .SUFFIXES:
@@ -520,7 +524,7 @@ install-dvi: install-dvi-am
 
 install-dvi-am:
 
-install-exec-am: install-exec-local
+install-exec-am:
 
 install-html: install-html-am
 
@@ -561,7 +565,7 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-local
+uninstall-am:
 
 .MAKE: install-am install-strip
 
@@ -572,39 +576,33 @@ uninstall-am: uninstall-local
 	distclean-local distcleancheck distdir distuninstallcheck dvi \
 	dvi-am html html-am info info-am install install-am \
 	install-data install-data-am install-dvi install-dvi-am \
-	install-exec install-exec-am install-exec-local install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic \
-	maintainer-clean-local mostlyclean mostlyclean-generic pdf \
-	pdf-am ps ps-am tags-am uninstall uninstall-am uninstall-local
+	install-exec install-exec-am install-html install-html-am \
+	install-info install-info-am install-man install-pdf \
+	install-pdf-am install-ps install-ps-am install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic maintainer-clean-local mostlyclean \
+	mostlyclean-generic pdf pdf-am ps ps-am tags-am uninstall \
+	uninstall-am
 
 .PRECIOUS: Makefile
 
 
 all-local:
-	@$(MKDIR_P) "$(SPADE_FUSE_LIB_DIR)"
+	@$(MKDIR_P) "$(BUILD_DIR)"
 	$(CC) -fPIC -shared \
-		-Wl,-soname,$(FUSE_BINARY) \
+		-Wl,-soname,$(BUILD_SHARED_LIB_NAME) \
 		-I"$(JAVA_HOME)/include" \
 		-I"$(JAVA_HOME)/include/linux" \
-		-I"$(SPADE_JAVA_BUILD_NATIVE_INCLUDE_DIR)" \
+		-I"$(INPUT_SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR)" \
 		-Wall \
-		"$(FUSE_C_SRC)" \
+		"$(SRC_C_MAIN_PATH)" \
 		$(FUSE_CFLAGS) \
-		-o "$(SPADE_FUSE_LIB_DIR)/$(FUSE_BINARY)"
-
-install-exec-local:
-	$(MKDIR_P) "$(FUSE_INSTALL_LIBDIR)"
-	$(INSTALL_DATA) "$(SPADE_FUSE_LIB_DIR)/$(FUSE_BINARY)" \
-		"$(FUSE_INSTALL_LIBDIR)/$(FUSE_BINARY)"
-
-uninstall-local:
-	rm -f "$(FUSE_INSTALL_LIBDIR)/$(FUSE_BINARY)"
+		-o "$(BUILD_SHARED_LIB_PATH)"
+	cp "$(BUILD_SHARED_LIB_PATH)" "$(OUTPUT_SPADE_PACKAGE_FUSE_SHARED_LIB_PATH)"
 
 clean-local:
-	rm -f "$(SPADE_FUSE_LIB_DIR)/$(FUSE_BINARY)"
+	rm -rf "$(BUILD_DIR)"
+	rm -f "$(OUTPUT_SPADE_PACKAGE_FUSE_SHARED_LIB_PATH)"
 
 distclean-local: clean-local
 
