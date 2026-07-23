@@ -8,7 +8,7 @@ AC_CONFIG_MACRO_DIRS([../../../m4])
 AM_INIT_AUTOMAKE([1.16 -Wall -Werror foreign])
 AM_MAINTAINER_MODE([disable])
 
-AC_PATH_PROG([LLVM_CONFIG], [llvm-config], [:])
+AC_PATH_PROG([LLVM_CONFIG], [llvm-config-18], [:])
 if test "x${LLVM_CONFIG}" = "x:"; then
     AC_MSG_ERROR([llvm-config not found; it is required])
 fi
@@ -28,15 +28,16 @@ fi
 LLVM_CXXFLAGS=$(${LLVM_CONFIG} --cxxflags)
 AC_SUBST([LLVM_CXXFLAGS])
 
-AC_ARG_VAR([SPADE_JAVA_SRC_DIR], [Path to SPADE src directory])
-if test "x${SPADE_JAVA_SRC_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_JAVA_SRC_DIR is required; set it with ./configure SPADE_JAVA_SRC_DIR=<path>])
+AC_ARG_VAR([SPADE_PACKAGE_LLVM_LIB_DIR], [Path to SPADE top-level (i.e. package) LLVM libraries directory])
+if test "x${SPADE_PACKAGE_LLVM_LIB_DIR}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_LLVM_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_LLVM_LIB_DIR=<path>])
 fi
 
-AC_ARG_VAR([SPADE_LLVM_LIB_DIR], [Path to SPADE LLVM lib directory])
-if test "x${SPADE_LLVM_LIB_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_LLVM_LIB_DIR is required; set it with ./configure SPADE_LLVM_LIB_DIR=<path>])
+AC_ARG_VAR([SPADE_PACKAGE_LLVM_TRACE_LIB_NAME], [Name of SPADE top-level (i.e. package) llvm trace shared library])
+if test "x${SPADE_PACKAGE_LLVM_TRACE_LIB_NAME}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_LLVM_TRACE_LIB_NAME is required; set it with ./configure SPADE_PACKAGE_LLVM_TRACE_LIB_NAME=<path>])
 fi
+
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
