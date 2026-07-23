@@ -6,7 +6,7 @@ SRC_C_MAIN_PATH                                = $(SRC_DIR)/spadeAuditBridge.c
 BUILD_DIR                                      = build
 BUILD_BIN_NAME                                 = spadeAuditBridge
 BUILD_BIN_PATH                                 = $(BUILD_DIR)/$(BUILD_BIN_NAME)
-OUTPUT_SPADE_PACKAGE_AUDIT_BRIDGE_BIN_PATH     = $(SPADE_PACKAGE_AUDIT_BRIDGE_BIN_DIR)/$(SPADE_PACKAGE_AUDIT_BRIDGE_BIN_NAME)
+OUTPUT_SPADE_PACKAGE_AUDIT_BRIDGE_BIN_PATH     = $(SPADE_PACKAGE_BIN_DIR)/$(SPADE_PACKAGE_AUDIT_BRIDGE_BIN_NAME)
 
 all-local:
 	@$(MKDIR_P) "$(BUILD_DIR)"

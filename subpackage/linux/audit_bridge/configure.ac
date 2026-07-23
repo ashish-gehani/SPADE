@@ -10,9 +10,9 @@ AM_MAINTAINER_MODE([disable])
 
 AC_PROG_CC
 
-AC_ARG_VAR([SPADE_PACKAGE_AUDIT_BRIDGE_BIN_DIR], [Path to SPADE top-level path for binary output directory])
-if test "x${SPADE_PACKAGE_AUDIT_BRIDGE_BIN_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_PACKAGE_AUDIT_BRIDGE_BIN_DIR is required; set it with ./configure SPADE_PACKAGE_AUDIT_BRIDGE_BIN_DIR=<path>])
+AC_ARG_VAR([SPADE_PACKAGE_BIN_DIR], [Path to SPADE top-level path for binary output directory])
+if test "x${SPADE_PACKAGE_BIN_DIR}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_BIN_DIR is required; set it with ./configure SPADE_PACKAGE_BIN_DIR=<path>])
 fi
 
 AC_ARG_VAR([SPADE_PACKAGE_AUDIT_BRIDGE_BIN_NAME], [Name of SPADE top-level binary output file])

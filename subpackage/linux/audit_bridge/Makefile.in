@@ -190,8 +190,8 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
-SPADE_AUDIT_BRIDGE_BIN_DIR = @SPADE_AUDIT_BRIDGE_BIN_DIR@
-SPADE_JAVA_SRC_DIR = @SPADE_JAVA_SRC_DIR@
+SPADE_PACKAGE_AUDIT_BRIDGE_BIN_NAME = @SPADE_PACKAGE_AUDIT_BRIDGE_BIN_NAME@
+SPADE_PACKAGE_BIN_DIR = @SPADE_PACKAGE_BIN_DIR@
 STRIP = @STRIP@
 VERSION = @VERSION@
 abs_builddir = @abs_builddir@
@@ -237,9 +237,12 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-AUDIT_BRIDGE_BINARY = spadeAuditBridge
-AUDIT_BRIDGE_C_SRC = $(SPADE_JAVA_SRC_DIR)/spade/reporter/spadeAuditBridge.c
-AUDIT_BRIDGE_INSTALL_BINDIR = $(DESTDIR)$(prefix)/bin
+SRC_DIR = src
+SRC_C_MAIN_PATH = $(SRC_DIR)/spadeAuditBridge.c
+BUILD_DIR = build
+BUILD_BIN_NAME = spadeAuditBridge
+BUILD_BIN_PATH = $(BUILD_DIR)/$(BUILD_BIN_NAME)
+OUTPUT_SPADE_PACKAGE_AUDIT_BRIDGE_BIN_PATH = $(SPADE_PACKAGE_BIN_DIR)/$(SPADE_PACKAGE_AUDIT_BRIDGE_BIN_NAME)
 all: all-am
 
 .SUFFIXES:
@@ -515,7 +518,7 @@ install-dvi: install-dvi-am
 
 install-dvi-am:
 
-install-exec-am: install-exec-local
+install-exec-am:
 
 install-html: install-html-am
 
@@ -556,7 +559,7 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-local
+uninstall-am:
 
 .MAKE: install-am install-strip
 
@@ -567,31 +570,25 @@ uninstall-am: uninstall-local
 	distclean-local distcleancheck distdir distuninstallcheck dvi \
 	dvi-am html html-am info info-am install install-am \
 	install-data install-data-am install-dvi install-dvi-am \
-	install-exec install-exec-am install-exec-local install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic \
-	maintainer-clean-local mostlyclean mostlyclean-generic pdf \
-	pdf-am ps ps-am tags-am uninstall uninstall-am uninstall-local
+	install-exec install-exec-am install-html install-html-am \
+	install-info install-info-am install-man install-pdf \
+	install-pdf-am install-ps install-ps-am install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic maintainer-clean-local mostlyclean \
+	mostlyclean-generic pdf pdf-am ps ps-am tags-am uninstall \
+	uninstall-am
 
 .PRECIOUS: Makefile
 
 
 all-local:
-	@$(MKDIR_P) "$(SPADE_AUDIT_BRIDGE_BIN_DIR)"
-	$(CC) -o "$(SPADE_AUDIT_BRIDGE_BIN_DIR)/$(AUDIT_BRIDGE_BINARY)" "$(AUDIT_BRIDGE_C_SRC)"
-
-install-exec-local:
-	$(MKDIR_P) "$(AUDIT_BRIDGE_INSTALL_BINDIR)"
-	$(INSTALL_PROGRAM) "$(SPADE_AUDIT_BRIDGE_BIN_DIR)/$(AUDIT_BRIDGE_BINARY)" \
-		"$(AUDIT_BRIDGE_INSTALL_BINDIR)/$(AUDIT_BRIDGE_BINARY)"
-
-uninstall-local:
-	rm -f "$(AUDIT_BRIDGE_INSTALL_BINDIR)/$(AUDIT_BRIDGE_BINARY)"
+	@$(MKDIR_P) "$(BUILD_DIR)"
+	$(CC) -o "$(BUILD_BIN_PATH)" "$(SRC_C_MAIN_PATH)"
+	cp "$(BUILD_BIN_PATH)" "$(OUTPUT_SPADE_PACKAGE_AUDIT_BRIDGE_BIN_PATH)"
 
 clean-local:
-	rm -f "$(SPADE_AUDIT_BRIDGE_BIN_DIR)/$(AUDIT_BRIDGE_BINARY)"
+	rm -rf "$(BUILD_DIR)"
+	rm -f "$(OUTPUT_SPADE_PACKAGE_AUDIT_BRIDGE_BIN_PATH)"
 
 distclean-local: clean-local
 
