@@ -28,14 +28,26 @@ fi
 LLVM_CXXFLAGS=$(${LLVM_CONFIG} --cxxflags)
 AC_SUBST([LLVM_CXXFLAGS])
 
-AC_ARG_VAR([SPADE_JAVA_SRC_DIR], [Path to SPADE src directory])
-if test "x${SPADE_JAVA_SRC_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_JAVA_SRC_DIR is required; set it with ./configure SPADE_JAVA_SRC_DIR=<path>])
+###
+
+AC_ARG_VAR([SPADE_PACKAGE_LLVM_LIB_DIR], [Path to SPADE top-level (i.e. package) LLVM libraries directory])
+if test "x${SPADE_PACKAGE_LLVM_LIB_DIR}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_LLVM_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_LLVM_LIB_DIR=<path>])
 fi
 
-AC_ARG_VAR([SPADE_LLVM_LIB_DIR], [Path to SPADE LLVM lib directory])
-if test "x${SPADE_LLVM_LIB_DIR}" = "x"; then
-    AC_MSG_ERROR([SPADE_LLVM_LIB_DIR is required; set it with ./configure SPADE_LLVM_LIB_DIR=<path>])
+AC_ARG_VAR([SPADE_PACKAGE_LLVM_TRACE_LIB_NAME], [Name of SPADE top-level (i.e. package) llvm trace shared library])
+if test "x${SPADE_PACKAGE_LLVM_TRACE_LIB_NAME}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_LLVM_TRACE_LIB_NAME is required; set it with ./configure SPADE_PACKAGE_LLVM_TRACE_LIB_NAME=<path>])
+fi
+
+AC_ARG_VAR([SPADE_PACKAGE_LLVM_FLUSH_BC_NAME], [Name of SPADE top-level (i.e. package) llvm bitcode object])
+if test "x${SPADE_PACKAGE_LLVM_FLUSH_BC_NAME}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_LLVM_FLUSH_BC_NAME is required; set it with ./configure SPADE_PACKAGE_LLVM_FLUSH_BC_NAME=<path>])
+fi
+
+AC_ARG_VAR([SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME], [Name of SPADE top-level (i.e. package) llvm libc wrapper library])
+if test "x${SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME}" = "x"; then
+    AC_MSG_ERROR([SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME is required; set it with ./configure SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME=<path>])
 fi
 
 AC_CONFIG_FILES([Makefile])

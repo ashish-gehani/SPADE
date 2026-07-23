@@ -1,8 +1,18 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-LLVM_SRC_DIR        = $(SPADE_JAVA_SRC_DIR)/spade/reporter/llvm
-LLVM_INSTALL_LIBDIR = $(DESTDIR)$(prefix)/lib
+
+SRC_DIR = src
+
+BUILD_DIR = build
+BUILD_LLVM_TRACE_LIB_NAME = LLVMTrace.so
+BUILD_LLVM_FLUSH_BC_NAME = flush.bc
+BUILD_LLVM_LIBC_WRAPPER_LIB_NAME = LibcWrapper.so
+
+OUTPUT_SPADE_PACKAGE_LLVM_TRACE_LIB_PATH = $(SPADE_PACKAGE_LLVM_LIB_DIR)/$(SPADE_PACKAGE_LLVM_TRACE_LIB_NAME)
+OUTPUT_SPADE_PACKAGE_LLVM_FLUSH_BC_PATH = $(SPADE_PACKAGE_LLVM_LIB_DIR)/$(SPADE_PACKAGE_LLVM_FLUSH_BC_NAME)
+OUTPUT_SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_PATH = $(SPADE_PACKAGE_LLVM_LIB_DIR)/$(SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_NAME)
+
 
 LLVM_CXXFLAGS_ALL = \
 	@LLVM_CXXFLAGS@ \
@@ -19,44 +29,42 @@ LLVM_LINK_FLAGS = \
 	-lpthread -ltinfo -ldl -lm
 
 all-local:
-	@$(MKDIR_P) "$(SPADE_LLVM_LIB_DIR)"
+	@$(MKDIR_P) "$(BUILD_DIR)"
 	$(CLANGXX) $(LLVM_CXXFLAGS_ALL) -c -MMD -MP \
-		-MF "$(SPADE_LLVM_LIB_DIR)/llvmTracer.d" \
-		-MT "$(SPADE_LLVM_LIB_DIR)/llvmTracer.o" \
-		"$(LLVM_SRC_DIR)/llvmTracer.cpp" \
-		-o "$(SPADE_LLVM_LIB_DIR)/llvmTracer.o"
+		-MF "$(BUILD_DIR)/llvmTracer.d" \
+		-MT "$(BUILD_DIR)/llvmTracer.o" \
+		"$(SRC_DIR)/llvmTracer.cpp" \
+		-o "$(BUILD_DIR)/llvmTracer.o"
 	$(CLANGXX) $(LLVM_LINK_FLAGS) \
-		-o "$(SPADE_LLVM_LIB_DIR)/LLVMTrace.so" \
-		"$(SPADE_LLVM_LIB_DIR)/llvmTracer.o"
+		-o "$(BUILD_DIR)/$(BUILD_LLVM_TRACE_LIB_NAME)" \
+		"$(BUILD_DIR)/llvmTracer.o"
 	$(CLANG) -emit-llvm -c \
-		"$(LLVM_SRC_DIR)/flushModule.c" \
-		-o "$(SPADE_LLVM_LIB_DIR)/flush.bc"
+		"$(SRC_DIR)/flushModule.c" \
+		-o "$(BUILD_DIR)/$(BUILD_LLVM_FLUSH_BC_NAME)"
 	$(CLANGXX) $(LLVM_CXXFLAGS_ALL) -c -MMD -MP \
-		-MF "$(SPADE_LLVM_LIB_DIR)/LibcWrapper.d" \
-		-MT "$(SPADE_LLVM_LIB_DIR)/LibcWrapper.o" \
-		"$(LLVM_SRC_DIR)/LibcWrapper.cpp" \
-		-o "$(SPADE_LLVM_LIB_DIR)/LibcWrapper.o"
+		-MF "$(BUILD_DIR)/LibcWrapper.d" \
+		-MT "$(BUILD_DIR)/LibcWrapper.o" \
+		"$(SRC_DIR)/LibcWrapper.cpp" \
+		-o "$(BUILD_DIR)/LibcWrapper.o"
 	$(CLANGXX) $(LLVM_LINK_FLAGS) \
-		-o "$(SPADE_LLVM_LIB_DIR)/LibcWrapper.so" \
-		"$(SPADE_LLVM_LIB_DIR)/LibcWrapper.o"
-
-install-exec-local:
-	$(MKDIR_P) "$(LLVM_INSTALL_LIBDIR)"
-	$(INSTALL_PROGRAM) "$(SPADE_LLVM_LIB_DIR)/LLVMTrace.so" "$(LLVM_INSTALL_LIBDIR)/LLVMTrace.so"
-	$(INSTALL_DATA) "$(SPADE_LLVM_LIB_DIR)/flush.bc" "$(LLVM_INSTALL_LIBDIR)/flush.bc"
-	$(INSTALL_PROGRAM) "$(SPADE_LLVM_LIB_DIR)/LibcWrapper.so" "$(LLVM_INSTALL_LIBDIR)/LibcWrapper.so"
-
-uninstall-local:
-	rm -f "$(LLVM_INSTALL_LIBDIR)/LLVMTrace.so"
-	rm -f "$(LLVM_INSTALL_LIBDIR)/flush.bc"
-	rm -f "$(LLVM_INSTALL_LIBDIR)/LibcWrapper.so"
+		-o "$(BUILD_DIR)/$(BUILD_LLVM_LIBC_WRAPPER_LIB_NAME)" \
+		"$(BUILD_DIR)/LibcWrapper.o"
+	cp "$(BUILD_DIR)/$(BUILD_LLVM_TRACE_LIB_NAME)" \
+		"$(OUTPUT_SPADE_PACKAGE_LLVM_TRACE_LIB_PATH)"
+	cp "$(BUILD_DIR)/$(BUILD_LLVM_FLUSH_BC_NAME)" \
+		"$(OUTPUT_SPADE_PACKAGE_LLVM_FLUSH_BC_PATH)"
+	cp "$(BUILD_DIR)/$(BUILD_LLVM_LIBC_WRAPPER_LIB_NAME)" \
+		"$(OUTPUT_SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_PATH)"
 
 clean-local:
-	rm -f "$(SPADE_LLVM_LIB_DIR)/llvmTracer.o" "$(SPADE_LLVM_LIB_DIR)/llvmTracer.d"
-	rm -f "$(SPADE_LLVM_LIB_DIR)/LLVMTrace.so"
-	rm -f "$(SPADE_LLVM_LIB_DIR)/flush.bc"
-	rm -f "$(SPADE_LLVM_LIB_DIR)/LibcWrapper.o" "$(SPADE_LLVM_LIB_DIR)/LibcWrapper.d"
-	rm -f "$(SPADE_LLVM_LIB_DIR)/LibcWrapper.so"
+	rm -f "$(BUILD_DIR)/llvmTracer.o" "$(BUILD_DIR)/llvmTracer.d"
+	rm -f "$(BUILD_DIR)/$(BUILD_LLVM_TRACE_LIB_NAME)"
+	rm -f "$(BUILD_DIR)/$(BUILD_LLVM_FLUSH_BC_NAME)"
+	rm -f "$(BUILD_DIR)/LibcWrapper.o" "$(BUILD_DIR)/LibcWrapper.d"
+	rm -f "$(BUILD_DIR)/$(BUILD_LLVM_LIBC_WRAPPER_LIB_NAME)"
+	rm -f "$(OUTPUT_SPADE_PACKAGE_LLVM_TRACE_LIB_PATH)"
+	rm -f "$(OUTPUT_SPADE_PACKAGE_LLVM_FLUSH_BC_PATH)"
+	rm -f "$(OUTPUT_SPADE_PACKAGE_LLVM_LIBC_WRAPPER_LIB_PATH)"
 
 distclean-local: clean-local
 
