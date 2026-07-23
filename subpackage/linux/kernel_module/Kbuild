@@ -1,12 +1,14 @@
 KDIR ?= /lib/modules/$(shell uname -r)/build
 
+# The local directory to place built kernel modules in during the build process.
+BUILD_DIR = build
+# The extenal directory to copy/move the built kernel modules to.
+ifndef PACKAGE_DIR
+$(error PACKAGE_DIR is required; set it with make PACKAGE_DIR=<path>)
+endif
 
-BUILD_DIR ?= build
-# Install dir
-INSTALL_DIR ?= ../../../../../lib/kernel-modules
-MOD_DEFINES ?=
-CFLAGS ?=
-
+KERNEL_CFLAGS ?= 
+USER_CFLAGS ?=
 
 ###
 
@@ -90,6 +92,8 @@ MOD_OUT_FILES = \
   modules.order \
   .Module.symvers.cmd \
   .modules.order.cmd \
+  ..module-common.o.cmd \
+  .module-common.o \
   $(foreach mod,$(MODULE_NAMES),.$(mod).ko.cmd) \
   $(foreach mod,$(MODULE_NAMES),.$(mod).mod.cmd) \
   $(foreach mod,$(MODULE_NAMES),.$(mod).mod.o.cmd) \
@@ -246,7 +250,7 @@ $(TEST_MODULE_NAME)-y := \
 
 ###
 
-.PHONY: help debug release all clean test-user install check-full check hash-print hash-update
+.PHONY: help debug release all clean test-user package check-full check hash-print hash-update
 
 help:
 	@echo "Kernel Module Build System"
@@ -256,18 +260,18 @@ help:
 	@echo "  debug        - Build with debug symbols and logging enabled"
 	@echo "  release      - Build optimized release version"
 	@echo "  test-user    - Build only user-space test binaries"
-	@echo "  install      - Install kernel modules to $(INSTALL_DIR)"
+	@echo "  package      - Package kernel modules to $(PACKAGE_DIR)"
 	@echo "  clean        - Remove all build artifacts"
 	@echo "  check        - Run basic tests (dry-run)"
 	@echo "  check-full   - Run full test suite"
 	@echo "  hash-print   - Print current build hash"
 	@echo ""
 	@echo "Configuration Variables:"
-	@echo "  KDIR=<path>          - Kernel build directory (default: /lib/modules/\$$(uname -r)/build)"
-	@echo "  BUILD_DIR=<path>     - Build output directory (default: build)"
-	@echo "  INSTALL_DIR=<path>   - Installation directory (default: ../../../../../lib/kernel-modules)"
-	@echo "  MOD_DEFINES=<flags>  - Additional preprocessor defines for modules"
-	@echo "  CFLAGS=<flags>       - C compiler flags for user-space binaries"
+	@echo "  KDIR=<path>           - Kernel build directory (default: /lib/modules/\$$(uname -r)/build)"
+	@echo "  BUILD_DIR=<path>      - Build output directory (default: build)"
+	@echo "  PACKAGE_DIR=<path>    - Package directory (default: ../../../../../lib/kernel-modules)"
+	@echo "  KERNEL_CFLAGS=<flags> - Additional preprocessor defines for kernel modules"
+	@echo "  USER_CFLAGS=<flags>   - C compiler flags for user-space binaries"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make                 - Normal build"
@@ -289,22 +293,22 @@ test-user: $(TEST_USER_BIN)
 
 test/user/bin/ns/%: test/user/src/ns/%.c
 	@mkdir -p $(dir $@)
-	gcc $(CFLAGS) -o $@ $<
+	gcc $(USER_CFLAGS) -o $@ $<
 
 test/user/bin/socket/net/%: test/user/src/socket/net/%.c
 	@mkdir -p $(dir $@)
-	gcc $(CFLAGS) -o $@ $<
+	gcc $(USER_CFLAGS) -o $@ $<
 
 test/user/bin/socket/unix/%: test/user/src/socket/unix/%.c
 	@mkdir -p $(dir $@)
-	gcc $(CFLAGS) -o $@ $<
+	gcc $(USER_CFLAGS) -o $@ $<
 
 test/user/bin/ubsi/%: test/user/src/ubsi/%.c
 	@mkdir -p $(dir $@)
-	gcc $(CFLAGS) -o $@ $<
+	gcc $(USER_CFLAGS) -o $@ $<
 
 all: hash-update test-user
-	$(MAKE) -C $(KDIR) M=$(CURDIR) EXTRA_CFLAGS="$(MOD_DEFINES) $(EXTRA_CFLAGS)" modules;
+	$(MAKE) -C $(KDIR) M=$(CURDIR) EXTRA_CFLAGS="$(KERNEL_CFLAGS) $(EXTRA_CFLAGS)" modules;
 	@mkdir -p $(BUILD_DIR); \
 	for file in $(MOD_OUT_FILES); do \
 		if [ -f $$file ]; then \
@@ -313,24 +317,25 @@ all: hash-update test-user
 	done; \
 	echo 'Warning: Kernel module uses workaround from https://github.com/xcellerator/linux_kernel_hacking/issues/3#issue-782815541 by hkerma';
 
-debug: MOD_DEFINES += -DENABLE_DEBUG_LOG
+debug: KERNEL_CFLAGS += -DENABLE_DEBUG_LOG
 debug: ccflags-y += -g
-debug: CFLAGS += -g
+debug: USER_CFLAGS += -g
 debug: all
 
 release: all
 
+# Not using kernel build system for clean. TODO
+# $(MAKE) -C $(KDIR) M=$(CURDIR) clean
 clean:
-	$(MAKE) -C $(KDIR) M=$(CURDIR) clean
 	-rm -f $(GEN_BUILD_HASH_SRC_FILE)
 	-rm -f $(GEN_BUILD_HASH_CACHE_FILE)
 	-rm -f $(MOD_OUT_FILES)
 	-rm -f $(addprefix $(BUILD_DIR)/,$(MOD_OUT_FILES))
 	-rm -f $(TEST_USER_BIN)
-	-rm -f $(INSTALL_DIR)/$(MAIN_MODULE_NAME).ko
-	-rm -f $(INSTALL_DIR)/$(CONTROLLER_MODULE_NAME).ko
+	-rm -f $(PACKAGE_DIR)/$(MAIN_MODULE_NAME).ko
+	-rm -f $(PACKAGE_DIR)/$(CONTROLLER_MODULE_NAME).ko
 
-install:
+package:
 	@if [ ! -f "$(BUILD_DIR)/$(MAIN_MODULE_NAME).ko" ]; then \
 		echo "ERROR: $(MAIN_MODULE_NAME).ko not found in $(BUILD_DIR)/. Run 'make all' first."; \
 		exit 1; \
@@ -339,10 +344,10 @@ install:
 		echo "ERROR: $(CONTROLLER_MODULE_NAME).ko not found in $(BUILD_DIR)/. Run 'make all' first."; \
 		exit 1; \
 	fi
-	@mkdir -p $(INSTALL_DIR)
-	@cp $(BUILD_DIR)/$(MAIN_MODULE_NAME).ko $(INSTALL_DIR)/
-	@cp $(BUILD_DIR)/$(CONTROLLER_MODULE_NAME).ko $(INSTALL_DIR)/
-	@echo "Successfully installed $(MAIN_MODULE_NAME).ko & $(CONTROLLER_MODULE_NAME).ko to $(INSTALL_DIR)"
+	@mkdir -p $(PACKAGE_DIR)
+	@cp $(BUILD_DIR)/$(MAIN_MODULE_NAME).ko $(PACKAGE_DIR)/
+	@cp $(BUILD_DIR)/$(CONTROLLER_MODULE_NAME).ko $(PACKAGE_DIR)/
+	@echo "Successfully packaged $(MAIN_MODULE_NAME).ko and $(CONTROLLER_MODULE_NAME).ko to $(PACKAGE_DIR)"
 
 check-full:
 	$(CHECK_SCRIPT_MOD_TEST)
@@ -350,3 +355,4 @@ check-full:
 
 check:
 	$(CHECK_SCRIPT_MOD_TEST) --dry-run
+

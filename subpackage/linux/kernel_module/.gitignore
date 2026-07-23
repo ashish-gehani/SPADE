@@ -1,12 +1,8 @@
-/.vscode
-build
-!Makefile
 *.mod
 *.mod.cmd
 *.o.cmd
 *.o
 *.o.d
-test/user/bin
 output
 audit/build_hash.c
 audit/.build_hash_cache

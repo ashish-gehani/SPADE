@@ -615,13 +615,10 @@ PACKAGE_URL=''
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
 KERNEL_MODULES
-KHEADERS_PATH
-MOD_DEFINES
-KDIR
 KERNEL_MODULE_TARGET
 KERNEL_MODULES_DEBUG
-SPADE_KERNEL_MODULE_LIB_DIR
-SPADE_JAVA_SRC_DIR
+SPADE_PACKAGE_KERNEL_MODULE_DIR_NAME
+SPADE_PACKAGE_LIB_DIR
 MAINT
 MAINTAINER_MODE_FALSE
 MAINTAINER_MODE_TRUE
@@ -703,11 +700,9 @@ enable_maintainer_mode
       ac_precious_vars='build_alias
 host_alias
 target_alias
-SPADE_JAVA_SRC_DIR
-SPADE_KERNEL_MODULE_LIB_DIR
-KERNEL_MODULES_DEBUG
-KDIR
-MOD_DEFINES'
+SPADE_PACKAGE_LIB_DIR
+SPADE_PACKAGE_KERNEL_MODULE_DIR_NAME
+KERNEL_MODULES_DEBUG'
 
 
 # Initialize some variables set by options.
@@ -1339,15 +1334,12 @@ Optional Features:
                           sometimes confusing) to the casual installer
 
 Some influential environment variables:
-  SPADE_JAVA_SRC_DIR
-              Path to SPADE src directory
-  SPADE_KERNEL_MODULE_LIB_DIR
-              Path to SPADE kernel module lib directory
+  SPADE_PACKAGE_LIB_DIR
+              Path to SPADE top-level (i.e. package) lib directory
+  SPADE_PACKAGE_KERNEL_MODULE_DIR_NAME
+              Name of SPADE top-level (i.e. package) kernel module directory
   KERNEL_MODULES_DEBUG
               Set to "true" to build debug kernel modules (default: false)
-  KDIR        Kernel build directory (default: /lib/modules/$(uname -r)/build)
-  MOD_DEFINES Additional preprocessor defines passed to the kernel module
-              build
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2536,13 +2528,14 @@ fi
 
 
 
-if test "x${SPADE_JAVA_SRC_DIR}" = "x"; then
-    as_fn_error $? "SPADE_JAVA_SRC_DIR is required; set it with ./configure SPADE_JAVA_SRC_DIR=<path>" "$LINENO" 5
+
+if test "x${SPADE_PACKAGE_LIB_DIR}" = "x"; then
+    as_fn_error $? "SPADE_PACKAGE_LIB_DIR is required; set it with ./configure SPADE_PACKAGE_LIB_DIR=<path>" "$LINENO" 5
 fi
 
 
-if test "x${SPADE_KERNEL_MODULE_LIB_DIR}" = "x"; then
-    as_fn_error $? "SPADE_KERNEL_MODULE_LIB_DIR is required; set it with ./configure SPADE_KERNEL_MODULE_LIB_DIR=<path>" "$LINENO" 5
+if test "x${SPADE_PACKAGE_KERNEL_MODULE_DIR_NAME}" = "x"; then
+    as_fn_error $? "SPADE_PACKAGE_KERNEL_MODULE_DIR_NAME is required; set it with ./configure SPADE_PACKAGE_KERNEL_MODULE_DIR_NAME=<path>" "$LINENO" 5
 fi
 
 
@@ -2551,9 +2544,6 @@ if test "x${KERNEL_MODULES_DEBUG}" = "xtrue"; then
 else
     KERNEL_MODULE_TARGET=release
 fi
-
-
-
 
 
 kernel_ver=`uname -r`
@@ -2581,21 +2571,6 @@ if test "x${distro}" != "xubuntu"; then
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: OS distribution ${distro} is not supported; ubuntu is required" >&5
 printf "%s\n" "$as_me: WARNING: OS distribution ${distro} is not supported; ubuntu is required" >&2;}
 fi
-
-if test "x${KDIR}" != "x"; then
-    kheaders_path="${KDIR}"
-else
-    kheaders_path="/lib/modules/${kernel_ver}/build"
-fi
-kheaders_available=no
-if test -d "${kheaders_path}"; then
-    kheaders_available=yes
-else
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: kernel headers not found at ${kheaders_path}" >&5
-printf "%s\n" "$as_me: WARNING: kernel headers not found at ${kheaders_path}" >&2;}
-fi
-KHEADERS_PATH="${kheaders_path}"
-
 
 # Special case: Control kernel module build at make time.
 KERNEL_MODULES="${KERNEL_MODULES:-false}"
