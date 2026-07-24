@@ -15,40 +15,32 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.server.tool;
+package spade.utility.mcp.server.tool.storage;
 
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Map;
 
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 
-import spade.core.Query;
 import spade.utility.mcp.server.connection.Context;
+import spade.utility.mcp.server.tool.Tool;
 
-public class QuickGrailQuery extends Tool {
+public class List extends Tool {
 
-    public QuickGrailQuery(final Context context) {
-        super(context);
+    public List(final Context ctx){
+        super(ctx);
     }
 
     @Override
     public McpSchema.Tool build() {
-        final Map<String, Object> queryProp = new HashMap<>();
-        queryProp.put("type", "string");
-        queryProp.put("description", "The QuickGrail query to execute");
-
-        final Map<String, Object> properties = new HashMap<>();
-        properties.put("query", queryProp);
-
         return McpSchema.Tool.builder()
-            .name("query")
-            .description("Execute a QuickGrail query and return the result")
+            .name("list_storages")
+            .description("List all active SPADE storages")
             .inputSchema(new McpSchema.JsonSchema(
                 "object",
-                properties,
-                Collections.singletonList("query"),
+                new HashMap<>(),
+                Collections.emptyList(),
                 false,
                 null,
                 null
@@ -61,17 +53,9 @@ public class QuickGrailQuery extends Tool {
         final McpSyncServerExchange exchange,
         final McpSchema.CallToolRequest request
     ) {
-        final String rawQuery = (String) request.arguments().get("query");
-        if (rawQuery == null) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("Error: null query argument")
-                .isError(true)
-                .build();
-        }
-
-        final Query result;
+        final String result;
         try {
-            result = this.getContext().getSpadeQuery().query(rawQuery);
+            result = this.getContext().getSpadeControl().send("list storages");
         } catch (Exception e) {
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Error: " + e.getMessage())
@@ -79,16 +63,8 @@ public class QuickGrailQuery extends Tool {
                 .build();
         }
 
-        if (!result.wasQuerySuccessful()) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("Error: " + result.getError())
-                .isError(true)
-                .build();
-        }
-
-        final String resultText = result.getResult() != null ? result.getResult().toString() : "";
         return McpSchema.CallToolResult.builder()
-            .addTextContent(resultText)
+            .addTextContent(result)
             .isError(false)
             .build();
     }

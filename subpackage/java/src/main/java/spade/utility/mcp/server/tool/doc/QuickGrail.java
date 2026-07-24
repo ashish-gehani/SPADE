@@ -15,9 +15,10 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.server.tool;
+package spade.utility.mcp.server.tool.doc;
 
-import java.util.Arrays;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,30 +27,27 @@ import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 
 import spade.utility.mcp.server.connection.Context;
+import spade.utility.mcp.server.tool.Tool;
 
-public class AddStorage extends Tool {
+public class QuickGrail extends Tool {
 
-    public AddStorage(final Context ctx){
-        super(ctx);
+    private static final String RESOURCE_PATH = "spade/query/quickgrail/README.md";
+
+    public QuickGrail(final Context context) {
+        super(context);
     }
 
     @Override
     public McpSchema.Tool build() {
-        final Map<String, Object> storageNameProp = new HashMap<>();
-        storageNameProp.put("type", "string");
-        storageNameProp.put("description", "Name of the SPADE storage to add");
-        storageNameProp.put("enum", Arrays.asList("Neo4j", "Quickstep", "PostgreSQL"));
-
         final Map<String, Object> properties = new HashMap<>();
-        properties.put("storageName", storageNameProp);
 
         return McpSchema.Tool.builder()
-            .name("add_storage")
-            .description("Add a SPADE storage")
+            .name("read_quickgrail_doc")
+            .description("Return the QuickGrail query language reference (README)")
             .inputSchema(new McpSchema.JsonSchema(
                 "object",
                 properties,
-                Collections.singletonList("storageName"),
+                Collections.emptyList(),
                 false,
                 null,
                 null
@@ -62,27 +60,24 @@ public class AddStorage extends Tool {
         final McpSyncServerExchange exchange,
         final McpSchema.CallToolRequest request
     ) {
-        final String storageName = (String) request.arguments().get("storageName");
-        if (storageName == null || storageName.isBlank()) {
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream(RESOURCE_PATH)) {
+            if (is == null) {
+                return McpSchema.CallToolResult.builder()
+                    .addTextContent("Error: QuickGrail README not found in classpath")
+                    .isError(true)
+                    .build();
+            }
+            final String content = new String(is.readAllBytes(), StandardCharsets.UTF_8);
             return McpSchema.CallToolResult.builder()
-                .addTextContent("Error: null/empty storageName argument")
-                .isError(true)
+                .addTextContent(content)
+                .isError(false)
                 .build();
-        }
-
-        final String result;
-        try {
-            result = this.getContext().getSpadeControl().send("add storage " + storageName);
         } catch (Exception e) {
             return McpSchema.CallToolResult.builder()
-                .addTextContent("Error: " + e.getMessage())
+                .addTextContent("Error reading QuickGrail README: " + e.getMessage())
                 .isError(true)
                 .build();
         }
-
-        return McpSchema.CallToolResult.builder()
-            .addTextContent(result)
-            .isError(false)
-            .build();
     }
+
 }

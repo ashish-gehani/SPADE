@@ -15,31 +15,43 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.server.tool;
+package spade.utility.mcp.server.tool.storage;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 
+import spade.core.Query;
 import spade.utility.mcp.server.connection.Context;
+import spade.utility.mcp.server.tool.Tool;
 
-public class ListStorages extends Tool {
+public class Set extends Tool {
 
-    public ListStorages(final Context ctx){
-        super(ctx);
+    public Set(final Context context) {
+        super(context);
     }
 
     @Override
     public McpSchema.Tool build() {
+        final Map<String, Object> storageNameProp = new HashMap<>();
+        storageNameProp.put("type", "string");
+        storageNameProp.put("description", "Name of the SPADE storage to set for querying");
+        storageNameProp.put("enum", Arrays.asList("Neo4j", "Quickstep", "PostgreSQL"));
+
+        final Map<String, Object> properties = new HashMap<>();
+        properties.put("storageName", storageNameProp);
+
         return McpSchema.Tool.builder()
-            .name("list_storages")
-            .description("List all active SPADE storages")
+            .name("set_storage")
+            .description("Set the active SPADE storage to query against")
             .inputSchema(new McpSchema.JsonSchema(
                 "object",
-                new HashMap<>(),
-                Collections.emptyList(),
+                properties,
+                Collections.singletonList("storageName"),
                 false,
                 null,
                 null
@@ -52,9 +64,17 @@ public class ListStorages extends Tool {
         final McpSyncServerExchange exchange,
         final McpSchema.CallToolRequest request
     ) {
-        final String result;
+        final String storageName = (String) request.arguments().get("storageName");
+        if (storageName == null || storageName.isBlank()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: null/empty storageName argument")
+                .isError(true)
+                .build();
+        }
+
+        final Query result;
         try {
-            result = this.getContext().getSpadeControl().send("list storages");
+            result = this.getContext().getSpadeQuery().query("set storage " + storageName);
         } catch (Exception e) {
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Error: " + e.getMessage())
@@ -62,8 +82,16 @@ public class ListStorages extends Tool {
                 .build();
         }
 
+        if (!result.wasQuerySuccessful()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: " + result.getError())
+                .isError(true)
+                .build();
+        }
+
+        final String resultText = result.getResult() != null ? result.getResult().toString() : "";
         return McpSchema.CallToolResult.builder()
-            .addTextContent(result)
+            .addTextContent(resultText)
             .isError(false)
             .build();
     }
