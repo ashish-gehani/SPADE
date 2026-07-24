@@ -1,6 +1,6 @@
 # Maven How-To
 
-> Maven builds Java code only. The POM is at `module/java/pom.xml`. Run commands from that directory, or pass `-f module/java/pom.xml` from the project root. `make` handles this automatically for routine builds.
+> Maven builds Java code only. The POM is at `subpackage/java/pom.xml`. Run commands from that directory, or pass `-f subpackage/java/pom.xml` from the project root. `make` handles this automatically for routine builds.
 
 ## Build with debug symbols
 
@@ -54,36 +54,4 @@ mvn dependency:resolve -U -DincludeArtifactIds=<artifactId>
 
 ```bash
 mvn help:effective-pom
-```
-
----
-
-## Future: multi-module commands (when non-Java modules are added back)
-
-The following commands apply when native modules are added under Maven. They are preserved here for reference.
-
-### Show active profiles
-
-```bash
-mvn help:active-profiles --non-recursive
-```
-
-### Manually activate a platform profile
-
-```bash
-mvn compile '--activate-profiles=mac,!linux'
-mvn compile '--activate-profiles=linux,!mac'
-```
-
-### Build only a specific module
-
-```bash
-mvn compile '--activate-profiles=mac' --projects module/mac/fuse/pom.xml
-mvn compile '--activate-profiles=mac' --projects module/mac/fuse/pom.xml --also-make
-```
-
-### Skip a specific module
-
-```bash
-mvn compile -Dspade.skip.mac.fuse=true
 ```
