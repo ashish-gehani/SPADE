@@ -10,6 +10,20 @@ Pass `-Dmaven.compiler.debuglevel` to include full debug information (line numbe
 mvn compile -Dmaven.compiler.debug=true -Dmaven.compiler.debuglevel=lines,vars,source
 ```
 
+## Run tests
+
+```bash
+mvn test
+```
+
+Run a single test class with `-Dtest`:
+
+```bash
+mvn test -Dtest=SettingTest
+```
+
+Tests live under `src/test/java`, following the same package structure as `src/main/java`. The POM only declares `junit-jupiter-api`; running tests for the first time needs network access once, to pull `junit-jupiter-engine` and `junit-platform-launcher` (used to actually discover and run JUnit 5 tests) into the local/`lib` repository — after that they're cached and `-o` (offline) works.
+
 ## Dependency tree
 
 ```bash
