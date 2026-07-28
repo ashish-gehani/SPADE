@@ -55,18 +55,6 @@ public class Setting {
   }
 
   /**
-   * Loads, parses, and resolves the arguments and config files into one final map.
-   */
-  public static Setting create(String arguments, String... configFilePaths)
-      throws IOException, SettingParseException, SettingResolveException {
-    Setting setting = new Setting(arguments, configFilePaths);
-    setting.load();
-    setting.parse();
-    setting.resolve();
-    return setting;
-  }
-
-  /**
    * Returns the resolved value of the given key, or {@code null} if the key is not set.
    */
   public String getResolvedValue(String key) {

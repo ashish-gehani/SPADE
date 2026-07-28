@@ -19,9 +19,9 @@ package spade.utility.mcp.server;
 
 import java.util.logging.Level;
 
-import spade.utility.mcp.server.arg.Arg;
 import spade.utility.mcp.server.connection.SPADEControl;
 import spade.utility.mcp.server.connection.SPADEQuery;
+import spade.utility.mcp.server.setting.Setting;
 import spade.utility.mcp.server.tool.Registry;
 
 public abstract class Server {
@@ -30,20 +30,20 @@ public abstract class Server {
     public static final String VERSION = "1.0";
 
     private final State state = new State();
-    private final Arg arg;
+    private final Setting setting;
     private final Registry toolRegistry;
 
     public Server(
-        final Arg arg,
+        final Setting setting,
         final Registry toolRegistry
     ){
-        if (arg == null) {
-            throw new IllegalArgumentException("NULL arg");
+        if (setting == null) {
+            throw new IllegalArgumentException("NULL setting");
         }
         if (toolRegistry == null) {
             throw new IllegalArgumentException("NULL toolRegistry");
         }
-        this.arg = arg;
+        this.setting = setting;
         this.toolRegistry = toolRegistry;
     }
 
@@ -51,8 +51,8 @@ public abstract class Server {
         return state;
     }
 
-    public Arg getArg(){
-        return arg;
+    public Setting getSetting(){
+        return setting;
     }
 
     public Registry getToolRegistry(){

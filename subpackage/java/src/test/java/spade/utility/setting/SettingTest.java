@@ -30,7 +30,7 @@ import spade.utility.setting.keyvalue.KeyValue;
 public class SettingTest {
   @Test
   public void parsesArguments() throws Exception {
-    Setting setting = Setting.create("foo=bar baz=\"a b\"");
+    Setting setting = Helper.create("foo=bar baz=\"a b\"");
 
     assertEquals("bar", setting.getResolvedValue("foo"));
     assertEquals("a b", setting.getResolvedValue("baz"));
@@ -39,7 +39,7 @@ public class SettingTest {
 
   @Test
   public void getKeyValueReturnsKeyValueForSetKey() throws Exception {
-    Setting setting = Setting.create("foo=bar");
+    Setting setting = Helper.create("foo=bar");
 
     KeyValue keyValue = setting.getKeyValue("foo");
     assertEquals("foo", keyValue.getKey().getFullName());
@@ -52,7 +52,7 @@ public class SettingTest {
   public void parsesEscapedQuotesInArguments() throws Exception {
     // A backslash-escaped quote inside an argument's quoted span must not end the span early,
     // unlike an unescaped quote.
-    Setting setting = Setting.create("foo=\"she said \\\"hi\\\" to me\"");
+    Setting setting = Helper.create("foo=\"she said \\\"hi\\\" to me\"");
 
     assertEquals("she said \"hi\" to me", setting.getResolvedValue("foo"));
   }
@@ -60,7 +60,7 @@ public class SettingTest {
   @Test
   public void parsesConfigFile() throws Exception {
     String configPath = getClass().getResource("test.config").getPath();
-    Setting setting = Setting.create(null, configPath);
+    Setting setting = Helper.create(null, configPath);
 
     assertEquals("bar", setting.getResolvedValue("foo"));
     assertEquals("a b", setting.getResolvedValue("baz"));
@@ -70,7 +70,7 @@ public class SettingTest {
   @Test
   public void parsesTextFileReference() throws Exception {
     String configPath = getClass().getResource("test.config").getPath();
-    Setting setting = Setting.create(null, configPath);
+    Setting setting = Helper.create(null, configPath);
 
     assertEquals("line one\nline two\n", setting.getResolvedValue("content"));
   }
@@ -78,7 +78,7 @@ public class SettingTest {
   @Test
   public void parsesConfigFileReference() throws Exception {
     String configPath = getClass().getResource("test.config").getPath();
-    Setting setting = Setting.create(null, configPath);
+    Setting setting = Helper.create(null, configPath);
 
     assertEquals("value from other", setting.getResolvedValue("referenced"));
   }
@@ -90,7 +90,7 @@ public class SettingTest {
     String configPath = getClass().getResource("depth.config").getPath();
 
     SettingResolveException exception = assertThrows(SettingResolveException.class,
-        () -> Setting.create(null, configPath));
+        () -> Helper.create(null, configPath));
 
     ResolveContext context = exception.getContext();
     assertEquals(1, context.getMaxDereferences());
@@ -113,10 +113,10 @@ public class SettingTest {
 
     // "priority" is defined in arguments, test.config, and other.config; arguments should win
     // over both configs, and test.config (given first) should win over other.config.
-    Setting withArguments = Setting.create("priority=arguments", configPath, otherConfigPath);
+    Setting withArguments = Helper.create("priority=arguments", configPath, otherConfigPath);
     assertEquals("arguments", withArguments.getResolvedValue("priority"));
 
-    Setting configsOnly = Setting.create(null, configPath, otherConfigPath);
+    Setting configsOnly = Helper.create(null, configPath, otherConfigPath);
     assertEquals("config1", configsOnly.getResolvedValue("priority"));
   }
 
@@ -126,13 +126,13 @@ public class SettingTest {
     String otherConfigPath = getClass().getResource("other.config").getPath();
 
     // "shared" is only defined in other.config, not test.config; it should still be found.
-    Setting setting = Setting.create(null, configPath, otherConfigPath);
+    Setting setting = Helper.create(null, configPath, otherConfigPath);
     assertEquals("value from other", setting.getResolvedValue("shared"));
   }
 
   @Test
   public void parsesNamespacedKeys() throws Exception {
-    Setting setting = Setting.create("a.b=1 a.c=2");
+    Setting setting = Helper.create("a.b=1 a.c=2");
 
     // "a.b" and "a.c" are related by the "a" namespace, but are otherwise distinct keys;
     // neither defines "a" by itself.
@@ -144,7 +144,7 @@ public class SettingTest {
   @Test
   public void parsesSpacingAndQuoting() throws Exception {
     String configPath = getClass().getResource("spacing.config").getPath();
-    Setting setting = Setting.create(null, configPath);
+    Setting setting = Helper.create(null, configPath);
 
     assertEquals("plain", setting.getResolvedValue("no_spaces"));
     assertEquals("padded value", setting.getResolvedValue("spaces_around_equals"));
@@ -157,41 +157,41 @@ public class SettingTest {
   public void argumentsRejectSpacesAroundEquals() {
     // Unlike config file lines, an argument is whitespace-tokenized before it's split on '=';
     // a space around '=' breaks a single key-value pair into unparsable pieces.
-    assertThrows(SettingParseException.class, () -> Setting.create("foo = bar"));
+    assertThrows(SettingParseException.class, () -> Helper.create("foo = bar"));
   }
 
   @Test
   public void rejectsEmptyKey() {
-    assertThrows(SettingParseException.class, () -> Setting.create("=bar"));
+    assertThrows(SettingParseException.class, () -> Helper.create("=bar"));
   }
 
   @Test
   public void rejectsKeyWithEmptySegment() {
-    assertThrows(SettingParseException.class, () -> Setting.create("a..b=1"));
-    assertThrows(SettingParseException.class, () -> Setting.create(".a=1"));
-    assertThrows(SettingParseException.class, () -> Setting.create("a.=1"));
+    assertThrows(SettingParseException.class, () -> Helper.create("a..b=1"));
+    assertThrows(SettingParseException.class, () -> Helper.create(".a=1"));
+    assertThrows(SettingParseException.class, () -> Helper.create("a.=1"));
   }
 
   @Test
   public void rejectsUnclosedQuotedValue() {
-    assertThrows(SettingParseException.class, () -> Setting.create("foo=\"unterminated"));
+    assertThrows(SettingParseException.class, () -> Helper.create("foo=\"unterminated"));
   }
 
   @Test
   public void rejectsMalformedReferenceValue() {
     // Missing closing ')'.
-    assertThrows(SettingParseException.class, () -> Setting.create("foo=$(text_file test.txt"));
+    assertThrows(SettingParseException.class, () -> Helper.create("foo=$(text_file test.txt"));
     // Empty reference.
-    assertThrows(SettingParseException.class, () -> Setting.create("foo=$()"));
+    assertThrows(SettingParseException.class, () -> Helper.create("foo=$()"));
     // Unknown reference keyword.
-    assertThrows(SettingParseException.class, () -> Setting.create("foo=$(unknown_type test.txt)"));
+    assertThrows(SettingParseException.class, () -> Helper.create("foo=$(unknown_type test.txt)"));
   }
 
   @Test
   public void referenceSurroundedByQuotesIsTreatedAsLiteral() throws Exception {
     // The leading '"' means Value.parse never sees the '$(' prefix, so this is parsed as a
     // literal string rather than resolved as a reference.
-    Setting setting = Setting.create("foo=\"$(text_file test.txt)\"");
+    Setting setting = Helper.create("foo=\"$(text_file test.txt)\"");
 
     assertEquals("$(text_file test.txt)", setting.getResolvedValue("foo"));
   }

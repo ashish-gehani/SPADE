@@ -44,18 +44,18 @@ Exit the control client when done.
 
 ```bash
 bin/spade mcp -- \
-  spade_host=localhost \
-  spade_query_port=19998 \
-  spade_control_port=19999 \
-  mcp_server_mode=http \
-  mcp_http_host_name=localhost \
-  mcp_http_host_port=3000 \
-  mcp_http_host_endpoint=/mcp
+  spade.host=localhost \
+  spade.query.port=19998 \
+  spade.control.port=19999 \
+  mcp.server.mode=http \
+  mcp.http.host.name=localhost \
+  mcp.http.host.port=3000 \
+  mcp.http.host.endpoint=/mcp
 ```
 
 The server will listen at `http://localhost:3000/mcp`.
 
-All of these can also be set in `cfg/spade.utility.mcp.server.Server.config` instead of passing them on the command line (command-line arguments take precedence). `spade_query_port` and `spade_control_port` are optional — if omitted they fall back to `commandline_query_port` and `local_control_port` in `cfg/spade.core.Kernel.config`.
+All of these can also be set in `cfg/spade.utility.mcp.server.Main.config` instead of passing them on the command line (command-line arguments take precedence). `spade.query.port` and `spade.control.port` are optional — the shipped default config references `commandline_query_port` and `local_control_port` in `cfg/spade.core.Kernel.config` for them.
 
 ### 6. Add the MCP server to Claude Code
 
@@ -86,10 +86,10 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` and add t
       "command": "/path/to/spade/bin/spade",
       "args": [
         "mcp",
-        "spade_host=localhost",
-        "spade_query_port=19998",
-        "spade_control_port=19999",
-        "mcp_server_mode=stdio"
+        "spade.host=localhost",
+        "spade.query.port=19998",
+        "spade.control.port=19999",
+        "mcp.server.mode=stdio"
       ]
     }
   }
@@ -131,7 +131,7 @@ bin/spade run-util -- spade.utility.mcp.client.Main \
   verbose=true
 ```
 
-`mcp_url` was intentionally omitted above — when absent it's constructed from `mcp_http_host_name`, `mcp_http_host_port`, and `mcp_http_host_endpoint` in `cfg/spade.utility.mcp.server.Server.config`. Pass `mcp_url=http://<host>:<port><endpoint>` explicitly to point at a different server.
+`mcp_url` was intentionally omitted above — when absent it's constructed from `mcp_http_host_name`, `mcp_http_host_port`, and `mcp_http_host_endpoint` in `cfg/spade.utility.mcp.server.Main.config`. Pass `mcp_url=http://<host>:<port><endpoint>` explicitly to point at a different server.
 
 All of these can also be set in `cfg/spade.utility.mcp.client.user.Client.config` instead of passing them on the command line (command-line arguments take precedence). To use the real Anthropic API instead of the mock LLM, set `llm_type=anthropic anthropic_api_key=<key> anthropic_model=<model>`.
 

@@ -15,16 +15,16 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.server.arg;
+package spade.utility.mcp.server.setting;
 
-public enum MCPServerMode {
+public enum ServerMode {
 
     STDIO("stdio"),
     HTTP("http");
 
     public final String name;
 
-    MCPServerMode(final String name) {
+    ServerMode(final String name) {
         this.name = name;
     }
 

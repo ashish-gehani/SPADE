@@ -23,7 +23,7 @@ import io.modelcontextprotocol.server.McpServer.SingleSessionSyncSpecification;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
 
-import spade.utility.mcp.server.arg.Arg;
+import spade.utility.mcp.server.setting.Setting;
 import spade.utility.mcp.server.tool.Registry;
 import spade.utility.mcp.server.tool.Tool;
 
@@ -32,10 +32,10 @@ public class Stdio extends Server {
     private McpSyncServer mcpServer;
 
     public Stdio(
-        final Arg arg,
+        final Setting setting,
         final Registry toolRegistry
     ){
-        super(arg, toolRegistry);
+        super(setting, toolRegistry);
     }
 
     public void initialize() throws Exception {

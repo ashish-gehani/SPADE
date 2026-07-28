@@ -27,7 +27,7 @@ import io.modelcontextprotocol.server.McpServer.StreamableSyncSpecification;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider;
 
-import spade.utility.mcp.server.arg.Arg;
+import spade.utility.mcp.server.setting.Setting;
 import spade.utility.mcp.server.tool.Registry;
 import spade.utility.mcp.server.tool.Tool;
 
@@ -37,17 +37,17 @@ public class Http extends Server {
     private org.eclipse.jetty.server.Server jettyServer;
 
     public Http(
-        final Arg arg,
+        final Setting setting,
         final Registry toolRegistry
     ){
-        super(arg, toolRegistry);
+        super(setting, toolRegistry);
     }
 
     public void initialize() throws Exception {
         final HttpServletStreamableServerTransportProvider transportProvider =
             HttpServletStreamableServerTransportProvider.builder()
                 .jsonMapper(McpJsonDefaults.getMapper())
-                .mcpEndpoint(this.getArg().getMCPHttpHostEndpoint())
+                .mcpEndpoint(this.getSetting().getMCP().getHttpHostEndpoint())
                 .build();
 
         final StreamableSyncSpecification mcpServerBuilder = McpServer.sync(transportProvider);
@@ -60,12 +60,12 @@ public class Http extends Server {
         final ServletContextHandler contextHandler = new ServletContextHandler();
         contextHandler.setContextPath("/");
 
-        contextHandler.addServlet(new ServletHolder(transportProvider), this.getArg().getMCPHttpHostEndpoint() + "/*");
+        contextHandler.addServlet(new ServletHolder(transportProvider), this.getSetting().getMCP().getHttpHostEndpoint() + "/*");
 
         this.jettyServer = new org.eclipse.jetty.server.Server();
         final ServerConnector connector = new ServerConnector(this.jettyServer);
-        connector.setHost(this.getArg().getMCPHttpHostName());
-        connector.setPort(this.getArg().getMCPHttpHostPort());
+        connector.setHost(this.getSetting().getMCP().getHttpHostName());
+        connector.setPort(this.getSetting().getMCP().getHttpHostPort());
         this.jettyServer.addConnector(connector);
         this.jettyServer.setHandler(contextHandler);
     }

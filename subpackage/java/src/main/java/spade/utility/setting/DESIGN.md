@@ -28,12 +28,14 @@ Reading, parsing, and resolving are kept as separate stages rather than one comb
 
 ## Entry point
 
-Consumers don't interact with sources, keys, or values directly. A single entry point accepts the optional runtime arguments and zero or more config file paths, drives the read/parse/resolve stages, and exposes only a lookup from a key's full name to its final, resolved value. What type that string should be interpreted as is left to the caller, the same way it is in the legacy approach — this layer only ever hands back a string.
+Consumers don't interact with sources, keys, or values directly. `Helper.create` is the single entry point: it accepts the optional runtime arguments and zero or more config file paths, drives the read/parse/resolve stages on a `Setting`, and returns it. `Setting` itself exposes only a lookup from a key's full name to its final, resolved value. What type that string should be interpreted as is left to the caller, the same way it is in the legacy approach — this layer only ever hands back a string.
+
+`Setting` holds the read/parse/resolve lifecycle methods (`load`/`parse`/`resolve`) as well as the lookup; `Helper` is kept separate so that stateless, cross-cutting helpers (driving the lifecycle end-to-end, resolving a class's conventional default config path) don't have to live on the data object itself.
 
 ## Package layout
 
 ```
-setting/                 entry point; parse/resolve context; parse- and resolve-stage exceptions
+setting/                 entry point (Helper); the parsed/resolved data (Setting); parse/resolve context; parse- and resolve-stage exceptions
 ├── convert/             conversions from a resolved string value to a specific type — see convert/README.md
 ├── key/                 key identity (namespace chain, full name, equality)
 ├── keyvalue/            a key paired with its value; the precedence-merging map

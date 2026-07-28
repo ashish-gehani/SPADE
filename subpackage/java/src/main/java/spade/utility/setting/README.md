@@ -67,6 +67,8 @@ The key rules and value rules below apply to config files as well.
 
 Comments can be added using `#`. A line must start with `#` to be considered a comment.
 
+`Helper.getDefaultConfigFilePath(Class)` resolves a class's conventional default config file path, the same `cfg/<qualified java class name>.config` convention used by the legacy approach above. For now it's just a wrapper around `spade.core.Settings.getDefaultConfigFilePath(Class)`.
+
 ### Argument rules
 
 - Arguments cannot contain newlines, for now.
@@ -99,6 +101,16 @@ Since arguments (and, by the rules above, config file entries) cannot contain ne
 
 Parsing a string literal or a resolved referenced value into the type the module has defined for it is the module's job. See [convert/README.md](convert/README.md) for a shared toolkit of such conversions.
 
+### Errors
+
+`SettingParseException`, `SettingResolveException`, and `SettingConvertException` are raised by this package's own read/parse/resolve/convert stages (see [DESIGN.md](DESIGN.md)); they mean the raw text, a reference, or a single value's conversion was malformed.
+
+`InvalidSettingException` is for the module's own use: once conversion succeeds, a module may still find a setting missing (a required key wasn't set) or invalid by its own rules. Modules should raise `InvalidSettingException` for those cases rather than an ad hoc exception, so all setting-related failures share one type regardless of which stage produced them.
+
 ### Code design
 
 See [DESIGN.md](DESIGN.md) for notes on the code design to handle the requirements above.
+
+## Testing
+
+See [the test README](../../../../../test/java/spade/utility/setting/README.md) for what functionality is tested where.

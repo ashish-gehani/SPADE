@@ -19,50 +19,73 @@ package spade.utility.mcp.server;
 
 import java.util.logging.Level;
 
-import spade.utility.mcp.server.arg.Arg;
-import spade.utility.mcp.server.arg.Parser;
 import spade.utility.mcp.server.connection.Context;
 import spade.utility.mcp.server.connection.SPADEControl;
 import spade.utility.mcp.server.connection.SPADEQuery;
+import spade.utility.mcp.server.setting.Parser;
+import spade.utility.mcp.server.setting.Setting;
 import spade.utility.mcp.server.tool.Registry;
+import spade.utility.setting.Helper;
+import spade.utility.setting.InvalidSettingException;
 
 public class Main {
+
+    private static final String defaultConfigFilePath = Helper.getDefaultConfigFilePath(Main.class);
 
     private static void log(final Level level, final String msg) {
         System.err.println("[" + level.getName() + "] [Main] " + msg);
     }
 
+    /**
+     * The config file path used by {@link #parse(String[])} when no config file is specified
+     * explicitly, i.e. {@code cfg/spade.utility.mcp.server.Main.config} relative to the SPADE
+     * root.
+     */
+    static String getDefaultConfigFilePath() {
+        return defaultConfigFilePath;
+    }
+
+    /**
+     * Parses settings from command-line args, falling back to {@link #getDefaultConfigFilePath()}.
+     */
+    static Setting parse(final String[] args) throws InvalidSettingException {
+        if (args == null) {
+            throw new InvalidSettingException("NULL args");
+        }
+        return Parser.parse(spade.utility.arg.Helper.rejoin(args), defaultConfigFilePath);
+    }
+
     public static void main(final String[] args) throws Exception {
-        final Arg arg;
+        final Setting setting;
         try {
-            arg = Parser.parse(args);
-            log(Level.INFO, "Args - " + arg.toString());
+            setting = parse(args);
+            log(Level.INFO, "Setting - " + setting.toString());
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
-            Parser.printHelp();
+            Parser.printHelp(defaultConfigFilePath);
             System.exit(1);
             return;
         }
 
-        final SPADEQuery spadeQuery = new SPADEQuery(arg.getSpadeHost(), arg.getSpadeQueryPort());
+        final SPADEQuery spadeQuery = new SPADEQuery(setting.getSpade().getHost(), setting.getSpade().getQueryPort());
         spadeQuery.connect();
 
-        final SPADEControl spadeControl = new SPADEControl(arg.getSpadeHost(), arg.getSpadeControlPort());
+        final SPADEControl spadeControl = new SPADEControl(setting.getSpade().getHost(), setting.getSpade().getControlPort());
         spadeControl.connect();
 
         final Context ctx = new Context(spadeQuery, spadeControl);
         final Registry registry = new Registry(ctx);
 
         final spade.utility.mcp.server.Server server;
-        switch (arg.getMCPServerMode()) {
+        switch (setting.getMCP().getServerMode()) {
             case STDIO:
-                server = new Stdio(arg, registry);
+                server = new Stdio(setting, registry);
                 break;
             case HTTP:
-                server = new Http(arg, registry);
+                server = new Http(setting, registry);
                 break;
             default:
-                throw new Exception("Unknown MCP server mode: " + arg.getMCPServerMode().name);
+                throw new Exception("Unknown MCP server mode: " + setting.getMCP().getServerMode().name);
         }
 
         try {
