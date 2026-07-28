@@ -39,3 +39,7 @@ Rules:
 - A `min` and/or `max` bound can optionally be passed in; either may be `null` to leave that side unchecked.
 - Both bounds are inclusive: a value equal to `min` or `max` is valid.
 - A value below `min` or above `max` is invalid.
+
+## Strings
+
+`Strings.getString` / `Strings.optString` return the resolved value as-is. `Strings.parseString(String)` does the same, directly on a raw string, without a `Setting` lookup. There are no rules to apply since any string is a valid string; it follows the same `get*`/`opt*`/`parse*` pattern as the other conversion categories for consistency.
