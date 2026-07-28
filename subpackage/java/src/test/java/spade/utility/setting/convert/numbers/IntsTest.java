@@ -17,24 +17,33 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.utility.setting.convert;
+package spade.utility.setting.convert.numbers;
 
-import spade.utility.setting.Setting;
-import spade.utility.setting.SettingConvertException;
-import spade.utility.setting.keyvalue.KeyValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/**
- * Shared "required key" lookup used by every conversion category's {@code getX} methods.
- */
-public class Lookup {
-  private Lookup() {
+import org.junit.jupiter.api.Test;
+
+public class IntsTest {
+  @Test
+  public void parsesValidInt() {
+    assertEquals(42, Ints.parse("42", null, null));
   }
 
-  public static KeyValue required(Setting setting, String key) throws SettingConvertException {
-    KeyValue keyValue = setting.getKeyValue(key);
-    if (keyValue == null) {
-      throw new SettingConvertException("Key '" + key + "' is required but not set.");
-    }
-    return keyValue;
+  @Test
+  public void rejectsMalformedInt() {
+    assertThrows(IllegalArgumentException.class, () -> Ints.parse("abc", null, null));
+  }
+
+  @Test
+  public void acceptsIntAtMinAndMaxBounds() {
+    assertEquals(1, Ints.parse("1", 1, 10));
+    assertEquals(10, Ints.parse("10", 1, 10));
+  }
+
+  @Test
+  public void rejectsIntBelowMinOrAboveMax() {
+    assertThrows(IllegalArgumentException.class, () -> Ints.parse("0", 1, 10));
+    assertThrows(IllegalArgumentException.class, () -> Ints.parse("11", 1, 10));
   }
 }

@@ -26,46 +26,46 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-public class CsvTest {
+public class CSVTest {
   @Test
   public void splitsAndTrimsUnquotedValues() {
-    assertEquals(List.of("a", "b", "c"), Csv.parseCommaSeparatedStrings("a, b , c"));
+    assertEquals(List.of("a", "b", "c"), CSV.parseCommaSeparatedStrings("a, b , c"));
   }
 
   @Test
   public void quotedFieldMayContainCommas() {
-    assertEquals(List.of("a,b", "c"), Csv.parseCommaSeparatedStrings("\"a,b\",c"));
+    assertEquals(List.of("a,b", "c"), CSV.parseCommaSeparatedStrings("\"a,b\",c"));
   }
 
   @Test
   public void quotedFieldMayContainEscapedQuotes() {
     assertEquals(List.of("plain", "say\"hi\""),
-        Csv.parseCommaSeparatedStrings("plain,\"say\\\"hi\\\"\""));
+        CSV.parseCommaSeparatedStrings("plain,\"say\\\"hi\\\"\""));
   }
 
   @Test
   public void quotedFieldPreservesLeadingAndTrailingSpaces() {
-    assertEquals(List.of(" spaced ", "plain"), Csv.parseCommaSeparatedStrings("\" spaced \",plain"));
+    assertEquals(List.of(" spaced ", "plain"), CSV.parseCommaSeparatedStrings("\" spaced \",plain"));
   }
 
   @Test
   public void unquotedFieldsAreTrimmedEvenAdjacentToQuotedFields() {
     assertEquals(List.of("unquoted", "quoted"),
-        Csv.parseCommaSeparatedStrings(" unquoted , \"quoted\" "));
+        CSV.parseCommaSeparatedStrings(" unquoted , \"quoted\" "));
   }
 
   @Test
   public void rejectsUnterminatedQuote() {
-    assertThrows(IllegalArgumentException.class, () -> Csv.parseCommaSeparatedStrings("plain,\"unterminated"));
+    assertThrows(IllegalArgumentException.class, () -> CSV.parseCommaSeparatedStrings("plain,\"unterminated"));
   }
 
   @Test
   public void rejectsContentAfterClosingQuote() {
-    assertThrows(IllegalArgumentException.class, () -> Csv.parseCommaSeparatedStrings("plain,\"foo\"bar"));
+    assertThrows(IllegalArgumentException.class, () -> CSV.parseCommaSeparatedStrings("plain,\"foo\"bar"));
   }
 
   @Test
   public void rejectsQuoteInMiddleOfUnquotedField() {
-    assertThrows(IllegalArgumentException.class, () -> Csv.parseCommaSeparatedStrings("fo\"o"));
+    assertThrows(IllegalArgumentException.class, () -> CSV.parseCommaSeparatedStrings("fo\"o"));
   }
 }

@@ -17,24 +17,33 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.utility.setting.convert;
+package spade.utility.setting.convert.numbers;
 
-import spade.utility.setting.Setting;
-import spade.utility.setting.SettingConvertException;
-import spade.utility.setting.keyvalue.KeyValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/**
- * Shared "required key" lookup used by every conversion category's {@code getX} methods.
- */
-public class Lookup {
-  private Lookup() {
+import org.junit.jupiter.api.Test;
+
+public class LongsTest {
+  @Test
+  public void parsesValidLong() {
+    assertEquals(42L, Longs.parse("42", null, null));
   }
 
-  public static KeyValue required(Setting setting, String key) throws SettingConvertException {
-    KeyValue keyValue = setting.getKeyValue(key);
-    if (keyValue == null) {
-      throw new SettingConvertException("Key '" + key + "' is required but not set.");
-    }
-    return keyValue;
+  @Test
+  public void rejectsMalformedLong() {
+    assertThrows(IllegalArgumentException.class, () -> Longs.parse("abc", null, null));
+  }
+
+  @Test
+  public void acceptsLongAtMinAndMaxBounds() {
+    assertEquals(1L, Longs.parse("1", 1L, 10L));
+    assertEquals(10L, Longs.parse("10", 1L, 10L));
+  }
+
+  @Test
+  public void rejectsLongBelowMinOrAboveMax() {
+    assertThrows(IllegalArgumentException.class, () -> Longs.parse("0", 1L, 10L));
+    assertThrows(IllegalArgumentException.class, () -> Longs.parse("11", 1L, 10L));
   }
 }

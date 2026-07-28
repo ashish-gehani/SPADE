@@ -26,8 +26,8 @@ import spade.utility.setting.Setting;
 import spade.utility.setting.SettingConvertException;
 import spade.utility.setting.keyvalue.KeyValue;
 
-public class Csv {
-  private Csv() {
+public class CSV {
+  private CSV() {
   }
 
   public static List<String> getCommaSeparatedStrings(Setting setting, String key) throws SettingConvertException {

@@ -17,24 +17,33 @@
  along with this program. If not, see <http://www.gnu.org/licenses/>.
  --------------------------------------------------------------------------------
  */
-package spade.utility.setting.convert;
+package spade.utility.setting.convert.numbers;
 
-import spade.utility.setting.Setting;
-import spade.utility.setting.SettingConvertException;
-import spade.utility.setting.keyvalue.KeyValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/**
- * Shared "required key" lookup used by every conversion category's {@code getX} methods.
- */
-public class Lookup {
-  private Lookup() {
+import org.junit.jupiter.api.Test;
+
+public class DoublesTest {
+  @Test
+  public void parsesValidDouble() {
+    assertEquals(4.2, Doubles.parse("4.2", null, null));
   }
 
-  public static KeyValue required(Setting setting, String key) throws SettingConvertException {
-    KeyValue keyValue = setting.getKeyValue(key);
-    if (keyValue == null) {
-      throw new SettingConvertException("Key '" + key + "' is required but not set.");
-    }
-    return keyValue;
+  @Test
+  public void rejectsMalformedDouble() {
+    assertThrows(IllegalArgumentException.class, () -> Doubles.parse("abc", null, null));
+  }
+
+  @Test
+  public void acceptsDoubleAtMinAndMaxBounds() {
+    assertEquals(1.0, Doubles.parse("1.0", 1.0, 10.0));
+    assertEquals(10.0, Doubles.parse("10.0", 1.0, 10.0));
+  }
+
+  @Test
+  public void rejectsDoubleBelowMinOrAboveMax() {
+    assertThrows(IllegalArgumentException.class, () -> Doubles.parse("0.9", 1.0, 10.0));
+    assertThrows(IllegalArgumentException.class, () -> Doubles.parse("10.1", 1.0, 10.0));
   }
 }
