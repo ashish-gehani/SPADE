@@ -97,7 +97,7 @@ The referenced value type is introduced to avoid duplication of values, and havi
 
 Since arguments (and, by the rules above, config file entries) cannot contain newlines, if a value in a config file needs to be multiline, a referenced value should be used instead, with the reference file containing the multiline value.
 
-Parsing a string literal or a resolved referenced value into the type the module has defined for it is the module's job.
+Parsing a string literal or a resolved referenced value into the type the module has defined for it is the module's job. See [convert/README.md](convert/README.md) for a shared toolkit of such conversions.
 
 ### Code design
 

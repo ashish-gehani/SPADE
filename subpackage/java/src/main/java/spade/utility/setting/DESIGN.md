@@ -34,6 +34,7 @@ Consumers don't interact with sources, keys, or values directly. A single entry 
 
 ```
 setting/                 entry point; parse/resolve context; parse- and resolve-stage exceptions
+├── convert/             conversions from a resolved string value to a specific type — see convert/README.md
 ├── key/                 key identity (namespace chain, full name, equality)
 ├── keyvalue/            a key paired with its value; the precedence-merging map
 ├── source/              the source abstraction
