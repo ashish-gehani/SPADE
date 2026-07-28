@@ -32,8 +32,12 @@ public class Enums {
   }
 
   public static <E extends Enum<E>> E optEnum(Setting setting, String key, Class<E> enumType) throws SettingConvertException {
+    return optEnum(setting, key, enumType, null);
+  }
+
+  public static <E extends Enum<E>> E optEnum(Setting setting, String key, Class<E> enumType, E defaultValue) throws SettingConvertException {
     KeyValue keyValue = setting.getKeyValue(key);
-    return keyValue == null ? null : toEnum(keyValue, enumType);
+    return keyValue == null ? defaultValue : toEnum(keyValue, enumType);
   }
 
   private static <E extends Enum<E>> E toEnum(KeyValue keyValue, Class<E> enumType) throws SettingConvertException {
