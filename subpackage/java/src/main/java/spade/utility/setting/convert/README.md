@@ -1,6 +1,6 @@
 # Conversions
 
-This package converts a resolved setting value (a raw string) into a specific type. Each category (`Csv`, `Enums`, `Files`, `Numbers`, `Strings`) exposes `get*`/`opt*` helpers that look up a key in a `Setting` and convert its resolved value:
+This package converts a resolved setting value (a raw string) into a specific type. Each category (`Csv`, `Enums`, `Files`, `Numbers`, `Strings`, `URLs`) exposes `get*`/`opt*` helpers that look up a key in a `Setting` and convert its resolved value:
 
 - `get*` requires the key to be set, and throws `SettingConvertException` if it's missing.
 - `opt*` returns `null` if the key is missing, or a caller-specified default value if one is passed in.
@@ -61,3 +61,13 @@ Rules:
 ## Strings
 
 `Strings.getString` / `Strings.optString` return the resolved value as-is. `Strings.parseString(String)` does the same, directly on a raw string, without a `Setting` lookup. There are no rules to apply since any string is a valid string; it follows the same `get*`/`opt*`/`parse*` pattern as the other conversion categories for consistency.
+
+## URLs
+
+`URLs.getUrl` / `URLs.optUrl` parse a value into a `URL`. `URLs.parseUrl(String)` does the same parsing directly on a raw string, without a `Setting` lookup.
+
+Rules:
+
+- The value must be a valid, absolute URL (e.g. `https://example.com/path`), as accepted by `java.net.URI` and convertible to a `java.net.URL`.
+- A port can optionally be included (e.g. `https://example.com:8080/path`).
+- A relative reference (no scheme, e.g. `/path` or `example.com/path`) is invalid.
