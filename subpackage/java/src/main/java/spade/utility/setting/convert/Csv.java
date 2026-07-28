@@ -35,8 +35,12 @@ public class Csv {
   }
 
   public static List<String> optCommaSeparatedStrings(Setting setting, String key) throws SettingConvertException {
+    return optCommaSeparatedStrings(setting, key, null);
+  }
+
+  public static List<String> optCommaSeparatedStrings(Setting setting, String key, List<String> defaultValue) throws SettingConvertException {
     KeyValue keyValue = setting.getKeyValue(key);
-    return keyValue == null ? null : toCommaSeparatedStrings(keyValue);
+    return keyValue == null ? defaultValue : toCommaSeparatedStrings(keyValue);
   }
 
   private static List<String> toCommaSeparatedStrings(KeyValue keyValue) throws SettingConvertException {

@@ -1,6 +1,10 @@
 # Conversions
 
-This package converts a resolved setting value (a raw string) into a specific type. Each category (`Csv`, `Enums`, `Files`, `Numbers`, `Strings`) exposes `get*`/`opt*` helpers that look up a key in a `Setting` and convert its resolved value: `get*` requires the key to be set and throws `SettingConvertException` if it's missing, while `opt*` returns `null` in that case. Either throws `SettingConvertException` if the value is set but cannot be converted.
+This package converts a resolved setting value (a raw string) into a specific type. Each category (`Csv`, `Enums`, `Files`, `Numbers`, `Strings`) exposes `get*`/`opt*` helpers that look up a key in a `Setting` and convert its resolved value:
+
+- `get*` requires the key to be set, and throws `SettingConvertException` if it's missing.
+- `opt*` returns `null` if the key is missing, or a caller-specified default value if one is passed in.
+- Either throws `SettingConvertException` if the value is set but cannot be converted.
 
 ## CSV
 
