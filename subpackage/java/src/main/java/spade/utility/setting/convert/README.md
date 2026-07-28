@@ -29,6 +29,24 @@ Rules:
 
 - The value must exactly match the name of one of the enum type's constants.
 
+## Files
+
+`Files.getExecutableFile` / `Files.optExecutableFile`, `Files.getReadableFile` / `Files.optReadableFile`, `Files.getWritableFile` / `Files.optWritableFile`, `Files.getReadableDirectory` / `Files.optReadableDirectory`, `Files.getWritableDirectory` / `Files.optWritableDirectory`, `Files.getCreatableFile` / `Files.optCreatableFile`, and `Files.getCreatableDirectory` / `Files.optCreatableDirectory` parse a value into a `File`, checking that it meets the named requirement. `Files.parseExecutableFile` / `Files.parseReadableFile` / `Files.parseWritableFile` / `Files.parseReadableDirectory` / `Files.parseWritableDirectory` / `Files.parseCreatableFile` / `Files.parseCreatableDirectory` do the same, directly on a raw string, without a `Setting` lookup.
+
+Rules:
+
+- The value is the path to the file or directory; it is not required to be absolute.
+- `ExecutableFile` requires the path to be an existing file that is executable.
+- `ReadableFile` requires the path to be an existing file that is readable.
+- `WritableFile` requires the path to be an existing file that is writable.
+- `ReadableDirectory` requires the path to be an existing directory that is readable.
+- `WritableDirectory` requires the path to be an existing directory that is writable.
+- `CreatableFile` requires the path to either already exist as a writable file, or not exist yet with a parent directory that exists and is writable (so the file could be created there).
+- `CreatableDirectory` is the same as `CreatableFile`, but for a directory instead of a file.
+- For `CreatableFile`/`CreatableDirectory`, a relative path with no parent component (e.g. `output.txt`) is resolved against the current working directory to find its effective parent.
+- For `CreatableFile`/`CreatableDirectory`, the path `/` is never creatable when it doesn't already exist, since the filesystem root has no parent directory to create it in.
+- A path that doesn't exist, or doesn't meet the named requirement, is invalid.
+
 ## Numbers
 
 `Numbers.getInt` / `Numbers.optInt`, `Numbers.getLong` / `Numbers.optLong`, and `Numbers.getDouble` / `Numbers.optDouble` parse a value into an `int`, `long`, or `double`. `Numbers.parseInt` / `Numbers.parseLong` / `Numbers.parseDouble` do the same parsing directly on a raw string, without a `Setting` lookup.
