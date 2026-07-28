@@ -28,3 +28,14 @@ Rules:
 Rules:
 
 - The value must exactly match the name of one of the enum type's constants.
+
+## Numbers
+
+`Numbers.getInt` / `Numbers.optInt`, `Numbers.getLong` / `Numbers.optLong`, and `Numbers.getDouble` / `Numbers.optDouble` parse a value into an `int`, `long`, or `double`. `Numbers.parseInt` / `Numbers.parseLong` / `Numbers.parseDouble` do the same parsing directly on a raw string, without a `Setting` lookup.
+
+Rules:
+
+- The value must be a valid number for the requested type (as accepted by the corresponding `Integer.parseInt` / `Long.parseLong` / `Double.parseDouble`).
+- A `min` and/or `max` bound can optionally be passed in; either may be `null` to leave that side unchecked.
+- Both bounds are inclusive: a value equal to `min` or `max` is valid.
+- A value below `min` or above `max` is invalid.
