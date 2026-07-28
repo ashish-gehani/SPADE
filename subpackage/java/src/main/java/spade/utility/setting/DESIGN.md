@@ -44,34 +44,5 @@ setting/                 entry point; parse/resolve context; parse- and resolve-
 ```
 
 
--- scratch
-
--- api should be designed for the regular user and the debugging api should be more verbose.
--- getValue returns the resolved value because that is what regular user would want.
-they don't care about unresolved value and it is mostly for debugging.
-
-Settings settings = Settings.load(arguments, configFile1, configFile2...);
-// must get value as string i.e. it must have been defined in arguments, or configs.
-String value = settings.getString("abc");
-// optionally get value as string
-String value = settings.optString("abc");
-// including opt, int, and double
-Long value = settings.getLong("abc")
-Long value = settings.getLong("abc", min)
-Long value = settings.getLong("abc", max)
-Long value = settings.getLong("abc", min, max)
-File value = settings.getExecutableFile("abc")
-File value = settings.getReadableFile("abc")
-File value = settings.getWritableFile("abc")
-File value = settings.getReadableDirectory("abc")
-File value = settings.getWritableDirectory("abc")
-Enum<X> value = settings.getEnum("abc")
-List<String> value = settings.getCommaSeparatedStrings("abc");
-List<String> value = settings.getCommaSeparated*("abc");
-// returns the settings only under the given namespace
-Settings settings_ns_abc = settings.getNamespace("abc");
-
-// use value as you want.
-
 
 

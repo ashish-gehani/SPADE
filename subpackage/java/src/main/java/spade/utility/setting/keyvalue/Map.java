@@ -22,6 +22,7 @@ package spade.utility.setting.keyvalue;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import spade.utility.setting.key.Key;
 
@@ -43,6 +44,17 @@ public class Map {
 
   public Collection<KeyValue> values() {
     return map.values();
+  }
+
+  /**
+   * Returns a human-readable {@code key=value (source)} listing of the map, one pair per line,
+   * in insertion order.
+   */
+  public String prettyPrint() {
+    return map.values().stream()
+        .map(keyValue -> keyValue.getKey().getFullName() + "=" + keyValue.getValue().getResolvedValue()
+            + " (" + keyValue.getParseContext().getSource() + ")")
+        .collect(Collectors.joining(System.lineSeparator()));
   }
 
   public static Map of(List<KeyValue> keyValues) {
