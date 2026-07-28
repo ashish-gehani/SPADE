@@ -25,13 +25,13 @@ import spade.utility.mcp.server.setting.Parser;
 
 public class MainTest {
 
-    // @Test
-    // public void currentMainConfigIsValid() {
-    //     // Explicitly targets Main.getDefaultConfigFilePath() (the shipped
-    //     // cfg/spade.utility.mcp.server.Main.config), rather than relying on Main.parse(String[])'s
-    //     // implicit fallback to it. Relies on the JVM's working directory being the repo root,
-    //     // same as spade.core.Settings itself requires to resolve cfg/*.config paths.
-    //     assertDoesNotThrow(() -> Parser.parse("", Main.getDefaultConfigFilePath()));
-    // }
+    @Test
+    public void currentMainConfigIsValid() {
+        // Explicitly targets Main.getDefaultConfigFilePath() (the shipped
+        // cfg/spade.utility.mcp.server.Main.config), rather than relying on Main.parse(String[])'s
+        // implicit fallback to it. Relies on the JVM's working directory being the repo root,
+        // same as spade.core.Settings itself requires to resolve cfg/*.config paths.
+        assertDoesNotThrow(() -> Parser.parse("", Main.getDefaultConfigFilePath()));
+    }
 
 }
