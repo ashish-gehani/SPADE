@@ -21,7 +21,7 @@ install
 *.class
 /build
 /target
-/include
+/include/java
 subpackage/**/target/
 runtime.java-cp.argfile
 build.java-cp.argfile
