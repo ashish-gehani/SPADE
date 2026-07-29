@@ -303,7 +303,14 @@ DIST_SUBDIRS = subpackage/java $(am__append_1) $(am__append_3)
 
 # For general build targets.
 SUBDIRS = subpackage/java $(am__append_2) $(am__append_4)
-all: all-recursive
+
+# subpackage/java needs the keys generatekeys.sh produces to run its tests during build,
+# so setup must run before subpackage recursion, not just before all-local.
+# For future additions that must also run before any subpackage is built, add them to the
+# setup target itself -- do not add more targets to BUILT_SOURCES directly.
+BUILT_SOURCES = setup
+all: $(BUILT_SOURCES)
+	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
 .SUFFIXES:
 am--refresh: Makefile
@@ -643,12 +650,15 @@ distcleancheck: distclean
 	       $(distcleancheck_listfiles) ; \
 	       exit 1; } >&2
 check-am: all-am
-check: check-recursive
+check: $(BUILT_SOURCES)
+	$(MAKE) $(AM_MAKEFLAGS) check-recursive
 all-am: Makefile all-local
 installdirs: installdirs-recursive
 installdirs-am:
-install: install-recursive
-install-exec: install-exec-recursive
+install: $(BUILT_SOURCES)
+	$(MAKE) $(AM_MAKEFLAGS) install-recursive
+install-exec: $(BUILT_SOURCES)
+	$(MAKE) $(AM_MAKEFLAGS) install-exec-recursive
 install-data: install-data-recursive
 uninstall: uninstall-recursive
 
@@ -677,6 +687,7 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
+	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
 clean: clean-recursive
 
 clean-am: clean-generic clean-local mostlyclean-am
@@ -747,7 +758,8 @@ ps-am:
 
 uninstall-am:
 
-.MAKE: $(am__recursive_targets) install-am install-strip
+.MAKE: $(am__recursive_targets) all check install install-am \
+	install-exec install-strip
 
 .PHONY: $(am__recursive_targets) CTAGS GTAGS TAGS all all-am all-local \
 	am--refresh check check-am clean clean-cscope clean-generic \
@@ -774,7 +786,7 @@ setup:
 
 .PHONY: setup
 
-all-local: setup
+all-local:
 
 clean-local:
 	rm -rf "$(SPADE_ROOT)/cfg/ssl"

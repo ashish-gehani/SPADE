@@ -47,14 +47,6 @@ jobs:
     - name: Configure
       run: ./configure
 
-    # TEMPORARY WORKAROUND: these are normally run as part of `make install` /
-    # first-run setup, but must be run manually here before `make` until that
-    # is fixed. Remove this step once building no longer requires it.
-    - name: Generate keys and install Neo4j (temporary workaround)
-      run: |
-        bin/keys/generatekeys.sh
-        bin/manage-neo4j.sh install
-
     - name: Build (Linux)
       if: runner.os == 'Linux'
       run: make KERNEL_MODULES=true

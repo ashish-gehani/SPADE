@@ -18,13 +18,19 @@ DIST_SUBDIRS += subpackage/linux
 SUBDIRS += subpackage/linux
 endif
 
+# subpackage/java needs the keys generatekeys.sh produces to run its tests during build,
+# so setup must run before subpackage recursion, not just before all-local.
+# For future additions that must also run before any subpackage is built, add them to the
+# setup target itself -- do not add more targets to BUILT_SOURCES directly.
+BUILT_SOURCES = setup
+
 setup:
 	cd "$(SPADE_ROOT)" && bin/manage-neo4j.sh install
 	cd "$(SPADE_ROOT)" && bin/keys/generatekeys.sh
 
 .PHONY: setup
 
-all-local: setup
+all-local:
 
 clean-local:
 	rm -rf "$(SPADE_ROOT)/cfg/ssl"
