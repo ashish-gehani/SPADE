@@ -20,6 +20,7 @@
 package spade.utility.setting.convert;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
@@ -27,5 +28,25 @@ public class StringsTest {
   @Test
   public void parseStringReturnsValueUnchanged() {
     assertEquals("hello", Strings.parseString("hello"));
+  }
+
+  @Test
+  public void parseNonBlankStringReturnsValueUnchanged() {
+    assertEquals("hello", Strings.parseNonBlankString("hello"));
+  }
+
+  @Test
+  public void parseNonBlankStringRejectsNull() {
+    assertThrows(IllegalArgumentException.class, () -> Strings.parseNonBlankString(null));
+  }
+
+  @Test
+  public void parseNonBlankStringRejectsEmpty() {
+    assertThrows(IllegalArgumentException.class, () -> Strings.parseNonBlankString(""));
+  }
+
+  @Test
+  public void parseNonBlankStringRejectsWhitespaceOnly() {
+    assertThrows(IllegalArgumentException.class, () -> Strings.parseNonBlankString("   "));
   }
 }

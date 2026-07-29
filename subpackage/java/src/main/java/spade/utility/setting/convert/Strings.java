@@ -40,7 +40,35 @@ public class Strings {
     return keyValue == null ? defaultValue : parseString(keyValue.getValue().getResolvedValue());
   }
 
+  public static String getNonBlankString(Setting setting, String key) throws SettingConvertException {
+    return toNonBlankString(Lookup.required(setting, key));
+  }
+
+  public static String optNonBlankString(Setting setting, String key) throws SettingConvertException {
+    return optNonBlankString(setting, key, null);
+  }
+
+  public static String optNonBlankString(Setting setting, String key, String defaultValue) throws SettingConvertException {
+    KeyValue keyValue = setting.getKeyValue(key);
+    return keyValue == null ? defaultValue : toNonBlankString(keyValue);
+  }
+
+  private static String toNonBlankString(KeyValue keyValue) throws SettingConvertException {
+    try {
+      return parseNonBlankString(keyValue.getValue().getResolvedValue());
+    } catch (IllegalArgumentException e) {
+      throw new SettingConvertException(keyValue, e.getMessage());
+    }
+  }
+
   public static String parseString(String value) {
+    return value;
+  }
+
+  public static String parseNonBlankString(String value) {
+    if (value == null || value.isBlank()) {
+      throw new IllegalArgumentException("Value must not be blank.");
+    }
     return value;
   }
 }
