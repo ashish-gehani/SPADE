@@ -15,20 +15,17 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.client.user;
+package spade.utility.mcp.client.setting;
 
-import spade.utility.mcp.client.llm.LLM;
-import spade.utility.mcp.client.setting.Setting;
+public enum LLMType {
 
-public class Factory {
+    ANTHROPIC("anthropic"),
+    MOCK("mock");
 
-    public static Client create(final Setting setting, final spade.utility.mcp.client.Client mcpClient, final LLM llm) throws Exception {
-        final Setting.User user = setting.getUser();
-        switch (user.getMode()) {
-            case CLI: return new CLI(mcpClient, llm);
-            case WEB: return new Web(mcpClient, llm, user.getWebHost(), user.getWebPort());
-            default: throw new Exception("Unknown user client mode: " + user.getMode().name);
-        }
+    public final String name;
+
+    LLMType(final String name) {
+        this.name = name;
     }
 
 }

@@ -32,14 +32,14 @@ import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.spec.McpSchema;
 
-public class MCPClient {
+public class Client {
 
     private final McpSyncClient mcpClient;
     private final LLM llm;
     private final ChatHistory chatHistory;
     private final boolean verbose;
 
-    public MCPClient(final String url, final LLM llm, final boolean verbose) {
+    public Client(final String url, final LLM llm, final boolean verbose) {
         if (llm == null) {
             throw new IllegalArgumentException("NULL llm");
         }

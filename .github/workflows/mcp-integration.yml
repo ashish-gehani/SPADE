@@ -1,5 +1,5 @@
-# MCP integration test: start SPADE, configure storage and analyzer, run the MCP
-# server over HTTP, and exercise it with the mock LLM CLI client.
+# MCP integration test: start SPADE, configure the analyzer, run the MCP server
+# over HTTP, and exercise it with the mock LLM CLI client.
 
 name: MCP Integration Test
 
@@ -67,9 +67,9 @@ jobs:
         done
         printf 'exit\n' | bin/spade control || (echo "SPADE control port never became ready" && exit 1)
 
-    - name: Configure SPADE (add analyzer and storage)
+    - name: Configure SPADE (add analyzer)
       run: |
-        printf 'add analyzer CommandLine\nadd storage Neo4j\nset storage Neo4j\nexit\n' \
+        printf 'add analyzer CommandLine\nexit\n' \
           | bin/spade control
 
     - name: Start MCP server
@@ -80,7 +80,7 @@ jobs:
 
     - name: Wait for MCP server
       run: |
-        MCP_HTTP_PORT=$(grep -E '^\s*mcp_http_host_port\s*=' cfg/spade.utility.mcp.server.Server.config | tail -1 | cut -d '=' -f2 | tr -d ' ')
+        MCP_HTTP_PORT=$(grep -E '^\s*mcp\.http\.host\.port\s*=' cfg/spade.utility.mcp.server.Main.config | tail -1 | cut -d '=' -f2 | tr -d ' ')
         for i in $(seq 1 30); do
           nc -z localhost "${MCP_HTTP_PORT}" && echo "MCP server ready" && break
           echo "Waiting for MCP server... ($i/30)"
@@ -91,15 +91,15 @@ jobs:
     - name: Run MCP client test
       run: |
         echo 'test message' | ./bin/spade run-util -- spade.utility.mcp.client.Main \
-          llm_type=mock \
-          user_client_mode=cli \
+          llm.type=mock \
+          user.mode=cli \
           verbose=true \
-          only_tools=true
+          llm.mock.scenario=add_and_remove_neo4j_storage
 
     - name: MCP client test output header
       run: |
         echo '======== MCP CLIENT TEST ========'
-        echo 'Output shows the mock tool picked by the LLM, sent to the MCP server, and the MCP server response for that tool.'
+        echo 'Output shows the mock LLM replaying the add_and_remove_neo4j_storage scenario against the MCP server, verifying the actual result of each tool call.'
         echo '================================='
 
     - name: Show MCP server log on failure

@@ -19,16 +19,16 @@ package spade.utility.mcp.client.llm;
 
 import spade.utility.mcp.client.llm.anthropic.Anthropic;
 import spade.utility.mcp.client.llm.mock.Mock;
-import spade.utility.mcp.client.user.arg.Arg;
-import spade.utility.mcp.client.user.arg.LLMType;
+import spade.utility.mcp.client.setting.Setting;
 
 public class Factory {
 
-    public static LLM create(final Arg arg) throws Exception {
-        switch (arg.getLlmType()) {
-            case ANTHROPIC: return new Anthropic(arg.getAnthropicApiKey(), arg.getAnthropicModel());
-            case MOCK:      return new Mock(arg.isOnlyTools());
-            default: throw new Exception("Unknown LLM type: " + arg.getLlmType().name);
+    public static LLM create(final Setting setting) throws Exception {
+        final Setting.LLM llm = setting.getLLM();
+        switch (llm.getType()) {
+            case ANTHROPIC: return new Anthropic(llm.getAnthropicApiKey(), llm.getAnthropicModel());
+            case MOCK:      return new Mock(llm.getMockScenario());
+            default: throw new Exception("Unknown LLM type: " + llm.getType().name);
         }
     }
 

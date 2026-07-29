@@ -20,14 +20,13 @@ package spade.utility.mcp.client.user;
 import java.util.logging.Level;
 
 import spade.utility.mcp.client.llm.LLM;
-import spade.utility.mcp.client.MCPClient;
 
 public abstract class Client {
 
-    private final MCPClient mcpClient;
+    private final spade.utility.mcp.client.Client mcpClient;
     private final LLM llm;
 
-    public Client(final MCPClient mcpClient, final LLM llm) {
+    public Client(final spade.utility.mcp.client.Client mcpClient, final LLM llm) {
         if (mcpClient == null) {
             throw new IllegalArgumentException("NULL mcpClient");
         }
@@ -38,7 +37,7 @@ public abstract class Client {
         this.llm = llm;
     }
 
-    public MCPClient getMCPClient() {
+    public spade.utility.mcp.client.Client getMCPClient() {
         return mcpClient;
     }
 

@@ -126,13 +126,15 @@ Follow the HTTP Transport section above.
 
 ```bash
 bin/spade run-util -- spade.utility.mcp.client.Main \
-  llm_type=mock \
-  user_client_mode=cli \
+  llm.type=mock \
+  user.mode=cli \
   verbose=true
 ```
 
-`mcp_url` was intentionally omitted above — when absent it's constructed from `mcp_http_host_name`, `mcp_http_host_port`, and `mcp_http_host_endpoint` in `cfg/spade.utility.mcp.server.Main.config`. Pass `mcp_url=http://<host>:<port><endpoint>` explicitly to point at a different server.
+`mcp.host`, `mcp.port`, and `mcp.endpoint` were intentionally omitted above — `cfg/spade.utility.mcp.client.Main.config` sets them by default to reference `mcp.http.host.name`, `mcp.http.host.port`, and `mcp.http.host.endpoint` in `cfg/spade.utility.mcp.server.Main.config`, so they stay in sync with the server. Pass them explicitly to point at a different server.
 
-All of these can also be set in `cfg/spade.utility.mcp.client.user.Client.config` instead of passing them on the command line (command-line arguments take precedence). To use the real Anthropic API instead of the mock LLM, set `llm_type=anthropic anthropic_api_key=<key> anthropic_model=<model>`.
+`llm.mock.scenario` was also omitted above — it's required whenever `llm.type=mock`, and `cfg/spade.utility.mcp.client.Main.config` defaults it to `add_and_remove_neo4j_storage`, one of the premade scenarios in `cfg/spade.utility.mcp.client.llm.mock.scenario.Registry.config`. The mock LLM issues that scenario's tool calls in order against the real MCP server and verifies each one's actual result, erroring out on a mismatch — see [`llm/mock/scenario/README.md`](../../subpackage/java/src/main/java/spade/utility/mcp/client/llm/mock/scenario/README.md) in the client source for the scenario config key format.
 
-`user_client_mode=web` is **experimental / not stable** and is not recommended for regular use; `user_client_mode=cli` is the supported mode.
+All of these can also be set in `cfg/spade.utility.mcp.client.Main.config` instead of passing them on the command line (command-line arguments take precedence). To use the real Anthropic API instead of the mock LLM, set `llm.type=anthropic llm.anthropic.api.key=<key> llm.anthropic.model=<model>`.
+
+`user.mode=web` is **experimental / not stable** and is not recommended for regular use; `user.mode=cli` is the supported mode.

@@ -15,17 +15,23 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.client.user.arg;
+package spade.utility.mcp.client;
 
-public enum UserClientMode {
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
-    CLI("cli"),
-    WEB("web");
+import org.junit.jupiter.api.Test;
 
-    public final String name;
+import spade.utility.mcp.client.setting.Parser;
 
-    UserClientMode(final String name) {
-        this.name = name;
+public class MainTest {
+
+    @Test
+    public void currentMainConfigIsValid() {
+        // Explicitly targets Main.getDefaultConfigFilePath() (the shipped
+        // cfg/spade.utility.mcp.client.Main.config), rather than relying on Main.parse(String[])'s
+        // implicit fallback to it. Relies on the JVM's working directory being the repo root,
+        // same as spade.core.Settings itself requires to resolve cfg/*.config paths.
+        assertDoesNotThrow(() -> Parser.parse("", Main.getDefaultConfigFilePath()));
     }
 
 }

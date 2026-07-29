@@ -15,20 +15,39 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.client.user;
+package spade.utility.mcp.client.llm.mock.scenario;
 
-import spade.utility.mcp.client.llm.LLM;
-import spade.utility.mcp.client.setting.Setting;
+import java.util.Collections;
+import java.util.List;
 
-public class Factory {
+import spade.utility.mcp.client.llm.mock.ToolCall;
 
-    public static Client create(final Setting setting, final spade.utility.mcp.client.Client mcpClient, final LLM llm) throws Exception {
-        final Setting.User user = setting.getUser();
-        switch (user.getMode()) {
-            case CLI: return new CLI(mcpClient, llm);
-            case WEB: return new Web(mcpClient, llm, user.getWebHost(), user.getWebPort());
-            default: throw new Exception("Unknown user client mode: " + user.getMode().name);
-        }
+public class Scenario {
+
+    private final String name;
+    private final List<ToolCall> toolCalls;
+
+    public Scenario(
+        final String name,
+        final List<ToolCall> toolCalls
+    ) {
+        this.name = name;
+        this.toolCalls = Collections.unmodifiableList(toolCalls);
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public List<ToolCall> getToolCalls() {
+        return toolCalls;
+    }
+
+    @Override
+    public String toString() {
+        return "Scenario[name=" + name
+            + ", toolCalls=" + toolCalls
+            + "]";
     }
 
 }

@@ -17,17 +17,39 @@
 
 package spade.utility.mcp.client;
 
+import java.util.logging.Level;
+
 import spade.utility.mcp.client.llm.Factory;
 import spade.utility.mcp.client.llm.LLM;
-import spade.utility.mcp.client.user.arg.Arg;
-import spade.utility.mcp.client.user.arg.Parser;
+import spade.utility.mcp.client.setting.Parser;
+import spade.utility.mcp.client.setting.Setting;
+import spade.utility.setting.Helper;
+import spade.utility.setting.InvalidSettingException;
 
 public class Main {
 
+    private static final String defaultConfigFilePath = Helper.getDefaultConfigFilePath(Main.class);
+
+    private static void log(final Level level, final String msg) {
+        System.err.println("[" + level.getName() + "] [Main] " + msg);
+    }
+
+    static String getDefaultConfigFilePath() {
+        return defaultConfigFilePath;
+    }
+
+    static Setting parse(final String[] args) throws InvalidSettingException {
+        if (args == null) {
+            throw new InvalidSettingException("NULL args");
+        }
+        return Parser.parse(spade.utility.arg.Helper.rejoin(args), defaultConfigFilePath);
+    }
+
     public static void main(final String[] args) throws Exception {
-        final Arg arg;
+        final Setting setting;
         try {
-            arg = Parser.parse(args);
+            setting = parse(args);
+            log(Level.INFO, "Setting - " + setting.toString());
         } catch (Exception e) {
             System.err.println("Error: " + e.getMessage());
             Parser.printHelp();
@@ -35,11 +57,11 @@ public class Main {
             return;
         }
 
-        final LLM llm = Factory.create(arg);
-        final MCPClient mcpClient = new MCPClient(arg.getMcpUrl(), llm, arg.isVerbose());
+        final LLM llm = Factory.create(setting);
+        final Client mcpClient = new Client(setting.getMCP().getUrl(), llm, setting.isVerbose());
         mcpClient.initialize();
 
-        spade.utility.mcp.client.user.Factory.create(arg, mcpClient, llm).run();
+        spade.utility.mcp.client.user.Factory.create(setting, mcpClient, llm).run();
     }
 
 }

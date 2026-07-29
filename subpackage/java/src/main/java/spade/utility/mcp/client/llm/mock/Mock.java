@@ -17,6 +17,7 @@
 
 package spade.utility.mcp.client.llm.mock;
 
+import java.util.List;
 import java.util.logging.Level;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -25,18 +26,22 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import spade.utility.mcp.client.llm.LLM;
+import spade.utility.mcp.client.llm.mock.scenario.Registry;
+import spade.utility.mcp.client.llm.mock.scenario.Scenario;
+import spade.utility.setting.InvalidSettingException;
 
 public class Mock extends LLM {
 
     private final ObjectMapper mapper = new ObjectMapper();
-    private final Tools tools = new Tools(mapper);
-    private final Text text = new Text();
-    private final java.util.Random random = new java.util.Random();
-    private final boolean onlyTools;
-    private boolean pendingTextResponse = false;
+    private final Scenario scenario;
+    private int stepIndex = 0;
 
-    public Mock(final boolean onlyTools) {
-        this.onlyTools = onlyTools;
+    public Mock(final String scenarioName) throws InvalidSettingException {
+        final Registry registry = new Registry(mapper);
+        this.scenario = registry.get(scenarioName);
+        if (this.scenario == null) {
+            throw new InvalidSettingException("Unknown mock scenario: '" + scenarioName + "'");
+        }
     }
 
     private void log(final String msg) {
@@ -44,28 +49,56 @@ public class Mock extends LLM {
     }
 
     @Override
-    public JsonNode respond(final ArrayNode messages, final ArrayNode tools) {
-        // log("respond: messages=" + messages.size() + " tools=" + tools.size());
-        if (onlyTools) {
-            return respondOnlyTools();
+    public JsonNode respond(final ArrayNode messages, final ArrayNode tools) throws Exception {
+        final JsonNode lastContent = messages.get(messages.size() - 1).get("content");
+
+        // A tool_result turn is a "user" message whose content is an array of tool_result
+        // blocks, as opposed to the plain-string content of a regular user prompt.
+        if (lastContent != null && lastContent.isArray()) {
+            verifyToolResult(lastContent);
+            stepIndex++;
         }
-        if (random.nextBoolean()) {
-            log("respond: chose tool call");
-            return respondWithRandomToolCall();
+
+        final List<ToolCall> toolCalls = scenario.getToolCalls();
+        if (stepIndex >= toolCalls.size()) {
+            log("respond: scenario '" + scenario.getName() + "' completed");
+            return respondText("Scenario '" + scenario.getName() + "' completed successfully.");
         }
-        log("respond: chose text");
-        return respondText(text.randomResponse());
+
+        final ToolCall toolCall = toolCalls.get(stepIndex);
+        log("respond: step " + stepIndex + " name=" + toolCall.getName() + " tool=" + toolCall.getToolName());
+        return respondWithToolCall(toolUseId(stepIndex), toolCall.getToolName(), toolCall.getInput());
     }
 
-    private JsonNode respondOnlyTools() {
-        if (!pendingTextResponse) {
-            pendingTextResponse = true;
-            log("respond: chose tool call (only-tools)");
-            return respondWithRandomToolCall();
+    private void verifyToolResult(final JsonNode toolResults) throws Exception {
+        final ToolCall toolCall = scenario.getToolCalls().get(stepIndex);
+        final String expectedToolUseId = toolUseId(stepIndex);
+
+        JsonNode matching = null;
+        for (final JsonNode block : toolResults) {
+            if (expectedToolUseId.equals(block.path("tool_use_id").asText())) {
+                matching = block;
+                break;
+            }
         }
-        pendingTextResponse = false;
-        log("respond: chose text (only-tools stop)");
-        return respondText(text.randomResponse());
+        if (matching == null) {
+            throw new Exception(
+                "Scenario '" + scenario.getName() + "' step " + stepIndex + " (" + toolCall.getName()
+                    + "): expected a tool_result for tool_use_id '" + expectedToolUseId + "', got none");
+        }
+
+        final String actual = matching.path("content").asText();
+        final String expected = toolCall.getResult();
+        if (!actual.contains(expected)) {
+            throw new Exception(
+                "Scenario '" + scenario.getName() + "' step " + stepIndex + " (" + toolCall.getName()
+                    + "): expected result to contain '" + expected + "', got '" + actual + "'");
+        }
+        log("verifyToolResult: step " + stepIndex + " (" + toolCall.getName() + ") OK");
+    }
+
+    private static String toolUseId(final int stepIndex) {
+        return "scenario_step_" + stepIndex;
     }
 
     public JsonNode respondText(final String text) {
@@ -98,12 +131,6 @@ public class Mock extends LLM {
         response.put("stop_reason", "tool_use");
         response.set("content", content);
         return response;
-    }
-
-    public JsonNode respondWithRandomToolCall() {
-        final String toolName = tools.randomToolName();
-        log("respondWithRandomToolCall: tool=" + toolName);
-        return respondWithToolCall(tools.randomToolUseId(), toolName, tools.randomInputFor(toolName));
     }
 
     public ObjectNode createInput() {

@@ -21,11 +21,10 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 
 import spade.utility.mcp.client.llm.LLM;
-import spade.utility.mcp.client.MCPClient;
 
 public class CLI extends Client {
 
-    public CLI(final MCPClient mcpClient, final LLM llm) {
+    public CLI(final spade.utility.mcp.client.Client mcpClient, final LLM llm) {
         super(mcpClient, llm);
     }
 

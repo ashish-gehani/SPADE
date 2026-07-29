@@ -15,16 +15,16 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.client.user.arg;
+package spade.utility.mcp.client.setting;
 
-public enum LLMType {
+public enum UserClientMode {
 
-    ANTHROPIC("anthropic"),
-    MOCK("mock");
+    CLI("cli"),
+    WEB("web");
 
     public final String name;
 
-    LLMType(final String name) {
+    UserClientMode(final String name) {
         this.name = name;
     }
 

@@ -30,7 +30,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import spade.utility.mcp.client.llm.LLM;
-import spade.utility.mcp.client.MCPClient;
 
 public class Web extends Client {
 
@@ -39,7 +38,7 @@ public class Web extends Client {
     private org.eclipse.jetty.server.Server jettyServer;
 
     public Web(
-        final MCPClient mcpClient,
+        final spade.utility.mcp.client.Client mcpClient,
         final LLM llm,
         final String host,
         final int port
