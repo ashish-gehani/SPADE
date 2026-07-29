@@ -38,13 +38,13 @@ public class Registry {
 
     public List<Tool> getTools(){
         return List.of(
-            new spade.utility.mcp.server.tool.storage.Add(this.ctx),
-            new spade.utility.mcp.server.tool.storage.List(this.ctx),
-            new spade.utility.mcp.server.tool.storage.Print(this.ctx),
-            new spade.utility.mcp.server.tool.storage.Remove(this.ctx),
+            new spade.utility.mcp.server.tool.control.storage.Add(this.ctx),
+            new spade.utility.mcp.server.tool.control.storage.List(this.ctx),
+            new spade.utility.mcp.server.tool.control.storage.Print(this.ctx),
+            new spade.utility.mcp.server.tool.control.storage.Remove(this.ctx),
             new spade.utility.mcp.server.tool.query.QuickGrail(this.ctx),
             new spade.utility.mcp.server.tool.doc.QuickGrail(this.ctx),
-            new spade.utility.mcp.server.tool.storage.Set(this.ctx)
+            new spade.utility.mcp.server.tool.control.storage.Set(this.ctx)
         );
     }
 

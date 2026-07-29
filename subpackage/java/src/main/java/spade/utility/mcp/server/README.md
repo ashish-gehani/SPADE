@@ -24,7 +24,8 @@ server/
     ├── Tool.java                tool interface
     ├── doc/                     tool documentation
     ├── query/                   query tools
-    └── storage/                 storage management tools
+    └── control/                 control tools
+        └── storage/               storage management tools
 ```
 
 ## Testing

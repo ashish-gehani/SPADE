@@ -15,42 +15,33 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.server.tool.storage;
+package spade.utility.mcp.server.tool.control.storage;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Map;
 
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 
+import spade.core.Query;
 import spade.utility.mcp.server.connection.Context;
 import spade.utility.mcp.server.tool.Tool;
 
-public class Add extends Tool {
+public class Print extends Tool {
 
-    public Add(final Context ctx){
+    public Print(final Context ctx){
         super(ctx);
     }
 
     @Override
     public McpSchema.Tool build() {
-        final Map<String, Object> storageNameProp = new HashMap<>();
-        storageNameProp.put("type", "string");
-        storageNameProp.put("description", "Name of the SPADE storage to add");
-        storageNameProp.put("enum", Arrays.asList("Neo4j", "Quickstep", "PostgreSQL"));
-
-        final Map<String, Object> properties = new HashMap<>();
-        properties.put("storageName", storageNameProp);
-
         return McpSchema.Tool.builder()
-            .name("add_storage")
-            .description("Add a SPADE storage")
+            .name("print_storage")
+            .description("Print the name of the currently active SPADE storage")
             .inputSchema(new McpSchema.JsonSchema(
                 "object",
-                properties,
-                Collections.singletonList("storageName"),
+                new HashMap<>(),
+                Collections.emptyList(),
                 false,
                 null,
                 null
@@ -63,17 +54,9 @@ public class Add extends Tool {
         final McpSyncServerExchange exchange,
         final McpSchema.CallToolRequest request
     ) {
-        final String storageName = (String) request.arguments().get("storageName");
-        if (storageName == null || storageName.isBlank()) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("Error: null/empty storageName argument")
-                .isError(true)
-                .build();
-        }
-
-        final String result;
+        final Query result;
         try {
-            result = this.getContext().getSpadeControl().send("add storage " + storageName);
+            result = this.getContext().getSpadeQuery().query("print storage");
         } catch (Exception e) {
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Error: " + e.getMessage())
@@ -81,8 +64,16 @@ public class Add extends Tool {
                 .build();
         }
 
+        if (!result.wasQuerySuccessful()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: " + result.getError())
+                .isError(true)
+                .build();
+        }
+
+        final String resultText = result.getResult() != null ? result.getResult().toString() : "";
         return McpSchema.CallToolResult.builder()
-            .addTextContent(result)
+            .addTextContent(resultText)
             .isError(false)
             .build();
     }

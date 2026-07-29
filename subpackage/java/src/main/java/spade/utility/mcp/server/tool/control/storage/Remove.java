@@ -15,33 +15,42 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.server.tool.storage;
+package spade.utility.mcp.server.tool.control.storage;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 
-import spade.core.Query;
 import spade.utility.mcp.server.connection.Context;
 import spade.utility.mcp.server.tool.Tool;
 
-public class Print extends Tool {
+public class Remove extends Tool {
 
-    public Print(final Context ctx){
+    public Remove(final Context ctx){
         super(ctx);
     }
 
     @Override
     public McpSchema.Tool build() {
+        final Map<String, Object> storageNameProp = new HashMap<>();
+        storageNameProp.put("type", "string");
+        storageNameProp.put("description", "Name of the SPADE storage to remove");
+        storageNameProp.put("enum", Arrays.asList("Neo4j", "Quickstep", "PostgreSQL"));
+
+        final Map<String, Object> properties = new HashMap<>();
+        properties.put("storageName", storageNameProp);
+
         return McpSchema.Tool.builder()
-            .name("print_storage")
-            .description("Print the name of the currently active SPADE storage")
+            .name("remove_storage")
+            .description("Remove a SPADE storage")
             .inputSchema(new McpSchema.JsonSchema(
                 "object",
-                new HashMap<>(),
-                Collections.emptyList(),
+                properties,
+                Collections.singletonList("storageName"),
                 false,
                 null,
                 null
@@ -54,9 +63,17 @@ public class Print extends Tool {
         final McpSyncServerExchange exchange,
         final McpSchema.CallToolRequest request
     ) {
-        final Query result;
+        final String storageName = (String) request.arguments().get("storageName");
+        if (storageName == null || storageName.isBlank()) {
+            return McpSchema.CallToolResult.builder()
+                .addTextContent("Error: null/empty storageName argument")
+                .isError(true)
+                .build();
+        }
+
+        final String result;
         try {
-            result = this.getContext().getSpadeQuery().query("print storage");
+            result = this.getContext().getSpadeControl().send("remove storage " + storageName);
         } catch (Exception e) {
             return McpSchema.CallToolResult.builder()
                 .addTextContent("Error: " + e.getMessage())
@@ -64,16 +81,8 @@ public class Print extends Tool {
                 .build();
         }
 
-        if (!result.wasQuerySuccessful()) {
-            return McpSchema.CallToolResult.builder()
-                .addTextContent("Error: " + result.getError())
-                .isError(true)
-                .build();
-        }
-
-        final String resultText = result.getResult() != null ? result.getResult().toString() : "";
         return McpSchema.CallToolResult.builder()
-            .addTextContent(resultText)
+            .addTextContent(result)
             .isError(false)
             .build();
     }
