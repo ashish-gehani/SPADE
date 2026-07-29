@@ -1,10 +1,19 @@
 # Conversions
 
-This package converts a resolved setting value (a raw string) into a specific type. Each category (`CSV`, `Enums`, `Files`, `Ints`/`Longs`/`Doubles`, `Strings`, `URLs`) exposes `get*`/`opt*` helpers that look up a key in a `Setting` and convert its resolved value:
+This package converts a resolved setting value (a raw string) into a specific type. Each category (`Booleans`, `CSV`, `Enums`, `Files`, `Ints`/`Longs`/`Doubles`, `Strings`, `URLs`) exposes `get*`/`opt*` helpers that look up a key in a `Setting` and convert its resolved value:
 
 - `get*` requires the key to be set, and throws `SettingConvertException` if it's missing.
 - `opt*` returns `null` if the key is missing, or a caller-specified default value if one is passed in.
 - Either throws `SettingConvertException` if the value is set but cannot be converted.
+
+## Booleans
+
+`Booleans.getBoolean` / `Booleans.optBoolean` parse a value into a `boolean`. `Booleans.parseBoolean(String)` does the same parsing directly on a raw string, without a `Setting` lookup.
+
+Rules:
+
+- The value is matched case-insensitively against `true`/`false`, `yes`/`no`, and `1`/`0` (as literal characters, not case-insensitively).
+- Any other value is invalid.
 
 ## CSV
 
