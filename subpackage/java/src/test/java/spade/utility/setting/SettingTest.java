@@ -154,6 +154,15 @@ public class SettingTest {
   }
 
   @Test
+  public void blankLinesAreIgnored() throws Exception {
+    String configPath = getClass().getResource("blank_lines.config").getPath();
+    Setting setting = Helper.create(null, configPath);
+
+    assertEquals("bar", setting.getResolvedValue("foo"));
+    assertEquals("qux", setting.getResolvedValue("baz"));
+  }
+
+  @Test
   public void argumentsRejectSpacesAroundEquals() {
     // Unlike config file lines, an argument is whitespace-tokenized before it's split on '=';
     // a space around '=' breaks a single key-value pair into unparsable pieces.

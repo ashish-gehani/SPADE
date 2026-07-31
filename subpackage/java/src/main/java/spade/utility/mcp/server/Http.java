@@ -28,7 +28,7 @@ import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider;
 
 import spade.utility.mcp.server.setting.Setting;
-import spade.utility.mcp.server.tool.Registry;
+import spade.utility.mcp.server.tool.registry.Registry;
 import spade.utility.mcp.server.tool.Tool;
 
 public class Http extends Server {

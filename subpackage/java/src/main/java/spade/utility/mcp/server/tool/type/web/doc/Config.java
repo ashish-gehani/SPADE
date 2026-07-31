@@ -15,30 +15,26 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.server.connection;
+package spade.utility.mcp.server.tool.type.web.doc;
 
-public class Context {
+import java.net.URL;
+import java.util.List;
 
-    private final SPADEQuery spadeQuery;
-    private final SPADEControl spadeControl;
+public class Config {
 
-    public Context(final SPADEQuery spadeQuery, final SPADEControl spadeControl) {
-        if (spadeQuery == null) {
-            throw new IllegalArgumentException("NULL spadeQuery");
-        }
-        if (spadeControl == null) {
-            throw new IllegalArgumentException("NULL spadeControl");
-        }
-        this.spadeQuery = spadeQuery;
-        this.spadeControl = spadeControl;
+    private final List<URL> urls;
+
+    public Config(final List<URL> urls) {
+        this.urls = List.copyOf(urls);
     }
 
-    public SPADEQuery getSpadeQuery() {
-        return spadeQuery;
+    public List<URL> getUrls() {
+        return urls;
     }
 
-    public SPADEControl getSpadeControl() {
-        return spadeControl;
+    @Override
+    public String toString() {
+        return "Config[urls=" + urls + "]";
     }
 
 }

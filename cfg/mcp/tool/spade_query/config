@@ -1,0 +1,11 @@
+tool.name = spade_query
+tool.description = Send a QuickGrail query to SPADE's query interface and return the result.
+tool.type = SPADE_CLI
+tool.properties.yaml = $(text_file cfg/mcp/tool/spade_query/properties.yaml)
+
+spade.host = localhost
+spade.port = $(config_file cfg/spade.core.Kernel.config commandline_query_port)
+spade.keystore.serverPublicPath  = $(config_file cfg/spade.core.Kernel.config server_public_keystore)
+spade.keystore.clientPrivatePath = $(config_file cfg/spade.core.Kernel.config client_private_keystore)
+spade.keystore.passwordPublic    = $(config_file cfg/spade.core.Kernel.config password_public_keystore)
+spade.keystore.passwordPrivate   = $(config_file cfg/spade.core.Kernel.config password_private_keystore)

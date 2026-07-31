@@ -11,21 +11,11 @@ server/
 ├── State.java              running/shutdown state
 ├── Http.java               HTTP transport
 ├── Stdio.java              stdio transport
-├── connection/             connections to the SPADE core kernel
-│   ├── Context.java          bundles a query and control connection for tool handlers
-│   ├── SPADEQuery.java         query-port connection
-│   └── SPADEControl.java       control-port connection
 ├── setting/                this server's settings, built on spade.utility.setting
-│   ├── Setting.java           the parsed result, grouped into Spade and MCP
+│   ├── Setting.java           the parsed result (registry config path + MCP transport config)
 │   ├── ServerMode.java         stdio|http
 │   └── Parser.java             field-level parsing/validation
-└── tool/                   the MCP tools exposed to clients
-    ├── Registry.java          collects the available tools
-    ├── Tool.java                tool interface
-    ├── doc/                     tool documentation
-    ├── query/                   query tools
-    └── control/                 control tools
-        └── storage/               storage management tools
+└── tool/                   the MCP tools exposed to clients; see [tool/README.md](tool/README.md)
 ```
 
 ## Testing

@@ -15,49 +15,62 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.server.connection;
+package spade.utility.mcp.server.tool.type.spade.cli;
 
+import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.security.KeyStore;
 import java.security.SecureRandom;
-
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
-import spade.core.Query;
-import spade.core.Settings;
-
-public class SPADEQuery implements AutoCloseable {
+public class Connection implements AutoCloseable {
 
     private final String host;
     private final int port;
+    private final File serverPublicKeystorePath;
+    private final File clientPrivateKeystorePath;
+    private final char[] passwordPublicKeystore;
+    private final char[] passwordPrivateKeystore;
 
     private SSLSocket socket;
-    private ObjectOutputStream out;
-    private ObjectInputStream in;
+    private PrintStream out;
+    private BufferedReader in;
 
-    public SPADEQuery(final String host, final int port) {
+    public Connection(
+        final String host,
+        final int port,
+        final File serverPublicKeystorePath,
+        final File clientPrivateKeystorePath,
+        final char[] passwordPublicKeystore,
+        final char[] passwordPrivateKeystore
+    ) {
         this.host = host;
         this.port = port;
+        this.serverPublicKeystorePath = serverPublicKeystorePath;
+        this.clientPrivateKeystorePath = clientPrivateKeystorePath;
+        this.passwordPublicKeystore = passwordPublicKeystore;
+        this.passwordPrivateKeystore = passwordPrivateKeystore;
     }
 
     public void connect() throws Exception {
         final KeyStore serverKeyStorePublic = KeyStore.getInstance("JKS");
         serverKeyStorePublic.load(
-            new FileInputStream(Settings.getServerPublicKeystorePath()),
-            Settings.getPasswordPublicKeystoreAsCharArray()
+            new FileInputStream(this.serverPublicKeystorePath),
+            this.passwordPublicKeystore
         );
 
         final KeyStore clientKeyStorePrivate = KeyStore.getInstance("JKS");
         clientKeyStorePrivate.load(
-            new FileInputStream(Settings.getClientPrivateKeystorePath()),
-            Settings.getPasswordPrivateKeystoreAsCharArray()
+            new FileInputStream(this.clientPrivateKeystorePath),
+            this.passwordPrivateKeystore
         );
 
         final SecureRandom secureRandom = new SecureRandom();
@@ -67,34 +80,40 @@ public class SPADEQuery implements AutoCloseable {
         tmf.init(serverKeyStorePublic);
 
         final KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
-        kmf.init(clientKeyStorePrivate, Settings.getPasswordPrivateKeystoreAsCharArray());
+        kmf.init(clientKeyStorePrivate, this.passwordPrivateKeystore);
 
         final SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), secureRandom);
 
         final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
 
-        this.socket = (SSLSocket) sslSocketFactory.createSocket(this.host, port);
-        this.out = new ObjectOutputStream(this.socket.getOutputStream());
-        this.in = new ObjectInputStream(this.socket.getInputStream());
+        this.socket = (SSLSocket) sslSocketFactory.createSocket(this.host, this.port);
+        this.out = new PrintStream(this.socket.getOutputStream());
+        this.in = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
+
     }
 
-    public Query query(final String queryStr) throws Exception {
+    public String send(final String command) throws Exception {
         if (this.socket == null || this.socket.isClosed()) {
             throw new IllegalStateException("Not connected");
         }
-        final Query request = new Query(this.host, this.host, queryStr, null);
-        this.out.writeObject(request);
-        this.out.flush();
+        this.out.println(command);
+        return readResponse();
+    }
 
-        final Object response = this.in.readObject();
-        if (response == null) {
-            throw new Exception("Server closed the connection");
+    private String readResponse() throws Exception {
+        final StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line = this.in.readLine()) != null) {
+            if (line.isEmpty()) {
+                break;
+            }
+            if (sb.length() > 0) {
+                sb.append('\n');
+            }
+            sb.append(line);
         }
-        if (!(response instanceof Query)) {
-            throw new Exception("Unexpected response type: " + response.getClass().getName());
-        }
-        return (Query) response;
+        return sb.toString();
     }
 
     @Override
@@ -103,7 +122,7 @@ public class SPADEQuery implements AutoCloseable {
             try { this.in.close(); } catch (IOException e) { /* ignore */ }
         }
         if (this.out != null) {
-            try { this.out.close(); } catch (IOException e) { /* ignore */ }
+            this.out.close();
         }
         if (this.socket != null) {
             try { this.socket.close(); } catch (IOException e) { /* ignore */ }

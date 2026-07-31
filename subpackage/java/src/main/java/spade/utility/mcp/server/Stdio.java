@@ -24,7 +24,7 @@ import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
 
 import spade.utility.mcp.server.setting.Setting;
-import spade.utility.mcp.server.tool.Registry;
+import spade.utility.mcp.server.tool.registry.Registry;
 import spade.utility.mcp.server.tool.Tool;
 
 public class Stdio extends Server {

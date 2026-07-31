@@ -65,7 +65,7 @@ The key rules and value rules below apply to config files as well.
 
 ### Config files
 
-Comments can be added using `#`. A line must start with `#` to be considered a comment.
+Comments can be added using `#`. A line must start with `#` to be considered a comment. Blank lines are ignored.
 
 `Helper.getDefaultConfigFilePath(Class)` resolves a class's conventional default config file path, the same `cfg/<qualified java class name>.config` convention used by the legacy approach above. For now it's just a wrapper around `spade.core.Settings.getDefaultConfigFilePath(Class)`.
 

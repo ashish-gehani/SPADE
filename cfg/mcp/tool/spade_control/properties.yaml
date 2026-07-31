@@ -1,0 +1,4 @@
+- name: command
+  type: string
+  description: The raw command to send to SPADE's control interface (e.g. "add storage PostgreSQL", "list storages", "remove reporter CommandLine").
+  required: true

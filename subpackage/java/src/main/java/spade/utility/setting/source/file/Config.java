@@ -49,7 +49,7 @@ public class Config extends File {
   public Map parse() throws SettingParseException {
     List<KeyValue> keyValues = new ArrayList<>();
     for (String line : lines) {
-      if (line.startsWith("#")) {
+      if (line.isBlank() || line.startsWith("#")) {
         continue;
       }
       keyValues.add(KeyValue.parse(this, line));

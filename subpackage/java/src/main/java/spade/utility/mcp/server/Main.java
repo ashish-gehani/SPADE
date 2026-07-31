@@ -19,12 +19,9 @@ package spade.utility.mcp.server;
 
 import java.util.logging.Level;
 
-import spade.utility.mcp.server.connection.Context;
-import spade.utility.mcp.server.connection.SPADEControl;
-import spade.utility.mcp.server.connection.SPADEQuery;
 import spade.utility.mcp.server.setting.Parser;
 import spade.utility.mcp.server.setting.Setting;
-import spade.utility.mcp.server.tool.Registry;
+import spade.utility.mcp.server.tool.registry.Registry;
 import spade.utility.setting.Helper;
 import spade.utility.setting.InvalidSettingException;
 
@@ -67,14 +64,7 @@ public class Main {
             return;
         }
 
-        final SPADEQuery spadeQuery = new SPADEQuery(setting.getSpade().getHost(), setting.getSpade().getQueryPort());
-        spadeQuery.connect();
-
-        final SPADEControl spadeControl = new SPADEControl(setting.getSpade().getHost(), setting.getSpade().getControlPort());
-        spadeControl.connect();
-
-        final Context ctx = new Context(spadeQuery, spadeControl);
-        final Registry registry = new Registry(ctx);
+        final Registry registry = new Registry(setting.getRegistryConfigFilePath());
 
         final spade.utility.mcp.server.Server server;
         switch (setting.getMCP().getServerMode()) {

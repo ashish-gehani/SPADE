@@ -1,0 +1,5 @@
+tool.name = spade_query_doc
+tool.description = Return SPADE's documentation on querying SPADE (QuickGrail query language), from the project wiki.
+tool.type = WEB_DOC
+
+web.doc.urls = https://github.com/ashish-gehani/SPADE/wiki/Querying-SPADE

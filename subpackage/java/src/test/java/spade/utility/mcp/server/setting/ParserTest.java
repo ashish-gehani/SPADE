@@ -29,36 +29,13 @@ public class ParserTest {
         return ParserTest.class.getResource("base.config").getPath();
     }
 
-    private static String spadeMissingConfigPath() {
-        return ParserTest.class.getResource("spade_missing.config").getPath();
+    private static String registryMissingConfigPath() {
+        return ParserTest.class.getResource("registry_missing.config").getPath();
     }
 
     @Test
-    public void rejectsMissingSpadeHost() {
-        assertThrows(InvalidSettingException.class, () -> Parser.parse(
-            "spade.query.port=19998 spade.control.port=19999", spadeMissingConfigPath()));
-    }
-
-    @Test
-    public void rejectsMissingSpadeQueryPort() {
-        assertThrows(InvalidSettingException.class, () -> Parser.parse(
-            "spade.host=localhost spade.control.port=19999", spadeMissingConfigPath()));
-    }
-
-    @Test
-    public void rejectsMissingSpadeControlPort() {
-        assertThrows(InvalidSettingException.class, () -> Parser.parse(
-            "spade.host=localhost spade.query.port=19998", spadeMissingConfigPath()));
-    }
-
-    @Test
-    public void rejectsInvalidSpadeQueryPortFormat() {
-        assertThrows(InvalidSettingException.class, () -> Parser.parse("spade.query.port=notanumber", configPath()));
-    }
-
-    @Test
-    public void rejectsInvalidSpadeControlPortFormat() {
-        assertThrows(InvalidSettingException.class, () -> Parser.parse("spade.control.port=notanumber", configPath()));
+    public void rejectsMissingToolRegistryConfig() {
+        assertThrows(InvalidSettingException.class, () -> Parser.parse("", registryMissingConfigPath()));
     }
 
     @Test

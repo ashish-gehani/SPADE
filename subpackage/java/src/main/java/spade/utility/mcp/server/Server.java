@@ -19,10 +19,8 @@ package spade.utility.mcp.server;
 
 import java.util.logging.Level;
 
-import spade.utility.mcp.server.connection.SPADEControl;
-import spade.utility.mcp.server.connection.SPADEQuery;
 import spade.utility.mcp.server.setting.Setting;
-import spade.utility.mcp.server.tool.Registry;
+import spade.utility.mcp.server.tool.registry.Registry;
 
 public abstract class Server {
 
@@ -59,21 +57,11 @@ public abstract class Server {
         return toolRegistry;
     }
 
-    public SPADEQuery getSPADEQuery(){
-        return toolRegistry.getContext().getSpadeQuery();
-    }
-
-    public SPADEControl getSPADEControl(){
-        return toolRegistry.getContext().getSpadeControl();
-    }
-
     public abstract void initialize() throws Exception;
 
     public abstract void start() throws Exception;
 
     public void shutdown(){
-        getSPADEQuery().close();
-        getSPADEControl().close();
         this.state.setRunning(false);
         this.state.setShutdown(true);
     }

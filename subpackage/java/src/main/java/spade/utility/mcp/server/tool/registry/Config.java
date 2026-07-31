@@ -15,30 +15,26 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.server.tool;
+package spade.utility.mcp.server.tool.registry;
 
-import io.modelcontextprotocol.server.McpSyncServerExchange;
-import io.modelcontextprotocol.spec.McpSchema;
+import java.io.File;
+import java.util.List;
 
-import spade.utility.mcp.server.tool.definition.Definition;
+public class Config {
 
-public abstract class Tool {
+    private final List<File> toolConfigFilePaths;
 
-    private final Definition definition;
-
-    public Tool(final Definition definition) {
-        this.definition = definition;
+    public Config(final List<File> toolConfigFilePaths) {
+        this.toolConfigFilePaths = List.copyOf(toolConfigFilePaths);
     }
 
-    public final Definition getDefinition(){
-        return definition;
+    public List<File> getToolConfigFilePaths() {
+        return toolConfigFilePaths;
     }
 
-    public abstract McpSchema.Tool build();
-
-    public abstract McpSchema.CallToolResult handle(
-        final McpSyncServerExchange exchange,
-        final McpSchema.CallToolRequest request
-    );
+    @Override
+    public String toString() {
+        return "Config[toolConfigFilePaths=" + toolConfigFilePaths + "]";
+    }
 
 }

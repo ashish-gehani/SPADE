@@ -19,16 +19,16 @@ package spade.utility.mcp.server.setting;
 
 public class Setting {
 
-    private final Spade spade;
+    private final String registryConfigFilePath;
     private final MCP mcp;
 
-    public Setting(final Spade spade, final MCP mcp) {
-        this.spade = spade;
+    public Setting(final String registryConfigFilePath, final MCP mcp) {
+        this.registryConfigFilePath = registryConfigFilePath;
         this.mcp = mcp;
     }
 
-    public Spade getSpade() {
-        return spade;
+    public String getRegistryConfigFilePath() {
+        return registryConfigFilePath;
     }
 
     public MCP getMCP() {
@@ -37,45 +37,7 @@ public class Setting {
 
     @Override
     public String toString() {
-        return "Setting[spade=" + spade + ", mcp=" + mcp + "]";
-    }
-
-    public static class Spade {
-
-        private final String host;
-        private final int queryPort;
-        private final int controlPort;
-
-        public Spade(
-            final String host,
-            final int queryPort,
-            final int controlPort
-        ) {
-            this.host = host;
-            this.queryPort = queryPort;
-            this.controlPort = controlPort;
-        }
-
-        public String getHost() {
-            return host;
-        }
-
-        public int getQueryPort() {
-            return queryPort;
-        }
-
-        public int getControlPort() {
-            return controlPort;
-        }
-
-        @Override
-        public String toString() {
-            return "Spade[host=" + host
-                + ", queryPort=" + queryPort
-                + ", controlPort=" + controlPort
-                + "]";
-        }
-
+        return "Setting[registryConfigFilePath=" + registryConfigFilePath + ", mcp=" + mcp + "]";
     }
 
     public static class MCP {

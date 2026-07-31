@@ -1,0 +1,4 @@
+- name: command
+  type: string
+  description: The QuickGrail query to send to SPADE's query interface (e.g. "$base = $base.getVertex(type = 'Process')").
+  required: true

@@ -15,30 +15,9 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.server.tool;
+package spade.utility.mcp.server.tool.type;
 
-import io.modelcontextprotocol.server.McpSyncServerExchange;
-import io.modelcontextprotocol.spec.McpSchema;
-
-import spade.utility.mcp.server.tool.definition.Definition;
-
-public abstract class Tool {
-
-    private final Definition definition;
-
-    public Tool(final Definition definition) {
-        this.definition = definition;
-    }
-
-    public final Definition getDefinition(){
-        return definition;
-    }
-
-    public abstract McpSchema.Tool build();
-
-    public abstract McpSchema.CallToolResult handle(
-        final McpSyncServerExchange exchange,
-        final McpSchema.CallToolRequest request
-    );
-
+public enum Type {
+    SPADE_CLI,
+    WEB_DOC
 }

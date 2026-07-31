@@ -1,0 +1,5 @@
+tool.name = spade_control_doc
+tool.description = Return SPADE's documentation on starting and controlling SPADE (adding/removing reporters, storages, filters, analyzers, sketches), from the project wiki.
+tool.type = WEB_DOC
+
+web.doc.urls = https://github.com/ashish-gehani/SPADE/wiki/Starting-and-controlling-SPADE

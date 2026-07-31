@@ -44,9 +44,6 @@ Exit the control client when done.
 
 ```bash
 bin/spade mcp -- \
-  spade.host=localhost \
-  spade.query.port=19998 \
-  spade.control.port=19999 \
   mcp.server.mode=http \
   mcp.http.host.name=localhost \
   mcp.http.host.port=3000 \
@@ -55,7 +52,7 @@ bin/spade mcp -- \
 
 The server will listen at `http://localhost:3000/mcp`.
 
-All of these can also be set in `cfg/spade.utility.mcp.server.Main.config` instead of passing them on the command line (command-line arguments take precedence). `spade.query.port` and `spade.control.port` are optional — the shipped default config references `commandline_query_port` and `local_control_port` in `cfg/spade.core.Kernel.config` for them.
+All of these can also be set in `cfg/spade.utility.mcp.server.Main.config` instead of passing them on the command line (command-line arguments take precedence).
 
 ### 6. Add the MCP server to Claude Code
 
@@ -69,7 +66,7 @@ claude mcp add --transport http spade http://localhost:3000/mcp
 claude
 ```
 
-SPADE tools (`list_storages`, `set_storage`, `quick_grail_query`, etc.) will be available in the session.
+SPADE tools (`spade_control`, `spade_query`, `spade_control_doc`, `spade_query_doc`) will be available in the session.
 
 ---
 
@@ -86,9 +83,6 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` and add t
       "command": "/path/to/spade/bin/spade",
       "args": [
         "mcp",
-        "spade.host=localhost",
-        "spade.query.port=19998",
-        "spade.control.port=19999",
         "mcp.server.mode=stdio"
       ]
     }
