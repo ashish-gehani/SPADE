@@ -51,14 +51,14 @@ public class RegistryTest {
 
         final ToolCall listStep = firstToolCalls.get(0);
         assertEquals("list_storages_step", listStep.getName());
-        assertEquals("list_storages", listStep.getToolName());
+        assertEquals("spade_control", listStep.getToolName());
         assertEquals(0, listStep.getInput().size());
         assertEquals("No storages added.", listStep.getResult());
 
         final ToolCall queryStep = firstToolCalls.get(1);
         assertEquals("query_step", queryStep.getName());
-        assertEquals("query", queryStep.getToolName());
-        assertEquals("stat $base", queryStep.getInput().get("query").asText());
+        assertEquals("spade_query", queryStep.getToolName());
+        assertEquals("stat $base", queryStep.getInput().get("command").asText());
         assertEquals("OK", queryStep.getResult());
 
         final Scenario second = registry.get("second_scenario");

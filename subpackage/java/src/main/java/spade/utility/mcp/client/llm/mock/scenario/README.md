@@ -14,7 +14,7 @@ For scenario `<i>` (starting at `1`) and its tool call `<j>` (starting at `1`, w
 | --- | --- | --- |
 | `mock.scenario.<i>.name` | yes | Unique name of the scenario; absence ends the scenario list. |
 | `mock.scenario.<i>.tool.<j>.name` | yes | Unique name of this tool-call step; absence ends this scenario's tool-call list. |
-| `mock.scenario.<i>.tool.<j>.tool.name` | yes | The actual MCP tool name to call (e.g. `list_storages`). |
+| `mock.scenario.<i>.tool.<j>.tool.name` | yes | The actual MCP tool name to call (e.g. `spade_control`). |
 | `mock.scenario.<i>.tool.<j>.input` | no | A JSON object literal of arguments to call the tool with; defaults to `{}` if absent. |
 | `mock.scenario.<i>.tool.<j>.result` | yes | Substring expected to appear in the tool's actual result, used to verify the server behaved as expected. |
 
@@ -25,7 +25,7 @@ A missing/empty value for any required key, or a malformed/non-object value for 
 `input`'s value is a raw JSON object, e.g.:
 
 ```
-mock.scenario.1.tool.2.input = {"storageName": "Neo4j"}
+mock.scenario.1.tool.2.input = {"command": "add storage Neo4j"}
 ```
 
 No quoting or escaping is needed even though the value contains spaces and double quotes: a config file line is a single key/value pair, so (unlike CLI arguments) the entire remainder of the line after `=` is taken as the value verbatim — the only special case is a value that itself starts with `"`, which triggers quote-stripping/unescaping (see `Literal.parse` in [setting/value/Literal.java](../../../../../../utility/setting/value/Literal.java)). Since `{...}` doesn't start with `"`, it passes through untouched and is then parsed as JSON by `Registry`.
