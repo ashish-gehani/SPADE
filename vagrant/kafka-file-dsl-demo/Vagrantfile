@@ -27,7 +27,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     sudo apt-get install -y auditd autoconf automake bison clang cmake curl flex fuse git ifupdown libaudit-dev libfuse-dev linux-headers-`uname -r` lsof maven pkg-config unzip uthash-dev wget
 
     # Build SPADE
-    git clone --depth 1 https://github.com/ashish-gehani/SPADE.git
+    git clone --branch kafka-dev --depth 1 https://github.com/ashish-gehani/SPADE.git
     cd SPADE
     ./configure
     make
