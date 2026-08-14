@@ -108,6 +108,17 @@ public abstract class AbstractVertex implements Serializable{
 		return annotations.keySet();
 	}
 
+	/**
+	 * Returns a copy of the annotations map for this vertex, with the hash key added.
+	 *
+	 * @return The map containing the annotations, plus the hash key.
+	 */
+	public final Map<String, String> getAnnotationsForExport(){
+		final Map<String, String> exportAnnotations = getCopyOfAnnotations();
+		exportAnnotations.put(hashKey, getIdentifierForExport());
+		return exportAnnotations;
+	}
+
     /**
      * Adds an annotation.
      *
@@ -190,7 +201,7 @@ public abstract class AbstractVertex implements Serializable{
      * 
      * @param value Must be a non-null string otherwise converted to empty string
      */
-    public final void setId(final String value){
+    private final void setId(final String value){
     	addAnnotation(idKey, value);
     }
     

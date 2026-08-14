@@ -15,23 +15,22 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.graph.convert.json;
+package spade.utility.graph.codec.tokenize;
 
-public class Properties {
+import spade.utility.graph.codec.tokenize.token.Token;
 
-    private final boolean isCompressed;
+public class Vertex {
 
-    public Properties(final boolean isCompressed) {
-        this.isCompressed = isCompressed;
+    private final AnnotationMap annotations = new AnnotationMap();
+
+    public Vertex(final java.util.Map<Token, Token> annotations) {
+        for (final java.util.Map.Entry<Token, Token> entry : annotations.entrySet()) {
+            this.annotations.put(entry.getKey(), entry.getValue());
+        }
     }
 
-    public boolean isCompressed() {
-        return isCompressed;
-    }
-
-    @Override
-    public String toString() {
-        return "Properties[isCompressed=" + isCompressed + "]";
+    public AnnotationMap getAnnotations() {
+        return annotations;
     }
 
 }

@@ -186,7 +186,15 @@ public abstract class AbstractEdge implements Serializable{
 	public final void setId(final String value){
 		addAnnotation(idKey, value);
 	}
-    
+
+    public final String getIdentifierForExport(){
+    	if(id() == null){
+    		return bigHashCode();
+    	}else{
+    		return id();
+    	}
+    }
+
     // The following functions that get and set source and destination vertices
     // are left empty in this abstract class - they are overridden and implemented
     // in derived classes since the source and destination vertex types may be

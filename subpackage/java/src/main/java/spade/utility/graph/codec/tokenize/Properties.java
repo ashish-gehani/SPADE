@@ -15,8 +15,14 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.graph.convert.json.codec;
+package spade.utility.graph.codec.tokenize;
 
-public class Compress {
+import spade.utility.graph.codec.Type;
+
+public class Properties extends spade.utility.graph.codec.Properties {
+
+    public Properties(final Type type) {
+        super(type);
+    }
 
 }

@@ -15,37 +15,18 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.graph.convert.json;
+package spade.utility.graph.codec;
 
-import spade.core.Graph;
+public class Properties {
 
-public class Schema {
+    private final Type type;
 
-    private final Metadata metadata;
-    private final Properties properties;
-    private final Graph graph;
-
-    public Schema(final Metadata metadata, final Properties properties, final Graph graph) {
-        this.metadata = metadata;
-        this.properties = properties;
-        this.graph = graph;
+    public Properties(final Type type) {
+        this.type = type;
     }
 
-    public Metadata getMetadata() {
-        return metadata;
-    }
-
-    public Properties getProperties() {
-        return properties;
-    }
-
-    public Graph getGraph() {
-        return graph;
-    }
-
-    @Override
-    public String toString() {
-        return "Schema[metadata=" + metadata + ", properties=" + properties + ", graph=" + graph + "]";
+    public Type getType() {
+        return type;
     }
 
 }

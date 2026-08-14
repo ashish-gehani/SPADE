@@ -15,29 +15,35 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.graph.convert.json;
+package spade.utility.graph.codec.tokenize.token;
 
-public class Metadata {
+public class Phrase {
 
-    private final String version;
-    private final String versionDescription;
+    private final String value;
 
-    public Metadata(final String version, final String versionDescription) {
-        this.version = version;
-        this.versionDescription = versionDescription;
+    public Phrase(final String value) {
+        this.value = value;
     }
 
-    public String getVersion() {
-        return version;
-    }
-
-    public String getVersionDescription() {
-        return versionDescription;
+    public String getValue() {
+        return value;
     }
 
     @Override
-    public String toString() {
-        return "Metadata[version=" + version + ", versionDescription=" + versionDescription + "]";
+    public boolean equals(final Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (!(obj instanceof Phrase)) {
+            return false;
+        }
+        final Phrase other = (Phrase) obj;
+        return java.util.Objects.equals(value, other.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hashCode(value);
     }
 
 }

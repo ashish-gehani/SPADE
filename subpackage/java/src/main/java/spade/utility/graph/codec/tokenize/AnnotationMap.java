@@ -1,0 +1,34 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2026 SRI International
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
+
+package spade.utility.graph.codec.tokenize;
+
+import spade.utility.graph.codec.tokenize.token.Token;
+
+public class AnnotationMap {
+
+    private final java.util.Map<Token, Token> tokens = new java.util.HashMap<>();
+
+    public void put(final Token key, final Token value) {
+        tokens.put(key, value);
+    }
+
+    public java.util.Set<java.util.Map.Entry<Token, Token>> entrySet() {
+        return tokens.entrySet();
+    }
+
+}
