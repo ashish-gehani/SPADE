@@ -22,7 +22,6 @@ package spade.storage;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -41,152 +40,95 @@ import spade.storage.kafka.GraphElement;
 import spade.storage.kafka.JsonFileWriter;
 import spade.storage.kafka.ServerWriter;
 import spade.storage.kafka.Vertex;
-import spade.utility.FileUtility;
-import spade.utility.HelperFunctions;
+import spade.storage.kafka.setting.Parser;
+import spade.storage.kafka.setting.Setting;
+import spade.utility.setting.InvalidSettingException;
 
 public class Kafka extends AbstractStorage{
 
 	//NOTE: child classes must override "getDefaultKafkaProducerProperties" function if properties are different
 	
-	//change the keys in the config files of Kafka and CDM too if changed here 
+	//internal Properties keys used to pass values to DataWriter implementations -- not the
+	//external argument/config keys, those live in spade.storage.kafka.setting.Parser
 	public static final String 	OUTPUT_FILE_KEY = "output",
 			SCHEMA_FILE_KEY = "schema",
 			SERVER_KEY = "kafkaserver",
-			TOPIC_KEY = "kafkatopic",
-			PRODUCER_ID_KEY = "kafkaproducerid";
-	
+			TOPIC_KEY = "kafkatopic";
+
 	private static final Logger logger = Logger.getLogger(Kafka.class.getName());
     
     private List<DataWriter> dataWriters = new ArrayList<DataWriter>();
     
     private String defaultConfigFilePath = Settings.getDefaultConfigFilePath(this.getClass()); //depending on the instance get the correct config file
   	
-    public boolean writeDataToServer(Map<String, String> args){
-    	String kafkaServer = args.get(SERVER_KEY),
-        		kafkaProducerID = args.get(PRODUCER_ID_KEY),
-        		kafkaTopic = args.get(TOPIC_KEY);
-    	return (kafkaServer != null || kafkaProducerID != null || kafkaTopic != null) || args.get(OUTPUT_FILE_KEY) == null;
-    }
-    
 	@Override
 	public boolean initialize(String arguments) {
-		/*
-		 * if file argument passed only then file output only
-		 * if server argument passed only then server output only
-		 * if file and server arguments both are passed then both outputs
-		 * if no arguments passed then server output only (from default config file)		 * 
-		 */
-		
 		try {
-            arguments = arguments == null ? "" : arguments.trim();
-           
-            Map<String, String> passedArguments = HelperFunctions.makeKeysLowerCase(HelperFunctions.parseKeyValPairs(arguments));
-            
-            //if output file key exists then handle as file 
-            if(passedArguments.get(OUTPUT_FILE_KEY) != null){  
-            	
-            	String schemaFilename = passedArguments.get(SCHEMA_FILE_KEY);
-            	schemaFilename = schemaFilename == null ? "" : schemaFilename.trim();
-            	
-            	if(schemaFilename.isEmpty()){
-            		Map<String, String> defaultArguments = HelperFunctions.makeKeysLowerCase(FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "="));
-            		schemaFilename = defaultArguments.get(SCHEMA_FILE_KEY);
-            		if(schemaFilename == null || schemaFilename.trim().isEmpty()){
-            			logger.log(Level.WARNING, "Failed to initialize storage. Missing schema file path.");
-            			return false;
-            		}
-              	}
-            	
-            	Properties properties = new Properties();
-            	properties.put(SCHEMA_FILE_KEY, schemaFilename);
-            	properties.put(OUTPUT_FILE_KEY, passedArguments.get(OUTPUT_FILE_KEY));
-            	
-            	DataWriter dataWriter = getDataWriter(properties);
-            	if(dataWriter == null){
-            		logger.log(Level.SEVERE, "Failed to create file writer");
-            		return false;
-            	}else{
-            		dataWriters.add(dataWriter);
-            	}
-            	
-            } 
-            
-            //either when server info passed or when server info not passed and output file info not passed either
-            if(writeDataToServer(passedArguments)) {
-           	    
-            	String kafkaServer = passedArguments.get(SERVER_KEY),
-                		kafkaProducerID = passedArguments.get(PRODUCER_ID_KEY),
-                		schemaFilename = passedArguments.get(SCHEMA_FILE_KEY),
-                		kafkaTopic = passedArguments.get(TOPIC_KEY);
-            	
-	            kafkaServer = kafkaServer == null ? kafkaServer : kafkaServer.trim().isEmpty() ? null : kafkaServer;
-	            kafkaProducerID = kafkaProducerID == null ? kafkaProducerID : kafkaProducerID.trim().isEmpty() ? null : kafkaProducerID;
-	            schemaFilename = schemaFilename == null ? schemaFilename : schemaFilename.trim().isEmpty() ? null : schemaFilename;
-	            kafkaTopic = kafkaTopic == null ? kafkaTopic : kafkaTopic.trim().isEmpty() ? null : kafkaTopic;
-	            
-	            //if any of the values not gotten from user then get them from the default location
-	            Map<String, String> defaultArguments = null;
-	            if(kafkaServer == null || kafkaProducerID == null || kafkaTopic == null || schemaFilename == null){ 
-	            	defaultArguments = HelperFunctions.makeKeysLowerCase(FileUtility.readConfigFileAsKeyValueMap(defaultConfigFilePath, "="));
-	            }
-	            
-	            if(kafkaServer == null){
-	            	kafkaServer = defaultArguments.get(SERVER_KEY);
-	            	if(kafkaServer == null || kafkaServer.trim().isEmpty()){
-            			logger.log(Level.WARNING, "Failed to initialize storage. Missing kafka server address.");
-            			return false;
-            		}
-	            }
-	            
-	            if(kafkaProducerID == null){
-	            	kafkaProducerID = defaultArguments.get(PRODUCER_ID_KEY);
-	            	if(kafkaProducerID == null || kafkaProducerID.trim().isEmpty()){
-            			logger.log(Level.WARNING, "Failed to initialize storage. Missing kafka producer id.");
-            			return false;
-            		}
-	            }
-	            
-	        	if(kafkaTopic == null){
-	        		kafkaTopic = defaultArguments.get(TOPIC_KEY);
-	        		if(kafkaTopic == null || kafkaTopic.trim().isEmpty()){
-            			logger.log(Level.WARNING, "Failed to initialize storage. Missing kafka topic name.");
-            			return false;
-            		}
-	        	}
-	        	
-	        	if(schemaFilename == null){
-	        		schemaFilename = defaultArguments.get(SCHEMA_FILE_KEY);
-	        		if(schemaFilename == null || schemaFilename.trim().isEmpty()){
-            			logger.log(Level.WARNING, "Failed to initialize storage. Missing schema file path.");
-            			return false;
-            		}
-	        	}
-	        	
-	            logger.log(Level.INFO,
-	                    "Params: KafkaServer={0} KafkaTopic={1} KafkaProducerID={2} SchemaFilename={3}",
-	                    new Object[] {kafkaServer, kafkaTopic, kafkaProducerID, schemaFilename});
+			final Setting setting = Parser.parse(arguments, defaultConfigFilePath);
 
-	        	Properties properties = getDefaultKafkaProducerProperties(kafkaServer, kafkaTopic, kafkaProducerID, schemaFilename); //depending on the instance of the class
-	        	
-	        	//add the kafka topic and server in the properties. To be used in the construction of ServerWriter class
-	        	properties.put(TOPIC_KEY, kafkaTopic);
-	        	properties.put(SERVER_KEY, kafkaServer);
-	        	
-	        	DataWriter dataWriter = getDataWriter(properties);
-	            
-	            if(dataWriter == null){
-	            	logger.log(Level.SEVERE, "Failed to create server writer");
-	            	return false;
-	            }
-	            
-	            dataWriters.add(dataWriter);
-            }      
-            
-            return true;
-        } catch (Exception exception) {
-            logger.log(Level.SEVERE, null, exception);
-            return false;
-        }
+			if(!initializeFileWriter(setting)){
+				return false;
+			}
+
+			if(!initializeServerWriter(setting)){
+				return false;
+			}
+
+			return true;
+		} catch (InvalidSettingException exception) {
+			logger.log(Level.SEVERE, exception.getMessage(), exception);
+			return false;
+		} catch (Exception exception) {
+			logger.log(Level.SEVERE, null, exception);
+			return false;
+		}
+	}
+
+	private boolean initializeFileWriter(Setting setting) throws Exception {
+		if(setting.getOutput() == null){
+			return true;
+		}
+
+		Properties properties = new Properties();
+		properties.put(SCHEMA_FILE_KEY, setting.getSchema());
+		properties.put(OUTPUT_FILE_KEY, setting.getOutput().getOutputFile());
+
+		DataWriter dataWriter = getDataWriter(properties);
+		if(dataWriter == null){
+			logger.log(Level.SEVERE, "Failed to create file writer");
+			return false;
+		}
+
+		dataWriters.add(dataWriter);
+		return true;
+	}
+
+	private boolean initializeServerWriter(Setting setting) throws Exception {
+		if(setting.getServer() == null){
+			return true;
+		}
+
+		Setting.Server server = setting.getServer();
+
+		logger.log(Level.INFO,
+				"Params: KafkaServer={0} KafkaTopic={1} KafkaProducerID={2} SchemaFilename={3}",
+				new Object[] {server.getKafkaServer(), server.getKafkaTopic(), server.getKafkaProducerId(), setting.getSchema()});
+
+		Properties properties = getDefaultKafkaProducerProperties(
+				server.getKafkaServer(), server.getKafkaTopic(), server.getKafkaProducerId(), setting.getSchema());
+
+		//add the kafka topic and server in the properties. To be used in the construction of ServerWriter class
+		properties.put(TOPIC_KEY, server.getKafkaTopic());
+		properties.put(SERVER_KEY, server.getKafkaServer());
+
+		DataWriter dataWriter = getDataWriter(properties);
+		if(dataWriter == null){
+			logger.log(Level.SEVERE, "Failed to create server writer");
+			return false;
+		}
+
+		dataWriters.add(dataWriter);
+		return true;
 	}
 	
 	public static DataWriter getDataWriter(Properties properties) throws Exception{

@@ -1,0 +1,73 @@
+VAGRANTFILE_API_VERSION = "2"
+
+# Demo VM: builds SPADE, adds the Kafka storage in file-only mode (no Kafka broker needed),
+# adds the DSL reporter, and feeds it a small amount of dummy provenance data over its pipe.
+# The Kafka storage's output ends up as a local JSON file, printed at the end of provisioning.
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+  config.vm.box = "bento/ubuntu-24.04"
+  config.vm.box_version = "202508.03.0"
+  config.vm.hostname = "spade-kafka-file-dsl-demo"
+  config.vm.network "private_network", type: "dhcp"
+  config.ssh.forward_x11 = true
+
+  config.vm.provider :virtualbox do |v|
+    v.customize ["modifyvm", :id, "--memory", "4096"]
+    v.customize ["modifyvm", :id, "--cpus", 2]
+  end
+
+  config.vm.provision "shell", privileged:false, inline: <<-SHELL
+
+    # Install Java
+    sudo apt-get update
+    sudo apt-get install -y openjdk-21-jdk
+
+    # Install SPADE build dependencies
+    sudo apt-get install -y auditd autoconf automake bison clang cmake curl flex fuse git ifupdown libaudit-dev libfuse-dev linux-headers-`uname -r` lsof maven pkg-config unzip uthash-dev wget
+
+    # Build SPADE
+    git clone --depth 1 https://github.com/ashish-gehani/SPADE.git
+    cd SPADE
+    ./configure
+    make
+
+    # Start SPADE
+    bin/spade start
+
+    # Wait for the SPADE control port to become ready
+    for i in $(seq 1 30); do
+      printf 'exit\n' | bin/spade control && echo "SPADE control port ready" && break
+      echo "Waiting for SPADE... ($i/30)"
+      sleep 2
+    done
+    printf 'exit\n' | bin/spade control || (echo "SPADE control port never became ready" && exit 1)
+
+    # Add the Kafka storage in file-only mode: writes to a local JSON file, no broker needed.
+    # kafka.output.file alone selects file-only mode; kafka.schema is always required.
+    printf 'add storage Kafka kafka.output.file=/tmp/kafka-output.json kafka.schema=cfg/spade.storage.Kafka.avsc\nexit\n' | bin/spade control
+
+    # Add the DSL reporter, which reads provenance events off a named pipe
+    printf 'add reporter DSL /tmp/spade_pipe\nexit\n' | bin/spade control
+
+    # Give the reporter a moment to create and open the pipe before writing to it
+    sleep 2
+
+    # Feed a small amount of dummy provenance data through the DSL pipe: two processes,
+    # a file one of them reads, and the edges linking them.
+    echo 'type:Process id:1 pid:100 name:bash' > /tmp/spade_pipe
+    echo 'type:Process id:2 pid:200 name:cat' >> /tmp/spade_pipe
+    echo 'type:Artifact subtype:file id:3 path:/etc/hostname' >> /tmp/spade_pipe
+    echo 'type:WasTriggeredBy operation:fork from:1 to:2 time:1' >> /tmp/spade_pipe
+    echo 'type:Used operation:read from:2 to:3 time:2' >> /tmp/spade_pipe
+
+    # Give SPADE a moment to process the events, then stop it (flushes the Kafka file writer)
+    sleep 2
+    bin/spade stop
+    sleep 2
+
+    echo "==== Kafka file-writer output (/tmp/kafka-output.json) ===="
+    cat /tmp/kafka-output.json
+
+  SHELL
+end

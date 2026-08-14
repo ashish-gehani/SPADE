@@ -18,7 +18,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     sudo dnf install -y java-11-openjdk-devel.x86_64
 
     # Install other dependencies
-    sudo dnf install -y audit audispd-plugins bison clang cmake curl flex fuse-devel fuse-libs git iptables kernel-devel-`uname -r` lsof unzip uthash-devel wget
+    sudo dnf install -y audit audispd-plugins autoconf automake bison clang cmake curl flex fuse-devel fuse-libs git iptables kernel-devel-`uname -r` lsof maven unzip uthash-devel wget
 
     # Install SPADE
     wget https://github.com/ashish-gehani/SPADE/archive/master.zip

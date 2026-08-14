@@ -73,9 +73,12 @@ import spade.core.AbstractVertex;
 import spade.core.Settings;
 import spade.reporter.Audit;
 import spade.reporter.audit.OPMConstants;
+import spade.storage.cdm.setting.Parser;
+import spade.storage.cdm.setting.Setting;
 import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 import spade.utility.HostInfo;
+import spade.utility.setting.InvalidSettingException;
 import spade.vertex.opm.Artifact;
 import spade.vertex.prov.Agent;
 
@@ -923,178 +926,114 @@ public class CDM extends Kafka {
 	}
 
 
-	public boolean setReportingIntervalSeconds(Map<String, String> map){
-		String reportingIntervalSecondsKey = "reportingIntervalSeconds";
-		String reportingIntervalSeconds = map.get(reportingIntervalSecondsKey);
-		if(reportingIntervalSeconds != null){
-			try{
-				int seconds = Integer.parseInt(reportingIntervalSeconds);
-				reportingIntervalMillis = new Long(seconds * 1000);
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Invalid '"+reportingIntervalSecondsKey+"' value: '"+reportingIntervalSeconds+"'");
-				return false;
-			}
-		}
-		return true;
-	}
-
 	@Override
 	public boolean initialize(String arguments){
-		Map<String, String> argumentsMap = HelperFunctions.parseKeyValPairs(arguments);
-		String hexUUIDsArgValue = argumentsMap.get("hexUUIDs");
-		if(hexUUIDsArgValue != null){
-			hexUUIDsArgValue = hexUUIDsArgValue.trim();
-			if("false".equals(hexUUIDsArgValue)){
-				hexUUIDs = false;
-			}else if("true".equals(hexUUIDsArgValue)){
-				hexUUIDs = true;
-			}else{
-				logger.log(Level.SEVERE, "Invalid 'hexUUIDs' value: " + hexUUIDsArgValue + ". Only 'true' or 'false'");
-				return false;
-			}
+		final String configFile = Settings.getDefaultConfigFilePath(this.getClass());
+		final Setting cdmSetting = parseSetting(arguments, configFile);
+		if(cdmSetting == null){
+			return false;
 		}
 
-		String cdmOutFilePath = Settings.getDefaultOutputFilePath(this.getClass());
-		Map<String, String> cdmOutFileKeyValues = null;
+		applySetting(cdmSetting);
+
+		final String cdmOutFilePath = Settings.getDefaultOutputFilePath(this.getClass());
+		final Map<String, String> cdmOutFileKeyValues = readCdmOutFileKeyValues(cdmOutFilePath);
+		if(cdmOutFileKeyValues == null){
+			return false;
+		}
+
+		final String lastSessionKey = "lastSession";
+		if(!resolveSessionNumber(cdmSetting, cdmOutFileKeyValues, lastSessionKey, cdmOutFilePath)){
+			return false;
+		}
+
+		return finishInitialize(arguments, cdmSetting, cdmOutFilePath, cdmOutFileKeyValues, lastSessionKey);
+	}
+
+	private Setting parseSetting(String arguments, String configFile){
+		try{
+			return Parser.parse(arguments, configFile);
+		}catch(InvalidSettingException e){
+			logger.log(Level.SEVERE, e.getMessage(), e);
+			return null;
+		}catch(Exception e){
+			logger.log(Level.SEVERE, null, e);
+			return null;
+		}
+	}
+
+	private void applySetting(Setting cdmSetting){
+		hexUUIDs = cdmSetting.isHexUUIDs();
+		createHostConfig = cdmSetting.isCreateHostConfig();
+
+		final Integer reportingIntervalSeconds = cdmSetting.getReportingIntervalSeconds();
+		reportingIntervalMillis = reportingIntervalSeconds == null ? null : (long) reportingIntervalSeconds * 1000;
+
+		applySsl(cdmSetting.getSsl());
+	}
+
+	private void applySsl(Setting.SSL ssl){
+		useSsl = ssl != null;
+		if(useSsl){
+			securityProtocol = ssl.getSecurityProtocol();
+			trustStoreLocation = ssl.getTrustStoreLocation();
+			trustStorePassword = ssl.getTrustStorePassword();
+			keyStoreLocation = ssl.getKeyStoreLocation();
+			keyStorePassword = ssl.getKeyStorePassword();
+			keyPassword = ssl.getKeyPassword();
+		}
+	}
+
+	// Returns an empty (mutable) map if the file doesn't exist yet -- that's not an error, just
+	// nothing recorded from a previous run. Returns null (having already logged) on real failures.
+	private Map<String, String> readCdmOutFileKeyValues(String cdmOutFilePath){
 		try{
 			if(FileUtility.doesPathExist(cdmOutFilePath)){
 				if(!FileUtility.isFile(cdmOutFilePath)){
 					logger.log(Level.SEVERE, "CDM storage output file not a file: " + cdmOutFilePath);
-					return false;
+					return null;
 				}else{
 					try{
-						cdmOutFileKeyValues = FileUtility.readConfigFileAsKeyValueMap(cdmOutFilePath, "=");
+						return FileUtility.readConfigFileAsKeyValueMap(cdmOutFilePath, "=");
 					}catch(Exception e){
 						logger.log(Level.SEVERE, "Failed to read CDM storage output file: " + cdmOutFilePath, e);
-						return false;
+						return null;
 					}
 				}
 			}
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to check if CDM storage output file is a file: " + cdmOutFilePath, e);
-			return false;
+			return null;
 		}
-		
-		String lastSessionKey = "lastSession";
-		String sessionKey = "session";
-		String sessionNumberString = argumentsMap.get(sessionKey);
-		if(sessionNumberString != null){
-			Integer sessionNumber = HelperFunctions.parseInt(sessionNumberString, null);
-			if(sessionNumber == null){
-				logger.log(Level.SEVERE, "'"+sessionKey+"' must be an 'int': " + sessionNumberString);
-				return false;
-			}else{
-				this.sessionNumber = sessionNumber;
-			}
-		}else{ // no session number in args. read from file
-			if(cdmOutFileKeyValues != null){
-				String lastSessionString = cdmOutFileKeyValues.get(lastSessionKey);
-				if(lastSessionString != null){
-					Integer lastSessionInteger = HelperFunctions.parseInt(lastSessionString, null);
-					if(lastSessionInteger == null){
-						logger.log(Level.SEVERE, "Invalid '"+lastSessionKey+"' value '"+lastSessionString+
-								"' in file: " + cdmOutFilePath);
-						return false;
-					}else{
-						this.sessionNumber = lastSessionInteger + 1;
-					}
-				}
-			}
-		}
-		
-		String createHostConfigArgValue = argumentsMap.get("createHostConfig");
-		if(createHostConfigArgValue != null){
-			createHostConfigArgValue = createHostConfigArgValue.trim();
-			if("false".equals(createHostConfigArgValue)){
-				createHostConfig = false;
-			}else if("true".equals(createHostConfigArgValue)){
-				createHostConfig = true;
-			}else{
-				logger.log(Level.SEVERE, "Invalid 'createHostConfig' value: " + createHostConfigArgValue + ". Only 'true' or 'false'");
-				return false;
-			}
-		}
-		
-		// Populate the ssl configs before calling parent's initialize because of ssl properties.
-		String sslArgValue = argumentsMap.get("ssl");
-		if(sslArgValue != null){
-			if("false".equals(sslArgValue)){
-				useSsl = false;
-			}else if("true".equals(sslArgValue)){
-				useSsl = true;
-			}else{
-				logger.log(Level.SEVERE, "Invalid 'ssl' value: " + useSsl + ". Only 'true' or 'false'");
-				return false;
-			}
-		}
-		
-		String configFile = Settings.getDefaultConfigFilePath(this.getClass());
-		Map<String, String> configMap = null;
-		try{
-			configMap = FileUtility.readConfigFileAsKeyValueMap(configFile, "=");
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to read config file: " + configFile);
-			return false;
-		}
-		
-		// Check in the config file first and then overwrite with the one in arguments
-		if(!setReportingIntervalSeconds(configMap)){
-			return false;
-		}
-		
-		// Check in the arguments
-		if(!setReportingIntervalSeconds(argumentsMap)){
-			return false;
-		}
-		
-		// Only do the following checks in case of server
-		if(useSsl && writeDataToServer(argumentsMap)){
-			try{
-				securityProtocol = configMap.get("SecurityProtocol");
-				trustStoreLocation = configMap.get("TrustStoreLocation");
-				trustStorePassword = configMap.get("TrustStorePassword");
-				keyStoreLocation = configMap.get("KeyStoreLocation");
-				keyStorePassword = configMap.get("KeyStorePassword");
-				keyPassword = configMap.get("KeyPassword");
-				if(securityProtocol == null || trustStoreLocation == null || trustStorePassword == null || keyStoreLocation == null
-						|| keyStorePassword == null || keyPassword == null){
-					logger.log(Level.SEVERE, "In config file the following keys must be defined: 'SecurityProtocol', 'TrustStoreLocation', "
-							+ "'TrustStorePassword', 'KeyStoreLocation', 'KeyStorePassword', 'KeyPassword'");
+		return new HashMap<String, String>();
+	}
+
+	private boolean resolveSessionNumber(Setting cdmSetting, Map<String, String> cdmOutFileKeyValues, String lastSessionKey, String cdmOutFilePath){
+		if(cdmSetting.getSession() != null){
+			this.sessionNumber = cdmSetting.getSession();
+		}else{ // no session number in setting. read from file
+			String lastSessionString = cdmOutFileKeyValues.get(lastSessionKey);
+			if(lastSessionString != null){
+				Integer lastSessionInteger = HelperFunctions.parseInt(lastSessionString, null);
+				if(lastSessionInteger == null){
+					logger.log(Level.SEVERE, "Invalid '"+lastSessionKey+"' value '"+lastSessionString+
+							"' in file: " + cdmOutFilePath);
 					return false;
+				}else{
+					this.sessionNumber = lastSessionInteger + 1;
 				}
-				try{
-					if(!FileUtility.doesPathExist(trustStoreLocation)){
-						logger.log(Level.SEVERE, "Path specified for 'TrustStoreLocation' key in config does not exist: "
-								+ trustStoreLocation);
-						return false;
-					}
-				}catch(Exception e){
-					logger.log(Level.SEVERE, "Failed to check if path specified for 'TrustStoreLocation' key in config exists: "
-							+ trustStoreLocation, e);
-					return false;
-				}
-				try{
-					if(!FileUtility.doesPathExist(keyStoreLocation)){
-						logger.log(Level.SEVERE, "Path specified for 'KeyStoreLocation' key in config does not exist: "
-								+ keyStoreLocation);
-						return false;
-					}
-				}catch(Exception e){
-					logger.log(Level.SEVERE, "Failed to check if path specified for 'KeyStoreLocation' key in config exists: "
-							+ keyStoreLocation, e);
-					return false;
-				}
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to read config file: " + configFile);
-				return false;
 			}
 		}
-		
+		return true;
+	}
+
+	private boolean finishInitialize(String arguments, Setting cdmSetting, String cdmOutFilePath,
+			Map<String, String> cdmOutFileKeyValues, String lastSessionKey){
 		boolean initResult = super.initialize(arguments);
 		if(!initResult){
 			return false;
 		}else{
-			AbstractVertex hostVertex = createHostVertex();
+			AbstractVertex hostVertex = createHostVertex(cdmSetting.getHostFile());
 			if(hostVertex == null){
 				return false;
 			}else{
@@ -1110,7 +1049,7 @@ public class CDM extends Kafka {
 				publishHost(hostVertex);
 				// Publish the time marker after the host record
 				publishCurrentTimeMarker();
-				
+
 			}
 			return true;
 		}
@@ -1140,43 +1079,26 @@ public class CDM extends Kafka {
 		}
 	}
 	
-	private AbstractVertex createHostVertex(){
-		String configFilePath = Settings.getDefaultConfigFilePath(this.getClass());
-		Map<String, String> configMap = null;
-		try{
-			configMap = FileUtility.readConfigFileAsKeyValueMap(configFilePath, "=");
-		}catch(Exception e){
-			logger.log(Level.SEVERE, "Failed to read config file: "+ configFilePath, e);
-			return null;
-		}
-		
-		String hostFileKey = "hostFile";
-		String hostFilePath = configMap.get(hostFileKey);
-		
-		if(hostFilePath == null || (hostFilePath = hostFilePath.trim()).isEmpty()){
-			logger.log(Level.SEVERE, "Missing/Empty '"+hostFileKey+"' value in config");
-			return null;
-		}else{
-			if(createHostConfig){
-				if(!HostInfo.generateCurrentHostFile(hostFilePath)){
-					// Failed to write the host file.
-					return null;
-				}
-			}
-			try{
-				if(FileUtility.isFileReadable(hostFilePath)){
-					HostInfo.Host hostInfo = HostInfo.ReadFromFile.readSafe(hostFilePath);
-					AbstractVertex hostVertex = new Artifact();
-					hostVertex.addAnnotations(hostInfo.getAnnotationsMap());
-					return hostVertex;
-				}else{
-					logger.log(Level.SEVERE, "Host info file path is not readable: " + hostFilePath);
-					return null;
-				}
-			}catch(Exception e){
-				logger.log(Level.SEVERE, "Failed to check if host info file is readable: " + hostFilePath, e);
+	private AbstractVertex createHostVertex(String hostFilePath){
+		if(createHostConfig){
+			if(!HostInfo.generateCurrentHostFile(hostFilePath)){
+				// Failed to write the host file.
 				return null;
 			}
+		}
+		try{
+			if(FileUtility.isFileReadable(hostFilePath)){
+				HostInfo.Host hostInfo = HostInfo.ReadFromFile.readSafe(hostFilePath);
+				AbstractVertex hostVertex = new Artifact();
+				hostVertex.addAnnotations(hostInfo.getAnnotationsMap());
+				return hostVertex;
+			}else{
+				logger.log(Level.SEVERE, "Host info file path is not readable: " + hostFilePath);
+				return null;
+			}
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to check if host info file is readable: " + hostFilePath, e);
+			return null;
 		}
 	}
 

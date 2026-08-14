@@ -17,10 +17,10 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     # Install Java
     sudo add-apt-repository -y ppa:openjdk-r/ppa
     sudo apt-get update
-    sudo apt-get install -y openjdk-11-jdk
+    sudo apt-get install -y openjdk-21-jdk
 
     # Install SPADE
-    sudo apt-get install -y git ifupdown libaudit-dev auditd libfuse-dev fuse pkg-config lsof unzip uthash-dev
+    sudo apt-get install -y auditd autoconf automake bison clang cmake curl flex fuse git ifupdown libaudit-dev libfuse-dev linux-headers-`uname -r` lsof maven pkg-config unzip uthash-dev wget
     git clone https://github.com/ashish-gehani/SPADE.git
     cd SPADE
     ./configure
