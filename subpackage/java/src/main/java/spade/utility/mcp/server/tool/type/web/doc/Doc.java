@@ -26,6 +26,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.jsoup.Jsoup;
+
 import io.modelcontextprotocol.server.McpSyncServerExchange;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -90,7 +92,7 @@ public class Doc extends Tool {
                 if (combined.length() > 0) {
                     combined.append("\n\n");
                 }
-                combined.append(response.body());
+                combined.append(Jsoup.parse(response.body()).text());
             }
         } catch (Exception e) {
             return McpSchema.CallToolResult.builder()
