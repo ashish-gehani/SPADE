@@ -67,11 +67,6 @@ jobs:
         done
         printf 'exit\n' | bin/spade control || (echo "SPADE control port never became ready" && exit 1)
 
-    - name: Configure SPADE (add analyzer)
-      run: |
-        printf 'add analyzer CommandLine\nexit\n' \
-          | bin/spade control
-
     - name: Start MCP server
       run: |
         bin/spade mcp > mcp-server.log 2>&1 &
@@ -94,12 +89,12 @@ jobs:
           llm.type=mock \
           user.mode=cli \
           verbose=true \
-          llm.mock.scenario=add_and_remove_neo4j_storage
+          llm.mock.scenario=query_base_stats
 
     - name: MCP client test output header
       run: |
         echo '======== MCP CLIENT TEST ========'
-        echo 'Output shows the mock LLM replaying the add_and_remove_neo4j_storage scenario against the MCP server, verifying the actual result of each tool call.'
+        echo 'Output shows the mock LLM replaying the query_base_stats scenario against the MCP server, verifying the actual result of each tool call.'
         echo '================================='
 
     - name: Show MCP server log on failure
