@@ -5,9 +5,9 @@ name: MCP Integration Test
 
 on:
   push:
-    branches: [ "mcp-dev" ]
+    branches: [ "master" ]
   pull_request:
-    branches: [ "mcp-dev" ]
+    branches: [ "master" ]
 
 jobs:
   mcp-test:
