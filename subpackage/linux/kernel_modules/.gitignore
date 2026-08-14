@@ -1,0 +1,11 @@
+*.mod
+*.mod.cmd
+*.o.cmd
+*.o
+*.o.d
+output
+audit/build_hash.c
+audit/.build_hash_cache
+.Module.symvers.cmd
+.modules.order.cmd
+build

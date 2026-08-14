@@ -1,0 +1,40 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2026 SRI International
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
+
+package spade.utility.mcp.server.tool.type.web.doc;
+
+import java.net.URL;
+import java.util.List;
+
+public class Config {
+
+    private final List<URL> urls;
+
+    public Config(final List<URL> urls) {
+        this.urls = List.copyOf(urls);
+    }
+
+    public List<URL> getUrls() {
+        return urls;
+    }
+
+    @Override
+    public String toString() {
+        return "Config[urls=" + urls + "]";
+    }
+
+}
