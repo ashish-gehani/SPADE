@@ -1,13 +1,16 @@
-# Build SPADE with the autoconf/automake-based build system.
+# Complete build: configure and build SPADE end-to-end with the autoconf/automake-based
+# build system on Linux and macOS, including compiling the C/kernel components and the
+# Java module. The Java module build runs its Maven test suite (via `mvn package`) as
+# part of the build, so a failing Java test fails this workflow.
 
 name: CI with Make
 
 on:
   workflow_dispatch:
-  # push:
-  #   branches: [ "mcp-dev" ]
-  # pull_request:
-  #   branches: [ "mcp-dev" ]
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
 
 jobs:
   build:
