@@ -19,6 +19,8 @@ package spade.utility.mcp.server.tool.type.spade.cli;
 
 import java.io.File;
 
+import spade.utility.mcp.server.tool.type.spade.cli.connection.DataType;
+
 public class Config {
 
     private final String host;
@@ -27,6 +29,7 @@ public class Config {
     private final File clientPrivateKeystorePath;
     private final char[] passwordPublicKeystore;
     private final char[] passwordPrivateKeystore;
+    private final DataType connectionDataType;
 
     public Config(
         final String host,
@@ -34,7 +37,8 @@ public class Config {
         final File serverPublicKeystorePath,
         final File clientPrivateKeystorePath,
         final char[] passwordPublicKeystore,
-        final char[] passwordPrivateKeystore
+        final char[] passwordPrivateKeystore,
+        final DataType connectionDataType
     ) {
         this.host = host;
         this.port = port;
@@ -42,6 +46,7 @@ public class Config {
         this.clientPrivateKeystorePath = clientPrivateKeystorePath;
         this.passwordPublicKeystore = passwordPublicKeystore;
         this.passwordPrivateKeystore = passwordPrivateKeystore;
+        this.connectionDataType = connectionDataType;
     }
 
     public String getHost() {
@@ -68,12 +73,17 @@ public class Config {
         return passwordPrivateKeystore;
     }
 
+    public DataType getConnectionDataType() {
+        return connectionDataType;
+    }
+
     @Override
     public String toString() {
         return "Config[host=" + host
             + ", port=" + port
             + ", serverPublicKeystorePath=" + serverPublicKeystorePath
             + ", clientPrivateKeystorePath=" + clientPrivateKeystorePath
+            + ", connectionDataType=" + connectionDataType
             + "]";
     }
 

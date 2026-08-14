@@ -19,9 +19,11 @@ package spade.utility.mcp.server.tool.type.spade.cli;
 
 import java.io.File;
 
+import spade.utility.mcp.server.tool.type.spade.cli.connection.DataType;
 import spade.utility.setting.Helper;
 import spade.utility.setting.InvalidSettingException;
 import spade.utility.setting.SettingConvertException;
+import spade.utility.setting.convert.Enums;
 import spade.utility.setting.convert.Files;
 import spade.utility.setting.convert.Strings;
 import spade.utility.setting.convert.numbers.Ints;
@@ -34,6 +36,7 @@ public class Parser {
     private static final String keyClientPrivateKeystorePath = "spade.keystore.clientPrivatePath";
     private static final String keyPasswordPublicKeystore    = "spade.keystore.passwordPublic";
     private static final String keyPasswordPrivateKeystore   = "spade.keystore.passwordPrivate";
+    private static final String keyConnectionDataType        = "spade.connection.data.type";
 
     public static Config parse(final String configFilePath) throws InvalidSettingException {
         final spade.utility.setting.Setting setting;
@@ -50,6 +53,7 @@ public class Parser {
         final File clientPrivateKeystorePath = parseReadableFile(setting, keyClientPrivateKeystorePath, configFilePath);
         final char[] passwordPublicKeystore = parsePassword(setting, keyPasswordPublicKeystore, configFilePath);
         final char[] passwordPrivateKeystore = parsePassword(setting, keyPasswordPrivateKeystore, configFilePath);
+        final DataType connectionDataType = parseConnectionDataType(setting, configFilePath);
 
         return new Config(
             host,
@@ -57,7 +61,8 @@ public class Parser {
             serverPublicKeystorePath,
             clientPrivateKeystorePath,
             passwordPublicKeystore,
-            passwordPrivateKeystore
+            passwordPrivateKeystore,
+            connectionDataType
         );
     }
 
@@ -90,6 +95,15 @@ public class Parser {
 
     private static char[] parsePassword(final spade.utility.setting.Setting setting, final String key, final String configFilePath) throws InvalidSettingException {
         return parseNonBlankString(setting, key, configFilePath).toCharArray();
+    }
+
+    private static DataType parseConnectionDataType(final spade.utility.setting.Setting setting, final String configFilePath) throws InvalidSettingException {
+        try {
+            return Enums.getEnum(setting, keyConnectionDataType, DataType.class);
+        } catch (SettingConvertException e) {
+            throw new InvalidSettingException(
+                "Missing/Invalid value for '" + keyConnectionDataType + "' in config file '" + configFilePath + "'", e);
+        }
     }
 
 }

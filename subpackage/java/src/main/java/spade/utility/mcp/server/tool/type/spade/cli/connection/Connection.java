@@ -15,14 +15,11 @@
  --------------------------------------------------------------------------------
  */
 
-package spade.utility.mcp.server.tool.type.spade.cli;
+package spade.utility.mcp.server.tool.type.spade.cli.connection;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 import javax.net.ssl.KeyManagerFactory;
@@ -31,20 +28,20 @@ import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
 
-public class Connection implements AutoCloseable {
+public abstract class Connection implements AutoCloseable {
 
-    private final String host;
-    private final int port;
-    private final File serverPublicKeystorePath;
-    private final File clientPrivateKeystorePath;
-    private final char[] passwordPublicKeystore;
-    private final char[] passwordPrivateKeystore;
+    protected final DataType connectionDataType;
+    protected final String host;
+    protected final int port;
+    protected final File serverPublicKeystorePath;
+    protected final File clientPrivateKeystorePath;
+    protected final char[] passwordPublicKeystore;
+    protected final char[] passwordPrivateKeystore;
 
-    private SSLSocket socket;
-    private PrintStream out;
-    private BufferedReader in;
+    protected SSLSocket socket;
 
-    public Connection(
+    protected Connection(
+        final DataType connectionDataType,
         final String host,
         final int port,
         final File serverPublicKeystorePath,
@@ -52,12 +49,17 @@ public class Connection implements AutoCloseable {
         final char[] passwordPublicKeystore,
         final char[] passwordPrivateKeystore
     ) {
+        this.connectionDataType = connectionDataType;
         this.host = host;
         this.port = port;
         this.serverPublicKeystorePath = serverPublicKeystorePath;
         this.clientPrivateKeystorePath = clientPrivateKeystorePath;
         this.passwordPublicKeystore = passwordPublicKeystore;
         this.passwordPrivateKeystore = passwordPrivateKeystore;
+    }
+
+    public DataType getConnectionDataType() {
+        return connectionDataType;
     }
 
     public void connect() throws Exception {
@@ -88,44 +90,43 @@ public class Connection implements AutoCloseable {
         final SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
 
         this.socket = (SSLSocket) sslSocketFactory.createSocket(this.host, this.port);
-        this.out = new PrintStream(this.socket.getOutputStream());
-        this.in = new BufferedReader(new InputStreamReader(this.socket.getInputStream()));
-
     }
 
-    public String send(final String command) throws Exception {
-        if (this.socket == null || this.socket.isClosed()) {
-            throw new IllegalStateException("Not connected");
-        }
-        this.out.println(command);
-        return readResponse();
-    }
-
-    private String readResponse() throws Exception {
-        final StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = this.in.readLine()) != null) {
-            if (line.isEmpty()) {
-                break;
-            }
-            if (sb.length() > 0) {
-                sb.append('\n');
-            }
-            sb.append(line);
-        }
-        return sb.toString();
-    }
+    public abstract String send(final String command) throws Exception;
 
     @Override
     public void close() {
-        if (this.in != null) {
-            try { this.in.close(); } catch (IOException e) { /* ignore */ }
-        }
-        if (this.out != null) {
-            this.out.close();
-        }
         if (this.socket != null) {
             try { this.socket.close(); } catch (IOException e) { /* ignore */ }
+        }
+    }
+
+    public static Connection create(
+        final DataType connectionDataType,
+        final String host,
+        final int port,
+        final File serverPublicKeystorePath,
+        final File clientPrivateKeystorePath,
+        final char[] passwordPublicKeystore,
+        final char[] passwordPrivateKeystore
+    ) {
+        if (connectionDataType == null) {
+            throw new IllegalArgumentException("NULL connection data type");
+        }
+
+        switch (connectionDataType) {
+            case STRING_LINE:
+                return new spade.utility.mcp.server.tool.type.spade.cli.connection.string_line.Connection(
+                    host, port, serverPublicKeystorePath, clientPrivateKeystorePath,
+                    passwordPublicKeystore, passwordPrivateKeystore
+                );
+            case QUERY_OBJECT:
+                return new spade.utility.mcp.server.tool.type.spade.cli.connection.query_object.Connection(
+                    host, port, serverPublicKeystorePath, clientPrivateKeystorePath,
+                    passwordPublicKeystore, passwordPrivateKeystore
+                );
+            default:
+                throw new IllegalArgumentException("Unknown connection data type: " + connectionDataType);
         }
     }
 

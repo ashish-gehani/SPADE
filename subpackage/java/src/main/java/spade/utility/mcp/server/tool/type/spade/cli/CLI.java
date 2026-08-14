@@ -27,6 +27,7 @@ import io.modelcontextprotocol.spec.McpSchema;
 
 import spade.utility.mcp.server.tool.Tool;
 import spade.utility.mcp.server.tool.definition.Definition;
+import spade.utility.mcp.server.tool.type.spade.cli.connection.Connection;
 import spade.utility.setting.InvalidSettingException;
 
 public class CLI extends Tool {
@@ -85,7 +86,8 @@ public class CLI extends Tool {
                 .build();
         }
 
-        try (final Connection connection = new Connection(
+        try (final Connection connection = Connection.create(
+            config.getConnectionDataType(),
             config.getHost(),
             config.getPort(),
             config.getServerPublicKeystorePath(),

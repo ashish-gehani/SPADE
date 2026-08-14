@@ -27,6 +27,7 @@ import spade.utility.exception.CommandExecutionNotComplete;
 import spade.utility.exception.CommandResultNotSuccessful;
 import spade.utility.exception.IllegalCommand;
 import spade.utility.exception.IllegalCommandResult;
+import spade.utility.query.Result;
 
 /*
     Generic server command.
@@ -108,19 +109,14 @@ public class Server extends AbstractCommand {
         }
     }
 
-    private synchronized Query ensureExecutionResultIsQuery() 
+    private synchronized Query ensureExecutionResultIsQuery()
         throws IllegalCommandResult {
         final Object resultObject = this.getExecutionResult();
-        if (!(resultObject instanceof Query)) {
-            throw new IllegalCommandResult(
-                "Server sent back unknown response. Expected: "
-                + Query.class.getName()
-                + ". Actual: "
-                + resultObject.getClass().getName()
-            );
+        try {
+            return Result.ensureQuery(resultObject);
+        } catch (Exception e) {
+            throw new IllegalCommandResult(e.getMessage(), e);
         }
-        final Query resultQuery = (Query)resultObject;
-        return resultQuery;
     }
 
     public synchronized String getExecutionResultAsString(final boolean mustBeSuccessful) 
@@ -135,20 +131,7 @@ public class Server extends AbstractCommand {
             throw new CommandResultNotSuccessful("Result of query is not successful");
         }
 
-        final Object responseResult = query.getResult();
-        if (responseResult == null) {
-            return "";
-        }
-
-        if (responseResult instanceof Graph) {
-            return Graph.exportGraphToString(
-                SaveGraph.Format.kDot, ((Graph) responseResult)
-            );
-        } else if (responseResult instanceof ResultTable) {
-            return ((ResultTable) responseResult).toString();
-        } else {
-            return String.valueOf(responseResult);
-        }
+        return Result.resultToString(query.getResult(), SaveGraph.Format.kDot);
     }
 
     @Override

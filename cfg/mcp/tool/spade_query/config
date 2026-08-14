@@ -9,3 +9,4 @@ spade.keystore.serverPublicPath  = $(config_file cfg/spade.core.Kernel.config se
 spade.keystore.clientPrivatePath = $(config_file cfg/spade.core.Kernel.config client_private_keystore)
 spade.keystore.passwordPublic    = $(config_file cfg/spade.core.Kernel.config password_public_keystore)
 spade.keystore.passwordPrivate   = $(config_file cfg/spade.core.Kernel.config password_private_keystore)
+spade.connection.data.type = QUERY_OBJECT
