@@ -37,6 +37,16 @@ function ubuntu_is_db_present() {
     [[ "${output}" == "1" ]] && echo 1 || echo 0
 }
 
+function ubuntu_wait_for_server() {
+    local i
+    for ((i = 0; i < 30; i++)); do
+        pg_isready -q && return 0
+        sleep 1
+    done
+    echo "Error: PostgreSQL did not become ready in time"
+    return 1
+}
+
 function ubuntu_install() {
     if [[ "$(ubuntu_is_installed)" -eq 1 ]]; then
         echo "PostgreSQL package is already installed"
@@ -51,6 +61,8 @@ function ubuntu_install() {
         wget --quiet -O - "${UBUNTU_REPO_KEY_URL}" | sudo apt-key add - && \
         sudo apt-get update && \
         sudo DEBIAN_FRONTEND=noninteractive apt-get -y install "${UBUNTU_PKG}" || return 1
+
+    ubuntu_wait_for_server || return 1
 
     ubuntu_setup
 }
