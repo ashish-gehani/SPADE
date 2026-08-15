@@ -199,7 +199,7 @@
     </dependency>
 
     <!--
-      jackson-annotations must stay >= 2.20: io.modelcontextprotocol.sdk:mcp
+      jackson-annotations must stay >= 2.20 (currently 2.21): io.modelcontextprotocol.sdk:mcp
       pulls in tools.jackson.core:jackson-databind 3.x (via mcp-json-jackson3),
       whose jackson-bom requires jackson-annotations 2.20+ (JsonProperty.isRequired()
       was added in 2.19.2). Since this pom declares jackson-annotations directly,
@@ -209,25 +209,25 @@
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-annotations</artifactId>
-      <version>2.20</version>
+      <version>2.21</version>
     </dependency>
 
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-core</artifactId>
-      <version>2.20.2</version>
+      <version>2.21.4</version>
     </dependency>
 
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>2.20.2</version>
+      <version>2.21.5</version>
     </dependency>
 
     <dependency>
       <groupId>com.fasterxml.jackson.dataformat</groupId>
       <artifactId>jackson-dataformat-yaml</artifactId>
-      <version>2.20.2</version>
+      <version>2.21.5</version>
     </dependency>
 
     <dependency>
