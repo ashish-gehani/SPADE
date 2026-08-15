@@ -17,5 +17,8 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     v.customize ["modifyvm", :id, "--cpus", 1]
   end
 
-  config.vm.provision "shell", privileged:false, path: "bin/provision.sh"
+  config.vm.provision "shell", privileged: false, inline: <<-SHELL
+    cd /vagrant
+    bin/provision.sh
+  SHELL
 end
