@@ -8,8 +8,9 @@
 
 # constants
 UBUNTU_PSQL_USER="postgres"
-UBUNTU_PKG="postgresql-13"
-UBUNTU_PKG_CLIENT="postgresql-client-13"
+UBUNTU_PG_VERSION="13"
+UBUNTU_PKG="postgresql-${UBUNTU_PG_VERSION}"
+UBUNTU_PKG_CLIENT="postgresql-client-${UBUNTU_PG_VERSION}"
 UBUNTU_SOURCES_FILE="/etc/apt/sources.list.d/pgdg.list"
 UBUNTU_REPO_KEY_ID="ACCC4CF8"
 UBUNTU_REPO_KEY_URL="https://www.postgresql.org/media/keys/${UBUNTU_REPO_KEY_ID}.asc"
@@ -19,8 +20,15 @@ function ubuntu_is_installed() {
     apt list --installed 2>/dev/null | grep -q "${UBUNTU_PKG}" && echo 1 || echo 0
 }
 
+# postgresql-common assigns each cluster the next free port, so our cluster
+# only gets 5432 if no other PostgreSQL version's cluster (e.g. a distro-
+# preinstalled one, as on GitHub Actions Ubuntu runners) already claimed it.
+function ubuntu_pg_port() {
+    pg_lsclusters --no-header 2>/dev/null | awk -v ver="${UBUNTU_PG_VERSION}" '$1 == ver { print $3; exit }'
+}
+
 function ubuntu_psql() {
-    (cd /tmp && sudo -u "${UBUNTU_PSQL_USER}" psql "$@")
+    (cd /tmp && sudo -u "${UBUNTU_PSQL_USER}" psql -p "$(ubuntu_pg_port)" "$@")
 }
 
 function ubuntu_is_user_present() {
@@ -39,8 +47,10 @@ function ubuntu_is_db_present() {
 
 function ubuntu_wait_for_server() {
     local i
+    local port
     for ((i = 0; i < 90; i++)); do
-        pg_isready -q && return 0
+        port="$(ubuntu_pg_port)"
+        [[ -n "${port}" ]] && pg_isready -q -p "${port}" && return 0
         sleep 1
     done
     echo "Error: PostgreSQL did not become ready in time"
