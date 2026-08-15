@@ -1,0 +1,5 @@
+{"element":{"spade.storage.kafka.Vertex":{"annotations":{"map":{"id":"1","name":"bash","pid":"100","type":"Process"}},"hash":"c4ca4238a0b923820dcc509a6f75849b"}}}
+{"element":{"spade.storage.kafka.Vertex":{"annotations":{"map":{"id":"2","name":"cat","pid":"200","type":"Process"}},"hash":"c81e728d9d4c2f636f067f89cc14862c"}}}
+{"element":{"spade.storage.kafka.Vertex":{"annotations":{"map":{"id":"3","path":"/etc/hostname","subtype":"file","type":"Artifact"}},"hash":"eccbc87e4b5ce2fe28308fd9f2a7baf3"}}}
+{"element":{"spade.storage.kafka.Edge":{"annotations":{"map":{"type":"WasTriggeredBy","operation":"fork","time":"1"}},"childVertexHash":{"string":"c4ca4238a0b923820dcc509a6f75849b"},"parentVertexHash":{"string":"c81e728d9d4c2f636f067f89cc14862c"},"hash":"8785252abacbb362c825c2791aade48a"}}}
+{"element":{"spade.storage.kafka.Edge":{"annotations":{"map":{"type":"Used","operation":"read","time":"2"}},"childVertexHash":{"string":"c81e728d9d4c2f636f067f89cc14862c"},"parentVertexHash":{"string":"eccbc87e4b5ce2fe28308fd9f2a7baf3"},"hash":"501f1d0dd901dacc24b790537f88de56"}}}

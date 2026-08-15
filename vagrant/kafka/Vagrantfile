@@ -17,5 +17,5 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     v.customize ["modifyvm", :id, "--cpus", 1]
   end
 
-  config.vm.provision "shell", privileged:false, path: "provision.sh", args: ["--repo-branch", "kafka-dev"]
+  config.vm.provision "shell", privileged:false, path: "bin/provision.sh"
 end

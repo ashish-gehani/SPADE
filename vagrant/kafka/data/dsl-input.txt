@@ -1,0 +1,5 @@
+type:Process id:1 pid:100 name:bash
+type:Process id:2 pid:200 name:cat
+type:Artifact subtype:file id:3 path:/etc/hostname
+type:WasTriggeredBy operation:fork from:1 to:2 time:1
+type:Used operation:read from:2 to:3 time:2
