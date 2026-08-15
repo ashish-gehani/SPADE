@@ -23,9 +23,9 @@ import java.io.ByteArrayOutputStream;
 import java.util.Map;
 
 import org.apache.avro.generic.GenericContainer;
-import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.EncoderFactory;
+import org.apache.avro.io.JsonEncoder;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.serialization.Serializer;
@@ -48,7 +48,7 @@ public class GenericContainerSerializer implements Serializer<GenericContainer>{
 		}
 		try{
 			ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-			BinaryEncoder encoder = EncoderFactory.get().binaryEncoder(outputStream, null);
+			JsonEncoder encoder = EncoderFactory.get().jsonEncoder(data.getSchema(), outputStream);
 			DatumWriter<Object> datumWriter = new SpecificDatumWriter<Object>(data.getSchema());
 			datumWriter.write(data, encoder);
 			encoder.flush();
