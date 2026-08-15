@@ -3,8 +3,10 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
-source "$(dirname "${BASH_SOURCE[0]}")/helper.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+source "${SCRIPT_DIR}/env.sh"
+source "${SCRIPT_DIR}/helper.sh"
 
 
 # globals

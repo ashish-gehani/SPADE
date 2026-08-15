@@ -3,8 +3,10 @@
 # SPADE - Support for Provenance Auditing in Distributed Environments.
 # Copyright (C) 2026 SRI International.
 
-source "$(dirname "${BASH_SOURCE[0]}")/env.sh"
-source "$(dirname "${BASH_SOURCE[0]}")/helper.sh"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+source "${SCRIPT_DIR}/env.sh"
+source "${SCRIPT_DIR}/helper.sh"
 
 
 # globals
@@ -65,9 +67,13 @@ function get_spade() {
 }
 
 function build_spade() {
-    cd "${ENV_SPADE_HOME}"
+    # ./configure and make are cwd-relative build tools; pushd/popd scopes the
+    # directory change to just this function instead of leaking it to the rest
+    # of the script.
+    pushd "${ENV_SPADE_HOME}" > /dev/null
     ./configure
     make
+    popd > /dev/null
 }
 
 function install_kafka_config() {
@@ -83,9 +89,8 @@ function run_setup() {
 }
 
 function start_spade() {
-    # The JVM inherits this cwd for its whole lifetime; "cfg/..." (and other default
-    # paths) are resolved by SPADE relative to it, not to where bin/spade lives.
-    cd "${ENV_SPADE_HOME}"
+    # No cd needed: bin/spade's own run() wrapper pushd's into SPADE_ROOT before
+    # dispatching "start", so the JVM it forks already inherits the right cwd.
     "${ENV_SPADE_BIN}" start --mem-min 1g --mem-max 1g
 }
 

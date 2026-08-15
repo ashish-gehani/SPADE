@@ -6,13 +6,16 @@
 
 # constants
 
+# vagrant constants
+ENV_VAGRANT_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENV_SPADE_DSL_INPUT_FILE="${ENV_VAGRANT_ROOT_DIR}/data/dsl-input.txt"
+ENV_SPADE_KAFKA_STORAGE_CONFIG_FILE="${ENV_VAGRANT_ROOT_DIR}/cfg/spade.storage.Kafka.config"
+ENV_SPADE_KAFKA_EXPECTED_OUTPUT_FILE="${ENV_VAGRANT_ROOT_DIR}/data/kafka-expected-output.json"
+
 # spade server constants
 ENV_SPADE_HOME="${HOME}/SPADE"
 ENV_SPADE_BIN="${ENV_SPADE_HOME}/bin/spade"
 ENV_SPADE_REPO_BRANCH="master"
-ENV_SPADE_DSL_INPUT_FILE="$(dirname "${BASH_SOURCE[0]}")/../data/dsl-input.txt"
-ENV_SPADE_KAFKA_STORAGE_CONFIG_FILE="$(dirname "${BASH_SOURCE[0]}")/../cfg/spade.storage.Kafka.config"
-ENV_SPADE_KAFKA_EXPECTED_OUTPUT_FILE="$(dirname "${BASH_SOURCE[0]}")/../data/kafka-expected-output.json"
 ENV_SPADE_KAFKA_TOPIC="$(grep '^kafka.output.topic=' "${ENV_SPADE_KAFKA_STORAGE_CONFIG_FILE}" | cut -d= -f2-)"
 ENV_SPADE_DSL_PIPE="/tmp/spade_pipe"
 ENV_SPADE_KAFKA_OUTPUT_FILE="$(grep '^kafka.output.file=' "${ENV_SPADE_KAFKA_STORAGE_CONFIG_FILE}" | cut -d= -f2-)"
