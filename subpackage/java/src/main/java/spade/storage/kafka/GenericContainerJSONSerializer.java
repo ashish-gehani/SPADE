@@ -23,9 +23,9 @@ import java.io.ByteArrayOutputStream;
 import java.util.Map;
 
 import org.apache.avro.generic.GenericContainer;
-import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.EncoderFactory;
+import org.apache.avro.io.JsonEncoder;
 import org.apache.avro.specific.SpecificDatumWriter;
 import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.serialization.Serializer;
@@ -34,7 +34,7 @@ import org.apache.kafka.common.serialization.Serializer;
  * Kafka producer value serializer for spade's own Avro-generated records (e.g. GraphElement).
  * Encodes using each record's own embedded schema, so no external schema file is needed.
  */
-public class GenericContainerSerializer implements Serializer<GenericContainer>{
+public class GenericContainerJSONSerializer implements Serializer<GenericContainer>{
 
 	@Override
 	public void configure(Map<String, ?> configs, boolean isKey){
@@ -48,7 +48,7 @@ public class GenericContainerSerializer implements Serializer<GenericContainer>{
 		}
 		try{
 			ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-			BinaryEncoder encoder = EncoderFactory.get().binaryEncoder(outputStream, null);
+			JsonEncoder encoder = EncoderFactory.get().jsonEncoder(data.getSchema(), outputStream);
 			DatumWriter<Object> datumWriter = new SpecificDatumWriter<Object>(data.getSchema());
 			datumWriter.write(data, encoder);
 			encoder.flush();
