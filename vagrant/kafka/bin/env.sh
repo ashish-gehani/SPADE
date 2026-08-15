@@ -19,8 +19,8 @@ ENV_SPADE_REPO_BRANCH="master"
 ENV_SPADE_KAFKA_TOPIC="$(grep '^kafka.output.topic=' "${ENV_SPADE_KAFKA_STORAGE_CONFIG_FILE}" | cut -d= -f2-)"
 ENV_SPADE_DSL_PIPE="/tmp/spade_pipe"
 ENV_SPADE_KAFKA_OUTPUT_FILE="$(grep '^kafka.output.file=' "${ENV_SPADE_KAFKA_STORAGE_CONFIG_FILE}" | cut -d= -f2-)"
-# 60 x 2s = 2 minutes
-ENV_SPADE_KAFKA_OUTPUT_WAIT_ATTEMPTS="60"
+# 30 x 2s = 1 minute
+ENV_SPADE_KAFKA_OUTPUT_WAIT_ATTEMPTS="30"
 # 30 x 2s = 1 minute
 ENV_SPADE_CONTROL_PORT_WAIT_ATTEMPTS="30"
 

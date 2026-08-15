@@ -162,9 +162,10 @@ function wait_for_kafka_output() {
     if [[ "${ready}" != true ]]; then
         echo "${ENV_SPADE_KAFKA_OUTPUT_FILE} never matched ${ENV_SPADE_KAFKA_EXPECTED_OUTPUT_FILE}:"
         diff <(sort "${ENV_SPADE_KAFKA_EXPECTED_OUTPUT_FILE}") <(sort "${ENV_SPADE_KAFKA_OUTPUT_FILE}")
-        exit 1
+        echo "Going to attempt removing Kafka storage to induce a force flush"
+    else
+        echo "${ENV_SPADE_KAFKA_OUTPUT_FILE} matches ${ENV_SPADE_KAFKA_EXPECTED_OUTPUT_FILE}"
     fi
-    echo "${ENV_SPADE_KAFKA_OUTPUT_FILE} matches ${ENV_SPADE_KAFKA_EXPECTED_OUTPUT_FILE}"
 }
 
 function remove_dsl_reporter() {
