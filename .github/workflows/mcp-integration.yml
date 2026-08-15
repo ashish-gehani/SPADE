@@ -5,10 +5,23 @@ name: MCP Integration Test
 
 on:
   workflow_dispatch:
-  # push:
-  #   branches: [ "master" ]
+  push:
+    branches: [ "master" ]
+    # See .github/workflows/README.md for why these paths and how to update them.
+    paths:
+      - .github/workflows/mcp-integration.yml
+      - cfg/mcp/**
+      - cfg/spade.utility.mcp.*
+      - cfg/spade.utility.mcp.client.llm.mock.scenario.Registry/**
+      - subpackage/java/src/main/java/spade/utility/mcp/**
   # pull_request:
   #   branches: [ "master" ]
+  #   paths:
+  #     - .github/workflows/mcp-integration.yml
+  #     - cfg/mcp/**
+  #     - cfg/spade.utility.mcp.*
+  #     - cfg/spade.utility.mcp.client.llm.mock.scenario.Registry/**
+  #     - subpackage/java/src/main/java/spade/utility/mcp/**
 
 jobs:
   mcp-test:
@@ -44,6 +57,9 @@ jobs:
       if: runner.os == 'macOS'
       run: |
         brew install autoconf automake git maven pkg-config
+
+    - name: Install PostgreSQL
+      run: bin/storage/PostgreSQL/manage-service.sh install
 
     - name: Configure
       run: ./configure
@@ -90,12 +106,12 @@ jobs:
           llm.type=mock \
           user.mode=cli \
           verbose=true \
-          llm.mock.scenario=query_base_stats
+          llm.mock.scenarios=query_neo4j_base_stats,query_postgres_base_stats
 
     - name: MCP client test output header
       run: |
         echo '======== MCP CLIENT TEST ========'
-        echo 'Output shows the mock LLM replaying the query_base_stats scenario against the MCP server, verifying the actual result of each tool call.'
+        echo 'Output shows the mock LLM replaying the query_neo4j_base_stats and query_postgres_base_stats scenarios against the MCP server, verifying the actual result of each tool call.'
         echo '================================='
 
     - name: Show MCP server log on failure

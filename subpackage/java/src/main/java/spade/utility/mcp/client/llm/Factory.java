@@ -27,7 +27,7 @@ public class Factory {
         final Setting.LLM llm = setting.getLLM();
         switch (llm.getType()) {
             case ANTHROPIC: return new Anthropic(llm.getAnthropicApiKey(), llm.getAnthropicModel());
-            case MOCK:      return new Mock(llm.getMockScenario());
+            case MOCK:      return new Mock(llm.getMockScenarios());
             default: throw new Exception("Unknown LLM type: " + llm.getType().name);
         }
     }

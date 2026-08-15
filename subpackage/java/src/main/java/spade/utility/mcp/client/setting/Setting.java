@@ -17,6 +17,8 @@
 
 package spade.utility.mcp.client.setting;
 
+import java.util.List;
+
 public class Setting {
 
     private final MCP mcp;
@@ -108,18 +110,18 @@ public class Setting {
         private final LLMType type;
         private final String anthropicApiKey;
         private final String anthropicModel;
-        private final String mockScenario;
+        private final List<String> mockScenarios;
 
         public LLM(
             final LLMType type,
             final String anthropicApiKey,
             final String anthropicModel,
-            final String mockScenario
+            final List<String> mockScenarios
         ) {
             this.type = type;
             this.anthropicApiKey = anthropicApiKey;
             this.anthropicModel = anthropicModel;
-            this.mockScenario = mockScenario;
+            this.mockScenarios = mockScenarios;
         }
 
         public LLMType getType() {
@@ -134,15 +136,15 @@ public class Setting {
             return anthropicModel;
         }
 
-        public String getMockScenario() {
-            return mockScenario;
+        public List<String> getMockScenarios() {
+            return mockScenarios;
         }
 
         @Override
         public String toString() {
             return "LLM[type=" + type.name
                 + ", anthropicModel=" + anthropicModel
-                + ", mockScenario=" + mockScenario
+                + ", mockScenarios=" + mockScenarios
                 + "]";
         }
 

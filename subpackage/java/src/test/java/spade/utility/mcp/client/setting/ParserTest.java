@@ -17,7 +17,10 @@
 
 package spade.utility.mcp.client.setting;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
@@ -84,33 +87,49 @@ public class ParserTest {
     }
 
     @Test
+    public void parsesSingleMockScenarioAsSingletonList() throws InvalidSettingException {
+        final Setting setting = Parser.parse(
+            "llm.type=mock llm.mock.scenarios=test_scenario user.mode=cli", configPath());
+        assertEquals(List.of("test_scenario"), setting.getLLM().getMockScenarios());
+    }
+
+    @Test
+    public void parsesCommaSeparatedMockScenariosInOrder() throws InvalidSettingException {
+        final Setting setting = Parser.parse(
+            "llm.type=mock llm.mock.scenarios=first_scenario,second_scenario,third_scenario user.mode=cli", configPath());
+        assertEquals(
+            List.of("first_scenario", "second_scenario", "third_scenario"),
+            setting.getLLM().getMockScenarios());
+    }
+
+    @Test
     public void rejectsMissingUserMode() {
         assertThrows(InvalidSettingException.class, () -> Parser.parse(
-            "llm.type=mock llm.mock.scenario=test_scenario", configPath()));
+            "llm.type=mock llm.mock.scenarios=test_scenario", configPath()));
     }
 
     @Test
     public void rejectsInvalidUserModeValue() {
         assertThrows(InvalidSettingException.class, () -> Parser.parse(
-            "llm.type=mock llm.mock.scenario=test_scenario user.mode=bogus", configPath()));
+            "llm.type=mock llm.mock.scenarios=test_scenario user.mode=bogus", configPath()));
     }
 
     @Test
     public void rejectsWebModeMissingHost() {
         assertThrows(InvalidSettingException.class, () -> Parser.parse(
-            "llm.type=mock llm.mock.scenario=test_scenario user.mode=web user.web.port=8081", configPath()));
+            "llm.type=mock llm.mock.scenarios=test_scenario user.mode=web user.web.port=8081", configPath()));
     }
 
     @Test
     public void rejectsWebModeMissingPort() {
         assertThrows(InvalidSettingException.class, () -> Parser.parse(
-            "llm.type=mock llm.mock.scenario=test_scenario user.mode=web user.web.host=localhost", configPath()));
+            "llm.type=mock llm.mock.scenarios=test_scenario user.mode=web user.web.host=localhost", configPath()));
     }
 
     @Test
     public void rejectsInvalidVerboseValue() {
         assertThrows(InvalidSettingException.class, () -> Parser.parse(
-            "llm.type=mock llm.mock.scenario=test_scenario user.mode=cli verbose=notabool", configPath()));
+            "llm.type=mock llm.mock.scenarios=test_scenario user.mode=cli verbose=notabool", configPath()));
     }
 
 }

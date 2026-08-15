@@ -17,6 +17,8 @@
 
 package spade.utility.mcp.client.llm.mock;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 
@@ -33,15 +35,29 @@ import spade.utility.setting.InvalidSettingException;
 public class Mock extends LLM {
 
     private final ObjectMapper mapper = new ObjectMapper();
-    private final Scenario scenario;
+    private final List<Scenario> scenarios;
+    private int scenarioIndex = 0;
     private int stepIndex = 0;
 
-    public Mock(final String scenarioName) throws InvalidSettingException {
-        final Registry registry = new Registry(mapper);
-        this.scenario = registry.get(scenarioName);
-        if (this.scenario == null) {
-            throw new InvalidSettingException("Unknown mock scenario: '" + scenarioName + "'");
+    public Mock(final List<String> scenarioNames) throws InvalidSettingException {
+        this(scenarioNames, new Registry(new ObjectMapper()));
+    }
+
+    // package-private: lets tests inject a Registry backed by a test-only config file
+    // instead of the default (production) scenario registry config.
+    Mock(final List<String> scenarioNames, final Registry registry) throws InvalidSettingException {
+        if (scenarioNames == null || scenarioNames.isEmpty()) {
+            throw new InvalidSettingException("No mock scenarios specified");
         }
+        final List<Scenario> resolved = new ArrayList<>();
+        for (final String scenarioName : scenarioNames) {
+            final Scenario scenario = registry.get(scenarioName);
+            if (scenario == null) {
+                throw new InvalidSettingException("Unknown mock scenario: '" + scenarioName + "'");
+            }
+            resolved.add(scenario);
+        }
+        this.scenarios = Collections.unmodifiableList(resolved);
     }
 
     private void log(final String msg) {
@@ -59,20 +75,28 @@ public class Mock extends LLM {
             stepIndex++;
         }
 
-        final List<ToolCall> toolCalls = scenario.getToolCalls();
-        if (stepIndex >= toolCalls.size()) {
+        Scenario scenario = scenarios.get(scenarioIndex);
+        List<ToolCall> toolCalls = scenario.getToolCalls();
+        while (stepIndex >= toolCalls.size()) {
             log("respond: scenario '" + scenario.getName() + "' completed");
-            return respondText("Scenario '" + scenario.getName() + "' completed successfully.");
+            if (scenarioIndex + 1 >= scenarios.size()) {
+                return respondText("Scenario '" + scenario.getName() + "' completed successfully. All scenarios completed.");
+            }
+            scenarioIndex++;
+            stepIndex = 0;
+            scenario = scenarios.get(scenarioIndex);
+            toolCalls = scenario.getToolCalls();
         }
 
         final ToolCall toolCall = toolCalls.get(stepIndex);
-        log("respond: step " + stepIndex + " name=" + toolCall.getName() + " tool=" + toolCall.getToolName());
-        return respondWithToolCall(toolUseId(stepIndex), toolCall.getToolName(), toolCall.getInput());
+        log("respond: scenario '" + scenario.getName() + "' step " + stepIndex + " name=" + toolCall.getName() + " tool=" + toolCall.getToolName());
+        return respondWithToolCall(toolUseId(scenarioIndex, stepIndex), toolCall.getToolName(), toolCall.getInput());
     }
 
     private void verifyToolResult(final JsonNode toolResults) throws Exception {
+        final Scenario scenario = scenarios.get(scenarioIndex);
         final ToolCall toolCall = scenario.getToolCalls().get(stepIndex);
-        final String expectedToolUseId = toolUseId(stepIndex);
+        final String expectedToolUseId = toolUseId(scenarioIndex, stepIndex);
 
         JsonNode matching = null;
         for (final JsonNode block : toolResults) {
@@ -94,11 +118,11 @@ public class Mock extends LLM {
                 "Scenario '" + scenario.getName() + "' step " + stepIndex + " (" + toolCall.getName()
                     + "): expected result to contain '" + expected + "', got '" + actual + "'");
         }
-        log("verifyToolResult: step " + stepIndex + " (" + toolCall.getName() + ") OK");
+        log("verifyToolResult: scenario '" + scenario.getName() + "' step " + stepIndex + " (" + toolCall.getName() + ") OK");
     }
 
-    private static String toolUseId(final int stepIndex) {
-        return "scenario_step_" + stepIndex;
+    private static String toolUseId(final int scenarioIndex, final int stepIndex) {
+        return "scenario_" + scenarioIndex + "_step_" + stepIndex;
     }
 
     public JsonNode respondText(final String text) {

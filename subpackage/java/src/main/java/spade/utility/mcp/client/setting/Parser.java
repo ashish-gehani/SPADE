@@ -17,9 +17,12 @@
 
 package spade.utility.mcp.client.setting;
 
+import java.util.List;
+
 import spade.utility.setting.Helper;
 import spade.utility.setting.InvalidSettingException;
 import spade.utility.setting.SettingConvertException;
+import spade.utility.setting.convert.CSV;
 import spade.utility.setting.convert.Strings;
 import spade.utility.setting.convert.numbers.Ints;
 
@@ -31,7 +34,7 @@ public class Parser {
     private static final String keyLLMType                 = "llm.type";
     private static final String keyLLMAnthropicApiKey       = "llm.anthropic.api.key";
     private static final String keyLLMAnthropicModel        = "llm.anthropic.model";
-    private static final String keyLLMMockScenario          = "llm.mock.scenario";
+    private static final String keyLLMMockScenarios         = "llm.mock.scenarios";
     private static final String keyUserMode                = "user.mode";
     private static final String keyUserWebHost              = "user.web.host";
     private static final String keyUserWebPort              = "user.web.port";
@@ -45,7 +48,7 @@ public class Parser {
         System.err.println("  " + keyLLMType              + "\t\t=(anthropic|mock)       (required) LLM type");
         System.err.println("  " + keyLLMAnthropicApiKey   + "\t=<key>                  (required for anthropic) Anthropic API key");
         System.err.println("  " + keyLLMAnthropicModel    + "\t=<model>                (required for anthropic) Anthropic model name");
-        System.err.println("  " + keyLLMMockScenario      + "\t=<name>                 (required for mock) Name of the premade scenario to replay");
+        System.err.println("  " + keyLLMMockScenarios     + "\t=<name>[,<name>...]     (required for mock) Comma-separated names of the premade scenarios to replay, in order");
         System.err.println("  " + keyUserMode             + "\t\t=(cli|web)              (required) User client mode");
         System.err.println("  " + keyUserWebHost          + "\t\t=<host>                 (required for web) Web server host");
         System.err.println("  " + keyUserWebPort          + "\t\t=<port>                 (required for web) Web server port");
@@ -113,7 +116,7 @@ public class Parser {
                     null
                 );
             case MOCK:
-                return new Setting.LLM(type, null, null, parseLLMMockScenario(setting, configFilePath));
+                return new Setting.LLM(type, null, null, parseLLMMockScenarios(setting, configFilePath));
             default:
                 throw new InvalidSettingException("Unknown LLM type: " + type.name);
         }
@@ -153,12 +156,12 @@ public class Parser {
         }
     }
 
-    private static String parseLLMMockScenario(final spade.utility.setting.Setting setting, final String configFilePath) throws InvalidSettingException {
+    private static List<String> parseLLMMockScenarios(final spade.utility.setting.Setting setting, final String configFilePath) throws InvalidSettingException {
         try {
-            return Strings.getString(setting, keyLLMMockScenario);
+            return CSV.getCommaSeparatedStrings(setting, keyLLMMockScenarios);
         } catch (SettingConvertException e) {
             throw new InvalidSettingException(
-                "Missing/Empty value for '" + keyLLMMockScenario + "' in arguments/config file '" + configFilePath + "' for mock llm type", e);
+                "Missing/Empty value for '" + keyLLMMockScenarios + "' in arguments/config file '" + configFilePath + "' for mock llm type", e);
         }
     }
 
