@@ -1,5 +1,7 @@
 # MCP integration test: start SPADE, configure the analyzer, run the MCP server
 # over HTTP, and exercise it with the mock LLM CLI client.
+#
+# Covers both the Neo4j and PostgreSQL query_*_base_stats mock scenarios end to end.
 
 name: MCP Integration Test
 
@@ -9,7 +11,7 @@ on:
     branches: [ "master" ]
     # See .github/workflows/README.md for why these paths and how to update them.
     paths:
-      - .github/workflows/mcp-integration.yml
+      - .github/workflows/mcp-integration*
       - cfg/mcp/**
       - cfg/spade.utility.mcp.*
       - cfg/spade.utility.mcp.client.llm.mock.scenario.Registry/**

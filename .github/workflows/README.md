@@ -11,7 +11,7 @@ This workflow provisions two full VMs (Linux and macOS) and runs the entire `./c
 
 Current paths:
 
-- `.github/workflows/mcp-integration.yml` — the workflow itself
+- `.github/workflows/mcp-integration*` — the workflow itself, plus `mcp-integration-trigger.md`, a dedicated marker file for manually causing this push-triggered, path-filtered workflow to run without touching real code (see that file)
 - `cfg/mcp/**` — MCP tool definitions (`spade_control`, `spade_query`, `spade_control_doc`, `spade_query_doc`, ...)
 - `cfg/spade.utility.mcp.*` — top-level MCP client/server config files directly under `cfg/` (matches one path segment, e.g. `cfg/spade.utility.mcp.client.Main.config`, `cfg/spade.utility.mcp.server.Main.config`, `cfg/spade.utility.mcp.server.tool.registry.Registry.config`, `cfg/spade.utility.mcp.client.llm.mock.scenario.Registry.config`)
 - `cfg/spade.utility.mcp.client.llm.mock.scenario.Registry/**` — mock scenario result-text fixtures (a `*` cannot cross a `/`, so files nested under this directory need their own pattern; see below)
