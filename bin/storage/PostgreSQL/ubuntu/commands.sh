@@ -39,7 +39,7 @@ function ubuntu_is_db_present() {
 
 function ubuntu_wait_for_server() {
     local i
-    for ((i = 0; i < 30; i++)); do
+    for ((i = 0; i < 90; i++)); do
         pg_isready -q && return 0
         sleep 1
     done
