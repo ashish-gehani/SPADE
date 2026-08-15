@@ -20,6 +20,7 @@ function print_help() {
     echo ""
     echo "Commands:"
     echo "    setup                Install dependencies and build SPADE"
+    echo "    uninstall            Remove the cloned SPADE checkout (undoes 'get_spade')"
     echo "    publish_kafka_data   Start SPADE, add the Kafka storage and DSL reporter, feed"
     echo "                         it dummy provenance data, then stop SPADE"
     echo ""
@@ -45,7 +46,7 @@ function validate_args() {
         exit 1
     fi
     case "${COMMAND}" in
-        setup|publish_kafka_data) ;;
+        setup|uninstall|publish_kafka_data) ;;
         *) echo "Error: unknown command '${COMMAND}'"; exit 1 ;;
     esac
 }
@@ -64,6 +65,13 @@ function get_spade() {
         return
     fi
     git clone --branch "${ENV_SPADE_REPO_BRANCH}" --depth 1 https://github.com/ashish-gehani/SPADE.git "${ENV_SPADE_HOME}"
+}
+
+function run_uninstall() {
+    # Undoes get_spade: removes the cloned SPADE checkout.
+    if [[ -d "${ENV_SPADE_HOME}" ]]; then
+        rm -rf "${ENV_SPADE_HOME}"
+    fi
 }
 
 function build_spade() {
@@ -209,6 +217,7 @@ function run_publish_kafka_data() {
 function handle_command() {
     case "${COMMAND}" in
         setup) run_setup ;;
+        uninstall) run_uninstall ;;
         publish_kafka_data) run_publish_kafka_data ;;
     esac
 }

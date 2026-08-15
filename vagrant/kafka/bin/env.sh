@@ -5,6 +5,12 @@
 
 
 # constants
+#
+# WARNING: manage-spade.sh and manage-kafka.sh both rm -rf/rm -f some of the directories/
+# files defined below (uninstall steps, leftover-state cleanup, etc). Every path that gets
+# deleted must also be a path these scripts themselves create (git clone, tar extraction,
+# curl download, mkdir -p) -- never delete a directory the scripts didn't create, since it
+# may be owned by something else on the machine.
 
 # vagrant constants
 ENV_VAGRANT_ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

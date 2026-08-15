@@ -71,7 +71,10 @@ function configure_kafka() {
 
     # Clear any leftover metadata log from a previous setup; kafka-storage.sh format
     # generates a fresh cluster_id every run and refuses to format over a mismatched one.
+    # Recreate it immediately so this script -- not just the Kafka tooling it invokes --
+    # is the explicit owner of the directory it deletes here and in run_uninstall.
     rm -rf "${ENV_KAFKA_SERVER_LOG_DIR}"
+    mkdir -p "${ENV_KAFKA_SERVER_LOG_DIR}"
 
     cat > "${ENV_KAFKA_SERVER_CONFIG_FILE}" <<EOF
 node.id=1
