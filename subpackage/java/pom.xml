@@ -369,13 +369,6 @@
     <resources>
       <resource>
         <filtering>false</filtering>
-        <directory>${project.build.sourceDirectory}</directory>
-        <includes>
-          <include>spade/query/quickgrail/README.md</include>
-        </includes>
-      </resource>
-      <resource>
-        <filtering>false</filtering>
         <directory>src/main/resources</directory>
       </resource>
     </resources>
