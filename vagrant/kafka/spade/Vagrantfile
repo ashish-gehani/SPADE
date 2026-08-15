@@ -1,0 +1,21 @@
+VAGRANTFILE_API_VERSION = "2"
+
+# Demo VM: builds SPADE, adds the Kafka storage in file-only mode (no Kafka broker needed),
+# adds the DSL reporter, and feeds it a small amount of dummy provenance data over its pipe.
+# The Kafka storage's output ends up as a local JSON file, printed at the end of provisioning.
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+  config.vm.box = "bento/ubuntu-24.04"
+  config.vm.box_version = "202508.03.0"
+  config.vm.hostname = "kafka-spade"
+  config.vm.network "private_network", type: "dhcp"
+  config.ssh.forward_x11 = true
+
+  config.vm.provider :virtualbox do |v|
+    v.customize ["modifyvm", :id, "--memory", "2048"]
+    v.customize ["modifyvm", :id, "--cpus", 1]
+  end
+
+  config.vm.provision "shell", privileged:false, path: "provision.sh", args: ["--repo-branch", "kafka-dev"]
+end
