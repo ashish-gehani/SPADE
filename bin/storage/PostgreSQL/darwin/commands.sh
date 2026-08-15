@@ -38,6 +38,16 @@ function darwin_is_db_present() {
     [[ "${output}" == "1" ]] && echo 1 || echo 0
 }
 
+function darwin_wait_for_server() {
+    local i
+    for ((i = 0; i < 30; i++)); do
+        pg_isready -q && return 0
+        sleep 1
+    done
+    echo "Error: PostgreSQL did not become ready in time"
+    return 1
+}
+
 function darwin_install() {
     if [[ "$(darwin_is_installed)" -eq 1 ]]; then
         echo "PostgreSQL package is already installed"
@@ -49,7 +59,9 @@ function darwin_install() {
         brew pin "${DARWIN_PKG}" && \
         brew services start "${DARWIN_PKG}" || return 1
 
-    createuser -s "${DARWIN_PSQL_USER}"
+    darwin_wait_for_server || return 1
+
+    createuser -s "${DARWIN_PSQL_USER}" || return 1
 
     darwin_setup
 }
