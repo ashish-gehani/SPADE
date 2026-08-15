@@ -8,11 +8,12 @@
 
 # constants
 DARWIN_PSQL_USER="postgres"
-DARWIN_PKG="postgresql"
-DARWIN_BREW_VERSION="Homebrew 3.2.11-63-g1e8e57c"
-DARWIN_FORMULA_FILE="postgresql.rb"
-DARWIN_FORMULA_URL="https://raw.githubusercontent.com/Homebrew/homebrew-core/c626dd3c96afff9cc8f95e94dde76931181716ef/Formula/${DARWIN_FORMULA_FILE}"
-DARWIN_DATA_DIR="/usr/local/var/postgres"
+# Check https://formulae.brew.sh/api/formula/postgresql@<major>.json for
+# "disabled"/"disable_date" before picking a replacement.
+DARWIN_PKG="postgresql@15"
+# Versioned formulae are keg-only (not symlinked onto PATH), hence the
+# "brew link --force" in darwin_install() below.
+DARWIN_DATA_DIR="$(brew --prefix 2>/dev/null)/var/${DARWIN_PKG}"
 
 
 function darwin_is_installed() {
@@ -43,16 +44,8 @@ function darwin_install() {
         return 0
     fi
 
-    local formula_dir
-    formula_dir="$(find "$(brew --repository)" -name "Formula")"
-    if [[ ! -d "${formula_dir}" ]]; then
-        echo "Failed to find brew Formula directory. Required brew version: ${DARWIN_BREW_VERSION}"
-        return 1
-    fi
-
-    curl -L -o "${DARWIN_FORMULA_FILE}" "${DARWIN_FORMULA_URL}" && \
-        mv "${DARWIN_FORMULA_FILE}" "${formula_dir}/${DARWIN_FORMULA_FILE}" && \
-        brew install "${DARWIN_PKG}" && \
+    brew install "${DARWIN_PKG}" && \
+        brew link --force "${DARWIN_PKG}" && \
         brew pin "${DARWIN_PKG}" && \
         brew services start "${DARWIN_PKG}" || return 1
 
