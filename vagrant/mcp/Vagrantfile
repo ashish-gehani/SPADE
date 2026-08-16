@@ -1,0 +1,85 @@
+VAGRANTFILE_API_VERSION = "2"
+
+# MCP integration VM: builds SPADE, installs PostgreSQL, starts SPADE, starts the
+# MCP server over HTTP, then runs the MCP client test against it with the mock LLM.
+# Mirrors the ubuntu-24.04 leg of the "MCP Integration Test" GitHub Actions workflow
+# (.github/workflows/mcp-integration.yml) step for step, for reproducing/debugging
+# that workflow locally (see https://github.com/ashish-gehani/SPADE/issues/177).
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+  config.vm.box = "bento/ubuntu-24.04"
+  config.vm.box_version = "202508.03.0"
+  config.vm.hostname = "ubuntu-spade-mcp"
+  config.vm.network "private_network", type: "dhcp"
+  config.ssh.forward_x11 = true
+
+  config.vm.provider :virtualbox do |v|
+    v.customize ["modifyvm", :id, "--memory", "2048"]
+    v.customize ["modifyvm", :id, "--cpus", 4]
+  end
+
+  config.vm.provision "shell", privileged: false, inline: <<-SHELL
+    set -eo pipefail
+
+    # Install Java (matches the workflow's actions/setup-java step: JDK 21, temurin)
+    sudo apt-get update
+    sudo apt-get install -y openjdk-21-jdk
+
+    # Install dependencies (matches the workflow's "Install dependencies (Linux)" step,
+    # plus kernel headers for the local build -- the GitHub-hosted runner already has
+    # headers matching its running kernel, a fresh VM does not)
+    sudo apt-get install -y \
+      auditd autoconf automake bison clang cmake curl flex fuse \
+      git ifupdown libaudit-dev libfuse-dev linux-headers-`uname -r` \
+      lsof maven pkg-config unzip uthash-dev wget
+
+    git clone --depth 1 --branch master https://github.com/ashish-gehani/SPADE.git
+    cd SPADE
+
+    # Install PostgreSQL (matches the workflow's "Install PostgreSQL" step)
+    bin/storage/PostgreSQL/manage-service.sh install
+
+    # Configure and build (matches the workflow's "Configure" and "Build (Linux)" steps)
+    ./configure
+    make KERNEL_MODULES=true
+    ./bin/allowAuditAccess
+
+    export JVM_MEM_MIN=256m
+    export JVM_MEM_MAX=1g
+
+    # Start SPADE (matches the workflow's "Start SPADE" step)
+    bin/spade start
+
+    # Wait for SPADE control to connect successfully (matches the workflow's
+    # "Wait for SPADE control to connect successfully" step)
+    for i in $(seq 1 30); do
+      printf 'exit\n' | bin/spade control && echo "SPADE control port ready" && break
+      echo "Waiting for SPADE... ($i/30)"
+      sleep 2
+    done
+    printf 'exit\n' | bin/spade control || (echo "SPADE control port never became ready" && exit 1)
+
+    # Start MCP server (matches the workflow's "Start MCP server" step)
+    bin/spade mcp > mcp-server.log 2>&1 &
+    echo $! > mcp-server.pid
+    echo "MCP server started (PID $(cat mcp-server.pid))"
+
+    # Wait for MCP server (matches the workflow's "Wait for MCP server" step)
+    MCP_HTTP_PORT=$(grep -E '^\s*mcp\.http\.host\.port\s*=' cfg/spade.utility.mcp.server.Main.config | tail -1 | cut -d '=' -f2 | tr -d ' ')
+    for i in $(seq 1 30); do
+      nc -z localhost "${MCP_HTTP_PORT}" && echo "MCP server ready" && break
+      echo "Waiting for MCP server... ($i/30)"
+      sleep 2
+    done
+    nc -z localhost "${MCP_HTTP_PORT}" || (echo "MCP server never became ready" && cat mcp-server.log && exit 1)
+
+    # Run MCP client test (matches the workflow's "Run MCP client test" step)
+    echo 'test message' | ./bin/spade run-util -- spade.utility.mcp.client.Main \
+      llm.type=mock \
+      user.mode=cli \
+      verbose=true \
+      llm.mock.scenarios=query_neo4j_base_stats,query_postgres_base_stats
+
+  SHELL
+end

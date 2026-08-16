@@ -31,6 +31,7 @@ jobs:
       matrix:
         # ubuntu-24.04 disabled: PostgreSQL setup fails on the hosted runner.
         # See https://github.com/ashish-gehani/SPADE/issues/177
+        # Until that's resolved, use vagrant/mcp/ to verify Ubuntu locally instead.
         os: [macos-26]
     runs-on: ${{ matrix.os }}
 
