@@ -12,6 +12,6 @@ Top-level directories and their purpose:
 - `log/` -- runtime logs created when SPADE runs.
 - `m4/` -- shared autoconf macros used across the build.
 - `build-aux/` -- autotools build helper scripts (generated/vendored, not hand-edited).
-- `subpackage/` -- SPADE's autoconf/automake subpackages, grouped by platform/language. See [subpackage/README.md](subpackage/README.md) for the structure and conventions each subpackage follows.
+- `pkg/` -- SPADE's autoconf/automake packages, grouped by platform/language. See [pkg/README.md](pkg/README.md) for the structure and conventions each package follows.
 - `test/` -- legacy test resources.
 - `vagrant/` -- VM provisioning configs for development environments.

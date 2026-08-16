@@ -11,8 +11,8 @@ AM_MAINTAINER_MODE([disable])
 # Needed to determine the current host type.
 AC_CANONICAL_HOST
 
-# Standard SPADE locations. Needed by subpackages.
-# Vars needed by subpackages are prefixed with 'SPADE_' for clarity.
+# Standard SPADE locations. Needed by packages.
+# Vars needed by packages are prefixed with 'SPADE_' for clarity.
 SPADE_ROOT=`pwd`
 
 SPADE_PACKAGE_JAR_NAME="spade.jar"
@@ -40,7 +40,7 @@ SPADE_PACKAGE_BIN_DIR="${SPADE_ROOT}/bin"
 # Substituted so it's available in this package's own Makefile.
 AC_SUBST([SPADE_ROOT])
 
-# Exported to make them available to subpackages.
+# Exported to make them available to packages.
 export SPADE_ROOT
 
 export SPADE_PACKAGE_LIB_DIR
@@ -76,14 +76,14 @@ esac
 AM_CONDITIONAL([HOST_OS_MAC],   [test "x${spade_host_os}" = "xmac"])
 AM_CONDITIONAL([HOST_OS_LINUX], [test "x${spade_host_os}" = "xlinux"])
 
-# Always configure java subpackage.
-AC_CONFIG_SUBDIRS([subpackage/java])
+# Always configure java package.
+AC_CONFIG_SUBDIRS([pkg/java])
 
-# Platform specific subpackages.
+# Platform specific packages.
 if test "x${spade_host_os}" = "xmac"; then
-    AC_CONFIG_SUBDIRS([subpackage/mac])
+    AC_CONFIG_SUBDIRS([pkg/mac])
 elif test "x${spade_host_os}" = "xlinux"; then
-    AC_CONFIG_SUBDIRS([subpackage/linux])
+    AC_CONFIG_SUBDIRS([pkg/linux])
 fi
 
 AC_CONFIG_FILES([Makefile])

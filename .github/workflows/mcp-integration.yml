@@ -15,7 +15,7 @@ on:
       - cfg/mcp/**
       - cfg/spade.utility.mcp.*
       - cfg/spade.utility.mcp.client.llm.mock.scenario.Registry/**
-      - subpackage/java/src/main/java/spade/utility/mcp/**
+      - pkg/java/src/main/java/spade/utility/mcp/**
   # pull_request:
   #   branches: [ "master" ]
   #   paths:
@@ -23,7 +23,7 @@ on:
   #     - cfg/mcp/**
   #     - cfg/spade.utility.mcp.*
   #     - cfg/spade.utility.mcp.client.llm.mock.scenario.Registry/**
-  #     - subpackage/java/src/main/java/spade/utility/mcp/**
+  #     - pkg/java/src/main/java/spade/utility/mcp/**
 
 jobs:
   mcp-test:

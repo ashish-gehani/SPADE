@@ -2,11 +2,11 @@
 
 ## Overview
 
-SPADE uses an autoconf/automake build system. `configure.ac` and `Makefile.am` at the project root orchestrate all subpackage builds. Running `./configure` + `make` is the complete build.
+SPADE uses an autoconf/automake build system. `configure.ac` and `Makefile.am` at the project root orchestrate all package builds. Running `./configure` + `make` is the complete build.
 
-See [`PROJECT-STRUCTURE.md`](../PROJECT-STRUCTURE.md) for how the project is organized into a top-level package and subpackages, and [`subpackage/README.md`](../../../../subpackage/README.md) for the general guidelines every subpackage follows (structure, variable naming, build artifacts, platform grouping). This doc covers the top-level workflow only.
+See [`PROJECT-STRUCTURE.md`](../PROJECT-STRUCTURE.md) for how the project is organized into a top-level package and packages nested under `pkg/`, and [`pkg/README.md`](../../../../pkg/README.md) for the general guidelines every package follows (structure, variable naming, build artifacts, platform grouping). This doc covers the top-level workflow only.
 
-The top-level `configure.ac` computes and exports all variables needed by subpackages.
+The top-level `configure.ac` computes and exports all variables needed by packages.
 
 *(Top-level `configure.ac` specifics to be added here.)*
 
@@ -36,7 +36,7 @@ Every `configure.ac` disables maintainer mode by default (`AM_MAINTAINER_MODE([d
 
 ## Configure Variables
 
-See the full, authoritative list — including every subpackage's variables — with:
+See the full, authoritative list — including every package's variables — with:
 
 ```sh
 ./configure --help=recursive
@@ -46,15 +46,15 @@ See the full, authoritative list — including every subpackage's variables — 
 
 `configure.ac` uses `AC_CANONICAL_HOST`:
 
-- `darwin*` → configures `subpackage/mac`
-- `linux*`  → configures `subpackage/linux`
+- `darwin*` → configures `pkg/mac`
+- `linux*`  → configures `pkg/linux`
 - anything else → configure error
 
-Each platform's own `configure.ac`/`Makefile.am` groups and enables/disables its subpackages — see [`subpackage/README.md`](../../../../subpackage/README.md).
+Each platform's own `configure.ac`/`Makefile.am` groups and enables/disables its packages — see [`pkg/README.md`](../../../../pkg/README.md).
 
 ## Post-Build Steps
 
-After all subpackage builds complete, the root `all-local` target runs `setup`:
+After all package builds complete, the root `all-local` target runs `setup`:
 
 1. `bin/manage-neo4j.sh install` — installs the Neo4j distribution into `lib/`.
 2. `bin/keys/generatekeys.sh` — generates SSL keys into `cfg/keys/`.
@@ -63,9 +63,9 @@ After all subpackage builds complete, the root `all-local` target runs `setup`:
 
 `make clean` removes:
 
-- All subpackage build artifacts (via recursive `clean` into each subdir).
+- All package build artifacts (via recursive `clean` into each subdir).
 - Runtime directories: `cfg/ssl`, `log`, `tmp`.
 
-## Adding a Subpackage
+## Adding a Package
 
-See [`SUBPACKAGE.md`](SUBPACKAGE.md) and [`subpackage/README.md`](../../../../subpackage/README.md) for the guidelines to follow.
+See [`PACKAGE.md`](PACKAGE.md) and [`pkg/README.md`](../../../../pkg/README.md) for the guidelines to follow.

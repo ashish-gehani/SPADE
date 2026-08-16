@@ -90,10 +90,10 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-@HOST_OS_MAC_TRUE@am__append_1 = subpackage/mac
-@HOST_OS_MAC_TRUE@am__append_2 = subpackage/mac
-@HOST_OS_LINUX_TRUE@am__append_3 = subpackage/linux
-@HOST_OS_LINUX_TRUE@am__append_4 = subpackage/linux
+@HOST_OS_MAC_TRUE@am__append_1 = pkg/mac
+@HOST_OS_MAC_TRUE@am__append_2 = pkg/mac
+@HOST_OS_LINUX_TRUE@am__append_3 = pkg/linux
+@HOST_OS_LINUX_TRUE@am__append_4 = pkg/linux
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/configure.ac
@@ -299,14 +299,14 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 
 # DIST included to enable maintainer targets like maintainer-clean-local.
-DIST_SUBDIRS = subpackage/java $(am__append_1) $(am__append_3)
+DIST_SUBDIRS = pkg/java $(am__append_1) $(am__append_3)
 
 # For general build targets.
-SUBDIRS = subpackage/java $(am__append_2) $(am__append_4)
+SUBDIRS = pkg/java $(am__append_2) $(am__append_4)
 
-# subpackage/java needs the keys generatekeys.sh produces to run its tests during build,
-# so setup must run before subpackage recursion, not just before all-local.
-# For future additions that must also run before any subpackage is built, add them to the
+# pkg/java needs the keys generatekeys.sh produces to run its tests during build,
+# so setup must run before package recursion, not just before all-local.
+# For future additions that must also run before any package is built, add them to the
 # setup target itself -- do not add more targets to BUILT_SOURCES directly.
 BUILT_SOURCES = setup
 all: $(BUILT_SOURCES)

@@ -22,12 +22,12 @@ install
 /build
 /target
 /include/java
-subpackage/**/target/
+pkg/**/target/
 runtime.java-cp.argfile
 build.java-cp.argfile
 
-# --- Subpackage build ---
-subpackage/**/build/
+# --- Package build ---
+pkg/**/build/
 
 # --- Kernel module build ---
 Module.symvers

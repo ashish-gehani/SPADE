@@ -1,6 +1,6 @@
 # Maven How-To
 
-> Maven builds Java code only. The POM is at `subpackage/java/pom.xml`. Run commands from that directory, or pass `-f subpackage/java/pom.xml` from the project root. `make` handles this automatically for routine builds.
+> Maven builds Java code only. The POM is at `pkg/java/pom.xml`. Run commands from that directory, or pass `-f pkg/java/pom.xml` from the project root. `make` handles this automatically for routine builds.
 
 ## Build with debug symbols
 

@@ -3,24 +3,24 @@
 
 
 # DIST included to enable maintainer targets like maintainer-clean-local.
-DIST_SUBDIRS = subpackage/java
+DIST_SUBDIRS = pkg/java
 
 # For general build targets.
-SUBDIRS = subpackage/java
+SUBDIRS = pkg/java
 
 if HOST_OS_MAC
-DIST_SUBDIRS += subpackage/mac
-SUBDIRS += subpackage/mac
+DIST_SUBDIRS += pkg/mac
+SUBDIRS += pkg/mac
 endif
 
 if HOST_OS_LINUX
-DIST_SUBDIRS += subpackage/linux
-SUBDIRS += subpackage/linux
+DIST_SUBDIRS += pkg/linux
+SUBDIRS += pkg/linux
 endif
 
-# subpackage/java needs the keys generatekeys.sh produces to run its tests during build,
-# so setup must run before subpackage recursion, not just before all-local.
-# For future additions that must also run before any subpackage is built, add them to the
+# pkg/java needs the keys generatekeys.sh produces to run its tests during build,
+# so setup must run before package recursion, not just before all-local.
+# For future additions that must also run before any package is built, add them to the
 # setup target itself -- do not add more targets to BUILT_SOURCES directly.
 BUILT_SOURCES = setup
 

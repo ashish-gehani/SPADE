@@ -405,7 +405,7 @@ function print_help() {
     echo "    status      Shows SPADE status"
     echo "    control     Starts an interactive SPADE controller"
     echo "    query       Starts an interactive SPADE query client"
-    echo "    mcp         Starts the MCP server (usage: ${SCRIPT_NAME} mcp -- <args...>, see docs/mcp/HOW-TO.md)"
+    echo "    mcp         Starts the MCP server (usage: ${SCRIPT_NAME} mcp -- <args...>)"
     echo "    run-util    Runs a utility class by fully-qualified name (usage: ${SCRIPT_NAME} run-util -- <fully.qualified.ClassName> [args...])"
     echo "    help        Prints this message"
     # echo "    java-start  Starts SPADE via Daemonizer (legacy)"

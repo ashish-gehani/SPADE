@@ -15,13 +15,13 @@ Current paths:
 - `cfg/mcp/**` — MCP tool definitions (`spade_control`, `spade_query`, `spade_control_doc`, `spade_query_doc`, ...)
 - `cfg/spade.utility.mcp.*` — top-level MCP client/server config files directly under `cfg/` (matches one path segment, e.g. `cfg/spade.utility.mcp.client.Main.config`, `cfg/spade.utility.mcp.server.Main.config`, `cfg/spade.utility.mcp.server.tool.registry.Registry.config`, `cfg/spade.utility.mcp.client.llm.mock.scenario.Registry.config`)
 - `cfg/spade.utility.mcp.client.llm.mock.scenario.Registry/**` — mock scenario result-text fixtures (a `*` cannot cross a `/`, so files nested under this directory need their own pattern; see below)
-- `subpackage/java/src/main/java/spade/utility/mcp/**` — the MCP client and server Java source
+- `pkg/java/src/main/java/spade/utility/mcp/**` — the MCP client and server Java source
 
 ### Updating this list
 
 Add a new path when you introduce a file or directory under one of these areas that the existing patterns won't already cover:
 
-- A new source directory under `spade.utility.mcp` (client, server, or a new subpackage) is already covered by the `subpackage/java/src/main/java/spade/utility/mcp/**` wildcard — no change needed.
+- A new source directory under `spade.utility.mcp` (client, server, or a new package) is already covered by the `pkg/java/src/main/java/spade/utility/mcp/**` wildcard — no change needed.
 - A new top-level `cfg/spade.utility.mcp.<something>.config` file is already covered by `cfg/spade.utility.mcp.*` — no change needed, **as long as it's a single path segment** (a `*` doesn't match `/`). A new *directory* under `cfg/` with a `spade.utility.mcp.` prefix (like the mock scenario Registry's result-text directory) needs its own explicit `<dir>/**` entry, since directory contents are nested paths.
 - A new MCP tool definition under `cfg/mcp/` is already covered by `cfg/mcp/**` — no change needed.
 - Anything genuinely outside these trees (e.g. a shared utility class the MCP code happens to depend on, or a config file with an unrelated naming scheme) needs an explicit new line.
