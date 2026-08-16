@@ -42,7 +42,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
     # Configure and build (matches the workflow's "Configure" and "Build (Linux)" steps)
     ./configure
-    make KERNEL_MODULES=true
+    make
     ./bin/allowAuditAccess
 
     export JVM_MEM_MIN=256m
