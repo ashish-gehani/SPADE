@@ -12,18 +12,20 @@ on:
     # See .github/workflows/README.md for why these paths and how to update them.
     paths:
       - .github/workflows/mcp-integration*
-      - cfg/mcp/**
+      - cfg/spade.utility.mcp.server.tool.registry.Registry/**
       - cfg/spade.utility.mcp.*
       - cfg/spade.utility.mcp.client.llm.mock.scenario.Registry/**
       - pkg/java/src/main/java/spade/utility/mcp/**
+      - pkg/java/src/test/java/spade/utility/mcp/**
   # pull_request:
   #   branches: [ "master" ]
   #   paths:
   #     - .github/workflows/mcp-integration.yml
-  #     - cfg/mcp/**
+  #     - cfg/spade.utility.mcp.server.tool.registry.Registry/**
   #     - cfg/spade.utility.mcp.*
   #     - cfg/spade.utility.mcp.client.llm.mock.scenario.Registry/**
   #     - pkg/java/src/main/java/spade/utility/mcp/**
+  #     - pkg/java/src/test/java/spade/utility/mcp/**
 
 jobs:
   mcp-test:

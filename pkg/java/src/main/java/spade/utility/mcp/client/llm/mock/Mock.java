@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,18 +35,21 @@ import spade.utility.setting.InvalidSettingException;
 
 public class Mock extends LLM {
 
+    private static final Logger logger = Logger.getLogger(Mock.class.getName());
+
     private final ObjectMapper mapper = new ObjectMapper();
     private final List<Scenario> scenarios;
+    private final boolean verbose;
     private int scenarioIndex = 0;
     private int stepIndex = 0;
 
-    public Mock(final List<String> scenarioNames) throws InvalidSettingException {
-        this(scenarioNames, new Registry(new ObjectMapper()));
+    public Mock(final List<String> scenarioNames, final boolean verbose) throws InvalidSettingException {
+        this(scenarioNames, new Registry(new ObjectMapper()), verbose);
     }
 
     // package-private: lets tests inject a Registry backed by a test-only config file
     // instead of the default (production) scenario registry config.
-    Mock(final List<String> scenarioNames, final Registry registry) throws InvalidSettingException {
+    Mock(final List<String> scenarioNames, final Registry registry, final boolean verbose) throws InvalidSettingException {
         if (scenarioNames == null || scenarioNames.isEmpty()) {
             throw new InvalidSettingException("No mock scenarios specified");
         }
@@ -58,10 +62,14 @@ public class Mock extends LLM {
             resolved.add(scenario);
         }
         this.scenarios = Collections.unmodifiableList(resolved);
+        this.verbose = verbose;
     }
 
     private void log(final String msg) {
-        System.err.println("[" + Level.INFO.getName() + "] [" + Mock.class.getName() + "] " + msg);
+        if (!verbose) {
+            return;
+        }
+        logger.log(Level.INFO, msg);
     }
 
     @Override

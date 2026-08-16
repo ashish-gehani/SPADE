@@ -49,6 +49,9 @@ import spade.utility.setting.InvalidSettingException;
  */
 public class MockTest {
 
+    // Enable Mock's logging in these tests so its step-by-step output shows up on failure.
+    private static final boolean VERBOSE = false;
+
     private final ObjectMapper mapper = new ObjectMapper();
 
     private static String configPath() {
@@ -61,24 +64,24 @@ public class MockTest {
 
     @Test
     public void rejectsNullScenarioList() throws Exception {
-        assertThrows(InvalidSettingException.class, () -> new Mock(null, registry()));
+        assertThrows(InvalidSettingException.class, () -> new Mock(null, registry(), VERBOSE));
     }
 
     @Test
     public void rejectsEmptyScenarioList() throws Exception {
-        assertThrows(InvalidSettingException.class, () -> new Mock(List.of(), registry()));
+        assertThrows(InvalidSettingException.class, () -> new Mock(List.of(), registry(), VERBOSE));
     }
 
     @Test
     public void rejectsUnknownScenarioName() throws Exception {
-        assertThrows(InvalidSettingException.class, () -> new Mock(List.of("does_not_exist"), registry()));
+        assertThrows(InvalidSettingException.class, () -> new Mock(List.of("does_not_exist"), registry(), VERBOSE));
     }
 
     @Test
     public void chainsThroughAllListedScenariosBeforeEndingTurn() throws Exception {
         // list_then_query has 2 steps, second_scenario has 1 (base.config).
         final Registry registry = registry();
-        final Mock mock = new Mock(List.of("list_then_query", "second_scenario"), registry);
+        final Mock mock = new Mock(List.of("list_then_query", "second_scenario"), registry, VERBOSE);
 
         // The expected result text for each step, in chained order, so the
         // fake tool_result content this test sends back satisfies
@@ -124,7 +127,7 @@ public class MockTest {
 
     @Test
     public void mismatchedToolResultThrows() throws Exception {
-        final Mock mock = new Mock(List.of("list_then_query"), registry());
+        final Mock mock = new Mock(List.of("list_then_query"), registry(), VERBOSE);
 
         final ArrayNode messages = mapper.createArrayNode();
         messages.add(userMessage("start"));

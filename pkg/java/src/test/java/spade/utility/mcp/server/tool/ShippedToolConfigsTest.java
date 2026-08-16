@@ -26,16 +26,23 @@ import spade.utility.mcp.server.tool.definition.Definition;
 import spade.utility.mcp.server.tool.type.Type;
 
 /**
- * Validates the tool config files shipped under {@code cfg/mcp/tool/}, the same way
+ * Validates the tool config files shipped under {@link #TOOL_DIR}, the same way
  * {@link spade.utility.mcp.server.MainTest} validates the shipped {@code Main.config}. Relies on
  * the JVM's working directory being the repo root, same as {@code spade.core.Settings} itself
  * requires to resolve {@code cfg/*} paths.
  */
 public class ShippedToolConfigsTest {
 
+    private static final String TOOL_DIR = "cfg/spade.utility.mcp.server.tool.registry.Registry/tool/";
+
+    private static String toolConfigPath(final String toolName) {
+        return TOOL_DIR + toolName + "/config";
+    }
+
     @Test
     public void spadeControlConfigIsValid() {
-        final String path = "cfg/mcp/tool/spade_control/config";
+        System.out.println("Current working directory: " + System.getProperty("user.dir"));
+        final String path = toolConfigPath("spade_control");
         final Definition definition = assertDoesNotThrow(() -> spade.utility.mcp.server.tool.definition.Parser.parse(path));
         assertEquals(Type.SPADE_CLI, definition.getType());
         assertDoesNotThrow(() -> spade.utility.mcp.server.tool.type.spade.cli.Parser.parse(path));
@@ -43,7 +50,7 @@ public class ShippedToolConfigsTest {
 
     @Test
     public void spadeQueryConfigIsValid() {
-        final String path = "cfg/mcp/tool/spade_query/config";
+        final String path = toolConfigPath("spade_query");
         final Definition definition = assertDoesNotThrow(() -> spade.utility.mcp.server.tool.definition.Parser.parse(path));
         assertEquals(Type.SPADE_CLI, definition.getType());
         assertDoesNotThrow(() -> spade.utility.mcp.server.tool.type.spade.cli.Parser.parse(path));
@@ -51,7 +58,7 @@ public class ShippedToolConfigsTest {
 
     @Test
     public void spadeControlDocConfigIsValid() {
-        final String path = "cfg/mcp/tool/spade_control_doc/config";
+        final String path = toolConfigPath("spade_control_doc");
         final Definition definition = assertDoesNotThrow(() -> spade.utility.mcp.server.tool.definition.Parser.parse(path));
         assertEquals(Type.WEB_DOC, definition.getType());
         assertDoesNotThrow(() -> spade.utility.mcp.server.tool.type.web.doc.Parser.parse(path));
@@ -59,7 +66,7 @@ public class ShippedToolConfigsTest {
 
     @Test
     public void spadeQueryDocConfigIsValid() {
-        final String path = "cfg/mcp/tool/spade_query_doc/config";
+        final String path = toolConfigPath("spade_query_doc");
         final Definition definition = assertDoesNotThrow(() -> spade.utility.mcp.server.tool.definition.Parser.parse(path));
         assertEquals(Type.WEB_DOC, definition.getType());
         assertDoesNotThrow(() -> spade.utility.mcp.server.tool.type.web.doc.Parser.parse(path));
