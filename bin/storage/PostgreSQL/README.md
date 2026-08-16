@@ -52,7 +52,7 @@ Options:
    esac
    ```
 
-2. **Create `<new_os_id>/commands.sh`**, following the header convention used by the existing OS files (see [BASH.md](../../../docs/developer/guide/BASH.md)):
+2. **Create `<new_os_id>/commands.sh`**, following the header convention used by the existing OS files (see [BASH.md](../../../doc/developer/guide/BASH.md)):
 
    ```bash
    #!/bin/bash

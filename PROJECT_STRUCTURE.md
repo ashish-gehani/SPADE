@@ -6,7 +6,7 @@ Top-level directories and their purpose:
 - `bin/` -- scripts to build and run SPADE.
 - `cfg/` -- runtime configuration.
 - `db/` -- default location for database storage created at runtime.
-- `docs/` -- project documentation.
+- `doc/` -- project documentation.
 - `include/` -- headers consumed by native/JNI builds; mix of generated and shipped headers.
 - `lib/` -- built libraries and bundled dependencies.
 - `log/` -- runtime logs created when SPADE runs.
