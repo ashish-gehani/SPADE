@@ -15,7 +15,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.ssh.forward_x11 = true
 
   config.vm.provider :virtualbox do |v|
-    v.customize ["modifyvm", :id, "--memory", "2048"]
+    v.customize ["modifyvm", :id, "--memory", "4096"]
     v.customize ["modifyvm", :id, "--cpus", 4]
   end
 
@@ -43,13 +43,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     # Configure and build (matches the workflow's "Configure" and "Build (Linux)" steps)
     ./configure
     make
-    ./bin/allowAuditAccess
-
-    export JVM_MEM_MIN=256m
-    export JVM_MEM_MAX=1g
 
     # Start SPADE (matches the workflow's "Start SPADE" step)
-    bin/spade start
+    bin/spade start --mem-min 1g --mem-max 1g
 
     # Wait for SPADE control to connect successfully (matches the workflow's
     # "Wait for SPADE control to connect successfully" step)
