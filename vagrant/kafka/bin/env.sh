@@ -21,7 +21,7 @@ ENV_SPADE_KAFKA_EXPECTED_OUTPUT_FILE="${ENV_VAGRANT_ROOT_DIR}/data/kafka-expecte
 # spade server constants
 ENV_SPADE_HOME="${HOME}/SPADE"
 ENV_SPADE_BIN="${ENV_SPADE_HOME}/bin/spade"
-ENV_SPADE_REPO_BRANCH="master"
+ENV_SPADE_REPO_BRANCH="pidsmaker-dev"
 ENV_SPADE_KAFKA_TOPIC="$(grep '^kafka.output.topic=' "${ENV_SPADE_KAFKA_STORAGE_CONFIG_FILE}" | cut -d= -f2-)"
 ENV_SPADE_DSL_PIPE="/tmp/spade_pipe"
 ENV_SPADE_KAFKA_OUTPUT_FILE="$(grep '^kafka.output.file=' "${ENV_SPADE_KAFKA_STORAGE_CONFIG_FILE}" | cut -d= -f2-)"
