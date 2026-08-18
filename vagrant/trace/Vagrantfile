@@ -1,0 +1,26 @@
+VAGRANTFILE_API_VERSION = "2"
+
+# Demo VM: builds SPADE, stands up a local plaintext Kafka broker, then runs
+# whichever scenario is selected in env/scenario.sh -- see README.md.
+#
+# This VM is self-contained: it does not source or otherwise depend on
+# vagrant/kafka, which it supersedes.
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+
+  config.vm.box = "bento/ubuntu-24.04"
+  config.vm.box_version = "202508.03.0"
+  config.vm.hostname = "trace-spade"
+  config.vm.network "private_network", type: "dhcp"
+  config.ssh.forward_x11 = true
+
+  config.vm.provider :virtualbox do |v|
+    v.customize ["modifyvm", :id, "--memory", "4096"]
+    v.customize ["modifyvm", :id, "--cpus", 2]
+  end
+
+  config.vm.provision "shell", privileged: false, inline: <<-SHELL
+    cd /vagrant
+    bin/provision.sh
+  SHELL
+end
