@@ -50,7 +50,10 @@ public class Longs {
 
   public static Long opt(Setting setting, String key, Long min, Long max, Long defaultValue) throws SettingConvertException {
     KeyValue keyValue = setting.getKeyValue(key);
-    return keyValue == null ? defaultValue : to(keyValue, min, max);
+    if (keyValue == null) {
+      return defaultValue;
+    }
+    return to(keyValue, min, max);
   }
 
   private static long to(KeyValue keyValue, Long min, Long max) throws SettingConvertException {

@@ -50,7 +50,10 @@ public class Doubles {
 
   public static Double opt(Setting setting, String key, Double min, Double max, Double defaultValue) throws SettingConvertException {
     KeyValue keyValue = setting.getKeyValue(key);
-    return keyValue == null ? defaultValue : to(keyValue, min, max);
+    if (keyValue == null) {
+      return defaultValue;
+    }
+    return to(keyValue, min, max);
   }
 
   private static double to(KeyValue keyValue, Double min, Double max) throws SettingConvertException {

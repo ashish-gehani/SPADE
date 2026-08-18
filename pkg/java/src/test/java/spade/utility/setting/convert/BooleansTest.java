@@ -20,15 +20,43 @@
 package spade.utility.setting.convert;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
+import spade.utility.setting.Helper;
+import spade.utility.setting.Setting;
+
 public class BooleansTest {
   @Test
   public void parsesTrue() {
     assertTrue(Booleans.parseBoolean("true"));
+  }
+
+  @Test
+  public void optBooleanReturnsNullRatherThanThrowingWhenKeyMissingAndNoDefaultGiven() throws Exception {
+    // Regression test: see
+    // IntsTest.optReturnsNullRatherThanThrowingWhenKeyMissingAndNoDefaultGiven -- same
+    // primitive/boxed ternary bug applied to boolean/Boolean here.
+    Setting setting = Helper.create("");
+
+    assertNull(Booleans.optBoolean(setting, "missing"));
+  }
+
+  @Test
+  public void optBooleanReturnsExplicitDefaultWhenKeyMissing() throws Exception {
+    Setting setting = Helper.create("");
+
+    assertTrue(Booleans.optBoolean(setting, "missing", true));
+  }
+
+  @Test
+  public void optBooleanReturnsParsedValueWhenKeyPresent() throws Exception {
+    Setting setting = Helper.create("present=true");
+
+    assertTrue(Booleans.optBoolean(setting, "present"));
   }
 
   @Test

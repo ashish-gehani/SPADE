@@ -37,7 +37,10 @@ public class Booleans {
 
   public static Boolean optBoolean(Setting setting, String key, Boolean defaultValue) throws SettingConvertException {
     KeyValue keyValue = setting.getKeyValue(key);
-    return keyValue == null ? defaultValue : toBoolean(keyValue);
+    if (keyValue == null) {
+      return defaultValue;
+    }
+    return toBoolean(keyValue);
   }
 
   private static boolean toBoolean(KeyValue keyValue) throws SettingConvertException {

@@ -20,14 +20,42 @@
 package spade.utility.setting.convert.numbers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
+
+import spade.utility.setting.Helper;
+import spade.utility.setting.Setting;
 
 public class LongsTest {
   @Test
   public void parsesValidLong() {
     assertEquals(42L, Longs.parse("42", null, null));
+  }
+
+  @Test
+  public void optReturnsNullRatherThanThrowingWhenKeyMissingAndNoDefaultGiven() throws Exception {
+    // Regression test: see IntsTest.optReturnsNullRatherThanThrowingWhenKeyMissingAndNoDefaultGiven
+    // -- same primitive/boxed ternary bug applied to long/Long here.
+    Setting setting = Helper.create("");
+
+    assertNull(Longs.opt(setting, "missing"));
+    assertNull(Longs.opt(setting, "missing", 1L, 10L));
+  }
+
+  @Test
+  public void optReturnsExplicitDefaultWhenKeyMissing() throws Exception {
+    Setting setting = Helper.create("");
+
+    assertEquals(7L, Longs.opt(setting, "missing", null, null, 7L));
+  }
+
+  @Test
+  public void optReturnsParsedValueWhenKeyPresent() throws Exception {
+    Setting setting = Helper.create("present=42");
+
+    assertEquals(42L, Longs.opt(setting, "present"));
   }
 
   @Test

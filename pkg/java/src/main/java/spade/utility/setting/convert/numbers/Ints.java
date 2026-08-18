@@ -50,7 +50,10 @@ public class Ints {
 
   public static Integer opt(Setting setting, String key, Integer min, Integer max, Integer defaultValue) throws SettingConvertException {
     KeyValue keyValue = setting.getKeyValue(key);
-    return keyValue == null ? defaultValue : to(keyValue, min, max);
+    if (keyValue == null) {
+      return defaultValue;
+    }
+    return to(keyValue, min, max);
   }
 
   private static int to(KeyValue keyValue, Integer min, Integer max) throws SettingConvertException {

@@ -20,14 +20,42 @@
 package spade.utility.setting.convert.numbers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
+
+import spade.utility.setting.Helper;
+import spade.utility.setting.Setting;
 
 public class DoublesTest {
   @Test
   public void parsesValidDouble() {
     assertEquals(4.2, Doubles.parse("4.2", null, null));
+  }
+
+  @Test
+  public void optReturnsNullRatherThanThrowingWhenKeyMissingAndNoDefaultGiven() throws Exception {
+    // Regression test: see IntsTest.optReturnsNullRatherThanThrowingWhenKeyMissingAndNoDefaultGiven
+    // -- same primitive/boxed ternary bug applied to double/Double here.
+    Setting setting = Helper.create("");
+
+    assertNull(Doubles.opt(setting, "missing"));
+    assertNull(Doubles.opt(setting, "missing", 1.0, 10.0));
+  }
+
+  @Test
+  public void optReturnsExplicitDefaultWhenKeyMissing() throws Exception {
+    Setting setting = Helper.create("");
+
+    assertEquals(7.0, Doubles.opt(setting, "missing", null, null, 7.0));
+  }
+
+  @Test
+  public void optReturnsParsedValueWhenKeyPresent() throws Exception {
+    Setting setting = Helper.create("present=4.2");
+
+    assertEquals(4.2, Doubles.opt(setting, "present"));
   }
 
   @Test

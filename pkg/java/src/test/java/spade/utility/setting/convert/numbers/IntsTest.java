@@ -20,14 +20,44 @@
 package spade.utility.setting.convert.numbers;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
+
+import spade.utility.setting.Helper;
+import spade.utility.setting.Setting;
 
 public class IntsTest {
   @Test
   public void parsesValidInt() {
     assertEquals(42, Ints.parse("42", null, null));
+  }
+
+  @Test
+  public void optReturnsNullRatherThanThrowingWhenKeyMissingAndNoDefaultGiven() throws Exception {
+    // Regression test: opt(setting, key) used to unbox its null Integer defaultValue as part of
+    // a `cond ? defaultValue : primitiveInt` ternary (the ternary's static type is forced to
+    // primitive int because one branch is primitive), throwing NullPointerException instead of
+    // returning null for a genuinely optional, unset key.
+    Setting setting = Helper.create("");
+
+    assertNull(Ints.opt(setting, "missing"));
+    assertNull(Ints.opt(setting, "missing", 1, 10));
+  }
+
+  @Test
+  public void optReturnsExplicitDefaultWhenKeyMissing() throws Exception {
+    Setting setting = Helper.create("");
+
+    assertEquals(7, Ints.opt(setting, "missing", null, null, 7));
+  }
+
+  @Test
+  public void optReturnsParsedValueWhenKeyPresent() throws Exception {
+    Setting setting = Helper.create("present=42");
+
+    assertEquals(42, Ints.opt(setting, "present"));
   }
 
   @Test
