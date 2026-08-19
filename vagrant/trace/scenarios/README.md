@@ -6,7 +6,7 @@ contract every scenario implements.
 
 | Scenario | Reporter | Storage | Data source |
 |---|---|---|---|
-| `cdm-to-cdm` | `spade.reporter.CDM` | `spade.storage.CDM` | downloaded TC trace |
+| `cdm-to-json` | `spade.reporter.CDM` | `spade.storage.JSON` | downloaded TC trace |
 | `cdm-to-kafka` | `spade.reporter.CDM` | `spade.storage.Kafka` | downloaded TC trace |
 | `audit-to-cdm` | `spade.reporter.Audit` (FILE mode) | `spade.storage.CDM` | user-supplied audit log |
 | `audit-to-kafka` | `spade.reporter.Audit` (FILE mode) | `spade.storage.Kafka` | user-supplied audit log |
@@ -14,8 +14,8 @@ contract every scenario implements.
 Each scenario's `cfg/` directory holds its own, complete, non-shared
 copies of whatever SPADE config files it needs -- never symlinked or
 templated across scenarios, even where two scenarios' files start out
-identical (`cdm-to-cdm` and `audit-to-cdm` both need a
-`spade.storage.CDM.config`, but as two separate files). This trades a
+identical (`cdm-to-kafka` and `audit-to-kafka` both need a
+`spade.storage.Kafka.config`, but as two separate files). This trades a
 small amount of duplication for the property that hand-editing one
 scenario's config can never accidentally change another's behavior. Every
 scenario also has its own topic name, producer id, and file-writer output

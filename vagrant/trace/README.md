@@ -11,10 +11,15 @@ It supersedes `vagrant/kafka` and does not depend on it in any way.
 
 | Scenario name | Reporter | Storage | Data source |
 |---|---|---|---|
-| `cdm-to-cdm` (default) | `spade.reporter.CDM` | `spade.storage.CDM` | downloaded TC trace, works out of the box |
-| `cdm-to-kafka` | `spade.reporter.CDM` | `spade.storage.Kafka` | downloaded TC trace, works out of the box |
+| `cdm-to-json` | `spade.reporter.CDM` | `spade.storage.JSON` | downloaded TC trace, works out of the box |
+| `cdm-to-kafka` (default) | `spade.reporter.CDM` | `spade.storage.Kafka` | downloaded TC trace, works out of the box |
 | `audit-to-cdm` | `spade.reporter.Audit` (FILE mode) | `spade.storage.CDM` | user-supplied audit log |
 | `audit-to-kafka` | `spade.reporter.Audit` (FILE mode) | `spade.storage.Kafka` | user-supplied audit log |
+
+`cdm-to-json` writes straight to a local JSON file via `spade.storage.JSON`
+-- no Kafka broker involved. Round-tripping CDM output back into CDM
+storage over the broker (a "cdm-to-cdm" scenario) isn't viable, which is
+why this one uses the generic JSON storage instead.
 
 Pick a scenario by editing `ENV_SCENARIO_SELECTED` in `env/scenario.sh`
 (one line) before running `vagrant up`, or before re-running
@@ -53,8 +58,10 @@ scenarios never requires manual cleanup.
 
 ## Storage writer mode
 
-Each scenario's own `cfg/spade.storage.<Class>.config` controls whether
-its storage writes to the Kafka broker, to a local file, or both:
+This applies to `cdm-to-kafka`, `audit-to-cdm`, and `audit-to-kafka` --
+`cdm-to-json` is the exception, see below. Each of those scenarios' own
+`cfg/spade.storage.<Class>.config` controls whether its storage writes to
+the Kafka broker, to a local file, or both:
 
 - `kafka.output.server`/`kafka.output.topic`/`kafka.output.producer.id` set
   (the default) -- publishes to the local broker.
@@ -63,10 +70,15 @@ its storage writes to the Kafka broker, to a local file, or both:
   schema embedded), not human-readable JSON.
 - Both can be active at once.
 
+`cdm-to-json` uses `spade.storage.JSON` instead, which always writes
+straight to the local file named by `output` in its own
+`cfg/spade.storage.JSON.config` -- no broker, no writer-mode choice.
+
 ## Converting file-writer output to JSON
 
-If a scenario's file writer was active, `bin/provision.sh` prints the
-output file's path. Convert it to JSON afterwards with:
+If one of the `kafka.output.file`-based scenarios above had its file
+writer active, `bin/provision.sh` prints the output file's path. Convert
+it to JSON afterwards with:
 
 ```
 bin/convert-storage-output-to-json.sh <output>.bin
@@ -74,7 +86,8 @@ bin/convert-storage-output-to-json.sh <output>.bin
 
 This is a standalone script, not run automatically during provisioning. It
 uses the `avro-tools` jar SPADE's own build already pulls in as a Maven
-dependency, and writes `<output>.json` alongside the input file.
+dependency, and writes `<output>.json` alongside the input file. It
+doesn't apply to `cdm-to-json`, which already writes JSON directly.
 
 ## Directory layout
 
