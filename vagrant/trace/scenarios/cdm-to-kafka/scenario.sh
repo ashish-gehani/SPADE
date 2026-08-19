@@ -42,12 +42,14 @@ function scenario_execute() {
 function scenario_post_execution_work() {
     local installed_storage_config="${ENV_SPADE_HOME}/cfg/spade.storage.Kafka.config"
     local topic
+    local consumed_file="/tmp/trace/cdm-to-kafka/consumed-topic.txt"
     local output_file
 
     if grep -qP '^kafka\.output\.(server|topic|producer\.id)=' "${installed_storage_config}"; then
         topic="$(grep -oP '^kafka\.output\.topic=\K.*' "${installed_storage_config}")"
         helper_print_banner "Consuming from topic: ${topic}"
-        kafka_broker_consume "${topic}"
+        kafka_broker_consume "${topic}" "${consumed_file}"
+        echo "Written to: ${consumed_file}"
     fi
 
     output_file="$(grep -oP '^kafka\.output\.file=\K.*' "${installed_storage_config}")"

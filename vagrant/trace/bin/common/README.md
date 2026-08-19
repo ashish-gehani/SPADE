@@ -69,11 +69,12 @@ remove/stop cleanup still needs to run either way.
 
 A bare-minimum, single-node, plaintext Kafka broker in KRaft mode (no
 authentication or encryption): `kafka_broker_setup`/`start`/`consume`/
-`shutdown`/`uninstall`. Generic -- the topic to read is passed as an
-argument to `kafka_broker_consume`, nothing here assumes which storage or
-scenario is active. The KRaft log directory is wiped and reformatted on
-every `kafka_broker_configure` (part of `setup`), so no prior run's topic
-data can resurface.
+`shutdown`/`uninstall`. Generic -- the topic to read and the file to write
+consumed messages to are both passed as arguments to `kafka_broker_consume`
+(which creates the output file's parent directory itself), nothing here
+assumes which storage or scenario is active. The KRaft log directory is
+wiped and reformatted on every `kafka_broker_configure` (part of `setup`),
+so no prior run's topic data can resurface.
 
 ## `datasets.sh`
 

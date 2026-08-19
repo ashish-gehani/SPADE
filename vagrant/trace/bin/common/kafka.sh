@@ -105,14 +105,19 @@ function kafka_broker_start() {
 }
 
 # $1: topic to read from
+# $2: file to write consumed messages to
 function kafka_broker_consume() {
     local topic="$1"
+    local output_file="$2"
+
+    mkdir -p "$(dirname "${output_file}")"
 
     "${KAFKA_SERVER_HOME}/bin/kafka-console-consumer.sh" \
         --bootstrap-server "localhost:${KAFKA_SERVER_PORT}" \
         --topic "${topic}" \
         --from-beginning \
-        --timeout-ms "${KAFKA_SERVER_CONSUME_TIMEOUT_MS}"
+        --timeout-ms "${KAFKA_SERVER_CONSUME_TIMEOUT_MS}" \
+        > "${output_file}"
     # kafka-console-consumer exits non-zero on --timeout-ms expiry; that's the
     # expected way this command ends, not a failure.
     return 0

@@ -60,8 +60,9 @@ and never branches on scenario name directly.
   the one hook.
 - `scenario_post_execution_work` -- reports this scenario's output after
   it's stopped: greps its own installed storage config for which
-  writer(s) were active, consumes the topic if the server writer was, and
-  prints the output file path if the file writer was.
+  writer(s) were active, consumes the topic to its own hardcoded file
+  (printing that path) if the server writer was, and prints the output
+  file path if the file writer was.
 
 `scenario.sh` in this directory implements every function above with a
 documented, no-op body -- it is not sourced by `bin/provision.sh`, it

@@ -45,9 +45,9 @@ On `vagrant up`, the VM (Ubuntu 24.04) runs `bin/provision.sh`, which:
 4. Installs that scenario's own config files into SPADE's `cfg/`.
 5. Starts SPADE, adds the scenario's reporter and storage, waits for the
    reporter to finish, then removes them and stops SPADE.
-6. Reports the scenario's output -- consumes its Kafka topic if the server
-   writer was active, and/or prints the output file path if the file
-   writer was active.
+6. Reports the scenario's output -- if the server writer was active,
+   consumes its Kafka topic to a file and prints that file's path; and/or
+   prints the output file path if the file writer was active.
 7. Shuts down the Kafka broker.
 
 Every scenario is fully isolated: its own topic, producer id, and file
@@ -106,4 +106,5 @@ vagrant up
 ```
 
 Provisioning output will show each stage running, ending with the
-scenario's output (consumed topic contents and/or output file path).
+scenario's output (consumed-topic file path and/or file-writer output
+path).
