@@ -5,8 +5,6 @@ storage and Audit reporter end to end (and, for comparison, the generic
 Kafka storage). It builds SPADE from source, stands up a local Kafka
 broker, then replays real provenance data through one of four scenarios.
 
-It supersedes `vagrant/kafka` and does not depend on it in any way.
-
 ## Scenarios
 
 | Scenario name | Reporter | Storage | Data source |
@@ -17,9 +15,7 @@ It supersedes `vagrant/kafka` and does not depend on it in any way.
 | `audit-to-kafka` | `spade.reporter.Audit` (FILE mode) | `spade.storage.Kafka` | user-supplied audit log |
 
 `cdm-to-json` writes straight to a local JSON file via `spade.storage.JSON`
--- no Kafka broker involved. Round-tripping CDM output back into CDM
-storage over the broker (a "cdm-to-cdm" scenario) isn't viable, which is
-why this one uses the generic JSON storage instead.
+-- no Kafka broker involved.
 
 Pick a scenario by editing `ENV_SCENARIO_SELECTED` in `env/scenario.sh`
 (one line) before running `vagrant up`, or before re-running
@@ -107,4 +103,4 @@ vagrant up
 
 Provisioning output will show each stage running, ending with the
 scenario's output (consumed-topic file path and/or file-writer output
-path).
+path). The default scenario is `cdm-to-kafka`.
