@@ -42,8 +42,14 @@ static int child_func(void *arg) {
 void test_fork() {
     printf("\n=== Testing fork() via syscall() ===\n");
 
-    // Explicitly call fork syscall using syscall()
-    pid_t pid = syscall(SYS_fork);
+    // SYS_fork is not available on aarch64 (arm64 only implements clone()),
+    // so use SYS_clone with fork-equivalent args to replicate fork() behavior.
+    int flags = SIGCHLD;
+    void *child_stack = NULL;
+    pid_t *parent_tid = NULL;
+    pid_t *child_tid = NULL;
+    void *tls = NULL;
+    pid_t pid = syscall(SYS_clone, flags, child_stack, parent_tid, child_tid, tls);
 
     if (pid < 0) {
         perror("fork syscall failed");
@@ -56,7 +62,7 @@ void test_fork() {
         exit(0);
     } else {
         // Parent process
-        printf("[FORK PARENT] Created child with PID: %d (via SYS_fork syscall)\n", pid);
+        printf("[FORK PARENT] Created child with PID: %d (via SYS_clone syscall)\n", pid);
         waitpid(pid, NULL, 0);
         printf("[FORK PARENT] Child exited\n");
     }
