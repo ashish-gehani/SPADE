@@ -42,7 +42,7 @@
         0       -> Success.
         -1      -> Error code.
 */
-int kernel_helper_namespace_populate_msg(
+int kernel_arch_common_helper_namespace_populate_msg(
     struct msg_namespace *msg,
     enum kernel_function_number func_num, long target_pid, bool func_success,
     enum msg_namespace_operation op
@@ -59,7 +59,7 @@ int kernel_helper_namespace_populate_msg(
         -ive    -> Error code.
 
 */
-int kernel_helper_namespace_log_msg_to_audit(
+int kernel_arch_common_helper_namespace_log_msg_to_audit(
     struct msg_namespace *msg
 );
 

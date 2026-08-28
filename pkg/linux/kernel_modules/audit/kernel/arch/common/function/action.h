@@ -95,7 +95,7 @@ struct kernel_function_action_list
         -EINVAL -> Invalid context.
         -ive    -> Error code from failed action.
 */
-int kernel_function_action_pre_iterate_all(const struct kernel_function_hook_context_pre *ctx_pre);
+int kernel_arch_common_function_action_pre_iterate_all(const struct kernel_function_hook_context_pre *ctx_pre);
 
 /*
     Iterate and execute all registered post-execution actions for a hooked function.
@@ -113,7 +113,7 @@ int kernel_function_action_pre_iterate_all(const struct kernel_function_hook_con
         -EINVAL -> Invalid context.
         -ive    -> Error code from failed action.
 */
-int kernel_function_action_post_iterate_all(const struct kernel_function_hook_context_post *ctx_post);
+int kernel_arch_common_function_action_post_iterate_all(const struct kernel_function_hook_context_post *ctx_post);
 
 /*
     Pre-execution action to check if execution should be performed based on global filter.
@@ -126,7 +126,7 @@ int kernel_function_action_post_iterate_all(const struct kernel_function_hook_co
         -EINVAL -> Invalid context.
         -EPERM  -> Action should be skipped (not actionable).
 */
-int kernel_function_action_pre_is_actionable(
+int kernel_arch_common_function_action_pre_is_actionable(
     const struct kernel_function_hook_context_pre *ctx_pre
 );
 
@@ -141,7 +141,7 @@ int kernel_function_action_pre_is_actionable(
         -EINVAL -> Invalid context.
         -EPERM  -> Action should be skipped (not actionable).
 */
-int kernel_function_action_post_is_actionable(
+int kernel_arch_common_function_action_post_is_actionable(
     const struct kernel_function_hook_context_post *ctx_post
 );
 
@@ -155,7 +155,7 @@ int kernel_function_action_post_is_actionable(
         true    -> Function execution should be disallowed.
         false   -> Function execution should proceed normally.
 */
-bool kernel_function_action_result_is_disallow_function(
+bool kernel_arch_common_function_action_result_is_disallow_function(
     enum kernel_function_action_result_type type
 );
 
@@ -169,7 +169,7 @@ bool kernel_function_action_result_is_disallow_function(
         true    -> Pre-execution actions should be skipped.
         false   -> Pre-execution actions should be performed.
 */
-bool kernel_function_action_result_is_skip_pre_actions(
+bool kernel_arch_common_function_action_result_is_skip_pre_actions(
     enum kernel_function_action_result_type type
 );
 
@@ -183,7 +183,7 @@ bool kernel_function_action_result_is_skip_pre_actions(
         true    -> Post-execution actions should be skipped.
         false   -> Post-execution actions should be performed.
 */
-bool kernel_function_action_result_is_skip_post_actions(
+bool kernel_arch_common_function_action_result_is_skip_post_actions(
     enum kernel_function_action_result_type type
 );
 
@@ -193,7 +193,7 @@ bool kernel_function_action_result_is_skip_post_actions(
     Params:
         act_res : Pointer to the action result to modify.
 */
-void kernel_function_action_result_set_skip_pre_actions(
+void kernel_arch_common_function_action_result_set_skip_pre_actions(
     struct kernel_function_action_result *act_res
 );
 
@@ -203,7 +203,7 @@ void kernel_function_action_result_set_skip_pre_actions(
     Params:
         act_res : Pointer to the action result to modify.
 */
-void kernel_function_action_result_set_disallow_function(
+void kernel_arch_common_function_action_result_set_disallow_function(
     struct kernel_function_action_result *act_res
 );
 
@@ -213,7 +213,7 @@ void kernel_function_action_result_set_disallow_function(
     Params:
         act_res : Pointer to the action result to modify.
 */
-void kernel_function_action_result_set_skip_post_actions(
+void kernel_arch_common_function_action_result_set_skip_post_actions(
     struct kernel_function_action_result *act_res
 );
 
@@ -223,7 +223,7 @@ void kernel_function_action_result_set_skip_post_actions(
     Params:
         act_res : Pointer to the action result to modify.
 */
-void kernel_function_action_result_set_skip_all_actions(
+void kernel_arch_common_function_action_result_set_skip_all_actions(
     struct kernel_function_action_result *act_res
 );
 

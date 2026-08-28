@@ -38,11 +38,11 @@
 static const enum msg_common_type GLOBAL_MSG_TYPE = MSG_NETWORK;
 
 
-int kernel_function_sys_bind_action_audit_handle_post(
+int kernel_arch_common_function_sys_bind_action_audit_handle_post(
     const struct kernel_function_hook_context_post *ctx_post
 )
 {
-    const char *log_id = "kernel_function_sys_bind_action_audit_handle_post";
+    const char *log_id = "kernel_arch_common_function_sys_bind_action_audit_handle_post";
     int err;
 
     struct msg_network msg;
@@ -52,7 +52,7 @@ int kernel_function_sys_bind_action_audit_handle_post(
     struct kernel_function_sys_bind_arg *sys_arg;
     struct kernel_function_sys_bind_result *sys_res;
 
-    if (!kernel_function_sys_bind_hook_context_post_is_valid(ctx_post))
+    if (!kernel_arch_common_function_sys_bind_hook_context_post_is_valid(ctx_post))
         return -EINVAL;
 
     err = msg_ops_kinit(GLOBAL_MSG_TYPE, &msg.header);
@@ -65,31 +65,31 @@ int kernel_function_sys_bind_action_audit_handle_post(
     sys_arg = (struct kernel_function_sys_bind_arg*)ctx_post->header->func_arg->arg;
     sys_res = (struct kernel_function_sys_bind_result*)ctx_post->func_res->res;
 
-    err = kernel_helper_network_copy_only_saddr_from_userspace(
+    err = kernel_arch_common_helper_network_copy_only_saddr_from_userspace(
         &remote_saddr, &remote_saddr_size,
         sys_arg->addr, sys_arg->addrlen
     );
     if (err != 0)
     {
-        util_log_debug(log_id, "Failed kernel_helper_network_copy_only_saddr_from_userspace. Err: %d", err);
+        util_log_debug(log_id, "Failed kernel_arch_common_helper_network_copy_only_saddr_from_userspace. Err: %d", err);
         return err;
     }
 
-    err = kernel_helper_network_populate_msg(
+    err = kernel_arch_common_helper_network_populate_msg(
         &msg,
         ctx_post->header->func_num, sys_res->ret, ctx_post->func_res->success,
         sys_arg->sockfd, &remote_saddr, remote_saddr_size
     );
     if (err != 0)
     {
-        util_log_debug(log_id, "Failed kernel_helper_network_populate_msg. Err: %d", err);
+        util_log_debug(log_id, "Failed kernel_arch_common_helper_network_populate_msg. Err: %d", err);
         return err;
     }
 
-    err = kernel_helper_audit_log(NULL, &msg.header);
+    err = kernel_arch_common_helper_audit_log(NULL, &msg.header);
     if (err != 0)
     {
-        util_log_debug(log_id, "Failed kernel_helper_audit_log. Err: %d", err);
+        util_log_debug(log_id, "Failed kernel_arch_common_helper_audit_log. Err: %d", err);
     }
 
     return err;

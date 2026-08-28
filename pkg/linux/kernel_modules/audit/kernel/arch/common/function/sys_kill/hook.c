@@ -64,33 +64,33 @@ static bool _get_sys_success(long sys_res, pid_t pid)
 }
 
 
-enum kernel_function_number kernel_function_hook_function_kill_num(void)
+enum kernel_function_number kernel_arch_common_function_hook_function_kill_num(void)
 {
     return global_func_num;
 }
 
-void kernel_function_sys_kill_hook_pre(const struct kernel_function_hook_context *h_ctx)
+void kernel_arch_common_function_sys_kill_hook_pre(const struct kernel_function_hook_context *h_ctx)
 {
     int err;
 
     const struct kernel_function_hook_context_pre hook_ctx_pre =
         BUILD_HOOK_CONTEXT_PRE(h_ctx);
 
-    err = kernel_function_hook_pre(&hook_ctx_pre);
+    err = kernel_arch_common_function_hook_pre(&hook_ctx_pre);
     if (err != 0)
         return;
 
     return;
 }
 
-void kernel_function_sys_kill_hook_post(const struct kernel_function_hook_context *h_ctx, long sys_res, pid_t pid)
+void kernel_arch_common_function_sys_kill_hook_post(const struct kernel_function_hook_context *h_ctx, long sys_res, pid_t pid)
 {
     int err;
 
     const struct kernel_function_hook_context_post hook_ctx_post =
         BUILD_HOOK_CONTEXT_POST(h_ctx, sys_res, pid);
 
-    err = kernel_function_hook_post(&hook_ctx_post);
+    err = kernel_arch_common_function_hook_post(&hook_ctx_post);
     if (err != 0)
         return;
 
@@ -102,24 +102,24 @@ void kernel_function_sys_kill_hook_post(const struct kernel_function_hook_contex
  * strong definitions of these that override the ones below at link time. These weak no-op
  * definitions exist so archs without one yet still link successfully. */
 
-const struct kernel_function_hook* __weak kernel_function_sys_kill_hook_get(void)
+const struct kernel_function_hook* __weak kernel_arch_common_overridable_function_sys_kill_hook_get(void)
 {
     return NULL;
 }
 
-bool kernel_function_sys_kill_hook_context_pre_is_valid(const struct kernel_function_hook_context_pre *ctx)
+bool kernel_arch_common_function_sys_kill_hook_context_pre_is_valid(const struct kernel_function_hook_context_pre *ctx)
 {
     return (
-        kernel_function_hook_context_pre_is_valid(ctx)
+        kernel_arch_common_function_hook_context_pre_is_valid(ctx)
         && ctx->header->func_num == global_func_num
         && ctx->header->func_arg->arg_size == sizeof(struct kernel_function_sys_kill_arg)
     );
 }
 
-bool kernel_function_sys_kill_hook_context_post_is_valid(const struct kernel_function_hook_context_post *ctx)
+bool kernel_arch_common_function_sys_kill_hook_context_post_is_valid(const struct kernel_function_hook_context_post *ctx)
 {
     return (
-        kernel_function_hook_context_post_is_valid(ctx)
+        kernel_arch_common_function_hook_context_post_is_valid(ctx)
         && ctx->header->func_num == global_func_num
         && ctx->header->func_arg->arg_size == sizeof(struct kernel_function_sys_kill_arg)
         && ctx->func_res->res_size == sizeof(struct kernel_function_sys_kill_result)

@@ -45,10 +45,10 @@ static void _init_ftrace_hooks(void)
     const struct kernel_function_op **list;
     size_t len;
 
-    err = kernel_function_op_get_list(&list, &len);
+    err = kernel_arch_common_overridable_function_op_get_list(&list, &len);
     if (err != 0)
     {
-        util_log_debug(log_id, "kernel_function_op_get_list failed. Err=%d.", err);
+        util_log_debug(log_id, "kernel_arch_common_overridable_function_op_get_list failed. Err=%d.", err);
         return;
     }
 
@@ -84,13 +84,13 @@ static void _ensure_initialized(void)
     }
 }
 
-int kernel_setup_function_ftrace_install(void)
+int kernel_arch_common_setup_function_ftrace_install(void)
 {
     _ensure_initialized();
     return fh_install_hooks(ftrace_hooks, ftrace_hooks_len);
 }
 
-int kernel_setup_function_ftrace_uninstall(void)
+int kernel_arch_common_setup_function_ftrace_uninstall(void)
 {
     _ensure_initialized();
     fh_remove_hooks(ftrace_hooks, ftrace_hooks_len);

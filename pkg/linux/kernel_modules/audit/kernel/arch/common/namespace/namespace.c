@@ -28,7 +28,7 @@
 static struct kernel_namespace_pointers global = {};
 
 
-int kernel_namespace_set(struct kernel_namespace_pointers *k)
+int kernel_arch_common_namespace_set(struct kernel_namespace_pointers *k)
 {
     if (!k)
     {
@@ -46,7 +46,7 @@ int kernel_namespace_set(struct kernel_namespace_pointers *k)
     return 0;
 }
 
-int kernel_namespace_unset(void)
+int kernel_arch_common_namespace_unset(void)
 {
     global.ops_cgroup = 
         global.ops_ipc = 
@@ -58,7 +58,7 @@ int kernel_namespace_unset(void)
     return 0;
 }
 
-struct kernel_namespace_pointers* kernel_namespace_get_pointers(void)
+struct kernel_namespace_pointers* kernel_arch_common_namespace_get_pointers(void)
 {
     return &global;
 }

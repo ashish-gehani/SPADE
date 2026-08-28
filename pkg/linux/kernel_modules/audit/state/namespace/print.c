@@ -40,7 +40,7 @@ static void __maybe_unused state_namespace_write_to_seqbuf_redacted(
     if (!b || !state)
         return;
 
-    k_ptrs = kernel_namespace_get_pointers();
+    k_ptrs = kernel_arch_common_namespace_get_pointers();
     if (!k_ptrs)
         return;
 
@@ -72,7 +72,7 @@ static void __maybe_unused state_namespace_write_to_seqbuf_unredacted(
     if (!b || !state)
         return;
 
-    k_ptrs = kernel_namespace_get_pointers();
+    k_ptrs = kernel_arch_common_namespace_get_pointers();
     if (!k_ptrs)
         return;
 

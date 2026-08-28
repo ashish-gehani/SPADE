@@ -57,8 +57,8 @@ static const enum kernel_function_number global_func_num = KERN_F_NUM_SYS_VFORK;
 
 		const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT();
 
-		kernel_function_sys_vfork_hook_pre(&h_ctx);
-		if (kernel_function_action_result_is_disallow_function(h_ctx.act_res->type))
+		kernel_arch_common_function_sys_vfork_hook_pre(&h_ctx);
+		if (kernel_arch_common_function_action_result_is_disallow_function(h_ctx.act_res->type))
 		{
 			util_log_debug(log_id, "Disallowing function execution due to action result type: %d", h_ctx.act_res->type);
 			res = -EACCES;
@@ -66,7 +66,7 @@ static const enum kernel_function_number global_func_num = KERN_F_NUM_SYS_VFORK;
 		{
 			res = _orig(regs);
 		}
-		kernel_function_sys_vfork_hook_post(&h_ctx, res);
+		kernel_arch_common_function_sys_vfork_hook_post(&h_ctx, res);
 		return res;
 	}
 
@@ -82,8 +82,8 @@ static const enum kernel_function_number global_func_num = KERN_F_NUM_SYS_VFORK;
 
 		const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT();
 
-		kernel_function_sys_vfork_hook_pre(&h_ctx);
-		if (kernel_function_action_result_is_disallow_function(h_ctx.act_res->type))
+		kernel_arch_common_function_sys_vfork_hook_pre(&h_ctx);
+		if (kernel_arch_common_function_action_result_is_disallow_function(h_ctx.act_res->type))
 		{
 			util_log_debug(log_id, "Disallowing function execution due to action result type: %d", h_ctx.act_res->type);
 			res = -EACCES;
@@ -91,7 +91,7 @@ static const enum kernel_function_number global_func_num = KERN_F_NUM_SYS_VFORK;
 		{
 			res = _orig();
 		}
-		kernel_function_sys_vfork_hook_post(&h_ctx, res);
+		kernel_arch_common_function_sys_vfork_hook_post(&h_ctx, res);
 		return res;
 	}
 
@@ -118,13 +118,13 @@ static void *kernel_function_hook_function_vfork_hook(void)
 }
 
 static const struct kernel_function_hook KERNEL_FUNCTION_SYS_VFORK_HOOK = {
-    .get_num = kernel_function_hook_function_vfork_num,
+    .get_num = kernel_arch_common_function_hook_function_vfork_num,
     .get_name = kernel_function_hook_function_vfork_name,
     .get_orig_func_ptr = kernel_function_hook_function_vfork_original_ptr,
     .get_hook_func = kernel_function_hook_function_vfork_hook
 };
 
-const struct kernel_function_hook* kernel_function_sys_vfork_hook_get(void)
+const struct kernel_function_hook* kernel_arch_common_overridable_function_sys_vfork_hook_get(void)
 {
     return &KERNEL_FUNCTION_SYS_VFORK_HOOK;
 }

@@ -55,13 +55,13 @@ static long _get_ns_inum(
 	return inum;
 }
 
-int kernel_helper_namespace_populate_msg(
+int kernel_arch_common_helper_namespace_populate_msg(
     struct msg_namespace *msg,
     enum kernel_function_number func_num, long target_pid, bool sys_success,
     enum msg_namespace_operation op
 )
 {
-    const char *log_id = "kernel_helper_namespace_populate_msg";
+    const char *log_id = "kernel_arch_common_helper_namespace_populate_msg";
 	struct pid *pid_struct;
 	struct task_struct *pid_task_struct;
     struct kernel_namespace_pointers *k_ns_op_ptrs;
@@ -73,7 +73,7 @@ int kernel_helper_namespace_populate_msg(
     if (!msg)
         return -EINVAL;
 
-    k_ns_op_ptrs = kernel_namespace_get_pointers();
+    k_ns_op_ptrs = kernel_arch_common_namespace_get_pointers();
     if (
         !k_ns_op_ptrs
         || !k_ns_op_ptrs->ops_cgroup
@@ -105,7 +105,7 @@ int kernel_helper_namespace_populate_msg(
         return -ESRCH;
     }
 
-    err = kernel_function_number_to_system_call_number(
+    err = kernel_arch_common_overridable_function_number_to_system_call_number(
         &sys_num, func_num, sys_num_default_to_func_num
     );
     if (err != 0)
@@ -132,11 +132,11 @@ int kernel_helper_namespace_populate_msg(
 	return 0;
 }
 
-int kernel_helper_namespace_log_msg_to_audit(
+int kernel_arch_common_helper_namespace_log_msg_to_audit(
     struct msg_namespace *msg
 )
 {
-    const char *log_id = "kernel_helper_namespace_log_msg_to_audit";
+    const char *log_id = "kernel_arch_common_helper_namespace_log_msg_to_audit";
     int err;
     struct audit_context *audit_ctx;
 
@@ -145,12 +145,12 @@ int kernel_helper_namespace_log_msg_to_audit(
         return -EINVAL;
     }
     
-	audit_ctx = kernel_helper_task_current_audit_context();
+	audit_ctx = kernel_arch_common_helper_task_current_audit_context();
     if (!audit_ctx)
     {
         util_log_debug(log_id, "NULL audit context");
     }
-    err = kernel_helper_audit_log(
+    err = kernel_arch_common_helper_audit_log(
         audit_ctx,
         &msg->header
     );

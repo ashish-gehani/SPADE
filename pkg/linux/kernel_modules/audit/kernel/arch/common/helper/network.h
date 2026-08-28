@@ -29,7 +29,7 @@
 #include "audit/kernel/arch/common/function/number.h"
 
 
-int kernel_helper_network_is_sockfd_connected(
+int kernel_arch_common_helper_network_is_sockfd_connected(
     bool *dst, int sockfd
 );
 
@@ -46,7 +46,7 @@ int kernel_helper_network_is_sockfd_connected(
         0       -> Success.
         -1      -> Error code.
 */
-int kernel_helper_network_copy_saddr_and_size_from_userspace(
+int kernel_arch_common_helper_network_copy_saddr_and_size_from_userspace(
     struct sockaddr_storage *dst,
     int *dst_size,
     struct sockaddr __user *src,
@@ -68,7 +68,7 @@ int kernel_helper_network_copy_saddr_and_size_from_userspace(
         0       -> Success.
         -1      -> Error code.
 */
-int kernel_helper_network_copy_only_saddr_from_userspace(
+int kernel_arch_common_helper_network_copy_only_saddr_from_userspace(
     struct sockaddr_storage *dst,
     int *dst_size,
     struct sockaddr __user *src,
@@ -87,7 +87,7 @@ int kernel_helper_network_copy_only_saddr_from_userspace(
         0       -> Success.
         -1      -> Error code.
 */
-int kernel_helper_network_get_peer_saddr_from_fd(
+int kernel_arch_common_helper_network_get_peer_saddr_from_fd(
     struct sockaddr_storage *dst,
     int *dst_size,
     int sockfd
@@ -111,7 +111,7 @@ int kernel_helper_network_get_peer_saddr_from_fd(
         0       -> Success.
         -1      -> Error code.
 */
-int kernel_helper_network_populate_msg(
+int kernel_arch_common_helper_network_populate_msg(
     struct msg_network *msg,
     enum kernel_function_number func_num, long func_result, bool func_success,
     int subject_sockfd,
@@ -126,7 +126,7 @@ int kernel_helper_network_populate_msg(
         0       -> Success.
         -ive    -> Error code.
 */
-int kernel_helper_network_copy_saddr_and_size_in_msghdr_from_userspace(
+int kernel_arch_common_helper_network_copy_saddr_and_size_in_msghdr_from_userspace(
     struct sockaddr_storage *dst, int *dst_size,
     struct msghdr __user *src
 );

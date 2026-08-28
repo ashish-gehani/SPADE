@@ -38,11 +38,11 @@
 static const enum msg_common_type GLOBAL_MSG_TYPE = MSG_UBSI;
 
 
-int kernel_function_sys_kill_action_audit_handle_post(
+int kernel_arch_common_function_sys_kill_action_audit_handle_post(
     const struct kernel_function_hook_context_post *ctx_post
 )
 {
-    const char *log_id = "kernel_function_sys_kill_action_audit_handle_post";
+    const char *log_id = "kernel_arch_common_function_sys_kill_action_audit_handle_post";
     int err;
 
     struct msg_ubsi msg;
@@ -54,7 +54,7 @@ int kernel_function_sys_kill_action_audit_handle_post(
     enum kernel_function_number func_num = ctx_post->header->func_num;
     bool sys_num_default_to_func_num = false;
 
-    if (!kernel_function_sys_kill_hook_context_post_is_valid(ctx_post))
+    if (!kernel_arch_common_function_sys_kill_hook_context_post_is_valid(ctx_post))
         return -EINVAL;
 
     err = msg_ops_kinit(GLOBAL_MSG_TYPE, &msg.header);
@@ -64,14 +64,14 @@ int kernel_function_sys_kill_action_audit_handle_post(
         return err;
     }
 
-    err = kernel_helper_task_populate_process_info_from_current_task(&msg.proc_info);
+    err = kernel_arch_common_helper_task_populate_process_info_from_current_task(&msg.proc_info);
     if (err != 0)
     {
         util_log_debug(log_id, "Failed to copy current process info");
         return err;
     }
 
-    err = kernel_function_number_to_system_call_number(
+    err = kernel_arch_common_overridable_function_number_to_system_call_number(
         &sys_num, func_num, sys_num_default_to_func_num
     );
     if (err != 0)
@@ -89,7 +89,7 @@ int kernel_function_sys_kill_action_audit_handle_post(
     msg.syscall_success = ctx_post->func_res->success;
     msg.target_pid = sys_arg->pid;
 
-    err = kernel_helper_audit_log(NULL, &msg.header);
+    err = kernel_arch_common_helper_audit_log(NULL, &msg.header);
 
     return err;
 }

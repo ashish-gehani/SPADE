@@ -32,13 +32,13 @@
 
    Definition: See (struct nf_hook_ops)->(nf_hookfn *hook).
 */
-nf_hookfn kernel_netfilter_hook_first;
+nf_hookfn kernel_arch_common_netfilter_hook_first;
 
 /*
    Function called last on all hook points.
 
    Definition: See (struct nf_hook_ops)->(nf_hookfn *hook).
 */
-nf_hookfn kernel_netfilter_hook_last;
+nf_hookfn kernel_arch_common_netfilter_hook_last;
 
 #endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_NETFILTER_H

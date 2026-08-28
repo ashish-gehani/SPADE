@@ -277,7 +277,7 @@ static void nf_handle_packet(enum nf_ip_hook_priorities prio, const struct sk_bu
         goto discard_and_exit;
     }
 
-    kernel_helper_audit_log(audit_ctx, &msg.header);
+    kernel_arch_common_helper_audit_log(audit_ctx, &msg.header);
 
 discard_and_exit:
     _inc_discarded_event_count();
@@ -286,14 +286,14 @@ exit:
     return;
 }
 
-unsigned int kernel_netfilter_hook_first(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
+unsigned int kernel_arch_common_netfilter_hook_first(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 {
     if (_is_auditing())
         nf_handle_packet(NF_IP_PRI_FIRST, skb, state);
     return NF_ACCEPT;
 }
 
-unsigned int kernel_netfilter_hook_last(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
+unsigned int kernel_arch_common_netfilter_hook_last(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 {
     if (_is_auditing())
         nf_handle_packet(NF_IP_PRI_LAST, skb, state);

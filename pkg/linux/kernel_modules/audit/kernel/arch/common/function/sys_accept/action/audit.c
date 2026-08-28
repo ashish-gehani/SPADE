@@ -36,7 +36,7 @@
 
 static const enum msg_common_type GLOBAL_MSG_TYPE = MSG_NETWORK;
 
-int kernel_function_sys_accept_action_audit_handle_post(
+int kernel_arch_common_function_sys_accept_action_audit_handle_post(
     const struct kernel_function_hook_context_post *ctx_post
 )
 {
@@ -49,7 +49,7 @@ int kernel_function_sys_accept_action_audit_handle_post(
     struct kernel_function_sys_accept_arg *sys_arg;
     struct kernel_function_sys_accept_result *sys_res;
 
-    if (!kernel_function_sys_accept_hook_context_post_is_valid(ctx_post))
+    if (!kernel_arch_common_function_sys_accept_hook_context_post_is_valid(ctx_post))
         return -EINVAL;
 
     err = msg_ops_kinit(GLOBAL_MSG_TYPE, &msg.header);
@@ -61,21 +61,21 @@ int kernel_function_sys_accept_action_audit_handle_post(
 
     if (sys_arg->addr)
     {
-        err = kernel_helper_network_copy_saddr_and_size_from_userspace(
+        err = kernel_arch_common_helper_network_copy_saddr_and_size_from_userspace(
             &remote_saddr, &remote_saddr_size, sys_arg->addr, sys_arg->addrlen
         );
         if (err != 0)
             return err;
     } else
     {
-        err = kernel_helper_network_get_peer_saddr_from_fd(
+        err = kernel_arch_common_helper_network_get_peer_saddr_from_fd(
             &remote_saddr, &remote_saddr_size, sys_arg->sockfd
         );
         if (err != 0)
             return err;
     }
 
-    err = kernel_helper_network_populate_msg(
+    err = kernel_arch_common_helper_network_populate_msg(
         &msg,
         ctx_post->header->func_num, sys_res->ret, ctx_post->func_res->success,
         sys_arg->sockfd, &remote_saddr, remote_saddr_size
@@ -83,7 +83,7 @@ int kernel_function_sys_accept_action_audit_handle_post(
     if (err != 0)
         return err;
 
-    err = kernel_helper_audit_log(NULL, &msg.header);
+    err = kernel_arch_common_helper_audit_log(NULL, &msg.header);
 
     return err;
 }

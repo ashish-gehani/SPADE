@@ -30,7 +30,7 @@
         0       -> Success.
         -ive    -> Error code.
 */
-int kernel_setup_namespace_do(void);
+int kernel_arch_common_setup_namespace_do(void);
 
 /*
     Undo setup.
@@ -39,7 +39,7 @@ int kernel_setup_namespace_do(void);
         0       -> Success.
         -ive    -> Error code.
 */
-int kernel_setup_namespace_undo(void);
+int kernel_arch_common_setup_namespace_undo(void);
 
 
 #endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_NAMESPACE_SETUP_NAMESPACE_H

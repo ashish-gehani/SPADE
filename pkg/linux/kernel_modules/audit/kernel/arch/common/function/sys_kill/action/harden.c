@@ -31,16 +31,16 @@
 #include "audit/util/log/log.h"
 
 
-int kernel_function_sys_kill_action_harden_handle_pre(
+int kernel_arch_common_function_sys_kill_action_harden_handle_pre(
     const struct kernel_function_hook_context_pre *ctx_pre
 )
 {
-    const char *log_id = "kernel_function_sys_kill_action_harden_handle_pre";
+    const char *log_id = "kernel_arch_common_function_sys_kill_action_harden_handle_pre";
     struct kernel_function_sys_kill_arg *sys_arg;
     uid_t current_euid;
     pid_t pid, tgid;
 
-    if (!kernel_function_sys_kill_hook_context_pre_is_valid(ctx_pre))
+    if (!kernel_arch_common_function_sys_kill_hook_context_pre_is_valid(ctx_pre))
     {
         util_log_debug(log_id, "Invalid pre-execution context");
         return -EINVAL;
@@ -48,9 +48,9 @@ int kernel_function_sys_kill_action_harden_handle_pre(
 
     sys_arg = (struct kernel_function_sys_kill_arg*)ctx_pre->header->func_arg->arg;
     pid = sys_arg->pid;
-    current_euid = kernel_helper_task_host_view_current_euid();
+    current_euid = kernel_arch_common_helper_task_host_view_current_euid();
 
-    tgid = kernel_helper_task_task_view_get_tgid(pid);
+    tgid = kernel_arch_common_helper_task_task_view_get_tgid(pid);
     if (tgid < 0)
     {
         util_log_debug(log_id, "Failed to get tgid for pid: %d. Err: %d", pid, tgid);
@@ -68,7 +68,7 @@ int kernel_function_sys_kill_action_harden_handle_pre(
         "Task is hardened, setting DISALLOW_FUNCTION flag for pid=%d to disallow kill",
         pid
     );
-    kernel_function_action_result_set_disallow_function(ctx_pre->header->act_res);
+    kernel_arch_common_function_action_result_set_disallow_function(ctx_pre->header->act_res);
 
     return 0;
 }

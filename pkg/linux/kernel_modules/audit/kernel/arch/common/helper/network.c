@@ -30,21 +30,21 @@
 #include "audit/util/log/log.h"
 
 
-int kernel_helper_network_copy_saddr_and_size_from_userspace(
+int kernel_arch_common_helper_network_copy_saddr_and_size_from_userspace(
     struct sockaddr_storage *dst,
     int *dst_size,
     struct sockaddr __user *src,
     int __user *src_size
 )
 {
-    const char *log_id = "kernel_helper_network_copy_saddr_and_size_from_userspace";
+    const char *log_id = "kernel_arch_common_helper_network_copy_saddr_and_size_from_userspace";
 
     int err;
 
     if (!dst || !dst_size || !src || !src_size)
         return -EINVAL;
 
-    err = kernel_helper_sock_copy_sock_len_from_userspace(dst_size, src_size);
+    err = kernel_arch_common_helper_sock_copy_sock_len_from_userspace(dst_size, src_size);
     if (err != 0)
     {
         util_log_debug(log_id, "Failed to copy sockaddr len from userspace");
@@ -52,27 +52,27 @@ int kernel_helper_network_copy_saddr_and_size_from_userspace(
     }
 
     // dst_size is already properly copied above. Therefore, passing it as src_size.
-    return kernel_helper_network_copy_only_saddr_from_userspace(
+    return kernel_arch_common_helper_network_copy_only_saddr_from_userspace(
         dst, dst_size,
         src, *dst_size
     );
 }
 
-int kernel_helper_network_copy_only_saddr_from_userspace(
+int kernel_arch_common_helper_network_copy_only_saddr_from_userspace(
     struct sockaddr_storage *dst,
     int *dst_size,
     struct sockaddr __user *src,
     int src_size
 )
 {
-    const char *log_id = "kernel_helper_network_copy_only_saddr_from_userspace";
+    const char *log_id = "kernel_arch_common_helper_network_copy_only_saddr_from_userspace";
 
     int err;
 
     if (!dst || !dst_size || !src)
         return -EINVAL;
 
-    err = kernel_helper_sock_copy_saddr_from_userspace(
+    err = kernel_arch_common_helper_sock_copy_saddr_from_userspace(
         dst, sizeof(*dst),
         src, src_size
     );
@@ -87,13 +87,13 @@ int kernel_helper_network_copy_only_saddr_from_userspace(
     return 0;
 }
 
-int kernel_helper_network_get_peer_saddr_from_fd(
+int kernel_arch_common_helper_network_get_peer_saddr_from_fd(
     struct sockaddr_storage *dst,
     int *dst_size,
     int sockfd
 )
 {
-    const char *log_id = "kernel_helper_network_get_peer_saddr_from_fd";
+    const char *log_id = "kernel_arch_common_helper_network_get_peer_saddr_from_fd";
     int err;
     struct kernel_helper_sock_saddr_info saddr_info = {0};
     int peer_mode = 1; // remote
@@ -102,7 +102,7 @@ int kernel_helper_network_get_peer_saddr_from_fd(
     if (!dst || !dst_size)
         return -EINVAL;
 
-    err = kernel_helper_sock_get_saddr_info_from_fd(
+    err = kernel_arch_common_helper_sock_get_saddr_info_from_fd(
         &saddr_info, include_ns_info, peer_mode, sockfd
     );
     if (err != 0)
@@ -115,18 +115,18 @@ int kernel_helper_network_get_peer_saddr_from_fd(
     return 0;
 }
 
-int kernel_helper_network_copy_saddr_and_size_in_msghdr_from_userspace(
+int kernel_arch_common_helper_network_copy_saddr_and_size_in_msghdr_from_userspace(
     struct sockaddr_storage *dst, int *dst_size,
     struct msghdr __user *src
 )
 {
-    const char *log_id = "kernel_helper_network_copy_saddr_and_size_in_msghdr_from_userspace";
+    const char *log_id = "kernel_arch_common_helper_network_copy_saddr_and_size_in_msghdr_from_userspace";
     int err;
 
     if (!dst || !dst_size || !src)
         return -EINVAL;
 
-    err = kernel_helper_sock_copy_saddr_in_msghdr_from_userspace(
+    err = kernel_arch_common_helper_sock_copy_saddr_in_msghdr_from_userspace(
         dst, dst_size, src
     );
     if (err != 0)
@@ -137,11 +137,11 @@ int kernel_helper_network_copy_saddr_and_size_in_msghdr_from_userspace(
     return 0;
 }
 
-int kernel_helper_network_is_sockfd_connected(
+int kernel_arch_common_helper_network_is_sockfd_connected(
     bool *dst, int sockfd
 )
 {
-    const char *log_id = "kernel_helper_network_is_sockfd_connected";
+    const char *log_id = "kernel_arch_common_helper_network_is_sockfd_connected";
 
     int err;
 
@@ -158,7 +158,7 @@ int kernel_helper_network_is_sockfd_connected(
     return 0;
 }
 
-int kernel_helper_network_populate_msg(
+int kernel_arch_common_helper_network_populate_msg(
     struct msg_network *msg,
     enum kernel_function_number func_num, long sys_ret, bool sys_success,
     int subject_sockfd,
@@ -166,7 +166,7 @@ int kernel_helper_network_populate_msg(
     int remote_saddr_size
 )
 {
-    const char *log_id = "kernel_helper_network_populate_msg";
+    const char *log_id = "kernel_arch_common_helper_network_populate_msg";
     bool include_ns_info = global_filter_function_network_include_ns_info();
 
     int err;
@@ -179,7 +179,7 @@ int kernel_helper_network_populate_msg(
     if (!msg || !remote_saddr)
         return -EINVAL;
 
-    err = kernel_helper_sock_get_saddr_info_from_fd(
+    err = kernel_arch_common_helper_sock_get_saddr_info_from_fd(
         &local_saddr_info, include_ns_info, local_peer_mode, subject_sockfd
     );
     if (err != 0)
@@ -188,14 +188,14 @@ int kernel_helper_network_populate_msg(
         return err;
     }
 
-    err = kernel_helper_task_populate_process_info_from_current_task(&msg->proc_info);
+    err = kernel_arch_common_helper_task_populate_process_info_from_current_task(&msg->proc_info);
     if (err != 0)
     {
         util_log_debug(log_id, "Failed to copy current process info");
         return err;
     }
 
-    err = kernel_function_number_to_system_call_number(
+    err = kernel_arch_common_overridable_function_number_to_system_call_number(
         &sys_num, func_num, sys_num_default_to_func_num
     );
     if (err != 0)

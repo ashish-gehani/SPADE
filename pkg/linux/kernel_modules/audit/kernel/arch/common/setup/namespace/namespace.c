@@ -97,10 +97,10 @@ static int _init_ns_ops_kernel_ptrs(kallsyms_lookup_name_t kallsyms_lookup_name)
         return -ENOENT;
     }
 
-    return kernel_namespace_set(&s);
+    return kernel_arch_common_namespace_set(&s);
 }
 
-int kernel_setup_namespace_do(void)
+int kernel_arch_common_setup_namespace_do(void)
 {
     kallsyms_lookup_name_t kallsyms_func;
 
@@ -113,7 +113,7 @@ int kernel_setup_namespace_do(void)
     return _init_ns_ops_kernel_ptrs(kallsyms_func);
 }
 
-int kernel_setup_namespace_undo(void)
+int kernel_arch_common_setup_namespace_undo(void)
 {
-    return kernel_namespace_unset();
+    return kernel_arch_common_namespace_unset();
 }

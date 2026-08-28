@@ -38,6 +38,6 @@
         0       -> Successfully logged.
         -ive    -> Error code.
 */
-int kernel_helper_audit_log(struct audit_context *ctx, struct msg_common_header *msg_h);
+int kernel_arch_common_helper_audit_log(struct audit_context *ctx, struct msg_common_header *msg_h);
 
 #endif // _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_AUDIT_LOG_H

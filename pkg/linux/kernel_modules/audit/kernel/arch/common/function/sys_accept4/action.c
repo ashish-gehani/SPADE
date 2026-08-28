@@ -37,12 +37,12 @@ static void _ensure_initialized(void)
     {
         KERNEL_FUNCTION_SYS_ACCEPT4_ACTION_LIST = (struct kernel_function_action_list){
             .pre = {
-                kernel_function_action_pre_is_actionable,
+                kernel_arch_common_function_action_pre_is_actionable,
                 0
             },
             .post = {
-                kernel_function_action_post_is_actionable,
-                kernel_function_sys_accept4_action_audit_handle_post,
+                kernel_arch_common_function_action_post_is_actionable,
+                kernel_arch_common_function_sys_accept4_action_audit_handle_post,
                 0
             }
         };
@@ -50,7 +50,7 @@ static void _ensure_initialized(void)
     }
 }
 
-const struct kernel_function_action_list* kernel_function_sys_accept4_action_list_get(void)
+const struct kernel_function_action_list* kernel_arch_common_function_sys_accept4_action_list_get(void)
 {
     _ensure_initialized();
     return &KERNEL_FUNCTION_SYS_ACCEPT4_ACTION_LIST;

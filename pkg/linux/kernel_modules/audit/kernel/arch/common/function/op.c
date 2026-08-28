@@ -22,7 +22,7 @@
 #include "audit/util/log/log.h"
 
 
-bool kernel_function_op_is_valid(const struct kernel_function_op* op)
+bool kernel_arch_common_function_op_is_valid(const struct kernel_function_op* op)
 {
     return (
         op
@@ -37,9 +37,9 @@ bool kernel_function_op_is_valid(const struct kernel_function_op* op)
     );
 }
 
-int kernel_function_op_get_by_func_num(const struct kernel_function_op** dst, enum kernel_function_number func_num)
+int kernel_arch_common_function_op_get_by_func_num(const struct kernel_function_op** dst, enum kernel_function_number func_num)
 {
-    const char *log_id = "kernel_function_op_get_by_func_num";
+    const char *log_id = "kernel_arch_common_function_op_get_by_func_num";
     int err;
     int i;
     const struct kernel_function_op** list;
@@ -52,7 +52,7 @@ int kernel_function_op_get_by_func_num(const struct kernel_function_op** dst, en
         goto exit_fail;
     }
 
-    err = kernel_function_op_get_list(&list, &len);
+    err = kernel_arch_common_overridable_function_op_get_list(&list, &len);
     if (err != 0)
     {
         goto exit_fail;
@@ -62,7 +62,7 @@ int kernel_function_op_get_by_func_num(const struct kernel_function_op** dst, en
     {
         op = list[i];
 
-        if (!kernel_function_op_is_valid(op))
+        if (!kernel_arch_common_function_op_is_valid(op))
         {
             continue;
         }
@@ -87,9 +87,9 @@ exit_success:
 }
 
 /* Arch-specific implementations (e.g. audit/kernel/arch/x86_64/function/op.c) provide a strong
- * definition of kernel_function_op_get_list() that overrides this one at link time. This weak
+ * definition of kernel_arch_common_overridable_function_op_get_list() that overrides this one at link time. This weak
  * empty-list definition exists so archs without one yet still link successfully. */
-int __weak kernel_function_op_get_list(const struct kernel_function_op*** list, size_t *len)
+int __weak kernel_arch_common_overridable_function_op_get_list(const struct kernel_function_op*** list, size_t *len)
 {
     if (!list || !len)
     {

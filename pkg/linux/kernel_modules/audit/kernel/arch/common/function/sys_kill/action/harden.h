@@ -23,7 +23,7 @@
 
 #include "audit/kernel/arch/common/function/hook.h"
 
-int kernel_function_sys_kill_action_harden_handle_pre(
+int kernel_arch_common_function_sys_kill_action_harden_handle_pre(
     const struct kernel_function_hook_context_pre *ctx_pre
 );
 

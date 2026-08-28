@@ -21,9 +21,9 @@
 #include "audit/kernel/arch/common/function/number.h"
 
 /* Arch-specific implementations (e.g. audit/kernel/arch/x86_64/function/number.c) provide a strong
- * definition of kernel_function_number_to_system_call_number() that overrides this one at link
+ * definition of kernel_arch_common_overridable_function_number_to_system_call_number() that overrides this one at link
  * time. This weak no-op definition exists so archs without one yet still link successfully. */
-int __weak kernel_function_number_to_system_call_number(
+int __weak kernel_arch_common_overridable_function_number_to_system_call_number(
     int *dst,
     enum kernel_function_number f_num,
     bool default_to_func_num

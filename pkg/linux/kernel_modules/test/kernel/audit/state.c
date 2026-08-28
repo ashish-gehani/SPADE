@@ -105,10 +105,10 @@ static void test_state_init_basic(struct test_stats *stats)
         return;
     }
 
-    k_ptrs = kernel_namespace_get_pointers();
+    k_ptrs = kernel_arch_common_namespace_get_pointers();
     if (!k_ptrs)
     {
-        TEST_FAIL(stats, test_name, "kernel_namespace_get_pointers returned NULL");
+        TEST_FAIL(stats, test_name, "kernel_arch_common_namespace_get_pointers returned NULL");
         ensure_state_deinit();
         return;
     }

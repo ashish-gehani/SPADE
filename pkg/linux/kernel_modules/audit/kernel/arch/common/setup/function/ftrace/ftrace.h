@@ -26,14 +26,14 @@
         0       -> Success.
         -ive    -> Error code.
 */
-int kernel_setup_function_ftrace_install(void);
+int kernel_arch_common_setup_function_ftrace_install(void);
 
 /*
     Returns:
         0       -> Success.
         -ive    -> Error code.
 */
-int kernel_setup_function_ftrace_uninstall(void);
+int kernel_arch_common_setup_function_ftrace_uninstall(void);
 
 
 #endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_SETUP_FUNCTION_FTRACE_FTRACE_H

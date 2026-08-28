@@ -56,25 +56,25 @@ static void _ensure_initialized(void)
         /* Every syscall's op is populated lazily here, via its respective hook_get() (none of them
          * are compile-time constants any more, now that all 14 have moved to arch/common). */
         size_t i = 0;
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_accept_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_accept4_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_bind_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_clone_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_connect_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_fork_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_kill_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_recvfrom_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_recvmsg_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_sendmsg_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_sendto_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_setns_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_unshare_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_vfork_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_accept_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_accept4_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_bind_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_clone_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_connect_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_fork_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_kill_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_recvfrom_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_recvmsg_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_sendmsg_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_sendto_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_setns_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_unshare_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_vfork_op_get();
         state.initialized = true;
     }
 }
 
-int kernel_function_op_get_list(const struct kernel_function_op*** list, size_t *len)
+int kernel_arch_common_overridable_function_op_get_list(const struct kernel_function_op*** list, size_t *len)
 {
     if (!list || !len)
     {

@@ -34,7 +34,7 @@
     Returns:
         uid -> Always
 */
-uid_t kernel_helper_task_host_view_current_uid(void);
+uid_t kernel_arch_common_helper_task_host_view_current_uid(void);
 
 /*
     Get EUID of the current task from the host namespace view.
@@ -42,7 +42,7 @@ uid_t kernel_helper_task_host_view_current_uid(void);
     Returns:
         euid -> Always
 */
-uid_t kernel_helper_task_host_view_current_euid(void);
+uid_t kernel_arch_common_helper_task_host_view_current_euid(void);
 
 /*
     Get SUID of the current task from the host namespace view.
@@ -50,7 +50,7 @@ uid_t kernel_helper_task_host_view_current_euid(void);
     Returns:
         suid -> Always
 */
-uid_t kernel_helper_task_host_view_current_suid(void);
+uid_t kernel_arch_common_helper_task_host_view_current_suid(void);
 
 /*
     Get FSUID of the current task from the host namespace view.
@@ -58,7 +58,7 @@ uid_t kernel_helper_task_host_view_current_suid(void);
     Returns:
         fsuid -> Always
 */
-uid_t kernel_helper_task_host_view_current_fsuid(void);
+uid_t kernel_arch_common_helper_task_host_view_current_fsuid(void);
 
 /*
     Get GID of the current task from the host namespace view.
@@ -66,7 +66,7 @@ uid_t kernel_helper_task_host_view_current_fsuid(void);
     Returns:
         gid -> Always
 */
-gid_t kernel_helper_task_host_view_current_gid(void);
+gid_t kernel_arch_common_helper_task_host_view_current_gid(void);
 
 /*
     Get EGID of the current task from the host namespace view.
@@ -74,7 +74,7 @@ gid_t kernel_helper_task_host_view_current_gid(void);
     Returns:
         egid -> Always
 */
-gid_t kernel_helper_task_host_view_current_egid(void);
+gid_t kernel_arch_common_helper_task_host_view_current_egid(void);
 
 /*
     Get SGID of the current task from the host namespace view.
@@ -82,7 +82,7 @@ gid_t kernel_helper_task_host_view_current_egid(void);
     Returns:
         sgid -> Always
 */
-gid_t kernel_helper_task_host_view_current_sgid(void);
+gid_t kernel_arch_common_helper_task_host_view_current_sgid(void);
 
 /*
     Get FSGID of the current task from the host namespace view.
@@ -90,7 +90,7 @@ gid_t kernel_helper_task_host_view_current_sgid(void);
     Returns:
         fsgid -> Always
 */
-gid_t kernel_helper_task_host_view_current_fsgid(void);
+gid_t kernel_arch_common_helper_task_host_view_current_fsgid(void);
 
 /*
     Get TGID of the given pid from the task's namespace view.
@@ -99,7 +99,7 @@ gid_t kernel_helper_task_host_view_current_fsgid(void);
         >=0        -> Success.
         -ive        -> Error code.
 */
-pid_t kernel_helper_task_task_view_get_tgid(pid_t pid);
+pid_t kernel_arch_common_helper_task_task_view_get_tgid(pid_t pid);
 
 /*
     Get PPID of the current task from the current task namespace view.
@@ -107,7 +107,7 @@ pid_t kernel_helper_task_task_view_get_tgid(pid_t pid);
     Returns:
         ppid -> Always
 */
-pid_t kernel_helper_task_task_view_current_ppid(void);
+pid_t kernel_arch_common_helper_task_task_view_current_ppid(void);
 
 /*
     Get PID of the current task from the current task namespace view.
@@ -115,7 +115,7 @@ pid_t kernel_helper_task_task_view_current_ppid(void);
     Returns:
         pid -> Always
 */
-pid_t kernel_helper_task_task_view_current_pid(void);
+pid_t kernel_arch_common_helper_task_task_view_current_pid(void);
 
 /*
     Get audit_context of the current task.
@@ -124,7 +124,7 @@ pid_t kernel_helper_task_task_view_current_pid(void);
         struct audit_context -> Success.
         NULL                 -> Otherwise.
 */
-struct audit_context* kernel_helper_task_current_audit_context(void);
+struct audit_context* kernel_arch_common_helper_task_current_audit_context(void);
 
 /*
     Populate struct msg_common_process with the current process information
@@ -134,7 +134,7 @@ struct audit_context* kernel_helper_task_current_audit_context(void);
         0       -> Success.
         -ive    -> Error code.
 */
-int kernel_helper_task_populate_process_info_from_current_task(
+int kernel_arch_common_helper_task_populate_process_info_from_current_task(
     struct msg_common_process *proc
 );
 

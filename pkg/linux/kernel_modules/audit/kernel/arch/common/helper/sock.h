@@ -62,7 +62,7 @@ int kernel_helper_sock_is_sockfd_in_connected_state(
         0       -> Success.
         -ive    -> Error code.
 */
-int kernel_helper_sock_get_saddr_info_from_fd(
+int kernel_arch_common_helper_sock_get_saddr_info_from_fd(
     struct kernel_helper_sock_saddr_info *dst,
     bool include_ns_info,
     int peer_mode,
@@ -76,7 +76,7 @@ int kernel_helper_sock_get_saddr_info_from_fd(
         0       -> Success.
         -ive    -> Error code.
 */
-int kernel_helper_sock_copy_sock_len_from_userspace(
+int kernel_arch_common_helper_sock_copy_sock_len_from_userspace(
     uint32_t *dst_len, int __user *src_len
 );
 
@@ -93,7 +93,7 @@ int kernel_helper_sock_copy_sock_len_from_userspace(
         0       -> Success.
         -ive    -> Error code.
 */
-int kernel_helper_sock_copy_saddr_from_userspace(
+int kernel_arch_common_helper_sock_copy_saddr_from_userspace(
     struct sockaddr_storage *dst, int avail_dst_len,
     const struct sockaddr __user *src, int src_len
 );
@@ -110,7 +110,7 @@ int kernel_helper_sock_copy_saddr_from_userspace(
         0       -> Success.
         -ive    -> Error code.
 */
-int kernel_helper_sock_copy_saddr_in_msghdr_from_userspace(
+int kernel_arch_common_helper_sock_copy_saddr_in_msghdr_from_userspace(
     struct sockaddr_storage *dst, int *dst_len,
     struct msghdr __user *src
 );

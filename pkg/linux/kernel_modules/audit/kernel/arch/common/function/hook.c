@@ -29,7 +29,7 @@
 #include "audit/util/log/log.h"
 
 
-bool kernel_function_hook_context_pre_is_valid(const struct kernel_function_hook_context_pre *hook_ctx_pre)
+bool kernel_arch_common_function_hook_context_pre_is_valid(const struct kernel_function_hook_context_pre *hook_ctx_pre)
 {
     return (
         hook_ctx_pre
@@ -40,7 +40,7 @@ bool kernel_function_hook_context_pre_is_valid(const struct kernel_function_hook
     );
 }
 
-bool kernel_function_hook_context_post_is_valid(const struct kernel_function_hook_context_post *hook_ctx_post)
+bool kernel_arch_common_function_hook_context_post_is_valid(const struct kernel_function_hook_context_post *hook_ctx_post)
 {
     return (
         hook_ctx_post
@@ -52,7 +52,7 @@ bool kernel_function_hook_context_post_is_valid(const struct kernel_function_hoo
     );
 }
 
-int kernel_function_hook_pre(
+int kernel_arch_common_function_hook_pre(
     const struct kernel_function_hook_context_pre *hook_ctx_pre
 )
 {
@@ -60,7 +60,7 @@ int kernel_function_hook_pre(
     pid_t pid, ppid;
     uid_t uid;
 
-    if (!kernel_function_hook_context_pre_is_valid(hook_ctx_pre))
+    if (!kernel_arch_common_function_hook_context_pre_is_valid(hook_ctx_pre))
     {
         return -EINVAL;
     }
@@ -75,10 +75,10 @@ int kernel_function_hook_pre(
         return 0;
     }
 
-    return kernel_function_action_pre_iterate_all(hook_ctx_pre);
+    return kernel_arch_common_function_action_pre_iterate_all(hook_ctx_pre);
 }
 
-int kernel_function_hook_post(
+int kernel_arch_common_function_hook_post(
     const struct kernel_function_hook_context_post *hook_ctx_post
 )
 {
@@ -87,7 +87,7 @@ int kernel_function_hook_post(
     uid_t uid;
     bool func_success;
 
-    if (!kernel_function_hook_context_post_is_valid(hook_ctx_post))
+    if (!kernel_arch_common_function_hook_context_post_is_valid(hook_ctx_post))
     {
         return -EINVAL;
     }
@@ -103,5 +103,5 @@ int kernel_function_hook_post(
         return 0;
     }
 
-    return kernel_function_action_post_iterate_all(hook_ctx_post);
+    return kernel_arch_common_function_action_post_iterate_all(hook_ctx_post);
 }

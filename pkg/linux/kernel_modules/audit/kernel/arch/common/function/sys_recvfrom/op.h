@@ -27,12 +27,12 @@
 
 /*
     Get the sys_recvfrom op, ensuring its .hook field (populated via
-    kernel_function_sys_recvfrom_hook_get(), not a compile-time constant) is set first.
+    kernel_arch_common_overridable_function_sys_recvfrom_hook_get(), not a compile-time constant) is set first.
 
     Returns:
         ptr     -> Pointer to the op.
 */
-const struct kernel_function_op* kernel_function_sys_recvfrom_op_get(void);
+const struct kernel_function_op* kernel_arch_common_function_sys_recvfrom_op_get(void);
 
 
 #endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_RECVFROM_OP_H

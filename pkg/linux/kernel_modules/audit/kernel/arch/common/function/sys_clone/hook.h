@@ -27,7 +27,7 @@
 /*
     Get the sys_clone function number.
 */
-enum kernel_function_number kernel_function_hook_function_clone_num(void);
+enum kernel_function_number kernel_arch_common_function_hook_function_clone_num(void);
 
 /*
     Build the pre-execution hook context and run the pre-execution actions for it.
@@ -35,7 +35,7 @@ enum kernel_function_number kernel_function_hook_function_clone_num(void);
     Params:
         h_ctx   : Hook context.
 */
-void kernel_function_sys_clone_hook_pre(const struct kernel_function_hook_context *h_ctx);
+void kernel_arch_common_function_sys_clone_hook_pre(const struct kernel_function_hook_context *h_ctx);
 
 /*
     Build the post-execution hook context and run the post-execution actions for it.
@@ -44,7 +44,7 @@ void kernel_function_sys_clone_hook_pre(const struct kernel_function_hook_contex
         h_ctx   : Hook context.
         sys_res : Syscall return value.
 */
-void kernel_function_sys_clone_hook_post(const struct kernel_function_hook_context *h_ctx, long sys_res);
+void kernel_arch_common_function_sys_clone_hook_post(const struct kernel_function_hook_context *h_ctx, long sys_res);
 
 /*
     Get the sys_clone hook.
@@ -53,7 +53,7 @@ void kernel_function_sys_clone_hook_post(const struct kernel_function_hook_conte
         ptr     -> Pointer to KERNEL_FUNCTION_SYS_CLONE_HOOK.
         NULL    -> Not available.
 */
-const struct kernel_function_hook* kernel_function_sys_clone_hook_get(void);
+const struct kernel_function_hook* kernel_arch_common_overridable_function_sys_clone_hook_get(void);
 
 /*
     Validate sys_clone pre-execution context.
@@ -65,7 +65,7 @@ const struct kernel_function_hook* kernel_function_sys_clone_hook_get(void);
         true    -> Valid context.
         false   -> Invalid context.
 */
-bool kernel_function_sys_clone_hook_context_pre_is_valid(
+bool kernel_arch_common_function_sys_clone_hook_context_pre_is_valid(
     const struct kernel_function_hook_context_pre *ctx
 );
 
@@ -79,7 +79,7 @@ bool kernel_function_sys_clone_hook_context_pre_is_valid(
         true    -> Valid context.
         false   -> Invalid context.
 */
-bool kernel_function_sys_clone_hook_context_post_is_valid(
+bool kernel_arch_common_function_sys_clone_hook_context_post_is_valid(
     const struct kernel_function_hook_context_post *ctx
 );
 

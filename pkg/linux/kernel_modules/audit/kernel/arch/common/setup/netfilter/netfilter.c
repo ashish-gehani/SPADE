@@ -27,21 +27,21 @@
 #include "audit/util/log/log.h"
 
 
-extern const struct nf_hook_ops kernel_netfilter_setup_list_hooks[];
-extern const int kernel_netfilter_setup_list_hooks_size;
+extern const struct nf_hook_ops kernel_arch_common_netfilter_setup_list_hooks[];
+extern const int kernel_arch_common_netfilter_setup_list_hooks_size;
 
 
-int kernel_setup_netfilter_do()
+int kernel_arch_common_setup_netfilter_do()
 {
     return nf_register_net_hooks(
-        &init_net, kernel_netfilter_setup_list_hooks, kernel_netfilter_setup_list_hooks_size
+        &init_net, kernel_arch_common_netfilter_setup_list_hooks, kernel_arch_common_netfilter_setup_list_hooks_size
     );
 }
 
-int kernel_setup_netfilter_undo()
+int kernel_arch_common_setup_netfilter_undo()
 {
     nf_unregister_net_hooks(
-        &init_net, kernel_netfilter_setup_list_hooks, kernel_netfilter_setup_list_hooks_size
+        &init_net, kernel_arch_common_netfilter_setup_list_hooks, kernel_arch_common_netfilter_setup_list_hooks_size
     );
 
     return 0;

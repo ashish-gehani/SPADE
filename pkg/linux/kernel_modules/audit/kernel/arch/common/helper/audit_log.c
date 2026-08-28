@@ -28,9 +28,9 @@
 #include "audit/util/log/log.h"
 
 
-int kernel_helper_audit_log(struct audit_context *ctx, struct msg_common_header *msg_h)
+int kernel_arch_common_helper_audit_log(struct audit_context *ctx, struct msg_common_header *msg_h)
 {
-    const char *log_id = "kernel_helper_audit_log";
+    const char *log_id = "kernel_arch_common_helper_audit_log";
     int err;
     char buf_msg[KERNEL_HELPER_AUDIT_LOG_MSG_BUF_LEN];
     struct seqbuf sb;

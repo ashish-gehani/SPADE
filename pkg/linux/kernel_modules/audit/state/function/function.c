@@ -62,7 +62,7 @@ int state_function_init(
     if (!dry_run)
     {
         util_log_debug(log_id, "Initing function ftrace hooks");
-        err = kernel_setup_function_ftrace_install();
+        err = kernel_arch_common_setup_function_ftrace_install();
         if (err != 0)
         {
             util_log_debug(log_id, "Initing function ftrace hooks. Failed. Err: %d", err);
@@ -90,7 +90,7 @@ int state_function_deinit(struct state_function *s)
     if (!s->dry_run)
     {
         util_log_debug(log_id, "Deiniting function ftrace hooks");
-        err = kernel_setup_function_ftrace_uninstall();
+        err = kernel_arch_common_setup_function_ftrace_uninstall();
         if (err != 0)
         {
             util_log_debug(log_id, "Deiniting function ftrace hooks. Failed. Err: %d", err);

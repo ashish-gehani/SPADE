@@ -54,7 +54,7 @@ enum kernel_function_number
         0           -> dst is successfully set.
         -ive        -> Error code.
 */
-int kernel_function_number_to_system_call_number(
+int kernel_arch_common_overridable_function_number_to_system_call_number(
     int *dst,
     enum kernel_function_number f_num,
     bool default_to_func_num

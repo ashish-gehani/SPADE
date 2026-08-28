@@ -32,6 +32,6 @@
     Returns:
         ptr     -> Pointer to the action list.
 */
-const struct kernel_function_action_list* kernel_function_sys_vfork_action_list_get(void);
+const struct kernel_function_action_list* kernel_arch_common_function_sys_vfork_action_list_get(void);
 
 #endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_VFORK_ACTION_H

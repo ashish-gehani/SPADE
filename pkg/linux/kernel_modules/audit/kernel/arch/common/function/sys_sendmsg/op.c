@@ -36,13 +36,13 @@ static void _ensure_initialized(void)
 {
     if (!state.initialized)
     {
-        KERNEL_FUNCTION_SYS_SENDMSG_OP.hook = kernel_function_sys_sendmsg_hook_get();
-        KERNEL_FUNCTION_SYS_SENDMSG_OP.action_list = kernel_function_sys_sendmsg_action_list_get();
+        KERNEL_FUNCTION_SYS_SENDMSG_OP.hook = kernel_arch_common_overridable_function_sys_sendmsg_hook_get();
+        KERNEL_FUNCTION_SYS_SENDMSG_OP.action_list = kernel_arch_common_function_sys_sendmsg_action_list_get();
         state.initialized = true;
     }
 }
 
-const struct kernel_function_op* kernel_function_sys_sendmsg_op_get(void)
+const struct kernel_function_op* kernel_arch_common_function_sys_sendmsg_op_get(void)
 {
     _ensure_initialized();
     return &KERNEL_FUNCTION_SYS_SENDMSG_OP;

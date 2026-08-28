@@ -27,50 +27,50 @@
 #include "audit/kernel/arch/common/helper/task.h"
 #include "audit/util/log/log.h"
 
-uid_t kernel_helper_task_host_view_current_uid()
+uid_t kernel_arch_common_helper_task_host_view_current_uid()
 {
     return from_kuid(&init_user_ns, current_cred()->uid);
 }
 
-uid_t kernel_helper_task_host_view_current_euid()
+uid_t kernel_arch_common_helper_task_host_view_current_euid()
 {
     return from_kuid(&init_user_ns, current_cred()->euid);
 }
 
-uid_t kernel_helper_task_host_view_current_suid()
+uid_t kernel_arch_common_helper_task_host_view_current_suid()
 {
     return from_kuid(&init_user_ns, current_cred()->suid);
 }
 
-uid_t kernel_helper_task_host_view_current_fsuid()
+uid_t kernel_arch_common_helper_task_host_view_current_fsuid()
 {
     return from_kuid(&init_user_ns, current_cred()->fsuid);
 }
 
-gid_t kernel_helper_task_host_view_current_gid()
+gid_t kernel_arch_common_helper_task_host_view_current_gid()
 {
     return from_kgid(&init_user_ns, current_cred()->gid);
 }
 
-gid_t kernel_helper_task_host_view_current_egid()
+gid_t kernel_arch_common_helper_task_host_view_current_egid()
 {
     return from_kgid(&init_user_ns, current_cred()->egid);
 }
 
-gid_t kernel_helper_task_host_view_current_sgid()
+gid_t kernel_arch_common_helper_task_host_view_current_sgid()
 {
     return from_kgid(&init_user_ns, current_cred()->sgid);
 }
 
-gid_t kernel_helper_task_host_view_current_fsgid()
+gid_t kernel_arch_common_helper_task_host_view_current_fsgid()
 {
     return from_kgid(&init_user_ns, current_cred()->fsgid);
 }
 
-pid_t kernel_helper_task_task_view_get_tgid(pid_t pid)
+pid_t kernel_arch_common_helper_task_task_view_get_tgid(pid_t pid)
 {
     pid_t tgid;
-    const char *log_id = "kernel_helper_task_task_view_get_tgid";
+    const char *log_id = "kernel_arch_common_helper_task_task_view_get_tgid";
 	struct pid *pid_struct;
 	struct task_struct *pid_task_struct;
 
@@ -97,17 +97,17 @@ pid_t kernel_helper_task_task_view_get_tgid(pid_t pid)
     return tgid;
 }
 
-pid_t kernel_helper_task_task_view_current_ppid()
+pid_t kernel_arch_common_helper_task_task_view_current_ppid()
 {
     return current->real_parent->pid;
 }
 
-pid_t kernel_helper_task_task_view_current_pid()
+pid_t kernel_arch_common_helper_task_task_view_current_pid()
 {
     return current->pid;
 }
 
-struct audit_context *kernel_helper_task_current_audit_context()
+struct audit_context *kernel_arch_common_helper_task_current_audit_context()
 {
 #ifdef CONFIG_AUDITSYSCALL
     return current->audit_context;
@@ -115,7 +115,7 @@ struct audit_context *kernel_helper_task_current_audit_context()
     return NULL;
 }
 
-int kernel_helper_task_populate_process_info_from_current_task(
+int kernel_arch_common_helper_task_populate_process_info_from_current_task(
     struct msg_common_process *proc
 )
 {
@@ -129,16 +129,16 @@ int kernel_helper_task_populate_process_info_from_current_task(
     if (ret != 0)
         return -EINVAL;
 
-    proc->gid = kernel_helper_task_host_view_current_gid();
-    proc->egid = kernel_helper_task_host_view_current_egid();
-    proc->sgid = kernel_helper_task_host_view_current_sgid();
-    proc->fsgid = kernel_helper_task_host_view_current_fsgid();
-    proc->uid = kernel_helper_task_host_view_current_uid();
-    proc->euid = kernel_helper_task_host_view_current_euid();
-    proc->suid = kernel_helper_task_host_view_current_suid();
-    proc->fsuid = kernel_helper_task_host_view_current_fsuid();
-    proc->pid = kernel_helper_task_task_view_current_pid();
-    proc->ppid = kernel_helper_task_task_view_current_ppid();
+    proc->gid = kernel_arch_common_helper_task_host_view_current_gid();
+    proc->egid = kernel_arch_common_helper_task_host_view_current_egid();
+    proc->sgid = kernel_arch_common_helper_task_host_view_current_sgid();
+    proc->fsgid = kernel_arch_common_helper_task_host_view_current_fsgid();
+    proc->uid = kernel_arch_common_helper_task_host_view_current_uid();
+    proc->euid = kernel_arch_common_helper_task_host_view_current_euid();
+    proc->suid = kernel_arch_common_helper_task_host_view_current_suid();
+    proc->fsuid = kernel_arch_common_helper_task_host_view_current_fsuid();
+    proc->pid = kernel_arch_common_helper_task_task_view_current_pid();
+    proc->ppid = kernel_arch_common_helper_task_task_view_current_ppid();
 
     return 0;
 }

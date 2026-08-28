@@ -38,11 +38,11 @@
 
 static const enum msg_common_type GLOBAL_MSG_TYPE = MSG_NAMESPACES;
 
-int kernel_function_sys_setns_action_audit_handle_post(
+int kernel_arch_common_function_sys_setns_action_audit_handle_post(
     const struct kernel_function_hook_context_post *ctx_post
 )
 {
-    const char *log_id = "kernel_function_sys_setns_action_audit_handle_post";
+    const char *log_id = "kernel_arch_common_function_sys_setns_action_audit_handle_post";
     int err;
     long target_pid;
 
@@ -51,7 +51,7 @@ int kernel_function_sys_setns_action_audit_handle_post(
     struct kernel_function_sys_setns_arg *sys_arg;
     struct kernel_function_sys_setns_result *sys_res;
 
-    if (!kernel_function_sys_setns_hook_context_post_is_valid(ctx_post))
+    if (!kernel_arch_common_function_sys_setns_hook_context_post_is_valid(ctx_post))
         return -EINVAL;
 
     err = msg_ops_kinit(GLOBAL_MSG_TYPE, &msg.header);
@@ -64,23 +64,23 @@ int kernel_function_sys_setns_action_audit_handle_post(
     sys_arg = (struct kernel_function_sys_setns_arg*)ctx_post->header->func_arg->arg;
     sys_res = (struct kernel_function_sys_setns_result*)ctx_post->func_res->res;
 
-    target_pid = kernel_helper_task_task_view_current_pid();
+    target_pid = kernel_arch_common_helper_task_task_view_current_pid();
 
-    err = kernel_helper_namespace_populate_msg(
+    err = kernel_arch_common_helper_namespace_populate_msg(
         &msg,
         ctx_post->header->func_num, target_pid, ctx_post->func_res->success,
         NS_OP_SETNS
     );
     if (err != 0)
     {
-        util_log_debug(log_id, "Failed kernel_helper_namespace_populate_msg. Err: %d", err);
+        util_log_debug(log_id, "Failed kernel_arch_common_helper_namespace_populate_msg. Err: %d", err);
         return err;
     }
 
-    err = kernel_helper_namespace_log_msg_to_audit(&msg);
+    err = kernel_arch_common_helper_namespace_log_msg_to_audit(&msg);
     if (err != 0)
     {
-        util_log_debug(log_id, "Failed kernel_helper_namespace_log_msg_to_audit. Err: %d", err);
+        util_log_debug(log_id, "Failed kernel_arch_common_helper_namespace_log_msg_to_audit. Err: %d", err);
     }
 
     return err;

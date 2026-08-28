@@ -41,7 +41,7 @@ struct kernel_namespace_pointers
         0       -> Success.
         -ive    -> Error code.
 */
-int kernel_namespace_set(struct kernel_namespace_pointers *k);
+int kernel_arch_common_namespace_set(struct kernel_namespace_pointers *k);
 
 /*
     Unset the pointers.
@@ -50,7 +50,7 @@ int kernel_namespace_set(struct kernel_namespace_pointers *k);
         0       -> Success.
         -ive    -> Error code.
 */
-int kernel_namespace_unset(void);
+int kernel_arch_common_namespace_unset(void);
 
 /*
     Get the kernel_namespace_pointers inited during setup.
@@ -59,6 +59,6 @@ int kernel_namespace_unset(void);
         ptr     -> Success.
         NULL    -> Error.
 */
-struct kernel_namespace_pointers* kernel_namespace_get_pointers(void);
+struct kernel_namespace_pointers* kernel_arch_common_namespace_get_pointers(void);
 
 #endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_NAMESPACE_NAMESPACE_H

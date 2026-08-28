@@ -41,7 +41,7 @@ struct kernel_function_op
 /*
     Check if the given arg is valid.
 */
-bool kernel_function_op_is_valid(const struct kernel_function_op* op);
+bool kernel_arch_common_function_op_is_valid(const struct kernel_function_op* op);
 
 /*
     Find kernel function op's by function number.
@@ -56,7 +56,7 @@ bool kernel_function_op_is_valid(const struct kernel_function_op* op);
             -EINVAL -> Invalid arg or array element.
         0       -> Success.
 */
-int kernel_function_op_get_by_func_num(const struct kernel_function_op** dst, enum kernel_function_number func_num);
+int kernel_arch_common_function_op_get_by_func_num(const struct kernel_function_op** dst, enum kernel_function_number func_num);
 
 /*
     Get the op list and its length for iteration.
@@ -69,7 +69,7 @@ int kernel_function_op_get_by_func_num(const struct kernel_function_op** dst, en
         -EINVAL     -> Invalid arg.
         0           -> Success.
 */
-int __weak kernel_function_op_get_list(const struct kernel_function_op*** list, size_t *len);
+int __weak kernel_arch_common_overridable_function_op_get_list(const struct kernel_function_op*** list, size_t *len);
 
 
 #endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_OP_H

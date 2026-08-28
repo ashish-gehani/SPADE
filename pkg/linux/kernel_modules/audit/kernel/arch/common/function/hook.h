@@ -76,9 +76,9 @@ struct kernel_function_hook_process_context
 
 #define KERNEL_FUNCTION_HOOK_PROCESS_CONTEXT_CURRENT \
     &(const struct kernel_function_hook_process_context){ \
-        .pid = kernel_helper_task_task_view_current_pid(), \
-        .ppid = kernel_helper_task_task_view_current_ppid(), \
-        .uid = kernel_helper_task_host_view_current_uid() \
+        .pid = kernel_arch_common_helper_task_task_view_current_pid(), \
+        .ppid = kernel_arch_common_helper_task_task_view_current_ppid(), \
+        .uid = kernel_arch_common_helper_task_host_view_current_uid() \
     } \
 
 struct kernel_function_hook_context
@@ -105,11 +105,11 @@ struct kernel_function_hook_context_pre
     const struct kernel_function_hook_process_context *proc;
 };
 
-bool kernel_function_hook_context_pre_is_valid(
+bool kernel_arch_common_function_hook_context_pre_is_valid(
     const struct kernel_function_hook_context_pre *hook_ctx_pre
 );
 
-bool kernel_function_hook_context_post_is_valid(
+bool kernel_arch_common_function_hook_context_post_is_valid(
     const struct kernel_function_hook_context_post *hook_ctx_post
 );
 
@@ -123,7 +123,7 @@ bool kernel_function_hook_context_post_is_valid(
          0       -> Success.
          -ive    -> Error code.
 */
-int kernel_function_hook_pre(
+int kernel_arch_common_function_hook_pre(
     const struct kernel_function_hook_context_pre *hook_ctx_pre
 );
  
@@ -137,7 +137,7 @@ int kernel_function_hook_pre(
         0       -> Success.
         -ive    -> Error code.
 */
-int kernel_function_hook_post(
+int kernel_arch_common_function_hook_post(
      const struct kernel_function_hook_context_post *hook_ctx_post
 );
 

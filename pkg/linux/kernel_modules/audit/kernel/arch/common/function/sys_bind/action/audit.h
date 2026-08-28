@@ -24,7 +24,7 @@
 #include "audit/kernel/arch/common/function/action.h"
 
 
-int kernel_function_sys_bind_action_audit_handle_post(
+int kernel_arch_common_function_sys_bind_action_audit_handle_post(
     const struct kernel_function_hook_context_post *ctx_post
 );
 

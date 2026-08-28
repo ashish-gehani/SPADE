@@ -51,7 +51,7 @@ int state_netfilter_init(
 
     if (!dry_run)
     {
-        err = kernel_setup_netfilter_do();
+        err = kernel_arch_common_setup_netfilter_do();
         if (err != 0)
             return err;
     }
@@ -72,7 +72,7 @@ int state_netfilter_deinit(struct state_netfilter *s)
 
     if (!s->dry_run)
     {
-        err = kernel_setup_netfilter_undo();
+        err = kernel_arch_common_setup_netfilter_undo();
     }
 
     s->initialized = false;
