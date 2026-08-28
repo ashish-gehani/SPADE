@@ -38,24 +38,41 @@
 #include "audit/util/log/log.h"
 
 
-const struct kernel_function_op* KERNEL_FUNCTION_OP_LIST[] = {
-    NULL, /* sys_accept - not a compile-time constant; populated lazily below via kernel_function_sys_accept_op_get() */
-    NULL, /* sys_accept4 - not a compile-time constant; populated lazily below via kernel_function_sys_accept4_op_get() */
-    NULL, /* sys_bind - not a compile-time constant; populated lazily below via kernel_function_sys_bind_op_get() */
-    NULL, /* sys_clone - not a compile-time constant; populated lazily below via kernel_function_sys_clone_op_get() */
-    NULL, /* sys_connect - not a compile-time constant; populated lazily below via kernel_function_sys_connect_op_get() */
-    NULL, /* sys_fork - not a compile-time constant; populated lazily below via kernel_function_sys_fork_op_get() */
-    NULL, /* sys_kill - not a compile-time constant; populated lazily below via kernel_function_sys_kill_op_get() */
-    NULL, /* sys_recvfrom - not a compile-time constant; populated lazily below via kernel_function_sys_recvfrom_op_get() */
-    NULL, /* sys_recvmsg - not a compile-time constant; populated lazily below via kernel_function_sys_recvmsg_op_get() */
-    NULL, /* sys_sendmsg - not a compile-time constant; populated lazily below via kernel_function_sys_sendmsg_op_get() */
-    NULL, /* sys_sendto - not a compile-time constant; populated lazily below via kernel_function_sys_sendto_op_get() */
-    NULL, /* sys_setns - not a compile-time constant; populated lazily below via kernel_function_sys_setns_op_get() */
-    NULL, /* sys_unshare - not a compile-time constant; populated lazily below via kernel_function_sys_unshare_op_get() */
-    NULL /* sys_vfork - not a compile-time constant; populated lazily below via kernel_function_sys_vfork_op_get() */
-};
-const size_t KERNEL_FUNCTION_OP_LIST_LEN = sizeof(KERNEL_FUNCTION_OP_LIST) / sizeof(KERNEL_FUNCTION_OP_LIST[0]);
+/* Populated lazily by _ensure_initialized() below, since none of the 14 syscalls' ops are
+ * compile-time constants now that they've all moved to arch/common. */
+static const struct kernel_function_op* KERNEL_FUNCTION_OP_LIST[14];
 
+static struct
+{
+    bool initialized;
+} state = {
+    .initialized = false,
+};
+
+static void _ensure_initialized(void)
+{
+    if (!state.initialized)
+    {
+        /* Every syscall's op is populated lazily here, via its respective hook_get() (none of them
+         * are compile-time constants any more, now that all 14 have moved to arch/common). */
+        size_t i = 0;
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_accept_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_accept4_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_bind_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_clone_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_connect_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_fork_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_kill_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_recvfrom_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_recvmsg_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_sendmsg_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_sendto_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_setns_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_unshare_op_get();
+        KERNEL_FUNCTION_OP_LIST[i++] = kernel_function_sys_vfork_op_get();
+        state.initialized = true;
+    }
+}
 
 int kernel_function_op_get_list(const struct kernel_function_op*** list, size_t *len)
 {
@@ -64,25 +81,10 @@ int kernel_function_op_get_list(const struct kernel_function_op*** list, size_t 
         return -EINVAL;
     }
 
-    /* Every syscall's op is populated lazily here, via its respective hook_get() (none of them
-     * are compile-time constants any more, now that all 14 have moved to arch/common). */
-    KERNEL_FUNCTION_OP_LIST[0] = kernel_function_sys_accept_op_get();
-    KERNEL_FUNCTION_OP_LIST[1] = kernel_function_sys_accept4_op_get();
-    KERNEL_FUNCTION_OP_LIST[2] = kernel_function_sys_bind_op_get();
-    KERNEL_FUNCTION_OP_LIST[3] = kernel_function_sys_clone_op_get();
-    KERNEL_FUNCTION_OP_LIST[4] = kernel_function_sys_connect_op_get();
-    KERNEL_FUNCTION_OP_LIST[5] = kernel_function_sys_fork_op_get();
-    KERNEL_FUNCTION_OP_LIST[6] = kernel_function_sys_kill_op_get();
-    KERNEL_FUNCTION_OP_LIST[7] = kernel_function_sys_recvfrom_op_get();
-    KERNEL_FUNCTION_OP_LIST[8] = kernel_function_sys_recvmsg_op_get();
-    KERNEL_FUNCTION_OP_LIST[9] = kernel_function_sys_sendmsg_op_get();
-    KERNEL_FUNCTION_OP_LIST[10] = kernel_function_sys_sendto_op_get();
-    KERNEL_FUNCTION_OP_LIST[11] = kernel_function_sys_setns_op_get();
-    KERNEL_FUNCTION_OP_LIST[12] = kernel_function_sys_unshare_op_get();
-    KERNEL_FUNCTION_OP_LIST[13] = kernel_function_sys_vfork_op_get();
+    _ensure_initialized();
 
     *list = KERNEL_FUNCTION_OP_LIST;
-    *len = KERNEL_FUNCTION_OP_LIST_LEN;
+    *len = sizeof(KERNEL_FUNCTION_OP_LIST) / sizeof(KERNEL_FUNCTION_OP_LIST[0]);
 
     return 0;
 }
