@@ -8,7 +8,7 @@ sets up the supporting namespace/netfilter state the rest of the module depends 
 Code is split by architecture under `arch/`: arch-independent logic lives in `arch/common` and is built
 for every arch; genuinely arch-specific logic (raw `pt_regs`/syscall-ABI access) lives in each arch's
 own directory as a strong override of a weak stub declared in `arch/common`. This split is still in
-progress for aarch64.
+progress for `arm64`.
 
 ## Directory structure
 
@@ -37,7 +37,7 @@ kernel/
     │   │   ├── number.c, op.c        # syscall-number table + op-list assembly (still x86_64-only)
     │   │   └── sys_<name>/hook.c      # the actual _hook/_orig trampoline (pt_regs/ABI access)
     │   └── setup/function/ftrace/    # ftrace_thunk.c (writes regs->ip)
-    └── aarch64/                    # aarch64 strong overrides — currently incomplete
+    └── arm64/                      # arm64 strong overrides — currently incomplete
         └── setup/function/ftrace/    # ftrace_thunk.c (writes regs->pc)
 ```
 
@@ -51,7 +51,7 @@ A symbol's prefix is determined by its linkage and where it's defined, not by wh
    `kernel_arch_common_overridable_`.
 4. **Strong global symbols in `arch/<arch>/**`**:
    - If it does **not** override a weak `arch/common` declaration: prefix `kernel_arch_<arch>_`
-     (e.g. `kernel_arch_x86_64_`, `kernel_arch_aarch64_`).
+     (e.g. `kernel_arch_x86_64_`, `kernel_arch_arm64_`).
    - If it **does** override a weak `arch/common` declaration: it must keep that declaration's exact
      `kernel_arch_common_overridable_...` name — a `__weak`/strong override pair only works if both
      sides share the identical symbol name, so the arch-specific definition is named as though it
