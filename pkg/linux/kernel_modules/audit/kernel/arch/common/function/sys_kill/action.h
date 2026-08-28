@@ -18,20 +18,20 @@
  --------------------------------------------------------------------------------
  */
 
-#include "audit/kernel/arch/x86_64/function/sys_kill/action.h"
-#include "audit/kernel/arch/x86_64/function/sys_kill/action/audit.h"
-#include "audit/kernel/arch/x86_64/function/sys_kill/action/harden.h"
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_KILL_ACTION_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_KILL_ACTION_H
 
 
-const struct kernel_function_action_list KERNEL_FUNCTION_SYS_KILL_ACTION_LIST = {
-    .pre = {
-        kernel_function_sys_kill_action_harden_handle_pre, // I am first because we might want to harden non-actionable processes.
-        kernel_function_action_pre_is_actionable,
-        0
-    },
-    .post = {
-        kernel_function_action_post_is_actionable,
-        kernel_function_sys_kill_action_audit_handle_post,
-        0
-    }
-};
+#include <linux/types.h>
+
+#include "audit/kernel/arch/common/function/action.h"
+
+/*
+    Get the sys_kill action list, ensuring it's initialized first.
+
+    Returns:
+        ptr     -> Pointer to the action list.
+*/
+const struct kernel_function_action_list* kernel_function_sys_kill_action_list_get(void);
+
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_KILL_ACTION_H

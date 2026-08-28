@@ -23,9 +23,9 @@
 
 #include "audit/kernel/arch/common/function/action.h"
 #include "audit/kernel/arch/common/function/hook.h"
-#include "audit/kernel/arch/x86_64/function/sys_kill/action/harden.h"
-#include "audit/kernel/arch/x86_64/function/sys_kill/hook.h"
-#include "audit/kernel/arch/x86_64/function/sys_kill/arg.h"
+#include "audit/kernel/arch/common/function/sys_kill/action/harden.h"
+#include "audit/kernel/arch/common/function/sys_kill/hook.h"
+#include "audit/kernel/arch/common/function/sys_kill/arg.h"
 #include "audit/kernel/arch/common/helper/task.h"
 #include "audit/global/filter.h"
 #include "audit/util/log/log.h"

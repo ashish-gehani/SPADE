@@ -25,9 +25,37 @@
 #include "audit/kernel/arch/common/function/hook.h"
 
 /*
-    Hook struct for kill syscall.
+    Get the sys_kill function number.
 */
-extern const struct kernel_function_hook KERNEL_FUNCTION_SYS_KILL_HOOK;
+enum kernel_function_number kernel_function_hook_function_kill_num(void);
+
+/*
+    Build the pre-execution hook context and run the pre-execution actions for it.
+
+    Params:
+        h_ctx   : Hook context.
+*/
+void kernel_function_sys_kill_hook_pre(const struct kernel_function_hook_context *h_ctx);
+
+/*
+    Build the post-execution hook context and run the post-execution actions for it.
+
+    Params:
+        h_ctx   : Hook context.
+        sys_res : Syscall return value.
+        pid     : Target pid (needed to special-case UBSI's synthetic kill()-based marker calls
+                  in the success check).
+*/
+void kernel_function_sys_kill_hook_post(const struct kernel_function_hook_context *h_ctx, long sys_res, pid_t pid);
+
+/*
+    Get the sys_kill hook.
+
+    Returns:
+        ptr     -> Pointer to KERNEL_FUNCTION_SYS_KILL_HOOK.
+        NULL    -> Not available.
+*/
+const struct kernel_function_hook* kernel_function_sys_kill_hook_get(void);
 
 /*
     Validate sys_kill pre-execution context.

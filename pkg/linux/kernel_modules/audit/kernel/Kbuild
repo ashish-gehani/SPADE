@@ -24,13 +24,14 @@ COMMON_FUNCTION_NAMES := \
   sys_bind \
   sys_clone \
   sys_connect \
-  sys_fork
+  sys_fork \
+  sys_kill
 
 HOOKED_FUNCTION_ACTION_AUDIT_OBJS := \
   $(foreach f_name,$(filter-out $(COMMON_FUNCTION_NAMES),$(HOOKED_FUNCTION_ACTION_AUDIT_NAMES)),audit/kernel/arch/$(UNAME_M)/function/$(f_name)/action/audit.o)
 
 HOOKED_FUNCTION_ACTION_HARDEN_OBJS := \
-  $(foreach f_name,$(HOOKED_FUNCTION_ACTION_HARDEN_NAMES),audit/kernel/arch/$(UNAME_M)/function/$(f_name)/action/harden.o)
+  $(foreach f_name,$(filter-out $(COMMON_FUNCTION_NAMES),$(HOOKED_FUNCTION_ACTION_HARDEN_NAMES)),audit/kernel/arch/$(UNAME_M)/function/$(f_name)/action/harden.o)
 
 HOOKED_FUNCTION_OBJS := \
   $(HOOKED_FUNCTION_ACTION_AUDIT_OBJS) \

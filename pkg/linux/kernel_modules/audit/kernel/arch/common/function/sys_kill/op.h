@@ -21,10 +21,18 @@
 #ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_KILL_OP_H
 #define SPADE_AUDIT_KERNEL_FUNCTION_SYS_KILL_OP_H
 
-#include <linux/types.h>
 
 #include "audit/kernel/arch/common/function/op.h"
 
-extern const struct kernel_function_op KERNEL_FUNCTION_SYS_KILL_OP;
+
+/*
+    Get the sys_kill op, ensuring its .hook field (populated via
+    kernel_function_sys_kill_hook_get(), not a compile-time constant) is set first.
+
+    Returns:
+        ptr     -> Pointer to the op.
+*/
+const struct kernel_function_op* kernel_function_sys_kill_op_get(void);
+
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_KILL_OP_H

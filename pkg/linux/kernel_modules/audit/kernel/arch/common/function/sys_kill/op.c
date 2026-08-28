@@ -18,12 +18,32 @@
  --------------------------------------------------------------------------------
  */
 
-#include "audit/kernel/arch/x86_64/function/sys_kill/op.h"
-#include "audit/kernel/arch/x86_64/function/sys_kill/hook.h"
-#include "audit/kernel/arch/x86_64/function/sys_kill/action.h"
+#include "audit/kernel/arch/common/function/sys_kill/op.h"
+#include "audit/kernel/arch/common/function/sys_kill/hook.h"
+#include "audit/kernel/arch/common/function/sys_kill/action.h"
 
 
-const struct kernel_function_op KERNEL_FUNCTION_SYS_KILL_OP = {
-    .hook = &KERNEL_FUNCTION_SYS_KILL_HOOK,
-    .action_list = &KERNEL_FUNCTION_SYS_KILL_ACTION_LIST
+static struct kernel_function_op KERNEL_FUNCTION_SYS_KILL_OP;
+
+static struct
+{
+    bool initialized;
+} state = {
+    .initialized = false,
 };
+
+static void _ensure_initialized(void)
+{
+    if (!state.initialized)
+    {
+        KERNEL_FUNCTION_SYS_KILL_OP.hook = kernel_function_sys_kill_hook_get();
+        KERNEL_FUNCTION_SYS_KILL_OP.action_list = kernel_function_sys_kill_action_list_get();
+        state.initialized = true;
+    }
+}
+
+const struct kernel_function_op* kernel_function_sys_kill_op_get(void)
+{
+    _ensure_initialized();
+    return &KERNEL_FUNCTION_SYS_KILL_OP;
+}
