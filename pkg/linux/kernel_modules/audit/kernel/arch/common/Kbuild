@@ -59,7 +59,11 @@ COMMON_FUNCTION_OBJS := \
   audit/kernel/arch/common/function/sys_kill/action/audit.o \
   audit/kernel/arch/common/function/sys_kill/action/harden.o \
   audit/kernel/arch/common/function/sys_kill/op.o \
-  audit/kernel/arch/common/function/sys_kill/hook.o
+  audit/kernel/arch/common/function/sys_kill/hook.o \
+  audit/kernel/arch/common/function/sys_recvfrom/action.o \
+  audit/kernel/arch/common/function/sys_recvfrom/action/audit.o \
+  audit/kernel/arch/common/function/sys_recvfrom/op.o \
+  audit/kernel/arch/common/function/sys_recvfrom/hook.o
 
 COMMON_OBJS := \
   $(COMMON_HELPER_OBJS) \

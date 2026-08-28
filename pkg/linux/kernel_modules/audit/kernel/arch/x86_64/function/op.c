@@ -28,7 +28,7 @@
 #include "audit/kernel/arch/common/function/sys_connect/op.h"
 #include "audit/kernel/arch/common/function/sys_fork/op.h"
 #include "audit/kernel/arch/common/function/sys_kill/op.h"
-#include "audit/kernel/arch/x86_64/function/sys_recvfrom/op.h"
+#include "audit/kernel/arch/common/function/sys_recvfrom/op.h"
 #include "audit/kernel/arch/x86_64/function/sys_recvmsg/op.h"
 #include "audit/kernel/arch/x86_64/function/sys_sendmsg/op.h"
 #include "audit/kernel/arch/x86_64/function/sys_sendto/op.h"
@@ -46,7 +46,7 @@ const struct kernel_function_op* KERNEL_FUNCTION_OP_LIST[] = {
     NULL, /* sys_connect - not a compile-time constant; populated lazily below via kernel_function_sys_connect_op_get() */
     NULL, /* sys_fork - not a compile-time constant; populated lazily below via kernel_function_sys_fork_op_get() */
     NULL, /* sys_kill - not a compile-time constant; populated lazily below via kernel_function_sys_kill_op_get() */
-    &KERNEL_FUNCTION_SYS_RECVFROM_OP,
+    NULL, /* sys_recvfrom - not a compile-time constant; populated lazily below via kernel_function_sys_recvfrom_op_get() */
     &KERNEL_FUNCTION_SYS_RECVMSG_OP,
     &KERNEL_FUNCTION_SYS_SENDMSG_OP,
     &KERNEL_FUNCTION_SYS_SENDTO_OP,
@@ -64,9 +64,10 @@ int kernel_function_op_get_list(const struct kernel_function_op*** list, size_t 
         return -EINVAL;
     }
 
-    /* sys_accept's, sys_accept4's, sys_bind's, sys_clone's, sys_connect's, sys_fork's, and
-     * sys_kill's ops aren't compile-time constants (their .hook is populated at runtime via
-     * their respective hook_get()), so their list slots are filled in here instead. */
+    /* sys_accept's, sys_accept4's, sys_bind's, sys_clone's, sys_connect's, sys_fork's,
+     * sys_kill's, and sys_recvfrom's ops aren't compile-time constants (their .hook is
+     * populated at runtime via their respective hook_get()), so their list slots are filled
+     * in here instead. */
     KERNEL_FUNCTION_OP_LIST[0] = kernel_function_sys_accept_op_get();
     KERNEL_FUNCTION_OP_LIST[1] = kernel_function_sys_accept4_op_get();
     KERNEL_FUNCTION_OP_LIST[2] = kernel_function_sys_bind_op_get();
@@ -74,6 +75,7 @@ int kernel_function_op_get_list(const struct kernel_function_op*** list, size_t 
     KERNEL_FUNCTION_OP_LIST[4] = kernel_function_sys_connect_op_get();
     KERNEL_FUNCTION_OP_LIST[5] = kernel_function_sys_fork_op_get();
     KERNEL_FUNCTION_OP_LIST[6] = kernel_function_sys_kill_op_get();
+    KERNEL_FUNCTION_OP_LIST[7] = kernel_function_sys_recvfrom_op_get();
 
     *list = KERNEL_FUNCTION_OP_LIST;
     *len = KERNEL_FUNCTION_OP_LIST_LEN;
