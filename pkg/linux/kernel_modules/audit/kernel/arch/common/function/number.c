@@ -29,5 +29,5 @@ int __weak kernel_function_number_to_system_call_number(
     bool default_to_func_num
 )
 {
-    return -ENOSYS;
+    return -ENOENT;
 }
