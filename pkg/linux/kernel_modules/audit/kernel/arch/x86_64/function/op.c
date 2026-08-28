@@ -22,7 +22,7 @@
 
 #include "audit/kernel/arch/common/function/op.h"
 #include "audit/kernel/arch/common/function/sys_accept/op.h"
-#include "audit/kernel/arch/x86_64/function/sys_accept4/op.h"
+#include "audit/kernel/arch/common/function/sys_accept4/op.h"
 #include "audit/kernel/arch/x86_64/function/sys_bind/op.h"
 #include "audit/kernel/arch/x86_64/function/sys_clone/op.h"
 #include "audit/kernel/arch/x86_64/function/sys_connect/op.h"
@@ -40,7 +40,7 @@
 
 const struct kernel_function_op* KERNEL_FUNCTION_OP_LIST[] = {
     NULL, /* sys_accept - not a compile-time constant; populated lazily below via kernel_function_sys_accept_op_get() */
-    &KERNEL_FUNCTION_SYS_ACCEPT4_OP,
+    NULL, /* sys_accept4 - not a compile-time constant; populated lazily below via kernel_function_sys_accept4_op_get() */
     &KERNEL_FUNCTION_SYS_BIND_OP,
     &KERNEL_FUNCTION_SYS_CLONE_OP,
     &KERNEL_FUNCTION_SYS_CONNECT_OP,
@@ -64,9 +64,10 @@ int kernel_function_op_get_list(const struct kernel_function_op*** list, size_t 
         return -EINVAL;
     }
 
-    /* sys_accept's op isn't a compile-time constant (its .hook is populated at runtime via
-     * kernel_function_sys_accept_hook_get()), so its list slot is filled in here instead. */
+    /* sys_accept's and sys_accept4's ops aren't compile-time constants (their .hook is populated
+     * at runtime via their respective hook_get()), so their list slots are filled in here instead. */
     KERNEL_FUNCTION_OP_LIST[0] = kernel_function_sys_accept_op_get();
+    KERNEL_FUNCTION_OP_LIST[1] = kernel_function_sys_accept4_op_get();
 
     *list = KERNEL_FUNCTION_OP_LIST;
     *len = KERNEL_FUNCTION_OP_LIST_LEN;

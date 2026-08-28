@@ -25,7 +25,14 @@
 #include "audit/kernel/arch/common/function/op.h"
 
 
-extern const struct kernel_function_op KERNEL_FUNCTION_SYS_ACCEPT4_OP;
+/*
+    Get the sys_accept4 op, ensuring its .hook field (populated via
+    kernel_function_sys_accept4_hook_get(), not a compile-time constant) is set first.
+
+    Returns:
+        ptr     -> Pointer to the op.
+*/
+const struct kernel_function_op* kernel_function_sys_accept4_op_get(void);
 
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT4_OP_H

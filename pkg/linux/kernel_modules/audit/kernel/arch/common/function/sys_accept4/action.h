@@ -18,19 +18,20 @@
  --------------------------------------------------------------------------------
  */
 
-#include "audit/kernel/arch/x86_64/function/sys_accept4/action.h"
-#include "audit/kernel/arch/x86_64/function/sys_accept4/action/audit.h"
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT4_ACTION_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT4_ACTION_H
 
 
-const struct kernel_function_action_list KERNEL_FUNCTION_SYS_ACCEPT4_ACTION_LIST = {
-    .pre = {
-        kernel_function_action_pre_is_actionable,
-        0
-    },
-    .post = {
-        kernel_function_action_post_is_actionable,
-        kernel_function_sys_accept4_action_audit_handle_post,
-        0
-    }
-};
+#include <linux/types.h>
 
+#include "audit/kernel/arch/common/function/action.h"
+
+/*
+    Get the sys_accept4 action list, ensuring it's initialized first.
+
+    Returns:
+        ptr     -> Pointer to the action list.
+*/
+const struct kernel_function_action_list* kernel_function_sys_accept4_action_list_get(void);
+
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT4_ACTION_H
