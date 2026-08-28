@@ -79,7 +79,11 @@ COMMON_FUNCTION_OBJS := \
   audit/kernel/arch/common/function/sys_setns/action.o \
   audit/kernel/arch/common/function/sys_setns/action/audit.o \
   audit/kernel/arch/common/function/sys_setns/op.o \
-  audit/kernel/arch/common/function/sys_setns/hook.o
+  audit/kernel/arch/common/function/sys_setns/hook.o \
+  audit/kernel/arch/common/function/sys_unshare/action.o \
+  audit/kernel/arch/common/function/sys_unshare/action/audit.o \
+  audit/kernel/arch/common/function/sys_unshare/op.o \
+  audit/kernel/arch/common/function/sys_unshare/hook.o
 
 COMMON_OBJS := \
   $(COMMON_HELPER_OBJS) \
