@@ -26,10 +26,8 @@
 #include "audit/kernel/arch/common/function/arg.h"
 #include "audit/kernel/arch/common/function/action.h"
 #include "audit/kernel/arch/common/function/hook.h"
-#include "audit/kernel/arch/common/function/result.h"
-#include "audit/kernel/arch/x86_64/function/sys_recvmsg/arg.h"
-#include "audit/kernel/arch/x86_64/function/sys_recvmsg/hook.h"
-#include "audit/kernel/arch/x86_64/function/sys_recvmsg/result.h"
+#include "audit/kernel/arch/common/function/sys_recvmsg/arg.h"
+#include "audit/kernel/arch/common/function/sys_recvmsg/hook.h"
 #include "audit/util/log/log.h"
 
 
@@ -49,77 +47,6 @@ static const enum kernel_function_number global_func_num = KERN_F_NUM_SYS_RECVMS
         .act_res = &(struct kernel_function_action_result){0} \
     })
 
-#define BUILD_HOOK_CONTEXT_PRE(_h_ctx) \
-    ((struct kernel_function_hook_context_pre){ \
-        .header = (_h_ctx), \
-        .proc = KERNEL_FUNCTION_HOOK_PROCESS_CONTEXT_CURRENT \
-    })
-
-#define BUILD_HOOK_CONTEXT_POST(_h_ctx, _sys_res) \
-    ((struct kernel_function_hook_context_post){ \
-        .header = (_h_ctx), \
-        .proc = KERNEL_FUNCTION_HOOK_PROCESS_CONTEXT_CURRENT, \
-        .func_res = &(const struct kernel_function_result){ \
-            .res = &(const struct kernel_function_sys_recvmsg_result){ \
-                .ret = (_sys_res) \
-            }, \
-            .res_size = sizeof(struct kernel_function_sys_recvmsg_result), \
-            .success = ((_sys_res) >= 0) \
-        } \
-    })
-
-bool kernel_function_sys_recvmsg_hook_context_pre_is_valid(const struct kernel_function_hook_context_pre *ctx)
-{
-    return (
-        kernel_function_hook_context_pre_is_valid(ctx)
-        && ctx->header->func_num == global_func_num
-        && ctx->header->func_arg->arg_size == sizeof(struct kernel_function_sys_recvmsg_arg)
-    );
-}
-
-bool kernel_function_sys_recvmsg_hook_context_post_is_valid(const struct kernel_function_hook_context_post *ctx)
-{
-    return (
-        kernel_function_hook_context_post_is_valid(ctx)
-        && ctx->header->func_num == global_func_num
-        && ctx->header->func_arg->arg_size == sizeof(struct kernel_function_sys_recvmsg_arg)
-        && ctx->func_res->res_size == sizeof(struct kernel_function_sys_recvmsg_result)
-        && ctx->func_res->success // todo
-    );
-}
-
-static void _pre(
-    const struct kernel_function_hook_context *h_ctx
-)
-{
-    int err;
-
-    const struct kernel_function_hook_context_pre hook_ctx_pre = BUILD_HOOK_CONTEXT_PRE(h_ctx);
-
-    err = kernel_function_hook_pre(&hook_ctx_pre);
-    if (err != 0)
-        return;
-
-    return;
-}
-
-static void _post(
-    const struct kernel_function_hook_context *h_ctx,
-    long sys_res
-)
-{
-    int err;
-
-    const struct kernel_function_hook_context_post hook_ctx_post = BUILD_HOOK_CONTEXT_POST(h_ctx, sys_res);
-
-    err = kernel_function_hook_post(&hook_ctx_post);
-    if (err != 0)
-        return;
-
-    return;
-}
-
-
 #if KERNEL_HELPER_KERNEL_PTREGS_SYSCALL_STUBS
 
 	static asmlinkage long (*_orig)(const struct pt_regs *regs);
@@ -133,18 +60,18 @@ static void _post(
         struct msghdr __user *msg = (struct msghdr __user *)(regs->si);
         int flags = (int)(regs->dx);
 
-		const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(sockfd, msg, flags);
+        const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(sockfd, msg, flags);
 
-        _pre(&h_ctx);
-		if (kernel_function_action_result_is_disallow_function(h_ctx.act_res->type))
-		{
-			util_log_debug(log_id, "Disallowing function execution due to action result type: %d", h_ctx.act_res->type);
-			res = -EACCES;
-		} else
-		{
-			res = _orig(regs);
-		}
-		_post(&h_ctx, res);
+        kernel_function_sys_recvmsg_hook_pre(&h_ctx);
+        if (kernel_function_action_result_is_disallow_function(h_ctx.act_res->type))
+        {
+            util_log_debug(log_id, "Disallowing function execution due to action result type: %d", h_ctx.act_res->type);
+            res = -EACCES;
+        } else
+        {
+            res = _orig(regs);
+        }
+		kernel_function_sys_recvmsg_hook_post(&h_ctx, res);
 		return res;
 	}
 
@@ -158,28 +85,23 @@ static void _post(
 		const char *log_id = "sys_recvmsg::_hook";
 		long res;
 
-		const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(sockfd, msg, flags);
+        const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(sockfd, msg, flags);
 
-        _pre(&h_ctx);
-		if (kernel_function_action_result_is_disallow_function(h_ctx.act_res->type))
-		{
-			util_log_debug(log_id, "Disallowing function execution due to action result type: %d", h_ctx.act_res->type);
-			res = -EACCES;
-		} else
-		{
-			res = _orig(sockfd, msg, flags);
-		}
-		_post(&h_ctx, res);
+        kernel_function_sys_recvmsg_hook_pre(&h_ctx);
+        if (kernel_function_action_result_is_disallow_function(h_ctx.act_res->type))
+        {
+            util_log_debug(log_id, "Disallowing function execution due to action result type: %d", h_ctx.act_res->type);
+            res = -EACCES;
+        } else
+        {
+            res = _orig(sockfd, msg, flags);
+        }
+		kernel_function_sys_recvmsg_hook_post(&h_ctx, res);
 		return res;
 	}
 
 #endif
 
-
-static enum kernel_function_number kernel_function_hook_function_recvmsg_num(void)
-{
-    return global_func_num;
-}
 
 static const char* kernel_function_hook_function_recvmsg_name(void)
 {
@@ -200,9 +122,14 @@ static void *kernel_function_hook_function_recvmsg_hook(void)
     return _hook;
 }
 
-const struct kernel_function_hook KERNEL_FUNCTION_SYS_RECVMSG_HOOK = {
+static const struct kernel_function_hook KERNEL_FUNCTION_SYS_RECVMSG_HOOK = {
     .get_num = kernel_function_hook_function_recvmsg_num,
     .get_name = kernel_function_hook_function_recvmsg_name,
     .get_orig_func_ptr = kernel_function_hook_function_recvmsg_original_ptr,
     .get_hook_func = kernel_function_hook_function_recvmsg_hook
 };
+
+const struct kernel_function_hook* kernel_function_sys_recvmsg_hook_get(void)
+{
+    return &KERNEL_FUNCTION_SYS_RECVMSG_HOOK;
+}

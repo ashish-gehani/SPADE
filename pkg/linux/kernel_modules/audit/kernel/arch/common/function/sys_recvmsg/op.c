@@ -18,18 +18,32 @@
  --------------------------------------------------------------------------------
  */
 
-#include "audit/kernel/arch/x86_64/function/sys_recvmsg/action.h"
-#include "audit/kernel/arch/x86_64/function/sys_recvmsg/action/audit.h"
+#include "audit/kernel/arch/common/function/sys_recvmsg/op.h"
+#include "audit/kernel/arch/common/function/sys_recvmsg/hook.h"
+#include "audit/kernel/arch/common/function/sys_recvmsg/action.h"
 
 
-const struct kernel_function_action_list KERNEL_FUNCTION_SYS_RECVMSG_ACTION_LIST = {
-    .pre = {
-        kernel_function_action_pre_is_actionable,
-        0
-    },
-    .post = {
-        kernel_function_action_post_is_actionable,
-        kernel_function_sys_recvmsg_action_audit_handle_post,
-        0
-    }
+static struct kernel_function_op KERNEL_FUNCTION_SYS_RECVMSG_OP;
+
+static struct
+{
+    bool initialized;
+} state = {
+    .initialized = false,
 };
+
+static void _ensure_initialized(void)
+{
+    if (!state.initialized)
+    {
+        KERNEL_FUNCTION_SYS_RECVMSG_OP.hook = kernel_function_sys_recvmsg_hook_get();
+        KERNEL_FUNCTION_SYS_RECVMSG_OP.action_list = kernel_function_sys_recvmsg_action_list_get();
+        state.initialized = true;
+    }
+}
+
+const struct kernel_function_op* kernel_function_sys_recvmsg_op_get(void)
+{
+    _ensure_initialized();
+    return &KERNEL_FUNCTION_SYS_RECVMSG_OP;
+}

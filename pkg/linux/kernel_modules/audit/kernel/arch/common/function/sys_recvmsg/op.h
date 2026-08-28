@@ -18,14 +18,21 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_RECVMSG_ACTION_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_RECVMSG_ACTION_H
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_RECVMSG_OP_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_RECVMSG_OP_H
 
 
-#include <linux/types.h>
+#include "audit/kernel/arch/common/function/op.h"
 
-#include "audit/kernel/arch/common/function/action.h"
 
-extern const struct kernel_function_action_list KERNEL_FUNCTION_SYS_RECVMSG_ACTION_LIST;
+/*
+    Get the sys_recvmsg op, ensuring its .hook field (populated via
+    kernel_function_sys_recvmsg_hook_get(), not a compile-time constant) is set first.
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_RECVMSG_ACTION_H
+    Returns:
+        ptr     -> Pointer to the op.
+*/
+const struct kernel_function_op* kernel_function_sys_recvmsg_op_get(void);
+
+
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_RECVMSG_OP_H
