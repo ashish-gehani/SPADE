@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_AUDIT_KERNEL_HELPER_KERNEL_H
-#define _SPADE_AUDIT_KERNEL_HELPER_KERNEL_H
+#ifndef _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_KERNEL_H
+#define _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_KERNEL_H
 
 #include <linux/init.h>
 #include <linux/module.h>
@@ -58,4 +58,4 @@ typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
 kallsyms_lookup_name_t kernel_helper_kernel_get_kallsyms_func(void);
 
 
-#endif // _SPADE_AUDIT_KERNEL_HELPER_KERNEL_H
+#endif // _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_KERNEL_H

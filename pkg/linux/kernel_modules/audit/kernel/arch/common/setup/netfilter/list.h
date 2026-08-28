@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_NETFILTER_SETUP_LIST_H
-#define SPADE_AUDIT_KERNEL_NETFILTER_SETUP_LIST_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_NETFILTER_SETUP_LIST_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_NETFILTER_SETUP_LIST_H
 
 #include <linux/types.h>
 #include <linux/netfilter.h>
@@ -101,4 +101,4 @@ const struct nf_hook_ops kernel_netfilter_setup_list_hooks[] = {
 
 const int kernel_netfilter_setup_list_hooks_size = sizeof(kernel_netfilter_setup_list_hooks) / sizeof(kernel_netfilter_setup_list_hooks[0]);
 
-#endif // SPADE_AUDIT_KERNEL_NETFILTER_SETUP_LIST_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_NETFILTER_SETUP_LIST_H

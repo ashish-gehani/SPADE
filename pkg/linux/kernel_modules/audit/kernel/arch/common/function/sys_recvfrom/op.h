@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_RECVFROM_OP_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_RECVFROM_OP_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_RECVFROM_OP_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_RECVFROM_OP_H
 
 
 #include "audit/kernel/arch/common/function/op.h"
@@ -35,4 +35,4 @@
 const struct kernel_function_op* kernel_function_sys_recvfrom_op_get(void);
 
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_RECVFROM_OP_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_RECVFROM_OP_H

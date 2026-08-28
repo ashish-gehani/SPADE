@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_NAMESPACE_SETUP_NAMESPACE_H
-#define SPADE_AUDIT_KERNEL_NAMESPACE_SETUP_NAMESPACE_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_NAMESPACE_SETUP_NAMESPACE_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_NAMESPACE_SETUP_NAMESPACE_H
 
 #include "audit/state/namespace/namespace.h"
 
@@ -42,4 +42,4 @@ int kernel_setup_namespace_do(void);
 int kernel_setup_namespace_undo(void);
 
 
-#endif // SPADE_AUDIT_KERNEL_NAMESPACE_SETUP_NAMESPACE_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_NAMESPACE_SETUP_NAMESPACE_H

@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_AUDIT_KERNEL_HELPER_SOCK_H
-#define _SPADE_AUDIT_KERNEL_HELPER_SOCK_H
+#ifndef _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_SOCK_H
+#define _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_SOCK_H
 
 #include <linux/net.h>
 #include <linux/socket.h>
@@ -115,4 +115,4 @@ int kernel_helper_sock_copy_saddr_in_msghdr_from_userspace(
     struct msghdr __user *src
 );
 
-#endif // _SPADE_AUDIT_KERNEL_HELPER_SOCK_H
+#endif // _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_SOCK_H

@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_AUDIT_KERNEL_HELPER_TASK_H
-#define _SPADE_AUDIT_KERNEL_HELPER_TASK_H
+#ifndef _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_TASK_H
+#define _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_TASK_H
 
 #include <linux/sched.h>
 #include <linux/errno.h>
@@ -138,4 +138,4 @@ int kernel_helper_task_populate_process_info_from_current_task(
     struct msg_common_process *proc
 );
 
-#endif // _SPADE_AUDIT_KERNEL_HELPER_TASK_H
+#endif // _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_TASK_H

@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_SETUP_FUNCTION_FTRACE_FTRACE_H
-#define SPADE_AUDIT_KERNEL_SETUP_FUNCTION_FTRACE_FTRACE_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_SETUP_FUNCTION_FTRACE_FTRACE_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_SETUP_FUNCTION_FTRACE_FTRACE_H
 
 /*
     Returns:
@@ -36,4 +36,4 @@ int kernel_setup_function_ftrace_install(void);
 int kernel_setup_function_ftrace_uninstall(void);
 
 
-#endif // SPADE_AUDIT_KERNEL_SETUP_FUNCTION_FTRACE_FTRACE_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_SETUP_FUNCTION_FTRACE_FTRACE_H

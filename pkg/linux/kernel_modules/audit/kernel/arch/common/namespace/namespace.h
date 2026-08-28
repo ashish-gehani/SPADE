@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_NAMESPACE_NAMESPACE_H
-#define SPADE_AUDIT_KERNEL_NAMESPACE_NAMESPACE_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_NAMESPACE_NAMESPACE_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_NAMESPACE_NAMESPACE_H
 
 #include "audit/msg/namespace/namespace.h"
 
@@ -61,4 +61,4 @@ int kernel_namespace_unset(void);
 */
 struct kernel_namespace_pointers* kernel_namespace_get_pointers(void);
 
-#endif // SPADE_AUDIT_KERNEL_NAMESPACE_NAMESPACE_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_NAMESPACE_NAMESPACE_H

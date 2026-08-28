@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_NUMBER_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_NUMBER_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_NUMBER_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_NUMBER_H
 
 #include <asm/syscall.h>
 
@@ -60,4 +60,4 @@ int kernel_function_number_to_system_call_number(
     bool default_to_func_num
 );
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_NUMBER_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_NUMBER_H

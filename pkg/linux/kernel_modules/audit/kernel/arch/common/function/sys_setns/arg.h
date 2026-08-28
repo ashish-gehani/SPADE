@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_SETNS_ARG_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_SETNS_ARG_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_SETNS_ARG_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_SETNS_ARG_H
 
 #include <linux/types.h>
 
@@ -29,4 +29,4 @@ struct kernel_function_sys_setns_arg
     int nstype;
 };
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_SETNS_ARG_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_SETNS_ARG_H

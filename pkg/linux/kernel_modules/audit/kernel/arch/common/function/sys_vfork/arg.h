@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_VFORK_ARG_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_VFORK_ARG_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_VFORK_ARG_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_VFORK_ARG_H
 
 #include <linux/types.h>
 
@@ -28,4 +28,4 @@ struct kernel_function_sys_vfork_arg
     // vfork() takes no arguments, but we need a struct for consistency
 };
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_VFORK_ARG_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_VFORK_ARG_H

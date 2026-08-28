@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_AUDIT_KERNEL_HELPER_NETWORK_H
-#define _SPADE_AUDIT_KERNEL_HELPER_NETWORK_H
+#ifndef _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_NETWORK_H
+#define _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_NETWORK_H
 
 #include <linux/errno.h>
 #include <linux/socket.h>
@@ -131,4 +131,4 @@ int kernel_helper_network_copy_saddr_and_size_in_msghdr_from_userspace(
     struct msghdr __user *src
 );
 
-#endif // _SPADE_AUDIT_KERNEL_HELPER_NETWORK_H
+#endif // _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_NETWORK_H

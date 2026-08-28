@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_NETFILTER_SETUP_NETFILTER_H
-#define SPADE_AUDIT_KERNEL_NETFILTER_SETUP_NETFILTER_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_NETFILTER_SETUP_NETFILTER_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_NETFILTER_SETUP_NETFILTER_H
 
 #include <linux/types.h>
 
@@ -43,4 +43,4 @@ int kernel_setup_netfilter_do(void);
 int kernel_setup_netfilter_undo(void);
 
 
-#endif // SPADE_AUDIT_KERNEL_NETFILTER_SETUP_NETFILTER_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_NETFILTER_SETUP_NETFILTER_H

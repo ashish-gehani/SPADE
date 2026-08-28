@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_HOOK_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_HOOK_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_HOOK_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_HOOK_H
 
 #include <linux/types.h>
 
@@ -142,4 +142,4 @@ int kernel_function_hook_post(
 );
 
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_HOOK_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_HOOK_H

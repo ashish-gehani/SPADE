@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_RESULT_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_RESULT_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_SENDMSG_RESULT_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_SENDMSG_RESULT_H
 
 #include <linux/types.h>
 
@@ -28,4 +28,4 @@ struct kernel_function_sys_sendmsg_result
     long ret;
 };
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_RESULT_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_SENDMSG_RESULT_H

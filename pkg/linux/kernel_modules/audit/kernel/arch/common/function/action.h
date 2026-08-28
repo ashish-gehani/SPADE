@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_ACTION_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_ACTION_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_ACTION_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_ACTION_H
 
 
 #include <linux/types.h>
@@ -227,4 +227,4 @@ void kernel_function_action_result_set_skip_all_actions(
     struct kernel_function_action_result *act_res
 );
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_ACTION_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_ACTION_H

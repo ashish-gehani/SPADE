@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_AUDIT_KERNEL_HELPER_AUDIT_LOG_H
-#define _SPADE_AUDIT_KERNEL_HELPER_AUDIT_LOG_H
+#ifndef _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_AUDIT_LOG_H
+#define _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_AUDIT_LOG_H
 
 #include <linux/audit.h>
 
@@ -40,4 +40,4 @@
 */
 int kernel_helper_audit_log(struct audit_context *ctx, struct msg_common_header *msg_h);
 
-#endif // _SPADE_AUDIT_KERNEL_HELPER_AUDIT_LOG_H
+#endif // _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_AUDIT_LOG_H

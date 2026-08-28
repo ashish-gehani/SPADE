@@ -4,8 +4,8 @@
  * License: GPL
  * */
 
-#ifndef SPADE_AUDIT_KERNEL_SETUP_FUNCTION_FTRACE_FTRACE_THUNK_H
-#define SPADE_AUDIT_KERNEL_SETUP_FUNCTION_FTRACE_FTRACE_THUNK_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_SETUP_FUNCTION_FTRACE_FTRACE_THUNK_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_SETUP_FUNCTION_FTRACE_FTRACE_THUNK_H
 
 #include <linux/ftrace.h>
 
@@ -19,4 +19,4 @@ void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip, struct f
 void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip, struct ftrace_ops *ops, struct pt_regs *regs);
 #endif
 
-#endif // SPADE_AUDIT_KERNEL_SETUP_FUNCTION_FTRACE_FTRACE_THUNK_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_SETUP_FUNCTION_FTRACE_FTRACE_THUNK_H

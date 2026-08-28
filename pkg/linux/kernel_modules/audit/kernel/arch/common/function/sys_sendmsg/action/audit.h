@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_ACTION_AUDIT_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_ACTION_AUDIT_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_SENDMSG_ACTION_AUDIT_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_SENDMSG_ACTION_AUDIT_H
 
 #include "audit/kernel/arch/common/function/hook.h"
 
@@ -27,4 +27,4 @@ int kernel_function_sys_sendmsg_action_audit_handle_post(
     const struct kernel_function_hook_context_post *ctx_post
 );
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_ACTION_AUDIT_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_SENDMSG_ACTION_AUDIT_H

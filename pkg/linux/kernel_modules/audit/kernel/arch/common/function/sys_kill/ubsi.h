@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_KILL_UBSI_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_KILL_UBSI_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_KILL_UBSI_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_KILL_UBSI_H
 
 #define UBSI_UENTRY		0xffffff9c
 #define UBSI_UENTRY_ID	0xffffff9a
@@ -30,4 +30,4 @@
 #define UBSI_MWRITE2 	0xfffffed3
 #define UBSI_UDEP		0xfffffe70
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_KILL_UBSI_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_KILL_UBSI_H

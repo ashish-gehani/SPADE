@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_OP_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_OP_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_OP_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_OP_H
 
 
 #include <linux/types.h>
@@ -72,4 +72,4 @@ int kernel_function_op_get_by_func_num(const struct kernel_function_op** dst, en
 int __weak kernel_function_op_get_list(const struct kernel_function_op*** list, size_t *len);
 
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_OP_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_OP_H

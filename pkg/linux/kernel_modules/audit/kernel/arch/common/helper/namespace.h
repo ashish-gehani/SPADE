@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef _SPADE_AUDIT_KERNEL_HELPER_NAMESPACE_H
-#define _SPADE_AUDIT_KERNEL_HELPER_NAMESPACE_H
+#ifndef _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_NAMESPACE_H
+#define _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_NAMESPACE_H
 
 #include <linux/errno.h>
 
@@ -63,4 +63,4 @@ int kernel_helper_namespace_log_msg_to_audit(
     struct msg_namespace *msg
 );
 
-#endif // _SPADE_AUDIT_KERNEL_HELPER_NAMESPACE_H
+#endif // _SPADE_AUDIT_KERNEL_ARCH_COMMON_HELPER_NAMESPACE_H

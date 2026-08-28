@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_NETFILTER_H
-#define SPADE_AUDIT_KERNEL_NETFILTER_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_NETFILTER_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_NETFILTER_H
 
 
 #include <linux/kernel.h>
@@ -41,4 +41,4 @@ nf_hookfn kernel_netfilter_hook_first;
 */
 nf_hookfn kernel_netfilter_hook_last;
 
-#endif // SPADE_AUDIT_KERNEL_NETFILTER_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_NETFILTER_H

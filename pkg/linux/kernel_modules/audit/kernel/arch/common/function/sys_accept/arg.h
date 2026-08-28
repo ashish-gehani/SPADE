@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT_ARG_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT_ARG_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_ACCEPT_ARG_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_ACCEPT_ARG_H
 
 #include <linux/types.h>
 #include <linux/socket.h>
@@ -31,4 +31,4 @@ struct kernel_function_sys_accept_arg
     uint32_t __user *addrlen;
 };
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_ACCEPT_ARG_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_ACCEPT_ARG_H

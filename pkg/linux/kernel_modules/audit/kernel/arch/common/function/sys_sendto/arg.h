@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDTO_ARG_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDTO_ARG_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_SENDTO_ARG_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_SENDTO_ARG_H
 
 #include <linux/types.h>
 #include <linux/socket.h>
@@ -34,4 +34,4 @@ struct kernel_function_sys_sendto_arg
     int addrlen;
 };
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDTO_ARG_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_SENDTO_ARG_H

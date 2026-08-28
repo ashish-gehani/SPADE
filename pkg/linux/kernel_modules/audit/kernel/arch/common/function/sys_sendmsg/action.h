@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_ACTION_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_ACTION_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_SENDMSG_ACTION_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_SENDMSG_ACTION_H
 
 
 #include <linux/types.h>
@@ -34,4 +34,4 @@
 */
 const struct kernel_function_action_list* kernel_function_sys_sendmsg_action_list_get(void);
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_ACTION_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_SENDMSG_ACTION_H

@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_BIND_HOOK_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_BIND_HOOK_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_BIND_HOOK_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_BIND_HOOK_H
 
 #include <linux/types.h>
 #include "audit/kernel/arch/common/function/hook.h"
@@ -83,4 +83,4 @@ bool kernel_function_sys_bind_hook_context_post_is_valid(
     const struct kernel_function_hook_context_post *ctx
 );
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_BIND_HOOK_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_BIND_HOOK_H

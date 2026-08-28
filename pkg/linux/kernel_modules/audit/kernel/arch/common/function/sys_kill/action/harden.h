@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_KILL_ACTION_HARDEN_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_KILL_ACTION_HARDEN_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_KILL_ACTION_HARDEN_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_KILL_ACTION_HARDEN_H
 
 #include "audit/kernel/arch/common/function/hook.h"
 
@@ -27,4 +27,4 @@ int kernel_function_sys_kill_action_harden_handle_pre(
     const struct kernel_function_hook_context_pre *ctx_pre
 );
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_KILL_ACTION_HARDEN_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_SYS_KILL_ACTION_HARDEN_H

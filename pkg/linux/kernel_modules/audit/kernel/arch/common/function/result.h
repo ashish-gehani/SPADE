@@ -18,8 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_RESULT_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_RESULT_H
+#ifndef SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_RESULT_H
+#define SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_RESULT_H
 
 #include <linux/types.h>
 
@@ -30,4 +30,4 @@ struct kernel_function_result
     const bool success;
 };
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_RESULT_H
+#endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_RESULT_H
