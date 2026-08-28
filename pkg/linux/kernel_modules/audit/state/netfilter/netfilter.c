@@ -22,7 +22,7 @@
 #include <linux/string.h>
 
 #include "audit/state/netfilter/netfilter.h"
-#include "audit/kernel/setup/netfilter/netfilter.h"
+#include "audit/kernel/arch/common/setup/netfilter/netfilter.h"
 
 
 int state_netfilter_is_initialized(

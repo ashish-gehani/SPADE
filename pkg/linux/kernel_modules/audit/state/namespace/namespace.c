@@ -24,7 +24,7 @@
 #include <linux/version.h>
 
 #include "audit/state/namespace/namespace.h"
-#include "audit/kernel/setup/namespace/namespace.h"
+#include "audit/kernel/arch/common/setup/namespace/namespace.h"
 #include "audit/util/log/log.h"
 
 

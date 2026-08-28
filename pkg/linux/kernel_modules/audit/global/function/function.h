@@ -24,7 +24,7 @@
 #include <linux/types.h>
 
 #include "audit/context/function/function.h"
-#include "audit/kernel/function/number.h"
+#include "audit/kernel/arch/common/function/number.h"
 
 
 /*

@@ -26,7 +26,7 @@
 #include "audit/arg/arg.h"
 #include "audit/state/state.h"
 #include "audit/context/context.h"
-#include "audit/kernel/function/number.h"
+#include "audit/kernel/arch/common/function/number.h"
 
 
 /*

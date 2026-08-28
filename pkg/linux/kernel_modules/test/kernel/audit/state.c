@@ -24,7 +24,7 @@
 #include <linux/errno.h>
 
 #include "audit/util/log/log.h"
-#include "audit/kernel/namespace/namespace.h"
+#include "audit/kernel/arch/common/namespace/namespace.h"
 
 #include "test/kernel/audit/common.h"
 #include "test/kernel/audit/state.h"

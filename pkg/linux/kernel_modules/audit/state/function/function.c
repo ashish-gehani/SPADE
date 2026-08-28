@@ -23,7 +23,7 @@
 #include <linux/kernel.h>
 #include <linux/version.h>
 
-#include "audit/kernel/setup/function/ftrace/ftrace.h"
+#include "audit/kernel/arch/common/setup/function/ftrace/ftrace.h"
 #include "audit/state/function/function.h"
 #include "audit/util/log/log.h"
 

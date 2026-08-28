@@ -30,7 +30,7 @@
 #include "audit/util/log/log.h"
 #include "audit/global/global.h"
 #include "audit/global/filter.h"
-#include "audit/kernel/function/number.h"
+#include "audit/kernel/arch/common/function/number.h"
 
 #include "test/kernel/audit/common.h"
 #include "test/kernel/audit/global.h"

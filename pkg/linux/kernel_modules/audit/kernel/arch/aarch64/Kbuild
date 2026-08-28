@@ -1,0 +1,25 @@
+# aarch64-specific hooked function names and object list, included by audit/kernel/Kbuild.
+# Paths are relative to the Kbuild source root ($(src)), not to this directory.
+
+ARCH_SETUP_FUNCTION_FTRACE_OBJS := \
+  audit/kernel/arch/aarch64/setup/function/ftrace/ftrace_thunk.o
+
+# aarch64's native 64-bit ABI has no SYS_fork / SYS_vfork syscall numbers;
+# glibc's fork()/vfork() are implemented via clone() on this architecture, so
+# sys_fork/sys_vfork are excluded here since they are unreachable from
+# userspace.
+HOOKED_FUNCTION_NAMES := \
+  sys_accept \
+  sys_accept4 \
+  sys_bind \
+  sys_clone \
+  sys_connect \
+  sys_kill \
+  sys_recvfrom \
+  sys_recvmsg \
+  sys_sendmsg \
+  sys_sendto \
+  sys_setns \
+  sys_unshare
+
+HOOKED_FUNCTION_ACTION_AUDIT_NAMES := $(HOOKED_FUNCTION_NAMES)

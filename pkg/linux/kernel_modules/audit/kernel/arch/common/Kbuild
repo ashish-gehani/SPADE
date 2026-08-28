@@ -1,0 +1,46 @@
+# Object list for audit/kernel/arch/common, included by the top-level audit/kernel/Kbuild.
+# Paths are relative to the Kbuild source root ($(src)), not to this directory.
+
+COMMON_HELPER_OBJS := \
+  audit/kernel/arch/common/helper/audit_log.o \
+  audit/kernel/arch/common/helper/kernel.o \
+  audit/kernel/arch/common/helper/namespace.o \
+  audit/kernel/arch/common/helper/network.o \
+  audit/kernel/arch/common/helper/sock.o \
+  audit/kernel/arch/common/helper/task.o
+
+COMMON_NAMESPACE_OBJS := \
+  audit/kernel/arch/common/namespace/namespace.o
+
+COMMON_NETFILTER_OBJS := \
+  audit/kernel/arch/common/netfilter/netfilter.o
+
+COMMON_SETUP_NETFILTER_OBJS := \
+  audit/kernel/arch/common/setup/netfilter/netfilter.o
+
+COMMON_SETUP_NAMESPACE_OBJS := \
+  audit/kernel/arch/common/setup/namespace/namespace.o
+
+COMMON_SETUP_FUNCTION_FTRACE_OBJS := \
+  audit/kernel/arch/common/setup/function/ftrace/ftrace.o \
+  audit/kernel/arch/common/setup/function/ftrace/ftrace_helper.o \
+  audit/kernel/arch/common/setup/function/ftrace/ftrace_thunk.o
+
+COMMON_FUNCTION_OBJS := \
+  audit/kernel/arch/common/function/action.o \
+  audit/kernel/arch/common/function/hook.o \
+  audit/kernel/arch/common/function/number.o \
+  audit/kernel/arch/common/function/op.o \
+  audit/kernel/arch/common/function/sys_accept/action.o \
+  audit/kernel/arch/common/function/sys_accept/action/audit.o \
+  audit/kernel/arch/common/function/sys_accept/op.o \
+  audit/kernel/arch/common/function/sys_accept/hook.o
+
+COMMON_OBJS := \
+  $(COMMON_HELPER_OBJS) \
+  $(COMMON_NAMESPACE_OBJS) \
+  $(COMMON_NETFILTER_OBJS) \
+  $(COMMON_SETUP_NETFILTER_OBJS) \
+  $(COMMON_SETUP_NAMESPACE_OBJS) \
+  $(COMMON_SETUP_FUNCTION_FTRACE_OBJS) \
+  $(COMMON_FUNCTION_OBJS)

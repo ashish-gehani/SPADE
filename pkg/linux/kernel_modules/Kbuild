@@ -39,52 +39,11 @@ CHECK_SCRIPT_MOD_MAIN=bin/test/$(MAIN_MODULE_NAME)/run.sh
 # Module names
 MODULE_NAMES := $(MAIN_MODULE_NAME) $(CONTROLLER_MODULE_NAME) $(TEST_MODULE_NAME)
 
-# Function names
-HOOKED_FUNCTION_NAMES := \
-  sys_accept \
-  sys_accept4 \
-  sys_bind \
-  sys_clone \
-  sys_connect \
-  sys_fork \
-  sys_kill \
-  sys_recvfrom \
-  sys_recvmsg \
-  sys_sendmsg \
-  sys_sendto \
-  sys_setns \
-  sys_unshare \
-  sys_vfork
-HOOKED_FUNCTION_ACTION_AUDIT_NAMES := \
-  sys_accept \
-  sys_accept4 \
-  sys_bind \
-  sys_clone \
-  sys_connect \
-  sys_fork \
-  sys_kill \
-  sys_recvfrom \
-  sys_recvmsg \
-  sys_sendmsg \
-  sys_sendto \
-  sys_setns \
-  sys_unshare \
-  sys_vfork
-HOOKED_FUNCTION_ACTION_HARDEN_NAMES := \
-  sys_kill
+# Use M variable if set (kbuild phase), otherwise use current directory
+MODULE_SRC_DIR := $(if $(M),$(M),$(CURDIR))
 
-HOOKED_FUNCTION_ACTION_AUDIT_OBJS = \
-  $(foreach f_name,$(HOOKED_FUNCTION_ACTION_AUDIT_NAMES),audit/kernel/function/$(f_name)/action/audit.o)
-
-HOOKED_FUNCTION_ACTION_HARDEN_OBJS = \
-  $(foreach f_name,$(HOOKED_FUNCTION_ACTION_HARDEN_NAMES),audit/kernel/function/$(f_name)/action/harden.o)
-
-HOOKED_FUNCTION_OBJS = \
-  $(HOOKED_FUNCTION_ACTION_AUDIT_OBJS) \
-  $(HOOKED_FUNCTION_ACTION_HARDEN_OBJS) \
-  $(foreach f_name,$(HOOKED_FUNCTION_NAMES),audit/kernel/function/$(f_name)/action.o) \
-  $(foreach f_name,$(HOOKED_FUNCTION_NAMES),audit/kernel/function/$(f_name)/hook.o) \
-  $(foreach f_name,$(HOOKED_FUNCTION_NAMES),audit/kernel/function/$(f_name)/op.o)
+# Function names and audit/kernel object list (audit/kernel/Kbuild)
+include $(MODULE_SRC_DIR)/audit/kernel/Kbuild
 
 # Module output files
 MOD_OUT_FILES = \
@@ -137,25 +96,6 @@ GLOBAL_OBJS := \
   audit/global/process/process.o \
   audit/global/filter.o \
   audit/global/global.o
-
-KERNEL_OBJS := \
-  audit/kernel/namespace/namespace.o \
-  audit/kernel/netfilter/netfilter.o \
-  audit/kernel/function/action.o \
-  audit/kernel/function/hook.o \
-  audit/kernel/function/op.o \
-  audit/kernel/function/number.o \
-  audit/kernel/helper/audit_log.o \
-  audit/kernel/helper/kernel.o \
-  audit/kernel/helper/namespace.o \
-  audit/kernel/helper/network.o \
-  audit/kernel/helper/task.o \
-  audit/kernel/helper/sock.o \
-  audit/kernel/setup/function/ftrace/ftrace.o \
-  audit/kernel/setup/function/ftrace/ftrace_helper.o \
-  audit/kernel/setup/namespace/namespace.o \
-  audit/kernel/setup/netfilter/netfilter.o \
-  $(HOOKED_FUNCTION_OBJS)
 
 MSG_OBJS := \
   audit/msg/common/serialize/audit.o \

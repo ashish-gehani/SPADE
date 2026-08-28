@@ -23,7 +23,7 @@
 #include "audit/state/namespace/print.h"
 #include "audit/type/print.h"
 #include "audit/util/log/log.h"
-#include "audit/kernel/namespace/namespace.h"
+#include "audit/kernel/arch/common/namespace/namespace.h"
 
 
 static void seqbuf_print_sep(struct seqbuf *b)
