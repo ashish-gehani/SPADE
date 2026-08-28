@@ -83,7 +83,11 @@ COMMON_FUNCTION_OBJS := \
   audit/kernel/arch/common/function/sys_unshare/action.o \
   audit/kernel/arch/common/function/sys_unshare/action/audit.o \
   audit/kernel/arch/common/function/sys_unshare/op.o \
-  audit/kernel/arch/common/function/sys_unshare/hook.o
+  audit/kernel/arch/common/function/sys_unshare/hook.o \
+  audit/kernel/arch/common/function/sys_vfork/action.o \
+  audit/kernel/arch/common/function/sys_vfork/action/audit.o \
+  audit/kernel/arch/common/function/sys_vfork/op.o \
+  audit/kernel/arch/common/function/sys_vfork/hook.o
 
 COMMON_OBJS := \
   $(COMMON_HELPER_OBJS) \
