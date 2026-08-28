@@ -18,18 +18,21 @@
  --------------------------------------------------------------------------------
  */
 
-#include "audit/kernel/arch/x86_64/function/sys_fork/action.h"
-#include "audit/kernel/arch/x86_64/function/sys_fork/action/audit.h"
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_FORK_OP_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_FORK_OP_H
 
 
-const struct kernel_function_action_list KERNEL_FUNCTION_SYS_FORK_ACTION_LIST = {
-    .pre = {
-        kernel_function_action_pre_is_actionable,
-        0
-    },
-    .post = {
-        kernel_function_action_post_is_actionable,
-        kernel_function_sys_fork_action_audit_handle_post,
-        0
-    }
-};
+#include "audit/kernel/arch/common/function/op.h"
+
+
+/*
+    Get the sys_fork op, ensuring its .hook field (populated via
+    kernel_function_sys_fork_hook_get(), not a compile-time constant) is set first.
+
+    Returns:
+        ptr     -> Pointer to the op.
+*/
+const struct kernel_function_op* kernel_function_sys_fork_op_get(void);
+
+
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_FORK_OP_H
