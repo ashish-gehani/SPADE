@@ -18,6 +18,8 @@
  --------------------------------------------------------------------------------
  */
 
+#include <linux/atomic.h>
+#include <linux/errno.h>
 #include <linux/list.h>
 
 #include "audit/kernel/arch/common/function/op.h"
@@ -38,53 +40,56 @@
 #include "audit/util/log/log.h"
 
 
-/* Populated lazily by _ensure_initialized() below, since none of the 14 syscalls' ops are
- * compile-time constants now that they've all moved to arch/common. */
-static const struct kernel_function_op* KERNEL_FUNCTION_OP_LIST[14];
+/* Populated by kernel_arch_common_overridable_function_op_init_list() below, since none of the 14
+ * syscalls' ops are compile-time constants now that they've all moved to arch/common. */
+static struct kernel_function_op_list OP_LIST;
 
-static struct
-{
-    bool initialized;
-} state = {
-    .initialized = false,
-};
+/* Published (via atomic_set, after OP_LIST is fully populated) once init_list() has completed, so
+ * get_list() never hands back a partially populated OP_LIST. */
+static atomic_t OP_LIST_READY = ATOMIC_INIT(0);
 
-static void _ensure_initialized(void)
+int kernel_arch_common_overridable_function_op_init_list(void)
 {
-    if (!state.initialized)
+    if (atomic_read(&OP_LIST_READY))
     {
-        /* Every syscall's op is populated lazily here, via its respective hook_get() (none of them
-         * are compile-time constants any more, now that all 14 have moved to arch/common). */
-        size_t i = 0;
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_accept_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_accept4_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_bind_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_clone_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_connect_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_fork_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_kill_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_recvfrom_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_recvmsg_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_sendmsg_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_sendto_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_setns_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_unshare_op_get();
-        KERNEL_FUNCTION_OP_LIST[i++] = kernel_arch_common_function_sys_vfork_op_get();
-        state.initialized = true;
+        return 0;
     }
+
+    /* Every syscall's op is populated here, via its respective hook_get() (none of them are
+     * compile-time constants any more, now that all 14 have moved to arch/common). */
+    size_t i = 0;
+    OP_LIST.ops[i++] = kernel_arch_common_function_sys_accept_op_get();
+    OP_LIST.ops[i++] = kernel_arch_common_function_sys_accept4_op_get();
+    OP_LIST.ops[i++] = kernel_arch_common_function_sys_bind_op_get();
+    OP_LIST.ops[i++] = kernel_arch_common_function_sys_clone_op_get();
+    OP_LIST.ops[i++] = kernel_arch_common_function_sys_connect_op_get();
+    OP_LIST.ops[i++] = kernel_arch_common_function_sys_fork_op_get();
+    OP_LIST.ops[i++] = kernel_arch_common_function_sys_kill_op_get();
+    OP_LIST.ops[i++] = kernel_arch_common_function_sys_recvfrom_op_get();
+    OP_LIST.ops[i++] = kernel_arch_common_function_sys_recvmsg_op_get();
+    OP_LIST.ops[i++] = kernel_arch_common_function_sys_sendmsg_op_get();
+    OP_LIST.ops[i++] = kernel_arch_common_function_sys_sendto_op_get();
+    OP_LIST.ops[i++] = kernel_arch_common_function_sys_setns_op_get();
+    OP_LIST.ops[i++] = kernel_arch_common_function_sys_unshare_op_get();
+    OP_LIST.ops[i++] = kernel_arch_common_function_sys_vfork_op_get();
+    OP_LIST.len = i;
+
+    atomic_set(&OP_LIST_READY, 1);
+    return 0;
 }
 
-int kernel_arch_common_overridable_function_op_get_list(const struct kernel_function_op*** list, size_t *len)
+int kernel_arch_common_overridable_function_op_get_list(const struct kernel_function_op_list** dst)
 {
-    if (!list || !len)
+    if (!dst)
     {
         return -EINVAL;
     }
 
-    _ensure_initialized();
+    if (!atomic_read(&OP_LIST_READY))
+    {
+        return -EAGAIN;
+    }
 
-    *list = KERNEL_FUNCTION_OP_LIST;
-    *len = sizeof(KERNEL_FUNCTION_OP_LIST) / sizeof(KERNEL_FUNCTION_OP_LIST[0]);
-
+    *dst = &OP_LIST;
     return 0;
 }

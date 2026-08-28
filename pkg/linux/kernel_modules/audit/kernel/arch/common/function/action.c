@@ -89,6 +89,10 @@ int kernel_arch_common_function_action_post_iterate_all(const struct kernel_func
     f_num = ctx_post->header->func_num;
 
     err = kernel_arch_common_function_op_get_by_func_num(&k_f_op, f_num);
+    if (err == -EAGAIN)
+    {
+        return err;
+    }
     if (err != 0)
     {
         util_log_debug(log_id, "No func by num %d. kernel_arch_common_function_op_get_by_func_num.", f_num);

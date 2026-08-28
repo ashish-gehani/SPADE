@@ -41,20 +41,26 @@ static void _init_ftrace_hooks(void)
 {
     const char *log_id = "_init_ftrace_hooks";
     int err;
-    int i;
-    const struct kernel_function_op **list;
-    size_t len;
+    size_t i;
+    const struct kernel_function_op_list *op_list;
 
-    err = kernel_arch_common_overridable_function_op_get_list(&list, &len);
-    if (err != 0)
+    err = kernel_arch_common_overridable_function_op_init_list();
+    if (err)
+    {
+        util_log_debug(log_id, "kernel_arch_common_overridable_function_op_init_list failed. Err=%d.", err);
+        return;
+    }
+
+    err = kernel_arch_common_overridable_function_op_get_list(&op_list);
+    if (err)
     {
         util_log_debug(log_id, "kernel_arch_common_overridable_function_op_get_list failed. Err=%d.", err);
         return;
     }
 
-    for (i = 0; i < len; i++)
+    for (i = 0; i < op_list->len; i++)
     {
-        const struct kernel_function_op *op = list[i];
+        const struct kernel_function_op *op = op_list->ops[i];
         const struct kernel_function_hook *hook;
 
         if (!op)
@@ -69,7 +75,7 @@ static void _init_ftrace_hooks(void)
         ftrace_hooks[i].function = hook->get_hook_func();
         ftrace_hooks[i].original = hook->get_orig_func_ptr();
 
-        util_log_debug(log_id, "Inited ftrace_hook struct {name=%s} at index %d", ftrace_hooks[i].name, i);
+        util_log_debug(log_id, "Inited ftrace_hook struct {name=%s} at index %d", ftrace_hooks[i].name, (int)i);
 
         ftrace_hooks_len++;
     }

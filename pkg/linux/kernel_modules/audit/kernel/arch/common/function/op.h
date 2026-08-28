@@ -37,6 +37,12 @@ struct kernel_function_op
     const struct kernel_function_action_list *action_list;
 };
 
+struct kernel_function_op_list
+{
+    const struct kernel_function_op *ops[KERNEL_FUNCTION_OP_LIST_MAX_LEN];
+    size_t len;
+};
+
 
 /*
     Check if the given arg is valid.
@@ -59,17 +65,31 @@ bool kernel_arch_common_function_op_is_valid(const struct kernel_function_op* op
 int kernel_arch_common_function_op_get_by_func_num(const struct kernel_function_op** dst, enum kernel_function_number func_num);
 
 /*
-    Get the op list and its length for iteration.
-
-    Params:
-        list        -> Set to point at the op list, if successful.
-        len         -> Set to the op list's length, if successful.
+    Initialize the op list. Must be called (e.g. by ftrace setup) before
+    kernel_arch_common_overridable_function_op_get_list() will succeed. Implementations must use an
+    atomic to publish readiness, so that a get_list() call racing with an in-progress init_list()
+    call is guaranteed to see either "not ready" or a fully populated list, never a partial one.
 
     Returns:
-        -EINVAL     -> Invalid arg.
-        0           -> Success.
+        -ive -> Error code.
+        0    -> Success.
 */
-int __weak kernel_arch_common_overridable_function_op_get_list(const struct kernel_function_op*** list, size_t *len);
+int __weak kernel_arch_common_overridable_function_op_init_list(void);
+
+/*
+    Get the op list for iteration. Requires kernel_arch_common_overridable_function_op_init_list()
+    to have completed first.
+
+    Params:
+        dst -> Set to point to the op list, on success. `.len` is 0 if no ops are available.
+
+    Returns:
+        -ive        -> Error code.
+            -EINVAL -> Invalid arg.
+            -EAGAIN -> kernel_arch_common_overridable_function_op_init_list() has not completed yet.
+        0       -> Success.
+*/
+int __weak kernel_arch_common_overridable_function_op_get_list(const struct kernel_function_op_list** dst);
 
 
 #endif // SPADE_AUDIT_KERNEL_ARCH_COMMON_FUNCTION_OP_H
