@@ -18,12 +18,20 @@
  --------------------------------------------------------------------------------
  */
 
-#include "audit/kernel/arch/x86_64/function/sys_setns/op.h"
-#include "audit/kernel/arch/x86_64/function/sys_setns/hook.h"
-#include "audit/kernel/arch/x86_64/function/sys_setns/action.h"
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_SETNS_ACTION_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_SETNS_ACTION_H
 
 
-const struct kernel_function_op KERNEL_FUNCTION_SYS_SETNS_OP = {
-    .hook = &KERNEL_FUNCTION_SYS_SETNS_HOOK,
-    .action_list = &KERNEL_FUNCTION_SYS_SETNS_ACTION_LIST
-};
+#include <linux/types.h>
+
+#include "audit/kernel/arch/common/function/action.h"
+
+/*
+    Get the sys_setns action list, ensuring it's initialized first.
+
+    Returns:
+        ptr     -> Pointer to the action list.
+*/
+const struct kernel_function_action_list* kernel_function_sys_setns_action_list_get(void);
+
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_SETNS_ACTION_H

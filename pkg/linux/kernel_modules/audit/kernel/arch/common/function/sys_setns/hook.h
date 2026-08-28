@@ -25,9 +25,35 @@
 #include "audit/kernel/arch/common/function/hook.h"
 
 /*
-    Hook struct for setns syscall.
+    Get the sys_setns function number.
 */
-extern const struct kernel_function_hook KERNEL_FUNCTION_SYS_SETNS_HOOK;
+enum kernel_function_number kernel_function_hook_function_setns_num(void);
+
+/*
+    Build the pre-execution hook context and run the pre-execution actions for it.
+
+    Params:
+        h_ctx   : Hook context.
+*/
+void kernel_function_sys_setns_hook_pre(const struct kernel_function_hook_context *h_ctx);
+
+/*
+    Build the post-execution hook context and run the post-execution actions for it.
+
+    Params:
+        h_ctx   : Hook context.
+        sys_res : Syscall return value.
+*/
+void kernel_function_sys_setns_hook_post(const struct kernel_function_hook_context *h_ctx, long sys_res);
+
+/*
+    Get the sys_setns hook.
+
+    Returns:
+        ptr     -> Pointer to KERNEL_FUNCTION_SYS_SETNS_HOOK.
+        NULL    -> Not available.
+*/
+const struct kernel_function_hook* kernel_function_sys_setns_hook_get(void);
 
 /*
     Validate sys_setns pre-execution context.
