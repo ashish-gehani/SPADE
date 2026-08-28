@@ -42,7 +42,11 @@ COMMON_FUNCTION_OBJS := \
   audit/kernel/arch/common/function/sys_bind/action.o \
   audit/kernel/arch/common/function/sys_bind/action/audit.o \
   audit/kernel/arch/common/function/sys_bind/op.o \
-  audit/kernel/arch/common/function/sys_bind/hook.o
+  audit/kernel/arch/common/function/sys_bind/hook.o \
+  audit/kernel/arch/common/function/sys_clone/action.o \
+  audit/kernel/arch/common/function/sys_clone/action/audit.o \
+  audit/kernel/arch/common/function/sys_clone/op.o \
+  audit/kernel/arch/common/function/sys_clone/hook.o
 
 COMMON_OBJS := \
   $(COMMON_HELPER_OBJS) \

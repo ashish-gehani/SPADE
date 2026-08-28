@@ -18,12 +18,21 @@
  --------------------------------------------------------------------------------
  */
 
-#include "audit/kernel/arch/x86_64/function/sys_clone/op.h"
-#include "audit/kernel/arch/x86_64/function/sys_clone/hook.h"
-#include "audit/kernel/arch/x86_64/function/sys_clone/action.h"
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_CLONE_OP_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_CLONE_OP_H
 
 
-const struct kernel_function_op KERNEL_FUNCTION_SYS_CLONE_OP = {
-    .hook = &KERNEL_FUNCTION_SYS_CLONE_HOOK,
-    .action_list = &KERNEL_FUNCTION_SYS_CLONE_ACTION_LIST
-};
+#include "audit/kernel/arch/common/function/op.h"
+
+
+/*
+    Get the sys_clone op, ensuring its .hook field (populated via
+    kernel_function_sys_clone_hook_get(), not a compile-time constant) is set first.
+
+    Returns:
+        ptr     -> Pointer to the op.
+*/
+const struct kernel_function_op* kernel_function_sys_clone_op_get(void);
+
+
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_CLONE_OP_H

@@ -18,14 +18,32 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_CLONE_OP_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_CLONE_OP_H
+#include "audit/kernel/arch/common/function/sys_clone/op.h"
+#include "audit/kernel/arch/common/function/sys_clone/hook.h"
+#include "audit/kernel/arch/common/function/sys_clone/action.h"
 
 
-#include "audit/kernel/arch/common/function/op.h"
+static struct kernel_function_op KERNEL_FUNCTION_SYS_CLONE_OP;
 
+static struct
+{
+    bool initialized;
+} state = {
+    .initialized = false,
+};
 
-extern const struct kernel_function_op KERNEL_FUNCTION_SYS_CLONE_OP;
+static void _ensure_initialized(void)
+{
+    if (!state.initialized)
+    {
+        KERNEL_FUNCTION_SYS_CLONE_OP.hook = kernel_function_sys_clone_hook_get();
+        KERNEL_FUNCTION_SYS_CLONE_OP.action_list = kernel_function_sys_clone_action_list_get();
+        state.initialized = true;
+    }
+}
 
-
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_CLONE_OP_H
+const struct kernel_function_op* kernel_function_sys_clone_op_get(void)
+{
+    _ensure_initialized();
+    return &KERNEL_FUNCTION_SYS_CLONE_OP;
+}
