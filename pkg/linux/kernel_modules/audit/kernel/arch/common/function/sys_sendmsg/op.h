@@ -18,12 +18,21 @@
  --------------------------------------------------------------------------------
  */
 
-#include "audit/kernel/arch/x86_64/function/sys_sendmsg/op.h"
-#include "audit/kernel/arch/x86_64/function/sys_sendmsg/hook.h"
-#include "audit/kernel/arch/x86_64/function/sys_sendmsg/action.h"
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_OP_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_OP_H
 
 
-const struct kernel_function_op KERNEL_FUNCTION_SYS_SENDMSG_OP = {
-    .hook = &KERNEL_FUNCTION_SYS_SENDMSG_HOOK,
-    .action_list = &KERNEL_FUNCTION_SYS_SENDMSG_ACTION_LIST
-};
+#include "audit/kernel/arch/common/function/op.h"
+
+
+/*
+    Get the sys_sendmsg op, ensuring its .hook field (populated via
+    kernel_function_sys_sendmsg_hook_get(), not a compile-time constant) is set first.
+
+    Returns:
+        ptr     -> Pointer to the op.
+*/
+const struct kernel_function_op* kernel_function_sys_sendmsg_op_get(void);
+
+
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_OP_H

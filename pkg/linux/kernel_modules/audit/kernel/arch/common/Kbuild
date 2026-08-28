@@ -67,7 +67,11 @@ COMMON_FUNCTION_OBJS := \
   audit/kernel/arch/common/function/sys_recvmsg/action.o \
   audit/kernel/arch/common/function/sys_recvmsg/action/audit.o \
   audit/kernel/arch/common/function/sys_recvmsg/op.o \
-  audit/kernel/arch/common/function/sys_recvmsg/hook.o
+  audit/kernel/arch/common/function/sys_recvmsg/hook.o \
+  audit/kernel/arch/common/function/sys_sendmsg/action.o \
+  audit/kernel/arch/common/function/sys_sendmsg/action/audit.o \
+  audit/kernel/arch/common/function/sys_sendmsg/op.o \
+  audit/kernel/arch/common/function/sys_sendmsg/hook.o
 
 COMMON_OBJS := \
   $(COMMON_HELPER_OBJS) \

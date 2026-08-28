@@ -18,14 +18,32 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_ACTION_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_ACTION_H
+#include "audit/kernel/arch/common/function/sys_sendmsg/op.h"
+#include "audit/kernel/arch/common/function/sys_sendmsg/hook.h"
+#include "audit/kernel/arch/common/function/sys_sendmsg/action.h"
 
 
-#include <linux/types.h>
+static struct kernel_function_op KERNEL_FUNCTION_SYS_SENDMSG_OP;
 
-#include "audit/kernel/arch/common/function/action.h"
+static struct
+{
+    bool initialized;
+} state = {
+    .initialized = false,
+};
 
-extern const struct kernel_function_action_list KERNEL_FUNCTION_SYS_SENDMSG_ACTION_LIST;
+static void _ensure_initialized(void)
+{
+    if (!state.initialized)
+    {
+        KERNEL_FUNCTION_SYS_SENDMSG_OP.hook = kernel_function_sys_sendmsg_hook_get();
+        KERNEL_FUNCTION_SYS_SENDMSG_OP.action_list = kernel_function_sys_sendmsg_action_list_get();
+        state.initialized = true;
+    }
+}
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_ACTION_H
+const struct kernel_function_op* kernel_function_sys_sendmsg_op_get(void)
+{
+    _ensure_initialized();
+    return &KERNEL_FUNCTION_SYS_SENDMSG_OP;
+}

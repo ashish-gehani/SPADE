@@ -18,13 +18,20 @@
  --------------------------------------------------------------------------------
  */
 
-#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_OP_H
-#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_OP_H
+#ifndef SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_ACTION_H
+#define SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_ACTION_H
+
 
 #include <linux/types.h>
 
-#include "audit/kernel/arch/common/function/op.h"
+#include "audit/kernel/arch/common/function/action.h"
 
-extern const struct kernel_function_op KERNEL_FUNCTION_SYS_SENDMSG_OP;
+/*
+    Get the sys_sendmsg action list, ensuring it's initialized first.
 
-#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_OP_H
+    Returns:
+        ptr     -> Pointer to the action list.
+*/
+const struct kernel_function_action_list* kernel_function_sys_sendmsg_action_list_get(void);
+
+#endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_SENDMSG_ACTION_H
