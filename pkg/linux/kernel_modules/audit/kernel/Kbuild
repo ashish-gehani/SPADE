@@ -20,7 +20,8 @@ HOOKED_FUNCTION_ACTION_HARDEN_NAMES := \
 # hook.o is not filtered by this.
 COMMON_FUNCTION_NAMES := \
   sys_accept \
-  sys_accept4
+  sys_accept4 \
+  sys_bind
 
 HOOKED_FUNCTION_ACTION_AUDIT_OBJS := \
   $(foreach f_name,$(filter-out $(COMMON_FUNCTION_NAMES),$(HOOKED_FUNCTION_ACTION_AUDIT_NAMES)),audit/kernel/arch/$(UNAME_M)/function/$(f_name)/action/audit.o)

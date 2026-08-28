@@ -26,6 +26,12 @@
 
 #include "audit/kernel/arch/common/function/action.h"
 
-extern const struct kernel_function_action_list KERNEL_FUNCTION_SYS_BIND_ACTION_LIST;
+/*
+    Get the sys_bind action list, ensuring it's initialized first.
+
+    Returns:
+        ptr     -> Pointer to the action list.
+*/
+const struct kernel_function_action_list* kernel_function_sys_bind_action_list_get(void);
 
 #endif // SPADE_AUDIT_KERNEL_FUNCTION_SYS_BIND_ACTION_H

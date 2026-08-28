@@ -38,7 +38,11 @@ COMMON_FUNCTION_OBJS := \
   audit/kernel/arch/common/function/sys_accept4/action.o \
   audit/kernel/arch/common/function/sys_accept4/action/audit.o \
   audit/kernel/arch/common/function/sys_accept4/op.o \
-  audit/kernel/arch/common/function/sys_accept4/hook.o
+  audit/kernel/arch/common/function/sys_accept4/hook.o \
+  audit/kernel/arch/common/function/sys_bind/action.o \
+  audit/kernel/arch/common/function/sys_bind/action/audit.o \
+  audit/kernel/arch/common/function/sys_bind/op.o \
+  audit/kernel/arch/common/function/sys_bind/hook.o
 
 COMMON_OBJS := \
   $(COMMON_HELPER_OBJS) \
