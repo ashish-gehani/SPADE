@@ -87,3 +87,24 @@ function instead of a weak variable definition.
 - The vendored `fh_*` functions in `setup/function/ftrace/ftrace_helper.{c,h}` and `fh_ftrace_thunk`
   (see `setup/function/ftrace/attribution.md`) are exempt, to keep that code diffable against its
   upstream source.
+
+## Guarding overridable (weak) symbols
+
+A `kernel_arch_common_overridable_...` symbol (rule 3 above) can be the weak stub itself if no arch
+links a strong override — its result is never guaranteed non-`NULL`, and neither are any function
+pointers reached through it. Every function pointer sourced from one must be checked non-`NULL`
+immediately before it is called, not assumed present just because the surrounding struct is non-`NULL`.
+
+A single validity check performed right before a call (or a small group of calls) in the same guarded
+scope satisfies this — it doesn't need to be re-checked at every individual call site as long as nothing
+comes between the check and the call. Two existing examples:
+- `kernel_arch_common_function_op_is_valid()` checks `op->hook` and each of its
+  `get_hook_func`/`get_name`/`get_num`/`get_orig_func_ptr` fields; `op_get_by_func_num()` calls it
+  immediately before invoking `op->hook->get_num()`.
+- `_init_ftrace_hooks()` (`ftrace.c`) explicitly checks `hook`/`get_name`/`get_hook_func`/
+  `get_orig_func_ptr` for `NULL` immediately before calling each of them.
+
+This only applies to function pointers actually reached through an overridable symbol's result — a
+plain error-code return (e.g. `kernel_arch_common_overridable_function_op_get_list()`'s `int`) just
+needs its error checked like any other fallible call; there's no pointer to guard before calling
+anything.

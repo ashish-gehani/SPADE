@@ -58,7 +58,7 @@ static void _init_ftrace_hooks(void)
         const struct kernel_function_hook *hook;
 
         if (!op)
-            break;
+            continue;
 
         hook = op->hook;
 
