@@ -23,27 +23,11 @@
 #include <asm/syscall.h>
 
 #include "audit/kernel/arch/common/helper/kernel.h"
-#include "audit/kernel/arch/common/function/arg.h"
 #include "audit/kernel/arch/common/function/action.h"
 #include "audit/kernel/arch/common/function/hook.h"
-#include "audit/kernel/arch/common/function/sys_recvmsg/arg.h"
 #include "audit/kernel/arch/common/function/sys_recvmsg/hook.h"
 #include "audit/util/log/log.h"
 
-
-#define BUILD_HOOK_CONTEXT(_sockfd, _msg, _flags) \
-    ((const struct kernel_function_hook_context){ \
-        .func_num = kernel_arch_common_function_hook_function_recvmsg_num(), \
-        .func_arg = &(const struct kernel_function_arg){ \
-            .arg = &(const struct kernel_function_sys_recvmsg_arg){ \
-                .sockfd = (_sockfd), \
-                .msg = (_msg), \
-                .flags = (_flags) \
-            }, \
-            .arg_size = sizeof(struct kernel_function_sys_recvmsg_arg) \
-        }, \
-        .act_res = &(struct kernel_function_action_result){0} \
-    })
 
 #if KERNEL_HELPER_KERNEL_PTREGS_SYSCALL_STUBS
 
@@ -58,7 +42,7 @@
         struct msghdr __user *msg = (struct msghdr __user *)(regs->si);
         int flags = (int)(regs->dx);
 
-        const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(sockfd, msg, flags);
+        const struct kernel_function_hook_context h_ctx = KERNEL_FUNCTION_SYS_RECVMSG_BUILD_HOOK_CONTEXT(sockfd, msg, flags);
 
         kernel_arch_common_function_sys_recvmsg_hook_pre(&h_ctx);
         if (kernel_arch_common_function_action_result_is_disallow_function(h_ctx.act_res->type))
@@ -83,7 +67,7 @@
 		const char *log_id = "sys_recvmsg::_hook";
 		long res;
 
-        const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(sockfd, msg, flags);
+        const struct kernel_function_hook_context h_ctx = KERNEL_FUNCTION_SYS_RECVMSG_BUILD_HOOK_CONTEXT(sockfd, msg, flags);
 
         kernel_arch_common_function_sys_recvmsg_hook_pre(&h_ctx);
         if (kernel_arch_common_function_action_result_is_disallow_function(h_ctx.act_res->type))

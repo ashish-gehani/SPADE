@@ -23,26 +23,11 @@
 #include <asm/syscall.h>
 
 #include "audit/kernel/arch/common/helper/kernel.h"
-#include "audit/kernel/arch/common/function/arg.h"
 #include "audit/kernel/arch/common/function/action.h"
 #include "audit/kernel/arch/common/function/hook.h"
-#include "audit/kernel/arch/common/function/sys_setns/arg.h"
 #include "audit/kernel/arch/common/function/sys_setns/hook.h"
 #include "audit/util/log/log.h"
 
-
-#define BUILD_HOOK_CONTEXT(_fd, _nstype) \
-    ((const struct kernel_function_hook_context){ \
-        .func_num = kernel_arch_common_function_hook_function_setns_num(), \
-        .func_arg = &(const struct kernel_function_arg){ \
-            .arg = &(const struct kernel_function_sys_setns_arg){ \
-                .fd = (_fd), \
-                .nstype = (_nstype) \
-            }, \
-            .arg_size = sizeof(struct kernel_function_sys_setns_arg) \
-        }, \
-        .act_res = &(struct kernel_function_action_result){0} \
-    })
 
 #if KERNEL_HELPER_KERNEL_PTREGS_SYSCALL_STUBS
 
@@ -56,7 +41,7 @@
         int fd = (int)(regs->di);
         int nstype = (int)(regs->si);
 
-        const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(fd, nstype);
+        const struct kernel_function_hook_context h_ctx = KERNEL_FUNCTION_SYS_SETNS_BUILD_HOOK_CONTEXT(fd, nstype);
 
         kernel_arch_common_function_sys_setns_hook_pre(&h_ctx);
 		if (kernel_arch_common_function_action_result_is_disallow_function(h_ctx.act_res->type))
@@ -81,7 +66,7 @@
 		const char *log_id = "sys_setns::_hook";
 		long res;
 
-        const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(fd, nstype);
+        const struct kernel_function_hook_context h_ctx = KERNEL_FUNCTION_SYS_SETNS_BUILD_HOOK_CONTEXT(fd, nstype);
 
         kernel_arch_common_function_sys_setns_hook_pre(&h_ctx);
 		if (kernel_arch_common_function_action_result_is_disallow_function(h_ctx.act_res->type))

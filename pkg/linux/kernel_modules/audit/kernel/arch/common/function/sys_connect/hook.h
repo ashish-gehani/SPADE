@@ -23,6 +23,22 @@
 
 #include <linux/types.h>
 #include "audit/kernel/arch/common/function/hook.h"
+#include "audit/kernel/arch/common/function/sys_connect/arg.h"
+
+
+#define KERNEL_FUNCTION_SYS_CONNECT_BUILD_HOOK_CONTEXT(_fd, _addr, _addrlen) \
+    ((const struct kernel_function_hook_context){ \
+        .func_num = kernel_arch_common_function_hook_function_connect_num(), \
+        .func_arg = &(const struct kernel_function_arg){ \
+            .arg = &(const struct kernel_function_sys_connect_arg){ \
+                .sockfd = (_fd), \
+                .addr = (_addr), \
+                .addrlen = (_addrlen) \
+            }, \
+            .arg_size = sizeof(struct kernel_function_sys_connect_arg) \
+        }, \
+        .act_res = &(struct kernel_function_action_result){0} \
+    })
 
 /*
     Get the sys_connect function number.

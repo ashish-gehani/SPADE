@@ -23,6 +23,22 @@
 
 #include <linux/types.h>
 #include "audit/kernel/arch/common/function/hook.h"
+#include "audit/kernel/arch/common/function/sys_sendmsg/arg.h"
+
+
+#define KERNEL_FUNCTION_SYS_SENDMSG_BUILD_HOOK_CONTEXT(_sockfd, _msg, _flags) \
+    ((const struct kernel_function_hook_context){ \
+        .func_num = kernel_arch_common_function_hook_function_sendmsg_num(), \
+        .func_arg = &(const struct kernel_function_arg){ \
+            .arg = &(const struct kernel_function_sys_sendmsg_arg){ \
+                .sockfd = (_sockfd), \
+                .msg = (_msg), \
+                .flags = (_flags) \
+            }, \
+            .arg_size = sizeof(struct kernel_function_sys_sendmsg_arg) \
+        }, \
+        .act_res = &(struct kernel_function_action_result){0} \
+    })
 
 /*
     Get the sys_sendmsg function number.

@@ -23,6 +23,18 @@
 
 #include <linux/types.h>
 #include "audit/kernel/arch/common/function/hook.h"
+#include "audit/kernel/arch/common/function/sys_vfork/arg.h"
+
+
+#define KERNEL_FUNCTION_SYS_VFORK_BUILD_HOOK_CONTEXT() \
+    ((const struct kernel_function_hook_context){ \
+        .func_num = kernel_arch_common_function_hook_function_vfork_num(), \
+        .func_arg = &(const struct kernel_function_arg){ \
+            .arg = &(const struct kernel_function_sys_vfork_arg){}, \
+            .arg_size = sizeof(struct kernel_function_sys_vfork_arg) \
+        }, \
+        .act_res = &(struct kernel_function_action_result){0} \
+    })
 
 /*
     Get the sys_vfork function number.

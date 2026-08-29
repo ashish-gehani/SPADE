@@ -23,6 +23,23 @@
 
 #include <linux/types.h>
 #include "audit/kernel/arch/common/function/hook.h"
+#include "audit/kernel/arch/common/function/sys_accept4/arg.h"
+
+
+#define KERNEL_FUNCTION_SYS_ACCEPT4_BUILD_HOOK_CONTEXT(_fd, _addr, _addrlen, _flags) \
+    ((const struct kernel_function_hook_context){ \
+        .func_num = kernel_arch_common_function_hook_function_accept4_num(), \
+        .func_arg = &(const struct kernel_function_arg){ \
+            .arg = &(const struct kernel_function_sys_accept4_arg){ \
+                .sockfd = (_fd), \
+                .addr = (_addr), \
+                .addrlen = (_addrlen), \
+                .flags = (_flags) \
+            }, \
+            .arg_size = sizeof(struct kernel_function_sys_accept4_arg) \
+        }, \
+        .act_res = &(struct kernel_function_action_result){0} \
+    })
 
 /*
     Get the sys_accept4 function number.

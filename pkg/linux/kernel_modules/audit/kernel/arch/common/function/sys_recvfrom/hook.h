@@ -23,6 +23,25 @@
 
 #include <linux/types.h>
 #include "audit/kernel/arch/common/function/hook.h"
+#include "audit/kernel/arch/common/function/sys_recvfrom/arg.h"
+
+
+#define KERNEL_FUNCTION_SYS_RECVFROM_BUILD_HOOK_CONTEXT(_sockfd, _buf, _len, _flags, _src_addr, _addrlen) \
+    ((const struct kernel_function_hook_context){ \
+        .func_num = kernel_arch_common_function_hook_function_recvfrom_num(), \
+        .func_arg = &(const struct kernel_function_arg){ \
+            .arg = &(const struct kernel_function_sys_recvfrom_arg){ \
+                .sockfd = (_sockfd), \
+                .buf = (_buf), \
+                .len = (_len), \
+                .flags = (_flags), \
+                .src_addr = (_src_addr), \
+                .addrlen = (_addrlen) \
+            }, \
+            .arg_size = sizeof(struct kernel_function_sys_recvfrom_arg) \
+        }, \
+        .act_res = &(struct kernel_function_action_result){0} \
+    })
 
 /*
     Get the sys_recvfrom function number.

@@ -23,6 +23,25 @@
 
 #include <linux/types.h>
 #include "audit/kernel/arch/common/function/hook.h"
+#include "audit/kernel/arch/common/function/sys_sendto/arg.h"
+
+
+#define KERNEL_FUNCTION_SYS_SENDTO_BUILD_HOOK_CONTEXT(_sockfd, _buf, _len, _flags, _dest_addr, _addrlen) \
+    ((const struct kernel_function_hook_context){ \
+        .func_num = kernel_arch_common_function_hook_function_sendto_num(), \
+        .func_arg = &(const struct kernel_function_arg){ \
+            .arg = &(const struct kernel_function_sys_sendto_arg){ \
+                .sockfd = (_sockfd), \
+                .buf = (_buf), \
+                .len = (_len), \
+                .flags = (_flags), \
+                .dest_addr = (_dest_addr), \
+                .addrlen = (_addrlen) \
+            }, \
+            .arg_size = sizeof(struct kernel_function_sys_sendto_arg) \
+        }, \
+        .act_res = &(struct kernel_function_action_result){0} \
+    })
 
 /*
     Get the sys_sendto function number.

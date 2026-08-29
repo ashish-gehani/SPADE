@@ -23,25 +23,10 @@
 #include <asm/syscall.h>
 
 #include "audit/kernel/arch/common/helper/kernel.h"
-#include "audit/kernel/arch/common/function/arg.h"
 #include "audit/kernel/arch/common/function/action.h"
 #include "audit/kernel/arch/common/function/hook.h"
-#include "audit/kernel/arch/common/function/sys_clone/arg.h"
 #include "audit/kernel/arch/common/function/sys_clone/hook.h"
 #include "audit/util/log/log.h"
-
-
-#define BUILD_HOOK_CONTEXT(_flags) \
-    ((const struct kernel_function_hook_context){ \
-        .func_num = kernel_arch_common_function_hook_function_clone_num(), \
-        .func_arg = &(const struct kernel_function_arg){ \
-            .arg = &(const struct kernel_function_sys_clone_arg){ \
-                .flags = (_flags) \
-            }, \
-            .arg_size = sizeof(struct kernel_function_sys_clone_arg) \
-        }, \
-        .act_res = &(struct kernel_function_action_result){0} \
-    })
 
 
 #if KERNEL_HELPER_KERNEL_PTREGS_SYSCALL_STUBS
@@ -55,7 +40,7 @@
 		long res;
         unsigned long flags = (unsigned long)(regs->di);
 
-		const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(flags);
+		const struct kernel_function_hook_context h_ctx = KERNEL_FUNCTION_SYS_CLONE_BUILD_HOOK_CONTEXT(flags);
 
         kernel_arch_common_function_sys_clone_hook_pre(&h_ctx);
 		if (kernel_arch_common_function_action_result_is_disallow_function(h_ctx.act_res->type))
@@ -80,7 +65,7 @@
 		const char *log_id = "sys_clone::_hook";
 		long res;
 
-		const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(flags);
+		const struct kernel_function_hook_context h_ctx = KERNEL_FUNCTION_SYS_CLONE_BUILD_HOOK_CONTEXT(flags);
 
         kernel_arch_common_function_sys_clone_hook_pre(&h_ctx);
 		if (kernel_arch_common_function_action_result_is_disallow_function(h_ctx.act_res->type))

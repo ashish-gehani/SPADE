@@ -23,27 +23,11 @@
 #include <asm/syscall.h>
 
 #include "audit/kernel/arch/common/helper/kernel.h"
-#include "audit/kernel/arch/common/function/arg.h"
 #include "audit/kernel/arch/common/function/action.h"
 #include "audit/kernel/arch/common/function/hook.h"
-#include "audit/kernel/arch/common/function/sys_accept/arg.h"
 #include "audit/kernel/arch/common/function/sys_accept/hook.h"
 #include "audit/util/log/log.h"
 
-
-#define BUILD_HOOK_CONTEXT(_fd, _addr, _addrlen) \
-    ((const struct kernel_function_hook_context){ \
-        .func_num = kernel_arch_common_function_hook_function_accept_num(), \
-        .func_arg = &(const struct kernel_function_arg){ \
-            .arg = &(const struct kernel_function_sys_accept_arg){ \
-                .sockfd = (_fd), \
-                .addr = (_addr), \
-                .addrlen = (_addrlen) \
-            }, \
-            .arg_size = sizeof(struct kernel_function_sys_accept_arg) \
-        }, \
-        .act_res = &(struct kernel_function_action_result){0} \
-    })
 
 #if KERNEL_HELPER_KERNEL_PTREGS_SYSCALL_STUBS
 
@@ -58,7 +42,7 @@
         struct sockaddr __user *addr = (struct sockaddr *)(regs->regs[1]);
         uint32_t __user *addr_size = (uint32_t *)(regs->regs[2]);
 
-        const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(fd, addr, addr_size);
+        const struct kernel_function_hook_context h_ctx = KERNEL_FUNCTION_SYS_ACCEPT_BUILD_HOOK_CONTEXT(fd, addr, addr_size);
 
         kernel_arch_common_function_sys_accept_hook_pre(&h_ctx);
         if (kernel_arch_common_function_action_result_is_disallow_function(h_ctx.act_res->type))
@@ -83,7 +67,7 @@
         const char *log_id = "sys_accept::_hook";
 		long res;
 
-        const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(fd, addr, addr_size);
+        const struct kernel_function_hook_context h_ctx = KERNEL_FUNCTION_SYS_ACCEPT_BUILD_HOOK_CONTEXT(fd, addr, addr_size);
 
         kernel_arch_common_function_sys_accept_hook_pre(&h_ctx);
         if (kernel_arch_common_function_action_result_is_disallow_function(h_ctx.act_res->type))

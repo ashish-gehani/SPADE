@@ -23,6 +23,21 @@
 
 #include <linux/types.h>
 #include "audit/kernel/arch/common/function/hook.h"
+#include "audit/kernel/arch/common/function/sys_kill/arg.h"
+
+
+#define KERNEL_FUNCTION_SYS_KILL_BUILD_HOOK_CONTEXT(_pid, _sig) \
+    ((const struct kernel_function_hook_context){ \
+        .func_num = kernel_arch_common_function_hook_function_kill_num(), \
+        .func_arg = &(const struct kernel_function_arg){ \
+            .arg = &(const struct kernel_function_sys_kill_arg){ \
+                .pid = (_pid), \
+                .sig = (_sig) \
+            }, \
+            .arg_size = sizeof(struct kernel_function_sys_kill_arg) \
+        }, \
+        .act_res = &(struct kernel_function_action_result){0} \
+    })
 
 /*
     Get the sys_kill function number.

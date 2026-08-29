@@ -23,30 +23,11 @@
 #include <asm/syscall.h>
 
 #include "audit/kernel/arch/common/helper/kernel.h"
-#include "audit/kernel/arch/common/function/arg.h"
 #include "audit/kernel/arch/common/function/action.h"
 #include "audit/kernel/arch/common/function/hook.h"
-#include "audit/kernel/arch/common/function/sys_sendto/arg.h"
 #include "audit/kernel/arch/common/function/sys_sendto/hook.h"
 #include "audit/util/log/log.h"
 
-
-#define BUILD_HOOK_CONTEXT(_sockfd, _buf, _len, _flags, _dest_addr, _addrlen) \
-    ((const struct kernel_function_hook_context){ \
-        .func_num = kernel_arch_common_function_hook_function_sendto_num(), \
-        .func_arg = &(const struct kernel_function_arg){ \
-            .arg = &(const struct kernel_function_sys_sendto_arg){ \
-                .sockfd = (_sockfd), \
-                .buf = (_buf), \
-                .len = (_len), \
-                .flags = (_flags), \
-                .dest_addr = (_dest_addr), \
-                .addrlen = (_addrlen) \
-            }, \
-            .arg_size = sizeof(struct kernel_function_sys_sendto_arg) \
-        }, \
-        .act_res = &(struct kernel_function_action_result){0} \
-    })
 
 #if KERNEL_HELPER_KERNEL_PTREGS_SYSCALL_STUBS
 
@@ -64,7 +45,7 @@
         struct sockaddr __user *dest_addr = (struct sockaddr __user *)(regs->regs[4]);
         int addrlen = (int)(regs->regs[5]);
 
-        const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(sockfd, buf, len, flags, dest_addr, addrlen);
+        const struct kernel_function_hook_context h_ctx = KERNEL_FUNCTION_SYS_SENDTO_BUILD_HOOK_CONTEXT(sockfd, buf, len, flags, dest_addr, addrlen);
 
         kernel_arch_common_function_sys_sendto_hook_pre(&h_ctx);
         if (kernel_arch_common_function_action_result_is_disallow_function(h_ctx.act_res->type))
@@ -89,7 +70,7 @@
 		const char *log_id = "sys_sendto::_hook";
 		long res;
 
-        const struct kernel_function_hook_context h_ctx = BUILD_HOOK_CONTEXT(sockfd, buf, len, flags, dest_addr, addrlen);
+        const struct kernel_function_hook_context h_ctx = KERNEL_FUNCTION_SYS_SENDTO_BUILD_HOOK_CONTEXT(sockfd, buf, len, flags, dest_addr, addrlen);
 
         kernel_arch_common_function_sys_sendto_hook_pre(&h_ctx);
         if (kernel_arch_common_function_action_result_is_disallow_function(h_ctx.act_res->type))
