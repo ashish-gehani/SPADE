@@ -31,12 +31,9 @@
 #include "audit/util/log/log.h"
 
 
-static const enum kernel_function_number global_func_num = KERN_F_NUM_SYS_KILL;
-
-
 #define BUILD_HOOK_CONTEXT(_pid, _sig) \
     { \
-        .func_num = global_func_num, \
+        .func_num = kernel_arch_common_function_hook_function_kill_num(), \
         .func_arg = &(const struct kernel_function_arg){ \
             .arg = &(const struct kernel_function_sys_kill_arg){ \
                 .pid = (_pid), \

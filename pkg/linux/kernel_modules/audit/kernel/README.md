@@ -111,10 +111,6 @@ anything.
 
 ## TODO
 
-- `global_func_num` (`KERN_F_NUM_SYS_*`) is redefined identically in both `arch/common/function/sys_<name>/hook.c`
-  and every `arch/<arch>/function/sys_<name>/hook.c` for the same syscall. De-duplicate this (e.g. expose it
-  from the common side only, via `kernel_arch_common_function_hook_function_<name>_num()`, which the
-  arch-specific `hook.c` already calls).
 - `common/function/sys_<name>/hook.c`'s `*_hook_context_post_is_valid()` (all 14 syscalls) requires
   `ctx->func_res->success` to consider the post-execution context valid. Revisit whether a *failed* syscall
   should still count as valid for post-actions to run against, or whether failure should route through a

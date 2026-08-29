@@ -31,11 +31,9 @@
 #include "audit/util/log/log.h"
 
 
-static const enum kernel_function_number global_func_num = KERN_F_NUM_SYS_UNSHARE;
-
 #define BUILD_HOOK_CONTEXT(_flags) \
     ((const struct kernel_function_hook_context){ \
-        .func_num = global_func_num, \
+        .func_num = kernel_arch_common_function_hook_function_unshare_num(), \
         .func_arg = &(const struct kernel_function_arg){ \
             .arg = &(const struct kernel_function_sys_unshare_arg){ \
                 .flags = (_flags) \

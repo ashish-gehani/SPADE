@@ -31,11 +31,9 @@
 #include "audit/util/log/log.h"
 
 
-static const enum kernel_function_number global_func_num = KERN_F_NUM_SYS_RECVMSG;
-
 #define BUILD_HOOK_CONTEXT(_sockfd, _msg, _flags) \
     ((const struct kernel_function_hook_context){ \
-        .func_num = global_func_num, \
+        .func_num = kernel_arch_common_function_hook_function_recvmsg_num(), \
         .func_arg = &(const struct kernel_function_arg){ \
             .arg = &(const struct kernel_function_sys_recvmsg_arg){ \
                 .sockfd = (_sockfd), \
