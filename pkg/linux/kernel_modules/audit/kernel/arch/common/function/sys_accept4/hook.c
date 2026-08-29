@@ -102,6 +102,6 @@ bool kernel_arch_common_function_sys_accept4_hook_context_post_is_valid(const st
         && ctx->header->func_num == global_func_num
         && ctx->header->func_arg->arg_size == sizeof(struct kernel_function_sys_accept4_arg)
         && ctx->func_res->res_size == sizeof(struct kernel_function_sys_accept4_result)
-        && ctx->func_res->success // todo
+        && ctx->func_res->success
     );
 }

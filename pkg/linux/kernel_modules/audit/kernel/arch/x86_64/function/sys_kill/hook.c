@@ -46,7 +46,6 @@ static const enum kernel_function_number global_func_num = KERN_F_NUM_SYS_KILL;
         }, \
         .act_res = &(struct kernel_function_action_result){0} \
     }
-// todo. make non const everywhere.        .act_res = &(struct kernel_function_action_result){0}
 
 #if KERNEL_HELPER_KERNEL_PTREGS_SYSCALL_STUBS
 

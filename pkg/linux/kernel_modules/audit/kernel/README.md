@@ -108,3 +108,40 @@ This only applies to function pointers actually reached through an overridable s
 plain error-code return (e.g. `kernel_arch_common_overridable_function_op_get_list()`'s `int`) just
 needs its error checked like any other fallible call; there's no pointer to guard before calling
 anything.
+
+## TODO
+
+- `global_func_num` (`KERN_F_NUM_SYS_*`) is redefined identically in both `arch/common/function/sys_<name>/hook.c`
+  and every `arch/<arch>/function/sys_<name>/hook.c` for the same syscall. De-duplicate this (e.g. expose it
+  from the common side only, via `kernel_arch_common_function_hook_function_<name>_num()`, which the
+  arch-specific `hook.c` already calls).
+- `common/function/sys_<name>/hook.c`'s `*_hook_context_post_is_valid()` (all 14 syscalls) requires
+  `ctx->func_res->success` to consider the post-execution context valid. Revisit whether a *failed* syscall
+  should still count as valid for post-actions to run against, or whether failure should route through a
+  different/no-op path instead.
+- `x86_64/function/sys_kill/hook.c`'s `BUILD_HOOK_CONTEXT` macro is the only one of the 14 syscalls not wrapped
+  as `((const struct kernel_function_hook_context){...})` — the rest are `const`-cast compound literals, this
+  one is a bare `{...}`. Make it consistent with the others (or, if `sys_kill` has a genuine reason to need a
+  non-`const` context, document why and apply that reasoning everywhere it actually applies).
+- `arch/common/setup/function/ftrace/ftrace_thunk.h`, `arch/x86_64/.../ftrace_thunk.c`, and
+  `arch/arm64/.../ftrace_thunk.c` each carry an identical stub comment above `fh_ftrace_thunk()` pointing at
+  <https://elixir.bootlin.com/linux/v5.11-rc1/A/ident/ftrace_regs> as a placeholder — find and link the actual
+  kernel docs for `ftrace_regs` / `KERNEL_HELPER_FTRACE_HOOK_HAS_FTRACE_REGS` and replace the placeholder in
+  all three files.
+- `arch/common/netfilter/netfilter.c`'s `get_conntrack_info()` (the `KERNEL_HELPER_KERNEL_VERSION_GTE_4_11_0`
+  branch) and `arch/common/helper/sock.c`'s socket-name lookup (the `KERNEL_HELPER_KERNEL_VERSION_GTE_4_17_0`
+  branch) both have unresolved version-gate concerns flagged at the `#if` — revisit whether those version
+  thresholds and the pre-/post-gate logic are actually correct.
+- Verify the kernel-version guards (e.g. `KERNEL_HELPER_KERNEL_PTREGS_SYSCALL_STUBS`) that gate `pt_regs`-based
+  syscall stub access are correct for both x86_64 and arm64 — the version thresholds where the
+  `pt_regs`-argument calling convention was introduced differ per arch, so a guard tuned for one can be wrong
+  on the other.
+- Verify `"__arm64_sys_<name>"` is the correct exported symbol name on target arm64 kernels for each of the 12
+  hooked syscalls' `arch/arm64/function/sys_<name>/hook.c` (confirm via e.g.
+  `grep __arm64_sys_<name> /proc/kallsyms` or `nm vmlinux`): `sys_accept`, `sys_accept4`, `sys_bind`,
+  `sys_clone`, `sys_connect`, `sys_kill`, `sys_recvfrom`, `sys_recvmsg`, `sys_sendmsg`, `sys_sendto`,
+  `sys_setns`, `sys_unshare`.
+- Maybe: give each per-syscall (and other) directory its own `Kbuild`/Makefile instead of the current pattern
+  of one `Kbuild` per arch dir listing every subdirectory's objects — would localize each directory's object
+  list next to its own sources, at the cost of more files and `include` plumbing. Worth weighing once more
+  syscalls are moved and the current `*_OBJS` lists get long.

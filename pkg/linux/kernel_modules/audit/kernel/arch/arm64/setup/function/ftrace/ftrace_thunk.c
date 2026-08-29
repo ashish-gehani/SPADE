@@ -12,7 +12,6 @@
 #include "audit/kernel/arch/common/setup/function/ftrace/ftrace_helper.h"
 
 /* See comment below within fh_install_hook() (ftrace_helper.c) */
-// https://elixir.bootlin.com/linux/v5.11-rc1/A/ident/ftrace_regs... find proper docs. TODO.
 #if KERNEL_HELPER_FTRACE_HOOK_HAS_FTRACE_REGS
 void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip, struct ftrace_ops *ops, struct ftrace_regs *fregs)
 {

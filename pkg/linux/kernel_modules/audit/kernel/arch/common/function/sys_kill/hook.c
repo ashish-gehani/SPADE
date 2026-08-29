@@ -123,6 +123,6 @@ bool kernel_arch_common_function_sys_kill_hook_context_post_is_valid(const struc
         && ctx->header->func_num == global_func_num
         && ctx->header->func_arg->arg_size == sizeof(struct kernel_function_sys_kill_arg)
         && ctx->func_res->res_size == sizeof(struct kernel_function_sys_kill_result)
-        && ctx->func_res->success // todo
+        && ctx->func_res->success
     );
 }

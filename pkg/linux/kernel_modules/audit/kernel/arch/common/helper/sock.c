@@ -102,7 +102,6 @@ int kernel_arch_common_helper_sock_get_saddr_info_from_fd(
         }
     }
 
-// TODO
 #if KERNEL_HELPER_KERNEL_VERSION_GTE_4_17_0
     dst->saddr_size = fd_sock->ops->getname(fd_sock, (struct sockaddr *)&dst->saddr, peer_mode);
     if (dst->saddr_size <= 0)
