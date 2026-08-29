@@ -115,10 +115,6 @@ anything.
   `ctx->func_res->success` to consider the post-execution context valid. Revisit whether a *failed* syscall
   should still count as valid for post-actions to run against, or whether failure should route through a
   different/no-op path instead.
-- `x86_64/function/sys_kill/hook.c`'s `BUILD_HOOK_CONTEXT` macro is the only one of the 14 syscalls not wrapped
-  as `((const struct kernel_function_hook_context){...})` — the rest are `const`-cast compound literals, this
-  one is a bare `{...}`. Make it consistent with the others (or, if `sys_kill` has a genuine reason to need a
-  non-`const` context, document why and apply that reasoning everywhere it actually applies).
 - `arch/common/setup/function/ftrace/ftrace_thunk.h`, `arch/x86_64/.../ftrace_thunk.c`, and
   `arch/arm64/.../ftrace_thunk.c` each carry an identical stub comment above `fh_ftrace_thunk()` pointing at
   <https://elixir.bootlin.com/linux/v5.11-rc1/A/ident/ftrace_regs> as a placeholder — find and link the actual

@@ -32,7 +32,7 @@
 
 
 #define BUILD_HOOK_CONTEXT(_pid, _sig) \
-    { \
+    ((const struct kernel_function_hook_context){ \
         .func_num = kernel_arch_common_function_hook_function_kill_num(), \
         .func_arg = &(const struct kernel_function_arg){ \
             .arg = &(const struct kernel_function_sys_kill_arg){ \
@@ -42,7 +42,7 @@
             .arg_size = sizeof(struct kernel_function_sys_kill_arg) \
         }, \
         .act_res = &(struct kernel_function_action_result){0} \
-    }
+    })
 
 #if KERNEL_HELPER_KERNEL_PTREGS_SYSCALL_STUBS
 
