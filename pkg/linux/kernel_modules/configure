@@ -2561,9 +2561,9 @@ printf "%s\n" "$as_me: WARNING: kernel ${kernel_major}.${kernel_minor} is outsid
 fi
 
 arch=`uname -m`
-if test "x${arch}" != "xx86_64"; then
-    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: architecture ${arch} is not supported; x86_64 is required" >&5
-printf "%s\n" "$as_me: WARNING: architecture ${arch} is not supported; x86_64 is required" >&2;}
+if test "x${arch}" != "xx86_64" && test "x${arch}" != "xaarch64"; then
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: architecture ${arch} is not supported; x86_64 or aarch64 is required" >&5
+printf "%s\n" "$as_me: WARNING: architecture ${arch} is not supported; x86_64 or aarch64 is required" >&2;}
 fi
 
 distro=`grep '^ID=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"'`

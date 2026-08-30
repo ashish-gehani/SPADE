@@ -190,6 +190,15 @@ $(TEST_MODULE_NAME)-y := \
 
 ###
 
+# Every .o the kernel build system compiles in-tree across all three modules, plus the
+# .<name>.o.cmd sibling file it generates next to each one -- both are scattered throughout
+# the source tree (not just under $(BUILD_DIR)) and clean needs to remove them explicitly. TODO
+# ($(MAKE) -C $(KDIR) M=$(CURDIR) clean would track these itself instead of hand-listing them.)
+ALL_MODULE_OBJS := $(foreach mod,$(MODULE_NAMES),$($(mod)-y))
+ALL_MODULE_OBJS_CMD := $(foreach f,$(ALL_MODULE_OBJS),$(dir $(f)).$(notdir $(f)).cmd)
+
+###
+
 .PHONY: help debug release all clean test-user package check-full check hash-print hash-update
 
 help:
@@ -269,6 +278,8 @@ release: all
 clean:
 	-rm -f $(GEN_BUILD_HASH_SRC_FILE)
 	-rm -f $(GEN_BUILD_HASH_CACHE_FILE)
+	-rm -f $(ALL_MODULE_OBJS)
+	-rm -f $(ALL_MODULE_OBJS_CMD)
 	-rm -f $(MOD_OUT_FILES)
 	-rm -f $(addprefix $(BUILD_DIR)/,$(MOD_OUT_FILES))
 	-rm -f $(TEST_USER_BIN)

@@ -41,6 +41,40 @@ kernel/
         └── setup/function/ftrace/    # ftrace_thunk.c (writes regs->pc)
 ```
 
+## Kbuild variable convention
+
+`Kbuild` object-list and function-name-list variables are prefixed by scope, mirroring the C symbol
+convention below: `ARCH_ARM64_*` and `ARCH_X86_64_*` for each arch's own `Kbuild`, `ARCH_COMMON_*` for
+`arch/common/Kbuild`. Within a given scope, variables build up from the bottom:
+
+- `ARCH_<ARCH>_HOOKED_FUNCTIONS_NAMES` (each arch `Kbuild`) / `ARCH_COMMON_FUNCTION_NAMES`
+  (`arch/common/Kbuild`) — the list of syscall names handled in that scope.
+- `ARCH_<ARCH>_FUNCTION_HOOK_OBJS` — per-function `hook.o`, generated from the names list above via
+  `foreach` (arch `Kbuild`s only — `hook.c` is always arch-specific, common has no equivalent).
+- `ARCH_<ARCH>_FUNCTION_OBJS` / `ARCH_COMMON_FUNCTION_OBJS` — everything under that scope's `function/`
+  subtree.
+- `ARCH_<ARCH>_OBJS` / `ARCH_COMMON_OBJS` — the scope's complete object list (`function/` plus `setup/`,
+  and for common also `helper/`/`namespace/`/`netfilter/`).
+
+### What the top-level Kbuild expects from each child Kbuild
+
+`audit/kernel/Kbuild` resolves `KERNEL_ARCH_DIR` (`arm64` or `x86_64`) and includes exactly two child
+files: `arch/$(KERNEL_ARCH_DIR)/Kbuild` and `arch/common/Kbuild`. Its contract with them is deliberately
+thin — each child owns *which functions/actions exist* internally, and only hands the parent a finished
+object list:
+
+- Every `arch/<arch>/Kbuild` must define `ARCH_<ARCH>_OBJS` (arch name upper-cased, e.g. `ARCH_ARM64_OBJS`,
+  `ARCH_X86_64_OBJS`) — the complete object list for that architecture.
+- `arch/common/Kbuild` must define `ARCH_COMMON_OBJS` — the complete arch-independent object list.
+
+`KERNEL_OBJS` is then just the selected arch's `ARCH_<ARCH>_OBJS` plus `ARCH_COMMON_OBJS` — nothing else
+crosses the boundary. In particular, the `*_HOOKED_FUNCTIONS_NAMES`/`*_FUNCTION_NAMES` lists and the
+intermediate `*_FUNCTION_OBJS`/`*_FUNCTION_HOOK_OBJS` breakdowns are purely internal to how each child
+assembles its own `_OBJS` variable; the top-level `Kbuild` never reads them directly. This also means
+adding a new arch directory requires wiring its `ARCH_<ARCH>_OBJS` into the top-level `Kbuild`'s
+arch-selection branch by hand — Make has no way to derive the upper-cased variable name from the
+lower-case directory name automatically.
+
 ## Naming convention
 
 A symbol's prefix is determined by its linkage and where it's defined, not by what it does:

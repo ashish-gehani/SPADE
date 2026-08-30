@@ -1,7 +1,27 @@
 # Object list for audit/kernel/arch/common, included by the top-level audit/kernel/Kbuild.
 # Paths are relative to the Kbuild source root ($(src)), not to this directory.
 
-COMMON_HELPER_OBJS := \
+# Names of hooked functions whose action.c / action/audit.c / op.c (arch-independent files) live
+# here instead of per-arch. Consumed by the top-level audit/kernel/Kbuild via
+# $(filter-out $(ARCH_COMMON_FUNCTION_NAMES), ...) to exclude them from its per-arch foreach-generated
+# object lists. hook.c stays arch-specific regardless, so hook.o is not filtered by this.
+ARCH_COMMON_FUNCTION_NAMES := \
+  sys_accept \
+  sys_accept4 \
+  sys_bind \
+  sys_clone \
+  sys_connect \
+  sys_fork \
+  sys_kill \
+  sys_recvfrom \
+  sys_recvmsg \
+  sys_sendmsg \
+  sys_sendto \
+  sys_setns \
+  sys_unshare \
+  sys_vfork
+
+ARCH_COMMON_HELPER_OBJS := \
   audit/kernel/arch/common/helper/audit_log.o \
   audit/kernel/arch/common/helper/kernel.o \
   audit/kernel/arch/common/helper/namespace.o \
@@ -9,91 +29,137 @@ COMMON_HELPER_OBJS := \
   audit/kernel/arch/common/helper/sock.o \
   audit/kernel/arch/common/helper/task.o
 
-COMMON_NAMESPACE_OBJS := \
+ARCH_COMMON_NAMESPACE_OBJS := \
   audit/kernel/arch/common/namespace/namespace.o
 
-COMMON_NETFILTER_OBJS := \
+ARCH_COMMON_NETFILTER_OBJS := \
   audit/kernel/arch/common/netfilter/netfilter.o
 
-COMMON_SETUP_NETFILTER_OBJS := \
+ARCH_COMMON_SETUP_NETFILTER_OBJS := \
   audit/kernel/arch/common/setup/netfilter/netfilter.o
 
-COMMON_SETUP_NAMESPACE_OBJS := \
+ARCH_COMMON_SETUP_NAMESPACE_OBJS := \
   audit/kernel/arch/common/setup/namespace/namespace.o
 
-COMMON_SETUP_FUNCTION_FTRACE_OBJS := \
+ARCH_COMMON_SETUP_FUNCTION_FTRACE_OBJS := \
   audit/kernel/arch/common/setup/function/ftrace/ftrace.o \
   audit/kernel/arch/common/setup/function/ftrace/ftrace_helper.o \
   audit/kernel/arch/common/setup/function/ftrace/ftrace_thunk.o
 
-COMMON_FUNCTION_OBJS := \
-  audit/kernel/arch/common/function/action.o \
-  audit/kernel/arch/common/function/hook.o \
-  audit/kernel/arch/common/function/number.o \
-  audit/kernel/arch/common/function/op.o \
+# Per-function object lists. Named ARCH_COMMON_FUNCTION_SYS_<NAME>_OBJS (not e.g. just <NAME>_OBJS) to
+# stay unique in Kbuild's single flat variable namespace -- every Kbuild file here is pulled in via
+# `include`, not scoped per-file, so a collision with a like-named variable from another included
+# Kbuild (arch-specific or top-level) would silently clobber one or the other.
+ARCH_COMMON_FUNCTION_SYS_ACCEPT_OBJS := \
   audit/kernel/arch/common/function/sys_accept/action.o \
   audit/kernel/arch/common/function/sys_accept/action/audit.o \
   audit/kernel/arch/common/function/sys_accept/op.o \
-  audit/kernel/arch/common/function/sys_accept/hook.o \
+  audit/kernel/arch/common/function/sys_accept/hook.o
+
+ARCH_COMMON_FUNCTION_SYS_ACCEPT4_OBJS := \
   audit/kernel/arch/common/function/sys_accept4/action.o \
   audit/kernel/arch/common/function/sys_accept4/action/audit.o \
   audit/kernel/arch/common/function/sys_accept4/op.o \
-  audit/kernel/arch/common/function/sys_accept4/hook.o \
+  audit/kernel/arch/common/function/sys_accept4/hook.o
+
+ARCH_COMMON_FUNCTION_SYS_BIND_OBJS := \
   audit/kernel/arch/common/function/sys_bind/action.o \
   audit/kernel/arch/common/function/sys_bind/action/audit.o \
   audit/kernel/arch/common/function/sys_bind/op.o \
-  audit/kernel/arch/common/function/sys_bind/hook.o \
+  audit/kernel/arch/common/function/sys_bind/hook.o
+
+ARCH_COMMON_FUNCTION_SYS_CLONE_OBJS := \
   audit/kernel/arch/common/function/sys_clone/action.o \
   audit/kernel/arch/common/function/sys_clone/action/audit.o \
   audit/kernel/arch/common/function/sys_clone/op.o \
-  audit/kernel/arch/common/function/sys_clone/hook.o \
+  audit/kernel/arch/common/function/sys_clone/hook.o
+
+ARCH_COMMON_FUNCTION_SYS_CONNECT_OBJS := \
   audit/kernel/arch/common/function/sys_connect/action.o \
   audit/kernel/arch/common/function/sys_connect/action/audit.o \
   audit/kernel/arch/common/function/sys_connect/op.o \
-  audit/kernel/arch/common/function/sys_connect/hook.o \
+  audit/kernel/arch/common/function/sys_connect/hook.o
+
+ARCH_COMMON_FUNCTION_SYS_FORK_OBJS := \
   audit/kernel/arch/common/function/sys_fork/action.o \
   audit/kernel/arch/common/function/sys_fork/action/audit.o \
   audit/kernel/arch/common/function/sys_fork/op.o \
-  audit/kernel/arch/common/function/sys_fork/hook.o \
+  audit/kernel/arch/common/function/sys_fork/hook.o
+
+ARCH_COMMON_FUNCTION_SYS_KILL_OBJS := \
   audit/kernel/arch/common/function/sys_kill/action.o \
   audit/kernel/arch/common/function/sys_kill/action/audit.o \
   audit/kernel/arch/common/function/sys_kill/action/harden.o \
   audit/kernel/arch/common/function/sys_kill/op.o \
-  audit/kernel/arch/common/function/sys_kill/hook.o \
+  audit/kernel/arch/common/function/sys_kill/hook.o
+
+ARCH_COMMON_FUNCTION_SYS_RECVFROM_OBJS := \
   audit/kernel/arch/common/function/sys_recvfrom/action.o \
   audit/kernel/arch/common/function/sys_recvfrom/action/audit.o \
   audit/kernel/arch/common/function/sys_recvfrom/op.o \
-  audit/kernel/arch/common/function/sys_recvfrom/hook.o \
+  audit/kernel/arch/common/function/sys_recvfrom/hook.o
+
+ARCH_COMMON_FUNCTION_SYS_RECVMSG_OBJS := \
   audit/kernel/arch/common/function/sys_recvmsg/action.o \
   audit/kernel/arch/common/function/sys_recvmsg/action/audit.o \
   audit/kernel/arch/common/function/sys_recvmsg/op.o \
-  audit/kernel/arch/common/function/sys_recvmsg/hook.o \
+  audit/kernel/arch/common/function/sys_recvmsg/hook.o
+
+ARCH_COMMON_FUNCTION_SYS_SENDMSG_OBJS := \
   audit/kernel/arch/common/function/sys_sendmsg/action.o \
   audit/kernel/arch/common/function/sys_sendmsg/action/audit.o \
   audit/kernel/arch/common/function/sys_sendmsg/op.o \
-  audit/kernel/arch/common/function/sys_sendmsg/hook.o \
+  audit/kernel/arch/common/function/sys_sendmsg/hook.o
+
+ARCH_COMMON_FUNCTION_SYS_SENDTO_OBJS := \
   audit/kernel/arch/common/function/sys_sendto/action.o \
   audit/kernel/arch/common/function/sys_sendto/action/audit.o \
   audit/kernel/arch/common/function/sys_sendto/op.o \
-  audit/kernel/arch/common/function/sys_sendto/hook.o \
+  audit/kernel/arch/common/function/sys_sendto/hook.o
+
+ARCH_COMMON_FUNCTION_SYS_SETNS_OBJS := \
   audit/kernel/arch/common/function/sys_setns/action.o \
   audit/kernel/arch/common/function/sys_setns/action/audit.o \
   audit/kernel/arch/common/function/sys_setns/op.o \
-  audit/kernel/arch/common/function/sys_setns/hook.o \
+  audit/kernel/arch/common/function/sys_setns/hook.o
+
+ARCH_COMMON_FUNCTION_SYS_UNSHARE_OBJS := \
   audit/kernel/arch/common/function/sys_unshare/action.o \
   audit/kernel/arch/common/function/sys_unshare/action/audit.o \
   audit/kernel/arch/common/function/sys_unshare/op.o \
-  audit/kernel/arch/common/function/sys_unshare/hook.o \
+  audit/kernel/arch/common/function/sys_unshare/hook.o
+
+ARCH_COMMON_FUNCTION_SYS_VFORK_OBJS := \
   audit/kernel/arch/common/function/sys_vfork/action.o \
   audit/kernel/arch/common/function/sys_vfork/action/audit.o \
   audit/kernel/arch/common/function/sys_vfork/op.o \
   audit/kernel/arch/common/function/sys_vfork/hook.o
 
-COMMON_OBJS := \
-  $(COMMON_HELPER_OBJS) \
-  $(COMMON_NAMESPACE_OBJS) \
-  $(COMMON_NETFILTER_OBJS) \
-  $(COMMON_SETUP_NETFILTER_OBJS) \
-  $(COMMON_SETUP_NAMESPACE_OBJS) \
-  $(COMMON_SETUP_FUNCTION_FTRACE_OBJS) \
-  $(COMMON_FUNCTION_OBJS)
+ARCH_COMMON_FUNCTION_OBJS := \
+  audit/kernel/arch/common/function/action.o \
+  audit/kernel/arch/common/function/hook.o \
+  audit/kernel/arch/common/function/number.o \
+  audit/kernel/arch/common/function/op.o \
+  $(ARCH_COMMON_FUNCTION_SYS_ACCEPT_OBJS) \
+  $(ARCH_COMMON_FUNCTION_SYS_ACCEPT4_OBJS) \
+  $(ARCH_COMMON_FUNCTION_SYS_BIND_OBJS) \
+  $(ARCH_COMMON_FUNCTION_SYS_CLONE_OBJS) \
+  $(ARCH_COMMON_FUNCTION_SYS_CONNECT_OBJS) \
+  $(ARCH_COMMON_FUNCTION_SYS_FORK_OBJS) \
+  $(ARCH_COMMON_FUNCTION_SYS_KILL_OBJS) \
+  $(ARCH_COMMON_FUNCTION_SYS_RECVFROM_OBJS) \
+  $(ARCH_COMMON_FUNCTION_SYS_RECVMSG_OBJS) \
+  $(ARCH_COMMON_FUNCTION_SYS_SENDMSG_OBJS) \
+  $(ARCH_COMMON_FUNCTION_SYS_SENDTO_OBJS) \
+  $(ARCH_COMMON_FUNCTION_SYS_SETNS_OBJS) \
+  $(ARCH_COMMON_FUNCTION_SYS_UNSHARE_OBJS) \
+  $(ARCH_COMMON_FUNCTION_SYS_VFORK_OBJS)
+
+ARCH_COMMON_OBJS := \
+  $(ARCH_COMMON_HELPER_OBJS) \
+  $(ARCH_COMMON_NAMESPACE_OBJS) \
+  $(ARCH_COMMON_NETFILTER_OBJS) \
+  $(ARCH_COMMON_SETUP_NETFILTER_OBJS) \
+  $(ARCH_COMMON_SETUP_NAMESPACE_OBJS) \
+  $(ARCH_COMMON_SETUP_FUNCTION_FTRACE_OBJS) \
+  $(ARCH_COMMON_FUNCTION_OBJS)

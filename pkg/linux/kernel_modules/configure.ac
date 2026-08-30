@@ -46,8 +46,8 @@ if test "x${kver_in_range}" = "xno"; then
 fi
 
 arch=`uname -m`
-if test "x${arch}" != "xx86_64"; then
-    AC_MSG_WARN([architecture ${arch} is not supported; x86_64 is required])
+if test "x${arch}" != "xx86_64" && test "x${arch}" != "xaarch64"; then
+    AC_MSG_WARN([architecture ${arch} is not supported; x86_64 or aarch64 is required])
 fi
 
 distro=`grep '^ID=' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"'`

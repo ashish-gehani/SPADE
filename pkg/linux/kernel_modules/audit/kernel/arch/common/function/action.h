@@ -76,8 +76,8 @@ typedef int (*kernel_function_action_post_t)(
 
 struct kernel_function_action_list
 {
-    const kernel_function_action_pre_t pre[KERNEL_FUNCTION_ACTION_LEN_MAX];
-    const kernel_function_action_post_t post[KERNEL_FUNCTION_ACTION_LEN_MAX];
+    kernel_function_action_pre_t pre[KERNEL_FUNCTION_ACTION_LEN_MAX];
+    kernel_function_action_post_t post[KERNEL_FUNCTION_ACTION_LEN_MAX];
 };
 
 /*

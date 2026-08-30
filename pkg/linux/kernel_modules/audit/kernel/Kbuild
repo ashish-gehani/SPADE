@@ -18,45 +18,8 @@ include $(MODULE_SRC_DIR)/audit/kernel/arch/$(KERNEL_ARCH_DIR)/Kbuild
 # Common (arch-independent) object list: audit/kernel/arch/common/Kbuild
 include $(MODULE_SRC_DIR)/audit/kernel/arch/common/Kbuild
 
-HOOKED_FUNCTION_ACTION_HARDEN_NAMES := \
-  sys_kill
-
-# Functions whose action.c / action/audit.c / op.c (arch-independent files) have moved to
-# audit/kernel/arch/common/function/ (built via COMMON_FUNCTION_OBJS instead), so excluded from
-# the per-arch foreach-generated object lists below. hook.c stays arch-specific regardless, so
-# hook.o is not filtered by this.
-COMMON_FUNCTION_NAMES := \
-  sys_accept \
-  sys_accept4 \
-  sys_bind \
-  sys_clone \
-  sys_connect \
-  sys_fork \
-  sys_kill \
-  sys_recvfrom \
-  sys_recvmsg \
-  sys_sendmsg \
-  sys_sendto \
-  sys_setns \
-  sys_unshare \
-  sys_vfork
-
-HOOKED_FUNCTION_ACTION_AUDIT_OBJS := \
-  $(foreach f_name,$(filter-out $(COMMON_FUNCTION_NAMES),$(HOOKED_FUNCTION_ACTION_AUDIT_NAMES)),audit/kernel/arch/$(KERNEL_ARCH_DIR)/function/$(f_name)/action/audit.o)
-
-HOOKED_FUNCTION_ACTION_HARDEN_OBJS := \
-  $(foreach f_name,$(filter-out $(COMMON_FUNCTION_NAMES),$(HOOKED_FUNCTION_ACTION_HARDEN_NAMES)),audit/kernel/arch/$(KERNEL_ARCH_DIR)/function/$(f_name)/action/harden.o)
-
-HOOKED_FUNCTION_OBJS := \
-  $(HOOKED_FUNCTION_ACTION_AUDIT_OBJS) \
-  $(HOOKED_FUNCTION_ACTION_HARDEN_OBJS) \
-  $(foreach f_name,$(filter-out $(COMMON_FUNCTION_NAMES),$(HOOKED_FUNCTION_NAMES)),audit/kernel/arch/$(KERNEL_ARCH_DIR)/function/$(f_name)/action.o) \
-  $(foreach f_name,$(HOOKED_FUNCTION_NAMES),audit/kernel/arch/$(KERNEL_ARCH_DIR)/function/$(f_name)/hook.o) \
-  $(foreach f_name,$(filter-out $(COMMON_FUNCTION_NAMES),$(HOOKED_FUNCTION_NAMES)),audit/kernel/arch/$(KERNEL_ARCH_DIR)/function/$(f_name)/op.o)
-
-KERNEL_OBJS := \
-  audit/kernel/arch/$(KERNEL_ARCH_DIR)/function/op.o \
-  audit/kernel/arch/$(KERNEL_ARCH_DIR)/function/number.o \
-  $(ARCH_SETUP_FUNCTION_FTRACE_OBJS) \
-  $(COMMON_OBJS) \
-  $(HOOKED_FUNCTION_OBJS)
+ifeq ($(KERNEL_ARCH_DIR),arm64)
+KERNEL_OBJS := $(ARCH_ARM64_OBJS) $(ARCH_COMMON_OBJS)
+else
+KERNEL_OBJS := $(ARCH_X86_64_OBJS) $(ARCH_COMMON_OBJS)
+endif

@@ -1,10 +1,7 @@
 # x86_64-specific hooked function names and object list, included by audit/kernel/Kbuild.
 # Paths are relative to the Kbuild source root ($(src)), not to this directory.
 
-ARCH_SETUP_FUNCTION_FTRACE_OBJS := \
-  audit/kernel/arch/x86_64/setup/function/ftrace/ftrace_thunk.o
-
-HOOKED_FUNCTION_NAMES := \
+ARCH_X86_64_HOOKED_FUNCTIONS_NAMES := \
   sys_accept \
   sys_accept4 \
   sys_bind \
@@ -20,4 +17,17 @@ HOOKED_FUNCTION_NAMES := \
   sys_unshare \
   sys_vfork
 
-HOOKED_FUNCTION_ACTION_AUDIT_NAMES := $(HOOKED_FUNCTION_NAMES)
+ARCH_X86_64_SETUP_FUNCTION_FTRACE_OBJS := \
+  audit/kernel/arch/x86_64/setup/function/ftrace/ftrace_thunk.o
+
+ARCH_X86_64_FUNCTION_HOOK_OBJS := \
+  $(foreach f_name,$(ARCH_X86_64_HOOKED_FUNCTIONS_NAMES),audit/kernel/arch/x86_64/function/$(f_name)/hook.o)
+
+ARCH_X86_64_FUNCTION_OBJS := \
+  audit/kernel/arch/x86_64/function/op.o \
+  audit/kernel/arch/x86_64/function/number.o \
+  $(ARCH_X86_64_FUNCTION_HOOK_OBJS)
+
+ARCH_X86_64_OBJS := \
+  $(ARCH_X86_64_SETUP_FUNCTION_FTRACE_OBJS) \
+  $(ARCH_X86_64_FUNCTION_OBJS)
