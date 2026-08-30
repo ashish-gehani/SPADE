@@ -9,3 +9,4 @@ audit/.build_hash_cache
 .Module.symvers.cmd
 .modules.order.cmd
 build
+test/user/bin/
