@@ -65,7 +65,7 @@ static enum ip_conntrack_info get_conntrack_info(const struct sk_buff *skb, enum
     struct nf_conn *ct;
     if (!skb)
         return default_ct_info;
-#if KERNEL_HELPER_KERNEL_VERSION_GTE_4_11_0
+#if IS_ENABLED(CONFIG_NF_CONNTRACK)
     ct = nf_ct_get(skb, &ct_info); // also derives ctinfo
     if (ct)
     {
