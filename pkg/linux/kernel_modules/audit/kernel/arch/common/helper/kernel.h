@@ -39,7 +39,9 @@
 #define KERNEL_HELPER_KERNEL_VERSION_GTE_5_11_0 LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0)
 
 /* From this version onward, the ftrace_ops function callback (e.g. fh_ftrace_thunk()) receives a
- * struct ftrace_regs *, not a struct pt_regs * -- see https://elixir.bootlin.com/linux/v5.11-rc1/A/ident/ftrace_regs */
+ * struct ftrace_regs *, not a struct pt_regs * -- use ftrace_get_regs(fregs) to recover the pt_regs
+ * (returns NULL if the function doesn't have a full register set). See
+ * https://docs.kernel.org/trace/ftrace-uses.html */
 #define KERNEL_HELPER_KERNEL_FTRACE_THUNK_HAS_FTRACE_REGS KERNEL_HELPER_KERNEL_VERSION_GTE_5_11_0
 
 /* kallsyms_lookup_name() stopped being exported from this version onward, requiring the kprobe-based
