@@ -158,15 +158,14 @@ anything.
   branch) and `arch/common/helper/sock.c`'s socket-name lookup (the `KERNEL_HELPER_KERNEL_VERSION_GTE_4_17_0`
   branch) both have unresolved version-gate concerns flagged at the `#if` — revisit whether those version
   thresholds and the pre-/post-gate logic are actually correct.
-- Verify the kernel-version guards (e.g. `KERNEL_HELPER_KERNEL_PTREGS_SYSCALL_STUBS`) that gate `pt_regs`-based
-  syscall stub access are correct for both x86_64 and arm64 — the version thresholds where the
-  `pt_regs`-argument calling convention was introduced differ per arch, so a guard tuned for one can be wrong
-  on the other.
 - Verify `"__arm64_sys_<name>"` is the correct exported symbol name on target arm64 kernels for each of the 12
   hooked syscalls' `arch/arm64/function/sys_<name>/hook.c` (confirm via e.g.
   `grep __arm64_sys_<name> /proc/kallsyms` or `nm vmlinux`): `sys_accept`, `sys_accept4`, `sys_bind`,
   `sys_clone`, `sys_connect`, `sys_kill`, `sys_recvfrom`, `sys_recvmsg`, `sys_sendmsg`, `sys_sendto`,
-  `sys_setns`, `sys_unshare`.
+  `sys_setns`, `sys_unshare`. This now matters in practice: each `hook.c`'s `#ifdef CONFIG_ARCH_HAS_SYSCALL_WRAPPER`
+  branch (the kernel's own Kconfig symbol for the `pt_regs`-argument syscall convention, replacing a
+  previous hand-rolled x86_64-only version-gate macro that was always false on arm64) is expected to
+  actually be taken on modern arm64 kernels, where it wasn't being exercised before.
 - Maybe: give each per-syscall (and other) directory its own `Kbuild`/Makefile instead of the current pattern
   of one `Kbuild` per arch dir listing every subdirectory's objects — would localize each directory's object
   list next to its own sources, at the cost of more files and `include` plumbing. Worth weighing once more

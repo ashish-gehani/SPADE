@@ -38,10 +38,6 @@
 
 #define KERNEL_HELPER_KERNEL_VERSION_GTE_5_11_0 LINUX_VERSION_CODE >= KERNEL_VERSION(5,11,0)
 
-#if defined(CONFIG_X86_64) && KERNEL_HELPER_KERNEL_VERSION_GTE_4_17_0
-#define KERNEL_HELPER_KERNEL_PTREGS_SYSCALL_STUBS 1
-#endif
-
 /* From this version onward, the ftrace_ops function callback (e.g. fh_ftrace_thunk()) receives a
  * struct ftrace_regs *, not a struct pt_regs * -- see https://elixir.bootlin.com/linux/v5.11-rc1/A/ident/ftrace_regs */
 #define KERNEL_HELPER_FTRACE_HOOK_HAS_FTRACE_REGS KERNEL_HELPER_KERNEL_VERSION_GTE_5_11_0

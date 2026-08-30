@@ -29,7 +29,7 @@
 #include "audit/util/log/log.h"
 
 
-#if KERNEL_HELPER_KERNEL_PTREGS_SYSCALL_STUBS
+#ifdef CONFIG_ARCH_HAS_SYSCALL_WRAPPER
 
 	static asmlinkage long (*_orig)(const struct pt_regs *regs);
     static asmlinkage long _hook(const struct pt_regs *regs);
@@ -88,7 +88,7 @@
 
 static const char* kernel_function_hook_function_accept4_name(void)
 {
-#if KERNEL_HELPER_KERNEL_PTREGS_SYSCALL_STUBS
+#ifdef CONFIG_ARCH_HAS_SYSCALL_WRAPPER
     return "__x64_sys_accept4";
 #else
     return "sys_accept4";
