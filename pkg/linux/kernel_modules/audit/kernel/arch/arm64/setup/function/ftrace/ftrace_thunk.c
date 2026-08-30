@@ -12,7 +12,7 @@
 #include "audit/kernel/arch/common/setup/function/ftrace/ftrace_helper.h"
 
 /* See comment below within fh_install_hook() (ftrace_helper.c) */
-#if KERNEL_HELPER_FTRACE_HOOK_HAS_FTRACE_REGS
+#if KERNEL_HELPER_KERNEL_FTRACE_THUNK_HAS_FTRACE_REGS
 void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip, struct ftrace_ops *ops, struct ftrace_regs *fregs)
 {
     struct ftrace_hook *hook = container_of(ops, struct ftrace_hook, ops);

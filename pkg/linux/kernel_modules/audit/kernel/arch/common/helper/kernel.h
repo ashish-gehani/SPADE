@@ -40,7 +40,7 @@
 
 /* From this version onward, the ftrace_ops function callback (e.g. fh_ftrace_thunk()) receives a
  * struct ftrace_regs *, not a struct pt_regs * -- see https://elixir.bootlin.com/linux/v5.11-rc1/A/ident/ftrace_regs */
-#define KERNEL_HELPER_FTRACE_HOOK_HAS_FTRACE_REGS KERNEL_HELPER_KERNEL_VERSION_GTE_5_11_0
+#define KERNEL_HELPER_KERNEL_FTRACE_THUNK_HAS_FTRACE_REGS KERNEL_HELPER_KERNEL_VERSION_GTE_5_11_0
 
 typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
 

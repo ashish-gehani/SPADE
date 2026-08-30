@@ -152,7 +152,7 @@ anything.
 - `arch/common/setup/function/ftrace/ftrace_thunk.h`, `arch/x86_64/.../ftrace_thunk.c`, and
   `arch/arm64/.../ftrace_thunk.c` each carry an identical stub comment above `fh_ftrace_thunk()` pointing at
   <https://elixir.bootlin.com/linux/v5.11-rc1/A/ident/ftrace_regs> as a placeholder — find and link the actual
-  kernel docs for `ftrace_regs` / `KERNEL_HELPER_FTRACE_HOOK_HAS_FTRACE_REGS` and replace the placeholder in
+  kernel docs for `ftrace_regs` / `KERNEL_HELPER_KERNEL_FTRACE_THUNK_HAS_FTRACE_REGS` and replace the placeholder in
   all three files.
 - `arch/common/netfilter/netfilter.c`'s `get_conntrack_info()` (the `KERNEL_HELPER_KERNEL_VERSION_GTE_4_11_0`
   branch) and `arch/common/helper/sock.c`'s socket-name lookup (the `KERNEL_HELPER_KERNEL_VERSION_GTE_4_17_0`
