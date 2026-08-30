@@ -46,6 +46,12 @@
  * lookup hack instead -- see the KPROBE_LOOKUP branch in kernel_helper_kernel_get_kallsyms_func(). */
 #define KERNEL_HELPER_KERNEL_KALLSYMS_NOT_EXPORTED KERNEL_HELPER_KERNEL_VERSION_GTE_5_7_0
 
+/* From this version onward, sock->ops->getname() returns the sockaddr length directly instead of
+ * writing it through an `int *sockaddr_len` out-param and returning an error code -- see kernel
+ * commit 9b2c45d479d0 ("net: make getname() functions return length rather than use int* parameter")
+ * https://github.com/torvalds/linux/commit/9b2c45d479d0 */
+#define KERNEL_HELPER_KERNEL_SOCK_GETNAME_RETURNS_LEN KERNEL_HELPER_KERNEL_VERSION_GTE_4_17_0
+
 typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
 
 /*
