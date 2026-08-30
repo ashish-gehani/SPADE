@@ -30,7 +30,7 @@
 
 // Kallsyms hack @hkerma
 // https://lwn.net/Articles/813350/
-#if KERNEL_HELPER_KERNEL_VERSION_GTE_5_7_0
+#if KERNEL_HELPER_KERNEL_KALLSYMS_NOT_EXPORTED
 	#define KPROBE_LOOKUP 1
 	#include <linux/kprobes.h>
 	static struct kprobe kp = {

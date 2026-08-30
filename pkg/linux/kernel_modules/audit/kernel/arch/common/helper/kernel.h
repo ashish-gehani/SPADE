@@ -42,6 +42,10 @@
  * struct ftrace_regs *, not a struct pt_regs * -- see https://elixir.bootlin.com/linux/v5.11-rc1/A/ident/ftrace_regs */
 #define KERNEL_HELPER_KERNEL_FTRACE_THUNK_HAS_FTRACE_REGS KERNEL_HELPER_KERNEL_VERSION_GTE_5_11_0
 
+/* kallsyms_lookup_name() stopped being exported from this version onward, requiring the kprobe-based
+ * lookup hack instead -- see the KPROBE_LOOKUP branch in kernel_helper_kernel_get_kallsyms_func(). */
+#define KERNEL_HELPER_KERNEL_KALLSYMS_NOT_EXPORTED KERNEL_HELPER_KERNEL_VERSION_GTE_5_7_0
+
 typedef unsigned long (*kallsyms_lookup_name_t)(const char *name);
 
 /*
