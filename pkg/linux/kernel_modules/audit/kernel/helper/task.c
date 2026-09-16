@@ -107,6 +107,11 @@ pid_t kernel_helper_task_task_view_current_pid()
     return current->pid;
 }
 
+pid_t kernel_helper_task_ns_view_current_pid()
+{
+    return task_pid_vnr(current);
+}
+
 struct audit_context *kernel_helper_task_current_audit_context()
 {
 #ifdef CONFIG_AUDITSYSCALL
