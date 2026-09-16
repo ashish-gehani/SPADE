@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.regex.Pattern;
 
 import spade.core.AbstractStorage;
 import spade.query.quickgrail.core.AbstractQueryEnvironment;
@@ -70,16 +71,46 @@ import spade.query.quickgrail.utility.ResultTable;
  *   - The base graph is populated up-front by tests via
  *     {@link Executor#putVertex} / {@link Executor#putEdge}; every
  *     other graph is derived by an instruction at runtime.
+ *
+ * Fidelity to the real executors (PostgreSQL, Neo4j, Quickstep):
+ *   - Annotation values are strings, so ordering comparisons are string
+ *     comparisons and LIKE uses SQL wildcards ({@code %}, {@code _}).
+ *   - {@code getAdjacentVertex} puts the matching edges, the neighbors,
+ *     and the source vertices into the target. The backends disagree on
+ *     when a source vertex is added, captured by {@link AdjacencySemantics};
+ *     run behavior tests under both so a composite cannot rely on either.
+ *   - Subtracting the base graph is rejected because Neo4j returns an
+ *     empty result for it while PostgreSQL does not.
  */
 public final class InMemoryQueryHarness{
+
+	/**
+	 * How {@code getAdjacentVertex} treats source vertices and subject membership.
+	 */
+	public static enum AdjacencySemantics{
+		/**
+		 * PostgreSQL and Quickstep: every source vertex is added to the target,
+		 * and only edge membership in the subject graph is checked.
+		 */
+		SOURCES_ALWAYS,
+		/**
+		 * Neo4j: a source vertex is added only through a matching edge, and both
+		 * endpoints of that edge must be vertices of the subject graph.
+		 */
+		SOURCES_VIA_EDGES
+	}
 
 	public final Env env;
 	public final Executor executor;
 	public final Graph baseGraph;
 
 	public InMemoryQueryHarness(){
+		this(AdjacencySemantics.SOURCES_VIA_EDGES);
+	}
+
+	public InMemoryQueryHarness(final AdjacencySemantics adjacencySemantics){
 		this.env = new Env("base");
-		this.executor = new Executor(env);
+		this.executor = new Executor(env, adjacencySemantics);
 		this.baseGraph = env.getBaseGraph();
 		// Allocate the base graph so it shows up in graphsByName.
 		this.executor.createEmptyGraph(baseGraph);
@@ -135,6 +166,7 @@ public final class InMemoryQueryHarness{
 	public static final class Executor extends QueryInstructionExecutor{
 
 		private final Env env;
+		private final AdjacencySemantics adjacencySemantics;
 
 		// All vertices and edges that exist in the fixture, keyed by hash.
 		final Map<String, Map<String, String>> verticesByHash = new HashMap<String, Map<String, String>>();
@@ -143,8 +175,9 @@ public final class InMemoryQueryHarness{
 		// Per-graph subsets (graph.name → subset of vertex/edge hashes).
 		private final Map<String, GraphData> graphsByName = new HashMap<String, GraphData>();
 
-		Executor(final Env env){
+		Executor(final Env env, final AdjacencySemantics adjacencySemantics){
 			this.env = env;
+			this.adjacencySemantics = adjacencySemantics;
 		}
 
 		@Override public AbstractQueryEnvironment getQueryEnvironment(){ return env; }
@@ -274,22 +307,28 @@ public final class InMemoryQueryHarness{
 			final GraphData t = data(target);
 			final GraphData srcData = data(source);
 			final GraphData subjData = data(subject);
+			final boolean neo4j = adjacencySemantics == AdjacencySemantics.SOURCES_VIA_EDGES;
+			if(!neo4j){
+				t.vertexHashes.addAll(srcData.vertexHashes);
+			}
+			final boolean ancestors = direction == GetLineage.Direction.kAncestor
+					|| direction == GetLineage.Direction.kBoth;
+			final boolean descendants = direction == GetLineage.Direction.kDescendant
+					|| direction == GetLineage.Direction.kBoth;
 			for(final String edgeHash : subjData.edgeHashes){
 				final QueriedEdge e = edgesByHash.get(edgeHash);
 				if(e == null) continue;
-				final boolean childInSrc  = srcData.vertexHashes.contains(e.childHash);
-				final boolean parentInSrc = srcData.vertexHashes.contains(e.parentHash);
-				switch(direction){
-					case kAncestor:
-						if(childInSrc) t.vertexHashes.add(e.parentHash);
-						break;
-					case kDescendant:
-						if(parentInSrc) t.vertexHashes.add(e.childHash);
-						break;
-					case kBoth:
-						if(childInSrc) t.vertexHashes.add(e.parentHash);
-						if(parentInSrc) t.vertexHashes.add(e.childHash);
-						break;
+				if(neo4j && !(subjData.vertexHashes.contains(e.childHash)
+						&& subjData.vertexHashes.contains(e.parentHash))){
+					continue;
+				}
+				// Edges point from child to parent, so ancestors follow an edge from its child end
+				final boolean matched = (ancestors && srcData.vertexHashes.contains(e.childHash))
+						|| (descendants && srcData.vertexHashes.contains(e.parentHash));
+				if(matched){
+					t.vertexHashes.add(e.childHash);
+					t.vertexHashes.add(e.parentHash);
+					t.edgeHashes.add(edgeHash);
 				}
 			}
 		}
@@ -404,6 +443,43 @@ public final class InMemoryQueryHarness{
 		}
 
 		@Override
+		public void insertLiteralVertex(final Graph target, final ArrayList<String> vertices){
+			final GraphData t = data(target);
+			for(final String hash : vertices){
+				// Backends only insert hashes of vertices that exist
+				if(verticesByHash.containsKey(hash)){
+					t.vertexHashes.add(hash);
+				}
+			}
+		}
+
+		@Override
+		public void subtractGraph(final Graph output, final Graph minuend, final Graph subtrahend,
+				final Graph.Component component){
+			if(env.isBaseGraph(subtrahend)){
+				throw new UnsupportedOperationException(
+						"Subtracting the base graph behaves differently across backends (empty on Neo4j)");
+			}
+			final GraphData o = data(output);
+			final GraphData m = data(minuend);
+			final GraphData s = data(subtrahend);
+			if(component == null || component == Graph.Component.kVertex){
+				for(final String hash : m.vertexHashes){
+					if(!s.vertexHashes.contains(hash)){
+						o.vertexHashes.add(hash);
+					}
+				}
+			}
+			if(component == null || component == Graph.Component.kEdge){
+				for(final String hash : m.edgeHashes){
+					if(!s.edgeHashes.contains(hash)){
+						o.edgeHashes.add(hash);
+					}
+				}
+			}
+		}
+
+		@Override
 		public Map<String, Map<String, String>> exportVertices(final Graph graph){
 			final GraphData d = data(graph);
 			final Map<String, Map<String, String>> out = new HashMap<String, Map<String, String>>();
@@ -433,22 +509,38 @@ public final class InMemoryQueryHarness{
 
 		private static boolean matches(final String actual, final PredicateOperator op, final String value){
 			if(actual == null) return false;
+			// Backends store annotation values as strings (varchar in PostgreSQL), so order is string order
 			switch(op){
 				case EQUAL:         return actual.equals(value);
 				case NOT_EQUAL:     return !actual.equals(value);
-				case LIKE:          return actual.contains(value.replace("%", ""));
-				case GREATER:       return compareNum(actual, value) >  0;
-				case GREATER_EQUAL: return compareNum(actual, value) >= 0;
-				case LESSER:        return compareNum(actual, value) <  0;
-				case LESSER_EQUAL:  return compareNum(actual, value) <= 0;
+				case LIKE:          return actual.matches(likeToRegex(value));
+				case GREATER:       return actual.compareTo(value) >  0;
+				case GREATER_EQUAL: return actual.compareTo(value) >= 0;
+				case LESSER:        return actual.compareTo(value) <  0;
+				case LESSER_EQUAL:  return actual.compareTo(value) <= 0;
 				case REGEX:         return actual.matches(value);
 				default:            return false;
 			}
 		}
 
-		private static int compareNum(final String a, final String b){
-			try{ return Long.compare(Long.parseLong(a), Long.parseLong(b)); }
-			catch(NumberFormatException e){ return a.compareTo(b); }
+		private static String likeToRegex(final String like){
+			final StringBuilder regex = new StringBuilder();
+			final StringBuilder literal = new StringBuilder();
+			for(final char c : like.toCharArray()){
+				if(c == '%' || c == '_'){
+					if(literal.length() > 0){
+						regex.append(Pattern.quote(literal.toString()));
+						literal.setLength(0);
+					}
+					regex.append(c == '%' ? ".*" : ".");
+				}else{
+					literal.append(c);
+				}
+			}
+			if(literal.length() > 0){
+				regex.append(Pattern.quote(literal.toString()));
+			}
+			return regex.toString();
 		}
 
 		// Everything else: explicit "this test path does not need me" -----------
@@ -480,11 +572,9 @@ public final class InMemoryQueryHarness{
 		@Override public void getLink(final Graph t, final Graph s, final Graph srcG, final Graph dstG, final int d){ no("getLink"); }
 		@Override public void getMatch(final Graph t, final Graph g1, final Graph g2, final ArrayList<String> a){ no("getMatch"); }
 		@Override public void getShortestPath(final Graph t, final Graph s, final Graph srcG, final Graph dstG, final int d){ no("getShortestPath"); }
-		@Override public void insertLiteralVertex(final Graph t, final ArrayList<String> v){ no("insertLiteralVertex"); }
 		@Override public void limitGraph(final Graph t, final Graph s, final int l){ no("limitGraph"); }
 		@Override public void overwriteGraphMetadata(final GraphMetadata t, final GraphMetadata l, final GraphMetadata r){ no("overwriteGraphMetadata"); }
 		@Override public void setGraphMetadata(final GraphMetadata t, final SetGraphMetadata.Component c, final Graph s, final String n, final String v){ no("setGraphMetadata"); }
-		@Override public void subtractGraph(final Graph o, final Graph m, final Graph s, final Graph.Component c){ no("subtractGraph"); }
 		@Override public void getSubsetVertex(final Graph t, final Graph s, final long f, final long to){ no("getSubsetVertex"); }
 		@Override public void getSubsetEdge(final Graph t, final Graph s, final long f, final long to){ no("getSubsetEdge"); }
 	}
