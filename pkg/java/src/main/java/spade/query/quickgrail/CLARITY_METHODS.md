@@ -90,7 +90,7 @@ the reporter is unchanged.
 | # | Topic | Decision | Reason |
 |---|---|---|---|
 | D1 | Architecture | Build both methods from existing executor primitives. Add no executor methods and change no storage backend or reporter. | One implementation serves PostgreSQL, Neo4j and Quickstep. `getPath` uses the same approach. |
-| D2 | Linking processes | Link processes through WasTriggeredBy edges only. Never pair them by equal `pid`, `pid namespace` or `ns pid` values, so no `getMatch` on those keys. | The kernel reuses host pids and namespace IDs within a boot, so equal values can join unrelated processes. `ns pid` holds the pid as seen from the parent's namespace, so an init never has `ns pid` 1 (§4.1). |
+| D2 | Linking processes | Link processes through WasTriggeredBy edges only. Never pair them by equal `pid`, `pid namespace` or `ns pid` values, so no `getMatch` on those keys. | The kernel reuses host pids and namespace IDs within a boot, so equal values can join unrelated processes. `ns pid` is meant to be the PID inside the process's own namespace, but a namespace's first process is recorded with its PID in the creator's namespace, never 1 (§4.1). |
 | D3 | ID reuse | Handle PID namespace ID reuse, assuming only that the trace spans one boot and the clock never moves backwards. | IDs are reused as soon as a namespace is freed (§4.2). Treating one ID as one container merges containers that ran at different times. |
 | D4 | Host namespace | Treat the host's PID namespace as `PROC_PID_INIT_INO` (4026531836). Read it from the Audit reporter's Linux constants file instead of hard-coding it. | The kernel fixes this value for the root PID namespace. The constants file is where SPADE already keeps kernel constants. |
 | D5 | Unobserved processes | Exclude processes labeled `-1` (unobserved namespaces) from both methods, without an error. | Their container membership is unknown. |
@@ -99,9 +99,9 @@ the reporter is unchanged.
 | D8 | Boundary API | Support four forms: `()`, `('<id>')`, `('<id>', <n>)`, `($processes)`. `('<id>')` fails with a numbered list when the ID belonged to more than one container. | The ID form covers the common case. The error shows when an ID was reused. The number and seed forms pick one container unambiguously. |
 | D9 | ID argument type | Take the PID namespace ID as a string literal. | Annotation values are strings, and QuickGrail passes annotation values as strings. |
 | D10 | Init arguments | `getContainerInit()` takes no arguments. The `maxDepth` setting is no longer used. | Initialization always ends at an execve, so a search-depth limit only risks truncating results. |
-| D11 | End of initialization | Initialization ends at the init's first execve. Later execves belong to the application. | This is where CLARION §4.2.2 ends the pattern. |
+| D11 | End of initialization | Initialization ends at the init's own first execve. Later execves belong to the application. Kept for now even though some sandboxes start their application from a child of the init (Q3). | This is where CLARION §4.2.2 ends the pattern. |
 | D12 | Start of initialization | The result starts at the process that changed its children's PID namespace, or that cloned with CLONE_NEWPID. It also includes that process's unshare/setns steps. The runtime processes above it are left out. | CLARION §4.2.2 starts the pattern at the unshare/clone. |
-| D13 | Incomplete starts | If an init never reaches execve in the trace, `getContainerInit` fails with a RuntimeException that names up to five of those processes. The SPADE client keeps running. | A partial result can't be told apart from a complete one, so the failure is loud. `QuickGrailExecutor` turns instruction exceptions into a failed query. |
+| D13 | Incomplete starts | If an init never reaches execve in the trace, `getContainerInit` fails with a RuntimeException that names up to five of those processes. The SPADE client keeps running. This also applies to sandboxes whose init never calls execve (L10, Q3). | A partial result can't be told apart from a complete one, so the failure is loud. `QuickGrailExecutor` turns instruction exceptions into a failed query. |
 | D14 | Containers over time | A container is a PID namespace ID plus a time window, from its recorded start to the next start of that ID. Processes are assigned by `start time`, or `seen time` if they have no start time. | This works under ID reuse given D3's assumptions (§5.4). |
 | D15 | Unknown ID | `getContainerBoundary('<id>')` returns an empty graph. `getContainerBoundary('<id>', <n>)` fails because container n does not exist. | This matches how `getVertex` handles no matches, while an explicitly numbered container must exist. |
 | D16 | Invalid ID | Reject the host ID and `-1` when the query is resolved. | Neither is a container, so both inputs are mistakes. |
@@ -119,7 +119,8 @@ under `pkg/linux/kernel_modules/audit/`.
 | Fact | Where |
 |---|---|
 | Process vertices carry `pid namespace`, `children pid namespace`, `mount namespace` and the other namespace labels only when `namespaces=true`. The default is `false`. | `cfg/spade.reporter.Audit.config`, `reporter/audit/process/NamespaceIdentifier.java` |
-| For clone/fork/vfork, the kernel module looks up the child from the syscall's return value and reports the child's namespaces. `ns pid` is that return value: the child's pid as seen from the parent's namespace. | kernel module `kernel/helper/namespace.c` (`kernel_helper_namespace_populate_msg`), `ProcessManager.handleForkVforkClone` |
+| For clone/fork/vfork, the kernel module looks up the child from the syscall's return value and reports the child's namespaces. | kernel module `kernel/helper/namespace.c` (`kernel_helper_namespace_populate_msg`), `function/sys_{clone,fork,vfork}/action/audit.c` |
+| `ns pid` is meant to be the PID of the process inside its own PID namespace (confirmed by the CLARION author, Q2). The kernel module instead records the clone/fork/vfork return value (`msg->ns_pid = target_pid`), which is the PID in the creator's namespace. The reporter reads it only at process creation (`nsChildPid`), and later versions copy it. The two agree when the creator is in the same namespace. For a namespace's first process, a later child of an unshare, and a process a runtime starts inside an existing container (e.g. `docker exec`), `ns pid` holds the PID in the creator's namespace instead: the host PID when the creator is on the host. | `kernel/helper/namespace.c`, `ProcessManager.handleForkVforkClone`, `ProcessManager.handleExecve` |
 | A process that was neither created nor exec'd in the trace has `-1` for every namespace until it calls execve, unshare or setns. | `ProcessStateManager` (`ProcessState` defaults), `ProcessManager.buildNamespaceIdentifierForPid` |
 | A process created in the trace carries `start time`, the time of its clone or execve. A process first seen in another syscall carries `seen time`. | `ProcessManager.handleForkVforkClone`, `handleExecve`, `buildProcessIdentifierFromSyscall` |
 | clone with SIGCHLD is recorded as `fork`. With CLONE_VM and CLONE_VFORK as well, it is recorded as `vfork`, shown as `fork` when `simplify=true` (the default). The clone flags stay in the edge's `flags` annotation, e.g. `CLONE_NEWNS\|CLONE_NEWPID\|SIGCHLD`. | `ProcessManager.handleForkVforkClone`, `LinuxConstants.stringifyCloneFlags` |
@@ -342,7 +343,7 @@ keeps accepting queries.
 | L7 | Time has millisecond granularity. | A process created in the same millisecond as the next start of its ID would be placed in the next container. This is practically impossible, because the earlier container must already be gone. | None needed. |
 | L8 | Windows compare `time`, `start time` and `seen time` as strings. | Correct while seconds have ten digits (until 2286) and milliseconds three. A filter that rewrites time values (e.g. `spade.filter.ConvertTime`) or a different timestamp format breaks the ordering. | Don't rewrite those annotations before storage. |
 | L9 | "Host" means the root PID namespace. | If the traced system is itself inside a PID namespace (e.g. a system container), all of its processes count as container processes. | Select one container by ID. |
-| L10 | A process that creates a PID namespace but never calls execve in it counts as an incomplete start. An example is a sandbox or test harness that runs its own code in the new namespace. | `getContainerInit` fails for the whole trace. | Run it on a subgraph without those processes (§8, Q3). |
+| L10 | A PID namespace whose init never calls execve counts as an incomplete start, even when a child of the init starts the application. bubblewrap (which Flatpak uses to launch apps) keeps its sandbox's PID 1 as its own reaper, `do_init`, and starts the app from another process. `systemd-nspawn --as-pid2` runs a stub init as PID 1 and the command as PID 2. | `getContainerInit` fails for the whole trace, e.g. whenever a Flatpak app starts during tracing. | Run it on a subgraph without those processes. Changing the rule is Q3. |
 | L11 | Initialization ends at the init's first execve (D11). | With `docker run --init`, the result ends at docker-init (tini), not at the application tini starts. | None. |
 | L12 | Pods with a shared process namespace (Kubernetes `shareProcessNamespace: true`). | The other containers join the pause container's PID namespace, so they are entries and the pod is one container. | None. That is what the kernel sees. |
 | L13 | Only PID namespaces define containers. | Mount, network, IPC, user and cgroup namespaces play no part. | Use `getVertex` on those labels. |
@@ -356,8 +357,8 @@ keeps accepting queries.
 | # | Item | Status |
 |---|---|---|
 | Q1 | Validate on real traces: `docker run` and `docker exec` with `namespaces=true`. | Asked Hassaan for traces. If he has none, collect our own. |
-| Q2 | Is `ns pid` meant to be the pid as seen from the parent's namespace? | To ask Hassaan. The design doesn't depend on the answer. |
-| Q3 | Should `getContainerInit` fail on inits that never call execve (L10), or report them some other way? | Currently fails (D13). Needs a decision once real traces show whether such processes occur. |
+| Q2 | What is `ns pid` meant to be? | Answered by the CLARION author: the PID of the process inside its own PID namespace. The kernel module records something else for a namespace's first process and for processes started into a namespace from outside (§4.1), so that is a kernel-module bug. A likely fix is to record the child's PID in its own namespace, `pid_nr_ns(pid, ns_of_pid(pid))`, instead of the syscall's return value. The container methods don't use `ns pid` (D2). |
+| Q3 | Where should initialization end when the init never calls execve (L10)? | Decided for now: (a) keep D11 and D13, so such starts make the query fail. A trace can't settle this: a trace without such sandboxes proves nothing. The evidence came from the tools' source instead (L10). Not chosen for now: (b) end at the first execve by the init or by any process it created in the namespace, which fixes bubblewrap and nspawn but would end runc containers at OCI `startContainer` hooks, since those run inside the container before the application; (c) prefer the init's own first execve, else the first execve by a process it created in the namespace, and fail only when no process there calls execve. |
 | Q4 | Reporter: namespace labels revert after setuid/setgid (L5). | Worth reporting upstream. |
 | Q5 | Reporter and kernel module: `clone3` (L4). | Worth reporting upstream. |
 | Q6 | Wiki QuickGrail Reference entries for both methods. | Drafts exist from the first version and need updating to the forms in §1 before they go on the wiki. |
@@ -376,7 +377,7 @@ Tests are in `pkg/java/src/test/java/spade/`, run with JUnit Jupiter via
 | `.../instruction/InMemoryQueryHarnessTest` | unit | The harness behaves like the backends: both adjacency semantics, per-component subtraction, string ordering, SQL `LIKE` |
 | `.../instruction/GetContainerInitTest` | unit | Fields, label, plan printing, and the host ID check. The resolver reads the host ID from the real constants file and rejects arguments. |
 | `.../instruction/GetContainerBoundaryTest` | unit | The four constructor forms and their validation, plan printing, and resolver parsing of every form and invalid argument |
-| `.../instruction/GetContainerInitIntegrationTest` | integration | 18 trace scenarios × 2 adjacency semantics |
+| `.../instruction/GetContainerInitIntegrationTest` | integration | 20 trace scenarios × 2 adjacency semantics |
 | `.../instruction/GetContainerBoundaryIntegrationTest` | integration | 12 trace scenarios × 2 adjacency semantics |
 
 ### 9.2 In-memory harness
@@ -436,6 +437,8 @@ and then forks.
 | empty graph | Empty result. |
 | init never calls execve | RuntimeException with count, host pid and namespace. |
 | reused ID and pids, second init never calls execve | Still fails: the first container's execve doesn't hide it. |
+| bubblewrap sandbox (reaper as PID 1, app started by its child) | Fails and names the reaper (Q3 (a), L10). |
+| `systemd-nspawn --as-pid2` (stub init as PID 1, command as PID 2) | Fails and names the stub init (Q3 (a), L10). |
 
 `getContainerBoundary`:
 

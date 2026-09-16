@@ -412,5 +412,37 @@ public class GetContainerInitIntegrationTest{
 
 			assertTrue(error.getMessage().contains(" 1 container init process(es) "), error.getMessage());
 		}
+
+		// Decision Q3 (a), for now: initialization must end with the init's own execve, so sandboxes whose
+		// init stays a reaper and starts the application from a child make the query fail.
+
+		@Test
+		void bubblewrapSandbox_failsBecauseItsReaperInitNeverCallsExecve(){
+			// flatpak run → bwrap; bwrap's first process in the sandbox forks the app's process and reaps
+			final Process bwrap = trace.execve(trace.hostProgram("flatpak", 5300), "bwrap");
+			final Process reaper = trace.spawn(bwrap, "bwrap", "5301",
+					"CLONE_NEWNS|CLONE_NEWUSER|CLONE_NEWPID|SIGCHLD", CONTAINER);
+			trace.execve(trace.spawn(reaper, "bwrap", "5302", "SIGCHLD", CONTAINER), "gedit");
+
+			final RuntimeException error = assertThrows(RuntimeException.class, () -> getContainerInit());
+
+			assertTrue(error.getMessage().contains(": bwrap (host pid 5301, pid namespace " + CONTAINER + ")"),
+					error.getMessage());
+		}
+
+		@Test
+		void nspawnAsPid2_failsBecauseItsStubInitNeverCallsExecve(){
+			// systemd-nspawn --as-pid2: outer child → inner child (PID 1, stub init) → PID 2 runs the command
+			final Process nspawn = trace.hostProgram("systemd-nspawn", 5400);
+			final Process outer = trace.spawn(nspawn, "systemd-nspawn", "5401", "CLONE_NEWNS|SIGCHLD", HOST);
+			final Process stubInit = trace.spawn(outer, "systemd-nspawn", "5402",
+					"CLONE_NEWNS|CLONE_NEWIPC|CLONE_NEWPID|CLONE_NEWUTS|SIGCHLD", CONTAINER);
+			trace.execve(trace.spawn(stubInit, "systemd-nspawn", "5403", "SIGCHLD", CONTAINER), "bash");
+
+			final RuntimeException error = assertThrows(RuntimeException.class, () -> getContainerInit());
+
+			assertTrue(error.getMessage().contains(": systemd-nspawn (host pid 5402, pid namespace " + CONTAINER + ")"),
+					error.getMessage());
+		}
 	}
 }
