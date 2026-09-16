@@ -64,7 +64,7 @@ int kernel_function_sys_setns_action_audit_handle_post(
     sys_arg = (struct kernel_function_sys_setns_arg*)ctx_post->header->func_arg->arg;
     sys_res = (struct kernel_function_sys_setns_result*)ctx_post->func_res->res;
 
-    target_pid = kernel_helper_task_task_view_current_pid();
+    target_pid = kernel_helper_task_ns_view_current_pid();
 
     err = kernel_helper_namespace_populate_msg(
         &msg,
