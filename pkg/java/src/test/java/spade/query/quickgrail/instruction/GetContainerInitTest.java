@@ -21,27 +21,26 @@ package spade.query.quickgrail.instruction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import spade.query.execution.Context;
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.Program;
+import spade.query.quickgrail.core.QuickGrailQueryResolver;
 import spade.query.quickgrail.entities.Graph;
+import spade.query.quickgrail.parser.DSLParserWrapper;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
- * Unit tests for {@link GetContainerInit} — the QuickGrail graph method
- * that returns the subgraph spanning container-initialization activity:
- * paths from in-container PID-1 vertices back to the host-side caller
- * of an unshare or PID-namespace-crossing clone, bounded by maxDepth.
- *
- * The tests cover the instruction's contract with the resolver and the
- * tree-serialization machinery (used for debug printing of execution
- * plans). The composite {@code exec()} body — which performs the path
- * search and the throw-on-incomplete completeness check — is exercised
- * end-to-end via integration tests against a real storage; those are
- * not in scope here.
+ * {@link GetContainerInit}'s contract with the resolver and the plan printer.
+ * Behavior on traces is in {@link GetContainerInitIntegrationTest}.
  */
 public class GetContainerInitTest{
 
@@ -49,74 +48,69 @@ public class GetContainerInitTest{
 	public void constructor_storesAllFields(){
 		final Graph target = new Graph("target_g");
 		final Graph subject = new Graph("subject_g");
-		final int maxDepth = 10;
 
-		final GetContainerInit instruction = new GetContainerInit(target, subject, maxDepth);
+		final GetContainerInit instruction = new GetContainerInit(target, subject, "4026531836");
 
-		assertSame(target, instruction.targetGraph, "target graph must be the one passed in");
-		assertSame(subject, instruction.subjectGraph, "subject graph must be the one passed in");
-		assertEquals(maxDepth, instruction.maxDepth, "maxDepth must round-trip unchanged");
-	}
-
-	@Test
-	public void constructor_acceptsZeroDepthEvenThoughResolverRejectsIt(){
-		// Resolver guards against missing maxDepth env var, but the Instruction
-		// is not the right place to enforce policy — record the input verbatim.
-		final GetContainerInit instruction = new GetContainerInit(
-				new Graph("t"), new Graph("s"), 0);
-
-		assertEquals(0, instruction.maxDepth);
+		assertSame(target, instruction.targetGraph);
+		assertSame(subject, instruction.subjectGraph);
+		assertEquals("4026531836", instruction.hostPidNamespace);
 	}
 
 	@Test
 	public void getLabel_returnsClassName(){
-		final GetContainerInit instruction = new GetContainerInit(
-				new Graph("t"), new Graph("s"), 5);
-
-		assertEquals("GetContainerInit", instruction.getLabel());
+		assertEquals("GetContainerInit", new GetContainerInit(new Graph("t"), new Graph("s"), "1").getLabel());
 	}
 
 	@Test
-	public void getFieldStringItems_listsBothGraphsAndMaxDepth(){
-		final ArrayList<String> names = new ArrayList<String>();
-		final ArrayList<String> values = new ArrayList<String>();
-		final ArrayList<String> noncontainerNames = new ArrayList<String>();
-		final ArrayList<TreeStringSerializable> noncontainerChildren = new ArrayList<TreeStringSerializable>();
-		final ArrayList<String> containerNames = new ArrayList<String>();
-		final ArrayList<ArrayList<? extends TreeStringSerializable>> containerChildren =
-				new ArrayList<ArrayList<? extends TreeStringSerializable>>();
-
-		final GetContainerInit instruction = new GetContainerInit(
-				new Graph("tg"), new Graph("sg"), 12);
-
-		instruction.getFieldStringItems(names, values,
-				noncontainerNames, noncontainerChildren,
-				containerNames, containerChildren);
-
-		assertEquals(names.size(), values.size(), "inline field names and values must be 1:1");
-		assertTrue(names.contains("targetGraph"), "must list targetGraph");
-		assertEquals("tg", values.get(names.indexOf("targetGraph")));
-		assertTrue(names.contains("subjectGraph"), "must list subjectGraph");
-		assertEquals("sg", values.get(names.indexOf("subjectGraph")));
-		assertTrue(names.contains("maxDepth"), "must list maxDepth");
-		assertEquals("12", values.get(names.indexOf("maxDepth")),
-				"maxDepth must serialize as its decimal string form");
-	}
-
-	@Test
-	public void getFieldStringItems_serializesDepthAsDecimalNotHexOrOctal(){
-		// A guard against a regression where String.format or Integer.toHexString
-		// might creep in. The plan printer is consumed by humans reading logs.
+	public void getFieldStringItems_listsGraphsAndHostPidNamespace(){
 		final ArrayList<String> names = new ArrayList<String>();
 		final ArrayList<String> values = new ArrayList<String>();
 
-		final GetContainerInit instruction = new GetContainerInit(
-				new Graph("tg"), new Graph("sg"), 255);
-
-		instruction.getFieldStringItems(names, values,
+		new GetContainerInit(new Graph("tg"), new Graph("sg"), "4026531836").getFieldStringItems(names, values,
 				new ArrayList<String>(), new ArrayList<TreeStringSerializable>(),
 				new ArrayList<String>(), new ArrayList<ArrayList<? extends TreeStringSerializable>>());
 
-		assertEquals("255", values.get(names.indexOf("maxDepth")));
+		assertEquals(List.of("targetGraph", "subjectGraph", "hostPidNamespace"), names);
+		assertEquals(List.of("tg", "sg", "4026531836"), values);
+	}
+
+	@Test
+	public void exec_rejectsMissingHostPidNamespace(){
+		final InMemoryQueryHarness harness = new InMemoryQueryHarness();
+		final GetContainerInit instruction = new GetContainerInit(harness.executor.createNewGraph(),
+				harness.baseGraph, "");
+
+		assertThrows(IllegalArgumentException.class, () -> instruction.exec(new Context(harness.executor)));
+	}
+
+	@Test
+	public void resolver_readsHostPidNamespaceFromTheAuditConstantsFile(){
+		final GetContainerInit instruction = resolveOnly("$r = $base.getContainerInit()");
+
+		assertEquals("4026531836", instruction.hostPidNamespace);
+	}
+
+	@Test
+	public void resolver_rejectsArguments(){
+		final RuntimeException error = assertThrows(RuntimeException.class,
+				() -> resolveOnly("$r = $base.getContainerInit(10)"));
+
+		assertTrue(error.getMessage().contains("expected 0"), error.getMessage());
+	}
+
+	private static GetContainerInit resolveOnly(final String query){
+		final InMemoryQueryHarness harness = new InMemoryQueryHarness();
+		final Program program = new QuickGrailQueryResolver().resolveProgram(new DSLParserWrapper().fromText(query),
+				harness.env);
+		GetContainerInit found = null;
+		for(int i = 0; i < program.getInstructionsSize(); i++){
+			final Instruction<? extends Serializable> instruction = program.getInstruction(i);
+			if(instruction instanceof GetContainerInit){
+				assertEquals(null, found, "one GetContainerInit instruction");
+				found = (GetContainerInit)instruction;
+			}
+		}
+		assertTrue(found != null, "GetContainerInit instruction in " + program);
+		return found;
 	}
 }
