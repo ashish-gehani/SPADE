@@ -66,6 +66,7 @@ int kernel_helper_namespace_populate_msg(
 	struct task_struct *pid_task_struct;
     struct kernel_namespace_pointers *k_ns_op_ptrs;
     long host_pid;
+    pid_t ns_pid = 0;
     int err;
     int sys_num;
     bool sys_num_default_to_func_num = false;
@@ -90,6 +91,10 @@ int kernel_helper_namespace_populate_msg(
 
 	rcu_read_lock();
 	pid_struct = find_vpid(target_pid);
+	// target_pid is seen from the caller's PID namespace (e.g. clone's return value). A child created
+	// into another PID namespace has a different pid in its own, e.g. 1 for that namespace's first process.
+	if (pid_struct)
+		ns_pid = pid_nr_ns(pid_struct, ns_of_pid(pid_struct));
     rcu_read_unlock();
 
 	if (!pid_struct)
@@ -125,7 +130,7 @@ int kernel_helper_namespace_populate_msg(
 	msg->ns_inum_cgroup = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_cgroup);
 
     msg->host_pid = host_pid;
-    msg->ns_pid = target_pid;
+    msg->ns_pid = ns_pid;
     msg->op = op;
     msg->syscall_number = sys_num;
 
