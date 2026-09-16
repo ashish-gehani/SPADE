@@ -12,8 +12,8 @@ The test design and the behavior being tested are described in
 | | |
 |---|---|
 | Date | 2026-09-16 |
-| Branch | `clarity-of-container`, based on upstream `prov-query` at `1ff51190` |
-| Tested revision | the commit that last changed this file, which also adds the two Q3 scenarios |
+| Branch | `clarity-of-container`, based on `fix-ns-pid` (upstream `prov-query` at `1ff51190` plus two kernel-module fixes) |
+| Tested revision | the commit that last changed this file |
 | OS | Windows 11 Pro 10.0.26200 |
 | JDK | OpenJDK 21.0.2 from https://jdk.java.net/archive/ |
 | Build | Apache Maven 3.9.16, `maven-surefire-plugin` 3.5.5 |
@@ -122,8 +122,9 @@ To check that the tests detect wrong behavior, each bug below was planted
 into `ContainerAnalysis` or `GetContainerInit` by itself. The affected
 method's integration tests were rerun (M1–M4 for `getContainerInit`, M5–M10
 for `getContainerBoundary`), and the code was then restored and confirmed
-identical. This was done before the two Q3 scenarios were added. Every bug
-made the listed tests fail under both adjacency semantics.
+identical. They were last rerun with all current scenarios, after the trace
+builder started labeling execve versions as the reporter does. Every bug made
+the listed tests fail under both adjacency semantics.
 
 Surefire merges same-named failures from the two `@Nested` classes into one
 entry with "Run 1" and "Run 2", so each failing test there covers both.

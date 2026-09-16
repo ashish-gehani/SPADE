@@ -20,7 +20,9 @@
 package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import spade.reporter.audit.OPMConstants;
 
@@ -31,7 +33,7 @@ import spade.reporter.audit.OPMConstants;
  * What the reporter does, and these fixtures follow:
  *   - A process created in the trace carries `start time` (its clone or execve
  *     time). A process first seen in some other syscall carries `seen time`, and
- *     its namespaces are "-1" until it calls execve, unshare or setns.
+ *     its namespaces are "-1" until it calls unshare or setns.
  *   - A child is labeled with the namespaces the kernel module reports for it.
  *     clone with SIGCHLD is recorded as `fork` (with CLONE_VM|CLONE_VFORK too, as
  *     `vfork` when simplify=false), and the clone flags go in the edge's `flags`.
@@ -39,6 +41,10 @@ import spade.reporter.audit.OPMConstants;
  *     `start time` and changes only namespace labels. Vertex hashes come from
  *     annotations, so a process returning to labels it had before gets the
  *     earlier vertex back.
+ *   - The kernel module reports no namespaces for execve, and unshare/setns don't
+ *     update the per-process namespace state that execve reads. So an execve
+ *     version carries the namespaces the process was created with ("-1" if it
+ *     was not created in the trace), even after an unshare or setns.
  *   - WasTriggeredBy edges point from the new process or version to the old one
  *     and carry `time` ("seconds.milliseconds") and `event id`.
  */
@@ -94,6 +100,8 @@ final class ContainerTrace{
 	private long eventId = 7000;
 	private long namespaceCounter = 4026532500L;
 	private boolean holdClock;
+	/** Per pid, the namespaces the reporter's process state holds: those the process was created with. */
+	private final Map<String, Process> namespaceStateByPid = new HashMap<String, Process>();
 
 	ContainerTrace(final InMemoryQueryHarness harness){
 		this(harness, true);
@@ -121,8 +129,8 @@ final class ContainerTrace{
 	/** A process that was running before tracing started, first seen in an unrelated syscall. */
 	Process preexisting(final String name, final String pid){
 		final String[] event = nextEvent();
-		return putProcess(new Process(name, pid, UNOBSERVED, UNOBSERVED, UNOBSERVED, UNOBSERVED,
-				OPMConstants.PROCESS_SEEN_TIME, event[0]));
+		return created(putProcess(new Process(name, pid, UNOBSERVED, UNOBSERVED, UNOBSERVED, UNOBSERVED,
+				OPMConstants.PROCESS_SEEN_TIME, event[0])));
 	}
 
 	/**
@@ -137,28 +145,22 @@ final class ContainerTrace{
 				: (parent.isObserved() ? parent.mountNamespace : HOST_MOUNT);
 		final String cgroupNamespace = flags.contains("CLONE_NEWCGROUP") ? newNamespace()
 				: (parent.isObserved() ? parent.cgroupNamespace : HOST_CGROUP);
-		final Process child = putProcess(new Process(name, pid, pidNamespace, pidNamespace, mountNamespace,
-				cgroupNamespace, OPMConstants.PROCESS_START_TIME, event[0]));
+		final Process child = created(putProcess(new Process(name, pid, pidNamespace, pidNamespace, mountNamespace,
+				cgroupNamespace, OPMConstants.PROCESS_START_TIME, event[0])));
 		putEdge(child, parent, creationOperation(flags), event, OPMConstants.EDGE_FLAGS, flags);
 		return child;
 	}
 
-	/** execve by an observed process: a new version running `name`. */
-	Process execve(final Process process, final String name){
-		requireObserved(process);
-		return execve(process, name, process.pidNamespace, process.childrenPidNamespace);
-	}
-
 	/**
-	 * execve that also reveals the PID namespaces of a process not observed before
-	 * (its other namespaces are taken to be the host's).
+	 * execve: a new version running `name`, labeled with the namespaces the process
+	 * was created with, not those of `process` after an unshare or setns.
 	 */
-	Process execve(final Process process, final String name, final String pidNamespace,
-			final String childrenPidNamespace){
+	Process execve(final Process process, final String name){
+		final Process state = namespaceStateByPid.containsKey(process.pid) ? namespaceStateByPid.get(process.pid)
+				: process;
 		final String[] event = nextEvent();
-		final Process version = putProcess(new Process(name, process.pid, pidNamespace, childrenPidNamespace,
-				process.isObserved() ? process.mountNamespace : HOST_MOUNT,
-				process.isObserved() ? process.cgroupNamespace : HOST_CGROUP,
+		final Process version = putProcess(new Process(name, process.pid, state.pidNamespace,
+				state.childrenPidNamespace, state.mountNamespace, state.cgroupNamespace,
 				OPMConstants.PROCESS_START_TIME, event[0]));
 		putEdge(version, process, OPMConstants.OPERATION_EXECVE, event);
 		return version;
@@ -343,6 +345,11 @@ final class ContainerTrace{
 		eventId++;
 		return new String[]{
 				String.format("%d.%03d", clockMillis / 1000, clockMillis % 1000), String.valueOf(eventId)};
+	}
+
+	private Process created(final Process process){
+		namespaceStateByPid.put(process.pid, process);
+		return process;
 	}
 
 	private Process putProcess(final Process process){
