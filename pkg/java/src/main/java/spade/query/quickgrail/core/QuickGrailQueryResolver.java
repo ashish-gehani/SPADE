@@ -1436,24 +1436,44 @@ public class QuickGrailQueryResolver{
 	}
 
 	private Graph resolveGetContainerBoundary(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
-		if(arguments.size() > 1){
-			throw new RuntimeException("Invalid number of arguments for getContainerBoundary: expected 0 or 1");
+		if(arguments.size() > 2){
+			throw new RuntimeException("Invalid number of arguments for getContainerBoundary: expected 0, 1 or 2");
 		}
 
+		Graph seedGraph = null;
 		String pidNamespaceId = null;
-		if(arguments.size() == 1){
+		Integer containerNumber = null;
+		if(arguments.size() == 1 && arguments.get(0).getExpressionType() != ParseExpression.ExpressionType.kLiteral){
+			seedGraph = resolveGraphExpression(arguments.get(0), null, true);
+		}else if(arguments.size() > 0){
 			pidNamespaceId = QueryResolverHelper.resolveString(arguments.get(0));
 			if(HelperFunctions.isNullOrEmpty(pidNamespaceId)){
 				throw new RuntimeException("Invalid blank/null PID namespace id at "
 						+ arguments.get(0).getLocationString());
 			}
+			if(arguments.size() == 2){
+				containerNumber = QueryResolverHelper.resolveInteger(arguments.get(1));
+				if(containerNumber < 1){
+					throw new RuntimeException("Invalid container number at " + arguments.get(1).getLocationString()
+							+ ": expected 1 or more");
+				}
+			}
 		}
+
+		final String hostPidNamespace = resolveHostPidNamespace();
 
 		if(outputGraph == null){
 			outputGraph = allocateEmptyGraph();
 		}
 
-		instructions.add(new GetContainerBoundary(outputGraph, subjectGraph, pidNamespaceId));
+		if(seedGraph != null){
+			instructions.add(new GetContainerBoundary(outputGraph, subjectGraph, hostPidNamespace, seedGraph));
+		}else if(pidNamespaceId != null){
+			instructions.add(new GetContainerBoundary(outputGraph, subjectGraph, hostPidNamespace, pidNamespaceId,
+					containerNumber));
+		}else{
+			instructions.add(new GetContainerBoundary(outputGraph, subjectGraph, hostPidNamespace));
+		}
 		return outputGraph;
 	}
 
