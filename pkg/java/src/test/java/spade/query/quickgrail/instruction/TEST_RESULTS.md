@@ -5,38 +5,40 @@ and `getContainerInit`. This file is a review artifact, not a CI
 report: regenerate it (manually) after any change that touches the
 methods, the harness, or the test fixtures.
 
-Cross-references:
-- Algorithm and detection-criterion rationale: `src/spade/query/quickgrail/CLARITY_METHODS.md`.
-- Public-facing reference: `src/spade/query/quickgrail/README.md`.
+Cross-references (paths relative to `pkg/java/src/`):
+- Algorithm and detection-criterion rationale: `main/java/spade/query/quickgrail/CLARITY_METHODS.md`.
+- Public-facing reference: the wiki's [QuickGrail Reference](https://github.com/ashish-gehani/SPADE/wiki/QuickGrail-Reference) page.
 - Sources under test:
-  - `src/spade/query/quickgrail/instruction/GetContainerBoundary.java`
-  - `src/spade/query/quickgrail/instruction/GetContainerInit.java`
-  - `src/spade/query/quickgrail/core/QuickGrailQueryResolver.java` (dispatch and arg parsing)
+  - `main/java/spade/query/quickgrail/instruction/GetContainerBoundary.java`
+  - `main/java/spade/query/quickgrail/instruction/GetContainerInit.java`
+  - `main/java/spade/query/quickgrail/core/QuickGrailQueryResolver.java` (dispatch and arg parsing)
 
 ## Environment
 
 | | |
 |---|---|
-| Date | 2026-06-08 |
-| Branch | `clarity-of-container` |
-| HEAD commit | `391667e3` (`Add integration tests for getContainerInit`) |
-| OS | Windows 11 Pro 10.0.26200, MSYS / Git-Bash shell |
-| JDK | OpenJDK 11.0.2 (2019-01-15) from https://jdk.java.net/archive/ |
-| JUnit | 4.12 (`lib/junit-4.12.jar`) + Hamcrest 1.3 (`lib/hamcrest-core-1.3.jar`) |
+| Date | 2026-09-16 |
+| Branch | `clarity-of-container`, rebased onto upstream `master` at `1ff51190` |
+| Tested revision | the commit that last changed this file |
+| OS | Windows 11 Pro 10.0.26200 |
+| JDK | OpenJDK 21.0.2 (2024-01-16) from https://jdk.java.net/archive/ |
+| Build | Apache Maven 3.9.16, `maven-surefire-plugin` 3.5.5 |
+| Test framework | JUnit Jupiter 6.0.3 (`junit-jupiter-api`, per `pkg/java/pom.xml`) |
 
 ## Summary
 
 ```
-GetContainerBoundaryTest .............. 5/5 PASS  (≈6 ms)
-GetContainerInitTest .................. 5/5 PASS  (≈2 ms)
-GetContainerBoundaryIntegrationTest ... 6/6 PASS  (≈197 ms)
-GetContainerInitIntegrationTest ....... 6/6 PASS  (≈138 ms)
+GetContainerBoundaryTest .............. 5/5 PASS  (0.008 s)
+GetContainerInitTest .................. 5/5 PASS  (0.009 s)
+GetContainerBoundaryIntegrationTest ... 6/6 PASS  (0.361 s)
+GetContainerInitIntegrationTest ....... 6/6 PASS  (0.025 s)
 -----------------------------------------------------------
 Total                                  22/22 PASS
 ```
 
-JUnit run-times above are wall-clock from `org.junit.runner.JUnitCore`
-on the JDK above; expect drift on different hardware.
+Times are Surefire's per-class elapsed times. The first integration class
+to run also pays for one-time JVM class loading (including `Settings`), so
+its time is inflated relative to the others; expect drift on other hardware.
 
 ## Per-class breakdown
 
@@ -74,45 +76,28 @@ Per-test fixtures so the chain topology is visible right next to the assertions.
 
 ## Reproduction
 
-These tests do not require a real database. They do require a usable
-JDK and the SPADE keystores. The full sequence from a freshly-cloned
-working tree:
+These tests do not require a real database. They do require JDK 21,
+Maven, and the SPADE keystores.
 
 ```bash
-# 1. Make sure a JDK in the supported range (11–14) is on PATH.
-export PATH=/path/to/jdk-11.0.2/bin:$PATH
+# 1. JDK 21 and Maven on PATH (JAVA_HOME pointing at the JDK).
 
-# 2. Generate the SPADE keystores once. Settings.<clinit> aborts the JVM
-#    if these are missing, and Settings is loaded transitively from
+# 2. Keystores. The top-level `make` generates them before building
+#    pkg/java; if you are running Maven directly, generate them once from
+#    the repository root. Settings.<clinit> aborts the JVM if they are
+#    missing, and Settings is loaded transitively from
 #    QueryInstructionExecutor's constructor (via DiscrepancyDetector).
-bash bin/keys/generatekeys.sh
+bin/keys/generatekeys.sh
 
-# 3. Compile main sources and the test sources into build/.
-mkdir -p build tmp
-CP=$(bash bin/classpath.sh | tr -d '\r' | sed 's|/d/SPADE/lib/neo4j-community-4.1.1/lib/\*:||')
-#   On non-MSYS Linux/macOS the `tr -d '\r'` is harmless. The neo4j
-#   wildcard is filtered only when `make download-neo4j` has not been
-#   run; if it has, leave it in.
-CP_FINAL="$CP"   # On Windows/MSYS, additionally: $(cygpath -wp "$CP")
-
-find src/spade/query -name '*.java' > tmp/query.classes
-javac -Xlint:none -proc:none -cp "$CP_FINAL" -sourcepath src -d build @tmp/query.classes
-
-find test/spade/query/quickgrail -name '*.java' > tmp/tests.classes
-javac -Xlint:none -proc:none -cp "$CP_FINAL" -sourcepath src -d build @tmp/tests.classes
-
-# 4. Run each test class.
-TEST_CP="build${CP_FINAL:+:${CP_FINAL}}"   # Use ; instead of : on Windows.
-for c in \
-  GetContainerBoundaryTest \
-  GetContainerInitTest \
-  GetContainerBoundaryIntegrationTest \
-  GetContainerInitIntegrationTest; do
-  java -cp "$TEST_CP" org.junit.runner.JUnitCore "spade.query.quickgrail.instruction.$c"
-done
+# 3. Run the four classes from the Java package. The first run needs
+#    network access to resolve Maven Central dependencies and the JUnit
+#    platform engine/launcher; afterwards `-o` (offline) works.
+cd pkg/java
+mvn test -Dtest='GetContainer*Test'
 ```
 
-A successful run prints `OK (<N> tests)` for each class and exits 0.
+A successful run reports `Tests run: 22, Failures: 0, Errors: 0, Skipped: 0`
+and `BUILD SUCCESS`.
 
 ## Notes worth surfacing
 
@@ -123,14 +108,16 @@ A successful run prints `OK (<N> tests)` for each class and exits 0.
   fatal `System.exit(-1)` when the keystores are missing. This is a
   global SPADE setup quirk that any in-process test against the
   executor inherits.
-- **CRLF in `cfg/java.classpath`.** On a fresh Windows checkout the
-  file may be saved with CRLF line endings, which leaks `\r`
-  characters into `bin/classpath.sh`'s output and makes the resulting
-  classpath unusable by `javac`. The reproduction recipe above
-  filters with `tr -d '\r'`; a separate fix on the script side would
-  remove the need.
+- **`pkg/java/cfg` is a symlink.** Surefire runs tests with
+  `pkg/java` as the working directory, and `Settings` resolves
+  `cfg/...` relative to it, so the symlink to the root `cfg/` must
+  resolve. On Linux and macOS it does. On a Windows checkout with
+  `core.symlinks=false`, Git writes a small placeholder file instead,
+  and the integration tests abort at `Settings.<clinit>`. The run
+  above temporarily replaced the placeholder with a directory junction
+  to the root `cfg/` and restored the tracked file afterwards.
 - **In-memory harness, not a mocking framework.** The harness
-  (`test/spade/query/quickgrail/instruction/InMemoryQueryHarness.java`)
+  (`test/java/spade/query/quickgrail/instruction/InMemoryQueryHarness.java`)
   is a real subclass of `QueryInstructionExecutor` and
   `AbstractQueryEnvironment` with the primitives written out by hand.
   Any primitive the methods do not call throws

@@ -19,17 +19,17 @@
  */
 package spade.query.quickgrail.instruction;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import spade.query.execution.Context;
 import spade.query.quickgrail.entities.Graph;
@@ -48,7 +48,7 @@ public class GetContainerInitIntegrationTest{
 	private InMemoryQueryHarness harness;
 	private Context ctx;
 
-	@Before
+	@BeforeEach
 	public void setUp(){
 		harness = new InMemoryQueryHarness();
 		ctx = new Context(harness.executor);
@@ -104,26 +104,26 @@ public class GetContainerInitIntegrationTest{
 
 		// Every step from the in-container app back to the boundary-crossing
 		// caller must be present.
-		assertTrue("in-container app must be in result", vertices.contains("v_hello"));
-		assertTrue("intermediate execve target must be in result", vertices.contains("v_runc_init"));
-		assertTrue("PID-1 child (clone destination) must be in result", vertices.contains("v_runc_child"));
-		assertTrue("clone caller (boundary-crossing destination) must be in result",
-				vertices.contains("v_runc_parent"));
+		assertTrue(vertices.contains("v_hello"), "in-container app must be in result");
+		assertTrue(vertices.contains("v_runc_init"), "intermediate execve target must be in result");
+		assertTrue(vertices.contains("v_runc_child"), "PID-1 child (clone destination) must be in result");
+		assertTrue(vertices.contains("v_runc_parent"),
+				"clone caller (boundary-crossing destination) must be in result");
 
 		// Per §4.2.2, the pattern STARTS at the boundary-crossing event, so
 		// the engine chain above runC[Parent] is intentionally not in the
 		// init subgraph (the prose definition in the paper does not extend
 		// to it; only the figures show it as adjacent context).
-		assertFalse("host-side runC (above the boundary) must not appear", vertices.contains("v_runc"));
-		assertFalse("host-side containerd-shim must not appear", vertices.contains("v_shim"));
-		assertFalse("host-side containerd daemon must not appear", vertices.contains("v_containerd"));
+		assertFalse(vertices.contains("v_runc"), "host-side runC (above the boundary) must not appear");
+		assertFalse(vertices.contains("v_shim"), "host-side containerd-shim must not appear");
+		assertFalse(vertices.contains("v_containerd"), "host-side containerd daemon must not appear");
 
 		// All path edges must be present; the clone edges above the boundary
 		// (and any edge missing one in-result endpoint) must not.
 		assertTrue(edges.contains("e_execve_2"));
 		assertTrue(edges.contains("e_execve_1"));
 		assertTrue(edges.contains("e_clone_4"));
-		assertFalse("clone above the boundary must not appear", edges.contains("e_clone_3"));
+		assertFalse(edges.contains("e_clone_3"), "clone above the boundary must not appear");
 		assertFalse(edges.contains("e_clone_2"));
 		assertFalse(edges.contains("e_clone_1"));
 	}
@@ -149,9 +149,9 @@ public class GetContainerInitIntegrationTest{
 		final Set<String> vertices = vertexHashesOf(target);
 		final Set<String> edges = edgeHashesOf(target);
 
-		assertTrue("post-unshare PID-1 vertex must be in result", vertices.contains("v_post_unshare"));
-		assertTrue("unshare caller must be in result", vertices.contains("v_caller"));
-		assertTrue("the unshare edge itself must be in result", edges.contains("e_unshare"));
+		assertTrue(vertices.contains("v_post_unshare"), "post-unshare PID-1 vertex must be in result");
+		assertTrue(vertices.contains("v_caller"), "unshare caller must be in result");
+		assertTrue(edges.contains("e_unshare"), "the unshare edge itself must be in result");
 	}
 
 	// =========================================================================
@@ -169,8 +169,8 @@ public class GetContainerInitIntegrationTest{
 		harness.executor.createEmptyGraph(target);
 		new GetContainerInit(target, harness.baseGraph, 10).exec(ctx);
 
-		assertEquals("an input with no containers must produce an empty result, not an error",
-				0L, harness.executor.getGraphCount(target).getVertices());
+		assertEquals(0L, harness.executor.getGraphCount(target).getVertices(),
+				"an input with no containers must produce an empty result, not an error");
 		assertEquals(0L, harness.executor.getGraphCount(target).getEdges());
 	}
 
@@ -227,15 +227,13 @@ public class GetContainerInitIntegrationTest{
 		final Graph target = harness.env.allocateGraph();
 		harness.executor.createEmptyGraph(target);
 
-		try{
-			new GetContainerInit(target, harness.baseGraph, 10).exec(ctx);
-			fail("Expected a RuntimeException because no unshare/clone-NEWPID edges exist");
-		}catch(RuntimeException e){
-			final String message = e.getMessage();
-			assertNotNull(message);
-			assertTrue("error must mention the missing boundary edges; got: " + message,
-					message.contains("no 'unshare' or PID-namespace-crossing 'clone'"));
-		}
+		final RuntimeException e = assertThrows(RuntimeException.class,
+				() -> new GetContainerInit(target, harness.baseGraph, 10).exec(ctx),
+				"Expected a RuntimeException because no unshare/clone-NEWPID edges exist");
+		final String message = e.getMessage();
+		assertNotNull(message);
+		assertTrue(message.contains("no 'unshare' or PID-namespace-crossing 'clone'"),
+				"error must mention the missing boundary edges; got: " + message);
 	}
 
 	@Test
@@ -251,14 +249,12 @@ public class GetContainerInitIntegrationTest{
 		final Graph target = harness.env.allocateGraph();
 		harness.executor.createEmptyGraph(target);
 
-		try{
-			new GetContainerInit(target, harness.baseGraph, 0).exec(ctx);
-			fail("Expected a RuntimeException because no path could be traversed at depth 0");
-		}catch(RuntimeException e){
-			final String message = e.getMessage();
-			assertNotNull(message);
-			assertTrue("error must mention maxDepth so the user knows the remediation; got: " + message,
-					message.contains("maxDepth"));
-		}
+		final RuntimeException e = assertThrows(RuntimeException.class,
+				() -> new GetContainerInit(target, harness.baseGraph, 0).exec(ctx),
+				"Expected a RuntimeException because no path could be traversed at depth 0");
+		final String message = e.getMessage();
+		assertNotNull(message);
+		assertTrue(message.contains("maxDepth"),
+				"error must mention maxDepth so the user knows the remediation; got: " + message);
 	}
 }

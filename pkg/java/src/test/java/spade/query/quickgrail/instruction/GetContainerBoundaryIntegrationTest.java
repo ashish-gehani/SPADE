@@ -19,16 +19,16 @@
  */
 package spade.query.quickgrail.instruction;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import spade.query.execution.Context;
 import spade.query.quickgrail.core.QueriedEdge;
@@ -69,7 +69,7 @@ public class GetContainerBoundaryIntegrationTest{
 	private InMemoryQueryHarness harness;
 	private Context ctx;
 
-	@Before
+	@BeforeEach
 	public void setUp(){
 		harness = new InMemoryQueryHarness();
 		ctx = new Context(harness.executor);
@@ -123,29 +123,29 @@ public class GetContainerBoundaryIntegrationTest{
 		final Set<String> edges = edgeHashesOf(target);
 
 		// In-container processes and the artifact they accessed must be present.
-		assertTrue("container A's PID-1 process must be in result", vertices.contains("v_a1"));
-		assertTrue("container A's PID-2 process must be in result", vertices.contains("v_a2"));
-		assertTrue("container A's accessed artifact must be in result", vertices.contains("v_fa"));
+		assertTrue(vertices.contains("v_a1"), "container A's PID-1 process must be in result");
+		assertTrue(vertices.contains("v_a2"), "container A's PID-2 process must be in result");
+		assertTrue(vertices.contains("v_fa"), "container A's accessed artifact must be in result");
 		// Host parent that cloned A1 is adjacent → included by getAdjacentVertex(kBoth).
-		assertTrue("host caller (containerd) is adjacent and must be in result",
-				vertices.contains("v_h1"));
+		assertTrue(vertices.contains("v_h1"),
+				"host caller (containerd) is adjacent and must be in result");
 
 		// Container B and the host-only artifact must NOT leak in.
-		assertFalse("container B process must not be in result", vertices.contains("v_b1"));
-		assertFalse("container B artifact must not be in result", vertices.contains("v_fb"));
-		assertFalse("host-only artifact (not adjacent to any container proc) must not be in result",
-				vertices.contains("v_hfile"));
+		assertFalse(vertices.contains("v_b1"), "container B process must not be in result");
+		assertFalse(vertices.contains("v_fb"), "container B artifact must not be in result");
+		assertFalse(vertices.contains("v_hfile"),
+				"host-only artifact (not adjacent to any container proc) must not be in result");
 
 		// Edges spanning the boundary set must be present.
-		assertTrue("clone edge A1→containerd must be in result", edges.contains("e_clone_a1"));
-		assertTrue("internal clone edge A2→A1 must be in result", edges.contains("e_clone_a2"));
-		assertTrue("read edge A1→/etc/passwd must be in result",  edges.contains("e_used_a"));
+		assertTrue(edges.contains("e_clone_a1"), "clone edge A1→containerd must be in result");
+		assertTrue(edges.contains("e_clone_a2"), "internal clone edge A2→A1 must be in result");
+		assertTrue(edges.contains("e_used_a"),   "read edge A1→/etc/passwd must be in result");
 
 		// Edges to vertices that did not land in the boundary must be dropped.
-		assertFalse("clone edge B1→containerd must not appear",   edges.contains("e_clone_b1"));
-		assertFalse("read edge B1→passwd must not appear",        edges.contains("e_used_b"));
-		assertFalse("host's own read of /etc/host_only_config must not appear",
-				edges.contains("e_used_h"));
+		assertFalse(edges.contains("e_clone_b1"), "clone edge B1→containerd must not appear");
+		assertFalse(edges.contains("e_used_b"),   "read edge B1→passwd must not appear");
+		assertFalse(edges.contains("e_used_h"),
+				"host's own read of /etc/host_only_config must not appear");
 	}
 
 	@Test
@@ -155,10 +155,10 @@ public class GetContainerBoundaryIntegrationTest{
 
 		new GetContainerBoundary(target, harness.baseGraph, "ns_DOES_NOT_EXIST").exec(ctx);
 
-		assertEquals("no vertices match → result must be empty", 0L,
-				harness.executor.getGraphCount(target).getVertices());
-		assertEquals("no vertices selected → no spanning edges either", 0L,
-				harness.executor.getGraphCount(target).getEdges());
+		assertEquals(0L, harness.executor.getGraphCount(target).getVertices(),
+				"no vertices match → result must be empty");
+		assertEquals(0L, harness.executor.getGraphCount(target).getEdges(),
+				"no vertices selected → no spanning edges either");
 	}
 
 	@Test
@@ -175,10 +175,10 @@ public class GetContainerBoundaryIntegrationTest{
 		final Set<String> bVerts = vertexHashesOf(forB);
 
 		// A's in-container vertices must not appear in B's result, and vice versa.
-		assertFalse("A's PID-1 process must not appear in B's boundary", bVerts.contains("v_a1"));
-		assertFalse("A's artifact must not appear in B's boundary", bVerts.contains("v_fa"));
-		assertFalse("B's PID-1 process must not appear in A's boundary", aVerts.contains("v_b1"));
-		assertFalse("B's artifact must not appear in A's boundary", aVerts.contains("v_fb"));
+		assertFalse(bVerts.contains("v_a1"), "A's PID-1 process must not appear in B's boundary");
+		assertFalse(bVerts.contains("v_fa"), "A's artifact must not appear in B's boundary");
+		assertFalse(aVerts.contains("v_b1"), "B's PID-1 process must not appear in A's boundary");
+		assertFalse(aVerts.contains("v_fb"), "B's artifact must not appear in A's boundary");
 
 		// The shared host daemon legitimately appears in both because it is
 		// the clone-parent of each container's init process.
@@ -212,8 +212,8 @@ public class GetContainerBoundaryIntegrationTest{
 		// The host's own artifact, never touched by any container process,
 		// must NOT appear — it is what distinguishes the union-of-boundaries
 		// from "the whole graph".
-		assertFalse("host-only artifact must not appear in any container's boundary",
-				vertices.contains("v_hfile"));
+		assertFalse(vertices.contains("v_hfile"),
+				"host-only artifact must not appear in any container's boundary");
 
 		// Every clone/read edge connecting in-container vertices to the host
 		// parent or to artifacts must be present.
@@ -244,10 +244,10 @@ public class GetContainerBoundaryIntegrationTest{
 
 		final Set<String> vertices = vertexHashesOf(target);
 		for(final QueriedEdge edge : harness.executor.exportEdges(target)){
-			assertTrue("edge " + edge.edgeHash + " child endpoint not in result vertices",
-					vertices.contains(edge.childHash));
-			assertTrue("edge " + edge.edgeHash + " parent endpoint not in result vertices",
-					vertices.contains(edge.parentHash));
+			assertTrue(vertices.contains(edge.childHash),
+					"edge " + edge.edgeHash + " child endpoint not in result vertices");
+			assertTrue(vertices.contains(edge.parentHash),
+					"edge " + edge.edgeHash + " parent endpoint not in result vertices");
 		}
 	}
 
