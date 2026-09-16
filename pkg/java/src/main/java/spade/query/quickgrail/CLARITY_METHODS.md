@@ -9,9 +9,12 @@ filters into first-class, on-demand query operations against any storage
 that already exposes the standard QuickGrail executor primitives.
 
 This document captures the design decisions behind the implementation. It
-does not duplicate the public-facing reference (see `README.md` for
-signatures and examples) or the inline Javadoc (see
-`instruction/GetContainerBoundary.java` and `instruction/GetContainerInit.java`).
+does not duplicate the public-facing reference (method signatures and
+examples belong on the wiki's
+[QuickGrail Reference](https://github.com/ashish-gehani/SPADE/wiki/QuickGrail-Reference)
+page, where upstream moved the former in-tree `README.md`) or the inline
+Javadoc (see `instruction/GetContainerBoundary.java` and
+`instruction/GetContainerInit.java`).
 
 ## 1. Paper anchoring
 
@@ -221,7 +224,8 @@ to exist, they just have nothing to extract without it.
 
 ## 7. Test design
 
-Tests live under `test/spade/query/quickgrail/instruction/`. There are
+Tests live under `pkg/java/src/test/java/spade/query/quickgrail/instruction/`
+and run with JUnit Jupiter via `mvn test` in `pkg/java`. There are
 two layers, each commit-separated per the project's history convention.
 
 ### 7.1 Layering

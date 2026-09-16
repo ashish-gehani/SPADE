@@ -19,13 +19,13 @@
  */
 package spade.query.quickgrail.instruction;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
@@ -53,9 +53,9 @@ public class GetContainerInitTest{
 
 		final GetContainerInit instruction = new GetContainerInit(target, subject, maxDepth);
 
-		assertSame("target graph must be the one passed in", target, instruction.targetGraph);
-		assertSame("subject graph must be the one passed in", subject, instruction.subjectGraph);
-		assertEquals("maxDepth must round-trip unchanged", maxDepth, instruction.maxDepth);
+		assertSame(target, instruction.targetGraph, "target graph must be the one passed in");
+		assertSame(subject, instruction.subjectGraph, "subject graph must be the one passed in");
+		assertEquals(maxDepth, instruction.maxDepth, "maxDepth must round-trip unchanged");
 	}
 
 	@Test
@@ -93,14 +93,14 @@ public class GetContainerInitTest{
 				noncontainerNames, noncontainerChildren,
 				containerNames, containerChildren);
 
-		assertEquals("inline field names and values must be 1:1", names.size(), values.size());
-		assertTrue("must list targetGraph", names.contains("targetGraph"));
+		assertEquals(names.size(), values.size(), "inline field names and values must be 1:1");
+		assertTrue(names.contains("targetGraph"), "must list targetGraph");
 		assertEquals("tg", values.get(names.indexOf("targetGraph")));
-		assertTrue("must list subjectGraph", names.contains("subjectGraph"));
+		assertTrue(names.contains("subjectGraph"), "must list subjectGraph");
 		assertEquals("sg", values.get(names.indexOf("subjectGraph")));
-		assertTrue("must list maxDepth", names.contains("maxDepth"));
-		assertEquals("maxDepth must serialize as its decimal string form",
-				"12", values.get(names.indexOf("maxDepth")));
+		assertTrue(names.contains("maxDepth"), "must list maxDepth");
+		assertEquals("12", values.get(names.indexOf("maxDepth")),
+				"maxDepth must serialize as its decimal string form");
 	}
 
 	@Test

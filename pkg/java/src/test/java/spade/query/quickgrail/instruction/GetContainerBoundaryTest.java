@@ -19,14 +19,14 @@
  */
 package spade.query.quickgrail.instruction;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.utility.TreeStringSerializable;
@@ -53,9 +53,9 @@ public class GetContainerBoundaryTest{
 
 		final GetContainerBoundary instruction = new GetContainerBoundary(target, subject, nsId);
 
-		assertSame("target graph must be the one passed in", target, instruction.targetGraph);
-		assertSame("subject graph must be the one passed in", subject, instruction.subjectGraph);
-		assertEquals("PID namespace id must round-trip unchanged", nsId, instruction.pidNamespaceId);
+		assertSame(target, instruction.targetGraph, "target graph must be the one passed in");
+		assertSame(subject, instruction.subjectGraph, "subject graph must be the one passed in");
+		assertEquals(nsId, instruction.pidNamespaceId, "PID namespace id must round-trip unchanged");
 	}
 
 	@Test
@@ -63,8 +63,8 @@ public class GetContainerBoundaryTest{
 		final GetContainerBoundary instruction = new GetContainerBoundary(
 				new Graph("t"), new Graph("s"), null);
 
-		assertNull("null PID namespace id selects the all-containers form",
-				instruction.pidNamespaceId);
+		assertNull(instruction.pidNamespaceId,
+				"null PID namespace id selects the all-containers form");
 	}
 
 	@Test
@@ -92,14 +92,14 @@ public class GetContainerBoundaryTest{
 				noncontainerNames, noncontainerChildren,
 				containerNames, containerChildren);
 
-		assertEquals("inline field names and values must be 1:1", names.size(), values.size());
-		assertTrue("must list targetGraph", names.contains("targetGraph"));
+		assertEquals(names.size(), values.size(), "inline field names and values must be 1:1");
+		assertTrue(names.contains("targetGraph"), "must list targetGraph");
 		assertEquals("tg", values.get(names.indexOf("targetGraph")));
-		assertTrue("must list subjectGraph", names.contains("subjectGraph"));
+		assertTrue(names.contains("subjectGraph"), "must list subjectGraph");
 		assertEquals("sg", values.get(names.indexOf("subjectGraph")));
-		assertTrue("must list pidNamespaceId", names.contains("pidNamespaceId"));
-		assertEquals("explicit id must serialize verbatim",
-				"4026532270", values.get(names.indexOf("pidNamespaceId")));
+		assertTrue(names.contains("pidNamespaceId"), "must list pidNamespaceId");
+		assertEquals("4026532270", values.get(names.indexOf("pidNamespaceId")),
+				"explicit id must serialize verbatim");
 	}
 
 	@Test
@@ -114,7 +114,7 @@ public class GetContainerBoundaryTest{
 				new ArrayList<String>(), new ArrayList<TreeStringSerializable>(),
 				new ArrayList<String>(), new ArrayList<ArrayList<? extends TreeStringSerializable>>());
 
-		assertEquals("null id must serialize as the <all> sentinel for readability",
-				"<all>", values.get(names.indexOf("pidNamespaceId")));
+		assertEquals("<all>", values.get(names.indexOf("pidNamespaceId")),
+				"null id must serialize as the <all> sentinel for readability");
 	}
 }
