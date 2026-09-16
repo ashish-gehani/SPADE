@@ -38,6 +38,8 @@ import org.junit.jupiter.api.Test;
 import spade.query.execution.Context;
 import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.entities.Graph;
+import spade.query.quickgrail.instruction.ContainerTrace.DockerExec;
+import spade.query.quickgrail.instruction.ContainerTrace.DockerRun;
 import spade.query.quickgrail.instruction.ContainerTrace.Process;
 import spade.query.quickgrail.instruction.InMemoryQueryHarness.AdjacencySemantics;
 
@@ -83,70 +85,19 @@ public class GetContainerInitIntegrationTest{
 		// ---------------------------------------------------------------------
 		// Scenario building blocks
 
-		/** runc starting a container for docker run: containerd-shim → runc → stages 0, 1 and 2. */
-		final class DockerRun{
-			final Process stage1, stage1Unshared, init, initCgroupUnshared, application;
-
-			/** @param applicationName null for a container whose init never calls execve */
-			DockerRun(final Process shim, final String pidNamespace, final int firstPid,
-					final String applicationName){
-				final Process runc = trace.execve(
-						trace.spawn(shim, "containerd-shim", pid(firstPid), "SIGCHLD", HOST), "runc");
-				final Process stage0 = trace.execve(
-						trace.spawn(runc, "runc", pid(firstPid + 1), "CLONE_VM|CLONE_VFORK|SIGCHLD", HOST),
-						"runc:[0:PARENT]");
-				stage1 = trace.spawn(stage0, "runc:[0:PARENT]", pid(firstPid + 2), "CLONE_PARENT|SIGCHLD", HOST);
-				stage1Unshared = trace.unshare(stage1,
-						"CLONE_NEWNS|CLONE_NEWUTS|CLONE_NEWIPC|CLONE_NEWNET|CLONE_NEWPID", pidNamespace);
-				init = trace.spawn(stage1Unshared, "runc:[1:CHILD]", pid(firstPid + 3), "CLONE_PARENT|SIGCHLD",
-						pidNamespace);
-				initCgroupUnshared = trace.unshare(init, "CLONE_NEWCGROUP", null);
-				// Go runtime threads of runc init
-				trace.spawn(initCgroupUnshared, "runc:[2:INIT]", pid(firstPid + 4),
-						"CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS",
-						pidNamespace);
-				application = applicationName == null ? null : trace.execve(initCgroupUnshared, applicationName);
-			}
-
-			/** The initialization subgraph: unshare step, init creation, init versions up to the application. */
-			Set<String> vertices(){
-				return set(stage1.hash, stage1Unshared.hash, init.hash, initCgroupUnshared.hash, application.hash);
-			}
-
-			Set<String> edges(){
-				return set(trace.edge(stage1Unshared, stage1), trace.edge(init, stage1Unshared),
-						trace.edge(initCgroupUnshared, init), trace.edge(application, initCgroupUnshared));
-			}
-		}
-
-		/** runc running a command in an existing container for docker exec. */
-		final class DockerExec{
-			final Process joined, process, command;
-
-			DockerExec(final Process shim, final DockerRun container, final int firstPid, final String commandName){
-				final Process runc = trace.execve(
-						trace.spawn(shim, "containerd-shim", pid(firstPid), "SIGCHLD", HOST), "runc");
-				final Process stage0 = trace.execve(
-						trace.spawn(runc, "runc", pid(firstPid + 1), "CLONE_VM|CLONE_VFORK|SIGCHLD", HOST),
-						"runc:[0:PARENT]");
-				final Process stage1 = trace.spawn(stage0, "runc:[0:PARENT]", pid(firstPid + 2),
-						"CLONE_PARENT|SIGCHLD", HOST);
-				joined = trace.setnsMount(trace.setnsPid(stage1, container.init.pidNamespace),
-						container.init.mountNamespace);
-				process = trace.spawn(joined, "runc:[1:CHILD]", pid(firstPid + 3), "CLONE_PARENT|SIGCHLD",
-						container.init.pidNamespace);
-				command = trace.execve(process, commandName);
-			}
-		}
-
 		Process shim(){
 			return trace.preexisting("containerd-shim", "1200");
 		}
 
-		/** A host process started in the trace, running `program`. */
-		Process hostProgram(final String program, final int pid){
-			final Process shell = trace.preexisting("bash", "800");
-			return trace.execve(trace.spawn(shell, "bash", pid(pid), "SIGCHLD", HOST), program);
+		/** getContainerInit's result for a docker run: unshare step, init creation, init versions up to the application. */
+		Set<String> initVertices(final DockerRun run){
+			return set(run.stage1.hash, run.stage1Unshared.hash, run.init.hash, run.initCgroupUnshared.hash,
+					run.application.hash);
+		}
+
+		Set<String> initEdges(final DockerRun run){
+			return set(trace.edge(run.stage1Unshared, run.stage1), trace.edge(run.init, run.stage1Unshared),
+					trace.edge(run.initCgroupUnshared, run.init), trace.edge(run.application, run.initCgroupUnshared));
 		}
 
 		// ---------------------------------------------------------------------
@@ -198,17 +149,13 @@ public class GetContainerInitIntegrationTest{
 			return result;
 		}
 
-		static String pid(final int pid){
-			return String.valueOf(pid);
-		}
-
 		// ---------------------------------------------------------------------
 		// Container starts
 
 		@Test
 		void dockerRun_returnsTheUnshareStepAndTheInitUpToTheApplication(){
 			final Process shim = shim();
-			final DockerRun run = new DockerRun(shim, CONTAINER, 4100, "nginx");
+			final DockerRun run = trace.dockerRun(shim, CONTAINER, 4100, "nginx");
 			final Process worker = trace.spawn(run.application, "nginx", "4110", "SIGCHLD", CONTAINER);
 			trace.execve(run.application, "nginx-reloaded");
 			trace.writes(run.application, "/var/log/nginx/access.log");
@@ -216,30 +163,30 @@ public class GetContainerInitIntegrationTest{
 
 			final Result result = getContainerInit();
 
-			assertEquals(run.vertices(), result.vertices);
-			assertEquals(run.edges(), result.edges);
+			assertEquals(initVertices(run), result.vertices);
+			assertEquals(initEdges(run), result.edges);
 		}
 
 		@Test
 		void dockerExec_entersAContainerWithoutStartingOne(){
 			final Process shim = shim();
-			final DockerRun run = new DockerRun(shim, CONTAINER, 4100, "nginx");
-			final DockerExec exec = new DockerExec(shim, run, 4200, "sh");
+			final DockerRun run = trace.dockerRun(shim, CONTAINER, 4100, "nginx");
+			final DockerExec exec = trace.dockerExec(shim, run.application, 4200, "sh");
 
 			final ContainerAnalysis.Crossings crossings = crossings();
 			assertEquals(Arrays.asList(run.init.hash), children(crossings.inits));
 			assertEquals(Arrays.asList(exec.process.hash), children(crossings.entries));
 
 			final Result result = getContainerInit();
-			assertEquals(run.vertices(), result.vertices);
-			assertEquals(run.edges(), result.edges);
+			assertEquals(initVertices(run), result.vertices);
+			assertEquals(initEdges(run), result.edges);
 		}
 
 		@Test
 		void dockerExecAlone_returnsNothing(){
 			final Process container = trace.preexisting("nginx", "3000");
 			final Process worker = trace.spawn(container, "nginx", "3001", "SIGCHLD", CONTAINER);
-			final Process runc = hostProgram("runc", 4200);
+			final Process runc = trace.hostProgram("runc", 4200);
 			final Process joined = trace.setnsPid(runc, CONTAINER);
 			trace.execve(trace.spawn(joined, "runc", "4201", "CLONE_PARENT|SIGCHLD", CONTAINER), "sh");
 			trace.exit(worker);
@@ -249,7 +196,7 @@ public class GetContainerInitIntegrationTest{
 
 		@Test
 		void cloneWithNewPidNamespace_startsAContainer(){
-			final Process lxc = hostProgram("lxc-start", 5000);
+			final Process lxc = trace.hostProgram("lxc-start", 5000);
 			final Process child = trace.spawn(lxc, "lxc-start", "5001",
 					"CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS|CLONE_NEWIPC|CLONE_NEWNET|SIGCHLD", CONTAINER);
 			final Process init = trace.execve(child, "init");
@@ -263,7 +210,7 @@ public class GetContainerInitIntegrationTest{
 
 		@Test
 		void cloneWithNewPidNamespaceButNoSigchld_isRecordedAsCloneAndStillFound(){
-			final Process sandbox = hostProgram("sandbox", 5100);
+			final Process sandbox = trace.hostProgram("sandbox", 5100);
 			final Process child = trace.spawn(sandbox, "sandbox", "5101", "CLONE_NEWPID|CLONE_NEWNS", CONTAINER);
 			final Process app = trace.execve(child, "app");
 
@@ -276,7 +223,7 @@ public class GetContainerInitIntegrationTest{
 		@Test
 		void unshareThenExecve_theNewProgramsFirstChildIsTheInit(){
 			// unshare --pid bash: without --fork, bash's first child becomes PID 1
-			final Process tool = hostProgram("unshare", 6100);
+			final Process tool = trace.hostProgram("unshare", 6100);
 			final Process toolUnshared = trace.unshare(tool, "CLONE_NEWPID", CONTAINER);
 			final Process shell = trace.execve(toolUnshared, "bash");
 			final Process child = trace.spawn(shell, "bash", "6101", "SIGCHLD", CONTAINER);
@@ -292,8 +239,8 @@ public class GetContainerInitIntegrationTest{
 		@Test
 		void creatorJoiningAnotherNamespaceFirst_includesThoseSteps(){
 			final Process shim = shim();
-			final DockerRun other = new DockerRun(shim, OTHER_CONTAINER, 4100, "redis");
-			final Process stage1 = hostProgram("runc:[1:CHILD]", 4300);
+			final DockerRun other = trace.dockerRun(shim, OTHER_CONTAINER, 4100, "redis");
+			final Process stage1 = trace.hostProgram("runc:[1:CHILD]", 4300);
 			final Process joined = trace.setnsMount(stage1, other.init.mountNamespace);
 			final Process unshared = trace.unshare(joined, "CLONE_NEWUTS|CLONE_NEWIPC|CLONE_NEWPID", CONTAINER);
 			final Process init = trace.spawn(unshared, "runc:[1:CHILD]", "4301", "CLONE_PARENT|SIGCHLD", CONTAINER);
@@ -301,16 +248,16 @@ public class GetContainerInitIntegrationTest{
 
 			final Result result = getContainerInit();
 
-			assertEquals(union(other.vertices(), set(stage1.hash, joined.hash, unshared.hash, init.hash, app.hash)),
+			assertEquals(union(initVertices(other), set(stage1.hash, joined.hash, unshared.hash, init.hash, app.hash)),
 					result.vertices);
-			assertEquals(union(other.edges(), set(trace.edge(joined, stage1), trace.edge(unshared, joined),
+			assertEquals(union(initEdges(other), set(trace.edge(joined, stage1), trace.edge(unshared, joined),
 					trace.edge(init, unshared), trace.edge(app, init))), result.edges);
 		}
 
 		@Test
 		void nestedContainer_isReportedWithItsCreatorInsideTheOuterContainer(){
 			final Process shim = shim();
-			final DockerRun outer = new DockerRun(shim, CONTAINER, 4100, "bash");
+			final DockerRun outer = trace.dockerRun(shim, CONTAINER, 4100, "bash");
 			final Process tool = trace.execve(
 					trace.spawn(outer.application, "bash", "4120", "SIGCHLD", CONTAINER), "unshare");
 			final Process toolUnshared = trace.unshare(tool, "CLONE_NEWNS|CLONE_NEWPID", NESTED);
@@ -319,15 +266,15 @@ public class GetContainerInitIntegrationTest{
 
 			final Result result = getContainerInit();
 
-			assertEquals(union(outer.vertices(), set(tool.hash, toolUnshared.hash, innerInit.hash, innerShell.hash)),
+			assertEquals(union(initVertices(outer), set(tool.hash, toolUnshared.hash, innerInit.hash, innerShell.hash)),
 					result.vertices);
-			assertEquals(union(outer.edges(), set(trace.edge(toolUnshared, tool), trace.edge(innerInit, toolUnshared),
+			assertEquals(union(initEdges(outer), set(trace.edge(toolUnshared, tool), trace.edge(innerInit, toolUnshared),
 					trace.edge(innerShell, innerInit))), result.edges);
 		}
 
 		@Test
 		void laterChildrenOfTheSameUnshare_enterTheNamespace(){
-			final Process sandbox = hostProgram("sandbox", 6000);
+			final Process sandbox = trace.hostProgram("sandbox", 6000);
 			final Process unshared = trace.unshare(sandbox, "CLONE_NEWPID", CONTAINER);
 			final Process first = trace.spawn(unshared, "sandbox", "6001", "SIGCHLD", CONTAINER);
 			final Process second = trace.sameMillisecond().spawn(unshared, "sandbox", "6002", "SIGCHLD", CONTAINER);
@@ -346,7 +293,7 @@ public class GetContainerInitIntegrationTest{
 
 		@Test
 		void processReturningToEarlierLabels_startsTwoContainersAndThenJoinsTheFirst(){
-			final Process sandbox = hostProgram("sandbox", 6200);
+			final Process sandbox = trace.hostProgram("sandbox", 6200);
 			final Process intoFirst = trace.unshare(sandbox, "CLONE_NEWPID", CONTAINER);
 			final Process firstInit = trace.spawn(intoFirst, "sandbox", "6201", "SIGCHLD", CONTAINER);
 			final Process firstApp = trace.execve(firstInit, "sh");
@@ -374,17 +321,17 @@ public class GetContainerInitIntegrationTest{
 		@Test
 		void reusedNamespaceIdAndPids_startupsStaySeparate(){
 			final Process shim = shim();
-			final DockerRun first = new DockerRun(shim, CONTAINER, 4100, "nginx");
+			final DockerRun first = trace.dockerRun(shim, CONTAINER, 4100, "nginx");
 			trace.exit(first.application);
-			final DockerRun second = new DockerRun(shim, CONTAINER, 4100, "redis");
+			final DockerRun second = trace.dockerRun(shim, CONTAINER, 4100, "redis");
 
 			final ContainerAnalysis.Crossings crossings = crossings();
 			assertEquals(Arrays.asList(first.init.hash, second.init.hash), children(crossings.inits));
 			assertEquals(set(), new TreeSet<String>(children(crossings.entries)));
 
 			final Result result = getContainerInit();
-			assertEquals(union(first.vertices(), second.vertices()), result.vertices);
-			assertEquals(union(first.edges(), second.edges()), result.edges);
+			assertEquals(union(initVertices(first), initVertices(second)), result.vertices);
+			assertEquals(union(initEdges(first), initEdges(second)), result.edges);
 		}
 
 		// ---------------------------------------------------------------------
@@ -442,7 +389,7 @@ public class GetContainerInitIntegrationTest{
 
 		@Test
 		void initThatNeverCallsExecve_failsLoudly(){
-			final DockerRun run = new DockerRun(shim(), CONTAINER, 4100, null);
+			final DockerRun run = trace.dockerRun(shim(), CONTAINER, 4100, null);
 
 			final RuntimeException error = assertThrows(RuntimeException.class, () -> getContainerInit());
 
@@ -456,9 +403,9 @@ public class GetContainerInitIntegrationTest{
 		@Test
 		void reusedNamespaceIdAndPids_doNotHideAnInitThatNeverCallsExecve(){
 			final Process shim = shim();
-			final DockerRun first = new DockerRun(shim, CONTAINER, 4100, "nginx");
+			final DockerRun first = trace.dockerRun(shim, CONTAINER, 4100, "nginx");
 			trace.exit(first.application);
-			final DockerRun second = new DockerRun(shim, CONTAINER, 4100, null);
+			final DockerRun second = trace.dockerRun(shim, CONTAINER, 4100, null);
 			assertEquals(first.init.pid, second.init.pid);
 
 			final RuntimeException error = assertThrows(RuntimeException.class, () -> getContainerInit());

@@ -221,6 +221,84 @@ final class ContainerTrace{
 	}
 
 	////////////////////////////////////////////////////////////////////////////
+	// Container runtimes
+
+	/** What runc records for docker run: containerd-shim → runc → stages 0, 1 and 2 of runc init. */
+	static final class DockerRun{
+		final Process stage1, stage1Unshared, init, initCgroupUnshared, thread, application;
+
+		private DockerRun(final Process stage1, final Process stage1Unshared, final Process init,
+				final Process initCgroupUnshared, final Process thread, final Process application){
+			this.stage1 = stage1;
+			this.stage1Unshared = stage1Unshared;
+			this.init = init;
+			this.initCgroupUnshared = initCgroupUnshared;
+			this.thread = thread;
+			this.application = application;
+		}
+	}
+
+	/**
+	 * docker run, with pids firstPid to firstPid + 4.
+	 *
+	 * @param applicationName null for a container whose init never calls execve
+	 */
+	DockerRun dockerRun(final Process shim, final String pidNamespace, final int firstPid,
+			final String applicationName){
+		final Process runc = execve(spawn(shim, "containerd-shim", pid(firstPid), "SIGCHLD", HOST), "runc");
+		final Process stage0 = execve(spawn(runc, "runc", pid(firstPid + 1), "CLONE_VM|CLONE_VFORK|SIGCHLD", HOST),
+				"runc:[0:PARENT]");
+		final Process stage1 = spawn(stage0, "runc:[0:PARENT]", pid(firstPid + 2), "CLONE_PARENT|SIGCHLD", HOST);
+		final Process stage1Unshared = unshare(stage1,
+				"CLONE_NEWNS|CLONE_NEWUTS|CLONE_NEWIPC|CLONE_NEWNET|CLONE_NEWPID", pidNamespace);
+		final Process init = spawn(stage1Unshared, "runc:[1:CHILD]", pid(firstPid + 3), "CLONE_PARENT|SIGCHLD",
+				pidNamespace);
+		final Process initCgroupUnshared = unshare(init, "CLONE_NEWCGROUP", null);
+		// A Go runtime thread of runc init
+		final Process thread = spawn(initCgroupUnshared, "runc:[2:INIT]", pid(firstPid + 4),
+				"CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS", pidNamespace);
+		final Process application = applicationName == null ? null : execve(initCgroupUnshared, applicationName);
+		return new DockerRun(stage1, stage1Unshared, init, initCgroupUnshared, thread, application);
+	}
+
+	/** What runc records for docker exec into a running container. */
+	static final class DockerExec{
+		final Process joiningPid, joined, process, command;
+
+		private DockerExec(final Process joiningPid, final Process joined, final Process process,
+				final Process command){
+			this.joiningPid = joiningPid;
+			this.joined = joined;
+			this.process = process;
+			this.command = command;
+		}
+	}
+
+	/** docker exec, with pids firstPid to firstPid + 3. */
+	DockerExec dockerExec(final Process shim, final Process containerProcess, final int firstPid,
+			final String commandName){
+		final Process runc = execve(spawn(shim, "containerd-shim", pid(firstPid), "SIGCHLD", HOST), "runc");
+		final Process stage0 = execve(spawn(runc, "runc", pid(firstPid + 1), "CLONE_VM|CLONE_VFORK|SIGCHLD", HOST),
+				"runc:[0:PARENT]");
+		final Process stage1 = spawn(stage0, "runc:[0:PARENT]", pid(firstPid + 2), "CLONE_PARENT|SIGCHLD", HOST);
+		final Process joiningPid = setnsPid(stage1, containerProcess.pidNamespace);
+		final Process joined = setnsMount(joiningPid, containerProcess.mountNamespace);
+		final Process process = spawn(joined, "runc:[1:CHILD]", pid(firstPid + 3), "CLONE_PARENT|SIGCHLD",
+				containerProcess.pidNamespace);
+		return new DockerExec(joiningPid, joined, process, execve(process, commandName));
+	}
+
+	/** A host process started in the trace from a shell that was running before, now running `program`. */
+	Process hostProgram(final String program, final int pid){
+		final Process shell = preexisting("bash", "800");
+		return execve(spawn(shell, "bash", pid(pid), "SIGCHLD", HOST), program);
+	}
+
+	private static String pid(final int pid){
+		return String.valueOf(pid);
+	}
+
+	////////////////////////////////////////////////////////////////////////////
 	// Lookup
 
 	/** Hash of the one WasTriggeredBy edge from `child` to `parent`. */

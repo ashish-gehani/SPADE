@@ -21,249 +21,373 @@ package spade.query.quickgrail.instruction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static spade.query.quickgrail.instruction.ContainerTrace.HOST;
 
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.TreeSet;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import spade.query.execution.Context;
 import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.entities.Graph;
+import spade.query.quickgrail.instruction.ContainerTrace.DockerExec;
+import spade.query.quickgrail.instruction.ContainerTrace.DockerRun;
+import spade.query.quickgrail.instruction.ContainerTrace.Process;
+import spade.query.quickgrail.instruction.InMemoryQueryHarness.AdjacencySemantics;
 
 /**
- * Integration tests for {@link GetContainerBoundary}.
- *
- * Each test synthesizes a small but realistic mixed host + multi-container
- * provenance graph via {@link InMemoryQueryHarness}, runs the instruction,
- * and checks the target graph's vertex/edge contents against expectations.
- *
- * Fixture layout (built in {@link #seedTwoContainersWithHost()}):
- *
- *   Host (no `pid namespace`):
- *     v_h1    — containerd daemon
- *     v_hfile — /etc/host_only_config (used only by v_h1)
- *
- *   Container A (`pid namespace` = "ns_A"):
- *     v_a1   — `ns pid` = "1" (in-container init)
- *     v_a2   — `ns pid` = "2"
- *     v_fa   — /etc/passwd inside container A (used by v_a1)
- *
- *   Container B (`pid namespace` = "ns_B"):
- *     v_b1   — `ns pid` = "1"
- *     v_fb   — /etc/passwd inside container B (used by v_b1)
- *
- *   Edges (child → parent in OPM `WasTriggeredBy` direction):
- *     e_clone_a1  : v_a1 → v_h1   ("clone")  — host daemon spawns A1
- *     e_clone_a2  : v_a2 → v_a1   ("clone")  — A1 spawns A2 inside container
- *     e_used_a    : v_a1 → v_fa   ("read")   — A1 reads /etc/passwd
- *     e_clone_b1  : v_b1 → v_h1   ("clone")  — host daemon spawns B1
- *     e_used_b    : v_b1 → v_fb   ("read")   — B1 reads /etc/passwd
- *     e_used_h    : v_h1 → v_hfile("read")   — host reads its config
+ * {@link GetContainerBoundary} on traces shaped like the Audit reporter's output
+ * (see {@link ContainerTrace}). Every scenario runs under both adjacency
+ * semantics of the storage backends.
  */
 public class GetContainerBoundaryIntegrationTest{
 
-	private InMemoryQueryHarness harness;
-	private Context ctx;
-
-	@BeforeEach
-	public void setUp(){
-		harness = new InMemoryQueryHarness();
-		ctx = new Context(harness.executor);
-		seedTwoContainersWithHost();
-	}
-
-	private void seedTwoContainersWithHost(){
-		// Host
-		harness.putVertex("v_h1", "type", "Process", "pid", "100", "name", "containerd");
-		harness.putVertex("v_hfile", "type", "Artifact", "path", "/etc/host_only_config");
-
-		// Container A
-		harness.putVertex("v_a1", "type", "Process", "pid", "1001", "ns pid", "1", "pid namespace", "ns_A");
-		harness.putVertex("v_a2", "type", "Process", "pid", "1002", "ns pid", "2", "pid namespace", "ns_A");
-		harness.putVertex("v_fa", "type", "Artifact", "path", "/etc/passwd");
-
-		// Container B
-		harness.putVertex("v_b1", "type", "Process", "pid", "2001", "ns pid", "1", "pid namespace", "ns_B");
-		harness.putVertex("v_fb", "type", "Artifact", "path", "/etc/passwd");
-
-		// Edges (child → parent)
-		harness.putEdge("e_clone_a1", "v_a1", "v_h1", "clone");
-		harness.putEdge("e_clone_a2", "v_a2", "v_a1", "clone");
-		harness.putEdge("e_used_a",   "v_a1", "v_fa", "read");
-		harness.putEdge("e_clone_b1", "v_b1", "v_h1", "clone");
-		harness.putEdge("e_used_b",   "v_b1", "v_fb", "read");
-		harness.putEdge("e_used_h",   "v_h1", "v_hfile", "read");
-	}
-
-	private Set<String> vertexHashesOf(final Graph g){
-		return harness.executor.exportVertices(g).keySet();
-	}
-
-	private Set<String> edgeHashesOf(final Graph g){
-		return harness.executor.exportEdges(g).stream()
-				.map(e -> e.edgeHash).collect(Collectors.toSet());
-	}
-
-	// =========================================================================
-	// Single-container form
-	// =========================================================================
-
-	@Test
-	public void singleContainer_keepsOnlyChosenContainersProcessesAndAdjacentArtifacts(){
-		final Graph target = harness.env.allocateGraph();
-		harness.executor.createEmptyGraph(target);
-
-		new GetContainerBoundary(target, harness.baseGraph, "ns_A").exec(ctx);
-
-		final Set<String> vertices = vertexHashesOf(target);
-		final Set<String> edges = edgeHashesOf(target);
-
-		// In-container processes and the artifact they accessed must be present.
-		assertTrue(vertices.contains("v_a1"), "container A's PID-1 process must be in result");
-		assertTrue(vertices.contains("v_a2"), "container A's PID-2 process must be in result");
-		assertTrue(vertices.contains("v_fa"), "container A's accessed artifact must be in result");
-		// Host parent that cloned A1 is adjacent → included by getAdjacentVertex(kBoth).
-		assertTrue(vertices.contains("v_h1"),
-				"host caller (containerd) is adjacent and must be in result");
-
-		// Container B and the host-only artifact must NOT leak in.
-		assertFalse(vertices.contains("v_b1"), "container B process must not be in result");
-		assertFalse(vertices.contains("v_fb"), "container B artifact must not be in result");
-		assertFalse(vertices.contains("v_hfile"),
-				"host-only artifact (not adjacent to any container proc) must not be in result");
-
-		// Edges spanning the boundary set must be present.
-		assertTrue(edges.contains("e_clone_a1"), "clone edge A1→containerd must be in result");
-		assertTrue(edges.contains("e_clone_a2"), "internal clone edge A2→A1 must be in result");
-		assertTrue(edges.contains("e_used_a"),   "read edge A1→/etc/passwd must be in result");
-
-		// Edges to vertices that did not land in the boundary must be dropped.
-		assertFalse(edges.contains("e_clone_b1"), "clone edge B1→containerd must not appear");
-		assertFalse(edges.contains("e_used_b"),   "read edge B1→passwd must not appear");
-		assertFalse(edges.contains("e_used_h"),
-				"host's own read of /etc/host_only_config must not appear");
-	}
-
-	@Test
-	public void singleContainer_unknownPidNamespaceProducesEmptyGraph(){
-		final Graph target = harness.env.allocateGraph();
-		harness.executor.createEmptyGraph(target);
-
-		new GetContainerBoundary(target, harness.baseGraph, "ns_DOES_NOT_EXIST").exec(ctx);
-
-		assertEquals(0L, harness.executor.getGraphCount(target).getVertices(),
-				"no vertices match → result must be empty");
-		assertEquals(0L, harness.executor.getGraphCount(target).getEdges(),
-				"no vertices selected → no spanning edges either");
-	}
-
-	@Test
-	public void singleContainer_disjointContainersProduceDisjointResults(){
-		final Graph forA = harness.env.allocateGraph();
-		final Graph forB = harness.env.allocateGraph();
-		harness.executor.createEmptyGraph(forA);
-		harness.executor.createEmptyGraph(forB);
-
-		new GetContainerBoundary(forA, harness.baseGraph, "ns_A").exec(ctx);
-		new GetContainerBoundary(forB, harness.baseGraph, "ns_B").exec(ctx);
-
-		final Set<String> aVerts = vertexHashesOf(forA);
-		final Set<String> bVerts = vertexHashesOf(forB);
-
-		// A's in-container vertices must not appear in B's result, and vice versa.
-		assertFalse(bVerts.contains("v_a1"), "A's PID-1 process must not appear in B's boundary");
-		assertFalse(bVerts.contains("v_fa"), "A's artifact must not appear in B's boundary");
-		assertFalse(aVerts.contains("v_b1"), "B's PID-1 process must not appear in A's boundary");
-		assertFalse(aVerts.contains("v_fb"), "B's artifact must not appear in A's boundary");
-
-		// The shared host daemon legitimately appears in both because it is
-		// the clone-parent of each container's init process.
-		assertTrue(aVerts.contains("v_h1"));
-		assertTrue(bVerts.contains("v_h1"));
-	}
-
-	// =========================================================================
-	// All-containers (no-arg) form
-	// =========================================================================
-
-	@Test
-	public void allContainers_unionsEveryLabeledContainersBoundary(){
-		final Graph target = harness.env.allocateGraph();
-		harness.executor.createEmptyGraph(target);
-
-		new GetContainerBoundary(target, harness.baseGraph, null).exec(ctx);
-
-		final Set<String> vertices = vertexHashesOf(target);
-		final Set<String> edges = edgeHashesOf(target);
-
-		// Both containers' processes and artifacts must show up.
-		assertTrue(vertices.contains("v_a1"));
-		assertTrue(vertices.contains("v_a2"));
-		assertTrue(vertices.contains("v_fa"));
-		assertTrue(vertices.contains("v_b1"));
-		assertTrue(vertices.contains("v_fb"));
-		// And the shared host parent.
-		assertTrue(vertices.contains("v_h1"));
-
-		// The host's own artifact, never touched by any container process,
-		// must NOT appear — it is what distinguishes the union-of-boundaries
-		// from "the whole graph".
-		assertFalse(vertices.contains("v_hfile"),
-				"host-only artifact must not appear in any container's boundary");
-
-		// Every clone/read edge connecting in-container vertices to the host
-		// parent or to artifacts must be present.
-		assertTrue(edges.contains("e_clone_a1"));
-		assertTrue(edges.contains("e_clone_a2"));
-		assertTrue(edges.contains("e_used_a"));
-		assertTrue(edges.contains("e_clone_b1"));
-		assertTrue(edges.contains("e_used_b"));
-		// The host-only read does NOT belong — both endpoints must be in the
-		// boundary set for an edge to land in the result.
-		assertFalse(edges.contains("e_used_h"));
-	}
-
-	// =========================================================================
-	// Exported-graph invariant sanity
-	// =========================================================================
-
-	@Test
-	public void resultEdges_alwaysHaveBothEndpointsInTheResultVertexSet(){
-		// This is the spanning-subgraph invariant from getSubgraph: every
-		// edge present in the result must be incident to two vertices that
-		// are also present in the result. A regression here would mean the
-		// composite became un-self-consistent.
-		final Graph target = harness.env.allocateGraph();
-		harness.executor.createEmptyGraph(target);
-
-		new GetContainerBoundary(target, harness.baseGraph, null).exec(ctx);
-
-		final Set<String> vertices = vertexHashesOf(target);
-		for(final QueriedEdge edge : harness.executor.exportEdges(target)){
-			assertTrue(vertices.contains(edge.childHash),
-					"edge " + edge.edgeHash + " child endpoint not in result vertices");
-			assertTrue(vertices.contains(edge.parentHash),
-					"edge " + edge.edgeHash + " parent endpoint not in result vertices");
+	@Nested
+	class PostgreSQLAndQuickstepAdjacency extends Scenarios{
+		PostgreSQLAndQuickstepAdjacency(){
+			super(AdjacencySemantics.SOURCES_ALWAYS);
 		}
 	}
 
-	@Test
-	public void singleContainer_exportedAnnotationsAreFaithful(){
-		// Spot-check that vertices come back with the annotations we seeded —
-		// catching any regression where the exporter drops or rewrites keys.
-		final Graph target = harness.env.allocateGraph();
-		harness.executor.createEmptyGraph(target);
+	@Nested
+	class Neo4jAdjacency extends Scenarios{
+		Neo4jAdjacency(){
+			super(AdjacencySemantics.SOURCES_VIA_EDGES);
+		}
+	}
 
-		new GetContainerBoundary(target, harness.baseGraph, "ns_A").exec(ctx);
+	abstract static class Scenarios{
 
-		final Map<String, Map<String, String>> exported = harness.executor.exportVertices(target);
-		final Map<String, String> a1 = exported.get("v_a1");
-		assertTrue(a1 != null && "ns_A".equals(a1.get("pid namespace")));
-		assertTrue("1".equals(a1.get("ns pid")));
-		assertTrue("Process".equals(a1.get("type")));
+		static final String CONTAINER = "4026532270", OTHER_CONTAINER = "4026532280", NESTED = "4026532290",
+				DEEPER = "4026532291", UNUSED = "4026532999";
+
+		private final AdjacencySemantics semantics;
+		InMemoryQueryHarness harness;
+		ContainerTrace trace;
+		Process shim;
+
+		Scenarios(final AdjacencySemantics semantics){
+			this.semantics = semantics;
+		}
+
+		@BeforeEach
+		void setUp(){
+			harness = new InMemoryQueryHarness(semantics);
+			trace = new ContainerTrace(harness);
+			shim = trace.preexisting("containerd-shim", "1200");
+		}
+
+		// ---------------------------------------------------------------------
+		// Running the method
+
+		static final class Result{
+			final Set<String> vertices = new TreeSet<String>();
+			final Set<String> edges = new TreeSet<String>();
+		}
+
+		Result getContainerBoundary(){
+			return run(new GetContainerBoundary(newGraph(), harness.baseGraph, HOST));
+		}
+
+		Result getContainerBoundary(final String pidNamespace){
+			return run(new GetContainerBoundary(newGraph(), harness.baseGraph, HOST, pidNamespace, null));
+		}
+
+		Result getContainerBoundary(final String pidNamespace, final int number){
+			return run(new GetContainerBoundary(newGraph(), harness.baseGraph, HOST, pidNamespace, number));
+		}
+
+		Result getContainerBoundary(final Process... seeds){
+			final Graph seedGraph = newGraph();
+			final ArrayList<String> hashes = new ArrayList<String>();
+			for(final Process seed : seeds){
+				hashes.add(seed.hash);
+			}
+			harness.executor.insertLiteralVertex(seedGraph, hashes);
+			return run(new GetContainerBoundary(newGraph(), harness.baseGraph, HOST, seedGraph));
+		}
+
+		private Result run(final GetContainerBoundary instruction){
+			instruction.exec(new Context(harness.executor));
+			final Result result = new Result();
+			result.vertices.addAll(harness.executor.exportVertices(instruction.targetGraph).keySet());
+			for(final QueriedEdge edge : harness.executor.exportEdges(instruction.targetGraph)){
+				result.edges.add(edge.edgeHash);
+			}
+			return result;
+		}
+
+		private Graph newGraph(){
+			return harness.executor.createNewGraph();
+		}
+
+		/** The boundary of the given container processes: them, their neighbors, and all edges among those. */
+		Result boundaryOf(final Process... members){
+			final Set<String> memberHashes = new TreeSet<String>();
+			for(final Process member : members){
+				memberHashes.add(member.hash);
+			}
+			final Result expected = new Result();
+			expected.vertices.addAll(memberHashes);
+			for(final QueriedEdge edge : harness.executor.edgesByHash.values()){
+				if(memberHashes.contains(edge.childHash)){
+					expected.vertices.add(edge.parentHash);
+				}
+				if(memberHashes.contains(edge.parentHash)){
+					expected.vertices.add(edge.childHash);
+				}
+			}
+			for(final QueriedEdge edge : harness.executor.edgesByHash.values()){
+				if(expected.vertices.contains(edge.childHash) && expected.vertices.contains(edge.parentHash)){
+					expected.edges.add(edge.edgeHash);
+				}
+			}
+			return expected;
+		}
+
+		static void assertResult(final Result expected, final Result actual){
+			assertEquals(expected.vertices, actual.vertices, "vertices");
+			assertEquals(expected.edges, actual.edges, "edges");
+		}
+
+		static Process[] processes(final Process[]... groups){
+			final ArrayList<Process> all = new ArrayList<Process>();
+			for(final Process[] group : groups){
+				all.addAll(Arrays.asList(group));
+			}
+			return all.toArray(new Process[0]);
+		}
+
+		static Process[] inside(final DockerRun run){
+			return new Process[]{run.init, run.initCgroupUnshared, run.thread, run.application};
+		}
+
+		static Process[] inside(final DockerExec exec){
+			return new Process[]{exec.process, exec.command};
+		}
+
+		// ---------------------------------------------------------------------
+		// Every container, and one container by ID
+
+		@Test
+		void everyContainer_isItsProcessesWhatTheyTouchAndTheEdgesBetween(){
+			final DockerRun web = trace.dockerRun(shim, CONTAINER, 4100, "nginx");
+			final Process worker = trace.spawn(web.application, "nginx", "4110", "SIGCHLD", CONTAINER);
+			final String log = trace.writes(worker, "/var/log/nginx/access.log");
+			final Process logrotate = trace.hostProgram("logrotate", 5000);
+			trace.writes(logrotate, "/var/log/nginx/access.log");
+			final DockerExec exec = trace.dockerExec(shim, web.application, 4200, "sh");
+			final DockerRun cache = trace.dockerRun(shim, OTHER_CONTAINER, 4300, "redis");
+
+			final Result result = getContainerBoundary();
+
+			assertResult(boundaryOf(processes(inside(web), new Process[]{worker}, inside(exec), inside(cache))),
+					result);
+			// The runc processes that created or entered a container, and the file, are at the boundary
+			assertTrue(result.vertices.containsAll(Arrays.asList(web.stage1Unshared.hash, exec.joined.hash, log)));
+			assertTrue(result.edges.contains(trace.edge(web.init, web.stage1Unshared)));
+			// Host processes one step further out and processes with unobserved namespaces are not
+			assertFalse(result.vertices.contains(web.stage1.hash));
+			assertFalse(result.vertices.contains(exec.joiningPid.hash));
+			assertFalse(result.vertices.contains(logrotate.hash));
+			assertFalse(result.vertices.contains(shim.hash));
+		}
+
+		@Test
+		void pidNamespaceId_selectsThatContainerOnly(){
+			final DockerRun web = trace.dockerRun(shim, CONTAINER, 4100, "nginx");
+			final Process worker = trace.spawn(web.application, "nginx", "4110", "SIGCHLD", CONTAINER);
+			final DockerExec exec = trace.dockerExec(shim, web.application, 4200, "sh");
+			trace.dockerRun(shim, OTHER_CONTAINER, 4300, "redis");
+
+			assertResult(boundaryOf(processes(inside(web), new Process[]{worker}, inside(exec))),
+					getContainerBoundary(CONTAINER));
+		}
+
+		@Test
+		void containerRunningBeforeTracing_isOneContainer(){
+			final Process master = trace.preexisting("nginx", "3000");
+			final Process masterJoinedMounts = trace.unobservedStep(master, "setns", CONTAINER, CONTAINER);
+			final Process worker = trace.spawn(masterJoinedMounts, "nginx", "3001", "SIGCHLD", CONTAINER);
+
+			final Result expected = boundaryOf(masterJoinedMounts, worker);
+			assertResult(expected, getContainerBoundary(CONTAINER));
+			assertResult(expected, getContainerBoundary(CONTAINER, 1));
+			assertResult(expected, getContainerBoundary());
+		}
+
+		@Test
+		void unknownPidNamespaceId_returnsNothing_butANumberedContainerMustExist(){
+			trace.dockerRun(shim, CONTAINER, 4100, "nginx");
+
+			assertResult(new Result(), getContainerBoundary(UNUSED));
+			final RuntimeException error = assertThrows(RuntimeException.class,
+					() -> getContainerBoundary(UNUSED, 1));
+			assertEquals("getContainerBoundary: PID namespace " + UNUSED + " belonged to 0 container(s) in this trace,"
+					+ " so there is no container 1.", error.getMessage());
+		}
+
+		@Test
+		void emptyGraph_returnsNothing(){
+			assertResult(new Result(), getContainerBoundary());
+		}
+
+		// ---------------------------------------------------------------------
+		// One ID, several containers
+
+		final class ReusedId{
+			final Process masterJoinedMounts, oldWorker;
+			final DockerRun first, second;
+			final DockerExec exec;
+			final Process secondWorker;
+
+			ReusedId(){
+				final Process master = trace.preexisting("nginx", "3000");
+				masterJoinedMounts = trace.unobservedStep(master, "setns", CONTAINER, CONTAINER);
+				oldWorker = trace.spawn(masterJoinedMounts, "nginx", "3001", "SIGCHLD", CONTAINER);
+				trace.exit(oldWorker);
+				first = trace.dockerRun(shim, CONTAINER, 4100, "nginx");
+				exec = trace.dockerExec(shim, first.application, 4200, "sh");
+				trace.exit(first.application);
+				// Same ID and the same host pids again
+				second = trace.dockerRun(shim, CONTAINER, 4100, "redis");
+				secondWorker = trace.spawn(second.application, "redis", "4110", "SIGCHLD", CONTAINER);
+			}
+		}
+
+		@Test
+		void reusedPidNamespaceId_failsListingTheContainers(){
+			final ReusedId reused = new ReusedId();
+
+			final RuntimeException error = assertThrows(RuntimeException.class,
+					() -> getContainerBoundary(CONTAINER));
+
+			assertEquals("getContainerBoundary: PID namespace " + CONTAINER + " belonged to 3 containers in this"
+					+ " trace, since the kernel reuses IDs. Pick one with getContainerBoundary('" + CONTAINER
+					+ "', <number>):"
+					+ "\n  1: running when tracing started"
+					+ "\n  2: started " + reused.first.init.time + ", first process runc:[1:CHILD] (host pid 4103)"
+					+ "\n  3: started " + reused.second.init.time + ", first process runc:[1:CHILD] (host pid 4103)",
+					error.getMessage());
+		}
+
+		@Test
+		void reusedPidNamespaceId_numberSelectsOneContainer(){
+			final ReusedId reused = new ReusedId();
+
+			assertResult(boundaryOf(reused.masterJoinedMounts, reused.oldWorker), getContainerBoundary(CONTAINER, 1));
+			assertResult(boundaryOf(processes(inside(reused.first), inside(reused.exec))),
+					getContainerBoundary(CONTAINER, 2));
+			assertResult(boundaryOf(processes(inside(reused.second), new Process[]{reused.secondWorker})),
+					getContainerBoundary(CONTAINER, 3));
+			final RuntimeException error = assertThrows(RuntimeException.class,
+					() -> getContainerBoundary(CONTAINER, 4));
+			assertTrue(error.getMessage().endsWith("belonged to 3 container(s) in this trace, so there is no container 4."),
+					error.getMessage());
+		}
+
+		@Test
+		void reusedPidNamespaceId_allContainersStillReturnsEveryProcess(){
+			final ReusedId reused = new ReusedId();
+
+			assertResult(boundaryOf(processes(new Process[]{reused.masterJoinedMounts, reused.oldWorker},
+					inside(reused.first), inside(reused.exec), inside(reused.second), new Process[]{reused.secondWorker})),
+					getContainerBoundary());
+		}
+
+		// ---------------------------------------------------------------------
+		// Containers started inside containers
+
+		final class Nesting{
+			final DockerRun outer, sibling;
+			final Process forked, tool, toolUnshared, nestedInit, nestedShell;
+			final Process nestedForked, deeperTool, deeperUnshared, deeperInit, deeperShell;
+
+			Nesting(){
+				outer = trace.dockerRun(shim, CONTAINER, 4100, "bash");
+				forked = trace.spawn(outer.application, "bash", "4120", "SIGCHLD", CONTAINER);
+				tool = trace.execve(forked, "unshare");
+				toolUnshared = trace.unshare(tool, "CLONE_NEWNS|CLONE_NEWPID", NESTED);
+				nestedInit = trace.spawn(toolUnshared, "unshare", "4121", "SIGCHLD", NESTED);
+				nestedShell = trace.execve(nestedInit, "bash");
+				nestedForked = trace.spawn(nestedShell, "bash", "4122", "SIGCHLD", NESTED);
+				deeperTool = trace.execve(nestedForked, "unshare");
+				deeperUnshared = trace.unshare(deeperTool, "CLONE_NEWPID", DEEPER);
+				deeperInit = trace.spawn(deeperUnshared, "unshare", "4123", "SIGCHLD", DEEPER);
+				deeperShell = trace.execve(deeperInit, "sh");
+				sibling = trace.dockerRun(shim, OTHER_CONTAINER, 4300, "redis");
+			}
+
+			Process[] deeper(){
+				return new Process[]{deeperInit, deeperShell};
+			}
+
+			Process[] nested(){
+				return processes(new Process[]{nestedInit, nestedShell, nestedForked, deeperTool, deeperUnshared},
+						deeper());
+			}
+
+			Process[] outer(){
+				return processes(inside(outer), new Process[]{forked, tool, toolUnshared}, nested());
+			}
+		}
+
+		@Test
+		void container_includesContainersStartedInsideIt(){
+			final Nesting nesting = new Nesting();
+
+			assertResult(boundaryOf(nesting.outer()), getContainerBoundary(CONTAINER));
+			assertResult(boundaryOf(nesting.nested()), getContainerBoundary(NESTED));
+			assertResult(boundaryOf(nesting.deeper()), getContainerBoundary(DEEPER));
+			assertResult(boundaryOf(processes(nesting.outer(), inside(nesting.sibling))), getContainerBoundary());
+		}
+
+		@Test
+		void nestedContainer_belongsOnlyToTheOuterContainerThatStartedIt(){
+			// The outer ID is reused; only the second outer container starts a nested one
+			final DockerRun firstOuter = trace.dockerRun(shim, CONTAINER, 4100, "bash");
+			trace.exit(firstOuter.application);
+			final Nesting nesting = new Nesting();
+
+			assertResult(boundaryOf(inside(firstOuter)), getContainerBoundary(CONTAINER, 1));
+			assertResult(boundaryOf(nesting.outer()), getContainerBoundary(CONTAINER, 2));
+		}
+
+		// ---------------------------------------------------------------------
+		// Containers of given processes
+
+		@Test
+		void seedProcesses_selectTheContainersTheyBelongTo(){
+			final ReusedId reused = new ReusedId();
+			final Process tool = trace.execve(
+					trace.spawn(reused.second.application, "redis", "4130", "SIGCHLD", CONTAINER), "unshare");
+			final Process toolUnshared = trace.unshare(tool, "CLONE_NEWPID", NESTED);
+			final Process nestedInit = trace.spawn(toolUnshared, "unshare", "4131", "SIGCHLD", NESTED);
+			final Process nestedShell = trace.execve(nestedInit, "sh");
+			final DockerRun cache = trace.dockerRun(shim, OTHER_CONTAINER, 4300, "memcached");
+			final Process[] second = processes(inside(reused.second),
+					new Process[]{reused.secondWorker, tool, toolUnshared, nestedInit, nestedShell});
+
+			assertResult(boundaryOf(second), getContainerBoundary(reused.second.application));
+			assertResult(boundaryOf(processes(new Process[]{reused.masterJoinedMounts, reused.oldWorker},
+					inside(cache))), getContainerBoundary(reused.oldWorker, cache.application));
+			assertResult(boundaryOf(processes(inside(reused.first), inside(reused.exec))),
+					getContainerBoundary(reused.first.application, reused.exec.command));
+			assertResult(boundaryOf(nestedInit, nestedShell), getContainerBoundary(nestedShell));
+		}
+
+		@Test
+		void seedProcessesOutsideContainers_selectNothing(){
+			final DockerRun web = trace.dockerRun(shim, CONTAINER, 4100, "nginx");
+
+			assertResult(new Result(), getContainerBoundary(shim, web.stage1Unshared));
+		}
 	}
 }

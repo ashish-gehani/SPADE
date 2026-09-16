@@ -20,101 +20,170 @@
 package spade.query.quickgrail.instruction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import spade.query.quickgrail.core.Instruction;
+import spade.query.quickgrail.core.Program;
+import spade.query.quickgrail.core.QuickGrailQueryResolver;
 import spade.query.quickgrail.entities.Graph;
+import spade.query.quickgrail.parser.DSLParserWrapper;
 import spade.query.quickgrail.utility.TreeStringSerializable;
 
 /**
- * Unit tests for {@link GetContainerBoundary} — the QuickGrail graph
- * method that returns the subgraph spanning one container's boundary
- * (process vertices in a PID namespace plus their adjacent artifacts)
- * or, with no argument, the union across every labeled container.
- *
- * The tests cover the instruction's contract with the resolver and the
- * tree-serialization machinery (used for debug printing of execution
- * plans). The composite {@code exec()} body is exercised end-to-end
- * via integration tests against a real storage; those are not in scope
- * here.
+ * {@link GetContainerBoundary}'s contract with the resolver and the plan printer.
+ * Behavior on traces is in {@link GetContainerBoundaryIntegrationTest}.
  */
 public class GetContainerBoundaryTest{
 
+	private static final String HOST = "4026531836", CONTAINER = "4026532270";
+
 	@Test
-	public void constructor_storesAllFieldsForSingleContainerForm(){
-		final Graph target = new Graph("target_g");
-		final Graph subject = new Graph("subject_g");
-		final String nsId = "4026532270";
+	public void constructors_storeTheirForm(){
+		final Graph target = new Graph("t"), subject = new Graph("s"), seeds = new Graph("p");
 
-		final GetContainerBoundary instruction = new GetContainerBoundary(target, subject, nsId);
+		final GetContainerBoundary all = new GetContainerBoundary(target, subject, HOST);
+		assertSame(target, all.targetGraph);
+		assertSame(subject, all.subjectGraph);
+		assertEquals(HOST, all.hostPidNamespace);
+		assertNull(all.pidNamespaceId);
+		assertNull(all.containerNumber);
+		assertNull(all.seedGraph);
 
-		assertSame(target, instruction.targetGraph, "target graph must be the one passed in");
-		assertSame(subject, instruction.subjectGraph, "subject graph must be the one passed in");
-		assertEquals(nsId, instruction.pidNamespaceId, "PID namespace id must round-trip unchanged");
+		final GetContainerBoundary numbered = new GetContainerBoundary(target, subject, HOST, CONTAINER, 2);
+		assertEquals(CONTAINER, numbered.pidNamespaceId);
+		assertEquals(Integer.valueOf(2), numbered.containerNumber);
+		assertNull(numbered.seedGraph);
+
+		final GetContainerBoundary bySeeds = new GetContainerBoundary(target, subject, HOST, seeds);
+		assertSame(seeds, bySeeds.seedGraph);
+		assertNull(bySeeds.pidNamespaceId);
 	}
 
 	@Test
-	public void constructor_allowsNullPidNamespaceForAllContainersForm(){
-		final GetContainerBoundary instruction = new GetContainerBoundary(
-				new Graph("t"), new Graph("s"), null);
+	public void constructor_rejectsIdsThatAreNotContainers(){
+		final Graph target = new Graph("t"), subject = new Graph("s");
 
-		assertNull(instruction.pidNamespaceId,
-				"null PID namespace id selects the all-containers form");
+		final IllegalArgumentException host = assertThrows(IllegalArgumentException.class,
+				() -> new GetContainerBoundary(target, subject, HOST, HOST, null));
+		assertTrue(host.getMessage().contains("is the host's"), host.getMessage());
+		final IllegalArgumentException unobserved = assertThrows(IllegalArgumentException.class,
+				() -> new GetContainerBoundary(target, subject, HOST, "-1", null));
+		assertTrue(unobserved.getMessage().contains("not observed"), unobserved.getMessage());
+		assertThrows(IllegalArgumentException.class, () -> new GetContainerBoundary(target, subject, HOST, "", null));
+		assertThrows(IllegalArgumentException.class,
+				() -> new GetContainerBoundary(target, subject, HOST, CONTAINER, 0));
+		assertThrows(IllegalArgumentException.class,
+				() -> new GetContainerBoundary(target, subject, HOST, (Graph)null));
 	}
 
 	@Test
 	public void getLabel_returnsClassName(){
-		final GetContainerBoundary instruction = new GetContainerBoundary(
-				new Graph("t"), new Graph("s"), "42");
-
-		assertEquals("GetContainerBoundary", instruction.getLabel());
+		assertEquals("GetContainerBoundary", new GetContainerBoundary(new Graph("t"), new Graph("s"), HOST).getLabel());
 	}
 
 	@Test
-	public void getFieldStringItems_listsBothGraphsAndExplicitNamespace(){
-		final ArrayList<String> names = new ArrayList<String>();
-		final ArrayList<String> values = new ArrayList<String>();
-		final ArrayList<String> noncontainerNames = new ArrayList<String>();
-		final ArrayList<TreeStringSerializable> noncontainerChildren = new ArrayList<TreeStringSerializable>();
-		final ArrayList<String> containerNames = new ArrayList<String>();
-		final ArrayList<ArrayList<? extends TreeStringSerializable>> containerChildren =
-				new ArrayList<ArrayList<? extends TreeStringSerializable>>();
-
-		final GetContainerBoundary instruction = new GetContainerBoundary(
-				new Graph("tg"), new Graph("sg"), "4026532270");
-
-		instruction.getFieldStringItems(names, values,
-				noncontainerNames, noncontainerChildren,
-				containerNames, containerChildren);
-
-		assertEquals(names.size(), values.size(), "inline field names and values must be 1:1");
-		assertTrue(names.contains("targetGraph"), "must list targetGraph");
-		assertEquals("tg", values.get(names.indexOf("targetGraph")));
-		assertTrue(names.contains("subjectGraph"), "must list subjectGraph");
-		assertEquals("sg", values.get(names.indexOf("subjectGraph")));
-		assertTrue(names.contains("pidNamespaceId"), "must list pidNamespaceId");
-		assertEquals("4026532270", values.get(names.indexOf("pidNamespaceId")),
-				"explicit id must serialize verbatim");
+	public void getFieldStringItems_listsTheFieldsOfEachForm(){
+		assertFields(new GetContainerBoundary(new Graph("tg"), new Graph("sg"), HOST),
+				List.of("targetGraph", "subjectGraph", "hostPidNamespace", "pidNamespaceId"),
+				List.of("tg", "sg", HOST, "<all>"));
+		assertFields(new GetContainerBoundary(new Graph("tg"), new Graph("sg"), HOST, CONTAINER, null),
+				List.of("targetGraph", "subjectGraph", "hostPidNamespace", "pidNamespaceId"),
+				List.of("tg", "sg", HOST, CONTAINER));
+		assertFields(new GetContainerBoundary(new Graph("tg"), new Graph("sg"), HOST, CONTAINER, 3),
+				List.of("targetGraph", "subjectGraph", "hostPidNamespace", "pidNamespaceId", "containerNumber"),
+				List.of("tg", "sg", HOST, CONTAINER, "3"));
+		assertFields(new GetContainerBoundary(new Graph("tg"), new Graph("sg"), HOST, new Graph("pg")),
+				List.of("targetGraph", "subjectGraph", "hostPidNamespace", "seedGraph"),
+				List.of("tg", "sg", HOST, "pg"));
 	}
 
-	@Test
-	public void getFieldStringItems_serializesAllContainersFormWithSentinel(){
+	private static void assertFields(final GetContainerBoundary instruction, final List<String> expectedNames,
+			final List<String> expectedValues){
 		final ArrayList<String> names = new ArrayList<String>();
 		final ArrayList<String> values = new ArrayList<String>();
-
-		final GetContainerBoundary instruction = new GetContainerBoundary(
-				new Graph("tg"), new Graph("sg"), null);
-
 		instruction.getFieldStringItems(names, values,
 				new ArrayList<String>(), new ArrayList<TreeStringSerializable>(),
 				new ArrayList<String>(), new ArrayList<ArrayList<? extends TreeStringSerializable>>());
+		assertEquals(expectedNames, names);
+		assertEquals(expectedValues, values);
+	}
 
-		assertEquals("<all>", values.get(names.indexOf("pidNamespaceId")),
-				"null id must serialize as the <all> sentinel for readability");
+	// -------------------------------------------------------------------------
+	// Resolver
+
+	@Test
+	public void resolver_noArguments_selectsEveryContainer(){
+		final GetContainerBoundary instruction = resolveOnly("$r = $base.getContainerBoundary()");
+
+		assertEquals(HOST, instruction.hostPidNamespace);
+		assertNull(instruction.pidNamespaceId);
+		assertNull(instruction.seedGraph);
+	}
+
+	@Test
+	public void resolver_stringArgument_selectsById(){
+		final GetContainerBoundary instruction = resolveOnly("$r = $base.getContainerBoundary('" + CONTAINER + "')");
+
+		assertEquals(CONTAINER, instruction.pidNamespaceId);
+		assertNull(instruction.containerNumber);
+	}
+
+	@Test
+	public void resolver_stringAndInteger_selectsANumberedContainer(){
+		final GetContainerBoundary instruction = resolveOnly(
+				"$r = $base.getContainerBoundary('" + CONTAINER + "', 2)");
+
+		assertEquals(CONTAINER, instruction.pidNamespaceId);
+		assertEquals(Integer.valueOf(2), instruction.containerNumber);
+	}
+
+	@Test
+	public void resolver_graphArgument_selectsBySeedProcesses(){
+		final GetContainerBoundary instruction = resolveOnly(
+				"$p = $base.getVertex(* LIKE '%nginx%'); $r = $base.getContainerBoundary($p)");
+
+		assertNotNull(instruction.seedGraph);
+		assertNull(instruction.pidNamespaceId);
+	}
+
+	@Test
+	public void resolver_rejectsInvalidArguments(){
+		assertResolveFails("$r = $base.getContainerBoundary('" + CONTAINER + "', 1, 2)", "expected 0, 1 or 2");
+		assertResolveFails("$r = $base.getContainerBoundary('" + CONTAINER + "', 0)", "expected 1 or more");
+		assertResolveFails("$r = $base.getContainerBoundary(5)", "expected string");
+		assertResolveFails("$r = $base.getContainerBoundary('" + CONTAINER + "', 'two')", "expected integer");
+		assertResolveFails("$r = $base.getContainerBoundary('" + HOST + "')", "is the host's");
+		assertResolveFails("$r = $base.getContainerBoundary('-1')", "not observed");
+	}
+
+	private static void assertResolveFails(final String query, final String expectedMessagePart){
+		final RuntimeException error = assertThrows(RuntimeException.class, () -> resolveOnly(query));
+		assertTrue(error.getMessage().contains(expectedMessagePart), query + " -> " + error.getMessage());
+	}
+
+	private static GetContainerBoundary resolveOnly(final String query){
+		final InMemoryQueryHarness harness = new InMemoryQueryHarness();
+		final Program program = new QuickGrailQueryResolver().resolveProgram(new DSLParserWrapper().fromText(query),
+				harness.env);
+		GetContainerBoundary found = null;
+		for(int i = 0; i < program.getInstructionsSize(); i++){
+			final Instruction<? extends Serializable> instruction = program.getInstruction(i);
+			if(instruction instanceof GetContainerBoundary){
+				assertNull(found, "one GetContainerBoundary instruction");
+				found = (GetContainerBoundary)instruction;
+			}
+		}
+		assertNotNull(found, "GetContainerBoundary instruction in " + program);
+		return found;
 	}
 }
