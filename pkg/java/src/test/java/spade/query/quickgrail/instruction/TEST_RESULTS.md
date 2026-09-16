@@ -13,7 +13,7 @@ The test design and the behavior being tested are described in
 |---|---|
 | Date | 2026-09-16 |
 | Branch | `clarity-of-container`, based on upstream `prov-query` at `1ff51190` |
-| Tested revision | `04959e57` (the commit that adds this file changes only documentation) |
+| Tested revision | the commit that last changed this file, which also adds the two Q3 scenarios |
 | OS | Windows 11 Pro 10.0.26200 |
 | JDK | OpenJDK 21.0.2 from https://jdk.java.net/archive/ |
 | Build | Apache Maven 3.9.16, `maven-surefire-plugin` 3.5.5 |
@@ -37,15 +37,15 @@ LinuxConstantsTest ................................................  2/2   PASS
 InMemoryQueryHarnessTest ..........................................  5/5   PASS
 GetContainerInitTest ..............................................  6/6   PASS
 GetContainerBoundaryTest ..........................................  9/9   PASS
-GetContainerInitIntegrationTest$PostgreSQLAndQuickstepAdjacency ... 18/18  PASS
-GetContainerInitIntegrationTest$Neo4jAdjacency .................... 18/18  PASS
+GetContainerInitIntegrationTest$PostgreSQLAndQuickstepAdjacency ... 20/20  PASS
+GetContainerInitIntegrationTest$Neo4jAdjacency .................... 20/20  PASS
 GetContainerBoundaryIntegrationTest$PostgreSQLAndQuickstepAdjacency 12/12  PASS
 GetContainerBoundaryIntegrationTest$Neo4jAdjacency ................ 12/12  PASS
 --------------------------------------------------------------------------------
-Total                                                                82/82  PASS
+Total                                                                86/86  PASS
 ```
 
-Surefire reported `Tests run: 82, Failures: 0, Errors: 0, Skipped: 0` and
+Surefire reported `Tests run: 86, Failures: 0, Errors: 0, Skipped: 0` and
 `BUILD SUCCESS`. Each class took under 0.3 s.
 
 ## Per-class results
@@ -99,6 +99,8 @@ Surefire reported `Tests run: 82, Failures: 0, Errors: 0, Skipped: 0` and
 - PASS `emptyGraph_returnsNothing`
 - PASS `initThatNeverCallsExecve_failsLoudly`
 - PASS `reusedNamespaceIdAndPids_doNotHideAnInitThatNeverCallsExecve`
+- PASS `bubblewrapSandbox_failsBecauseItsReaperInitNeverCallsExecve`: decision Q3 (a)
+- PASS `nspawnAsPid2_failsBecauseItsStubInitNeverCallsExecve`: decision Q3 (a)
 
 ### `GetContainerBoundaryIntegrationTest` (passed under both adjacency semantics)
 - PASS `everyContainer_isItsProcessesWhatTheyTouchAndTheEdgesBetween`
@@ -120,8 +122,8 @@ To check that the tests detect wrong behavior, each bug below was planted
 into `ContainerAnalysis` or `GetContainerInit` by itself. The affected
 method's integration tests were rerun (M1–M4 for `getContainerInit`, M5–M10
 for `getContainerBoundary`), and the code was then restored and confirmed
-identical. Every bug made the listed tests fail under both adjacency
-semantics.
+identical. This was done before the two Q3 scenarios were added. Every bug
+made the listed tests fail under both adjacency semantics.
 
 Surefire merges same-named failures from the two `@Nested` classes into one
 entry with "Run 1" and "Run 2", so each failing test there covers both.
@@ -141,7 +143,7 @@ entry with "Run 1" and "Run 2", so each failing test there covers both.
 
 ## Whole test suite
 
-Running every test in `pkg/java` (`-Dtest='**/*Test*'`) gave 349 tests, 5 of
+Running every test in `pkg/java` (`-Dtest='**/*Test*'`) gave 353 tests, 5 of
 them failing. None of the failures is in code this branch touches, and all
 5 are caused by Windows:
 
