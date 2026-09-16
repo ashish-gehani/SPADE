@@ -1,125 +1,160 @@
-# CLARION Clarity Methods — Test Results
+# Container Methods: Test Results
 
-Snapshot of the four test classes that exercise `getContainerBoundary`
-and `getContainerInit`. This file is a review artifact, not a CI
-report: regenerate it (manually) after any change that touches the
-methods, the harness, or the test fixtures.
+A snapshot of the tests for `getContainerInit` and `getContainerBoundary`,
+for review. This is not a CI report; regenerate it by hand after changing the
+methods, the harness, or the fixtures.
 
-Cross-references (paths relative to `pkg/java/src/`):
-- Algorithm and detection-criterion rationale: `main/java/spade/query/quickgrail/CLARITY_METHODS.md`.
-- Public-facing reference: the wiki's [QuickGrail Reference](https://github.com/ashish-gehani/SPADE/wiki/QuickGrail-Reference) page.
-- Sources under test:
-  - `main/java/spade/query/quickgrail/instruction/GetContainerBoundary.java`
-  - `main/java/spade/query/quickgrail/instruction/GetContainerInit.java`
-  - `main/java/spade/query/quickgrail/core/QuickGrailQueryResolver.java` (dispatch and arg parsing)
+The test design and the behavior being tested are described in
+`pkg/java/src/main/java/spade/query/quickgrail/CLARITY_METHODS.md` (§9).
 
 ## Environment
 
 | | |
 |---|---|
 | Date | 2026-09-16 |
-| Branch | `clarity-of-container`, rebased onto upstream `master` at `1ff51190` |
-| Tested revision | the commit that last changed this file |
+| Branch | `clarity-of-container`, based on upstream `prov-query` at `1ff51190` |
+| Tested revision | `04959e57` (the commit that adds this file changes only documentation) |
 | OS | Windows 11 Pro 10.0.26200 |
-| JDK | OpenJDK 21.0.2 (2024-01-16) from https://jdk.java.net/archive/ |
+| JDK | OpenJDK 21.0.2 from https://jdk.java.net/archive/ |
 | Build | Apache Maven 3.9.16, `maven-surefire-plugin` 3.5.5 |
-| Test framework | JUnit Jupiter 6.0.3 (`junit-jupiter-api`, per `pkg/java/pom.xml`) |
+| Test framework | JUnit Jupiter 6.0.3 |
+
+Command, run in `pkg/java`:
+
+```
+mvn test -Dtest='InMemoryQueryHarnessTest,GetContainer*Test,LinuxConstantsTest'
+```
+
+`pkg/java/cfg` is a git symbolic link to the root `cfg` directory, and
+Windows checks it out as a plain file. For this run it was temporarily
+replaced with a directory junction. The resolver tests read
+`cfg/spade.reporter.Audit.config` and the Linux constants file through it.
 
 ## Summary
 
 ```
-GetContainerBoundaryTest .............. 5/5 PASS  (0.008 s)
-GetContainerInitTest .................. 5/5 PASS  (0.009 s)
-GetContainerBoundaryIntegrationTest ... 6/6 PASS  (0.361 s)
-GetContainerInitIntegrationTest ....... 6/6 PASS  (0.025 s)
------------------------------------------------------------
-Total                                  22/22 PASS
+LinuxConstantsTest ................................................  2/2   PASS
+InMemoryQueryHarnessTest ..........................................  5/5   PASS
+GetContainerInitTest ..............................................  6/6   PASS
+GetContainerBoundaryTest ..........................................  9/9   PASS
+GetContainerInitIntegrationTest$PostgreSQLAndQuickstepAdjacency ... 18/18  PASS
+GetContainerInitIntegrationTest$Neo4jAdjacency .................... 18/18  PASS
+GetContainerBoundaryIntegrationTest$PostgreSQLAndQuickstepAdjacency 12/12  PASS
+GetContainerBoundaryIntegrationTest$Neo4jAdjacency ................ 12/12  PASS
+--------------------------------------------------------------------------------
+Total                                                                82/82  PASS
 ```
 
-Times are Surefire's per-class elapsed times. The first integration class
-to run also pays for one-time JVM class loading (including `Settings`), so
-its time is inflated relative to the others; expect drift on other hardware.
+Surefire reported `Tests run: 82, Failures: 0, Errors: 0, Skipped: 0` and
+`BUILD SUCCESS`. Each class took under 0.3 s.
 
-## Per-class breakdown
+## Per-class results
 
-### `GetContainerBoundaryTest` — unit-level contract checks
-- `constructor_storesAllFieldsForSingleContainerForm` — fields round-trip from constructor arguments to public-final fields.
-- `constructor_allowsNullPidNamespaceForAllContainersForm` — a null `pidNamespaceId` is accepted as the no-arg form's sentinel.
-- `getLabel_returnsClassName` — the execution-plan printer sees `GetContainerBoundary`.
-- `getFieldStringItems_listsBothGraphsAndExplicitNamespace` — the inline name/value pairs the printer consumes are correct and 1:1.
-- `getFieldStringItems_serializesAllContainersFormWithSentinel` — null id renders as the literal `<all>` rather than `null`.
+### `LinuxConstantsTest`
+- PASS `procPidInitIno_isReadFromShippedConstantsFile`
+- PASS `procPidInitIno_isOptionalWhenLoadingButRequiredWhenRequested`
 
-### `GetContainerInitTest` — unit-level contract checks
-- `constructor_storesAllFields` — fields round-trip, including the int `maxDepth`.
-- `constructor_acceptsZeroDepthEvenThoughResolverRejectsIt` — the Instruction itself does not enforce the maxDepth-must-be-set policy; that policy is in the resolver. This pins the layering.
-- `getLabel_returnsClassName` — `GetContainerInit`.
-- `getFieldStringItems_listsBothGraphsAndMaxDepth` — name/value pairs correct.
-- `getFieldStringItems_serializesDepthAsDecimalNotHexOrOctal` — guard against accidental `Integer.toHexString` regressions.
+### `InMemoryQueryHarnessTest`
+- PASS `adjacency_postgresSemantics_addsEverySourceVertex`
+- PASS `adjacency_neo4jSemantics_addsSourcesOnlyThroughMatchingEdges`
+- PASS `adjacency_neo4jSemantics_requiresBothEndpointsInSubject`
+- PASS `subtract_removesPerComponent_andRejectsBaseSubtrahend`
+- PASS `comparisons_areStringOrdered_andLikeUsesSqlWildcards`
 
-### `GetContainerBoundaryIntegrationTest` — end-to-end against `InMemoryQueryHarness`
-Fixture: host (containerd + a host-only artifact) plus two container-labeled subgraphs (`ns_A`, `ns_B`) that both descend from the host daemon and each read their own copy of `/etc/passwd`.
-- `singleContainer_keepsOnlyChosenContainersProcessesAndAdjacentArtifacts` — container A's processes, the artifact A read, and the host daemon (adjacent via clone) all appear; B's processes/artifact and the host-only artifact do not.
-- `singleContainer_unknownPidNamespaceProducesEmptyGraph` — unknown namespace id yields empty result, no exception.
-- `singleContainer_disjointContainersProduceDisjointResults` — A's and B's results share only the host daemon.
-- `allContainers_unionsEveryLabeledContainersBoundary` — no-arg form unions both containers' boundaries while still excluding host-only data.
-- `resultEdges_alwaysHaveBothEndpointsInTheResultVertexSet` — spanning-subgraph invariant holds.
-- `singleContainer_exportedAnnotationsAreFaithful` — `ns_A`, `ns pid` = `1`, `type` = `Process` survive the extraction round-trip.
+### `GetContainerInitTest`
+- PASS `constructor_storesAllFields`
+- PASS `getLabel_returnsClassName`
+- PASS `getFieldStringItems_listsGraphsAndHostPidNamespace`
+- PASS `exec_rejectsMissingHostPidNamespace`
+- PASS `resolver_readsHostPidNamespaceFromTheAuditConstantsFile`: resolving `$base.getContainerInit()` gives `4026531836`
+- PASS `resolver_rejectsArguments`
 
-### `GetContainerInitIntegrationTest` — end-to-end against `InMemoryQueryHarness`
-Per-test fixtures so the chain topology is visible right next to the assertions.
-- `dockerLikeInitChain_isExtractedEndToEnd` — containerd → containerd-shim → runC → runC[Parent] → (clone-NEWPID) → runC[Child] → runC[INIT] → hello. Result spans from `hello` back to `runC[Parent]`, inclusive; everything above the boundary is excluded.
-- `unshareCase_yieldsThePostUnshareToCallerEdge` — single `unshare` edge between a host caller and a PID-1 post-unshare snapshot is captured exactly.
-- `noPid1Vertices_returnsEmptyGraphWithoutError` — a graph with only host processes returns empty cleanly.
-- `twoIndependentContainers_bothInitChainsAreExtracted` — a clone-based container and an unshare-based container in the same input each produce their own boundary edge + endpoints in the result.
-- `pid1ExistsButNoBoundaryEdges_throwsTruncationException` — a PID-1 vertex with no `unshare`/`clone` edges throws; the message contains the literal "no 'unshare' or PID-namespace-crossing 'clone'".
-- `depthZero_throwsCompletenessException` — `maxDepth = 0` throws; the message contains "maxDepth" so the user knows the env-var knob.
+### `GetContainerBoundaryTest`
+- PASS `constructors_storeTheirForm`
+- PASS `constructor_rejectsIdsThatAreNotContainers`: host ID, `-1`, empty ID, container number 0, null seed graph
+- PASS `getLabel_returnsClassName`
+- PASS `getFieldStringItems_listsTheFieldsOfEachForm`
+- PASS `resolver_noArguments_selectsEveryContainer`
+- PASS `resolver_stringArgument_selectsById`
+- PASS `resolver_stringAndInteger_selectsANumberedContainer`
+- PASS `resolver_graphArgument_selectsBySeedProcesses`
+- PASS `resolver_rejectsInvalidArguments`: three arguments, number 0, integer ID, string number, host ID, `-1`
 
-## Reproduction
+### `GetContainerInitIntegrationTest` (passed under both adjacency semantics)
+- PASS `dockerRun_returnsTheUnshareStepAndTheInitUpToTheApplication`
+- PASS `dockerExec_entersAContainerWithoutStartingOne`
+- PASS `dockerExecAlone_returnsNothing`
+- PASS `cloneWithNewPidNamespace_startsAContainer`
+- PASS `cloneWithNewPidNamespaceButNoSigchld_isRecordedAsCloneAndStillFound`
+- PASS `unshareThenExecve_theNewProgramsFirstChildIsTheInit`
+- PASS `creatorJoiningAnotherNamespaceFirst_includesThoseSteps`
+- PASS `nestedContainer_isReportedWithItsCreatorInsideTheOuterContainer`
+- PASS `laterChildrenOfTheSameUnshare_enterTheNamespace`
+- PASS `processReturningToEarlierLabels_startsTwoContainersAndThenJoinsTheFirst`
+- PASS `reusedNamespaceIdAndPids_startupsStaySeparate`
+- PASS `containerStartedBeforeTracing_isNotReported`
+- PASS `unshareBeforeTracing_isNotSeen`
+- PASS `unshareByProcessWithUnobservedNamespaces_isTakenAsJoining`
+- PASS `mountNamespaceOnHost_isNotAContainer`
+- PASS `emptyGraph_returnsNothing`
+- PASS `initThatNeverCallsExecve_failsLoudly`
+- PASS `reusedNamespaceIdAndPids_doNotHideAnInitThatNeverCallsExecve`
 
-These tests do not require a real database. They do require JDK 21,
-Maven, and the SPADE keystores.
+### `GetContainerBoundaryIntegrationTest` (passed under both adjacency semantics)
+- PASS `everyContainer_isItsProcessesWhatTheyTouchAndTheEdgesBetween`
+- PASS `pidNamespaceId_selectsThatContainerOnly`
+- PASS `containerRunningBeforeTracing_isOneContainer`
+- PASS `unknownPidNamespaceId_returnsNothing_butANumberedContainerMustExist`
+- PASS `emptyGraph_returnsNothing`
+- PASS `reusedPidNamespaceId_failsListingTheContainers`
+- PASS `reusedPidNamespaceId_numberSelectsOneContainer`
+- PASS `reusedPidNamespaceId_allContainersStillReturnsEveryProcess`
+- PASS `container_includesContainersStartedInsideIt`
+- PASS `nestedContainer_belongsOnlyToTheOuterContainerThatStartedIt`
+- PASS `seedProcesses_selectTheContainersTheyBelongTo`
+- PASS `seedProcessesOutsideContainers_selectNothing`
 
-```bash
-# 1. JDK 21 and Maven on PATH (JAVA_HOME pointing at the JDK).
+## Planted bugs
 
-# 2. Keystores. The top-level `make` generates them before building
-#    pkg/java; if you are running Maven directly, generate them once from
-#    the repository root. Settings.<clinit> aborts the JVM if they are
-#    missing, and Settings is loaded transitively from
-#    QueryInstructionExecutor's constructor (via DiscrepancyDetector).
-bin/keys/generatekeys.sh
+To check that the tests detect wrong behavior, each bug below was planted
+into `ContainerAnalysis` or `GetContainerInit` by itself. The affected
+method's integration tests were rerun (M1–M4 for `getContainerInit`, M5–M10
+for `getContainerBoundary`), and the code was then restored and confirmed
+identical. Every bug made the listed tests fail under both adjacency
+semantics.
 
-# 3. Run the four classes from the Java package. The first run needs
-#    network access to resolve Maven Central dependencies and the JUnit
-#    platform engine/launcher; afterwards `-o` (offline) works.
-cd pkg/java
-mvn test -Dtest='GetContainer*Test'
-```
+Surefire merges same-named failures from the two `@Nested` classes into one
+entry with "Run 1" and "Run 2", so each failing test there covers both.
 
-A successful run reports `Tests run: 22, Failures: 0, Errors: 0, Skipped: 0`
-and `BUILD SUCCESS`.
+| # | Planted bug | Failing tests |
+|---|---|---|
+| M1 | Every child after an unshare is a start | `laterChildrenOfTheSameUnshare_enterTheNamespace`, `processReturningToEarlierLabels_startsTwoContainersAndThenJoinsTheFirst` |
+| M2 | Init versions continue past the first execve | `dockerRun_returnsTheUnshareStepAndTheInitUpToTheApplication` |
+| M3 | A version is stopped by its own kind of namespace change | `processReturningToEarlierLabels_startsTwoContainersAndThenJoinsTheFirst` |
+| M4 | Children after an unshare grouped by namespace ID only, ignoring when the namespace was created | `reusedNamespaceIdAndPids_startupsStaySeparate`, `reusedNamespaceIdAndPids_doNotHideAnInitThatNeverCallsExecve` |
+| M5 | Containers have no time windows | `pidNamespaceId_selectsThatContainerOnly`, `reusedPidNamespaceId_numberSelectsOneContainer`, `container_includesContainersStartedInsideIt`, `nestedContainer_belongsOnlyToTheOuterContainerThatStartedIt`, `seedProcesses_selectTheContainersTheyBelongTo` |
+| M6 | Containers started inside a container are not included | `container_includesContainersStartedInsideIt`, `nestedContainer_belongsOnlyToTheOuterContainerThatStartedIt`, `seedProcesses_selectTheContainersTheyBelongTo` |
+| M7 | A nested container is attached to every container of its creator's ID | `nestedContainer_belongsOnlyToTheOuterContainerThatStartedIt`, `seedProcesses_selectTheContainersTheyBelongTo` |
+| M8 | A seed process selects the earliest container of its ID | `seedProcesses_selectTheContainersTheyBelongTo` |
+| M9 | No container "running when tracing started" | `containerRunningBeforeTracing_isOneContainer`, `reusedPidNamespaceId_failsListingTheContainers`, `reusedPidNamespaceId_numberSelectsOneContainer` |
+| M10 | `seen time` ignored when placing processes in containers | `reusedPidNamespaceId_numberSelectsOneContainer`, `seedProcesses_selectTheContainersTheyBelongTo` |
 
-## Notes worth surfacing
+## Whole test suite
 
-- **Keystore dependency is incidental, not load-bearing.** The methods
-  themselves do not touch SSL. The dependency comes from
-  `QueryInstructionExecutor`'s constructor instantiating a
-  `DiscrepancyDetector`, which triggers `Settings.<clinit>` and a
-  fatal `System.exit(-1)` when the keystores are missing. This is a
-  global SPADE setup quirk that any in-process test against the
-  executor inherits.
-- **`pkg/java/cfg` is a symlink.** Surefire runs tests with
-  `pkg/java` as the working directory, and `Settings` resolves
-  `cfg/...` relative to it, so the symlink to the root `cfg/` must
-  resolve. On Linux and macOS it does. On a Windows checkout with
-  `core.symlinks=false`, Git writes a small placeholder file instead,
-  and the integration tests abort at `Settings.<clinit>`. The run
-  above temporarily replaced the placeholder with a directory junction
-  to the root `cfg/` and restored the tracked file afterwards.
-- **In-memory harness, not a mocking framework.** The harness
-  (`test/java/spade/query/quickgrail/instruction/InMemoryQueryHarness.java`)
-  is a real subclass of `QueryInstructionExecutor` and
-  `AbstractQueryEnvironment` with the primitives written out by hand.
-  Any primitive the methods do not call throws
-  `UnsupportedOperationException`, which is how the harness keeps the
-  blast radius of "we accidentally added a primitive call" visible.
+Running every test in `pkg/java` (`-Dtest='**/*Test*'`) gave 349 tests, 5 of
+them failing. None of the failures is in code this branch touches, and all
+5 are caused by Windows:
+
+| Test | Cause |
+|---|---|
+| `spade.utility.setting.convert.FilesTest`: `rejectsNonReadableFile`, `rejectsNonExecutableFile`, `rejectsNonWritableDirectory`, `rejectsCreatableDirectoryWhenExistingDirectoryNotWritable` | `File.setReadable(false)`, `setExecutable(false)` and `setWritable(false)` have no effect on Windows |
+| `spade.utility.setting.SettingTest.parsesTextFileReference` | The test resource is checked out with CRLF line endings; the test expects `\n` |
+
+Upstream last changed those tests in `1ff51190`, the base of this branch.
+
+## Not covered
+
+- Real storage backends (PostgreSQL, Neo4j, Quickstep). The harness follows
+  their semantics, but the methods have not run against a database.
+- Real Audit reporter traces. The fixtures follow the reporter's source code;
+  validating against real `docker run` and `docker exec` traces is pending.
