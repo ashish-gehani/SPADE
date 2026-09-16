@@ -21,240 +21,449 @@ package spade.query.quickgrail.instruction;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static spade.query.quickgrail.instruction.ContainerTrace.HOST;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.TreeSet;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import spade.query.execution.Context;
+import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.entities.Graph;
+import spade.query.quickgrail.instruction.ContainerTrace.Process;
+import spade.query.quickgrail.instruction.InMemoryQueryHarness.AdjacencySemantics;
 
 /**
- * Integration tests for {@link GetContainerInit}. Fixtures are built in
- * each test (rather than a shared {@code @Before}) so that the chain
- * topology is visible right next to the assertion that depends on it.
- *
- * Conventions follow OPM as SPADE materializes it: edges go from child
- * to parent (the child {@code WasTriggeredBy} the parent), so a clone
- * edge {@code C → P} reads as "P called clone() and got C as a child".
+ * {@link GetContainerInit} on traces shaped like the Audit reporter's output
+ * (see {@link ContainerTrace}). Every scenario runs under both adjacency
+ * semantics of the storage backends.
  */
 public class GetContainerInitIntegrationTest{
 
-	private InMemoryQueryHarness harness;
-	private Context ctx;
-
-	@BeforeEach
-	public void setUp(){
-		harness = new InMemoryQueryHarness();
-		ctx = new Context(harness.executor);
+	@Nested
+	class PostgreSQLAndQuickstepAdjacency extends Scenarios{
+		PostgreSQLAndQuickstepAdjacency(){
+			super(AdjacencySemantics.SOURCES_ALWAYS);
+		}
 	}
 
-	private Set<String> vertexHashesOf(final Graph g){
-		return harness.executor.exportVertices(g).keySet();
+	@Nested
+	class Neo4jAdjacency extends Scenarios{
+		Neo4jAdjacency(){
+			super(AdjacencySemantics.SOURCES_VIA_EDGES);
+		}
 	}
 
-	private Set<String> edgeHashesOf(final Graph g){
-		return harness.executor.exportEdges(g).stream()
-				.map(e -> e.edgeHash).collect(Collectors.toSet());
-	}
+	abstract static class Scenarios{
 
-	// =========================================================================
-	// Happy path: Docker-style clone-into-new-PID-namespace + execve chain
-	// =========================================================================
+		static final String CONTAINER = "4026532270", OTHER_CONTAINER = "4026532280", NESTED = "4026532290";
 
-	@Test
-	public void dockerLikeInitChain_isExtractedEndToEnd(){
-		// Host side (no `pid namespace`):
-		//   v_containerd, v_shim, v_runc, v_runc_parent
-		// In-container (ns pid == "1", pid namespace == "ns_X"):
-		//   v_runc_child, v_runc_init, v_hello  (three execve snapshots of the
-		//   same PID-1 process, ending with the user's app)
-		harness.putVertex("v_containerd",  "type", "Process", "name", "containerd");
-		harness.putVertex("v_shim",        "type", "Process", "name", "containerd-shim");
-		harness.putVertex("v_runc",        "type", "Process", "name", "runC");
-		harness.putVertex("v_runc_parent", "type", "Process", "name", "runC[Parent]");
-		harness.putVertex("v_runc_child",  "type", "Process", "name", "runC[Child]",
-				"ns pid", "1", "pid namespace", "ns_X");
-		harness.putVertex("v_runc_init",   "type", "Process", "name", "runC[INIT]",
-				"ns pid", "1", "pid namespace", "ns_X");
-		harness.putVertex("v_hello",       "type", "Process", "name", "hello",
-				"ns pid", "1", "pid namespace", "ns_X");
+		private final AdjacencySemantics semantics;
+		InMemoryQueryHarness harness;
+		ContainerTrace trace;
 
-		// Clone chain (child → parent) walking up to the daemon.
-		harness.putEdge("e_clone_1", "v_shim",        "v_containerd",  "clone");
-		harness.putEdge("e_clone_2", "v_runc",        "v_shim",        "clone");
-		harness.putEdge("e_clone_3", "v_runc_parent", "v_runc",        "clone");
-		// THE boundary-crossing clone — child becomes PID 1 in the new namespace:
-		harness.putEdge("e_clone_4", "v_runc_child",  "v_runc_parent", "clone");
-		// Execve chain inside the container:
-		harness.putEdge("e_execve_1", "v_runc_init",  "v_runc_child", "execve");
-		harness.putEdge("e_execve_2", "v_hello",      "v_runc_init",  "execve");
+		Scenarios(final AdjacencySemantics semantics){
+			this.semantics = semantics;
+		}
 
-		final Graph target = harness.env.allocateGraph();
-		harness.executor.createEmptyGraph(target);
-		new GetContainerInit(target, harness.baseGraph, 10).exec(ctx);
+		@BeforeEach
+		void setUp(){
+			harness = new InMemoryQueryHarness(semantics);
+			trace = new ContainerTrace(harness);
+		}
 
-		final Set<String> vertices = vertexHashesOf(target);
-		final Set<String> edges = edgeHashesOf(target);
+		// ---------------------------------------------------------------------
+		// Scenario building blocks
 
-		// Every step from the in-container app back to the boundary-crossing
-		// caller must be present.
-		assertTrue(vertices.contains("v_hello"), "in-container app must be in result");
-		assertTrue(vertices.contains("v_runc_init"), "intermediate execve target must be in result");
-		assertTrue(vertices.contains("v_runc_child"), "PID-1 child (clone destination) must be in result");
-		assertTrue(vertices.contains("v_runc_parent"),
-				"clone caller (boundary-crossing destination) must be in result");
+		/** runc starting a container for docker run: containerd-shim → runc → stages 0, 1 and 2. */
+		final class DockerRun{
+			final Process stage1, stage1Unshared, init, initCgroupUnshared, application;
 
-		// Per §4.2.2, the pattern STARTS at the boundary-crossing event, so
-		// the engine chain above runC[Parent] is intentionally not in the
-		// init subgraph (the prose definition in the paper does not extend
-		// to it; only the figures show it as adjacent context).
-		assertFalse(vertices.contains("v_runc"), "host-side runC (above the boundary) must not appear");
-		assertFalse(vertices.contains("v_shim"), "host-side containerd-shim must not appear");
-		assertFalse(vertices.contains("v_containerd"), "host-side containerd daemon must not appear");
+			/** @param applicationName null for a container whose init never calls execve */
+			DockerRun(final Process shim, final String pidNamespace, final int firstPid,
+					final String applicationName){
+				final Process runc = trace.execve(
+						trace.spawn(shim, "containerd-shim", pid(firstPid), "SIGCHLD", HOST), "runc");
+				final Process stage0 = trace.execve(
+						trace.spawn(runc, "runc", pid(firstPid + 1), "CLONE_VM|CLONE_VFORK|SIGCHLD", HOST),
+						"runc:[0:PARENT]");
+				stage1 = trace.spawn(stage0, "runc:[0:PARENT]", pid(firstPid + 2), "CLONE_PARENT|SIGCHLD", HOST);
+				stage1Unshared = trace.unshare(stage1,
+						"CLONE_NEWNS|CLONE_NEWUTS|CLONE_NEWIPC|CLONE_NEWNET|CLONE_NEWPID", pidNamespace);
+				init = trace.spawn(stage1Unshared, "runc:[1:CHILD]", pid(firstPid + 3), "CLONE_PARENT|SIGCHLD",
+						pidNamespace);
+				initCgroupUnshared = trace.unshare(init, "CLONE_NEWCGROUP", null);
+				// Go runtime threads of runc init
+				trace.spawn(initCgroupUnshared, "runc:[2:INIT]", pid(firstPid + 4),
+						"CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS",
+						pidNamespace);
+				application = applicationName == null ? null : trace.execve(initCgroupUnshared, applicationName);
+			}
 
-		// All path edges must be present; the clone edges above the boundary
-		// (and any edge missing one in-result endpoint) must not.
-		assertTrue(edges.contains("e_execve_2"));
-		assertTrue(edges.contains("e_execve_1"));
-		assertTrue(edges.contains("e_clone_4"));
-		assertFalse(edges.contains("e_clone_3"), "clone above the boundary must not appear");
-		assertFalse(edges.contains("e_clone_2"));
-		assertFalse(edges.contains("e_clone_1"));
-	}
+			/** The initialization subgraph: unshare step, init creation, init versions up to the application. */
+			Set<String> vertices(){
+				return set(stage1.hash, stage1Unshared.hash, init.hash, initCgroupUnshared.hash, application.hash);
+			}
 
-	// =========================================================================
-	// Unshare variant
-	// =========================================================================
+			Set<String> edges(){
+				return set(trace.edge(stage1Unshared, stage1), trace.edge(init, stage1Unshared),
+						trace.edge(initCgroupUnshared, init), trace.edge(application, initCgroupUnshared));
+			}
+		}
 
-	@Test
-	public void unshareCase_yieldsThePostUnshareToCallerEdge(){
-		// Models a process that called unshare(CLONE_NEWPID|CLONE_NEWNS|…):
-		//   pre-unshare snapshot (host-side) → post-unshare snapshot (PID 1 in new ns)
-		harness.putVertex("v_caller",       "type", "Process", "name", "engine_pre_unshare");
-		harness.putVertex("v_post_unshare", "type", "Process", "name", "engine_post_unshare",
-				"ns pid", "1", "pid namespace", "ns_U");
-		// op == "unshare" boundary edge.
-		harness.putEdge("e_unshare", "v_post_unshare", "v_caller", "unshare");
+		/** runc running a command in an existing container for docker exec. */
+		final class DockerExec{
+			final Process joined, process, command;
 
-		final Graph target = harness.env.allocateGraph();
-		harness.executor.createEmptyGraph(target);
-		new GetContainerInit(target, harness.baseGraph, 10).exec(ctx);
+			DockerExec(final Process shim, final DockerRun container, final int firstPid, final String commandName){
+				final Process runc = trace.execve(
+						trace.spawn(shim, "containerd-shim", pid(firstPid), "SIGCHLD", HOST), "runc");
+				final Process stage0 = trace.execve(
+						trace.spawn(runc, "runc", pid(firstPid + 1), "CLONE_VM|CLONE_VFORK|SIGCHLD", HOST),
+						"runc:[0:PARENT]");
+				final Process stage1 = trace.spawn(stage0, "runc:[0:PARENT]", pid(firstPid + 2),
+						"CLONE_PARENT|SIGCHLD", HOST);
+				joined = trace.setnsMount(trace.setnsPid(stage1, container.init.pidNamespace),
+						container.init.mountNamespace);
+				process = trace.spawn(joined, "runc:[1:CHILD]", pid(firstPid + 3), "CLONE_PARENT|SIGCHLD",
+						container.init.pidNamespace);
+				command = trace.execve(process, commandName);
+			}
+		}
 
-		final Set<String> vertices = vertexHashesOf(target);
-		final Set<String> edges = edgeHashesOf(target);
+		Process shim(){
+			return trace.preexisting("containerd-shim", "1200");
+		}
 
-		assertTrue(vertices.contains("v_post_unshare"), "post-unshare PID-1 vertex must be in result");
-		assertTrue(vertices.contains("v_caller"), "unshare caller must be in result");
-		assertTrue(edges.contains("e_unshare"), "the unshare edge itself must be in result");
-	}
+		/** A host process started in the trace, running `program`. */
+		Process hostProgram(final String program, final int pid){
+			final Process shell = trace.preexisting("bash", "800");
+			return trace.execve(trace.spawn(shell, "bash", pid(pid), "SIGCHLD", HOST), program);
+		}
 
-	// =========================================================================
-	// No-containers edge case (no PID-1 vertices anywhere)
-	// =========================================================================
+		// ---------------------------------------------------------------------
+		// Running the method
 
-	@Test
-	public void noPid1Vertices_returnsEmptyGraphWithoutError(){
-		// Only host-side processes, no container labeling at all.
-		harness.putVertex("v_host_a", "type", "Process", "name", "a");
-		harness.putVertex("v_host_b", "type", "Process", "name", "b");
-		harness.putEdge("e_clone", "v_host_b", "v_host_a", "clone");
+		final class Result{
+			final Set<String> vertices = new TreeSet<String>();
+			final Set<String> edges = new TreeSet<String>();
 
-		final Graph target = harness.env.allocateGraph();
-		harness.executor.createEmptyGraph(target);
-		new GetContainerInit(target, harness.baseGraph, 10).exec(ctx);
+			void assertEmpty(){
+				assertEquals(set(), vertices, "vertices");
+				assertEquals(set(), edges, "edges");
+			}
+		}
 
-		assertEquals(0L, harness.executor.getGraphCount(target).getVertices(),
-				"an input with no containers must produce an empty result, not an error");
-		assertEquals(0L, harness.executor.getGraphCount(target).getEdges());
-	}
+		Result getContainerInit(){
+			final Graph target = harness.executor.createNewGraph();
+			new GetContainerInit(target, harness.baseGraph, HOST).exec(new Context(harness.executor));
+			final Result result = new Result();
+			result.vertices.addAll(harness.executor.exportVertices(target).keySet());
+			for(final QueriedEdge edge : harness.executor.exportEdges(target)){
+				result.edges.add(edge.edgeHash);
+			}
+			return result;
+		}
 
-	// =========================================================================
-	// Two independent containers
-	// =========================================================================
+		ContainerAnalysis.Crossings crossings(){
+			return new ContainerAnalysis(harness.executor, harness.baseGraph, HOST).crossings();
+		}
 
-	@Test
-	public void twoIndependentContainers_bothInitChainsAreExtracted(){
-		// Container X: a clone-NEWPID-style init.
-		harness.putVertex("v_x_parent", "type", "Process", "name", "x_caller");
-		harness.putVertex("v_x_child",  "type", "Process", "name", "x_init",
-				"ns pid", "1", "pid namespace", "ns_X");
-		harness.putEdge("e_x_clone", "v_x_child", "v_x_parent", "clone");
+		static List<String> children(final List<ContainerAnalysis.Crossing> crossings){
+			final List<String> hashes = new ArrayList<String>();
+			for(final ContainerAnalysis.Crossing crossing : crossings){
+				hashes.add(crossing.childHash);
+			}
+			return hashes;
+		}
 
-		// Container Y: an unshare-style init.
-		harness.putVertex("v_y_caller", "type", "Process", "name", "y_caller");
-		harness.putVertex("v_y_post",   "type", "Process", "name", "y_init",
-				"ns pid", "1", "pid namespace", "ns_Y");
-		harness.putEdge("e_y_unshare", "v_y_post", "v_y_caller", "unshare");
+		static Set<String> set(final String... values){
+			return new TreeSet<String>(Arrays.asList(values));
+		}
 
-		final Graph target = harness.env.allocateGraph();
-		harness.executor.createEmptyGraph(target);
-		new GetContainerInit(target, harness.baseGraph, 10).exec(ctx);
+		@SafeVarargs
+		static Set<String> union(final Set<String>... sets){
+			final Set<String> result = new TreeSet<String>();
+			for(final Set<String> set : sets){
+				result.addAll(set);
+			}
+			return result;
+		}
 
-		final Set<String> vertices = vertexHashesOf(target);
-		final Set<String> edges = edgeHashesOf(target);
+		static String pid(final int pid){
+			return String.valueOf(pid);
+		}
 
-		// Both containers' boundary-crossing vertices must appear.
-		assertTrue(vertices.contains("v_x_parent"));
-		assertTrue(vertices.contains("v_x_child"));
-		assertTrue(vertices.contains("v_y_caller"));
-		assertTrue(vertices.contains("v_y_post"));
+		// ---------------------------------------------------------------------
+		// Container starts
 
-		// Both boundary edges must appear.
-		assertTrue(edges.contains("e_x_clone"));
-		assertTrue(edges.contains("e_y_unshare"));
-	}
+		@Test
+		void dockerRun_returnsTheUnshareStepAndTheInitUpToTheApplication(){
+			final Process shim = shim();
+			final DockerRun run = new DockerRun(shim, CONTAINER, 4100, "nginx");
+			final Process worker = trace.spawn(run.application, "nginx", "4110", "SIGCHLD", CONTAINER);
+			trace.execve(run.application, "nginx-reloaded");
+			trace.writes(run.application, "/var/log/nginx/access.log");
+			trace.exit(worker);
 
-	// =========================================================================
-	// Defensive failure modes
-	// =========================================================================
+			final Result result = getContainerInit();
 
-	@Test
-	public void pid1ExistsButNoBoundaryEdges_throwsTruncationException(){
-		// PID-1 vertex but no unshare/clone edges at all — the trace was
-		// snipped before the boundary-crossing event. The method must not
-		// silently return half a chain; it must say so out loud.
-		harness.putVertex("v_inside", "type", "Process", "name", "stranded_init",
-				"ns pid", "1", "pid namespace", "ns_T");
-		harness.putVertex("v_file",   "type", "Artifact", "path", "/etc/passwd");
-		harness.putEdge("e_used", "v_inside", "v_file", "read");
+			assertEquals(run.vertices(), result.vertices);
+			assertEquals(run.edges(), result.edges);
+		}
 
-		final Graph target = harness.env.allocateGraph();
-		harness.executor.createEmptyGraph(target);
+		@Test
+		void dockerExec_entersAContainerWithoutStartingOne(){
+			final Process shim = shim();
+			final DockerRun run = new DockerRun(shim, CONTAINER, 4100, "nginx");
+			final DockerExec exec = new DockerExec(shim, run, 4200, "sh");
 
-		final RuntimeException e = assertThrows(RuntimeException.class,
-				() -> new GetContainerInit(target, harness.baseGraph, 10).exec(ctx),
-				"Expected a RuntimeException because no unshare/clone-NEWPID edges exist");
-		final String message = e.getMessage();
-		assertNotNull(message);
-		assertTrue(message.contains("no 'unshare' or PID-namespace-crossing 'clone'"),
-				"error must mention the missing boundary edges; got: " + message);
-	}
+			final ContainerAnalysis.Crossings crossings = crossings();
+			assertEquals(Arrays.asList(run.init.hash), children(crossings.inits));
+			assertEquals(Arrays.asList(exec.process.hash), children(crossings.entries));
 
-	@Test
-	public void depthZero_throwsCompletenessException(){
-		// Depth 0 means we never traverse any edge, so even the immediate
-		// clone caller is unreachable. This stresses the throw-on-incomplete
-		// guard described in CLARITY_METHODS.md.
-		harness.putVertex("v_caller", "type", "Process", "name", "engine");
-		harness.putVertex("v_init",   "type", "Process", "name", "init",
-				"ns pid", "1", "pid namespace", "ns_Z");
-		harness.putEdge("e_clone", "v_init", "v_caller", "clone");
+			final Result result = getContainerInit();
+			assertEquals(run.vertices(), result.vertices);
+			assertEquals(run.edges(), result.edges);
+		}
 
-		final Graph target = harness.env.allocateGraph();
-		harness.executor.createEmptyGraph(target);
+		@Test
+		void dockerExecAlone_returnsNothing(){
+			final Process container = trace.preexisting("nginx", "3000");
+			final Process worker = trace.spawn(container, "nginx", "3001", "SIGCHLD", CONTAINER);
+			final Process runc = hostProgram("runc", 4200);
+			final Process joined = trace.setnsPid(runc, CONTAINER);
+			trace.execve(trace.spawn(joined, "runc", "4201", "CLONE_PARENT|SIGCHLD", CONTAINER), "sh");
+			trace.exit(worker);
 
-		final RuntimeException e = assertThrows(RuntimeException.class,
-				() -> new GetContainerInit(target, harness.baseGraph, 0).exec(ctx),
-				"Expected a RuntimeException because no path could be traversed at depth 0");
-		final String message = e.getMessage();
-		assertNotNull(message);
-		assertTrue(message.contains("maxDepth"),
-				"error must mention maxDepth so the user knows the remediation; got: " + message);
+			getContainerInit().assertEmpty();
+		}
+
+		@Test
+		void cloneWithNewPidNamespace_startsAContainer(){
+			final Process lxc = hostProgram("lxc-start", 5000);
+			final Process child = trace.spawn(lxc, "lxc-start", "5001",
+					"CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUTS|CLONE_NEWIPC|CLONE_NEWNET|SIGCHLD", CONTAINER);
+			final Process init = trace.execve(child, "init");
+			trace.execve(trace.spawn(init, "init", "5002", "SIGCHLD", CONTAINER), "getty");
+
+			final Result result = getContainerInit();
+
+			assertEquals(set(lxc.hash, child.hash, init.hash), result.vertices);
+			assertEquals(set(trace.edge(child, lxc), trace.edge(init, child)), result.edges);
+		}
+
+		@Test
+		void cloneWithNewPidNamespaceButNoSigchld_isRecordedAsCloneAndStillFound(){
+			final Process sandbox = hostProgram("sandbox", 5100);
+			final Process child = trace.spawn(sandbox, "sandbox", "5101", "CLONE_NEWPID|CLONE_NEWNS", CONTAINER);
+			final Process app = trace.execve(child, "app");
+
+			final Result result = getContainerInit();
+
+			assertEquals(set(sandbox.hash, child.hash, app.hash), result.vertices);
+			assertEquals(set(trace.edge(child, sandbox), trace.edge(app, child)), result.edges);
+		}
+
+		@Test
+		void unshareThenExecve_theNewProgramsFirstChildIsTheInit(){
+			// unshare --pid bash: without --fork, bash's first child becomes PID 1
+			final Process tool = hostProgram("unshare", 6100);
+			final Process toolUnshared = trace.unshare(tool, "CLONE_NEWPID", CONTAINER);
+			final Process shell = trace.execve(toolUnshared, "bash");
+			final Process child = trace.spawn(shell, "bash", "6101", "SIGCHLD", CONTAINER);
+			final Process ls = trace.execve(child, "ls");
+
+			final Result result = getContainerInit();
+
+			assertEquals(set(tool.hash, toolUnshared.hash, shell.hash, child.hash, ls.hash), result.vertices);
+			assertEquals(set(trace.edge(toolUnshared, tool), trace.edge(shell, toolUnshared),
+					trace.edge(child, shell), trace.edge(ls, child)), result.edges);
+		}
+
+		@Test
+		void creatorJoiningAnotherNamespaceFirst_includesThoseSteps(){
+			final Process shim = shim();
+			final DockerRun other = new DockerRun(shim, OTHER_CONTAINER, 4100, "redis");
+			final Process stage1 = hostProgram("runc:[1:CHILD]", 4300);
+			final Process joined = trace.setnsMount(stage1, other.init.mountNamespace);
+			final Process unshared = trace.unshare(joined, "CLONE_NEWUTS|CLONE_NEWIPC|CLONE_NEWPID", CONTAINER);
+			final Process init = trace.spawn(unshared, "runc:[1:CHILD]", "4301", "CLONE_PARENT|SIGCHLD", CONTAINER);
+			final Process app = trace.execve(init, "app");
+
+			final Result result = getContainerInit();
+
+			assertEquals(union(other.vertices(), set(stage1.hash, joined.hash, unshared.hash, init.hash, app.hash)),
+					result.vertices);
+			assertEquals(union(other.edges(), set(trace.edge(joined, stage1), trace.edge(unshared, joined),
+					trace.edge(init, unshared), trace.edge(app, init))), result.edges);
+		}
+
+		@Test
+		void nestedContainer_isReportedWithItsCreatorInsideTheOuterContainer(){
+			final Process shim = shim();
+			final DockerRun outer = new DockerRun(shim, CONTAINER, 4100, "bash");
+			final Process tool = trace.execve(
+					trace.spawn(outer.application, "bash", "4120", "SIGCHLD", CONTAINER), "unshare");
+			final Process toolUnshared = trace.unshare(tool, "CLONE_NEWNS|CLONE_NEWPID", NESTED);
+			final Process innerInit = trace.spawn(toolUnshared, "unshare", "4121", "SIGCHLD", NESTED);
+			final Process innerShell = trace.execve(innerInit, "sh");
+
+			final Result result = getContainerInit();
+
+			assertEquals(union(outer.vertices(), set(tool.hash, toolUnshared.hash, innerInit.hash, innerShell.hash)),
+					result.vertices);
+			assertEquals(union(outer.edges(), set(trace.edge(toolUnshared, tool), trace.edge(innerInit, toolUnshared),
+					trace.edge(innerShell, innerInit))), result.edges);
+		}
+
+		@Test
+		void laterChildrenOfTheSameUnshare_enterTheNamespace(){
+			final Process sandbox = hostProgram("sandbox", 6000);
+			final Process unshared = trace.unshare(sandbox, "CLONE_NEWPID", CONTAINER);
+			final Process first = trace.spawn(unshared, "sandbox", "6001", "SIGCHLD", CONTAINER);
+			final Process second = trace.sameMillisecond().spawn(unshared, "sandbox", "6002", "SIGCHLD", CONTAINER);
+			final Process firstApp = trace.execve(first, "sh");
+			trace.execve(second, "helper");
+
+			final ContainerAnalysis.Crossings crossings = crossings();
+			assertEquals(Arrays.asList(first.hash), children(crossings.inits));
+			assertEquals(Arrays.asList(second.hash), children(crossings.entries));
+
+			final Result result = getContainerInit();
+			assertEquals(set(sandbox.hash, unshared.hash, first.hash, firstApp.hash), result.vertices);
+			assertEquals(set(trace.edge(unshared, sandbox), trace.edge(first, unshared),
+					trace.edge(firstApp, first)), result.edges);
+		}
+
+		@Test
+		void processReturningToEarlierLabels_startsTwoContainersAndThenJoinsTheFirst(){
+			final Process sandbox = hostProgram("sandbox", 6200);
+			final Process intoFirst = trace.unshare(sandbox, "CLONE_NEWPID", CONTAINER);
+			final Process firstInit = trace.spawn(intoFirst, "sandbox", "6201", "SIGCHLD", CONTAINER);
+			final Process firstApp = trace.execve(firstInit, "sh");
+			final Process restored = trace.setnsPid(intoFirst, HOST);
+			final Process intoSecond = trace.unshare(restored, "CLONE_NEWPID", OTHER_CONTAINER);
+			final Process secondInit = trace.spawn(intoSecond, "sandbox", "6202", "SIGCHLD", OTHER_CONTAINER);
+			final Process secondApp = trace.execve(secondInit, "sh");
+			final Process rejoined = trace.setnsPid(trace.setnsPid(intoSecond, HOST), CONTAINER);
+			final Process helper = trace.spawn(rejoined, "sandbox", "6203", "SIGCHLD", CONTAINER);
+			trace.execve(helper, "helper");
+			// The reporter reuses vertices for labels a process had before
+			assertEquals(sandbox.hash, restored.hash);
+			assertEquals(intoFirst.hash, rejoined.hash);
+
+			final ContainerAnalysis.Crossings crossings = crossings();
+			assertEquals(Arrays.asList(firstInit.hash, secondInit.hash), children(crossings.inits));
+			assertEquals(Arrays.asList(helper.hash), children(crossings.entries));
+
+			final Result result = getContainerInit();
+			assertEquals(set(sandbox.hash, intoFirst.hash, intoSecond.hash, firstInit.hash, secondInit.hash,
+					firstApp.hash, secondApp.hash), result.vertices);
+			assertFalse(result.vertices.contains(helper.hash));
+		}
+
+		@Test
+		void reusedNamespaceIdAndPids_startupsStaySeparate(){
+			final Process shim = shim();
+			final DockerRun first = new DockerRun(shim, CONTAINER, 4100, "nginx");
+			trace.exit(first.application);
+			final DockerRun second = new DockerRun(shim, CONTAINER, 4100, "redis");
+
+			final ContainerAnalysis.Crossings crossings = crossings();
+			assertEquals(Arrays.asList(first.init.hash, second.init.hash), children(crossings.inits));
+			assertEquals(set(), new TreeSet<String>(children(crossings.entries)));
+
+			final Result result = getContainerInit();
+			assertEquals(union(first.vertices(), second.vertices()), result.vertices);
+			assertEquals(union(first.edges(), second.edges()), result.edges);
+		}
+
+		// ---------------------------------------------------------------------
+		// Nothing to report
+
+		@Test
+		void containerStartedBeforeTracing_isNotReported(){
+			final Process master = trace.preexisting("nginx", "3000");
+			final Process worker = trace.spawn(master, "nginx", "3050", "SIGCHLD", CONTAINER);
+			trace.execve(worker, "logrotate");
+
+			getContainerInit().assertEmpty();
+		}
+
+		@Test
+		void unshareBeforeTracing_isNotSeen(){
+			// Limitation: the namespace change happened before tracing, so the first child is not known as PID 1
+			final Process tool = trace.preexisting("unshare", "3100");
+			final Process child = trace.spawn(tool, "unshare", "3101", "SIGCHLD", CONTAINER);
+			trace.execve(child, "sh");
+
+			getContainerInit().assertEmpty();
+		}
+
+		@Test
+		void unshareByProcessWithUnobservedNamespaces_isTakenAsJoining(){
+			// It may have been an unshare of another namespace type after an unshare(CLONE_NEWPID) before tracing
+			final Process sandbox = trace.preexisting("sandbox", "3200");
+			final Process unshared = trace.unobservedStep(sandbox, "unshare", HOST, CONTAINER);
+			final Process child = trace.spawn(unshared, "sandbox", "3201", "SIGCHLD", CONTAINER);
+			trace.execve(child, "sh");
+
+			final ContainerAnalysis.Crossings crossings = crossings();
+			assertEquals(Arrays.asList(), children(crossings.inits));
+			assertEquals(Arrays.asList(child.hash), children(crossings.entries));
+			getContainerInit().assertEmpty();
+		}
+
+		@Test
+		void mountNamespaceOnHost_isNotAContainer(){
+			final Process session = trace.spawn(trace.preexisting("sshd", "700"), "sshd", "7000", "SIGCHLD", HOST);
+			final Process privateMounts = trace.unshare(session, "CLONE_NEWNS", null);
+			trace.execve(trace.spawn(privateMounts, "sshd", "7001", "SIGCHLD", HOST), "bash");
+
+			getContainerInit().assertEmpty();
+		}
+
+		@Test
+		void emptyGraph_returnsNothing(){
+			getContainerInit().assertEmpty();
+		}
+
+		// ---------------------------------------------------------------------
+		// Incomplete starts
+
+		@Test
+		void initThatNeverCallsExecve_failsLoudly(){
+			final DockerRun run = new DockerRun(shim(), CONTAINER, 4100, null);
+
+			final RuntimeException error = assertThrows(RuntimeException.class, () -> getContainerInit());
+
+			assertTrue(error.getMessage().startsWith(
+					"getContainerInit: 1 container init process(es) never reached execve in this trace: "),
+					error.getMessage());
+			assertTrue(error.getMessage().contains("(host pid " + run.init.pid + ", pid namespace " + CONTAINER + ")"),
+					error.getMessage());
+		}
+
+		@Test
+		void reusedNamespaceIdAndPids_doNotHideAnInitThatNeverCallsExecve(){
+			final Process shim = shim();
+			final DockerRun first = new DockerRun(shim, CONTAINER, 4100, "nginx");
+			trace.exit(first.application);
+			final DockerRun second = new DockerRun(shim, CONTAINER, 4100, null);
+			assertEquals(first.init.pid, second.init.pid);
+
+			final RuntimeException error = assertThrows(RuntimeException.class, () -> getContainerInit());
+
+			assertTrue(error.getMessage().contains(" 1 container init process(es) "), error.getMessage());
+		}
 	}
 }

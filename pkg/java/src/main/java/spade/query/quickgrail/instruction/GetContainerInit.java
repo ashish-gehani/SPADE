@@ -21,50 +21,50 @@ package spade.query.quickgrail.instruction;
 
 import java.util.ArrayList;
 import java.util.Map;
-import java.util.Set;
 
 import spade.query.execution.Context;
-import spade.query.quickgrail.core.GraphStatistic;
 import spade.query.quickgrail.core.Instruction;
-import spade.query.quickgrail.core.QueriedEdge;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
-import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
 import spade.query.quickgrail.entities.Graph;
+import spade.query.quickgrail.instruction.GetLineage.Direction;
 import spade.query.quickgrail.utility.TreeStringSerializable;
-import spade.reporter.audit.OPMConstants;
 
 /**
- * Extract the subgraph representing container initialization activity.
+ * Extract the subgraph of container initialization activity.
  *
- * CLARION (USENIX Security 2021) §4.2.2 defines the init pattern as
- * starting with an `unshare` (or `clone` with a new namespace flag) and
- * ending with an `execve` that launches the in-container application;
- * the resulting in-container process has `ns pid` == '1'.
+ * CLARION (USENIX Security 2021) §4.2.2: initialization starts with an unshare
+ * or a clone that creates a new PID namespace, and ends with the execve that
+ * launches the application inside the container.
  *
- * Algorithm:
- *   ends    = vertices with `ns pid` == '1'
- *   starts  = destination endpoints of (`unshare` edges ∪
- *             `clone` edges whose child is in `ends`)
- *   target  = simple paths from `ends` to `starts`, bounded by maxDepth
+ * For every container start found in the subject graph, including containers
+ * nested inside other containers, the result holds:
+ *   - the unshare/setns steps of the process that created the container,
+ *   - the creation edge into the new PID namespace,
+ *   - the versions of the container's first process up to and including its
+ *     first execve, which runs the application, with the edges between them.
  *
- * The path search is bounded by the `maxDepth` environment variable.
- * If any detected init start is not reachable from an `ns pid` == '1'
- * endpoint within that depth, the query fails with a clear message so
- * the user can raise `maxDepth` and retry.
+ * Processes are linked through edges only, never through `pid` or `pid namespace`
+ * values, because both are reused within a run. A container that started before
+ * tracing has no recorded start and is not reported. If a container's first
+ * process never reaches execve in the trace, the query fails, since the result
+ * would not show a complete initialization.
  *
  * Signature:
  *   $r = $base.getContainerInit()
  */
 public class GetContainerInit extends Instruction<String>{
 
+	private static final int MAX_PROCESSES_IN_ERROR = 5;
+
 	public final Graph targetGraph;
 	public final Graph subjectGraph;
-	public final int maxDepth;
+	/** `pid namespace` value of host processes, i.e. the kernel's PROC_PID_INIT_INO. */
+	public final String hostPidNamespace;
 
-	public GetContainerInit(final Graph targetGraph, final Graph subjectGraph, final int maxDepth){
+	public GetContainerInit(final Graph targetGraph, final Graph subjectGraph, final String hostPidNamespace){
 		this.targetGraph = targetGraph;
 		this.subjectGraph = subjectGraph;
-		this.maxDepth = maxDepth;
+		this.hostPidNamespace = hostPidNamespace;
 	}
 
 	@Override
@@ -83,88 +83,69 @@ public class GetContainerInit extends Instruction<String>{
 		inline_field_values.add(targetGraph.name);
 		inline_field_names.add("subjectGraph");
 		inline_field_values.add(subjectGraph.name);
-		inline_field_names.add("maxDepth");
-		inline_field_values.add(String.valueOf(maxDepth));
+		inline_field_names.add("hostPidNamespace");
+		inline_field_values.add(hostPidNamespace);
 	}
 
 	@Override
 	public final String exec(final Context ctx){
 		final QueryInstructionExecutor executor = ctx.getExecutor();
+		final ContainerAnalysis analysis = new ContainerAnalysis(executor, subjectGraph, hostPidNamespace);
 
-		final Graph pid1Vertices = executor.createNewGraph();
-		executor.getVertex(pid1Vertices, subjectGraph,
-				OPMConstants.PROCESS_NS_PID,
-				PredicateOperator.EQUAL,
-				"1",
-				true);
-
-		if(executor.getGraphCount(pid1Vertices).getVertices() == 0){
-			// No PID-1 vertices means there is nothing labeled as an in-container
-			// init process in the input graph. Return an empty target.
+		final ContainerAnalysis.Crossings crossings = analysis.crossings();
+		if(crossings.inits.isEmpty()){
 			return null;
 		}
 
-		final Graph unshareEdges = executor.createNewGraph();
-		executor.getEdge(unshareEdges, subjectGraph,
-				OPMConstants.EDGE_OPERATION,
-				PredicateOperator.EQUAL,
-				OPMConstants.OPERATION_UNSHARE,
-				true);
+		// Each container's first process until it runs another program: the application
+		final Graph beforeApplication = analysis.closure(analysis.sameProgramVersionGraph(),
+				crossings.initProcesses, Direction.kDescendant, null);
+		final Graph applicationSteps = executor.createNewGraph();
+		executor.getAdjacentVertex(applicationSteps, analysis.execveGraph(), beforeApplication,
+				Direction.kDescendant);
+		final Graph applicationExecves = executor.createNewGraph();
+		executor.getEdge(applicationExecves, applicationSteps, null, null, null, false);
+		final Graph applications = executor.createNewGraph();
+		executor.getEdgeEndpoint(applications, applicationExecves, GetEdgeEndpoint.Component.kSource);
 
-		final Graph allCloneEdges = executor.createNewGraph();
-		executor.getEdge(allCloneEdges, subjectGraph,
-				OPMConstants.EDGE_OPERATION,
-				PredicateOperator.EQUAL,
-				OPMConstants.OPERATION_CLONE,
-				true);
-
-		final Map<String, Map<String, String>> pid1VerticesData = executor.exportVertices(pid1Vertices);
-		final Set<String> pid1Hashes = pid1VerticesData.keySet();
-
-		final Set<QueriedEdge> allCloneEdgeSet = executor.exportEdges(allCloneEdges);
-		final ArrayList<String> cloneCrossingNamespaceHashes = new ArrayList<String>();
-		for(final QueriedEdge edge : allCloneEdgeSet){
-			if(pid1Hashes.contains(edge.childHash)){
-				cloneCrossingNamespaceHashes.add(edge.edgeHash);
-			}
+		// Initialization ends with that execve; fail loudly if a container never got there
+		final Graph execvedVersions = executor.createNewGraph();
+		executor.getEdgeEndpoint(execvedVersions, applicationExecves, GetEdgeEndpoint.Component.kDestination);
+		final Graph reachedApplication = analysis.closure(analysis.sameProgramVersionGraph(), execvedVersions,
+				Direction.kAncestor, null);
+		final Graph stalled = executor.createNewGraph();
+		executor.subtractGraph(stalled, crossings.initProcesses, reachedApplication, Graph.Component.kVertex);
+		if(executor.getGraphCount(stalled).getVertices() > 0){
+			throw new RuntimeException(stalledMessage(executor.exportVertices(stalled)));
 		}
 
-		final Graph cloneCrossingNamespaceEdges = executor.createNewGraph();
-		if(!cloneCrossingNamespaceHashes.isEmpty()){
-			executor.insertLiteralEdge(cloneCrossingNamespaceEdges, cloneCrossingNamespaceHashes);
-		}
+		// Start: the creators, their versions since the namespace change, and the unshare/setns steps before it
+		final Graph creatorHistory = analysis.closure(analysis.versionGraph(), crossings.creators,
+				Direction.kAncestor, null);
+		final Graph sinceChange = analysis.intersection(creatorHistory, crossings.changedVersions);
+		final Graph changes = analysis.intersection(sinceChange, crossings.changers);
+		final Graph namespaceSteps = analysis.closure(analysis.namespaceStepGraph(), changes,
+				Direction.kAncestor, null);
 
-		final Graph boundaryEdges = executor.createNewGraph();
-		executor.unionGraph(boundaryEdges, unshareEdges);
-		executor.unionGraph(boundaryEdges, cloneCrossingNamespaceEdges);
-
-		final long boundaryEdgeCount = executor.getGraphCount(boundaryEdges).getEdges();
-		if(boundaryEdgeCount == 0){
-			throw new RuntimeException(
-					"getContainerInit: found " + pid1Hashes.size() + " 'ns pid' == '1' vertex/vertices "
-					+ "but no 'unshare' or PID-namespace-crossing 'clone' edges in the input graph. "
-					+ "The input may be truncated.");
-		}
-
-		final Graph startVertices = executor.createNewGraph();
-		executor.getEdgeEndpoint(startVertices, boundaryEdges, GetEdgeEndpoint.Component.kDestination);
-
-		executor.getSimplePath(targetGraph, subjectGraph, pid1Vertices, startVertices, maxDepth);
-
-		final Graph startsInResult = executor.createNewGraph();
-		executor.intersectGraph(startsInResult, startVertices, targetGraph);
-
-		final GraphStatistic.Count expectedStarts = executor.getGraphCount(startVertices);
-		final GraphStatistic.Count reachedStarts = executor.getGraphCount(startsInResult);
-
-		if(reachedStarts.getVertices() < expectedStarts.getVertices()){
-			throw new RuntimeException(
-					"getContainerInit: " + expectedStarts.getVertices() + " init starts detected ("
-					+ "'unshare' callers or 'clone' callers crossing into a new PID namespace), but only "
-					+ reachedStarts.getVertices() + " reached an 'ns pid' == '1' endpoint within maxDepth="
-					+ maxDepth + ". Increase via `env set maxDepth <N>` and retry.");
-		}
-
+		final Graph skeleton = analysis.union(crossings.creators, sinceChange, namespaceSteps,
+				beforeApplication, applications);
+		executor.getSubgraph(targetGraph, analysis.lineageGraph(), skeleton);
 		return null;
+	}
+
+	private static String stalledMessage(final Map<String, Map<String, String>> stalledProcesses){
+		final StringBuilder processes = new StringBuilder();
+		int listed = 0;
+		for(final Map<String, String> process : stalledProcesses.values()){
+			if(listed == MAX_PROCESSES_IN_ERROR){
+				processes.append(", ...");
+				break;
+			}
+			processes.append(listed == 0 ? "" : ", ").append(ContainerAnalysis.describeProcess(process));
+			listed++;
+		}
+		return "getContainerInit: " + stalledProcesses.size() + " container init process(es) never reached "
+				+ "execve in this trace: " + processes + ". The trace may end before those containers finished "
+				+ "starting.";
 	}
 }

@@ -19,14 +19,11 @@
  */
 package spade.query.quickgrail.instruction;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -265,7 +262,7 @@ public final class InMemoryQueryHarness{
 			for(final String hash : s.vertexHashes){
 				final Map<String, String> ann = verticesByHash.get(hash);
 				if(ann == null) continue;
-				if(matches(ann.get(key), op, value)){
+				if(!hasArguments || matches(ann.get(key), op, value)){
 					t.vertexHashes.add(hash);
 				}
 			}
@@ -279,7 +276,7 @@ public final class InMemoryQueryHarness{
 			for(final String hash : s.edgeHashes){
 				final QueriedEdge edge = edgesByHash.get(hash);
 				if(edge == null) continue;
-				if(matches(edge.getCopyOfAnnotations().get(key), op, value)){
+				if(!hasArguments || matches(edge.getCopyOfAnnotations().get(key), op, value)){
 					t.edgeHashes.add(hash);
 				}
 			}
@@ -356,76 +353,6 @@ public final class InMemoryQueryHarness{
 				if(e == null) continue;
 				if(t.vertexHashes.contains(e.childHash) && t.vertexHashes.contains(e.parentHash)){
 					t.edgeHashes.add(edgeHash);
-				}
-			}
-		}
-
-		@Override
-		public void getSimplePath(final Graph target, final Graph subject, final Graph srcGraph,
-				final Graph dstGraph, final int maxDepth){
-			final GraphData t = data(target);
-			final GraphData subj = data(subject);
-			final GraphData src = data(srcGraph);
-			final GraphData dst = data(dstGraph);
-
-			// Build forward adjacency restricted to subject's edges.
-			// SPADE OPM convention: edge child → parent; "follow the edge" goes child → parent.
-			final Map<String, List<String>> adjEdges = new HashMap<String, List<String>>();
-			for(final String edgeHash : subj.edgeHashes){
-				final QueriedEdge e = edgesByHash.get(edgeHash);
-				if(e == null) continue;
-				adjEdges.computeIfAbsent(e.childHash, k -> new ArrayList<String>()).add(edgeHash);
-			}
-
-			// BFS from each source vertex, recording the path-of-edges so far.
-			for(final String startHash : src.vertexHashes){
-				final Deque<List<String>> queue = new ArrayDeque<List<String>>();
-				queue.add(new ArrayList<String>(Collections.singletonList(startHash))); // path of vertex hashes
-				int depth = 0;
-				final Set<String> visited = new HashSet<String>();
-				visited.add(startHash);
-
-				while(!queue.isEmpty() && depth < maxDepth){
-					final int frontierSize = queue.size();
-					for(int i = 0; i < frontierSize; i++){
-						final List<String> path = queue.poll();
-						final String tail = path.get(path.size() - 1);
-						final List<String> outgoing = adjEdges.get(tail);
-						if(outgoing == null) continue;
-						for(final String edgeHash : outgoing){
-							final QueriedEdge e = edgesByHash.get(edgeHash);
-							final String next = e.parentHash;
-							if(!subj.vertexHashes.contains(next)) continue;
-							if(visited.contains(next)) continue;
-							final List<String> newPath = new ArrayList<String>(path);
-							newPath.add(next);
-							if(dst.vertexHashes.contains(next)){
-								// Path complete — fold every vertex and edge along it into target.
-								absorbPath(t, newPath, subj);
-							}
-							visited.add(next);
-							queue.add(newPath);
-						}
-					}
-					depth++;
-				}
-			}
-		}
-
-		private void absorbPath(final GraphData t, final List<String> vertexPath, final GraphData subj){
-			for(int i = 0; i < vertexPath.size(); i++){
-				t.vertexHashes.add(vertexPath.get(i));
-				if(i == 0) continue;
-				final String prev = vertexPath.get(i - 1);
-				final String curr = vertexPath.get(i);
-				// Find the edge that connects (prev, curr) child→parent direction.
-				for(final String edgeHash : subj.edgeHashes){
-					final QueriedEdge e = edgesByHash.get(edgeHash);
-					if(e == null) continue;
-					if(prev.equals(e.childHash) && curr.equals(e.parentHash)){
-						t.edgeHashes.add(edgeHash);
-						break;
-					}
 				}
 			}
 		}
@@ -572,6 +499,7 @@ public final class InMemoryQueryHarness{
 		@Override public void getLink(final Graph t, final Graph s, final Graph srcG, final Graph dstG, final int d){ no("getLink"); }
 		@Override public void getMatch(final Graph t, final Graph g1, final Graph g2, final ArrayList<String> a){ no("getMatch"); }
 		@Override public void getShortestPath(final Graph t, final Graph s, final Graph srcG, final Graph dstG, final int d){ no("getShortestPath"); }
+		@Override public void getSimplePath(final Graph t, final Graph s, final Graph srcG, final Graph dstG, final int d){ no("getSimplePath"); }
 		@Override public void limitGraph(final Graph t, final Graph s, final int l){ no("limitGraph"); }
 		@Override public void overwriteGraphMetadata(final GraphMetadata t, final GraphMetadata l, final GraphMetadata r){ no("overwriteGraphMetadata"); }
 		@Override public void setGraphMetadata(final GraphMetadata t, final SetGraphMetadata.Component c, final Graph s, final String n, final String v){ no("setGraphMetadata"); }

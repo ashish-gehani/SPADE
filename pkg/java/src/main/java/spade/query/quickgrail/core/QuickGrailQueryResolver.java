@@ -23,6 +23,7 @@ import java.io.Serializable;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Map;
 
 import spade.core.AbstractTransformer;
 import spade.core.Settings;
@@ -88,6 +89,8 @@ import spade.query.quickgrail.types.TypeID;
 import spade.query.quickgrail.types.TypedValue;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
+import spade.reporter.Audit;
+import spade.reporter.audit.LinuxConstants;
 import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 import spade.utility.Result;
@@ -1459,18 +1462,28 @@ public class QuickGrailQueryResolver{
 			throw new RuntimeException("Invalid number of arguments for getContainerInit: expected 0");
 		}
 
-		final EnvironmentVariable maxDepthVar = env.getEnvVarManager().get(EnvironmentVariableManager.Name.maxDepth);
-		if(maxDepthVar == null || maxDepthVar.getValue() == null){
-			throw new RuntimeException("Must set 'maxDepth' in environment to use getContainerInit");
-		}
-		final int maxDepth = (Integer)maxDepthVar.getValue();
-
 		if(outputGraph == null){
 			outputGraph = allocateEmptyGraph();
 		}
 
-		instructions.add(new GetContainerInit(outputGraph, subjectGraph, maxDepth));
+		instructions.add(new GetContainerInit(outputGraph, subjectGraph, resolveHostPidNamespace()));
 		return outputGraph;
+	}
+
+	/**
+	 * The `pid namespace` value of host processes: the kernel's PROC_PID_INIT_INO, read from
+	 * the Linux constants file that the Audit reporter's 'constantsSource' setting points to.
+	 */
+	private static String resolveHostPidNamespace(){
+		final String auditConfigPath = Settings.getDefaultConfigFilePath(Audit.class);
+		try{
+			final Map<String, String> auditConfig = FileUtility.readConfigFileAsKeyValueMap(auditConfigPath, "=");
+			final LinuxConstants constants = LinuxConstants.instance(auditConfig, "constantsSource");
+			return String.valueOf(constants.getProcPidInitIno());
+		}catch(Exception e){
+			throw new RuntimeException("Failed to read PROC_PID_INIT_INO through 'constantsSource' in '"
+					+ auditConfigPath + "'", e);
+		}
 	}
 
 	private Graph resolveGetMatch(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
