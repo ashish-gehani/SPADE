@@ -22,6 +22,11 @@ package spade.utility.setting;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +51,61 @@ public class SettingTest {
     assertEquals("bar", keyValue.getValue().getResolvedValue());
 
     assertNull(setting.getKeyValue("missing"));
+  }
+
+  @Test
+  public void getKeyValuesReturnsAllKeyValuesInOrder() throws Exception {
+    Setting setting = Helper.create("b=2 a=1 c.d=3");
+
+    assertEquals(List.of("b", "a", "c.d"), fullNames(setting.getKeyValues()));
+    assertEquals(List.of("2", "1", "3"), resolvedValues(setting.getKeyValues()));
+  }
+
+  @Test
+  public void getKeyValuesIsEmptyWhenNothingIsSet() throws Exception {
+    Setting setting = Helper.create(null);
+
+    assertTrue(setting.getKeyValues().isEmpty());
+  }
+
+  @Test
+  public void getKeyValuesKeepsFirstOccurrenceOfDuplicateKey() throws Exception {
+    Setting setting = Helper.create("a=1 b=2 a=3");
+
+    assertEquals(List.of("a", "b"), fullNames(setting.getKeyValues()));
+    assertEquals(List.of("1", "2"), resolvedValues(setting.getKeyValues()));
+  }
+
+  @Test
+  public void getKeyValuesMergesSourcesInPrecedenceOrder() throws Exception {
+    String configPath = getClass().getResource("test.config").getPath();
+    String otherConfigPath = getClass().getResource("other.config").getPath();
+
+    // "priority" is defined in all three sources but listed once, at its position in the
+    // highest-precedence source (arguments), with that source's value. Keys from later
+    // sources follow in source order, with references resolved.
+    Setting setting = Helper.create("priority=arguments", configPath, otherConfigPath);
+
+    assertEquals(List.of("priority", "foo", "baz", "content", "referenced", "shared"),
+        fullNames(setting.getKeyValues()));
+    assertEquals(List.of("arguments", "bar", "a b", "line one\nline two\n", "value from other", "value from other"),
+        resolvedValues(setting.getKeyValues()));
+  }
+
+  @Test
+  public void getKeyValuesIsUnmodifiable() throws Exception {
+    Setting setting = Helper.create("foo=bar");
+
+    assertThrows(UnsupportedOperationException.class, () -> setting.getKeyValues().clear());
+    assertEquals("bar", setting.getResolvedValue("foo"));
+  }
+
+  private static List<String> fullNames(Collection<KeyValue> keyValues) {
+    return keyValues.stream().map(keyValue -> keyValue.getKey().getFullName()).collect(Collectors.toList());
+  }
+
+  private static List<String> resolvedValues(Collection<KeyValue> keyValues) {
+    return keyValues.stream().map(keyValue -> keyValue.getValue().getResolvedValue()).collect(Collectors.toList());
   }
 
   @Test

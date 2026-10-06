@@ -21,6 +21,8 @@ package spade.utility.setting;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import spade.utility.setting.key.Key;
@@ -70,6 +72,13 @@ public class Setting {
    */
   public KeyValue getKeyValue(String key) {
     return getMap().get(new Key(null, key, null));
+  }
+
+  /**
+   * Returns every {@link KeyValue} in the final map, in the order the keys were first seen.
+   */
+  public Collection<KeyValue> getKeyValues() {
+    return Collections.unmodifiableCollection(getMap().values());
   }
 
   /**
