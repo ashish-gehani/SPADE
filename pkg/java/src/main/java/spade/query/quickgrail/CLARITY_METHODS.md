@@ -364,7 +364,7 @@ keeps accepting queries.
 | Q3 | Where should initialization end when the init never calls execve (L10)? | Decided for now: (a) keep D11 and D13, so such starts make the query fail. A trace can't settle this: a trace without such sandboxes proves nothing. The evidence came from the tools' source instead (L10). Not chosen for now: (b) end at the first execve by the init or by any process it created in the namespace, which fixes bubblewrap and nspawn but would end runc containers at OCI `startContainer` hooks, since those run inside the container before the application; (c) prefer the init's own first execve, else the first execve by a process it created in the namespace, and fail only when no process there calls execve. |
 | Q4 | Reporter: namespace labels revert after execve or setuid/setgid (L5). | Worth reporting upstream. |
 | Q5 | Reporter and kernel module: `clone3` (L4). | Worth reporting upstream. |
-| Q6 | Wiki QuickGrail Reference entries for both methods. | Drafts exist from the first version and need updating to the forms in §1 before they go on the wiki. |
+| Q6 | Wiki QuickGrail Reference entries for both methods. | Written for `QuickGrail-Reference.md`, under Graph Methods, in the forms of §1: `getContainerInit()`, `getContainerBoundary()`, `('<id>' [, <number>])` and `($seeds)`, each with the `namespaces=true` prerequisite, and notes on the execve failure (L10) and on reused IDs (§5.5). They sit in a local clone of the wiki, which belongs to the upstream repository, so they go to the maintainers with the pull request. |
 
 ## 9. Test design
 
