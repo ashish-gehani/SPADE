@@ -58,6 +58,7 @@ import spade.reporter.audit.ProcessUserSyscallFilter;
 import spade.reporter.audit.ProcessUserSyscallFilter.SystemCallRuleType;
 import spade.reporter.audit.SPADEAuditBridgeProcess;
 import spade.reporter.audit.SYSCALL;
+import spade.reporter.audit.arch.Stopgap;
 import spade.reporter.audit.artifact.ArtifactIdentifier;
 import spade.reporter.audit.artifact.ArtifactManager;
 import spade.reporter.audit.artifact.DirectoryIdentifier;
@@ -124,6 +125,8 @@ public class Audit extends AbstractReporter {
 	private Intervaler reportingIntervaler;
 	
 	private Input input;
+	
+	private Stopgap archStopgap;
 	
 	private ProcessUserSyscallFilter processUserSyscallFilter;
 	
@@ -336,6 +339,14 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.INFO, input.toString());
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to initialize input configuration", e);
+			return false;
+		}
+		
+		try{
+			archStopgap = Stopgap.getInstanceForInput(map, input);
+			logger.log(Level.INFO, "Arch: " + archStopgap.getArchType());
+		}catch(Exception e){
+			logger.log(Level.SEVERE, "Failed to determine arch", e);
 			return false;
 		}
 		
@@ -711,7 +722,7 @@ public class Audit extends AbstractReporter {
 			String remoteSaddr = eventData.get(AuditEventReader.KMODULE_REMOTE_SADDR);
 			
 			if(success == 1){
-				syscall = getSyscall(syscallNumber);
+				syscall = archStopgap.getSyscallFromLinuxAuditRecord(eventData);
 				if(syscall == null || syscall == SYSCALL.UNSUPPORTED){
 					log(Level.WARNING, "Invalid syscall: " + syscallNumber, null, time, eventId, null);
 				}else{
@@ -750,10 +761,6 @@ public class Audit extends AbstractReporter {
 		}catch(Exception e){
 			log(Level.WARNING, "Failed to parse kernel module event", null, time, eventId, syscall);
 		}
-	}
-	
-	private SYSCALL getSyscall(int syscallNumber){
-		return SYSCALL.get64BitSyscall(syscallNumber);
 	}
 	
 	/**
@@ -823,7 +830,7 @@ public class Audit extends AbstractReporter {
 				return;
 			}
 			
-			SYSCALL syscall = getSyscall(syscallNum);
+			SYSCALL syscall = archStopgap.getSyscallFromLinuxAuditRecord(eventData);
 			
 			if(syscall == null){
 				log(Level.WARNING, "Invalid syscall: " + syscallNum, null, time, eventId, null);

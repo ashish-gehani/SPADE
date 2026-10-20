@@ -19,6 +19,8 @@
  */
 package spade.reporter.audit;
 
+import spade.reporter.audit.arch.Type;
+
 public enum SYSCALL{
 
 	FORK, VFORK, CLONE, EXECVE, 
@@ -60,8 +62,22 @@ public enum SYSCALL{
 	SHMGET, SHMAT, SHMDT, SHMCTL,
 	MSGGET, MSGSND, MSGRCV, MSGCTL,
 	UNSUPPORTED; // Used for system calls not in this enum (not an actual system call)
-	
-	public static SYSCALL get64BitSyscall(int syscallNum){
+
+	/**
+	 * Returns the system call for the number on the arch, or UNSUPPORTED if the number is unknown.
+	 *
+	 * @param arch system architecture
+	 * @param syscallNum system call number
+	 */
+	public static SYSCALL getSyscall(Type arch, int syscallNum){
+		switch(arch){
+			case X86_64:	return getSyscallX8664(syscallNum);
+			case ARM64:		return getSyscallARM64(syscallNum);
+			default:		throw new IllegalArgumentException("Unexpected arch: " + arch);
+		}
+	}
+
+	private static SYSCALL getSyscallX8664(int syscallNum){
 		// System call numbers are derived from:
         // http://blog.rchapman.org/post/36801038863/linux-system-call-table-for-x86-64
 		
@@ -153,6 +169,89 @@ public enum SYSCALL{
 			case 263:	return UNLINKAT;
 			case 1:		return WRITE;
 			case 20:	return WRITEV;
+			default:	return UNSUPPORTED;
+		}
+	}
+
+	private static SYSCALL getSyscallARM64(int syscallNum){
+		// System call numbers are derived from the generic table used by arm64 (aarch64):
+		// source : https://github.com/torvalds/linux/blob/master/include/uapi/asm-generic/unistd.h
+		// arm64 has no OPEN, CREAT, FORK, VFORK, PIPE, DUP2, LINK, UNLINK, RENAME, SYMLINK, CHMOD, MKNOD
+		switch(syscallNum){
+			case 180:	return MQ_OPEN;
+			case 182:	return MQ_TIMEDSEND;
+			case 183:	return MQ_TIMEDRECEIVE;
+			case 181:	return MQ_UNLINK;
+			case 194:	return SHMGET;
+			case 196:	return SHMAT;
+			case 197:	return SHMDT;
+			case 195:	return SHMCTL;
+			case 186:	return MSGGET;
+			case 189:	return MSGSND;
+			case 188:	return MSGRCV;
+			case 187:	return MSGCTL;
+			case 268:	return SETNS;
+			case 97:	return UNSHARE;
+			case 41:	return PIVOT_ROOT;
+			case 51:	return CHROOT;
+			case 49:	return CHDIR;
+			case 50:	return FCHDIR;
+			case 62:	return LSEEK;
+			case 233:	return MADVISE;
+			case 129:	return KILL;
+			case 117:	return PTRACE;
+			case 199:	return SOCKETPAIR;
+			case 105:	return INIT_MODULE;
+			case 273:	return FINIT_MODULE;
+			case 77:	return TEE;
+			case 76:	return SPLICE;
+			case 75:	return VMSPLICE;
+			case 202:	return ACCEPT;
+			case 242:	return ACCEPT4;
+			case 200:	return BIND;
+			case 57:	return CLOSE;
+			case 220:	return CLONE;
+			case 203:	return CONNECT;
+			case 23:	return DUP;
+			case 24:	return DUP3;
+			case 221:	return EXECVE;
+			case 93:	return EXIT;
+			case 94:	return EXIT_GROUP;
+			case 52:	return FCHMOD;
+			case 53:	return FCHMODAT;
+			case 25:	return FCNTL;
+			case 46:	return FTRUNCATE;
+			case 37:	return LINKAT;
+			case 33:	return MKNODAT;
+			case 222:	return MMAP;
+			case 226:	return MPROTECT;
+			case 56:	return OPENAT;
+			case 59:	return PIPE2;
+			case 67:	return PREAD;
+			case 69:	return PREADV;
+			case 68:	return PWRITE;
+			case 70:	return PWRITEV;
+			case 63:	return READ;
+			case 65:	return READV;
+			case 207:	return RECVFROM;
+			case 212:	return RECVMSG;
+			case 38:	return RENAMEAT;
+			case 211:	return SENDMSG;
+			case 206:	return SENDTO;
+			case 152:	return SETFSGID;
+			case 151:	return SETFSUID;
+			case 144:	return SETGID;
+			case 143:	return SETREGID;
+			case 149:	return SETRESGID;
+			case 147:	return SETRESUID;
+			case 145:	return SETREUID;
+			case 146:	return SETUID;
+			case 198:	return SOCKET;
+			case 36:	return SYMLINKAT;
+			case 45:	return TRUNCATE;
+			case 35:	return UNLINKAT;
+			case 64:	return WRITE;
+			case 66:	return WRITEV;
 			default:	return UNSUPPORTED;
 		}
 	}
