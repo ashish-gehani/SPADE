@@ -170,10 +170,10 @@ was recorded: runc 1.3.3 creates container processes with `clone`.
 
 ### Reproducing Part A
 
-The harness is six small scripts: the `/proc` sampler, the scenarios, a
-runner that loads one module variant and collects its slice of the audit log,
-the analyzer, the filter check and the clone3 check. They are not in the
-repository yet.
+The scripts are in `pkg/linux/kernel_modules/test/ns-pid/`, with a README
+that lists what they need and the order to run them in: build both module
+variants, run the scenarios under each, analyze, then the filter check and
+the clone3 check.
 
 ## Part B: the methods on real traces
 
