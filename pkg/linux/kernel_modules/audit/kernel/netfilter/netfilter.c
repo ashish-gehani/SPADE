@@ -277,7 +277,8 @@ static void nf_handle_packet(enum nf_ip_hook_priorities prio, const struct sk_bu
         goto discard_and_exit;
     }
 
-    kernel_helper_audit_log(audit_ctx, &msg.header);
+    // Netfilter hooks must not sleep, so a full audit backlog drops the record.
+    kernel_helper_audit_log_atomic(audit_ctx, &msg.header);
 
 discard_and_exit:
     _inc_discarded_event_count();
