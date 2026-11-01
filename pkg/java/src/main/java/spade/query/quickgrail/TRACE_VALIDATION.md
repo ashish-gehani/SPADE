@@ -12,7 +12,7 @@ read. Part B, still to do, runs the methods on real traces.
 | OS | Ubuntu 24.04.3 LTS, Linux 6.8.0-146-generic, gcc 13.3.0, glibc 2.39 |
 | Containers | Docker 29.0.0, containerd v2.1.5, runc 1.3.3 |
 | Tools | util-linux 2.39.3 (`unshare`, `nsenter`), systemd 255, OpenSSH 9.6p1, Python 3.12.3 |
-| Code | branch `clarity-of-container` at `9d6e210b`, based on `fix-ns-pid` `d445c7cc` and `prov-query` `6b744f7c` |
+| Code | branch `clarity-of-container` at `9d6e210b`, on top of the two `ns pid` fixes (up to `d445c7cc`) and `prov-query` `6b744f7c`. The branches were restructured later, so no branch contains `9d6e210b`; its kernel-module code is exactly `d445c7cc`'s |
 
 Three containers left over from an unrelated benchmark stack restarted in a
 loop during the runs (one crashed with SIGSEGV each time). Their records were
@@ -22,7 +22,7 @@ records.
 ## Part A: the kernel module's namespace records
 
 Q2 asks for `ns pid` to be the PID of a process inside its own PID namespace.
-Branch `fix-ns-pid` has two commits for that (`CLARITY_METHODS.md` §4.1):
+Branch `bug-fixes` has two commits for that (`CLARITY_METHODS.md` §4.1):
 
 - `9fd54e0c` records `ns_ns_pid` in the process's own PID namespace instead of
   the clone/fork/vfork return value, which is the PID in the creator's
@@ -128,7 +128,7 @@ caller's namespace, and it did not occur here.
 ### The pid filters still match host PIDs
 
 The module filters on the calling task's `current->pid` and
-`current->real_parent->pid`, both host PIDs. `fix-ns-pid` left that path alone
+`current->real_parent->pid`, both host PIDs. The fixes left that path alone
 and uses the new own-namespace helper only in the unshare and setns audit
 actions. To check, an alpine container forked a child every half second.
 Its init had host PID 33180, in-namespace PID 1, and the parent 33096
@@ -218,9 +218,9 @@ methods:
   `networkAddressTranslation=true`, a full audit backlog made the hook wait in
   softirq, and the kernel reported `BUG: scheduling while atomic`, with
   PostgreSQL's loopback traffic as the victim (`CLARITY_METHODS.md` §6, Q7).
-  Part A ran with `nf_hooks=0`, so it never reached that code. Branch
-  `fix-netfilter-atomic` fixes it, and the module packaged for both traces has
-  that fix as well as the two `fix-ns-pid` fixes.
+  Part A ran with `nf_hooks=0`, so it never reached that code. Commit
+  `da9c05b8` on branch `bug-fixes` fixes it, and the module packaged for both
+  traces has that fix as well as the two `ns pid` fixes.
 
 ### Scenarios and expectations
 

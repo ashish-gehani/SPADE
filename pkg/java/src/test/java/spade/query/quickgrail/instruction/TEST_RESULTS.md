@@ -12,7 +12,7 @@ The test design and the behavior being tested are described in
 | | |
 |---|---|
 | Date | 2026-09-16 |
-| Branch | `clarity-of-container`, based on `fix-ns-pid` (upstream `prov-query` at `1ff51190` plus two kernel-module fixes) |
+| Branch | `clarity-of-container`, on top of upstream `prov-query` at `1ff51190` plus the two `ns pid` kernel-module fixes |
 | Tested revision | the commit that last changed this file |
 | OS | Windows 11 Pro 10.0.26200 |
 | JDK | OpenJDK 21.0.2 from https://jdk.java.net/archive/ |
