@@ -769,9 +769,29 @@ public class AuditEventReader{
 						valueEndIndex = recordData.length();
 					}
 					final String hexValue = recordData.substring(valueStartIndex, valueEndIndex);
-					return HelperFunctions.decodeHex(hexValue);
+					return decodeHexValue(hexValue);
 				}
 			}
 		}
+	}
+
+	/**
+	 * Decodes a hex-encoded audit value. The values parsed here (comm, cwd, name,
+	 * execve arguments) are C strings, so a NUL ends the value. The kernel encodes
+	 * only the string, but the audit kernel module encodes the whole comm buffer
+	 * (TASK_COMM_LEN bytes), so a short name comes padded with NULs. Kept, they
+	 * would make the name differ from the same process's name in syscall records,
+	 * and PostgreSQL rejects NUL in text.
+	 *
+	 * @param hexValue hex string
+	 * @return the decoded value up to the first NUL, or null if it is not valid hex
+	 */
+	static String decodeHexValue(final String hexValue){
+		final String value = HelperFunctions.decodeHex(hexValue);
+		if(value == null){
+			return null;
+		}
+		final int nulIndex = value.indexOf('\0');
+		return nulIndex < 0 ? value : value.substring(0, nulIndex);
 	}
 }
