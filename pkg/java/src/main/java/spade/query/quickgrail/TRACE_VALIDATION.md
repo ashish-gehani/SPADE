@@ -177,10 +177,109 @@ the clone3 check.
 
 ## Part B: the methods on real traces
 
-To do. SPADE runs in the same VM with the Audit config `prov-query` added in
-`6b744f7c`, `cfg/spade.reporter.Audit-with-namespace-awareness.config`. It sets
-`namespaces=true` and also `fileIO`, `netIO`, `IPC`, `inode` and
-`networkAddressTranslation`, which the default config leaves off. For each
-scenario, the expected output of `getContainerInit()` and
-`getContainerBoundary()` is written down before the trace is looked at, and
-the methods' output is then compared with it.
+The expectations below were written and committed before any trace for Part B
+was recorded. They follow `CLARITY_METHODS.md` §1, §4.1 and §5; where a
+scenario tests a fact rather than the methods, that is said. A trace can
+disagree with them in two ways: the methods are wrong, or a fact they rely on
+is. Either way the difference is recorded, not the expectation adjusted.
+
+### Setup
+
+SPADE runs in the same VM as user `vagrant`, from `clarity-of-container` with
+the fixed module packaged into `lib/kernel-modules/` (`make
+KERNEL_MODULES=true`). SPADE leaves out the activity of the user it runs as,
+so every scenario runs under `sudo` or inside containers, which root's Docker
+daemon creates. PostgreSQL and Neo4j storages are both attached, so each query
+runs on both against the same records, and the two results must agree.
+
+| Trace | Audit reporter arguments | Scenarios |
+|---|---|---|
+| 1 | the six keys `cfg/spade.reporter.Audit-with-namespace-awareness.config` changes: `namespaces=true fileIO=true netIO=true IPC=true inode=true networkAddressTranslation=true` | B1–B7 |
+| 2 | `namespaces=true` only, so `netIO` stays off | B8, B9 |
+
+B8 is in its own trace because by Q3 (a) it makes `getContainerInit` fail for
+the whole trace.
+
+### Scenarios and expectations
+
+PIDs and namespace IDs are not known in advance, so expectations name
+processes by role. X stands for a container's PID namespace ID.
+
+**B1. `docker run --rm alpine sh -c 'sleep 1; true'`**, started after tracing.
+
+- `getContainerInit()` holds one start for X, made of: runc's stage 1 before
+  and after its unshare (the unshare version's `children pid namespace` is X);
+  the fork, whose `flags` include `CLONE_PARENT`, to stage 2, the init, in X;
+  the init's version after `unshare(CLONE_NEWCGROUP)`; and its execve version
+  named `sh`. Expected names (§1): stage 1 `runc:[0:PARENT]`, init
+  `runc:[1:CHILD]` until the execve.
+- It holds nothing above stage 1 (no containerd-shim, `runc create` or stage
+  0), not the `sleep` child, no later execve, no file, no exit edge.
+- `getContainerBoundary('X')` holds the init's versions, `sh`, `sleep` and the
+  files they used, and the runc process that created the init, as a
+  neighbour. It holds no host process further out.
+
+**B2. `docker exec`** into a container `docker run -d alpine sleep 60` started
+during tracing.
+
+- `getContainerInit()` holds that container's start and nothing for the exec:
+  runc's setns makes the exec an entry, not a start.
+- `getContainerBoundary('X')` adds the exec'd `sh` and its `sleep`, with the
+  runc process that entered X as a neighbour.
+
+**B3. A container started before tracing**, whose shell forks a `sleep` every
+two seconds.
+
+- `getContainerInit()` holds nothing for it (L1).
+- Its shell was not created during tracing, so it carries `-1` labels (§4.1)
+  and is not a member; the `sleep`s it forks during tracing are. So
+  `getContainerBoundary('X')` holds the `sleep`s, with the shell as a
+  neighbour. `X` has exactly one container, "running when tracing started".
+  The fixtures (§9.4) model a pre-existing process with the container's labels
+  and a `seen time`; this scenario checks that against §4.1.
+
+**B4. A PID namespace created inside a container**:
+`docker run --rm --privileged alpine unshare -p -f -m --mount-proc sh -c 'sleep 1; true'`
+(busybox `unshare`). Its unshare runs inside X, so only a module with
+`d445c7cc` records it.
+
+- `getContainerInit()` holds two starts: X, by runc, and the nested namespace
+  Y, by busybox `unshare` inside X.
+- `getContainerBoundary('X')` holds Y's processes too (nesting);
+  `getContainerBoundary('Y')` holds only Y's.
+
+**B5. `sudo unshare --pid --fork --mount-proc sh -c 'sleep 1; true'`** on the
+host.
+
+- `getContainerInit()` holds one start: the `unshare` process's unshare step,
+  its forked child, the init, and the init's execve to `sh`.
+
+**B6. Reused namespace IDs.** Short containers run one after another, each
+gone before the next starts. The kernel hands out the lowest free namespace
+inode number, so IDs should repeat.
+
+- For a repeated ID X, `getContainerBoundary('X')` fails with the numbered
+  list (§5.5), one entry per container, each with its own start time and host
+  PID.
+- `getContainerBoundary('X', n)` holds exactly container n's processes.
+- `getContainerBoundary()` holds all of them.
+
+**B7. Network use from a container**: `wget` from an alpine container.
+
+- With `netIO=true`, `getContainerBoundary('X')` holds a network artifact
+  connected to the `wget` process.
+
+**B8. bubblewrap**: `sudo bwrap --unshare-pid --dev-bind / / sh -c 'sleep 1; true'`.
+
+- `getContainerInit()` fails: bwrap's PID 1 is its own reaper and never calls
+  execve (L10, Q3 (a)). The message names the reaper.
+- `getContainerBoundary()` still works and holds the sandbox's processes.
+
+**B9. Network use from a container with `netIO=false`**: B7 again in trace 2.
+
+- Tests §6: whether a network artifact reaches `getContainerBoundary('X')`
+  when `netIO` is off and the module is loaded.
+
+### Results
+
+To be filled in from the traces.
