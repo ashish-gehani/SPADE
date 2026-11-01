@@ -9,12 +9,14 @@ examples belong on the wiki's
 [QuickGrail Reference](https://github.com/ashish-gehani/SPADE/wiki/QuickGrail-Reference)
 page.
 
-Status: implemented on branch `clarity-of-container`. That branch is based on
-`fix-ns-pid`, which adds two kernel-module fixes (§4.1) on top of upstream
-`prov-query`. Both fixes have been checked on a live system
-(`TRACE_VALIDATION.md`, Part A). The tests use synthetic traces modeled on
-the Audit reporter's source code. Neither method has been run on a real trace
-yet (§8).
+Status: implemented on branch `clarity-of-container`. That branch carries
+three kernel-module fixes on top of upstream `prov-query`: the two from branch
+`fix-ns-pid` (§4.1) and the one from branch `fix-netfilter-atomic` (§6). Each
+fix branch starts from `prov-query` on its own, so each can go upstream as its
+own pull request. All three fixes have been checked on a live system
+(`TRACE_VALIDATION.md`, Part A; `pkg/linux/kernel_modules/test/netfilter-atomic/`).
+The tests use synthetic traces modeled on the Audit reporter's source code.
+Neither method has been run on a real trace yet (§8).
 
 Code, relative to `pkg/java/src/main/java/spade/`:
 
@@ -343,6 +345,16 @@ keeps accepting queries.
   kernel module loaded, network I/O is reported by the module and gated by
   `netIO` (`AuditControlManager`), so with `netIO=false` sockets may be
   missing from the boundary. Part B of `TRACE_VALIDATION.md` checks this.
+- `networkAddressTranslation=true` turns on the kernel module's netfilter hook
+  (`nf_hooks`). Before branch `fix-netfilter-atomic`, that hook could sleep in
+  atomic context: while the audit backlog was full, it waited for room inside
+  an RCU read-side section, in softirq for received packets. The kernel
+  reported `BUG: scheduling while atomic` and the system froze. It happened
+  while recording Part B, with PostgreSQL's loopback traffic as the victim.
+  With the fix, a full backlog drops the packet record and counts it as lost.
+  Use a module with the fix whenever `networkAddressTranslation=true`; the
+  reproduction and its results are in
+  `pkg/linux/kernel_modules/test/netfilter-atomic/`.
 
 ## 7. Limitations
 
@@ -377,6 +389,7 @@ keeps accepting queries.
 | Q4 | Reporter: namespace labels revert after execve or setuid/setgid (L5). | Worth reporting upstream. |
 | Q5 | Reporter and kernel module: `clone3` (L4). | Worth reporting upstream, with the reproduction in `TRACE_VALIDATION.md`: a child created through glibc's `posix_spawn` gets no creation record. |
 | Q6 | Wiki QuickGrail Reference entries for both methods. | Written for `QuickGrail-Reference.md`, under Graph Methods, in the forms of §1: `getContainerInit()`, `getContainerBoundary()`, `('<id>' [, <number>])` and `($seeds)`, each with the `namespaces=true` prerequisite, and notes on the execve failure (L10) and on reused IDs (§5.5). They sit in a local clone of the wiki, which belongs to the upstream repository, so they go to the maintainers with the pull request. |
+| Q7 | Kernel module: the netfilter hook could sleep in atomic context and freeze the system (§6). | Found while recording Part B (2026-11-01). Fixed on branch `fix-netfilter-atomic` (based on `prov-query`), with a reproduction that freezes a VM without the fix and drops and counts records with it. To go upstream as its own pull request. |
 
 ## 9. Test design
 
