@@ -222,6 +222,70 @@ methods:
   `da9c05b8` on branch `bug-fixes` fixes it, and the module packaged for both
   traces has that fix as well as the two `ns pid` fixes.
 
+The second attempt ran to the end and was queried, but it is not used as a
+result either: records were missing on the way to both storages, for reasons
+outside the container methods.
+
+- **auditd fell behind.** Every container's veth device made udev open and
+  close files thousands of times. Of the 48,014 syscall records auditd wrote,
+  28,417 came from udev workers, mostly `close` (13,834) and `openat`
+  (13,525). As B1 started, auditd logged `Error receiving audit netlink packet
+  (No buffer space available)`, and the kernel counted 34 records lost.
+- **PostgreSQL dropped 13,264 vertices** in whole batches, because process
+  names from kernel-module records ended in NULs (`CLARITY_METHODS.md` Q8, Q9).
+- **Neo4j failed every query** that builds a graph (Q10).
+
+Two more attempts were discarded by the completeness rule below, before any
+query:
+
+- **The third recorded nothing.** Rebuilding SPADE for the storage fixes
+  replaced `bin/spadeAuditBridge` without the setuid bit `bin/allowAuditAccess`
+  gives it, so the bridge could not read auditd's socket ("Permission
+  denied"). SPADE logs that only at INFO level and still reports the reporter
+  as added. The kernel module was loaded and the scenarios ran, but the
+  storages stayed empty.
+- **The fourth lost 61 records.** The audit backlog passed its limit, Ubuntu's
+  8192, from B2 through B6. In Linux 6.8, a caller that may sleep waits for
+  room (`backlog_wait_time` is 60 s), and only callers that may not, such as
+  the module's netfilter hook, drop their record. So the lost records were
+  most likely packet records, but nothing in the log shows which ones.
+
+The harness changed for the later attempts:
+
+- The audit backlog limit is 65536 while a trace records, as in Part A, and
+  is restored afterwards.
+- The harness stops before tracing if the bridge is not setuid or cannot
+  connect, and a trace whose storage holds almost nothing is not complete.
+- The Audit reporter also leaves out `systemd-udevd` (and so its workers) and
+  `postgres`, SPADE's own storage, through `ignoreProcesses` and
+  `ignoreParentProcesses`, on top of its defaults. Neither takes part in any
+  scenario. The six keys are unchanged.
+- A trace is judged only if it is complete: the kernel's `lost` counter
+  unchanged, no receive or queue error from auditd, no failed storage write,
+  and a start in `getContainerInit` for every container that started during
+  tracing. Otherwise it is recorded again, not interpreted.
+- SPADE saves its running configuration on shutdown, to
+  `cfg/spade.client.Control.config`, and replays it on start, `reset=true`
+  included. The harness now restores the tracked file, which adds nothing,
+  before it starts SPADE. A restart before that change reset both storages
+  and erased the second attempt's graphs; its query results were already
+  saved.
+- SPADE runs from `bug-fixes` (`d36e055a`) plus the container methods. The
+  kernel module is the same build as before.
+
+The fifth attempt passed those checks: the kernel's `lost` counter stayed at
+236521, auditd and the storages reported no error, and PostgreSQL held 21,023
+vertices. PostgreSQL and Neo4j returned the same vertices for every query.
+It is still not used as a result, because its graph lacks the creation of
+several container processes whose records auditd did write. For example, the
+`clone` that created B7's init (event 858667) is in auditd's log together with
+its `ns_NEWPROCESS` record (`ns_ns_pid=1`, the container's namespace), but the
+graph has that process only as first seen later, with `-1` labels. SPADE logs
+nothing about it. Of the 10 inits runc created in trace 1 (B1, B2, B4's
+outer container, the six B6 runs and B7), 6 have a creation in the graph, and
+no process carries B4's nested namespace. Where the records are dropped,
+between auditd and the storages, is being traced.
+
 ### Scenarios and expectations
 
 PIDs and namespace IDs are not known in advance, so expectations name
