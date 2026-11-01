@@ -200,6 +200,28 @@ runs on both against the same records, and the two results must agree.
 B8 is in its own trace because by Q3 (a) it makes `getContainerInit` fail for
 the whole trace.
 
+### Recording notes
+
+Added after the expectations below, which are unchanged.
+
+The first attempt at trace 1 froze the VM about two minutes in and was
+discarded; none of it was queried. Both causes lay outside the container
+methods:
+
+- **The VM ran without hardware virtualization.** The host's Windows
+  hypervisor, needed for WSL 2, held VT-x, so VirtualBox fell back to its much
+  slower NEM mode in every session (`VBox.log`: "Attempting fall back to
+  NEM"). The hypervisor is now off while the VM runs. The VM has 16 GB, and
+  SPADE runs with a heap of at most 8 GB (`--mem-max 8g`) instead of its
+  16 GB default.
+- **The kernel module's netfilter hook slept in atomic context.** With
+  `networkAddressTranslation=true`, a full audit backlog made the hook wait in
+  softirq, and the kernel reported `BUG: scheduling while atomic`, with
+  PostgreSQL's loopback traffic as the victim (`CLARITY_METHODS.md` §6, Q7).
+  Part A ran with `nf_hooks=0`, so it never reached that code. Branch
+  `fix-netfilter-atomic` fixes it, and the module packaged for both traces has
+  that fix as well as the two `fix-ns-pid` fixes.
+
 ### Scenarios and expectations
 
 PIDs and namespace IDs are not known in advance, so expectations name
