@@ -52,6 +52,15 @@ class AuditEventReaderTest{
 	}
 
 	@Test
+	void openat2RecordGivesItsHow(){
+		// runc opening a file inside the container's root
+		final java.util.Map<String, String> how = AuditEventReader.openat2How("oflag=012000000 mode=00 resolve=0x14");
+		assertEquals("012000000", how.get(AuditEventReader.OPENAT2_OFLAG));
+		assertEquals("00", how.get(AuditEventReader.OPENAT2_MODE));
+		assertEquals("0x14", how.get(AuditEventReader.OPENAT2_RESOLVE));
+	}
+
+	@Test
 	void invalidHexIsNull(){
 		assertNull(AuditEventReader.decodeHexValue("6G"));
 		assertNull(AuditEventReader.decodeHexValue("676"));
