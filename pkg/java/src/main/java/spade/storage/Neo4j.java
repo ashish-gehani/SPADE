@@ -349,6 +349,7 @@ public class Neo4j extends AbstractStorage{
 				synchronized(neo4jDbTasksPending){
 					getStorageStats().pendingTasksIncoming.increment();
 					neo4jDbTasksPending.addLast(task);
+					neo4jDbTasksPending.notifyAll(); // wakes the runner waiting in awaitPendingTask
 				}
 			}
 		}
@@ -361,6 +362,27 @@ public class Neo4j extends AbstractStorage{
 				synchronized(neo4jDbTasksPending){
 					getStorageStats().pendingTasksIncoming.increment();
 					neo4jDbTasksPending.addFirst(task);
+					neo4jDbTasksPending.notifyAll();
+				}
+			}
+		}
+	}
+
+	/**
+	 * Waits, at most waitMillis, for a task to be pending. Without it the runner polled the queue
+	 * without pause when mainThreadSleepWaitMillis is 0 (the default), and used a whole CPU while
+	 * SPADE was idle.
+	 */
+	private final void awaitPendingTask(final long waitMillis){
+		if(waitMillis <= 0){
+			return;
+		}
+		synchronized(neo4jDbTasksPending){
+			if(neo4jDbTasksPending.isEmpty() && !isShutdown()){
+				try{
+					neo4jDbTasksPending.wait(waitMillis);
+				}catch(InterruptedException e){
+					Thread.currentThread().interrupt();
 				}
 			}
 		}
@@ -564,6 +586,18 @@ public class Neo4j extends AbstractStorage{
 					if(getConfiguration().mainThreadSleepWaitMillis > 0){
 						HelperFunctions.sleepSafe(getConfiguration().mainThreadSleepWaitMillis);
 					}
+					if(task == null){
+						// Nothing to do: wait for a task, but not past the next flush, nor longer than a
+						// second, so that the flush and a shutdown still happen in time.
+						long waitMillis = 1000;
+						if(tx != null && tasksExecutedSinceLastFlush > 0){
+							final long untilFlush = getConfiguration().flushAfterSeconds * 1000L
+									- (System.currentTimeMillis() - timeInMillisOfLastFlush);
+							waitMillis = Math.min(waitMillis, Math.max(1, untilFlush));
+						}
+						awaitPendingTask(waitMillis);
+					}
+					task = null;
 				}
 
 				if(tx != null){
@@ -592,6 +626,9 @@ public class Neo4j extends AbstractStorage{
 	public synchronized final boolean shutdown(){
 		if(!isShutdown()){
 			setShutdown(true);
+			synchronized(neo4jDbTasksPending){
+				neo4jDbTasksPending.notifyAll(); // the runner may be waiting for a task
+			}
 
 			logger.log(Level.INFO,
 					"Shutdown called. Waiting for " + getPendingTasksSize() + " pending task(s) to complete");

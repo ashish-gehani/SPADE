@@ -38,6 +38,19 @@ static void seqbuf_operation_to_string(struct seqbuf *b, enum msg_namespace_oper
     util_seqbuf_printf(b, "ns_operation=ns_%s", op_str);
 }
 
+/*
+ * Namespace inode numbers are unsigned, and (unsigned int)-1 means the namespace
+ * could not be read. Print that as -1, the value the Audit reporter uses for an
+ * unobserved namespace, instead of 4294967295, which reads as a real ID.
+ */
+static void seqbuf_inum_to_string(struct seqbuf *b, const char *key, unsigned int inum)
+{
+    if (inum == (unsigned int)-1)
+        util_seqbuf_printf(b, " %s=-1", key);
+    else
+        util_seqbuf_printf(b, " %s=%u", key, inum);
+}
+
 int msg_namespace_serialize_audit_msg(
     struct seqbuf *b, struct msg_namespace *msg
 )
@@ -52,13 +65,15 @@ int msg_namespace_serialize_audit_msg(
     seqbuf_operation_to_string(b, &msg->op);
     util_seqbuf_printf(b, " ns_ns_pid=%d", msg->ns_pid);
     util_seqbuf_printf(b, " ns_host_pid=%d", msg->host_pid);
-    util_seqbuf_printf(b, " ns_inum_mnt=%u", msg->ns_inum_mnt);
-    util_seqbuf_printf(b, " ns_inum_net=%u", msg->ns_inum_net);
-    util_seqbuf_printf(b, " ns_inum_pid=%u", msg->ns_inum_pid);
-    util_seqbuf_printf(b, " ns_inum_pid_children=%u", msg->ns_inum_pid_children);
-    util_seqbuf_printf(b, " ns_inum_usr=%u", msg->ns_inum_usr);
-    util_seqbuf_printf(b, " ns_inum_ipc=%u", msg->ns_inum_ipc);
-    util_seqbuf_printf(b, " ns_inum_cgroup=%u", msg->ns_inum_cgroup);
+    seqbuf_inum_to_string(b, "ns_inum_mnt", msg->ns_inum_mnt);
+    seqbuf_inum_to_string(b, "ns_inum_net", msg->ns_inum_net);
+    seqbuf_inum_to_string(b, "ns_inum_pid", msg->ns_inum_pid);
+    seqbuf_inum_to_string(b, "ns_inum_pid_children", msg->ns_inum_pid_children);
+    seqbuf_inum_to_string(b, "ns_inum_usr", msg->ns_inum_usr);
+    seqbuf_inum_to_string(b, "ns_inum_ipc", msg->ns_inum_ipc);
+    seqbuf_inum_to_string(b, "ns_inum_cgroup", msg->ns_inum_cgroup);
+    if (msg->has_clone_flags)
+        util_seqbuf_printf(b, " ns_clone_flags=%llu", msg->clone_flags);
 
     return 0;
 }

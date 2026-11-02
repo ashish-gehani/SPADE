@@ -19,12 +19,14 @@
  */
 
 #include <linux/list.h>
+#include <asm/unistd.h>
 
 #include "audit/kernel/function/op.h"
 #include "audit/kernel/function/sys_accept/op.h"
 #include "audit/kernel/function/sys_accept4/op.h"
 #include "audit/kernel/function/sys_bind/op.h"
 #include "audit/kernel/function/sys_clone/op.h"
+#include "audit/kernel/function/sys_clone3/op.h"
 #include "audit/kernel/function/sys_connect/op.h"
 #include "audit/kernel/function/sys_fork/op.h"
 #include "audit/kernel/function/sys_kill/op.h"
@@ -52,7 +54,10 @@ const struct kernel_function_op* KERNEL_FUNCTION_OP_LIST[] = {
     &KERNEL_FUNCTION_SYS_SENDTO_OP,
     &KERNEL_FUNCTION_SYS_SETNS_OP,
     &KERNEL_FUNCTION_SYS_UNSHARE_OP,
-    &KERNEL_FUNCTION_SYS_VFORK_OP
+    &KERNEL_FUNCTION_SYS_VFORK_OP,
+#ifdef __NR_clone3 // since Linux 5.3
+    &KERNEL_FUNCTION_SYS_CLONE3_OP,
+#endif
 };
 const size_t KERNEL_FUNCTION_OP_LIST_LEN = sizeof(KERNEL_FUNCTION_OP_LIST) / sizeof(KERNEL_FUNCTION_OP_LIST[0]);
 
