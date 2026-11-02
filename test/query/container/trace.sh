@@ -4,7 +4,7 @@
 # Run as vagrant, SPADE's user: SPADE leaves that user's activity out, so every
 # scenario runs under sudo or inside containers.
 # Usage: trace.sh 1|2|3|4 [NAME]    Output: ~/stage-b/trace<NAME>/ (run.log, truth.txt), trace<N> by default
-#   1: B1-B7   2: B8-B11, netIO off   3: M, the DeathStarBench media microservices
+#   1: B1-B7   2: B8-B11 and B13, netIO off   3: M, the DeathStarBench media microservices
 #   4: S, six of the media microservices' containers and a small workload
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)   # this directory: the other scripts
@@ -269,7 +269,20 @@ elif [ "$N" = 2 ]; then
     # directly under sudo, without the root shell of B5 and B8 (F18)
     Y=$(sudo unshare --pid --fork sh -c 'readlink /proc/self/ns/pid; sleep 1; true' | digits)
     truth "B11 sudo-unshare Y=$Y"
-    mark "B11 end"
+    mark "B11 end"; sleep 1
+
+    mark "B13 begin"
+    # F17: the version an execve makes after an unshare (a) or a setns (b). (a) without
+    # --fork: unshare execs sh in the host's PID namespace, whose children start in Y.
+    Y=$(sudo sh -c "unshare --pid sh -c 'sleep 2; true' & sleep 1; readlink /proc/\$!/ns/pid_for_children; wait" | digits)
+    truth "B13a unshare-then-exec Y=$Y"
+    sudo docker run -d --name b13 alpine sleep 30 >/dev/null
+    p=$(sudo docker inspect -f '{{.State.Pid}}' b13)
+    m=$(sudo readlink "/proc/$p/ns/mnt" | digits)
+    sudo nsenter -t "$p" -m sh -c 'true'
+    truth "B13b setns-then-exec init_host_pid=$p Xm=$m X=$(pidns_of "$p")"
+    sudo docker rm -f b13 >/dev/null
+    mark "B13 end"
 elif [ "$N" -ge 3 ]; then
     # Ground truth for every container start, restarts included: its init and PID
     # namespace, read as the start event arrives (a crashing run may be gone already).
