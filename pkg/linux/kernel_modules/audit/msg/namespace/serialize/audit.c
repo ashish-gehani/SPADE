@@ -72,6 +72,8 @@ int msg_namespace_serialize_audit_msg(
     seqbuf_inum_to_string(b, "ns_inum_usr", msg->ns_inum_usr);
     seqbuf_inum_to_string(b, "ns_inum_ipc", msg->ns_inum_ipc);
     seqbuf_inum_to_string(b, "ns_inum_cgroup", msg->ns_inum_cgroup);
+    if (msg->has_clone_flags)
+        util_seqbuf_printf(b, " ns_clone_flags=%llu", msg->clone_flags);
 
     return 0;
 }
