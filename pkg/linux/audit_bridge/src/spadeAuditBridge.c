@@ -48,6 +48,8 @@ int UBSI_buffer(const char *buf);
 void UBSI_sig_handler(int signo);
 int UBSI_buffer_flush();
 int waitForEnd = FALSE;
+// Most bytes the socket reader may queue for the main thread (-q, in megabytes)
+static long socket_queue_max_bytes = 1024L * 1024L * 1024L;
 int socketRead = FALSE;
 int fileRead = FALSE;
 int dirRead = FALSE;
@@ -220,6 +222,8 @@ void print_usage(char** argv) {
 		printf("  -F, --file				single file to process\n");  
 		printf("  -d, --dir                 a directory name that contains log files\n");
 		printf("  -t, --time                timestamp. Only handle log files modified after the timestamp. \n");
+		printf("  -q, --queue-megabytes     most audit data to queue from the socket while SPADE\n");
+		printf("                            falls behind, in megabytes (default 1024)\n");
 		printf("  -m, --merge-unit          merge N units into a single unit.\n");
 		printf("                            This option is only valid with -d option. (format: YYYY-MM-DD:HH:MM:SS,\n");
 		printf("                              e.g., 2017-1-21:07:09:20)\n");
@@ -243,10 +247,11 @@ int command_line_option(int argc, char **argv)
 				{"time",			required_argument,	NULL, 't'},
 				{"wait-for-end",	no_argument,		NULL, 'w'},
 				{"merge-unit",	required_argument,		NULL, 'm'},
+				{"queue-megabytes",	required_argument,	NULL, 'q'},
 				{NULL,				0,					NULL,	0}
 		};
 
-		while((c = getopt_long(argc, argv, "hus:F:f:d:t:m:w", long_opt, NULL)) != -1)
+		while((c = getopt_long(argc, argv, "hus:F:f:d:t:m:wq:", long_opt, NULL)) != -1)
 		{
 				switch(c)
 				{
@@ -287,6 +292,14 @@ int command_line_option(int argc, char **argv)
 								waitForEnd = TRUE;
 								break;
 
+						case 'q':
+								if(atol(optarg) <= 0) {
+										fprintf(stderr, "Invalid queue size in megabytes: %s\n", optarg);
+										exit(-2);
+								}
+								socket_queue_max_bytes = atol(optarg) * 1024L * 1024L;
+								break;
+
 						case 'u':
 								UBSIAnalysis = TRUE;
 								break;
@@ -309,9 +322,8 @@ int command_line_option(int argc, char **argv)
  * when the client's socket is full. So a thread of its own reads the socket and
  * only queues what arrives, and the main thread processes the queue: a slow
  * consumer of the bridge's output then delays events instead of losing them.
- * The queue is bounded only by SOCKET_QUEUE_MAX_BYTES.
+ * The queue is bounded only by socket_queue_max_bytes (option -q).
  */
-#define SOCKET_QUEUE_MAX_BYTES (1024L * 1024L * 1024L)
 
 typedef struct socket_chunk_t {
 		struct socket_chunk_t *next;
@@ -351,7 +363,7 @@ static void *socket_reader(void *argument)
 				socket_chunk_t *chunk = (socket_chunk_t *) malloc(sizeof(socket_chunk_t) + charactersRead + 1);
 				pthread_mutex_lock(&socket_queue_mutex);
 				if (chunk == NULL || !socket_queue_accepting
-								|| socket_queue_bytes + charactersRead > SOCKET_QUEUE_MAX_BYTES) {
+								|| socket_queue_bytes + charactersRead > socket_queue_max_bytes) {
 						if (socket_queue_accepting) socket_queue_dropped_bytes += charactersRead;
 						free(chunk);
 				} else {

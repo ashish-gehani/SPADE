@@ -408,8 +408,19 @@ public class Audit extends AbstractReporter {
 			}
 		}
 		
+		// How much the bridge may hold while SPADE falls behind a live trace (megabytes; bridge default if unset)
+		final String queueMegabytesValue = map.get(SPADEAuditBridgeProcess.KEY_QUEUE_MEGABYTES);
+		final Long bridgeQueueMegabytes = HelperFunctions.isNullOrEmpty(queueMegabytesValue) ? null
+				: HelperFunctions.parseLong(queueMegabytesValue.trim(), null);
+		if(!HelperFunctions.isNullOrEmpty(queueMegabytesValue) && (bridgeQueueMegabytes == null || bridgeQueueMegabytes <= 0)){
+			logger.log(Level.SEVERE, "Invalid value for '" + SPADEAuditBridgeProcess.KEY_QUEUE_MEGABYTES + "': '"
+					+ queueMegabytesValue + "'. Expected a positive number of megabytes");
+			return false;
+		}
+
 		try{
-			this.spadeAuditBridgeProcess = SPADEAuditBridgeProcess.launch(this.input, auditConfiguration.isUnits(), auditConfiguration.getMergeUnit());
+			this.spadeAuditBridgeProcess = SPADEAuditBridgeProcess.launch(this.input, auditConfiguration.isUnits(),
+					auditConfiguration.getMergeUnit(), bridgeQueueMegabytes);
 			logger.log(Level.INFO, "Launched SPADE audit bridge process with pid '" + spadeAuditBridgeProcess.getPid() + "' using command:"
 					+ " " + spadeAuditBridgeProcess.getCommand());
 			this.spadeAuditBridgeProcess.consumeStdErr(new BiConsumer<String, Exception>(){
