@@ -578,6 +578,12 @@ public class Audit extends AbstractReporter {
 								public void accept(final String str){
 									logger.log(Level.INFO, str);
 								}
+							},
+							new Consumer<String>(){
+								@Override
+								public void accept(final String str){
+									logger.log(Level.SEVERE, str);
+								}
 							}
 						);
 					}catch(Exception e){
