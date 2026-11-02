@@ -19,7 +19,9 @@
  */
 
 #include <linux/errno.h>
+#include <linux/nsproxy.h>
 #include <linux/pid_namespace.h>
+#include <linux/sched/task.h>
 
 #include "audit/kernel/helper/namespace.h"
 
@@ -52,6 +54,28 @@ static long _get_ns_inum(
 
     // Release
     proc_ns_operations->put(struct_ns_common);
+	return inum;
+}
+
+/*
+ * The PID namespace the task's next children go into. Read from nsproxy rather
+ * than through pidns_for_children_operations: its get() returns no namespace
+ * until the namespace has a child reaper, so right after unshare(CLONE_NEWPID)
+ * it hides the very namespace the caller just created. nsproxy already points
+ * to it, and its inode number is allocated when it is created.
+ */
+static long _get_pid_for_children_ns_inum(struct task_struct *struct_task_struct)
+{
+	long inum = -1;
+
+	if (!struct_task_struct)
+		return inum;
+
+	task_lock(struct_task_struct);
+	if (struct_task_struct->nsproxy && struct_task_struct->nsproxy->pid_ns_for_children)
+		inum = struct_task_struct->nsproxy->pid_ns_for_children->ns.inum;
+	task_unlock(struct_task_struct);
+
 	return inum;
 }
 
@@ -122,7 +146,7 @@ int kernel_helper_namespace_populate_msg(
     host_pid = pid_nr(pid_struct);
 
     msg->ns_inum_pid = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_pid);
-    msg->ns_inum_pid_children = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_pid_children);
+    msg->ns_inum_pid_children = _get_pid_for_children_ns_inum(pid_task_struct);
 	msg->ns_inum_mnt = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_mnt);
 	msg->ns_inum_net = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_net);
 	msg->ns_inum_usr = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_user);

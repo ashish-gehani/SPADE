@@ -152,6 +152,37 @@ static void msg_test_serialize_config_test_expected_ns_1(
     );
 }
 
+static void msg_test_serialize_config_set_expected_ns_2(struct msg_common_header *m)
+{
+    // A task that has already exited has no nsproxy, so its children namespace could not be read.
+    struct msg_namespace *n = (struct msg_namespace *)m;
+    n->host_pid = 4242;
+    n->ns_inum_cgroup = 4026531835;
+    n->ns_inum_ipc = 4026531839;
+    n->ns_inum_mnt = 4026531841;
+    n->ns_inum_net = 4026531840;
+    n->ns_inum_pid = 4026531836;
+    n->ns_inum_pid_children = (unsigned int)-1;
+    n->ns_inum_usr = 4026531837;
+    n->ns_pid = 4242;
+    n->op = NS_OP_UNSHARE;
+    n->syscall_number = 272;
+}
+
+static void msg_test_serialize_config_test_expected_ns_2(
+    struct test_stats *stats, const char *test_name, enum msg_common_type m_type, const char *actual
+)
+{
+    // Inode numbers above INT_MAX stay unsigned; only the unreadable value prints as -1.
+    const char *expected = "ns_syscall=272 ns_subtype=ns_namespaces ns_operation=ns_UNSHARE "
+                           "ns_ns_pid=4242 ns_host_pid=4242 ns_inum_mnt=4026531841 ns_inum_net=4026531840 "
+                           "ns_inum_pid=4026531836 ns_inum_pid_children=-1 ns_inum_usr=4026531837 "
+                           "ns_inum_ipc=4026531839 ns_inum_cgroup=4026531835";
+    msg_test_serialize_config_common_equals_expected(
+        stats, test_name, m_type, actual, expected
+    );
+}
+
 static void msg_test_serialize_config_set_expected_nf_1(struct msg_common_header *m)
 {
     struct msg_netfilter *n = (struct msg_netfilter *)m;
@@ -436,7 +467,10 @@ static const struct msg_test_config MSG_TEST_CONFIGS[] = {
                 .set_expected = msg_test_serialize_config_set_expected_ns_1,
                 .test_expected = msg_test_serialize_config_test_expected_ns_1
             },
-            {0}
+            {
+                .set_expected = msg_test_serialize_config_set_expected_ns_2,
+                .test_expected = msg_test_serialize_config_test_expected_ns_2
+            }
         }
     },
     {
