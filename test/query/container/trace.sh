@@ -381,6 +381,19 @@ python3 "$HERE"/compare-input.py "$OUT/auditd-slice.log" "$OUT/spade-input.log" 
 n=$(PGPASSWORD=12345 psql -h localhost -U spade -d spadedb -tAc 'select count(*) from vertex')
 echo "PostgreSQL vertices: $n"
 [ "${n:-0}" -gt 1000 ] || problems="$problems storage-nearly-empty:$n"
+# Every storage must hold the same graph. A storage whose server stopped answering
+# leaves the others complete, and only a query shows it (BUG_FIXES.md N22).
+counts=""
+for s in PostgreSQL Neo4j Quickstep; do
+    c=$(printf 'set storage %s\nstat $base\nexit\n' "$s" | timeout 300 bin/spade query 2>&1 \
+        | awk -F'|' '/^\| [0-9]+ +\| [0-9]+/{gsub(/ /, "", $2); gsub(/ /, "", $3); print $2 " vertices, " $3 " edges"; exit}')
+    echo "$s: ${c:-no answer in 300 s}"
+    counts="$counts ${c:-none};"
+done
+git checkout -q -- cfg/spade.client.CommandLine.config   # the client saved its last storage
+first=$(echo "$counts" | cut -d';' -f1)
+[ "$counts" = "$first;$first;$first;" ] && ! echo "$counts" | grep -q none \
+    || problems="$problems storages-differ"
 if [ -z "$problems" ]; then
     echo "COMPLETENESS: ok (the per-container init check runs with the queries)"
 else

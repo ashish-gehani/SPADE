@@ -7,7 +7,9 @@ auditd's log, within the serial range both logs cover, also reached SPADE.
 auditd also drops single records on their way to the plugin when its queue to
 the plugins is full ("queue to plugins is full - dropping event"); a record
 missing from an event leaves its serial number in place, so the records of each
-event are compared too, by type.
+event are compared too, by type. The last events SPADE read can lack records
+because the bridge stopped reading in the middle of them: incomplete events at
+the very end of SPADE's input are reported as cut off, not as lost.
 
 Usage: compare-input.py AUDITD_LOG SPADE_INPUT_LOG
 Prints a summary; exit status 1 if any event or record is missing from SPADE's input.
@@ -62,6 +64,18 @@ def main():
     la = collections.Counter({k: v for k, v in logged_records.items() if k[0] in a and k[0] in b})
     lb = collections.Counter({k: v for k, v in read_records.items() if k[0] in a and k[0] in b})
     gone, extra = la - lb, lb - la
+    # incomplete events at the very end of SPADE's input: the bridge stopped in the middle of them
+    incomplete = {serial for serial, _ in gone}
+    cut = set()
+    for serial in sorted(b, reverse=True):
+        if serial not in incomplete:
+            break
+        cut.add(serial)
+    if cut:
+        n_cut = sum(n for (serial, _), n in gone.items() if serial in cut)
+        print(f'  cut off at the end: {n_cut} record(s) of the last {len(cut)} event(s) SPADE read, '
+              f'serials {min(cut)}..{max(cut)} (the bridge stopped in the middle of them; not counted)')
+        gone = collections.Counter({k: v for k, v in gone.items() if k[0] not in cut})
     print(f'records of those events: auditd logged {sum(la.values())}, SPADE read {sum(lb.values())}, '
           f'missing from SPADE: {sum(gone.values())}, only in SPADE: {sum(extra.values())}')
     for (serial, kind), n in sorted(gone.items())[:10]:
