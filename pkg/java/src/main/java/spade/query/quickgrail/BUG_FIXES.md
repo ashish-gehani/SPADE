@@ -297,14 +297,15 @@ Raising it before SPADE starts its Audit reporter, e.g. `sysctl -w
 net.core.wmem_default=16777216`, lost nothing. auditd's own dispatcher queue
 (`q_depth`) never overflowed; it would have logged that.
 
-The queue holds at most 1 GB by default. A busy microservice stack (the
-media microservices of trace 3) produced about 10,000 audit events a second,
-more than three times what SPADE handled with three storages attached (about
-5,800 records, some 2,900 events, a second), and filled 1 GB in four minutes; the bridge then dropped 163,482 events and said so. So
-the size is an option (`41afaf09`): the bridge takes `-q <megabytes>`, and the
-Audit reporter passes its `spadeAuditBridgeQueueMegabytes` in live mode. When
-the reporter is removed, the bridge hands SPADE the whole queue before it
-exits, which with a large backlog takes minutes.
+The queue holds at most 1 GB by default, which a busy microservice stack
+can fill. The media microservices of trace 3 produced 2.49 million audit
+events in under three minutes, 14,000 a second on average, while SPADE
+stored at most about 2,700 a second with three storages attached, and fewer
+as Quickstep's tables grew (N16). The bridge's queue peaked at 836 MB. So the
+size is an option (`41afaf09`): the bridge takes `-q <megabytes>`, and the
+Audit reporter passes its `spadeAuditBridgeQueueMegabytes` in live mode.
+When the reporter is removed, the bridge hands SPADE the whole queue before
+it exits, which took an hour for trace 3.
 
 **Older traces.** A trace recorded without F8 may miss events with no sign
 of it. Comparing auditd's log over the same time with the Audit reporter's
@@ -402,11 +403,11 @@ slow to record.
 
 | Check | How | Needs |
 |---|---|---|
-| Java unit tests (F4, F5) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,PostgreSQLTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
-| In-kernel tests (F7) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
+| Java unit tests (F4, F5, F9, F10) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,PostgreSQLTest,Clone3FlagsTest,KernelModuleArgumentTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
+| In-kernel tests (F7, F9) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
 | ns pid A/B (F1, F2, F7) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
 | netfilter (F3) | `pkg/linux/kernel_modules/test/netfilter-atomic/README.md` | a disposable VM: without the fix it freezes |
-| bridge (F8) | compare auditd's log with the reporter's `outputLog` over a trace, by serial number; the bridge's own count of missing serials is in SPADE's log | auditd writing its log, enough log rotation to keep the trace |
+| bridge (F8) | compare auditd's log with the reporter's `outputLog` over a trace, by serial number and, within each event, by record type (N17); the bridge's own count of missing serials is in SPADE's log | auditd writing its log, enough log rotation to keep the trace |
 
 ## Noticed, not changed
 
@@ -427,6 +428,10 @@ methods' results on the traces checked, so they are left for the maintainers.
 | N11 | Audit reporter | The audit rules leave out the user SPADE runs as with `-F uid!=<uid>`, which compares the real uid. sudo keeps the caller's real uid, so a process sudo forks for that user is not recorded as created: it first appears in its own later syscalls, with `-1` namespace labels. An unshare(CLONE_NEWPID) by such a process counts as joining, not creating (CLARITY_METHODS.md L3). |
 | N12 | Neo4j storage | The thread `db-pending-task-runner` (`Neo4j.java`, its pending-task loop) uses a whole CPU even when idle: 435 s of CPU in 439 s. |
 | N13 | Quickstep storage | Queries do not flush the batch being filled, which the storage sends only when it is full or its timer fires (`batchTimeIntervalInSeconds`, 180 s by default), so a query can miss the last minutes of a trace. PostgreSQL flushes before every query. |
+| N14 | Linux audit | Unless the kernel was booted with `audit=1`, records that `kauditd` fails to hand to auditd are dropped without being counted in `lost`. It waits 0.1 s for room in auditd's netlink socket, whose receive buffer is `net.core.rmem_default` when auditd starts (212,992 bytes; auditd has no setting for it), then gives up on the rest of its queue, and `kauditd_hold_skb` frees what fails again (`if (!audit_default) goto drop;`, `kernel/audit.c`, Linux 6.8). Under the media microservices this lost 289,000 to 599,000 events per trace attempt, in gaps of up to 184,343 serial numbers, which only the bridge's count of missing serial numbers (F8) showed. Restarting auditd while `rmem_default` is larger gives its socket room for bursts; booting with `audit=1` makes the kernel hold such records and count those it must drop. |
+| N15 | auditd | With `log_format = ENRICHED` (Ubuntu's default), auditd (3.1.2) looks up the name of each uid and gid in each record through NSS and does not remember a failed lookup. Containers that run as uids the host does not know therefore cost it file opens and socket connections for every event: for 2,000 events of a process running as uid 11211, 12,858 `openat` and 839 `connect` calls, against none for a known uid or with `log_format = RAW`. With `nss-systemd`, `systemd` answers each lookup, and the Audit reporter records those answers as further events. It made auditd too slow for the media microservices (TRACE_VALIDATION.md, trace 3). The Audit reporter reads only the raw fields, so `log_format = RAW` loses it nothing. |
+| N16 | Quickstep storage | Storing slows down as the graph grows. `processBatch` calls `getVertexId` for every vertex of a batch, and a vertex that is not in the Deduplicate screen's cache costs a query, `copy select id from vertex where md5='...'`, which scans the whole vertex table. A new vertex is never in the cache yet, so each one costs a scan. On trace 3 (2.49 million events, three storages), SPADE stored about 2,700 events a second in its first minutes, and 250 to 300 after 45 minutes, with Quickstep using three CPUs. |
+| N17 | auditd | auditd's queue to its plugins (`q_depth`, 2,000 by default) drops a record when it stays full for about 8 ms (`enqueue` in `audisp/queue.c`, audit 3.1.2: four tries 2 ms apart), and reports only the first five drops of each run ("queue to plugins is full - dropping event"). A record dropped from an event leaves the event's serial number in place, so the bridge's count of missing serial numbers (F8) does not see it. In trace 3, three records were dropped this way, two of them SYSCALL records (TRACE_VALIDATION.md); comparing auditd's log with the reporter's `outputLog` record by record finds them. A larger `q_depth` gives the plugins more room. |
 
 ## Open
 
