@@ -1,8 +1,10 @@
 #!/bin/bash
-# Does the audit module record a process created with clone3? It hooks clone,
-# fork and vfork only. One child is created via posix_spawn (glibc tries clone3
-# first) and one via fork (glibc uses clone); strace shows which syscall made each.
-# Usage: clone3-test.sh [base|fixed]   (default fixed; the hooks are the same in both)
+# Does the audit module record a process created with clone3? Before cea5d23c
+# it hooked clone, fork and vfork only. One child is created via posix_spawn
+# (glibc tries clone3 first) and one via fork (glibc uses clone); strace shows
+# which syscall made each, and its flags. For clone3 the record also carries
+# ns_clone_flags: clone_args.flags with the exit signal in the low byte.
+# Usage: clone3-test.sh [base|fixed]   (default fixed)
 # Output: $NSAB_WORK/clone3/ (NSAB_WORK defaults to ~/ns-ab)
 set -u
 V=${1:-fixed}
@@ -39,10 +41,17 @@ echo "--- strace (which syscall created each child):"
 grep -E "clone3?\(|fork\(" "$OUT/strace.txt"
 records=$(sudo cat /var/log/audit/audit.log \
     | awk 'index($0, "nsab:clone3:begin") {on = 1} on {print} index($0, "nsab:clone3:end") {on = 0}' \
-    | grep -o 'ns_operation=ns_NEWPROCESS ns_ns_pid=[0-9]* ns_host_pid=[0-9]*')
+    | grep -oE 'ns_syscall=[0-9]+ .*ns_operation=ns_NEWPROCESS ns_ns_pid=[0-9]+ ns_host_pid=[0-9]+ .*')
 echo "--- NEWPROCESS records for the two children:"
 for c in "posix_spawn:$SPAWNED" "fork:$FORKED"; do
     how=${c%%:*}; pid=${c#*:}
-    if echo "$records" | grep -q "ns_host_pid=$pid\$"; then r=recorded; else r="NO RECORD"; fi
+    rec=$(echo "$records" | grep -E "ns_host_pid=$pid( |\$)")
+    if [ -n "$rec" ]; then
+        r="recorded, ns_syscall=$(echo "$rec" | grep -oE '^ns_syscall=[0-9]+' | cut -d= -f2)"
+        flags=$(echo "$rec" | grep -oE 'ns_clone_flags=[0-9]+' | cut -d= -f2)
+        [ -n "$flags" ] && r="$r, ns_clone_flags=$(printf '0x%x' "$flags")"
+    else
+        r="NO RECORD"
+    fi
     printf '%-12s child %-7s %s\n' "$how" "$pid" "$r"
 done
