@@ -665,8 +665,13 @@ public abstract class ProcessManager extends ProcessStateManager{
 		// created a process if did not exist otherwise got the existing one
 		
 		NamespaceIdentifier namespace = getNamespaceIdentifierFromEventData(eventData);
-		
+
 		handleNamespaceUpdate(time, eventId, pid, buildAgentIdentifierFromSyscall(eventData), namespace, operation);
+		// The process's later versions (an execve, a setuid) take their namespaces from this state,
+		// which still held the ones it was created with.
+		if(this.namespaces){
+			setNamespaces(pid, namespace);
+		}
 	}
 	
 	/**
