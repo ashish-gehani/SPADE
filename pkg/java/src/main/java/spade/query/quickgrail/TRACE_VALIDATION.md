@@ -465,8 +465,8 @@ container's init host PID and PID namespace from `docker inspect` and
 **After F15 to F27.** Trace 3 led to more fixes (BUG_FIXES.md F15 to F27).
 To check that they leave every result above standing, traces 1 and 2 are
 recorded again with them, and in place of the full media stack, which takes
-hours to record and query, a subset of it (trace 4). Three scenarios check
-fixes that only a live recording shows:
+hours to record and query, a subset of it (trace 4). B11 to B13 check fixes
+that only a live recording shows:
 
 **B11. An unshare that sudo starts**, in trace 2: `sudo unshare --pid --fork
 sh -c '...'`, run directly by SPADE's user, without the root shell B5 needs.
@@ -483,6 +483,21 @@ sh -c '...'`, run directly by SPADE's user, without the root shell B5 needs.
   directory FD" for runc's processes, and of the closes of descriptors it
   does not know, none has a recorded creation as the last recorded event on
   that descriptor (`nofd.py`).
+
+**B13. Labels after an execve that follows an unshare or setns**, in trace 2,
+added after trace 1 was recorded again, which has no such execve. From a root
+shell: (a) `unshare --pid sh -c 'sleep 2; true'`, without `--fork`: the
+`unshare` process calls unshare(CLONE_NEWPID) and then execs `sh`, which stays
+in the host's PID namespace while its children start in the new one (Y);
+(b) `nsenter -t <init> -m sh -c 'true'` on a running container: setns into
+the container's mount namespace and then execve of the container's `sh`.
+
+- With F17, the `sh` version of (a) has `children pid namespace` Y, and the
+  `sh` version of (b) the container's `mount namespace`; before F17 both had
+  the labels the process was created with (L5). (a) is a start in
+  `getContainerInit()`, its init the `sleep`.
+- `f17check.py`: every execve in the trace that follows an unshare or setns
+  gives a version with the namespace step's labels.
 
 **S. A subset of the media microservices**, trace 4, recorded like trace 3
 (the six keys, auditd with `log_format = RAW`): `docker compose up -d

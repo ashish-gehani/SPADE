@@ -26,7 +26,7 @@ __Steps__:
 
 * `./trace.sh 1|2|3|4 [NAME]` records one trace into `~/stage-b/trace<N>/`,
   or `trace<NAME>/` (e.g. `1b`, to keep an earlier recording): trace 1 is
-  B1-B7, trace 2 is B8-B11 with `netIO` off, trace 3 is the media
+  B1-B7, trace 2 is B8-B11 and B13 with `netIO` off, trace 3 is the media
   microservices (M), and trace 4 is six of their containers with a small
   workload (S), which takes minutes where trace 3 takes hours. It starts a fresh SPADE, PostgreSQL, Neo4j and Quickstep
   storage, records the kernel's ground truth in `truth.txt`, and ends with a
@@ -73,6 +73,7 @@ __Files__:
 | `dotsum.py` | Summarizes a `.dot` export; used by the checkers |
 | `fdcheck.py` | B12: the reporter's warnings about descriptors it does not know, by process and syscall |
 | `nofd.py` | B12: which of those descriptors were created by a recorded syscall (a gap in SPADE) and which by one the rules leave out, and what the reporter logged at the creation |
+| `f17check.py` | B13: whether every execve after an unshare or setns gives a version with the namespace step's labels (in PostgreSQL) |
 | `compare-input.py` | Compares auditd's log with everything the Audit reporter read, by serial number and, within each event, by record type |
 | `cgroup-sampler.py` | Traces 3 and 4's ground truth: which processes ran in which container, from `/proc/<pid>/cgroup` |
 | `spawn-child.c` | B10: starts a child with `posix_spawn`, which static glibc does with clone3 |
