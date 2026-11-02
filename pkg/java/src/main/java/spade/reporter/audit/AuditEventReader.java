@@ -210,6 +210,7 @@ public class AuditEventReader{
 	 * Flag to keep track of end of file/stream
 	 */
 	private boolean EOF = false;
+	private boolean enrichedWarned = false;
 
 	/**
 	 * Create instance of the class that reads from the given stream
@@ -338,6 +339,11 @@ public class AuditEventReader{
 				break;
 			}
 			writeToOutputLog(line);
+
+			if(!enrichedWarned && AuditCompleteness.isEnrichedRecord(line)){
+				enrichedWarned = true;
+				logger.log(Level.WARNING, AuditCompleteness.ENRICHED_WARNING);
+			}
 
 			if(reportingEnabled){
 				recordCount++;
