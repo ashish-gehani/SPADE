@@ -73,7 +73,8 @@ jobs:
 
     - name: Build (Linux)
       if: runner.os == 'Linux'
-      run: make KERNEL_MODULES=true
+      # Hosted Ubuntu kernels are outside the supported kernel-module range.
+      run: make KERNEL_MODULES=false
 
     - name: Build (macOS)
       if: runner.os == 'macOS'

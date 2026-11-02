@@ -1,5 +1,5 @@
 # Complete build: configure and build SPADE end-to-end with the autoconf/automake-based
-# build system on Linux and macOS, including compiling the C/kernel components and the
+# build system on Linux and macOS, including compiling the C components and the
 # Java module. The Java module build runs its Maven test suite (via `mvn package`) as
 # part of the build, so a failing Java test fails this workflow.
 
@@ -51,7 +51,8 @@ jobs:
 
     - name: Build (Linux)
       if: runner.os == 'Linux'
-      run: make KERNEL_MODULES=true
+      # Hosted Ubuntu kernels are outside the supported kernel-module range.
+      run: make KERNEL_MODULES=false
 
     - name: Build (macOS)
       if: runner.os == 'macOS'

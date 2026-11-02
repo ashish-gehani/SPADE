@@ -2,7 +2,7 @@
 
 | Workflow | Triggers | Purpose |
 |---|---|---|
-| `ci.yml` | `workflow_dispatch`, `push`/`pull_request` to `master` | Full build (configure + make, including the C/kernel components and the Java module's Maven test suite) on Linux and macOS. |
+| `ci.yml` | `workflow_dispatch`, `push`/`pull_request` to `master` | Full build (configure + make, including the C components and the Java module's Maven test suite; kernel modules are skipped) on Linux and macOS. |
 | `mcp-integration.yml` | `workflow_dispatch`, `push` to `master` (path-filtered, see below) | Builds SPADE, starts the MCP server over HTTP, and exercises it end-to-end with the mock LLM CLI client. |
 
 ## `mcp-integration.yml` path filter
