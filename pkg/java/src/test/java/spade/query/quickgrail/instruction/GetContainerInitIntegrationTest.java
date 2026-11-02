@@ -46,21 +46,37 @@ import spade.query.quickgrail.instruction.InMemoryQueryHarness.AdjacencySemantic
 /**
  * {@link GetContainerInit} on traces shaped like the Audit reporter's output
  * (see {@link ContainerTrace}). Every scenario runs under both adjacency
- * semantics of the storage backends.
+ * semantics of the storage backends, and on traces from kernel modules with and
+ * without the fix F7 in BUG_FIXES.md, which name a new PID namespace in the
+ * unshare record.
  */
 public class GetContainerInitIntegrationTest{
 
 	@Nested
 	class PostgreSQLAndQuickstepAdjacency extends Scenarios{
 		PostgreSQLAndQuickstepAdjacency(){
-			super(AdjacencySemantics.SOURCES_ALWAYS);
+			super(AdjacencySemantics.SOURCES_ALWAYS, false);
 		}
 	}
 
 	@Nested
 	class Neo4jAdjacency extends Scenarios{
 		Neo4jAdjacency(){
-			super(AdjacencySemantics.SOURCES_VIA_EDGES);
+			super(AdjacencySemantics.SOURCES_VIA_EDGES, false);
+		}
+	}
+
+	@Nested
+	class PostgreSQLAndQuickstepAdjacencyUnnamedNewPidNamespaces extends Scenarios{
+		PostgreSQLAndQuickstepAdjacencyUnnamedNewPidNamespaces(){
+			super(AdjacencySemantics.SOURCES_ALWAYS, true);
+		}
+	}
+
+	@Nested
+	class Neo4jAdjacencyUnnamedNewPidNamespaces extends Scenarios{
+		Neo4jAdjacencyUnnamedNewPidNamespaces(){
+			super(AdjacencySemantics.SOURCES_VIA_EDGES, true);
 		}
 	}
 
@@ -69,17 +85,22 @@ public class GetContainerInitIntegrationTest{
 		static final String CONTAINER = "4026532270", OTHER_CONTAINER = "4026532280", NESTED = "4026532290";
 
 		private final AdjacencySemantics semantics;
+		private final boolean unnamedNewPidNamespaces;
 		InMemoryQueryHarness harness;
 		ContainerTrace trace;
 
-		Scenarios(final AdjacencySemantics semantics){
+		Scenarios(final AdjacencySemantics semantics, final boolean unnamedNewPidNamespaces){
 			this.semantics = semantics;
+			this.unnamedNewPidNamespaces = unnamedNewPidNamespaces;
 		}
 
 		@BeforeEach
 		void setUp(){
 			harness = new InMemoryQueryHarness(semantics);
 			trace = new ContainerTrace(harness);
+			if(unnamedNewPidNamespaces){
+				trace.withUnnamedNewPidNamespaces();
+			}
 		}
 
 		// ---------------------------------------------------------------------
@@ -273,6 +294,31 @@ public class GetContainerInitIntegrationTest{
 		}
 
 		@Test
+		void unshareWhoseNamespaceNeverGetsAProcess_startsNothing(){
+			final Process sandbox = trace.hostProgram("sandbox", 6400);
+			final Process unshared = trace.unshare(sandbox, "CLONE_NEWPID", CONTAINER);
+			trace.exit(unshared);
+
+			assertEquals(Arrays.asList(), children(crossings().inits));
+			getContainerInit().assertEmpty();
+		}
+
+		@Test
+		void secondUnshareBeforeAnyChild_onlyTheSecondNamespaceStarts(){
+			// The first namespace dies empty; the child goes to the second
+			final Process sandbox = trace.hostProgram("sandbox", 6500);
+			final Process intoFirst = trace.unshare(sandbox, "CLONE_NEWPID", CONTAINER);
+			final Process intoSecond = trace.unshare(intoFirst, "CLONE_NEWPID", OTHER_CONTAINER);
+			final Process init = trace.spawn(intoSecond, "sandbox", "6501", "SIGCHLD", OTHER_CONTAINER);
+			final Process app = trace.execve(init, "sh");
+
+			final ContainerAnalysis.Crossings crossings = crossings();
+			assertEquals(Arrays.asList(init.hash), children(crossings.inits));
+			assertEquals(Arrays.asList(), children(crossings.entries));
+			assertTrue(getContainerInit().vertices.containsAll(set(intoSecond.hash, init.hash, app.hash)));
+		}
+
+		@Test
 		void laterChildrenOfTheSameUnshare_enterTheNamespace(){
 			final Process sandbox = trace.hostProgram("sandbox", 6000);
 			final Process unshared = trace.unshare(sandbox, "CLONE_NEWPID", CONTAINER);
@@ -306,7 +352,12 @@ public class GetContainerInitIntegrationTest{
 			trace.execve(helper, "helper");
 			// The reporter reuses vertices for labels a process had before
 			assertEquals(sandbox.hash, restored.hash);
-			assertEquals(intoFirst.hash, rejoined.hash);
+			if(unnamedNewPidNamespaces){
+				// Both unshares are labeled 'could not read', so the second reuses the first's vertex
+				assertEquals(intoFirst.hash, intoSecond.hash);
+			}else{
+				assertEquals(intoFirst.hash, rejoined.hash);
+			}
 
 			final ContainerAnalysis.Crossings crossings = crossings();
 			assertEquals(Arrays.asList(firstInit.hash, secondInit.hash), children(crossings.inits));

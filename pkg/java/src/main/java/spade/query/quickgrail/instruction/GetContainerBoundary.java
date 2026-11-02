@@ -43,7 +43,8 @@ import spade.utility.HelperFunctions;
  * are told apart by their recorded starts (see {@link GetContainerInit}).
  * Selecting a container also selects the containers started inside it, whose
  * processes the kernel also counts as inside it. Processes on the host or with
- * unobserved namespaces ("-1") are never container processes.
+ * unobserved namespaces ("-1", or "4294967295" from older kernel modules) are
+ * never container processes.
  *
  * Signatures:
  *   $r = $base.getContainerBoundary()
@@ -88,6 +89,10 @@ public class GetContainerBoundary extends Instruction<String>{
 		if(pidNamespaceId.equals(ContainerAnalysis.UNOBSERVED_NAMESPACE)){
 			throw new IllegalArgumentException("getContainerBoundary: PID namespace " + pidNamespaceId
 					+ " marks processes whose namespaces were not observed, not a container");
+		}
+		if(pidNamespaceId.equals(ContainerAnalysis.UNREADABLE_NAMESPACE)){
+			throw new IllegalArgumentException("getContainerBoundary: PID namespace " + pidNamespaceId
+					+ " is the kernel module's 'could not read', not a container");
 		}
 		if(containerNumber != null && containerNumber < 1){
 			throw new IllegalArgumentException("getContainerBoundary: container number must be 1 or more, not "

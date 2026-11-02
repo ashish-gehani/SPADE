@@ -45,21 +45,37 @@ import spade.query.quickgrail.instruction.InMemoryQueryHarness.AdjacencySemantic
 /**
  * {@link GetContainerBoundary} on traces shaped like the Audit reporter's output
  * (see {@link ContainerTrace}). Every scenario runs under both adjacency
- * semantics of the storage backends.
+ * semantics of the storage backends, and on traces from kernel modules with and
+ * without the fix F7 in BUG_FIXES.md, which name a new PID namespace in the
+ * unshare record.
  */
 public class GetContainerBoundaryIntegrationTest{
 
 	@Nested
 	class PostgreSQLAndQuickstepAdjacency extends Scenarios{
 		PostgreSQLAndQuickstepAdjacency(){
-			super(AdjacencySemantics.SOURCES_ALWAYS);
+			super(AdjacencySemantics.SOURCES_ALWAYS, false);
 		}
 	}
 
 	@Nested
 	class Neo4jAdjacency extends Scenarios{
 		Neo4jAdjacency(){
-			super(AdjacencySemantics.SOURCES_VIA_EDGES);
+			super(AdjacencySemantics.SOURCES_VIA_EDGES, false);
+		}
+	}
+
+	@Nested
+	class PostgreSQLAndQuickstepAdjacencyUnnamedNewPidNamespaces extends Scenarios{
+		PostgreSQLAndQuickstepAdjacencyUnnamedNewPidNamespaces(){
+			super(AdjacencySemantics.SOURCES_ALWAYS, true);
+		}
+	}
+
+	@Nested
+	class Neo4jAdjacencyUnnamedNewPidNamespaces extends Scenarios{
+		Neo4jAdjacencyUnnamedNewPidNamespaces(){
+			super(AdjacencySemantics.SOURCES_VIA_EDGES, true);
 		}
 	}
 
@@ -69,18 +85,23 @@ public class GetContainerBoundaryIntegrationTest{
 				DEEPER = "4026532291", UNUSED = "4026532999";
 
 		private final AdjacencySemantics semantics;
+		private final boolean unnamedNewPidNamespaces;
 		InMemoryQueryHarness harness;
 		ContainerTrace trace;
 		Process shim;
 
-		Scenarios(final AdjacencySemantics semantics){
+		Scenarios(final AdjacencySemantics semantics, final boolean unnamedNewPidNamespaces){
 			this.semantics = semantics;
+			this.unnamedNewPidNamespaces = unnamedNewPidNamespaces;
 		}
 
 		@BeforeEach
 		void setUp(){
 			harness = new InMemoryQueryHarness(semantics);
 			trace = new ContainerTrace(harness);
+			if(unnamedNewPidNamespaces){
+				trace.withUnnamedNewPidNamespaces();
+			}
 			shim = trace.preexisting("containerd-shim", "1200");
 		}
 
@@ -209,6 +230,22 @@ public class GetContainerBoundaryIntegrationTest{
 
 			assertResult(boundaryOf(processes(inside(web), new Process[]{worker}, inside(exec))),
 					getContainerBoundary(CONTAINER));
+		}
+
+		@Test
+		void unreadableNamespaceLabels_areNeverContainerProcesses(){
+			// Older kernel modules write 4294967295 for a namespace they could not read
+			final Process container = trace.dockerRun(shim, CONTAINER, 1300, "sh").application;
+			final Process child = trace.spawn(container, "sh", "1310", "SIGCHLD", CONTAINER);
+			final Process unreadable = trace.unobservedStep(trace.preexisting("worker", "3200"), "setns",
+					ContainerTrace.UNREADABLE, ContainerTrace.UNREADABLE);
+			trace.spawn(unreadable, "worker", "3201", "SIGCHLD", ContainerTrace.UNREADABLE);
+
+			final Result all = getContainerBoundary();
+			assertTrue(all.vertices.contains(child.hash), "the container's own process is a member");
+			for(final String vertex : all.vertices){
+				assertFalse(vertex.contains("pid:" + ContainerTrace.UNREADABLE), vertex);
+			}
 		}
 
 		@Test

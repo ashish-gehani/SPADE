@@ -55,6 +55,8 @@ final class ContainerTrace{
 	/** The host's mount and cgroup namespaces. */
 	static final String HOST_MOUNT = "4026531841", HOST_CGROUP = "4026531835";
 	static final String UNOBSERVED = "-1";
+	/** What kernel modules without the fix F7 in BUG_FIXES.md recorded for a namespace they could not read. */
+	static final String UNREADABLE = "4294967295";
 
 	/** A process vertex written to the harness. */
 	static final class Process{
@@ -100,6 +102,8 @@ final class ContainerTrace{
 	private long eventId = 7000;
 	private long namespaceCounter = 4026532500L;
 	private boolean holdClock;
+	/** Label unshare(CLONE_NEWPID) versions as kernel modules without F7 did. */
+	private boolean unnamedNewPidNamespaces;
 	/** Per pid, the namespaces the reporter's process state holds: those the process was created with. */
 	private final Map<String, Process> namespaceStateByPid = new HashMap<String, Process>();
 
@@ -115,6 +119,16 @@ final class ContainerTrace{
 	/** A fresh namespace ID. */
 	String newNamespace(){
 		return String.valueOf(namespaceCounter++);
+	}
+
+	/**
+	 * Record as kernel modules without the fix F7 in BUG_FIXES.md did: the version
+	 * after unshare(CLONE_NEWPID) has `children pid namespace` {@link #UNREADABLE},
+	 * because the new namespace has no process yet. Its children still go there.
+	 */
+	ContainerTrace withUnnamedNewPidNamespaces(){
+		unnamedNewPidNamespaces = true;
+		return this;
 	}
 
 	/** The next event happens in the same millisecond as the previous one. */
@@ -173,8 +187,10 @@ final class ContainerTrace{
 	 */
 	Process unshare(final Process process, final String flags, final String childrenPidNamespace){
 		requireObserved(process);
+		final String newChildrenPidNamespace = !flags.contains("CLONE_NEWPID") ? process.childrenPidNamespace
+				: unnamedNewPidNamespaces ? UNREADABLE : childrenPidNamespace;
 		return step(process, OPMConstants.OPERATION_UNSHARE, process.withNamespaces(process.pidNamespace,
-				flags.contains("CLONE_NEWPID") ? childrenPidNamespace : process.childrenPidNamespace,
+				newChildrenPidNamespace,
 				flags.contains("CLONE_NEWNS") ? newNamespace() : process.mountNamespace,
 				flags.contains("CLONE_NEWCGROUP") ? newNamespace() : process.cgroupNamespace));
 	}

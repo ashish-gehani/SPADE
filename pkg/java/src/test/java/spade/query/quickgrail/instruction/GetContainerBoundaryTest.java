@@ -79,6 +79,9 @@ public class GetContainerBoundaryTest{
 		final IllegalArgumentException unobserved = assertThrows(IllegalArgumentException.class,
 				() -> new GetContainerBoundary(target, subject, HOST, "-1", null));
 		assertTrue(unobserved.getMessage().contains("not observed"), unobserved.getMessage());
+		final IllegalArgumentException unreadable = assertThrows(IllegalArgumentException.class,
+				() -> new GetContainerBoundary(target, subject, HOST, "4294967295", null));
+		assertTrue(unreadable.getMessage().contains("could not read"), unreadable.getMessage());
 		assertThrows(IllegalArgumentException.class, () -> new GetContainerBoundary(target, subject, HOST, "", null));
 		assertThrows(IllegalArgumentException.class,
 				() -> new GetContainerBoundary(target, subject, HOST, CONTAINER, 0));
