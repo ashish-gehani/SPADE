@@ -7,16 +7,17 @@
 # fixes on a trace without recording it again; the containers' activity is the
 # same, the reporter and storages are the build's.
 # Usage: replay.sh N [NAME]   Input: ~/stage-b/trace<N>/   Output: ~/stage-b/trace<NAME>/ (<N>r by default)
+# GIVE_HANDLE=0 leaves out the live trace's handleLocalEndpoints (BUG_FIXES.md N20, F16).
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)   # this directory: the other scripts
-N=${1:?usage: replay.sh 1|2|3 [NAME]}
+N=${1:?usage: replay.sh 1|2|3|4 [NAME]}
 NAME=${2:-${N}r}
 SRC="$HOME/stage-b/trace$N"
 OUT="$HOME/stage-b/trace$NAME"
 case "$N" in
-    1|3) ARGS="namespaces=true fileIO=true netIO=true IPC=true inode=true networkAddressTranslation=true" ;;
+    1|3|4) ARGS="namespaces=true fileIO=true netIO=true IPC=true inode=true networkAddressTranslation=true" ;;
     2) ARGS="namespaces=true" ;;
-    *) echo "usage: replay.sh 1|2|3 [NAME]"; exit 2 ;;
+    *) echo "usage: replay.sh 1|2|3|4 [NAME]"; exit 2 ;;
 esac
 [ -s "$SRC/spade-input.log" ] || { echo "ABORT: no $SRC/spade-input.log"; exit 1; }
 [ "$OUT" != "$SRC" ] || { echo "ABORT: the replay would overwrite the trace"; exit 1; }
@@ -38,8 +39,13 @@ cd "$SPADE_HOME" || exit 1
 LIVE_LOG=$(sed -n 's/^SPADE log: //p' "$SRC/run.log" | head -1)
 HANDLE=$(grep -oE 'handleLocalEndpoints=(true|false)' "$LIVE_LOG" 2>/dev/null | head -1)
 [ -n "$HANDLE" ] || { echo "ABORT: no handleLocalEndpoints in the trace's SPADE log '$LIVE_LOG'"; exit 1; }
-ARGS="$ARGS $HANDLE"
-echo "as the live trace ($LIVE_LOG): $HANDLE"
+if [ "${GIVE_HANDLE:-1}" = 1 ]; then
+    ARGS="$ARGS $HANDLE"
+    echo "as the live trace ($LIVE_LOG): $HANDLE"
+else
+    # GIVE_HANDLE=0: leave it to playback to decide, the case of N20
+    echo "handleLocalEndpoints not given (the live trace had $HANDLE)"
+fi
 
 ctl() {
     echo ">> control: $*"

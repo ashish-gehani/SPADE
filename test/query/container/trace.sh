@@ -3,17 +3,23 @@
 # Scenarios and expectations are in TRACE_VALIDATION.md, Part B (committed first).
 # Run as vagrant, SPADE's user: SPADE leaves that user's activity out, so every
 # scenario runs under sudo or inside containers.
-# Usage: trace.sh 1|2|3    Output: ~/stage-b/trace<N>/ (run.log, truth.txt)
-#   1: B1-B7   2: B8-B10, netIO off   3: M, the DeathStarBench media microservices
+# Usage: trace.sh 1|2|3|4 [NAME]    Output: ~/stage-b/trace<NAME>/ (run.log, truth.txt), trace<N> by default
+#   1: B1-B7   2: B8-B11, netIO off   3: M, the DeathStarBench media microservices
+#   4: S, six of the media microservices' containers and a small workload
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)   # this directory: the other scripts
 N=${1:-}
+NAME=${2:-$N}   # e.g. 1b, to keep an earlier recording of trace 1
 case "$N" in
-    1|3) ARGS="namespaces=true fileIO=true netIO=true IPC=true inode=true networkAddressTranslation=true" ;;
+    1|3|4) ARGS="namespaces=true fileIO=true netIO=true IPC=true inode=true networkAddressTranslation=true" ;;
     2) ARGS="namespaces=true" ;;
-    *) echo "usage: trace.sh 1|2|3"; exit 2 ;;
+    *) echo "usage: trace.sh 1|2|3|4"; exit 2 ;;
 esac
 MEDIA="$HOME/DeathStarBench/mediaMicroservices"
+# Trace 4 starts only these, without what they depend on otherwise
+SUBSET="dns-media jaeger nginx-web-server user-service user-mongodb user-memcached"
+UP_ARGS=""; COMPOSE_SERVICES=""
+[ "$N" = 4 ] && UP_ARGS="--no-deps $SUBSET" && COMPOSE_SERVICES="$SUBSET"
 # Leave out infrastructure that floods the audit stream but has nothing to do
 # with containers: udev answers every veth a container gets with thousands of
 # opens and closes (its workers are children of systemd-udevd), and postgres is
@@ -24,11 +30,11 @@ IGNORE="kauditd,auditd,audispd,systemd-udevd,postgres"
 ARGS="$ARGS ignoreProcesses=$IGNORE ignoreParentProcesses=$IGNORE"
 # Everything the reporter reads from the audit bridge, to compare with auditd's
 # own log (auditd-slice.log) when the graph misses something auditd recorded.
-ARGS="$ARGS outputLog=$HOME/stage-b/trace$N/spade-input.log"
+ARGS="$ARGS outputLog=$HOME/stage-b/trace$NAME/spade-input.log"
 # The media stack produces audit events about five times faster than SPADE
 # stores them with three storages, so the bridge must hold a large backlog.
 [ "$N" = 3 ] && ARGS="$ARGS spadeAuditBridgeQueueMegabytes=4096"
-OUT="$HOME/stage-b/trace$N"
+OUT="$HOME/stage-b/trace$NAME"
 rm -rf "$OUT"; mkdir -p "$OUT"
 exec > >(tee "$OUT/run.log") 2>&1
 # the SPADE tree these scripts are in, unless SPADE_HOME names another
@@ -110,7 +116,7 @@ fi
 # the bridge then can't read auditd's socket; SPADE logs that only as INFO.
 [ -u bin/spadeAuditBridge ] || { echo "ABORT: bin/spadeAuditBridge is not setuid; run bin/allowAuditAccess"; exit 1; }
 lost() { sudo auditctl -s | awk '$1 == "lost" {print $2}'; }
-if [ "$N" = 3 ]; then
+if [ "$N" -ge 3 ]; then
     # auditd reads the kernel's records from a netlink socket whose receive buffer
     # is net.core.rmem_default when auditd starts (212992 bytes; auditd has no
     # setting for it). When the buffer stays full for 0.1 s, kauditd gives up on
@@ -153,7 +159,7 @@ echo "audit before:$(sudo auditctl -s | grep -E '^(lost|backlog_limit|backlog_wa
 # Part A ran with 65536 and lost nothing. Restored at the end.
 OLD_LIMIT=$(sudo auditctl -s | awk '$1 == "backlog_limit" {print $2}')
 # Trace 3 overflowed even 65536 while auditd lagged behind the media stack.
-LIMIT=65536; [ "$N" = 3 ] && LIMIT=262144
+LIMIT=65536; [ "$N" -ge 3 ] && LIMIT=262144
 sudo auditctl -b "$LIMIT" >/dev/null
 echo "backlog limit raised: $OLD_LIMIT -> $(sudo auditctl -s | awk '$1 == "backlog_limit" {print $2}')"
 # auditd's af_unix plugin drops an event when its socket to the bridge is full,
@@ -162,12 +168,12 @@ echo "backlog limit raised: $OLD_LIMIT -> $(sudo auditctl -s | awk '$1 == "backl
 # own, bursts lost a few hundred events. Raised for the trace, restored after.
 OLD_WMEM=$(sysctl -n net.core.wmem_default)
 # 16 MB holds about 1.6 s of the media stack's events; trace 3 gets 128 MB.
-WMEM=16777216; [ "$N" = 3 ] && WMEM=134217728
+WMEM=16777216; [ "$N" -ge 3 ] && WMEM=134217728
 sudo sysctl -q -w net.core.wmem_default="$WMEM"
 echo "socket send buffer default raised: $OLD_WMEM -> $(sysctl -n net.core.wmem_default)"
 LOST_BEFORE=$(lost)
 SINCE=$(date '+%F %T')
-if [ "$N" = 3 ]; then
+if [ "$N" -ge 3 ]; then
     # Once a second: CPU ticks of auditd, kauditd, the bridge and SPADE, the state
     # of auditd's main thread (R running, S sleeping, D blocked on I/O),
     # the memory queued in auditd's netlink socket and its drop count, and the
@@ -257,8 +263,14 @@ elif [ "$N" = 2 ]; then
     out=$(sudo docker run --rm -v "$OUT/spawn-child:/spawn-child:ro" alpine \
         sh -c 'readlink /proc/self/ns/pid; /spawn-child')
     truth "B10 clone3-in-container X=$(echo "$out" | digits) child_ns_pid=$(echo "$out" | sed -n 2p)"
-    mark "B10 end"
-elif [ "$N" = 3 ]; then
+    mark "B10 end"; sleep 1
+
+    mark "B11 begin"
+    # directly under sudo, without the root shell of B5 and B8 (F18)
+    Y=$(sudo unshare --pid --fork sh -c 'readlink /proc/self/ns/pid; sleep 1; true' | digits)
+    truth "B11 sudo-unshare Y=$Y"
+    mark "B11 end"
+elif [ "$N" -ge 3 ]; then
     # Ground truth for every container start, restarts included: its init and PID
     # namespace, read as the start event arrives (a crashing run may be gone already).
     sudo docker events --filter type=container --filter event=start \
@@ -270,31 +282,43 @@ elif [ "$N" = 3 ]; then
     EVENTS=$!
     sleep 1
     mark "M compose-up begin"
-    (cd "$MEDIA" && sudo docker compose up -d) > "$OUT/compose-up.log" 2>&1
+    (cd "$MEDIA" && sudo docker compose up -d $UP_ARGS) > "$OUT/compose-up.log" 2>&1
     mark "M compose-up end"
     for i in $(seq 180); do
         [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/)" = 200 ] && break; sleep 1
     done
     echo "web server answers: $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/) after ${i}s"
     mark "M register begin"
-    (cd "$MEDIA" && myenv/bin/python3 scripts/write_movie_info.py -c datasets/tmdb/casts.json \
-        -m datasets/tmdb/movies.json --server_address http://127.0.0.1:8080 \
-        && bash scripts/register_users.sh && bash scripts/register_movies.sh) > "$OUT/register.log" 2>&1
-    echo "registration exit=$?"
+    if [ "$N" = 3 ]; then
+        (cd "$MEDIA" && myenv/bin/python3 scripts/write_movie_info.py -c datasets/tmdb/casts.json \
+            -m datasets/tmdb/movies.json --server_address http://127.0.0.1:8080 \
+            && bash scripts/register_users.sh && bash scripts/register_movies.sh) > "$OUT/register.log" 2>&1
+        echo "registration exit=$?"
+    else
+        ok=0
+        for i in $(seq 100); do
+            c=$(curl -s -o /dev/null -w '%{http_code}' -d "first_name=f$i&last_name=l$i&username=trace4_$(date +%s)_$i&password=p$i" \
+                http://127.0.0.1:8080/wrk2-api/user/register)
+            [ "$c" = 200 ] && ok=$((ok + 1))
+        done
+        echo "registration: $ok of 100 users"
+    fi
     mark "M register end"
-    mark "M load begin"
-    "$HOME/DeathStarBench/wrk2/wrk" -D exp -t 2 -c 4 -d 30 -L \
-        -s "$MEDIA/wrk2/scripts/media-microservices/compose-review.lua" \
-        http://127.0.0.1:8080/wrk2-api/review/compose -R 20 > "$OUT/wrk2.log" 2>&1
-    echo "wrk2: $(grep -E 'Requests/sec|requests in' "$OUT/wrk2.log" | tr -s ' ' | tr '\n' ';')"
-    mark "M load end"
+    if [ "$N" = 3 ]; then
+        mark "M load begin"
+        "$HOME/DeathStarBench/wrk2/wrk" -D exp -t 2 -c 4 -d 30 -L \
+            -s "$MEDIA/wrk2/scripts/media-microservices/compose-review.lua" \
+            http://127.0.0.1:8080/wrk2-api/review/compose -R 20 > "$OUT/wrk2.log" 2>&1
+        echo "wrk2: $(grep -E 'Requests/sec|requests in' "$OUT/wrk2.log" | tr -s ' ' | tr '\n' ';')"
+        mark "M load end"
+    fi
     kill "$SAMPLER"; wait "$SAMPLER" 2>/dev/null
     cat "$OUT/sampler.err"
     # (not pkill -f: its own sudo would match the pattern)
     for p in $(ps -eo pid,args | awk '/[d]ocker events --filter/{print $1}'); do sudo kill "$p"; done
     kill "$EVENTS" 2>/dev/null
     # ground truth: each container's last run, and how often Docker restarted it
-    for c in $(cd "$MEDIA" && sudo docker compose ps -a -q); do
+    for c in $(cd "$MEDIA" && sudo docker compose ps -a -q $COMPOSE_SERVICES); do
         p=$(sudo docker inspect -f '{{.State.Pid}}' "$c")
         n=$(sudo docker inspect -f '{{.Name}}' "$c" | tr -d /)
         x=exited; [ "$p" != 0 ] && x=$(pidns_of "$p")
@@ -324,9 +348,9 @@ T1=$(date +%s)
 sudo sh -c 'cat $(ls -tr /var/log/audit/audit.log*)' \
     | awk -F'[(:]' -v a="$T0" -v b="$T1" '/msg=audit\(/{t=$2+0; if (t>=a && t<=b) print}' > "$OUT/auditd-slice.log"
 echo "auditd records in the trace window: $(wc -l < "$OUT/auditd-slice.log"), first at $(head -1 "$OUT/auditd-slice.log" | grep -oE 'audit\([0-9.]+' | cut -c7-)"
-[ "$N" = 3 ] && restore_auditd
+[ "$N" -ge 3 ] && restore_auditd
 sudo docker rm -f b2 b3 >/dev/null 2>&1
-if [ "$N" = 3 ]; then
+if [ "$N" -ge 3 ]; then
     (cd "$MEDIA" && sudo docker compose stop) > "$OUT/compose-stop-after.log" 2>&1
     sudo docker update --restart no $(cd "$MEDIA" && sudo docker compose ps -a -q) >/dev/null
 fi

@@ -16,20 +16,22 @@ __Requirements__:
   setuid bit), auditd with its af_unix plugin, PostgreSQL with SPADE's
   database, and Quickstep (`bin/installQuickstep`).
 * Docker with the `alpine` image, `bwrap`, `gcc` with static glibc, Python 3.
-* For trace 3, DeathStarBench's `mediaMicroservices` in
-  `~/DeathStarBench`, with its containers created and stopped, its Python
-  environment `myenv`, and `wrk2` built.
+* For traces 3 and 4, DeathStarBench's `mediaMicroservices` in
+  `~/DeathStarBench`, with its containers created and stopped; for trace 3
+  also its Python environment `myenv`, and `wrk2` built.
 * Run the scripts as the user SPADE runs as. The audit rules leave that
   user out, so the scenarios run under `sudo` or inside containers.
 
 __Steps__:
 
-* `./trace.sh 1|2|3` records one trace into `~/stage-b/trace<N>/`: trace 1
-  is B1-B7, trace 2 is B8-B10 with `netIO` off, trace 3 is the media
-  microservices (M). It starts a fresh SPADE, PostgreSQL, Neo4j and Quickstep
+* `./trace.sh 1|2|3|4 [NAME]` records one trace into `~/stage-b/trace<N>/`,
+  or `trace<NAME>/` (e.g. `1b`, to keep an earlier recording): trace 1 is
+  B1-B7, trace 2 is B8-B11 with `netIO` off, trace 3 is the media
+  microservices (M), and trace 4 is six of their containers with a small
+  workload (S), which takes minutes where trace 3 takes hours. It starts a fresh SPADE, PostgreSQL, Neo4j and Quickstep
   storage, records the kernel's ground truth in `truth.txt`, and ends with a
   completeness check: a trace is used only if the line reads
-  `COMPLETENESS: ok`. Trace 3 changes auditd's settings for its duration
+  `COMPLETENESS: ok`. Traces 3 and 4 change auditd's settings for their duration
   (see below) and puts them back at the end, also when it stops early; it
   also writes `monitor.log`, auditd's CPU time and socket once a second.
 * `./query.sh <N> [method calls]` runs the methods on all three storages and
@@ -48,10 +50,11 @@ __Steps__:
   the trace's ground truth linked next to it. It checks reporter and storage
   fixes on a trace without recording it again; query and check the replay
   as `3r` (`./query.sh 3r`, `TRACE=3r ./query-trace3.sh`). It passes
-  `handleLocalEndpoints` as the live trace had it, since playback otherwise
-  may drop every network record of the kernel module (BUG_FIXES.md N20).
+  `handleLocalEndpoints` as the live trace had it, since playback without F16
+  may drop every network record of the kernel module (BUG_FIXES.md N20);
+  `GIVE_HANDLE=0` leaves it out, to check F16.
 * `./check-trace1.py [dir]` (traces 1 and 2) and `./check-media.py [dir]`
-  (trace 3) compare the results across storages and with the ground truth.
+  (traces 3 and 4) compare the results across storages and with the ground truth.
   For trace 3 that is the kernel module's records of the container inits in
   auditd's log and the cgroup sampler's processes, since Docker restarts
   crashed services faster than it can be asked about them.
@@ -68,8 +71,10 @@ __Files__:
 | `check-trace1.py` | Facts for B1-B10: starts, numbered lists, boundaries, sockets, storage agreement |
 | `check-media.py` | M1-M4: one start per container run (restarts included), each boundary against the sampler, storage agreement |
 | `dotsum.py` | Summarizes a `.dot` export; used by the checkers |
+| `fdcheck.py` | B12: the reporter's warnings about descriptors it does not know, by process and syscall |
+| `nofd.py` | B12: which of those descriptors were created by a recorded syscall (a gap in SPADE) and which by one the rules leave out, and what the reporter logged at the creation |
 | `compare-input.py` | Compares auditd's log with everything the Audit reporter read, by serial number and, within each event, by record type |
-| `cgroup-sampler.py` | Trace 3's ground truth: which processes ran in which container, from `/proc/<pid>/cgroup` |
+| `cgroup-sampler.py` | Traces 3 and 4's ground truth: which processes ran in which container, from `/proc/<pid>/cgroup` |
 | `spawn-child.c` | B10: starts a child with `posix_spawn`, which static glibc does with clone3 |
 | `af-unix-capture.py` | Diagnostic only: a second reader of auditd's af_unix socket (the plugin serves one client, so not during a trace) |
 
