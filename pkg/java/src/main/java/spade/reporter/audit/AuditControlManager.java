@@ -140,6 +140,7 @@ public class AuditControlManager{
 				systemCallsWithSuccess.addAll(Arrays.asList(
 						"unlink", "unlinkat", "link", "linkat", "symlink", "symlinkat",
 						"clone", "fork", "vfork", "execve",
+						"435", // clone3 (x86_64), by number: auditctl before audit 3.0 may not know its name
 						"open", "openat", "creat", "close", "mknod", "mknodat",
 						"dup", "dup2", "dup3", "fcntl", "rename", "renameat",
 						"setuid", "setreuid", "setresuid", "setgid", "setregid", "setresgid",

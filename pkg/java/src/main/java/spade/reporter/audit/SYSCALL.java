@@ -21,7 +21,7 @@ package spade.reporter.audit;
 
 public enum SYSCALL{
 
-	FORK, VFORK, CLONE, EXECVE, 
+	FORK, VFORK, CLONE, CLONE3, EXECVE, 
 	UNIT, // Used for beep unit creation (not an actual system call)
 	LOAD, // Used for linked libraries when an execve happens (not an actual system call)
 	SETUID, SETREUID, SETRESUID, SETFSUID,
@@ -102,6 +102,7 @@ public enum SYSCALL{
 			case 85:	return CREAT;
 			case 3:		return CLOSE;
 			case 56:	return CLONE;
+			case 435:	return CLONE3;
 			case 42:	return CONNECT;
 			case 32:	return DUP;
 			case 33:	return DUP2;

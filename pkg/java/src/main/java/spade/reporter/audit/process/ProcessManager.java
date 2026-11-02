@@ -512,10 +512,29 @@ public abstract class ProcessManager extends ProcessStateManager{
 			return new NamespaceIdentifier(null, null, null, null, null, null, null);
 		}
 	}
-	
+
+	/**
+	 * clone3's flags as the kernel module reports them (decimal, 64 bits), in the form clone's
+	 * a0 has once its hex is converted: the low 32 bits as an int. The higher bits hold
+	 * clone3-only flags, such as CLONE_CLEAR_SIGHAND, which clone cannot express.
+	 *
+	 * @param moduleFlags value of ns_clone_flags; null without the module's record (namespaces=false)
+	 * @return the flags as a decimal int, "0" when unknown
+	 */
+	static String clone3FlagsAsCloneFlags(final String moduleFlags){
+		if(moduleFlags == null){
+			return "0";
+		}
+		try{
+			return Integer.toString((int)(Long.parseUnsignedLong(moduleFlags.trim()) & 0xffffffffL));
+		}catch(NumberFormatException e){
+			return "0";
+		}
+	}
+
 	/**
 	 * Does the following:
-	 * 
+	 *
 	 * 1) Creates, adds, and puts the process vertex for the parent if not seen
 	 * 2) Removes the state (tgids, and fds) for the child process
 	 * 3) Creates, adds, and puts the child process vertex
@@ -523,12 +542,18 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 * 5) Draws the fork/vfork/clone edge
 	 * 
 	 * @param eventData system call audit event key values
-	 * @param syscall fork/vfork/clone syscall
+	 * @param syscall fork/vfork/clone/clone3 syscall
 	 * @return true
 	 */
 	public boolean handleForkVforkClone(Map<String, String> eventData, SYSCALL syscall){
 		String source = OPMConstants.SOURCE_AUDIT_SYSCALL;
 		String flagsString = eventData.get(AuditEventReader.ARG0);
+		if(syscall == SYSCALL.CLONE3){
+			// a0 points to struct clone_args. The kernel module reports the flags as clone takes
+			// them, exit signal included, so from here on clone3 is handled as clone.
+			flagsString = clone3FlagsAsCloneFlags(eventData.get(AuditEventReader.NS_CLONE_FLAGS));
+			syscall = SYSCALL.CLONE;
+		}
 		String comm = eventData.get(AuditEventReader.COMM);
 		String cwd = eventData.get(AuditEventReader.CWD);
 		String time = eventData.get(AuditEventReader.TIME);
