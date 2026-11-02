@@ -117,6 +117,8 @@ public class Audit extends AbstractReporter {
 	private AuditConfiguration auditConfiguration;
 	
 	private KernelModuleConfiguration kernelModuleConfiguration;
+	// Whether the arguments gave handleLocalEndpoints; in playback, without it the log decides.
+	private boolean handleLocalEndpointsGiven;
 	
 	private boolean excludeProctitle;
 	private boolean filesystemCredentialUpdates;
@@ -350,6 +352,7 @@ public class Audit extends AbstractReporter {
 		
 		try{
 			kernelModuleConfiguration = KernelModuleConfiguration.instance(map, input.isLiveMode());
+			handleLocalEndpointsGiven = kernelModuleConfiguration.isHandleLocalEndpointsSpecified();
 			logger.log(Level.INFO, kernelModuleConfiguration.toString());
 		}catch(Exception e){
 			logger.log(Level.SEVERE, "Failed to initialize kernel module configuration", e);
@@ -670,11 +673,24 @@ public class Audit extends AbstractReporter {
 		}
 	}
 
+	/**
+	 * In playback without handleLocalEndpoints, decides from the log whether to use the kernel
+	 * module's network records: the first network event decides, a module record for true and a
+	 * network SYSCALL record for false. A module network record later still decides true: the log
+	 * was recorded with localEndpoints, and live auditing then logs some network syscalls as SYSCALL
+	 * records too but uses the module's records (a first SYSCALL record lost all of them).
+	 */
 	private void setHandleKMRecordsFlag(boolean isLiveAudit, boolean valueOfHandleKMRecords){
-		// Only set the value if it hasn't been set and is log playback
-		if(!kernelModuleConfiguration.isHandleLocalEndpointsSpecified() && !isLiveAudit){
+		if(isLiveAudit || handleLocalEndpointsGiven){
+			return;
+		}
+		if(!kernelModuleConfiguration.isHandleLocalEndpointsSpecified()){
 			kernelModuleConfiguration.setHandleLocalEndpoints(valueOfHandleKMRecords);
 			logger.log(Level.INFO, "'" + KernelModuleConfiguration.keyHandleLocalEndpoints + "' value set to '"+valueOfHandleKMRecords+"'");
+		}else if(valueOfHandleKMRecords && !kernelModuleConfiguration.isHandleLocalEndpoints()){
+			kernelModuleConfiguration.setHandleLocalEndpoints(true);
+			logger.log(Level.INFO, "'" + KernelModuleConfiguration.keyHandleLocalEndpoints + "' value set to 'true':"
+					+ " the log has network records of the kernel module after a network SYSCALL record");
 		}
 	}
 
