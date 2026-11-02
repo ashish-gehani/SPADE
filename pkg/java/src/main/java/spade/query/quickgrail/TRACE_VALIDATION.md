@@ -22,13 +22,17 @@ records.
 ## Part A: the kernel module's namespace records
 
 Q2 asks for `ns pid` to be the PID of a process inside its own PID namespace.
-Branch `bug-fixes` has two commits for that (`CLARITY_METHODS.md` §4.1):
+Two fixes on branch `bug-fixes` are about that (`BUG_FIXES.md`):
 
-- `9fd54e0c` records `ns_ns_pid` in the process's own PID namespace instead of
-  the clone/fork/vfork return value, which is the PID in the creator's
-  namespace.
-- `d445c7cc` makes the unshare and setns hooks look up the caller by its PID in
-  its own namespace instead of its host PID.
+- F1, `9fd54e0c`, records `ns_ns_pid` in the process's own PID namespace
+  instead of the clone/fork/vfork return value, which is the PID in the
+  creator's namespace.
+- F2, `d445c7cc`, makes the unshare and setns hooks look up the caller by its
+  PID in its own namespace instead of its host PID.
+
+Part A judged `ns_ns_pid` and `ns_inum_pid` only, not `ns_inum_pid_children`.
+That missed F7, found in Part B; its own A/B, with the same harness, is in
+`BUG_FIXES.md` F7 and `pkg/linux/kernel_modules/test/ns-pid/README.md`.
 
 ### Method
 
@@ -214,13 +218,11 @@ methods:
   NEM"). The hypervisor is now off while the VM runs. The VM has 16 GB, and
   SPADE runs with a heap of at most 8 GB (`--mem-max 8g`) instead of its
   16 GB default.
-- **The kernel module's netfilter hook slept in atomic context.** With
-  `networkAddressTranslation=true`, a full audit backlog made the hook wait in
-  softirq, and the kernel reported `BUG: scheduling while atomic`, with
-  PostgreSQL's loopback traffic as the victim (`CLARITY_METHODS.md` §6, Q7).
-  Part A ran with `nf_hooks=0`, so it never reached that code. Commit
-  `da9c05b8` on branch `bug-fixes` fixes it, and the module packaged for both
-  traces has that fix as well as the two `ns pid` fixes.
+- **The kernel module's netfilter hook slept in atomic context**
+  (`BUG_FIXES.md` F3). With `networkAddressTranslation=true`, a full audit
+  backlog made the hook wait in softirq, and the kernel reported `BUG:
+  scheduling while atomic`. Part A ran with `nf_hooks=0`, so it never reached
+  that code. Every later attempt used a module with F3.
 
 The second attempt ran to the end and was queried, but it is not used as a
 result either: records were missing on the way to both storages, for reasons
@@ -232,8 +234,8 @@ outside the container methods.
   (13,525). As B1 started, auditd logged `Error receiving audit netlink packet
   (No buffer space available)`, and the kernel counted 34 records lost.
 - **PostgreSQL dropped 13,264 vertices** in whole batches, because process
-  names from kernel-module records ended in NULs (`CLARITY_METHODS.md` Q8, Q9).
-- **Neo4j failed every query** that builds a graph (Q10).
+  names from kernel-module records ended in NULs (`BUG_FIXES.md` F4, F5).
+- **Neo4j failed every query** that builds a graph (F6).
 
 Two more attempts were discarded by the completeness rule below, before any
 query:
@@ -270,8 +272,8 @@ The harness changed for the later attempts:
   before it starts SPADE. A restart before that change reset both storages
   and erased the second attempt's graphs; its query results were already
   saved.
-- SPADE runs from `bug-fixes` (`d36e055a`) plus the container methods. The
-  kernel module is the same build as before.
+- SPADE runs with F4 to F6 (`bug-fixes` at `d36e055a`) plus the container
+  methods. The kernel module is the same build as before, without F7.
 
 The fifth attempt passed those checks: the kernel's `lost` counter stayed at
 236521, auditd and the storages reported no error, and PostgreSQL held 21,023
@@ -284,7 +286,16 @@ graph has that process only as first seen later, with `-1` labels. SPADE logs
 nothing about it. Of the 10 inits runc created in trace 1 (B1, B2, B4's
 outer container, the six B6 runs and B7), 6 have a creation in the graph, and
 no process carries B4's nested namespace. Where the records are dropped,
-between auditd and the storages, is being traced.
+between auditd and the storages, is being traced (`BUG_FIXES.md` O1).
+
+The fifth attempt also showed that a module without F7 never names the
+namespace an unshare(CLONE_NEWPID) creates (`BUG_FIXES.md` F7). The methods
+then merged the containers that reused an ID: 4026532410 held 2 containers
+and they saw 1, and 4026532474 held 8 and they saw 1. Both the module and the
+methods were fixed (`CLARITY_METHODS.md` Q11, D19). B1's expectation that
+the unshare version's `children pid namespace` is X holds only for a module
+with F7; with an older one that label is `4294967295`. The expectation stays
+as committed, and the results say which module recorded each trace.
 
 ### Scenarios and expectations
 
