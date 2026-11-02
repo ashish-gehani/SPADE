@@ -245,7 +245,7 @@ public class Neo4jQueryEnvironment extends AbstractQueryEnvironment{
 				"match (" + vertexAlias + ":" + remoteSymbolNodeLabel + ") "
 				+ "set " + propertyName + " = "
 				+ "case "
-				+ "when not exists(" + propertyName + ") then " + propertyValue + " " // set
+				+ "when " + propertyName + " is null then " + propertyValue + " " // set
 				+ "when " + propertyName + " contains " + propertyValue + " then " + propertyName + " " // leave as is
 				+ "else " + propertyName + " + " + propertyValue + " end";
 		storage.executeQuery(query);

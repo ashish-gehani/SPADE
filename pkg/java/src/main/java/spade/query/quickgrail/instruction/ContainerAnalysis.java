@@ -1,0 +1,803 @@
+/*
+ --------------------------------------------------------------------------------
+ SPADE - Support for Provenance Auditing in Distributed Environments.
+ Copyright (C) 2026 SRI International
+
+ This program is free software: you can redistribute it and/or
+ modify it under the terms of the GNU General Public License as
+ published by the Free Software Foundation, either version 3 of the
+ License, or (at your option) any later version.
+
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ General Public License for more details.
+
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
+ --------------------------------------------------------------------------------
+ */
+package spade.query.quickgrail.instruction;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import spade.query.quickgrail.core.QueriedEdge;
+import spade.query.quickgrail.core.QueryInstructionExecutor;
+import spade.query.quickgrail.core.QuickGrailQueryResolver.PredicateOperator;
+import spade.query.quickgrail.entities.Graph;
+import spade.query.quickgrail.instruction.GetLineage.Direction;
+import spade.reporter.audit.OPMConstants;
+import spade.utility.HelperFunctions;
+
+/**
+ * Container structure recovered from Audit reporter provenance, shared by
+ * {@link GetContainerInit} and {@link GetContainerBoundary}.
+ *
+ * A container at runtime is the set of processes in one PID namespace
+ * (CLARION, USENIX Security 2021, §4.2.1). The Audit reporter labels every
+ * process vertex with its `pid namespace` and `children pid namespace` and
+ * links processes with WasTriggeredBy edges. Everything here is built from
+ * those labels and edges with existing executor primitives, so it works on
+ * every storage backend. See CLARITY_METHODS.md for the design, the kernel
+ * rules it relies on, and its assumptions.
+ */
+final class ContainerAnalysis{
+
+	/** `pid namespace` value of processes whose namespaces the reporter never observed. */
+	static final String UNOBSERVED_NAMESPACE = "-1";
+
+	/**
+	 * The kernel module's "could not read" printed unsigned, as modules before the
+	 * fix F7 in BUG_FIXES.md wrote it. Not a namespace ID. Such a module labels every
+	 * unshare(CLONE_NEWPID) version's `children pid namespace` with it, because the
+	 * new namespace has no process yet.
+	 */
+	static final String UNREADABLE_NAMESPACE = "4294967295";
+
+	private static final String NEW_PID_NAMESPACE_FLAG = "CLONE_NEWPID";
+
+	/** A process version has one of these: `start time` if created in the trace, else `seen time`. */
+	private static final List<String> PROCESS_TIME_KEYS = Collections.unmodifiableList(Arrays.asList(
+			OPMConstants.PROCESS_START_TIME, OPMConstants.PROCESS_SEEN_TIME));
+
+	/** WasTriggeredBy operations that create a process (raw syscall names too, for simplify=false). */
+	private static final List<String> CREATION_OPERATIONS = Collections.unmodifiableList(Arrays.asList(
+			OPMConstants.OPERATION_CLONE, OPMConstants.OPERATION_FORK, "vfork"));
+
+	/**
+	 * WasTriggeredBy operations that make a new version of a process still running
+	 * the same program. With the reporter's default agents=false and units=false,
+	 * only unshare and setns appear.
+	 */
+	private static final List<String> SAME_PROGRAM_OPERATIONS = Collections.unmodifiableList(Arrays.asList(
+			OPMConstants.OPERATION_UNSHARE, OPMConstants.OPERATION_SETNS,
+			OPMConstants.OPERATION_SETUID, "setreuid", "setresuid", "setfsuid",
+			OPMConstants.OPERATION_SETGID, "setregid", "setresgid", "setfsgid",
+			OPMConstants.OPERATION_UPDATE, OPMConstants.OPERATION_UNIT));
+
+	/**
+	 * A creation edge whose child lands in a different PID namespace than its parent.
+	 */
+	static final class Crossing{
+
+		final String edgeHash, childHash, parentHash;
+		/** Edge `time` in the reporter's format; ordered as a string, like the storage does. */
+		final String time;
+		final long eventId;
+		final Map<String, String> child, parent;
+
+		private Crossing(final QueriedEdge edge, final Map<String, String> child, final Map<String, String> parent){
+			this.edgeHash = edge.edgeHash;
+			this.childHash = edge.childHash;
+			this.parentHash = edge.parentHash;
+			final Map<String, String> annotations = edge.getCopyOfAnnotations();
+			this.time = nonNull(annotations.get(OPMConstants.EDGE_TIME));
+			this.eventId = parseLong(annotations.get(OPMConstants.EDGE_EVENT_ID));
+			this.child = child;
+			this.parent = parent;
+		}
+
+		String childNamespace(){
+			return child.get(OPMConstants.PROCESS_PID_NAMESPACE);
+		}
+
+		String parentNamespace(){
+			return parent.get(OPMConstants.PROCESS_PID_NAMESPACE);
+		}
+
+		/** `start time` of the parent version, or `seen time` if it was not created in the trace. */
+		String parentTime(){
+			return processTime(parent);
+		}
+	}
+
+	/** Event order: time, then event id to break ties within the same millisecond. */
+	private static final Comparator<Crossing> EVENT_ORDER = new Comparator<Crossing>(){
+		@Override
+		public int compare(final Crossing a, final Crossing b){
+			return compareEvents(a.time, a.eventId, b.time, b.eventId);
+		}
+	};
+
+	private static int compareEvents(final String timeA, final long eventIdA, final String timeB, final long eventIdB){
+		final int byTime = timeA.compareTo(timeB);
+		return byTime != 0 ? byTime : Long.compare(eventIdA, eventIdB);
+	}
+
+	/** A recorded unshare that created a PID namespace for the caller's children. */
+	private static final class NamespaceCreation{
+		final String stepEdgeHash;
+		/** The new namespace's ID; null until known when the module could not name it. */
+		String pidNamespace;
+		/** Host pid of the caller. */
+		final String pid;
+		final String time;
+		final long eventId;
+
+		private NamespaceCreation(final QueriedEdge step, final String pidNamespace, final String pid){
+			final Map<String, String> annotations = step.getCopyOfAnnotations();
+			this.stepEdgeHash = step.edgeHash;
+			this.pidNamespace = pidNamespace;
+			this.pid = pid;
+			this.time = nonNull(annotations.get(OPMConstants.EDGE_TIME));
+			this.eventId = parseLong(annotations.get(OPMConstants.EDGE_EVENT_ID));
+		}
+	}
+
+	/** When a process changed where its children go: any counted unshare or setns step. */
+	private static final class NamespaceStep{
+		final String pid;
+		final String time;
+		final long eventId;
+
+		private NamespaceStep(final QueriedEdge step, final String pid){
+			final Map<String, String> annotations = step.getCopyOfAnnotations();
+			this.pid = pid;
+			this.time = nonNull(annotations.get(OPMConstants.EDGE_TIME));
+			this.eventId = parseLong(annotations.get(OPMConstants.EDGE_EVENT_ID));
+		}
+	}
+
+	/**
+	 * All PID namespace crossings in the subject graph.
+	 */
+	static final class Crossings{
+		/** Container starts: the child is the first process of a new PID namespace. In event order. */
+		final List<Crossing> inits;
+		/** The child joins a PID namespace that already has processes, e.g. docker exec. In event order. */
+		final List<Crossing> entries;
+		/** Child vertices of {@link #inits}. */
+		final Graph initProcesses;
+		/** Parent vertices of {@link #inits}. */
+		final Graph creators;
+		/** Versions whose children go to a PID namespace other than their own. */
+		final Graph changedVersions;
+		/** The unshare/setns versions where such a change was recorded. */
+		final Graph changers;
+
+		private Crossings(final List<Crossing> inits, final List<Crossing> entries, final Graph initProcesses,
+				final Graph creators, final Graph changedVersions, final Graph changers){
+			this.inits = Collections.unmodifiableList(inits);
+			this.entries = Collections.unmodifiableList(entries);
+			this.initProcesses = initProcesses;
+			this.creators = creators;
+			this.changedVersions = changedVersions;
+			this.changers = changers;
+		}
+	}
+
+	private final QueryInstructionExecutor executor;
+	private final Graph subject;
+	private final String hostPidNamespace;
+
+	private Graph containerProcesses;
+	private Graph wasTriggeredBy;
+	private Graph creationEdges, creationGraph;
+	private Graph execveGraph, sameProgramVersionGraph, versionGraph;
+	private Graph lineageGraph;
+	private Graph namespaceStepEdges, namespaceStepGraph;
+	private Crossings crossings;
+	private final Map<String, Graph> processesByPidNamespace = new HashMap<String, Graph>();
+
+	ContainerAnalysis(final QueryInstructionExecutor executor, final Graph subject, final String hostPidNamespace){
+		if(executor == null){
+			throw new IllegalArgumentException("NULL query instruction executor");
+		}
+		if(subject == null){
+			throw new IllegalArgumentException("NULL subject graph");
+		}
+		if(HelperFunctions.isNullOrEmpty(hostPidNamespace)){
+			throw new IllegalArgumentException("NULL/empty host PID namespace");
+		}
+		this.executor = executor;
+		this.subject = subject;
+		this.hostPidNamespace = hostPidNamespace;
+	}
+
+	////////////////////////////////////////////////////////////////////////////
+	// Process sets
+
+	/**
+	 * Processes in a container: labeled with a PID namespace that is neither
+	 * the host's nor unobserved.
+	 */
+	Graph containerProcesses(){
+		if(containerProcesses == null){
+			final ArrayList<String> keys = new ArrayList<String>();
+			keys.add(OPMConstants.PROCESS_PID_NAMESPACE);
+			final Graph labeled = executor.createNewGraph();
+			executor.getWhereAnnotationsExist(labeled, subject, keys);
+
+			final Graph host = verticesWithPidNamespace(labeled, hostPidNamespace);
+			final Graph unobserved = union(verticesWithPidNamespace(labeled, UNOBSERVED_NAMESPACE),
+					verticesWithPidNamespace(labeled, UNREADABLE_NAMESPACE));
+
+			final Graph notHost = executor.createNewGraph();
+			executor.subtractGraph(notHost, labeled, host, Graph.Component.kVertex);
+			containerProcesses = executor.createNewGraph();
+			executor.subtractGraph(containerProcesses, notHost, unobserved, Graph.Component.kVertex);
+		}
+		return containerProcesses;
+	}
+
+	private Graph verticesWithPidNamespace(final Graph from, final String pidNamespace){
+		return verticesWhere(from, OPMConstants.PROCESS_PID_NAMESPACE, PredicateOperator.EQUAL, pidNamespace);
+	}
+
+	private boolean isContainerNamespace(final String pidNamespace){
+		return isObserved(pidNamespace) && !hostPidNamespace.equals(pidNamespace);
+	}
+
+	////////////////////////////////////////////////////////////////////////////
+	// Edge sets. The *Graph variants include endpoint vertices, which Neo4j's
+	// adjacency requires of a subject graph.
+
+	/** execve edges: the new version runs another program. */
+	Graph execveGraph(){
+		if(execveGraph == null){
+			execveGraph = withEndpoints(edgesWithOperations(Arrays.asList(OPMConstants.OPERATION_EXECVE)));
+		}
+		return execveGraph;
+	}
+
+	/** Version edges that keep the program, e.g. unshare and setns. */
+	Graph sameProgramVersionGraph(){
+		if(sameProgramVersionGraph == null){
+			sameProgramVersionGraph = withEndpoints(edgesWithOperations(SAME_PROGRAM_OPERATIONS));
+		}
+		return sameProgramVersionGraph;
+	}
+
+	/** All version edges: from a new version of a process to the version before it. */
+	Graph versionGraph(){
+		if(versionGraph == null){
+			versionGraph = union(execveGraph(), sameProgramVersionGraph());
+		}
+		return versionGraph;
+	}
+
+	private Graph creationEdges(){
+		if(creationEdges == null){
+			creationEdges = edgesWithOperations(CREATION_OPERATIONS);
+		}
+		return creationEdges;
+	}
+
+	private Graph creationGraph(){
+		if(creationGraph == null){
+			creationGraph = withEndpoints(creationEdges());
+		}
+		return creationGraph;
+	}
+
+	/** Creation and version edges with their endpoints. */
+	Graph lineageGraph(){
+		if(lineageGraph == null){
+			lineageGraph = union(creationGraph(), versionGraph());
+		}
+		return lineageGraph;
+	}
+
+	/** unshare and setns edges with their endpoints. */
+	Graph namespaceStepGraph(){
+		if(namespaceStepGraph == null){
+			namespaceStepEdges = edgesWithOperations(
+					Arrays.asList(OPMConstants.OPERATION_UNSHARE, OPMConstants.OPERATION_SETNS));
+			namespaceStepGraph = withEndpoints(namespaceStepEdges);
+		}
+		return namespaceStepGraph;
+	}
+
+	private Graph wasTriggeredBy(){
+		if(wasTriggeredBy == null){
+			wasTriggeredBy = executor.createNewGraph();
+			executor.getEdge(wasTriggeredBy, subject, OPMConstants.TYPE, PredicateOperator.EQUAL,
+					OPMConstants.WAS_TRIGGERED_BY, true);
+		}
+		return wasTriggeredBy;
+	}
+
+	private Graph edgesWithOperations(final List<String> operations){
+		final Graph edges = executor.createNewGraph();
+		for(final String operation : operations){
+			executor.getEdge(edges, wasTriggeredBy(), OPMConstants.EDGE_OPERATION, PredicateOperator.EQUAL,
+					operation, true);
+		}
+		return edges;
+	}
+
+	private Graph withEndpoints(final Graph edges){
+		final Graph graph = executor.createNewGraph();
+		executor.unionGraph(graph, edges);
+		executor.getEdgeEndpoint(graph, edges, GetEdgeEndpoint.Component.kBoth);
+		return graph;
+	}
+
+	////////////////////////////////////////////////////////////////////////////
+	// Graph helpers
+
+	/**
+	 * Vertices reachable from the seeds by repeatedly following edges of the given
+	 * graph in one direction, until nothing new is added. Vertices in `stop` are
+	 * neither included nor followed. Returns vertices only. Cycles are fine: a
+	 * process that returns to labels it had before reuses the earlier vertex.
+	 */
+	Graph closure(final Graph edgeGraph, final Graph seeds, final Direction direction, final Graph stop){
+		final Graph result = executor.createNewGraph();
+		executor.subtractGraph(result, seeds, stop == null ? executor.createNewGraph() : stop,
+				Graph.Component.kVertex);
+		Graph frontier = result;
+		while(true){
+			final Graph step = executor.createNewGraph();
+			executor.getAdjacentVertex(step, edgeGraph, frontier, direction);
+			Graph fresh = executor.createNewGraph();
+			executor.subtractGraph(fresh, step, result, Graph.Component.kVertex);
+			if(stop != null){
+				final Graph notStopped = executor.createNewGraph();
+				executor.subtractGraph(notStopped, fresh, stop, Graph.Component.kVertex);
+				fresh = notStopped;
+			}
+			if(executor.getGraphCount(fresh).getVertices() == 0){
+				return result;
+			}
+			executor.unionGraph(result, fresh);
+			frontier = fresh;
+		}
+	}
+
+	Graph union(final Graph... graphs){
+		final Graph result = executor.createNewGraph();
+		for(final Graph graph : graphs){
+			executor.unionGraph(result, graph);
+		}
+		return result;
+	}
+
+	Graph intersection(final Graph lhs, final Graph rhs){
+		final Graph result = executor.createNewGraph();
+		executor.intersectGraph(result, lhs, rhs);
+		return result;
+	}
+
+	private Graph vertices(final Set<String> hashes){
+		final Graph graph = executor.createNewGraph();
+		if(!hashes.isEmpty()){
+			executor.insertLiteralVertex(graph, new ArrayList<String>(hashes));
+		}
+		return graph;
+	}
+
+	/** Creation edges whose parent is one of the given vertices. */
+	private Graph creationEdgesFrom(final Graph parents){
+		final Graph adjacent = executor.createNewGraph();
+		executor.getAdjacentVertex(adjacent, creationGraph(), parents, Direction.kDescendant);
+		final Graph edges = executor.createNewGraph();
+		executor.getEdge(edges, adjacent, null, null, null, false);
+		return edges;
+	}
+
+	////////////////////////////////////////////////////////////////////////////
+	// PID namespace crossings
+
+	/**
+	 * Every creation edge whose child lands in a PID namespace other than its parent's.
+	 *
+	 * Kernel rules: a child is placed in its parent's `children pid namespace`,
+	 * except that clone(CLONE_NEWPID) places it in a brand-new namespace. A
+	 * parent's `children pid namespace` only differs from its own after
+	 * unshare(CLONE_NEWPID) or setns(CLONE_NEWPID), and only the first process
+	 * created after unshare(CLONE_NEWPID) becomes the new namespace's init. So
+	 * crossings are the children of versions after a recorded change of
+	 * `children pid namespace`, plus clones flagged CLONE_NEWPID. Processes are
+	 * linked through edges, never through reused `pid` or namespace values, and
+	 * nested containers need nothing special.
+	 *
+	 * Kernel modules without the fix F7 in BUG_FIXES.md cannot name the namespace
+	 * an unshare(CLONE_NEWPID) creates, and label the new version's `children pid
+	 * namespace` {@link #UNREADABLE_NAMESPACE}. Such a creation takes its ID from
+	 * the first process its caller creates after it, which becomes the namespace's
+	 * init (see {@link #nameUnnamedCreations}).
+	 */
+	Crossings crossings(){
+		if(crossings != null){
+			return crossings;
+		}
+
+		// 1. unshare/setns steps that changed where the caller's children go (few; compared in Java)
+		final Map<String, Map<String, String>> stepVertices = executor.exportVertices(namespaceStepGraph());
+		final Set<String> unsharers = new HashSet<String>();
+		final Set<String> joiners = new HashSet<String>();
+		final Set<String> restorers = new HashSet<String>();
+		final List<NamespaceCreation> creations = new ArrayList<NamespaceCreation>();
+		final List<NamespaceStep> steps = new ArrayList<NamespaceStep>();
+		for(final QueriedEdge step : executor.exportEdges(namespaceStepEdges)){
+			final Map<String, String> newVersion = stepVertices.get(step.childHash);
+			final Map<String, String> oldVersion = stepVertices.get(step.parentHash);
+			if(newVersion == null || oldVersion == null){
+				continue;
+			}
+			final String pid = newVersion.get(OPMConstants.PROCESS_PID);
+			final String pidNamespace = newVersion.get(OPMConstants.PROCESS_PID_NAMESPACE);
+			final String childrenPidNamespace = newVersion.get(OPMConstants.PROCESS_PID_CHILDREN_NAMESPACE);
+			final String oldChildrenPidNamespace = oldVersion.get(OPMConstants.PROCESS_PID_CHILDREN_NAMESPACE);
+			final String operation = step.getCopyOfAnnotations().get(OPMConstants.EDGE_OPERATION);
+			if(OPMConstants.OPERATION_UNSHARE.equals(operation) && isObserved(pidNamespace)
+					&& UNREADABLE_NAMESPACE.equals(childrenPidNamespace)){
+				// unshare(CLONE_NEWPID) recorded by a module that could not name the new namespace
+				if(isObserved(oldChildrenPidNamespace)){
+					unsharers.add(step.childHash);
+					creations.add(new NamespaceCreation(step, null, pid));
+				}else{
+					joiners.add(step.childHash); // as below, for a process never observed before
+				}
+				steps.add(new NamespaceStep(step, pid));
+				continue;
+			}
+			if(!isObserved(pidNamespace) || !isObserved(childrenPidNamespace)
+					|| childrenPidNamespace.equals(oldChildrenPidNamespace)){
+				continue; // e.g. unshare(CLONE_NEWNS), or setns into a non-PID namespace
+			}
+			steps.add(new NamespaceStep(step, pid));
+			if(pidNamespace.equals(childrenPidNamespace)){
+				restorers.add(step.childHash); // children placed back in its own namespace
+			}else if(OPMConstants.OPERATION_UNSHARE.equals(operation) && isObserved(oldChildrenPidNamespace)){
+				unsharers.add(step.childHash);
+				creations.add(new NamespaceCreation(step, childrenPidNamespace, pid));
+			}else{
+				// setns; or an unshare by a process whose namespaces were never observed, which may
+				// have been for another namespace type after an unshare(CLONE_NEWPID) before tracing
+				joiners.add(step.childHash);
+			}
+		}
+
+		// 2. Versions after a change, up to the next change. A process returning to labels it
+		// had before reuses a vertex, so a vertex is never stopped by its own kind of change.
+		final Graph unsharerVertices = vertices(unsharers);
+		final Graph joinerVertices = vertices(joiners);
+		final Graph afterUnshare = closure(versionGraph(), unsharerVertices, Direction.kDescendant,
+				vertices(plus(minus(joiners, unsharers), restorers)));
+		final Graph afterJoin = closure(versionGraph(), joinerVertices, Direction.kDescendant,
+				vertices(plus(minus(unsharers, joiners), restorers)));
+
+		// 3. Crossing edges: children of those versions, and clones asking for a new PID namespace
+		final Graph fromUnshare = creationEdgesFrom(afterUnshare);
+		final Graph fromJoin = creationEdgesFrom(afterJoin);
+		final Graph newPidClones = executor.createNewGraph();
+		executor.getEdge(newPidClones, creationEdges(), OPMConstants.EDGE_FLAGS, PredicateOperator.LIKE,
+				"%" + NEW_PID_NAMESPACE_FLAG + "%", true);
+
+		// 4. Export the (few) crossing edges and classify them
+		final Graph crossingEdges = union(fromUnshare, fromJoin, newPidClones);
+		final Map<String, Map<String, String>> endpoints = executor.exportVertices(withEndpoints(crossingEdges));
+		final Set<String> newPidCloneHashes = edgeHashes(executor.exportEdges(newPidClones));
+		final Set<String> fromUnshareHashes = edgeHashes(executor.exportEdges(fromUnshare));
+
+		final List<Crossing> candidates = new ArrayList<Crossing>();
+		for(final QueriedEdge edge : executor.exportEdges(crossingEdges)){
+			final Map<String, String> child = endpoints.get(edge.childHash);
+			final Map<String, String> parent = endpoints.get(edge.parentHash);
+			if(child == null || parent == null
+					|| !isContainerNamespace(child.get(OPMConstants.PROCESS_PID_NAMESPACE))){
+				continue;
+			}
+			candidates.add(new Crossing(edge, child, parent));
+		}
+		Collections.sort(candidates, EVENT_ORDER);
+		nameUnnamedCreations(creations, steps, candidates, fromUnshareHashes);
+
+		final List<Crossing> inits = new ArrayList<Crossing>();
+		final List<Crossing> entries = new ArrayList<Crossing>();
+		final Map<String, List<Crossing>> childrenByCreation = new LinkedHashMap<String, List<Crossing>>();
+		for(final Crossing crossing : candidates){
+			final String edgeHash = crossing.edgeHash;
+			if(newPidCloneHashes.contains(edgeHash)){
+				inits.add(crossing);
+			}else if(fromUnshareHashes.contains(edgeHash)){
+				final String creation = creationBehind(crossing, creations);
+				if(!childrenByCreation.containsKey(creation)){
+					childrenByCreation.put(creation, new ArrayList<Crossing>());
+				}
+				childrenByCreation.get(creation).add(crossing);
+			}else{
+				entries.add(crossing);
+			}
+		}
+		// Only the first process created after an unshare(CLONE_NEWPID) becomes the namespace's init
+		for(final List<Crossing> children : childrenByCreation.values()){
+			Collections.sort(children, EVENT_ORDER);
+			inits.add(children.get(0));
+			entries.addAll(children.subList(1, children.size()));
+		}
+		Collections.sort(inits, EVENT_ORDER);
+		Collections.sort(entries, EVENT_ORDER);
+
+		final Set<String> initChildren = new HashSet<String>();
+		final Set<String> initParents = new HashSet<String>();
+		for(final Crossing init : inits){
+			initChildren.add(init.childHash);
+			initParents.add(init.parentHash);
+		}
+		crossings = new Crossings(inits, entries, vertices(initChildren), vertices(initParents),
+				union(afterUnshare, afterJoin), union(unsharerVertices, joinerVertices));
+		return crossings;
+	}
+
+	/**
+	 * The recorded unshare that created the namespace a child landed in: the latest
+	 * one into that namespace ID before the child. An ID is reused only after its
+	 * namespace is gone, and the creating process holds the namespace for as long
+	 * as its children go there, so no other creation of that ID can come between.
+	 */
+	private static String creationBehind(final Crossing crossing, final List<NamespaceCreation> creations){
+		NamespaceCreation latest = null;
+		for(final NamespaceCreation creation : creations){
+			if(crossing.childNamespace().equals(creation.pidNamespace)
+					&& compareEvents(creation.time, creation.eventId, crossing.time, crossing.eventId) < 0
+					&& (latest == null
+						|| compareEvents(creation.time, creation.eventId, latest.time, latest.eventId) > 0)){
+				latest = creation;
+			}
+		}
+		return latest == null ? "pid namespace " + crossing.childNamespace() : latest.stepEdgeHash;
+	}
+
+	/**
+	 * Gives each creation recorded without a namespace ID the ID of the first process
+	 * its caller created after it and before the caller's next namespace step. By the
+	 * kernel's rules that process is the new namespace's init, and threads cannot be
+	 * created into another PID namespace. The caller is matched by host pid within
+	 * that window, where it is still the same process: a later process reusing the pid
+	 * reaches these candidates only through namespace steps of its own, which end the
+	 * window. A creation whose namespace never got a process stays unnamed and groups
+	 * no children.
+	 */
+	private static void nameUnnamedCreations(final List<NamespaceCreation> creations,
+			final List<NamespaceStep> steps, final List<Crossing> candidatesInEventOrder,
+			final Set<String> fromUnshareHashes){
+		for(final NamespaceCreation creation : creations){
+			if(creation.pidNamespace != null || creation.pid == null){
+				continue;
+			}
+			NamespaceStep next = null;
+			for(final NamespaceStep step : steps){
+				if(creation.pid.equals(step.pid)
+						&& compareEvents(step.time, step.eventId, creation.time, creation.eventId) > 0
+						&& (next == null || compareEvents(step.time, step.eventId, next.time, next.eventId) < 0)){
+					next = step;
+				}
+			}
+			for(final Crossing crossing : candidatesInEventOrder){
+				if(fromUnshareHashes.contains(crossing.edgeHash)
+						&& creation.pid.equals(crossing.parent.get(OPMConstants.PROCESS_PID))
+						&& compareEvents(crossing.time, crossing.eventId, creation.time, creation.eventId) > 0
+						&& (next == null
+							|| compareEvents(crossing.time, crossing.eventId, next.time, next.eventId) < 0)){
+					creation.pidNamespace = crossing.childNamespace();
+					break;
+				}
+			}
+		}
+	}
+
+	////////////////////////////////////////////////////////////////////////////
+	// Container instances
+
+	/**
+	 * One container: a PID namespace ID from the creation of its init until the next
+	 * init into the same ID. The kernel reuses an ID only after its namespace is gone,
+	 * so containers with the same ID never overlap in time. A process belongs to the
+	 * container whose time window holds its `start time` or `seen time`.
+	 */
+	static final class Instance{
+		final String pidNamespace;
+		/** The start; null for a container already running when tracing started. */
+		final Crossing init;
+		/** Time of the next start with the same ID, which ends this window; null if none. */
+		final String end;
+
+		private Instance(final String pidNamespace, final Crossing init, final String end){
+			this.pidNamespace = pidNamespace;
+			this.init = init;
+			this.end = end;
+		}
+
+		/** Start of the window; null for a container already running when tracing started. */
+		String start(){
+			return init == null ? null : init.time;
+		}
+
+		boolean contains(final String time){
+			return (init == null || time.compareTo(init.time) >= 0) && (end == null || time.compareTo(end) < 0);
+		}
+
+		String key(){
+			return pidNamespace + (init == null ? " before tracing" : " started by " + init.edgeHash);
+		}
+
+		String describe(){
+			return init == null ? "running when tracing started"
+					: "started " + init.time + ", first process " + init.child.get(OPMConstants.PROCESS_NAME)
+							+ " (host pid " + init.child.get(OPMConstants.PROCESS_PID) + ")";
+		}
+	}
+
+	/**
+	 * Containers that used the PID namespace ID, in time order: one already running
+	 * when tracing started (if the ID has processes before its first recorded start),
+	 * then one per recorded start.
+	 */
+	List<Instance> instances(final String pidNamespace){
+		final List<Crossing> inits = initsInto(pidNamespace);
+		final List<Instance> instances = new ArrayList<Instance>();
+		final Instance beforeTracing = new Instance(pidNamespace, null, inits.isEmpty() ? null : inits.get(0).time);
+		if(executor.getGraphCount(directMembers(beforeTracing)).getVertices() > 0){
+			instances.add(beforeTracing);
+		}
+		for(final Crossing init : inits){
+			instances.add(instanceStartedBy(init));
+		}
+		return instances;
+	}
+
+	/** The container that a process in the PID namespace belonged to at the given time. */
+	Instance instanceAt(final String pidNamespace, final String time){
+		final List<Crossing> inits = initsInto(pidNamespace);
+		Crossing latest = null;
+		for(final Crossing init : inits){
+			if(init.time.compareTo(time) <= 0){
+				latest = init;
+			}
+		}
+		return latest != null ? instanceStartedBy(latest)
+				: new Instance(pidNamespace, null, inits.isEmpty() ? null : inits.get(0).time);
+	}
+
+	/**
+	 * Processes of the container and of the containers started inside it, at any depth.
+	 * A container started inside is one whose init was created by a process of this one.
+	 */
+	Graph members(final Instance instance){
+		final Graph members = executor.createNewGraph();
+		addMembers(members, instance, new HashSet<String>());
+		return members;
+	}
+
+	private void addMembers(final Graph members, final Instance instance, final Set<String> visitedInits){
+		executor.unionGraph(members, directMembers(instance));
+		for(final Crossing init : crossings().inits){
+			if(instance.pidNamespace.equals(init.parentNamespace()) && instance.contains(init.parentTime())
+					&& visitedInits.add(init.edgeHash)){
+				addMembers(members, instanceStartedBy(init), visitedInits);
+			}
+		}
+	}
+
+	/** Processes in the container's PID namespace whose time falls in its window. */
+	private Graph directMembers(final Instance instance){
+		Graph processes = processesByPidNamespace.get(instance.pidNamespace);
+		if(processes == null){
+			processes = verticesWithPidNamespace(subject, instance.pidNamespace);
+			processesByPidNamespace.put(instance.pidNamespace, processes);
+		}
+		if(instance.start() == null && instance.end == null){
+			return processes;
+		}
+		final Graph members = executor.createNewGraph();
+		for(final String timeKey : PROCESS_TIME_KEYS){
+			Graph inWindow = processes;
+			if(instance.start() != null){
+				inWindow = verticesWhere(inWindow, timeKey, PredicateOperator.GREATER_EQUAL, instance.start());
+			}
+			if(instance.end != null){
+				inWindow = verticesWhere(inWindow, timeKey, PredicateOperator.LESSER, instance.end);
+			}
+			executor.unionGraph(members, inWindow);
+		}
+		return members;
+	}
+
+	private Instance instanceStartedBy(final Crossing init){
+		final List<Crossing> inits = initsInto(init.childNamespace());
+		final int next = inits.indexOf(init) + 1;
+		return new Instance(init.childNamespace(), init, next < inits.size() ? inits.get(next).time : null);
+	}
+
+	/** Starts of containers with the PID namespace ID, in event order. */
+	private List<Crossing> initsInto(final String pidNamespace){
+		final List<Crossing> inits = new ArrayList<Crossing>();
+		for(final Crossing init : crossings().inits){
+			if(pidNamespace.equals(init.childNamespace())){
+				inits.add(init);
+			}
+		}
+		return inits;
+	}
+
+	private Graph verticesWhere(final Graph from, final String key, final PredicateOperator operator,
+			final String value){
+		final Graph vertices = executor.createNewGraph();
+		executor.getVertex(vertices, from, key, operator, value, true);
+		return vertices;
+	}
+
+	////////////////////////////////////////////////////////////////////////////
+	// Small helpers
+
+	private static boolean isObserved(final String pidNamespace){
+		return !HelperFunctions.isNullOrEmpty(pidNamespace) && !UNOBSERVED_NAMESPACE.equals(pidNamespace)
+				&& !UNREADABLE_NAMESPACE.equals(pidNamespace);
+	}
+
+	/** `start time` if the process version was created in the trace, else `seen time`. */
+	static String processTime(final Map<String, String> process){
+		final String startTime = process.get(OPMConstants.PROCESS_START_TIME);
+		return startTime != null ? startTime : nonNull(process.get(OPMConstants.PROCESS_SEEN_TIME));
+	}
+
+	static String describeProcess(final Map<String, String> process){
+		return process.get(OPMConstants.PROCESS_NAME)
+				+ " (host pid " + process.get(OPMConstants.PROCESS_PID)
+				+ ", pid namespace " + process.get(OPMConstants.PROCESS_PID_NAMESPACE) + ")";
+	}
+
+	private static Set<String> plus(final Set<String> a, final Set<String> b){
+		final Set<String> result = new HashSet<String>(a);
+		result.addAll(b);
+		return result;
+	}
+
+	private static Set<String> minus(final Set<String> a, final Set<String> b){
+		final Set<String> result = new HashSet<String>(a);
+		result.removeAll(b);
+		return result;
+	}
+
+	private static Set<String> edgeHashes(final Set<QueriedEdge> edges){
+		final Set<String> hashes = new HashSet<String>();
+		for(final QueriedEdge edge : edges){
+			hashes.add(edge.edgeHash);
+		}
+		return hashes;
+	}
+
+	private static String nonNull(final String value){
+		return value == null ? "" : value;
+	}
+
+	private static long parseLong(final String value){
+		try{
+			return value == null ? 0L : Long.parseLong(value.trim());
+		}catch(NumberFormatException e){
+			return 0L;
+		}
+	}
+}
