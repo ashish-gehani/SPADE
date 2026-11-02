@@ -43,6 +43,13 @@ __Steps__:
   then `./query-trace3.sh` adds the runs Docker could not name (they ended at
   once) and the reused IDs, and runs a subset on Neo4j and Quickstep, where
   a Neo4j boundary takes minutes.
+* `./replay.sh <N>` stores a recorded trace again, into fresh storages, from
+  the input the reporter read live (`spade-input.log`), as `trace<N>r`, with
+  the trace's ground truth linked next to it. It checks reporter and storage
+  fixes on a trace without recording it again; query and check the replay
+  as `3r` (`./query.sh 3r`, `TRACE=3r ./query-trace3.sh`). It passes
+  `handleLocalEndpoints` as the live trace had it, since playback otherwise
+  may drop every network record of the kernel module (BUG_FIXES.md N20).
 * `./check-trace1.py [dir]` (traces 1 and 2) and `./check-media.py [dir]`
   (trace 3) compare the results across storages and with the ground truth.
   For trace 3 that is the kernel module's records of the container inits in
@@ -57,6 +64,7 @@ __Files__:
 | `query.sh` | Runs the methods on every storage and exports the results |
 | `timed-client.py` | Used by `query.sh`: sends the queries to `bin/spade query` one at a time and times each (`times.tsv`) |
 | `query-trace3.sh` | Trace 3's queries after `query.sh 3`: the namespaces of runs Docker could not name, the reused IDs in all their forms, and the subset for Neo4j and Quickstep |
+| `replay.sh` | Stores a recorded trace again from the reporter's saved input, for checking fixes without recording again |
 | `check-trace1.py` | Facts for B1-B10: starts, numbered lists, boundaries, sockets, storage agreement |
 | `check-media.py` | M1-M4: one start per container run (restarts included), each boundary against the sampler, storage agreement |
 | `dotsum.py` | Summarizes a `.dot` export; used by the checkers |
