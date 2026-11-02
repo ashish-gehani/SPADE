@@ -38,8 +38,11 @@ cd "$SPADE_HOME" || exit 1
 # record, so the replay has no sockets (BUG_FIXES.md N20).
 LIVE_LOG=$(sed -n 's/^SPADE log: //p' "$SRC/run.log" | head -1)
 HANDLE=$(grep -oE 'handleLocalEndpoints=(true|false)' "$LIVE_LOG" 2>/dev/null | head -1)
-[ -n "$HANDLE" ] || { echo "ABORT: no handleLocalEndpoints in the trace's SPADE log '$LIVE_LOG'"; exit 1; }
-if [ "${GIVE_HANDLE:-1}" = 1 ]; then
+if [ -z "$HANDLE" ]; then
+    # the live trace had no network records of the module (trace 2: netIO off)
+    case "$ARGS" in *netIO=true*) echo "ABORT: no handleLocalEndpoints in the trace's SPADE log '$LIVE_LOG'"; exit 1 ;; esac
+    echo "handleLocalEndpoints not given: the live trace had netIO off"
+elif [ "${GIVE_HANDLE:-1}" = 1 ]; then
     ARGS="$ARGS $HANDLE"
     echo "as the live trace ($LIVE_LOG): $HANDLE"
 else
