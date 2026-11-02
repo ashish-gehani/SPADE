@@ -11,14 +11,14 @@ page.
 
 Status: implemented on branch `clarity-of-container`, which sits on branch
 `bug-fixes`. `bug-fixes` starts from upstream `prov-query` and holds every fix
-the work needed outside the methods themselves, each with its reproduction:
-so far two kernel-module fixes for `ns pid` (§4.1) and one for the netfilter
-hook (§6). Fixes found later go on `bug-fixes` too, and `clarity-of-container`
-is rebased onto it. All three fixes have been checked on a live system
-(`TRACE_VALIDATION.md`, Part A; `pkg/linux/kernel_modules/test/ns-pid/` and
-`pkg/linux/kernel_modules/test/netfilter-atomic/`).
+the work needed outside the methods themselves: four in the kernel module,
+one in the Audit reporter and one in each storage. `BUG_FIXES.md`, beside
+this file, describes each of them (F1 to F7) and how it was checked; this
+file refers to them by those numbers. Fixes found later go on `bug-fixes` too,
+and `clarity-of-container` is rebased onto it.
 The tests use synthetic traces modeled on the Audit reporter's source code.
-Neither method has been run on a real trace yet (§8).
+The methods have run on real traces, but no trace has passed every
+completeness check yet (`TRACE_VALIDATION.md`, Part B; §8).
 
 Code, relative to `pkg/java/src/main/java/spade/`:
 
@@ -96,7 +96,7 @@ the reporter is unchanged.
 | # | Topic | Decision | Reason |
 |---|---|---|---|
 | D1 | Architecture | Build both methods from existing executor primitives. Add no executor methods and change no storage backend or reporter. | One implementation serves PostgreSQL, Neo4j and Quickstep. `getPath` uses the same approach. |
-| D2 | Linking processes | Link processes through WasTriggeredBy edges only. Never pair them by equal `pid`, `pid namespace` or `ns pid` values, so no `getMatch` on those keys. | The kernel reuses host pids and namespace IDs within a boot, so equal values can join unrelated processes. `ns pid` is meant to be the PID inside the process's own namespace. But kernel modules without commit `9fd54e0c` recorded a namespace's first process with its PID in the creator's namespace, never 1 (§4.1), and traces from those modules keep that value. |
+| D2 | Linking processes | Link processes through WasTriggeredBy edges only. Never pair them by equal `pid`, `pid namespace` or `ns pid` values, so no `getMatch` on those keys. | The kernel reuses host pids and namespace IDs within a boot, so equal values can join unrelated processes. `ns pid` is meant to be the PID inside the process's own namespace. But kernel modules without F1 recorded a namespace's first process with its PID in the creator's namespace, never 1 (§4.1), and traces from those modules keep that value. |
 | D3 | ID reuse | Handle PID namespace ID reuse, assuming only that the trace spans one boot and the clock never moves backwards. | IDs are reused as soon as a namespace is freed (§4.2). Treating one ID as one container merges containers that ran at different times. |
 | D4 | Host namespace | Treat the host's PID namespace as `PROC_PID_INIT_INO` (4026531836). Read it from the Audit reporter's Linux constants file instead of hard-coding it. | The kernel fixes this value for the root PID namespace. The constants file is where SPADE already keeps kernel constants. |
 | D5 | Unobserved processes | Exclude processes labeled `-1` (unobserved namespaces) from both methods, without an error. | Their container membership is unknown. |
@@ -110,9 +110,10 @@ the reporter is unchanged.
 | D13 | Incomplete starts | If an init never reaches execve in the trace, `getContainerInit` fails with a RuntimeException that names up to five of those processes. The SPADE client keeps running. This also applies to sandboxes whose init never calls execve (L10, Q3). | A partial result can't be told apart from a complete one, so the failure is loud. `QuickGrailExecutor` turns instruction exceptions into a failed query. |
 | D14 | Containers over time | A container is a PID namespace ID plus a time window, from its recorded start to the next start of that ID. Processes are assigned by `start time`, or `seen time` if they have no start time. | This works under ID reuse given D3's assumptions (§5.4). |
 | D15 | Unknown ID | `getContainerBoundary('<id>')` returns an empty graph. `getContainerBoundary('<id>', <n>)` fails because container n does not exist. | This matches how `getVertex` handles no matches, while an explicitly numbered container must exist. |
-| D16 | Invalid ID | Reject the host ID and `-1` when the query is resolved. | Neither is a container, so both inputs are mistakes. |
+| D16 | Invalid ID | Reject the host ID, `-1` and `4294967295` when the query is resolved. | None of them is a container, so these inputs are mistakes. |
 | D17 | Boundary shape | The boundary is the members, every vertex adjacent to them in either direction, and all edges among those vertices. This is unchanged from the first version. | This is CLARION §4.2.1: container processes, the artifacts they used, and the connecting edges. |
 | D18 | Test fidelity | Run every behavior test under both adjacency semantics of the storage backends. | The code must not depend on a difference between backends (§5.1). |
+| D19 | Older kernel modules | Fix the unnamed new PID namespace in the kernel module (F7) and also handle it in the methods: count `4294967295` as unobserved, and name a creation recorded that way after the first process its caller creates (§5.2). Run every integration scenario on traces recorded both ways. | Decided by the user (2026-11-02), option (c) of Q11. The module fix makes new traces correct and checkable against `/proc`; the methods' part keeps traces from today's upstream module usable. |
 
 ## 4. Facts the design relies on
 
@@ -120,7 +121,8 @@ the reporter is unchanged.
 
 Verified by reading the source. The rows on `ns pid`, on the unshare and
 setns hooks, and on `clone3` were also checked on a live system
-(`TRACE_VALIDATION.md`, Part A). `cfg/` is at the repository root, Java
+(`TRACE_VALIDATION.md`, Part A), and so was the row on the `children pid
+namespace` after unshare (`BUG_FIXES.md` F7). `cfg/` is at the repository root, Java
 classes are under `pkg/java/src/main/java/spade/`, and the kernel module is
 under `pkg/linux/kernel_modules/audit/`.
 
@@ -128,13 +130,13 @@ under `pkg/linux/kernel_modules/audit/`.
 |---|---|
 | Process vertices carry `pid namespace`, `children pid namespace`, `mount namespace` and the other namespace labels only when `namespaces=true`. The default is `false`. | `cfg/spade.reporter.Audit.config`, `reporter/audit/process/NamespaceIdentifier.java` |
 | For clone/fork/vfork, the kernel module looks up the child from the syscall's return value and reports the child's namespaces. | kernel module `kernel/helper/namespace.c` (`kernel_helper_namespace_populate_msg`), `function/sys_{clone,fork,vfork}/action/audit.c` |
-| `ns pid` is meant to be the PID of the process inside its own PID namespace (confirmed by the CLARION author, Q2). The kernel module used to record the clone/fork/vfork return value (`msg->ns_pid = target_pid`), which is the PID in the creator's namespace. The reporter reads it only at process creation (`nsChildPid`), and later versions copy it. The two agree when the creator is in the same namespace. For a namespace's first process, a later child of an unshare, and a process a runtime starts inside an existing container (e.g. `docker exec`), `ns pid` held the PID in the creator's namespace instead: the host PID when the creator is on the host. Commit `9fd54e0c` now records `pid_nr_ns(pid, ns_of_pid(pid))`; traces from earlier modules keep the old values. On a live system the old value was wrong for every container init and every process started into a namespace from outside, and it is the creator's view even when that is not the host's: an init created from inside another namespace got 4, its PID there. | `kernel/helper/namespace.c`, `ProcessManager.handleForkVforkClone`, `ProcessManager.handleExecve`, `TRACE_VALIDATION.md` |
-| The unshare and setns hooks used to pass the caller's host PID (`current->pid`) to that lookup, which searches the caller's own PID namespace. For a caller inside a container, the lookup found no process (so no namespace record was written) or a different process (whose namespaces were reported). Commit `d445c7cc` passes the caller's PID in its own namespace instead. With earlier modules, an unshare or setns inside a container leaves its new version with no namespace labels or wrong ones. On a live system every such call wrote no record at all. | `kernel/function/sys_unshare/action/audit.c`, `kernel/function/sys_setns/action/audit.c`, `kernel/helper/task.c`, `TRACE_VALIDATION.md` |
+| `ns pid` is the PID of the process inside its own PID namespace (confirmed by the CLARION author, Q2). The reporter reads it only at process creation (`nsChildPid`), and later versions copy it. Kernel modules without F1 recorded the PID in the creator's namespace instead, which differs for a namespace's first process, a later child of an unshare, and a process a runtime starts inside an existing container (`docker exec`); traces from those modules keep the old values. The methods don't use `ns pid` (D2). | `kernel/helper/namespace.c`, `ProcessManager.handleForkVforkClone`, `ProcessManager.handleExecve`, `BUG_FIXES.md` F1 |
+| An unshare or setns inside a non-host PID namespace writes a namespace record with the caller's labels. Kernel modules without F2 wrote none, so in their traces such a step leaves the process's labels unchanged. | `kernel/function/sys_unshare/action/audit.c`, `kernel/function/sys_setns/action/audit.c`, `kernel/helper/task.c`, `BUG_FIXES.md` F2 |
 | A process not created in the trace has `-1` for every namespace until it calls unshare or setns. The kernel module has no execve hook, so an execve never reports namespaces. | `ProcessStateManager` (`ProcessState` defaults), `ProcessManager.buildNamespaceIdentifierForPid`, kernel module `kernel/function/` (the hooked functions) |
 | A process created in the trace carries `start time`, the time of its clone or execve. A process first seen in another syscall carries `seen time`. | `ProcessManager.handleForkVforkClone`, `handleExecve`, `buildProcessIdentifierFromSyscall` |
 | clone with SIGCHLD is recorded as `fork`. With CLONE_VM and CLONE_VFORK as well, it is recorded as `vfork`, shown as `fork` when `simplify=true` (the default). The clone flags stay in the edge's `flags` annotation, e.g. `CLONE_NEWNS\|CLONE_NEWPID\|SIGCHLD`. | `ProcessManager.handleForkVforkClone`, `LinuxConstants.stringifyCloneFlags` |
 | unshare and setns create a new version of the process, joined by a WasTriggeredBy edge from new to old. The version keeps the name and the `start time` or `seen time`; only namespace labels change. If the process had the same labels before, the earlier vertex is reused, so version edges can form cycles. | `ProcessWithoutAgentManager.handleNamespaceUpdate`, `ProcessUnitState.hasTheNamespaceEverBeenSeenForProcess` |
-| An unshare(CLONE_NEWPID) record cannot name the new namespace. Until the namespace has its first process, the kernel's `pidns_for_children_get` returns no namespace (it checks `child_reaper`), the module records -1, and it prints the inode numbers as unsigned, so the unshare version carries `children pid namespace` `4294967295`, not the new ID. The methods count only `-1` as unobserved. Seen on a live system for every container start runc made (Part B), and the same value also appears on some newly created host processes, such as `containerd-shim` and `runc` children; why was not checked. Q11. | Linux `kernel/pid_namespace.c` (`pidns_for_children_get`), kernel module `kernel/helper/namespace.c` (`_get_ns_inum`), `msg/namespace/serialize/audit.c` (`%u`), `TRACE_VALIDATION.md` |
+| The version after unshare(CLONE_NEWPID) has the new namespace as its `children pid namespace`. Kernel modules without F7 could not name it, because the kernel reports no namespace until it has a process, and labeled the version `4294967295` instead; a namespace they could not read for another reason, as for a child that had already exited, also became `4294967295`. With F7 the module writes `-1` for those. The methods count both values as unobserved and take a new namespace's ID from the first process created after the unshare (§5.2, L19). | kernel module `kernel/helper/namespace.c`, `msg/namespace/serialize/audit.c`, `BUG_FIXES.md` F7 |
 | execve creates a new version with a new `start time`. | `ProcessManager.handleExecve` |
 | With the default `agents=false` and `units=false`, setuid and setgid produce WasControlledBy edges, not versions. With `agents=true` they produce WasTriggeredBy versions, and units add `unit` versions. | `ProcessWithoutAgentManager.handleAgentUpdate`, `ProcessWithAgentManager.handleAgentUpdate` |
 | After unshare or setns, a later execve or setuid/setgid (or any detected agent change) relabels the process with the namespaces it was created with (`-1` if it wasn't created in the trace). unshare/setns don't update the per-process namespace state those events read. | `ProcessManager.handleNamespaceUpdateFromSyscall` (never calls `ProcessStateManager.setNamespaces`), `handleExecve`, `handleSetuidSetgid` |
@@ -225,13 +227,18 @@ CLONE_NEWPID.
 1. **Classify recorded namespace steps.** Export the unshare/setns steps. A
    step counts only if the new version's `pid namespace` and
    `children pid namespace` are both observed and `children pid namespace`
-   changed. Each counting step is one of:
+   changed. "Observed" excludes `-1` and `4294967295` (§4.1). Each counting
+   step is one of:
    - **restorer:** the new version's children go back to its own namespace.
    - **namespace creation:** an unshare from an observed version. Record the
-     new ID and the step's time and event id.
+     new ID, the caller's host pid, and the step's time and event id.
    - **joiner:** a setns, or an unshare from a version labeled `-1`. That
      unshare may have been for another namespace type after an unshare of the
      PID namespace before tracing, so a new namespace is not assumed.
+
+   An unshare whose new `children pid namespace` is `4294967295`, recorded by
+   a module without F7, also counts: as a namespace creation whose ID is not
+   known yet if the old version was observed, else as a joiner.
 2. **Find the versions after each change.** Follow all version edges forward,
    stopping at a restorer or a change of the other kind. A process that
    returns to labels it had before reuses a vertex, so one vertex can be both
@@ -239,7 +246,16 @@ CLONE_NEWPID.
    and is never stopped by its own kind of change.
 3. **Collect candidates.** Take the creation edges out of those versions, plus
    every creation edge whose `flags` contain `CLONE_NEWPID`.
-4. **Classify the candidates** whose child is in a container namespace:
+4. **Name the unnamed creations.** A creation without an ID takes the
+   namespace of the first candidate child its caller created after it and
+   before the caller's next counting step. By §4.2 that child is the new
+   namespace's init: the first process created after unshare(CLONE_NEWPID)
+   goes to the new namespace, and a thread cannot be created there. The
+   caller is matched by host pid. A later process that reuses the pid can
+   only have candidate children after namespace steps of its own, which end
+   the window. A creation whose namespace never gets a process stays unnamed
+   and groups nothing.
+5. **Classify the candidates** whose child is in a container namespace:
    - A CLONE_NEWPID clone is a **start**.
    - A child of a version after an unshare is grouped under the namespace
      creation behind it: the latest recorded creation of the child's namespace
@@ -349,19 +365,13 @@ keeps accepting queries.
   `netIO` (`AuditControlManager`), so with `netIO=false` sockets may be
   missing from the boundary. Part B of `TRACE_VALIDATION.md` checks this.
 - `networkAddressTranslation=true` turns on the kernel module's netfilter hook
-  (`nf_hooks`). Before commit `da9c05b8`, that hook could sleep in
-  atomic context: while the audit backlog was full, it waited for room inside
-  an RCU read-side section, in softirq for received packets. The kernel
-  reported `BUG: scheduling while atomic` and the system froze. It happened
-  while recording Part B, with PostgreSQL's loopback traffic as the victim.
-  With the fix, a full backlog drops the packet record and counts it as lost.
-  Use a module with the fix whenever `networkAddressTranslation=true`; the
-  reproduction and its results are in
-  `pkg/linux/kernel_modules/test/netfilter-atomic/`.
-- Both storages need the fixes on branch `bug-fixes` (Q8–Q10). Without them,
-  PostgreSQL silently drops every batch of vertices that holds a process named
-  by a kernel-module record (the 16-byte buffer always includes a NUL), and on
-  Neo4j every container method returns an empty graph.
+  (`nf_hooks`). Without F3, that hook could sleep in atomic context and freeze
+  the system while the audit backlog was full; it did while recording Part B.
+  Use a module with F3 whenever `networkAddressTranslation=true`. With it, a
+  full backlog drops packet records and counts them as lost.
+- Both storages need F4 to F6. Without them, PostgreSQL silently drops every
+  batch of vertices that holds a process named by a kernel-module record, and
+  on Neo4j every container method returns an empty graph.
 
 ## 7. Limitations
 
@@ -384,23 +394,24 @@ keeps accepting queries.
 | L15 | Starts are found from the subject graph's lineage edges. | On a subject graph missing some WasTriggeredBy edges or their endpoints, starts can be missed and containers that reuse an ID get merged. | Run on `$base` or a graph that keeps process lineage. |
 | L16 | The seed form reads the labels of its seed processes into memory. | A huge seed graph is slow. | Keep `$p` small, or use `getContainerBoundary()`. |
 | L17 | Performance has not been measured. | Each lineage step is a storage query, and container lookups run a few queries per container. | Measure on real traces. |
-| L18 | Traces recorded with a kernel module that lacks the two `ns pid` fixes (§4.1). | An unshare or setns inside a container writes no record, as on a live system, or in principle wrong labels. So containers started with unshare from inside a container (e.g. Docker in Docker) are missed: `getContainerInit` doesn't report them, and `getContainerBoundary` doesn't attach them to the outer container. `ns pid` also holds the creator's view. | Record traces with the fixed kernel module. |
+| L18 | Traces recorded with a kernel module without F1 and F2 (§4.1). | An unshare or setns inside a container writes no record. So containers started with unshare from inside a container (e.g. Docker in Docker) are missed: `getContainerInit` doesn't report them, and `getContainerBoundary` doesn't attach them to the outer container. `ns pid` also holds the creator's view. | Record traces with a module that has the fixes. |
+| L19 | Traces recorded with a kernel module without F7 (§4.1). | A new PID namespace's ID is not in the trace. §5.2 takes it from the first process the creator creates after the unshare, matched by host pid up to the creator's next namespace step. With lost records (L6), a later child of the creator can be taken for the init, as it can with F7. | Record traces with a module that has F7. |
 
 ## 8. Open questions and follow-ups
 
 | # | Item | Status |
 |---|---|---|
 | Q1 | Validate on real traces: `docker run` and `docker exec` with `namespaces=true`. | Hassaan has no real traces (2026-10-11), so we collect our own in a VM (`TRACE_VALIDATION.md`). Part A, the kernel module's namespace records, is done. Part B, the methods themselves, is in progress. |
-| Q2 | What is `ns pid` meant to be? | Answered by the CLARION author: the PID of the process inside its own PID namespace. The kernel module recorded something else for a namespace's first process and for processes started into a namespace from outside (§4.1). That is fixed on branch `bug-fixes`, together with a related bug in the unshare and setns hooks (§4.1, L18). Both were checked on a live system against the unfixed module (`TRACE_VALIDATION.md`, Part A). Without them, 25 of 2211 namespace records had the creator's view in `ns pid`, and unshare and setns calls from inside a namespace wrote no record. With them, none of 2237 records was wrong, and the module's pid filters still match host PIDs. The container methods don't use `ns pid` (D2). |
+| Q2 | What is `ns pid` meant to be? | Answered by the CLARION author: the PID of the process inside its own PID namespace. The kernel module recorded something else for a namespace's first process and for processes started into a namespace from outside, and a related bug in the unshare and setns hooks lost records inside containers. F1 and F2 fix them; `TRACE_VALIDATION.md` Part A checked both on a live system. The container methods don't use `ns pid` (D2). |
 | Q3 | Where should initialization end when the init never calls execve (L10)? | Decided for now: (a) keep D11 and D13, so such starts make the query fail. A trace can't settle this: a trace without such sandboxes proves nothing. The evidence came from the tools' source instead (L10). Not chosen for now: (b) end at the first execve by the init or by any process it created in the namespace, which fixes bubblewrap and nspawn but would end runc containers at OCI `startContainer` hooks, since those run inside the container before the application; (c) prefer the init's own first execve, else the first execve by a process it created in the namespace, and fail only when no process there calls execve. |
-| Q4 | Reporter: namespace labels revert after execve or setuid/setgid (L5). | Worth reporting upstream. |
-| Q5 | Reporter and kernel module: `clone3` (L4). | Worth reporting upstream, with the reproduction in `TRACE_VALIDATION.md`: a child created through glibc's `posix_spawn` gets no creation record. |
+| Q4 | Reporter: namespace labels revert after execve or setuid/setgid (L5). | Not fixed; listed for the maintainers as N5 in `BUG_FIXES.md`. |
+| Q5 | Reporter and kernel module: `clone3` (L4). | Not fixed; listed for the maintainers as N4 in `BUG_FIXES.md`, with the reproduction `pkg/linux/kernel_modules/test/ns-pid/clone3-test.sh`: a child created through glibc's `posix_spawn` gets no creation record. |
 | Q6 | Wiki QuickGrail Reference entries for both methods. | Written for `QuickGrail-Reference.md`, under Graph Methods, in the forms of §1: `getContainerInit()`, `getContainerBoundary()`, `('<id>' [, <number>])` and `($seeds)`, each with the `namespaces=true` prerequisite, and notes on the execve failure (L10) and on reused IDs (§5.5). They sit in a local clone of the wiki, which belongs to the upstream repository, so they go to the maintainers with the pull request. |
-| Q7 | Kernel module: the netfilter hook could sleep in atomic context and freeze the system (§6). | Found while recording Part B (2026-11-01). Fixed on branch `bug-fixes` (`da9c05b8`), with a reproduction that freezes a VM without the fix and drops and counts records with it. |
-| Q8 | Reporter: process names from kernel-module records ended in NULs (§6). | Found while recording Part B (2026-11-01). The kernel module hex-encodes the whole 16-byte comm buffer, so `gdbus` arrived as `gdbus` followed by 11 NULs, and every name from such a record ends in at least one. The name then differed from the same process's name in syscall records, and PostgreSQL rejected it (Q9). Fixed on branch `bug-fixes` (`ed373f13`): the reporter cuts hex-encoded values at the first NUL, so it also reads logs recorded before the fix correctly. The module still writes the padding. |
-| Q9 | PostgreSQL storage: one value with a NUL made COPY reject its whole batch, and a quote inside a value was never escaped (§6). | Found while recording Part B (2026-11-01): one trace lost 13,264 vertices this way, so 13,211 of the 31,429 vertices its edges point to were missing. Every failed batch failed on a NUL; the quote bug was found by reading `formatToCSV`. Fixed on branch `bug-fixes` (`ff827871`). |
-| Q10 | Neo4j storage: QuickGrail's Cypher used `exists(x.prop)`, which Neo4j 5 removed (§6). | Found while querying Part B (2026-11-01). SPADE bundles Neo4j 5.26, so every graph-building instruction tried failed, even `$base.getVertex(type = 'Process')`, and the container methods returned empty graphs on Neo4j. Fixed on branch `bug-fixes` (`d36e055a`) with `IS NULL` and `IS NOT NULL`. |
-| Q11 | The unshare(CLONE_NEWPID) record names no namespace, only `4294967295` (§4.1). | Found in Part B (2026-11-01). §5.2 then counts the unshare as creating namespace `4294967295`, finds no recorded creation of the ID the init lands in, and groups every start into that ID together. So containers that reuse an ID merge into one: on trace 1, namespace 4026532474 held 8 containers and the methods saw 1. Open; options: (a) kernel module: read the namespace from the task's `nsproxy->pid_ns_for_children`, which the kernel sets at the unshare, and print the unavailable value as -1; (b) methods: treat `4294967295` as unobserved, and take a new namespace's ID from the first process created after the unshare; (c) both, so traces from older modules work too. |
+| Q7 | Kernel module: the netfilter hook could sleep in atomic context and freeze the system (§6). | Found while recording Part B (2026-11-01). Fixed: F3. |
+| Q8 | Reporter: process names from kernel-module records ended in NULs (§6). | Found while recording Part B (2026-11-01). Fixed: F4. |
+| Q9 | PostgreSQL storage: one value with a NUL made COPY reject its whole batch, and quotes were not escaped (§6). | Found while recording Part B (2026-11-01). Fixed: F5. |
+| Q10 | Neo4j storage: QuickGrail's Cypher used `exists()`, which Neo4j 5 removed (§6). | Found while querying Part B (2026-11-01). Fixed: F6. |
+| Q11 | The unshare(CLONE_NEWPID) record named no namespace, only `4294967295` (§4.1). | Found in Part B (2026-11-01): §5.2 counted the unshare as creating namespace `4294967295`, found no recorded creation of the namespace the init landed in, and merged every container that reuses an ID; on trace 1, namespace 4026532474 held 8 containers and the methods saw 1. Decided (c) (D19): F7 fixes the module, and §5.2 handles traces from older modules (L19). |
 
 ## 9. Test design
 
@@ -427,8 +438,9 @@ unintended primitive fails loudly. The harness follows backend semantics
 where they matter:
 
 - **Adjacency.** It has two modes, `SOURCES_ALWAYS` (PostgreSQL, Quickstep)
-  and `SOURCES_VIA_EDGES` (Neo4j). Each integration scenario runs once per
-  mode through two `@Nested` classes.
+  and `SOURCES_VIA_EDGES` (Neo4j). Each integration scenario runs in both,
+  on traces recorded both with and without F7 (§9.3): four `@Nested` classes
+  per test class.
 - **Comparisons.** Annotation values compare as strings, and `LIKE` uses SQL
   wildcards.
 - **Subtraction.** Subtracting the base graph is rejected.
@@ -447,7 +459,10 @@ where they matter:
 - execve versions labeled with the namespaces the process was created with,
   even after an unshare or setns,
 - `time` and `event id` on edges,
-- `exit` self-loops, and artifacts with Used/WasGeneratedBy edges.
+- `exit` self-loops, and artifacts with Used/WasGeneratedBy edges,
+- optionally (`withUnnamedNewPidNamespaces`), unshare(CLONE_NEWPID) versions
+  labeled `4294967295`, as modules without F7 record them; children still go
+  to the new namespace.
 
 It also builds `docker run` and `docker exec` as runc performs them. For
 `docker run`, stage 1 unshares and then forks stage 2 with
@@ -470,7 +485,9 @@ and then forks.
 | creator joins another container's namespace before unshare | The setns step is in the result. |
 | nested container | Both starts. The nested creator is inside the outer container. |
 | later children of one unshare, same millisecond | Only the first child (by event id) is a start. |
-| process returns to earlier labels (vertex reuse) | Two starts, then a setns back into the first container is an entry. |
+| unshare whose namespace never gets a process | No start. |
+| second unshare before any child | Only the second namespace starts; the first dies empty. |
+| process returns to earlier labels (vertex reuse) | Two starts, then a setns back into the first container is an entry. Without F7 both unshares are labeled `4294967295`, so they share a vertex; still two starts. |
 | reused ID and host pids | Two separate starts. |
 | container started before tracing; unshare before tracing | Empty result, no error (L1, L2). |
 | unshare by a process with `-1` labels | Entry, not start (L3). |
@@ -495,16 +512,22 @@ and then forks.
 | nested container under a reused outer ID | Belongs only to the outer container that started it. |
 | seed processes | The container a seed process belongs to, with nested containers. Seeds in two containers select both. Two seeds in one container select it once. A seed in a nested container selects only that one. |
 | seeds outside containers | Empty result. |
+| processes labeled `4294967295` | Never container processes. |
 
 ### 9.5 Checking the tests themselves
 
 During development, ten deliberate bugs were planted one at a time, and each
 made at least one test fail under both adjacency semantics.
-`TEST_RESULTS.md` lists them.
+`TEST_RESULTS.md` lists them. The classes for traces without F7 were checked
+against the analysis before it handled them: there, 6 scenarios failed under
+each adjacency semantics (4 for `getContainerBoundary`, 2 for
+`getContainerInit`), and none failed in the other classes.
 
 ### 9.6 Not covered
 
 - **Real backends.** The harness mirrors PostgreSQL, Neo4j and Quickstep
-  semantics, but the methods have not run against a real database.
+  semantics. The methods have run on PostgreSQL and Neo4j with real traces
+  (`TRACE_VALIDATION.md`, Part B), and both returned the same results, but
+  never on Quickstep.
 - **Real traces.** See Q1 in §8.
 - **Performance and concurrency.**
