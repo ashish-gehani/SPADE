@@ -58,6 +58,3 @@ spade.pid
 
 # --- Dev workflow temp files ---
 /spade.wiki
-
-# --- Local reference documents ---
-/CLARION_paper.pdf
