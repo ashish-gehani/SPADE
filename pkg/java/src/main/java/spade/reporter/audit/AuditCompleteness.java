@@ -49,6 +49,14 @@ public final class AuditCompleteness{
 			+ " (auditctl -s). The audit bridge's count of missing serial numbers reports such losses."
 			+ " Booting with audit=1 makes the kernel keep them up to the backlog limit and count the rest.";
 
+	public static final String BRIDGE_NOT_SETUID_ERROR = "The audit bridge '%s' is not setuid root and auditd's"
+			+ " socket is not writable for this user, so the bridge cannot connect and the Audit reporter would"
+			+ " record nothing. make replaces the bridge without the setuid bit; run bin/allowAuditAccess after"
+			+ " every build.";
+
+	private static final Pattern BRIDGE_FAILURE = Pattern.compile(
+			"Unable to connect to the socket|Server closed the connection|Unable to start the socket reader");
+
 	private static final Pattern EVENTS_NOT_RECEIVED = Pattern.compile("^Audit events not received .*: (\\d+)\\s*$");
 	private static final Pattern BYTES_DROPPED = Pattern.compile("^Socket queue: .*, (\\d+) bytes dropped because the queue was full\\s*$");
 
@@ -58,6 +66,31 @@ public final class AuditCompleteness{
 	 */
 	public static boolean isEnrichedRecord(final String line){
 		return line != null && line.indexOf(ENRICHED_SEPARATOR) >= 0;
+	}
+
+	/**
+	 * @param bridgeMessage a line the audit bridge wrote to stderr
+	 * @return true if the bridge lost auditd's socket, after which nothing is recorded
+	 */
+	public static boolean reportsBridgeFailure(final String bridgeMessage){
+		return bridgeMessage != null && BRIDGE_FAILURE.matcher(bridgeMessage).find();
+	}
+
+	/**
+	 * Whether a process of this user can run the bridge as root: it is setuid and owned by root,
+	 * or this process is root. Unknown (not a POSIX file system) counts as can.
+	 */
+	public static boolean bridgeRunsAsRoot(final String bridgePath){
+		try{
+			final java.nio.file.Path path = Paths.get(bridgePath);
+			final int mode = (Integer)Files.getAttribute(path, "unix:mode");
+			final int owner = (Integer)Files.getAttribute(path, "unix:uid");
+			final boolean setuidRoot = (mode & 04000) != 0 && owner == 0;
+			final long self = (Integer)Files.getAttribute(Paths.get("/proc/self"), "unix:uid");
+			return setuidRoot || self == 0;
+		}catch(Exception e){
+			return true;
+		}
 	}
 
 	/**

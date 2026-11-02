@@ -424,6 +424,14 @@ public class Audit extends AbstractReporter {
 
 		if(this.input.getMode() == Input.Mode.LIVE){
 			AuditCompleteness.warnAboutKernel(logger);
+			// Without root, the bridge cannot read auditd's socket: it would start, fail to
+			// connect, and the reporter would look added while recording nothing.
+			if(!AuditCompleteness.bridgeRunsAsRoot(this.input.getSPADEAuditBridgePath())
+					&& !java.nio.file.Files.isWritable(java.nio.file.Paths.get(this.input.getLinuxAuditSocketPath()))){
+				logger.log(Level.SEVERE, String.format(AuditCompleteness.BRIDGE_NOT_SETUID_ERROR,
+						this.input.getSPADEAuditBridgePath()));
+				return false;
+			}
 		}
 
 		try{
@@ -437,9 +445,14 @@ public class Audit extends AbstractReporter {
 					if(msg != null && exception != null){
 						logger.log(Level.SEVERE, "[SPADE audit bridge] [ERROR] " + msg, exception);
 					}else if(msg != null && exception == null){
-						// lost events would otherwise go unnoticed among the bridge's output
-						logger.log(AuditCompleteness.reportsLoss(msg) ? Level.WARNING : Level.INFO,
-								"[SPADE audit bridge] [OUTPUT] " + msg);
+						// lost events, and a lost socket, would otherwise go unnoticed among the bridge's output
+						if(AuditCompleteness.reportsBridgeFailure(msg)){
+							logger.log(Level.SEVERE, "[SPADE audit bridge] [OUTPUT] " + msg
+									+ " (the Audit reporter records nothing from now on)");
+						}else{
+							logger.log(AuditCompleteness.reportsLoss(msg) ? Level.WARNING : Level.INFO,
+									"[SPADE audit bridge] [OUTPUT] " + msg);
+						}
 					}else if(msg == null && exception != null){
 						logger.log(Level.SEVERE, "[SPADE audit bridge] [ERROR] " + "Unexpected error", exception);
 					}else{

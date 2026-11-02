@@ -38,6 +38,22 @@ class AuditCompletenessTest{
 	}
 
 	@Test
+	void theBridgesSocketFailuresAreRecognised(){
+		assertTrue(AuditCompleteness.reportsBridgeFailure(
+				"spadeAuditBridge: Unable to connect to the socket: /var/run/audispd_events. Error: Permission denied"));
+		assertTrue(AuditCompleteness.reportsBridgeFailure("spadeAuditBridge: Server closed the connection. Errror: Success"));
+		assertTrue(AuditCompleteness.reportsBridgeFailure("spadeAuditBridge: Unable to start the socket reader thread. Error: x"));
+		assertFalse(AuditCompleteness.reportsBridgeFailure("Audit events not received so far (missing serial numbers): 3"));
+		assertFalse(AuditCompleteness.reportsBridgeFailure(null));
+	}
+
+	@Test
+	void aMissingBridgeCountsAsRunnable(){
+		// not a POSIX file system, or no such file: nothing to check, so no refusal
+		assertTrue(AuditCompleteness.bridgeRunsAsRoot("/no/such/spadeAuditBridge"));
+	}
+
+	@Test
 	void enrichedRecordsCarryTheSeparator(){
 		final String raw = "type=SYSCALL msg=audit(1793583428.047:3609733): arch=c000003e syscall=44 success=yes exit=1056";
 		assertFalse(AuditCompleteness.isEnrichedRecord(raw));
