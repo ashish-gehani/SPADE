@@ -467,7 +467,11 @@ where they matter:
 It also builds `docker run` and `docker exec` as runc performs them. For
 `docker run`, stage 1 unshares and then forks stage 2 with
 CLONE_PARENT|SIGCHLD. Stage 2 unshares its cgroup namespace, starts Go
-runtime threads, and calls execve. For `docker exec`, stage 1 calls setns
+runtime threads, and calls execve. The cgroup step is what older runc
+versions do; runc 1.3.3 creates the cgroup namespace before stage 2, so its
+init has no such version (`TRACE_VALIDATION.md`, Part B). The methods don't
+depend on it either way. setuid and setgid versions are not modeled; real
+traces have dozens per init (§4.1). For `docker exec`, stage 1 calls setns
 and then forks.
 
 ### 9.4 Scenarios
