@@ -3,11 +3,14 @@
 Checks the namespace records the audit module writes (`ns_NEWPROCESS`,
 `ns_SETNS`, `ns_UNSHARE`) against the kernel's own view in `/proc`, and
 compares a module built without a change to one built with it. Written to
-validate the two `ns pid` fixes:
+validate three fixes:
 
 - `ns_ns_pid` must be the process's PID in its own PID namespace (`9fd54e0c`).
 - unshare and setns calls from inside a non-host PID namespace must be
   recorded, with the caller's labels (`d445c7cc`).
+- `ns_inum_pid_children` must name the namespace the caller's children go
+  into, also right after unshare(CLONE_NEWPID), and an unreadable namespace
+  is written as -1 (`2728115f`).
 
 Records are read from auditd's log, not through SPADE, so the module is the
 only thing that differs between the two runs. A sampler reads every process's
@@ -17,8 +20,13 @@ judged against it.
 ## Results
 
 Ubuntu 24.04.3, Linux 6.8.0-146-generic, VirtualBox, Docker 29.0.0 with runc
-1.3.3. *base* was built from `prov-query` `6b744f7c`, *fixed* from the same
-tree with both fixes. The audit `lost` counter stayed at 0.
+1.3.3. The audit `lost` counter did not change in any run.
+
+### `ns_ns_pid` and the unshare/setns hooks (2026-11-01)
+
+*base* was built from `prov-query` `6b744f7c`, *fixed* from the same tree with
+`9fd54e0c` and `d445c7cc`. The analyzer did not judge `ns_inum_pid_children`
+yet.
 
 | | base | fixed |
 |---|---|---|
@@ -38,6 +46,31 @@ tree with both fixes. The audit `lost` counter stayed at 0.
   no `NEWPROCESS` record, because the module hooks `clone`, `fork` and
   `vfork` only. runc 1.3.3 uses `clone`, so container processes are
   recorded.
+
+### `ns_inum_pid_children` (2026-11-02)
+
+`km-ab-build.sh d36e055a 2728115f`: *base* without and *fixed* with
+`2728115f`. Verdicts on `ns_inum_pid_children`:
+
+| Operation | base: OK / wrong / unverified | fixed: OK / wrong / unverified |
+|---|---|---|
+| `UNSHARE` | 0 / 7 / 3 | 5 / 0 / 5 |
+| `NEWPROCESS` | 230 / 0 / 9 | 233 / 0 / 7 |
+| `SETNS` | 2 / 0 / 28 | 2 / 0 / 28 |
+
+- In base, every unshare(CLONE_NEWPID) record had `4294967295`, "unreadable"
+  printed unsigned, for a caller that was alive: the `unshare` processes of
+  S2 to S5 and runc in S6. In fixed, the same records name the new namespace,
+  and for the `unshare` processes it is the namespace `/proc` later showed as
+  their `pid_for_children`.
+- The unverified `UNSHARE` records are runc's: the callers live too briefly
+  for the 50 ms sampler. In fixed they name the container's namespace.
+- No namespace record in fixed holds `4294967295`. Its 8 records with -1 are
+  all `NEWPROCESS` records in which the mount, network, IPC and cgroup
+  namespaces are -1 as well, as for a child that has already exited. Base had
+  9 `NEWPROCESS` records with `4294967295`.
+- `ns_ns_pid` and `ns_inum_pid` were right in every judged record of both
+  builds; both include the two fixes above.
 
 ## Requirements
 
