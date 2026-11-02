@@ -36,6 +36,7 @@ http://www-01.ibm.com/support/knowledgecenter/ssw_i5_54/rzab6/xconoclient.htm
 #include <sys/stat.h>
 #include <time.h>
 #include <errno.h>
+#include <pthread.h>
 
 #define SERVER_PATH     "/var/run/audispd_events"
 #define BUFFER_LENGTH   10000
@@ -302,10 +303,117 @@ int command_line_option(int argc, char **argv)
 
 }
 
+/*
+ * Socket input. auditd's af_unix plugin (audisp-af_unix, audit 3.1.2) writes
+ * each event to its one client without blocking, and silently drops the event
+ * when the client's socket is full. So a thread of its own reads the socket and
+ * only queues what arrives, and the main thread processes the queue: a slow
+ * consumer of the bridge's output then delays events instead of losing them.
+ * The queue is bounded only by SOCKET_QUEUE_MAX_BYTES.
+ */
+#define SOCKET_QUEUE_MAX_BYTES (1024L * 1024L * 1024L)
+
+typedef struct socket_chunk_t {
+		struct socket_chunk_t *next;
+		int length;
+		char data[];   // NUL-terminated
+} socket_chunk_t;
+
+static socket_chunk_t *socket_queue_head = NULL, *socket_queue_tail = NULL;
+static long socket_queue_bytes = 0, socket_queue_peak_bytes = 0, socket_queue_dropped_bytes = 0;
+static int socket_queue_closed = 0;      // the reader stopped: connection closed or error
+static int socket_queue_accepting = 1;   // cleared when stopping, so the drain ends
+static pthread_mutex_t socket_queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t socket_queue_cond = PTHREAD_COND_INITIALIZER;
+static volatile sig_atomic_t stop_requested = 0;
+
+typedef struct socket_reader_arg_t {
+		int descriptor;
+		char *programName;
+} socket_reader_arg_t;
+
+static void *socket_reader(void *argument)
+{
+		socket_reader_arg_t *arg = (socket_reader_arg_t *) argument;
+		char buffer[BUFFER_LENGTH];
+		int charactersRead;
+
+		while (TRUE) {
+				charactersRead = recv(arg->descriptor, &buffer[0], BUFFER_LENGTH - 1, 0);
+				if (charactersRead < 0) {
+						if (errno == EINTR) continue;
+						fprintf(stderr, "%s: Error while reading from the socket. Error: %s\n", arg->programName, strerror(errno));
+						break;
+				} else if (charactersRead == 0) {
+						fprintf(stderr, "%s: Server closed the connection. Errror: %s\n", arg->programName, strerror(errno));
+						break;
+				}
+				socket_chunk_t *chunk = (socket_chunk_t *) malloc(sizeof(socket_chunk_t) + charactersRead + 1);
+				pthread_mutex_lock(&socket_queue_mutex);
+				if (chunk == NULL || !socket_queue_accepting
+								|| socket_queue_bytes + charactersRead > SOCKET_QUEUE_MAX_BYTES) {
+						if (socket_queue_accepting) socket_queue_dropped_bytes += charactersRead;
+						free(chunk);
+				} else {
+						memcpy(chunk->data, &buffer[0], charactersRead);
+						chunk->data[charactersRead] = '\0';
+						chunk->length = charactersRead;
+						chunk->next = NULL;
+						if (socket_queue_tail != NULL) socket_queue_tail->next = chunk;
+						else socket_queue_head = chunk;
+						socket_queue_tail = chunk;
+						socket_queue_bytes += charactersRead;
+						if (socket_queue_bytes > socket_queue_peak_bytes) socket_queue_peak_bytes = socket_queue_bytes;
+						pthread_cond_signal(&socket_queue_cond);
+				}
+				pthread_mutex_unlock(&socket_queue_mutex);
+		}
+
+		pthread_mutex_lock(&socket_queue_mutex);
+		socket_queue_closed = 1;
+		pthread_cond_signal(&socket_queue_cond);
+		pthread_mutex_unlock(&socket_queue_mutex);
+		return NULL;
+}
+
+/* The next queued chunk, or NULL once the queue is empty and the reader stopped or a stop was requested. */
+static socket_chunk_t *socket_queue_take()
+{
+		socket_chunk_t *chunk;
+		struct timespec until;
+
+		pthread_mutex_lock(&socket_queue_mutex);
+		while (socket_queue_head == NULL && !socket_queue_closed && !stop_requested) {
+				clock_gettime(CLOCK_REALTIME, &until);
+				until.tv_nsec += 100 * 1000 * 1000;   // wake up now and then to notice a stop request
+				if (until.tv_nsec >= 1000 * 1000 * 1000) {
+						until.tv_sec++;
+						until.tv_nsec -= 1000 * 1000 * 1000;
+				}
+				pthread_cond_timedwait(&socket_queue_cond, &socket_queue_mutex, &until);
+		}
+		if (stop_requested) socket_queue_accepting = 0;   // process what has arrived, nothing more
+		chunk = socket_queue_head;
+		if (chunk != NULL) {
+				socket_queue_head = chunk->next;
+				if (socket_queue_head == NULL) socket_queue_tail = NULL;
+				socket_queue_bytes -= chunk->length;
+		}
+		pthread_mutex_unlock(&socket_queue_mutex);
+		return chunk;
+}
+
+static void report_socket_queue()
+{
+		pthread_mutex_lock(&socket_queue_mutex);
+		fprintf(stderr, "Socket queue: peak %ld bytes, %ld bytes dropped because the queue was full\n",
+				socket_queue_peak_bytes, socket_queue_dropped_bytes);
+		pthread_mutex_unlock(&socket_queue_mutex);
+}
+
 void socket_read(char *programName)
 {
-		int audispdSocketDescriptor = -1, charactersRead, bytesReceived;
-		char buffer[BUFFER_LENGTH];
+		int audispdSocketDescriptor = -1, charactersRead;
 		struct sockaddr_un serverAddress;
 
 		do {
@@ -325,18 +433,33 @@ void socket_read(char *programName)
 						break;
 				}
 
-				while (TRUE) {
-						memset(&buffer, 0, BUFFER_LENGTH);
-						charactersRead = recv(audispdSocketDescriptor, & buffer[0], BUFFER_LENGTH - 1, 0);
-						if (charactersRead < 0) {
-								fprintf(stderr, "%s: Error while reading from the socket. Error: %s\n", programName, strerror(errno));
-								break;
-						} else if (charactersRead == 0) {
-								fprintf(stderr, "%s: Server closed the connection. Errror: %s\n", programName, strerror(errno));
-								break;
-						}
-						UBSI_buffer(buffer);
+				// The reader thread must not take SIGINT/SIGTERM: this thread handles a stop.
+				socket_reader_arg_t readerArg = { audispdSocketDescriptor, programName };
+				pthread_t reader;
+				sigset_t blocked, previous;
+				sigemptyset(&blocked);
+				sigaddset(&blocked, SIGINT);
+				sigaddset(&blocked, SIGTERM);
+				pthread_sigmask(SIG_BLOCK, &blocked, &previous);
+				charactersRead = pthread_create(&reader, NULL, socket_reader, &readerArg);
+				pthread_sigmask(SIG_SETMASK, &previous, NULL);
+				if (charactersRead != 0) {
+						fprintf(stderr, "%s: Unable to start the socket reader thread. Error: %s\n", programName, strerror(charactersRead));
+						break;
 				}
+
+				socket_chunk_t *chunk;
+				while ((chunk = socket_queue_take()) != NULL) {
+						UBSI_buffer(chunk->data);
+						free(chunk);
+				}
+				if (stop_requested) {
+						fprintf(stderr, "Flushing buffer before stopping\n");
+						UBSI_buffer_flush();
+						report_socket_queue();
+						exit(0);
+				}
+				report_socket_queue();
 		} while (FALSE);
 
 		if (audispdSocketDescriptor != -1) close(audispdSocketDescriptor);
@@ -1553,30 +1676,74 @@ void syscall_handler(char *buf)
 #define REORDERING_WINDOW 10000
 int next_event_id = 0;
 
-int UBSI_buffer_flush()
+/*
+ * Events not received. Audit serial numbers count the events the kernel sends,
+ * so a serial that never arrives is an event lost on the way, e.g. one auditd's
+ * af_unix plugin could not write without waiting. Counted while events are
+ * emitted in serial order and reported on stderr at most once a second. An
+ * event that arrives after its serial was passed only counts as late.
+ */
+static long first_emitted_id = 0, last_emitted_id = 0;
+static long events_not_received = 0, events_not_received_reported = 0;
+static time_t events_not_received_reported_at = 0;
+
+static void report_events_not_received(bool force)
+{
+		time_t now = time(NULL);
+		if(events_not_received != events_not_received_reported && (force || now != events_not_received_reported_at)) {
+				fprintf(stderr, "Audit events not received so far (missing serial numbers): %ld\n", events_not_received);
+				events_not_received_reported = events_not_received;
+				events_not_received_reported_at = now;
+		}
+}
+
+/* Emits the event with serial next_event_id if it was received, and moves on to the next serial. */
+static void emit_next_event()
 {
 		struct event_buf_t *eb;
+		long id = next_event_id;
+
+		HASH_FIND_INT(event_buf, &next_event_id, eb);
+		next_event_id++;
+		if(eb == NULL) {
+				if(last_emitted_id != 0 && id > last_emitted_id) {
+						events_not_received++;
+						last_emitted_id = id;
+				}
+				return;
+		}
+		if(first_emitted_id == 0) {
+				first_emitted_id = last_emitted_id = eb->id;
+		} else if(eb->id <= last_emitted_id) {
+				if(eb->id >= first_emitted_id && events_not_received > 0) events_not_received--;   // late, not lost
+		} else {
+				last_emitted_id = eb->id;
+		}
+		if(strstr(eb->event, "ubsi_intercepted=") != NULL){
+				if(UBSIAnalysis) ubsi_intercepted_handler(eb->event);
+				else printf("%s", eb->event);
+		} else if(strstr(eb->event, "type=SYSCALL") != NULL) {
+				if(UBSIAnalysis) syscall_handler(eb->event);
+				else printf("%s", eb->event);
+		} else {
+				printf("%s", eb->event);
+		}
+		HASH_DEL(event_buf, eb);
+		free(eb->event);
+		free(eb);
+}
+
+int UBSI_buffer_flush()
+{
 		fprintf(stderr, "UBSI flush the log buffer: %d events\n", HASH_COUNT(event_buf));
 
 		while(HASH_COUNT(event_buf) > 0)
 		{
-				HASH_FIND_INT(event_buf, &next_event_id, eb);
-				next_event_id++;
-				if(eb != NULL) {
-						if(strstr(eb->event, "ubsi_intercepted=") != NULL){
-								if(UBSIAnalysis) ubsi_intercepted_handler(eb->event);
-								else printf("%s", eb->event);
-						} else if(strstr(eb->event, "type=SYSCALL") != NULL) {
-								if(UBSIAnalysis) syscall_handler(eb->event);
-								else printf("%s", eb->event);
-						} else {
-								printf("%s", eb->event);
-						}
-						HASH_DEL(event_buf, eb);
-						free(eb->event);
-						free(eb);
-				} 
+				emit_next_event();
 		}
+		report_events_not_received(true);
+		fprintf(stderr, "Audit events not received in total (missing serial numbers): %ld\n", events_not_received);
+		return 0;
 }
 
 int UBSI_buffer(const char *buf)
@@ -1657,28 +1824,19 @@ int UBSI_buffer(const char *buf)
 		// if we have enough events in the buffer..
 		while(HASH_COUNT(event_buf) > REORDERING_WINDOW)
 		{
-				HASH_FIND_INT(event_buf, &next_event_id, eb);
-				next_event_id++;
-				if(eb != NULL) {
-						if(strstr(eb->event, "ubsi_intercepted=") != NULL){
-								if(UBSIAnalysis) ubsi_intercepted_handler(eb->event);
-								else printf("%s", eb->event);
-						} else if(strstr(eb->event, "type=SYSCALL") != NULL) {
-								if(UBSIAnalysis) syscall_handler(eb->event);
-								else printf("%s", eb->event);
-						} else {
-								printf("%s", eb->event);
-						}
-						HASH_DEL(event_buf, eb);
-						free(eb->event);
-						free(eb);
-				}
+				emit_next_event();
 		}
+		report_events_not_received(false);
 }
 
 void UBSI_sig_handler(int signo)
 {
 		if(waitForEnd == FALSE) {
+				if(socketRead) {
+						// socket_read processes what has been received, then flushes and exits
+						stop_requested = 1;
+						return;
+				}
 				fprintf(stderr, "Flushing buffer before stopping\n");
 				UBSI_buffer_flush();
 				exit(0);
