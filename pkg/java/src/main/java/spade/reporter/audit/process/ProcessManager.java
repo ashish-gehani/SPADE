@@ -576,6 +576,9 @@ public abstract class ProcessManager extends ProcessStateManager{
 		Process parentVertex = handleProcessFromSyscall(eventData);
 		
 		removeProcessUnitState(childPid); // Remove the existing state before continuing and adding the new one TODO
+		// A thread group of an earlier process with this pid is over: a live group's id is a live pid.
+		// Its set can outlive it, since an exit that names a group keeps the group (exitEndsState).
+		activeThreadGroups.remove(childPid);
 		
 		AgentIdentifier agentIdentifier = buildAgentIdentifierFromSyscall(eventData);
 		
@@ -716,6 +719,27 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 * @param outputOPM generate OPM only if true
 	 * @return true
 	 */
+	/**
+	 * Whether an exit (not exit_group) record ends the state of the process it names.
+	 *
+	 * audit names a syscall's process by its thread group id (pid=), so the record of a thread
+	 * that exits names the whole group, and which thread it was is not known. Ending the group's
+	 * state then would make its next syscall create a new process vertex, first seen and with
+	 * unknown namespaces, once for every thread that exits. So the state ends only when the
+	 * group has no other known thread, or when the record names a known thread of the group by
+	 * its own id.
+	 *
+	 * @param named the key of the process the record names, or null if it has no state
+	 * @param otherThreads the keys of the group's other threads, without null; null if none
+	 * @return true if the named process's state ends
+	 */
+	static boolean exitEndsState(final ProcessKey named, final Set<ProcessKey> otherThreads){
+		if(otherThreads == null || otherThreads.isEmpty()){
+			return true; // the only thread exited: the process did
+		}
+		return named != null && otherThreads.contains(named); // a thread named by its own id
+	}
+
 	public boolean handleExit(Map<String, String> eventData, SYSCALL syscall, boolean outputOPM){
 		String pid = eventData.get(AuditEventReader.PID);
 		String time = eventData.get(AuditEventReader.TIME);
@@ -765,6 +789,11 @@ public abstract class ProcessManager extends ProcessStateManager{
 		}else if(syscall == SYSCALL.EXIT){
 			if(threadGroupsKeys != null){
 				threadGroupsKeys.remove(null);
+			}
+			if(!exitEndsState(activeKey, threadGroupsKeys)){
+				return true; // some thread of the group exited, but not which: keep every state
+			}
+			if(threadGroupsKeys != null){
 				threadGroupsKeys.remove(activeKey);
 				if(threadGroupsKeys.isEmpty()){
 					// remove group
