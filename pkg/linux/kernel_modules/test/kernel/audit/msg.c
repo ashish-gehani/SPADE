@@ -104,7 +104,7 @@ static void msg_test_serialize_config_test_expected_dummy_network(
 {
     const char *expected = "netio_intercepted=\"syscall=0 exit=0 success=0 fd=0 pid=0 ppid=0 "
                            "gid=0 egid=0 sgid=0 fsgid=0 uid=0 euid=0 suid=0 fsuid=0 "
-                           "comm=00000000000000000000000000000000 sock_type=0 local_saddr= "
+                           "comm= sock_type=0 local_saddr= "
                            "remote_saddr= remote_saddr_size=0 net_ns_inum=0\"";
     msg_test_serialize_config_common_equals_expected(
         stats, test_name, m_type, actual, expected
@@ -117,7 +117,7 @@ static void msg_test_serialize_config_test_expected_dummy_ubsi(
 {
     const char *expected = "ubsi_intercepted=\"syscall=0 success=no exit=0 a0=0 a1=0 a2=0 a3=0 "
                            "items=0 pid=0 ppid=0 gid=0 egid=0 sgid=0 fsgid=0 uid=0 euid=0 "
-                           "suid=0 fsuid=0 comm=00000000000000000000000000000000\"";
+                           "suid=0 fsuid=0 comm=\"";
     msg_test_serialize_config_common_equals_expected(
         stats, test_name, m_type, actual, expected
     );
@@ -335,7 +335,7 @@ static void msg_test_serialize_config_test_expected_network_1(
 {
     const char *expected = "netio_intercepted=\"syscall=45 exit=5 success=1 fd=1 pid=1234 ppid=1000 "
                            "gid=1002 egid=1002 sgid=1002 fsgid=1002 uid=1001 euid=1001 suid=1001 fsuid=1001 "
-                           "comm=746573745f70726f6365737300000000 sock_type=2 local_saddr=02001f907f0000010000000000000000 "
+                           "comm=746573745f70726f63657373 sock_type=2 local_saddr=02001f907f0000010000000000000000 "
                            "remote_saddr=02000050fe0301d30000000000000000 remote_saddr_size=16 net_ns_inum=4\"";
     msg_test_serialize_config_common_equals_expected(
         stats, test_name, m_type, actual, expected
@@ -421,7 +421,7 @@ static void msg_test_serialize_config_test_expected_network_2(
 {
     const char *expected = "netio_intercepted=\"syscall=46 exit=10 success=0 fd=2 pid=5678 ppid=5000 "
                            "gid=2002 egid=2002 sgid=2002 fsgid=2002 uid=2001 euid=2001 suid=2001 fsuid=2001 "
-                           "comm=697076365f7465737400000000000000 sock_type=1 "
+                           "comm=697076365f74657374 sock_type=1 "
                            "local_saddr=0a002382000000000000000000000000000000000000000100000000 "
                            "remote_saddr=0a0001bb0000000020010db800000000000000000000000100000000 "
                            "remote_saddr_size=28 net_ns_inum=6\"";
@@ -459,7 +459,7 @@ static void msg_test_serialize_config_test_expected_ubsi_1(
 {
     const char *expected = "ubsi_intercepted=\"syscall=44 success=yes exit=1 a0=64 a1=4 a2=0 a3=0 "
                            "items=0 pid=5678 ppid=5000 gid=2002 egid=2002 sgid=2002 fsgid=2002 uid=2001 euid=2001 "
-                           "suid=2001 fsuid=2001 comm=746573745f70726f6365737300000000\"";
+                           "suid=2001 fsuid=2001 comm=746573745f70726f63657373\"";
     msg_test_serialize_config_common_equals_expected(
         stats, test_name, m_type, actual, expected
     );
