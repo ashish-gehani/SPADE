@@ -11,7 +11,8 @@
 # boundary takes about 230 s against 20 s on PostgreSQL: getContainerInit(), the
 # boundary of everything, the first five IDs of truth.txt, the reused IDs, one
 # first run, and the namespace of the run whose clone record auditd dropped.
-# (On Neo4j, the first seven came from `query.sh 3` itself, stopped after them.)
+# (For trace 3 itself, Neo4j's first seven came from `query.sh 3`, stopped after
+# them; the results are the same.)
 # TRACE names another trace directory, e.g. TRACE=3r for replay.sh's replay of trace 3.
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -36,9 +37,8 @@ STORAGES=PostgreSQL ONLY_EXTRA=1 bash "$HERE/query.sh" "$TRACE" "${reused[@]}" "
 
 # the run with the dropped clone record (TRACE_VALIDATION.md, trace 3)
 dropped=4026533315
-subset=("${reused[@]}" "${first[0]}" "getContainerBoundary('$dropped')")
-STORAGES=Neo4j ONLY_EXTRA=1 bash "$HERE/query.sh" "$TRACE" "${subset[@]}"
 five=$(echo "$queried" | head -5 | sed "s/.*/getContainerBoundary('&')/")
 mapfile -t five <<< "$five"
-STORAGES=Quickstep ONLY_EXTRA=1 bash "$HERE/query.sh" "$TRACE" "getContainerInit()" "getContainerBoundary()" \
-    "${five[@]}" "${subset[@]}"
+subset=("getContainerInit()" "getContainerBoundary()" "${five[@]}"
+        "${reused[@]}" "${first[0]}" "getContainerBoundary('$dropped')")
+STORAGES="Neo4j Quickstep" ONLY_EXTRA=1 bash "$HERE/query.sh" "$TRACE" "${subset[@]}"

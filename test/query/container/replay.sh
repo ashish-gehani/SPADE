@@ -31,6 +31,15 @@ exec > >(tee "$OUT/run.log") 2>&1
 # the SPADE tree these scripts are in, unless SPADE_HOME names another
 SPADE_HOME=${SPADE_HOME:-$(cd "$HERE/../../.." && pwd)}
 cd "$SPADE_HOME" || exit 1
+# Whether to use the kernel module's network records, as the live trace did. Left
+# unset, playback decides by the first network event in the log, and a network
+# SYSCALL record first (trace 3 has some) makes it ignore every module network
+# record, so the replay has no sockets (BUG_FIXES.md N20).
+LIVE_LOG=$(sed -n 's/^SPADE log: //p' "$SRC/run.log" | head -1)
+HANDLE=$(grep -oE 'handleLocalEndpoints=(true|false)' "$LIVE_LOG" 2>/dev/null | head -1)
+[ -n "$HANDLE" ] || { echo "ABORT: no handleLocalEndpoints in the trace's SPADE log '$LIVE_LOG'"; exit 1; }
+ARGS="$ARGS $HANDLE"
+echo "as the live trace ($LIVE_LOG): $HANDLE"
 
 ctl() {
     echo ">> control: $*"
