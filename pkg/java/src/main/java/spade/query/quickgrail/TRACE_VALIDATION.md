@@ -462,7 +462,8 @@ container's init host PID and PID namespace from `docker inspect` and
 - M5: Not an expectation but a measurement (L17): the trace's size, how long
   SPADE needs to store it, and how long each query takes on each storage.
 
-**After F15 to F27.** Trace 3 led to more fixes (BUG_FIXES.md F15 to F27).
+**After F15 to F29.** Trace 3 led to more fixes (BUG_FIXES.md F15 to F27;
+F28 and F29 came from the recordings below).
 To check that they leave every result above standing, traces 1 and 2 are
 recorded again with them, and in place of the full media stack, which takes
 hours to record and query, a subset of it (trace 4). B11 to B13 check fixes
@@ -796,3 +797,105 @@ PostgreSQL and Neo4j take as long as on the live trace (PostgreSQL's
 longest boundary ran beside another query on the same database).
 Quickstep answers three to four times faster than on the live trace; why
 was not examined.
+
+#### After F15 to F29: the traces recorded again
+
+The expectations B11 to B13 and S1 to S5 above were committed before these
+recordings (B13 after trace 1 was recorded again, which has no execve after
+an unshare or setns). The recordings, with the harness of
+`clarity-of-container`:
+
+| Recording | Build | What it is for |
+|---|---|---|
+| `trace1d` | F1 to F27 (F27's first version) | B1 to B7, B12; found that trace 1 has no case for F17 |
+| `trace2b` | the same | B8 to B11, B13; found F28 |
+| `trace2br` | trace 2b replayed with F28 | B13a, B8 |
+| `trace4` | F1 to F28 | S1 to S5 |
+| `trace1e` | F1 to F29, after a reboot (a fresh kernel; N22) | B1 to B7, B12, F29 |
+| `trace3n` | trace 3 replayed with F1 to F29, without `handleLocalEndpoints` | F16, F28, M1 to M4 |
+
+Two earlier recordings of trace 1 (`trace1b`, `trace1c`) are not used: in
+both the Quickstep server stopped taking connections after its first batch,
+because the first version of F27 removed the main kernel module while the
+server's accept thread was in a hooked `accept` (BUG_FIXES.md N22). They
+showed the openat2 operation missing (fixed in F15) and led to the storage
+check `trace.sh` now ends with. Every recording used below passed it: the
+kernel's `lost` counter did not move, every event and record auditd logged
+reached the reporter, and the three storages held the same graph.
+
+| Recording | Events read | Graph (each storage) |
+|---|---|---|
+| `trace1e` | 152,957 events, 364,303 records | 42,425 vertices, 136,393 edges |
+| `trace2b` | 37,192 events, 102,055 records | 10,849 vertices, 37,642 edges |
+| `trace2br` | the same input | 10,827 vertices, 37,657 edges |
+| `trace4` | 120,466 events, 278,417 records | 40,056 vertices, 122,462 edges |
+| `trace3n` | trace 3's 2,489,681 events, 4,143,400 records | 754,109 vertices, 2,105,042 edges |
+
+**Trace 1 (`trace1e`).** All 31 queries (the 7 of `query.sh` and the 12
+numbered forms of each reused ID, past their ends included) returned the
+same vertices, edges and errors on the three storages. After the reboot the
+kernel numbered the namespaces differently: B1 and B2 ran in 4026532418, B4,
+B6 and B7 in 4026532482, B4's nested namespace was 4026532542 and B5's
+4026532480.
+
+| Scenario | Result after F15 to F29 |
+|---|---|
+| B1, B2 | Held as before: `getContainerInit()` has 12 starts, two in 4026532418; `('4026532418', 1)` has 12 processes with the creating runc process as the only host neighbour, `('4026532418', 2)` 19 with the entering runc process as a second; `(…, 3)` fails. |
+| B3 | Held: the pre-existing shell is the only neighbour of its 40 members (the count depends on how many `sleep`s the loop starts in the trace). |
+| B4 | Held: `('4026532482', 1)` holds 9 processes of X and the 6 of Y; Y's boundary only its own. |
+| B5 | Held: 7 processes, the `unshare` process the only neighbour. |
+| B6 | Held: 8 runs of 4026532482 numbered, each run its own processes, `(…, 9)` fails. |
+| B7 | Held: run 8 has 14 network sockets, all joined to `wget`. |
+| B12 | Did not hold as written. runc's openat2 and close_range are recorded and handled (2,051 openat2 calls, 614 of them giving `open` edges to runc's files, which no earlier trace had; 158 close_range calls), and execve drops close-on-exec descriptors. But 1,437 openat2 calls, and 828 openat and 263 mknodat calls, all of runc, still name a directory descriptor the reporter does not know. `nofd.py` and strace show where they come from: runc's procfs and overlay handles, which it gets from fsmount, a mount without a path, and the rules do not audit fsopen, fsmount or open_tree (BUG_FIXES.md N21; CLARITY_METHODS.md L20). Of the 3,372 closes of unknown descriptors, 2,153 follow an open relative to such a handle and 1,208 were created by other syscalls the rules leave out (epoll, eventfd, pidfd, ...); 11 remain. |
+| F25 | The module's 14,433 network records name their processes without NUL padding; trace 1's first recording had padding in all 13,022. |
+| F29 | No module record from the audit bridge; `trace1d`, before F29, had 25, its reader thread's `recvfrom` calls. |
+
+**Trace 2 (`trace2b`, `trace2br`).** IDs were reused twice: B9, B10 and
+B13b's container all ran in 4026532324, and B11 and B13a in 4026532203. The
+12 queries returned the same results on all three storages, live and
+replayed.
+
+| Scenario | Result after F15 to F29 |
+|---|---|
+| B8 | Held in the replay: `getContainerInit()` fails naming only bubblewrap's init (`bwrap`, 4026532322), as in the first trace 2, and Y's boundary holds `bwrap`'s PID 1 and the `sh`, `readlink` and `sleep` it started. Live, before F28, it also named B13a's init (below). |
+| B9 | Held as before: `('4026532324', 1)` holds 10 sockets joined to `wget`. |
+| B10 | Held as before: `('4026532324', 2)` has `spawn-child`, its clone3 child and the child's execve to `true`. |
+| B11 | Held: 4026532203's first run is a start whose first process is the `unshare` child, with the `unshare` process, which sudo started for SPADE's user, as its only host neighbour; before F18 that process was not created in the trace and its unshare counted as a join (L3). |
+| B13 | Held, after F28. `f17check.py`: both execve calls after a namespace step give versions with that step's labels, (a)'s `children pid namespace` 4026532203 and (b)'s `mount namespace` the container's, not the labels they were created with. Live, `('4026532203', 2)` held B13a's init only as `sh`, and `getContainerInit()` failed on it: dash had created the init with vfork, whose record comes after the child's execve, and the reporter took the child for one first seen, with `-1` labels. That is F28: in the replay with it, the run holds the init and its execve to `sleep`, and `getContainerInit()` fails only on B8's bubblewrap. |
+
+**Trace 4 (`trace4`), the media microservices' subset.** Six containers
+started at once with `docker compose up -d --no-deps`, none restarted, and
+98 of the 100 users were registered; it took 3 minutes to record, where
+trace 3 took hours. `check-media.py`:
+
+| Expectation | Result |
+|---|---|
+| S1: one start per run, with the init the kernel module recorded | Held: 6 starts, 6 inits in auditd's log, all 6 the same. |
+| S2: each boundary holds every sampled process of its run and none of another; the init's creator is its only host neighbour; no unlabeled version of its own processes | Held: none of the 10 sampled processes missing; every boundary's only host neighbour is the runc process that created its init; no unlabeled versions. |
+| S3: user-service's and OpenResty's sockets reach their boundaries | Held: 30 sockets in user-service's boundary and 131 in OpenResty's (nginx-web-server); 1 in the DNS proxy's, 2 in MongoDB's, 1 in memcached's, none in Jaeger's. |
+| S4: the same results on every storage | Held: 8 graphs and no differences. |
+| S5: a measurement | 40,056 vertices and 122,462 edges, stored within the 70 s the harness waits; `getContainerInit()` 1.7 s on PostgreSQL, 3.1 s on Quickstep and 36.1 s on Neo4j, a boundary 1.1 s, 1.9 to 2.7 s and 20.8 to 21.1 s. |
+
+**Trace 3 replayed (`trace3n`).** `GIVE_HANDLE=0 replay.sh 3 3n`: trace 3's
+input, with F1 to F29 and without `handleLocalEndpoints`, then `query.sh` and
+`query-trace3.sh` on PostgreSQL (`SUBSET=0`: the Neo4j subset takes an hour
+on this graph, and the storages' agreement is shown on traces 1, 2 and 4).
+
+| Expectation | Result |
+|---|---|
+| F16 | Held: playback set `handleLocalEndpoints` to false at a network SYSCALL record and to true at the next network record of the kernel module, and the 46 boundaries hold 72,283 sockets, exactly as the replay that passed it (trace 3 replayed with F11 to F14); a replay without it had none before F16. |
+| M1 | Held: 46 starts, 46 inits in auditd's log, the same 46. |
+| M2 | Held: none of the 50 sampled processes missing from its run's boundary; every boundary's only host neighbour is the runc process that created its init; no unlabeled versions; 29,403 members in all, as in the earlier replay. |
+| M2, the reused ID | Held: `('4026532470')` fails and asks for a number; its two runs are movie-id-service's first and nginx-web-server's first. |
+| M3 | Held: 46,760 sockets in OpenResty's second run, 18,469 in cast-info-service's. |
+| F28 | 3,933 events of 537 processes waited for their creation, 2 in vain; the boundaries are as before F28, so trace 3's vforked processes were on the host. |
+| M5 | The reporter handled the input in 173 s. On PostgreSQL, `getContainerInit()` 17.6 s, `getContainerBoundary()` 18.6 s, a boundary 11.2 to 19.2 s (median 13.6 s, 48 boundaries). |
+
+**What this shows.** With F15 to F29, every result of the first recordings
+stands: B1 to B10 on traces 1 and 2, and M1 to M4 on trace 3, replayed. The
+new scenarios hold too (B11, B13, S1 to S5), except B12 as written, whose
+remaining descriptor gaps come from runc's mount-API handles (N21, L20).
+Two fixes came out of these recordings themselves: F28, a vfork child seen
+before its creation, which made B13a's start fail, and F29, the module's pid
+filters naming threads. A first version of F27 crashed threads (N22) and was
+replaced before the recordings above.
