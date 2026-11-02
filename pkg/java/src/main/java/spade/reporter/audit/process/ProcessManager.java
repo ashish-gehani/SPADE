@@ -288,6 +288,20 @@ public abstract class ProcessManager extends ProcessStateManager{
 		}
 	}
 		
+	/** Whether the reporter has a process for this pid. */
+	public boolean isProcessKnown(final String pid){
+		return pid != null && getProcessUnitState(pid) != null;
+	}
+
+	/**
+	 * Whether the reporter's process for this pid has a start time: it was created, or it called
+	 * execve, in the trace, rather than first seen in some other syscall.
+	 */
+	public boolean isProcessStartedInTrace(final String pid){
+		final ProcessUnitState state = pid == null ? null : getProcessUnitState(pid);
+		return state != null && state.getProcess() != null && state.getProcess().startTime != null;
+	}
+
 	/**
 	 * Returns the process state (which might not be active anymore) by pid and start time.
 	 * 
