@@ -24,9 +24,12 @@ import java.io.FileNotFoundException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.Callable;
@@ -90,41 +93,118 @@ public class Quickstep extends AbstractStorage {
 		return conf.getMaxVertexValueLength();
 	}
 
+	/** Hashes of the current batch's vertices that lookUpVertexIds found not stored. */
+	private final Set<String> shortLivedVertexHashesNotStored = new HashSet<String>();
+	private final String vertexLookupTableName = "spade_vertex_lookup";
+
 	private final void garbageCollectVertexIds(){
 		synchronized(shortLivedVertexHashToIdMap){
 			shortLivedVertexHashToIdMap.clear();
+			shortLivedVertexHashesNotStored.clear();
+		}
+	}
+
+	/** The id of a vertex from the short-lived map or the Deduplicate screen's cache, without a query. */
+	private final Integer knownVertexId(final String hashCode){
+		final Integer idInTempMap;
+		synchronized(shortLivedVertexHashToIdMap){
+			idInTempMap = shortLivedVertexHashToIdMap.get(hashCode);
+		}
+		if(idInTempMap != null){
+			putVertexId(hashCode, idInTempMap);
+			return idInTempMap;
+		}
+
+		final Object idObjectInScreen;
+		synchronized(screenLock){
+			if(deduplicateScreen == null){
+				idObjectInScreen = null;
+			}else{
+				idObjectInScreen = deduplicateScreen.getVertexCacheValueForStorage(hashCode);
+			}
+		}
+
+		if(idObjectInScreen != null){
+			try{
+				return (Integer)idObjectInScreen;
+			}catch(Throwable t){
+				logger.log(Level.WARNING, "Expected int value but got '"+idObjectInScreen+"' with class: " + idObjectInScreen.getClass(), t);
+				return null;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Looks up, with one query, the ids of the given vertices that are neither in the short-lived
+	 * map nor in the Deduplicate screen's cache, and remembers which of them are not stored, so
+	 * that getVertexId does not query for each. A query per vertex scans the whole vertex table,
+	 * and a new vertex is never in the cache, so storing got slower the larger the graph was.
+	 * On failure getVertexId falls back to a query per vertex.
+	 *
+	 * @param hashCodes hashes of a batch's vertices and edge endpoints
+	 */
+	private final void lookUpVertexIds(final Collection<String> hashCodes){
+		final Set<String> unknown = new HashSet<String>();
+		for(final String hashCode : hashCodes){
+			if(hashCode != null && knownVertexId(hashCode) == null){
+				unknown.add(hashCode);
+			}
+		}
+		if(unknown.isEmpty()){
+			return;
+		}
+		final StringBuilder data = new StringBuilder();
+		for(final String hashCode : unknown){
+			data.append(hashCode).append('\n');
+		}
+		final String result;
+		try{
+			try{
+				qs.executeQuery("CREATE TABLE " + vertexLookupTableName + " (md5 CHAR(32));");
+			}catch(RuntimeException e){ // left over from an earlier run that stopped midway
+				qs.executeQuery("DROP TABLE " + vertexLookupTableName + ";");
+				qs.executeQuery("CREATE TABLE " + vertexLookupTableName + " (md5 CHAR(32));");
+			}
+			try{
+				qs.executeQuery("COPY " + vertexLookupTableName + " FROM stdin WITH (DELIMITER '|');", data.toString());
+				result = qs.executeQuery("COPY SELECT md5, id FROM " + vertexTableName
+						+ " WHERE md5 IN (SELECT md5 FROM " + vertexLookupTableName + ") TO stdout WITH (DELIMITER '|');");
+			}finally{
+				qs.executeQuery("DROP TABLE " + vertexLookupTableName + ";");
+			}
+		}catch(RuntimeException e){
+			logger.log(Level.WARNING, "Failed to look up the ids of " + unknown.size() + " vertices in one query", e);
+			return;
+		}
+		for(final String line : result.split("\n")){
+			final String[] fields = line.trim().split("\\|");
+			if(fields.length == 2){
+				try{
+					putVertexId(fields[0], Integer.parseInt(fields[1].trim()));
+					unknown.remove(fields[0]);
+				}catch(NumberFormatException e){
+					logger.log(Level.WARNING, "Unexpected vertex id in '" + line + "'");
+				}
+			}
+		}
+		synchronized(shortLivedVertexHashToIdMap){
+			shortLivedVertexHashesNotStored.addAll(unknown);
 		}
 	}
 
 	private final Integer getVertexId(final String hashCode){
 		if(hashCode != null){
-			final Integer idInTempMap;
-			synchronized(shortLivedVertexHashToIdMap){
-				idInTempMap = shortLivedVertexHashToIdMap.get(hashCode);
+			final Integer known = knownVertexId(hashCode);
+			if(known != null){
+				return known;
 			}
-			if(idInTempMap != null){
-				putVertexId(hashCode, idInTempMap);
-				return idInTempMap;
+			synchronized(shortLivedVertexHashToIdMap){
+				if(shortLivedVertexHashesNotStored.contains(hashCode)){
+					return null; // lookUpVertexIds found it not stored
+				}
 			}
 
-			final Object idObjectInScreen;
-			synchronized(screenLock){
-				if(deduplicateScreen == null){
-					idObjectInScreen = null;
-				}else{
-					idObjectInScreen = deduplicateScreen.getVertexCacheValueForStorage(hashCode);
-				}
-			}
-			
-			if(idObjectInScreen != null){
-				try{
-					return (Integer)idObjectInScreen;
-				}catch(Throwable t){
-					logger.log(Level.WARNING, "Expected int value but got '"+idObjectInScreen+"' with class: " + idObjectInScreen.getClass(), t);
-					return null;
-				}
-			}
-			
 			final String query = "copy select id from " + vertexTableName + " where md5='" + hashCode + "' to stdout;";
 			final String queryResultString;
 			try{
@@ -345,6 +425,16 @@ public class Quickstep extends AbstractStorage {
 
       int vertexIdCounter = lastNumVertices;
       long edgeIdCounter = lastNumEdges;
+
+      final List<String> hashCodes = new ArrayList<String>();
+      for (AbstractVertex vertex : batchBuffer.getVertices()) {
+        hashCodes.add(vertex.bigHashCode());
+      }
+      for (AbstractEdge edge : batchBuffer.getEdges()) {
+        hashCodes.add(edge.getChildVertex().bigHashCode());
+        hashCodes.add(edge.getParentVertex().bigHashCode());
+      }
+      lookUpVertexIds(hashCodes);
 
       vertexMD5.setLength(0);
       vertexAnnos.setLength(0);
