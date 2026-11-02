@@ -39,6 +39,7 @@ import spade.edge.opm.WasDerivedFrom;
 import spade.edge.opm.WasGeneratedBy;
 import spade.edge.opm.WasTriggeredBy;
 import spade.reporter.audit.ArtifactConfiguration;
+import spade.reporter.audit.AuditCompleteness;
 import spade.reporter.audit.AuditConfiguration;
 import spade.reporter.audit.AuditControlManager;
 import spade.reporter.audit.AuditEventReader;
@@ -418,6 +419,10 @@ public class Audit extends AbstractReporter {
 			return false;
 		}
 
+		if(this.input.getMode() == Input.Mode.LIVE){
+			AuditCompleteness.warnAboutKernel(logger);
+		}
+
 		try{
 			this.spadeAuditBridgeProcess = SPADEAuditBridgeProcess.launch(this.input, auditConfiguration.isUnits(),
 					auditConfiguration.getMergeUnit(), bridgeQueueMegabytes);
@@ -429,7 +434,9 @@ public class Audit extends AbstractReporter {
 					if(msg != null && exception != null){
 						logger.log(Level.SEVERE, "[SPADE audit bridge] [ERROR] " + msg, exception);
 					}else if(msg != null && exception == null){
-						logger.log(Level.INFO, "[SPADE audit bridge] [OUTPUT] " + msg);
+						// lost events would otherwise go unnoticed among the bridge's output
+						logger.log(AuditCompleteness.reportsLoss(msg) ? Level.WARNING : Level.INFO,
+								"[SPADE audit bridge] [OUTPUT] " + msg);
 					}else if(msg == null && exception != null){
 						logger.log(Level.SEVERE, "[SPADE audit bridge] [ERROR] " + "Unexpected error", exception);
 					}else{
