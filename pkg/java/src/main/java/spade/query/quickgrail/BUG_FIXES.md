@@ -1,0 +1,280 @@
+# Fixes Outside the Container Methods
+
+The QuickGrail container methods, `getContainerInit` and
+`getContainerBoundary` (branch `clarity-of-container`, `CLARITY_METHODS.md`
+beside this file), were checked against the audit kernel module and against
+real traces. That turned up bugs in the kernel module, the Audit reporter and
+both storages. Branch `bug-fixes` holds their fixes, on top of upstream
+`prov-query` (`6b744f7c`), and `clarity-of-container` is rebased onto it. This
+file describes every fix on the branch: what went wrong, why, what changed,
+how it was checked, and what it means for traces recorded before it.
+
+Paths are relative to the repository root. The kernel module is
+`pkg/linux/kernel_modules/audit/`, and Java classes are under
+`pkg/java/src/main/java/spade/`.
+
+## Summary
+
+| # | Component | Bug | Commits | Checked by |
+|---|---|---|---|---|
+| F1 | kernel module | `ns_ns_pid` held the PID in the creator's namespace, not the process's own | `9fd54e0c` | `test/ns-pid` A/B on a live system |
+| F2 | kernel module | an unshare or setns inside a container wrote no record | `d445c7cc` | `test/ns-pid` A/B |
+| F3 | kernel module | the netfilter hook could sleep in atomic context and freeze the system | `da9c05b8`, `1527278b` | `test/netfilter-atomic` reproduction |
+| F4 | Audit reporter | process names from kernel-module records ended in NULs | `ed373f13` | unit tests; a real trace |
+| F5 | PostgreSQL storage | one NUL made COPY drop a whole batch; quotes were not escaped | `ff827871` | unit tests; a real trace |
+| F6 | Neo4j storage | QuickGrail's Cypher used `exists()`, which Neo4j 5 removed | `d36e055a` | a real trace on both storages |
+| F7 | kernel module | an unshare(CLONE_NEWPID) record never named the new namespace | `2728115f`, `5c8c1db2`, `0cdc679a` | in-kernel unit test; `test/ns-pid` A/B |
+
+`test/...` is `pkg/linux/kernel_modules/test/...`. All checks ran on Ubuntu
+24.04.3 with Linux 6.8.0-146-generic in VirtualBox, with Docker 29.0.0 and runc
+1.3.3.
+
+## F1. `ns_ns_pid` in the process's own PID namespace
+
+**Symptom.** `ns_ns_pid`, which the reporter stores as `ns pid`, is meant to
+be the process's PID inside its own PID namespace. For a namespace's first
+process it should be 1. A container init got its host PID instead, for
+example 17552.
+
+**Cause.** For clone, fork and vfork, the module recorded the syscall's return
+value (`msg->ns_pid = target_pid`). That is the child's PID as its creator
+sees it: the host PID when the creator is on the host, and in general the PID
+in the creator's namespace. It is right only when creator and child share a
+namespace.
+
+**Fix.** `kernel_helper_namespace_populate_msg` records
+`pid_nr_ns(pid, ns_of_pid(pid))`, the PID in the namespace the process lives
+in.
+
+**Checked.** `test/ns-pid`, base `6b744f7c` against fixed: 25 of 2211
+namespace records wrong without the fix (18 container inits, 4 `sh`,
+3 `sleep`), 0 of 2237 with it. A namespace created from inside another one
+showed that the old value is the creator's view, not the host PID: an inner
+init got 4, its PID in the outer namespace. Results are in
+`test/ns-pid/README.md`.
+
+**Older traces.** `ns pid` keeps the creator's view for a namespace's first
+process, a child of an unshare, and a process started into a container from
+outside (`docker exec`). The container methods don't use `ns pid`.
+
+**Files.** `audit/kernel/helper/namespace.c`.
+
+## F2. unshare and setns callers looked up in their own namespace
+
+**Symptom.** An unshare or setns called from inside a non-host PID namespace,
+for example `unshare` inside a container, wrote no namespace record.
+
+**Cause.** The hooks looked up the caller by `current->pid`, its host PID, in
+the caller's own PID namespace. Inside a container that finds no process, so
+no record is written, or in principle a different process, whose namespaces
+would be reported.
+
+**Fix.** The hooks pass the caller's PID in its own namespace
+(`kernel_helper_task_ns_view_current_pid()`, `task_pid_vnr(current)`).
+`kernel_helper_task_task_view_current_pid()` still returns the host PID: the
+`pids` and `ppids` filters compare host PIDs.
+
+**Checked.** `test/ns-pid`: without the fix, the inner `unshare` and
+`nsenter` of the scenario that runs them inside a namespace wrote no record;
+with it, each wrote one with its own-namespace PID. `filter-test.sh` showed
+that both builds' filters match host PIDs and never in-namespace PIDs.
+
+**Older traces.** A process that unshares or calls setns inside a container
+keeps its old namespace labels, so a container started inside a container
+(Docker in Docker, B4 in the trace checks) is not seen.
+
+**Files.** `audit/kernel/function/sys_unshare/action/audit.c`,
+`audit/kernel/function/sys_setns/action/audit.c`, `audit/kernel/helper/task.c`,
+`audit/kernel/helper/task.h`.
+
+## F3. The netfilter hook must not sleep
+
+**Symptom.** With `networkAddressTranslation=true` (as in
+`cfg/spade.reporter.Audit-with-namespace-awareness.config`), recording a trace
+froze the VM. The serial console showed `BUG: scheduling while atomic` in
+`nf_handle_packet`, then soft lockups and an RCU stall. The process
+interrupted was PostgreSQL, SPADE's storage, whose loopback traffic went
+through the hook.
+
+**Cause.** `networkAddressTranslation=true` turns on the module's netfilter
+hook (`nf_hooks`), which logs packets with `kernel_helper_audit_log`.
+That passed `GFP_KERNEL` to `audit_log`, which waits for room while the audit
+backlog is full. A netfilter hook runs in an RCU read-side section and, for
+received packets, in softirq, where it must never sleep.
+
+**Fix.** `kernel_helper_audit_log_atomic` passes `GFP_ATOMIC`, and the
+netfilter hook uses it. With a full backlog, the kernel now drops the packet
+record and counts it in the audit `lost` counter. The syscall hooks run in
+process context and keep the waiting variant.
+
+**Checked.** `test/netfilter-atomic/nf-repro.sh` fills the backlog (limit 64,
+auditd stopped) and sends loopback TCP traffic. Without the fix the guest
+froze within a second, with 5 `BUG` reports. With it, 15 connections lost 908
+records and 10 s of traffic lost 235,690, with no BUG, warning or lockup. The
+script was run as committed. Results are in `test/netfilter-atomic/README.md`.
+
+**Older traces.** None are affected: without the fix, the system froze
+instead.
+
+**Files.** `audit/kernel/helper/audit_log.c`, `audit/kernel/helper/audit_log.h`,
+`audit/kernel/netfilter/netfilter.c`.
+
+## F4. Process names cut at the first NUL
+
+**Symptom.** Process names from kernel-module records carried trailing NULs:
+`gdbus` arrived as `gdbus` followed by 11 NUL bytes. Such a vertex differed
+from the same process's vertex built from a syscall record, and PostgreSQL
+rejected it (F5). In one trace, 13,264 vertices were lost that way.
+
+**Cause.** The module hex-encodes the whole `comm` buffer, all
+`TASK_COMM_LEN` (16) bytes, so every name from its records ends in at least
+one NUL. `AuditEventReader` decoded the hex as is.
+
+**Fix.** The reader cuts hex-encoded values at the first NUL
+(`AuditEventReader.decodeHexValue`). The values decoded there (`comm`, `cwd`,
+`name`, execve arguments) are C strings, so a NUL always ends them, and the
+kernel's own hex encoding never contains one.
+
+**Checked.** `AuditEventReaderTest` (5 tests: padded, full-length and
+all-NUL names, kernel hex without NUL, invalid hex). With F4 and F5, a real
+trace stored 21,164 vertices in PostgreSQL with no failed batch.
+
+**Older traces.** Audit logs recorded before the fix are read correctly,
+since the fix is in the reader. Graphs stored before it have names with NULs
+in Neo4j, and miss whole vertex batches in PostgreSQL.
+
+**Files.** `reporter/audit/AuditEventReader.java`; test
+`pkg/java/src/test/java/spade/reporter/audit/AuditEventReaderTest.java`.
+
+## F5. PostgreSQL COPY values escaped
+
+**Symptom.** PostgreSQL silently lost whole batches of vertices: the log
+showed `Failed to persist N vertices` with `invalid byte sequence for encoding
+"UTF8": 0x00`. In one trace, 13,211 of the 31,429 vertices that edges point
+to were missing.
+
+**Cause.** `PostgreSQL.persist` loads vertices and edges in batches with COPY
+in CSV format, and `formatToCSV` quotes each value. PostgreSQL text cannot
+hold NUL, so a single value with a NUL (F4) failed the whole batch. Also,
+`formatToCSV` meant to escape quotes with `item.replace('"', '\"')`, but
+`'\"'` is the same character in Java, so the call changed nothing. CSV needs
+the quote doubled; an undoubled one ends the field early. No batch in the
+trace failed on a quote; that bug was found by reading the code.
+
+**Fix.** `formatToCSV` drops NULs and doubles quotes.
+
+**Checked.** `PostgreSQLTest` (6 tests: NULL, empty string, plain value,
+quotes, delimiter and newline, NULs). On a real trace recorded with F4 to F6,
+PostgreSQL and Neo4j held the same 21,164 vertices and 58,135 edges. For all
+19 container-method queries they returned the same counts and the same error
+messages, and the five non-empty results compared vertex by vertex were
+identical.
+
+**Older traces.** A PostgreSQL database filled before the fix may miss whole
+batches; replaying the audit log fills them in.
+
+**Files.** `storage/PostgreSQL.java`; test
+`pkg/java/src/test/java/spade/storage/PostgreSQLTest.java`.
+
+## F6. Neo4j Cypher without `exists()`
+
+**Symptom.** On Neo4j, every QuickGrail instruction that builds a graph
+failed, even `$base.getVertex(type = 'Process')`, with "The property existence
+syntax `... exists(variable.property)` is no longer supported". The container
+methods returned empty graphs.
+
+**Cause.** SPADE bundles Neo4j 5.26 (`pkg/java/pom.xml`), and Neo4j 5 removed
+`exists(variable.property)`. The executor uses it when it records which graphs
+an edge belongs to, a step of every graph-building instruction, and in
+`getWhereAnnotationsExist`, the vertex and edge cases of `describeGraph`, and
+`saveRemoteSymbol`.
+
+**Fix.** `x IS NULL` and `x IS NOT NULL` replace `not exists(x)` and
+`exists(x)` at those five places. They work in Neo4j 3, 4 and 5.
+
+**Checked.** On the real trace of F5, Neo4j and PostgreSQL returned the same
+results.
+
+**Older traces.** None are affected: the fix is in the queries, so Neo4j
+databases filled before it can be queried now.
+
+**Files.** `storage/neo4j/Neo4jInstructionExecutor.java`,
+`storage/neo4j/Neo4jQueryEnvironment.java`.
+
+## F7. The unshare record names the new PID namespace
+
+**Symptom.** After unshare(CLONE_NEWPID), the record's `ns_inum_pid_children`
+was `4294967295` instead of the new namespace's inode number, for every
+container runc started and every `unshare --pid`. The reporter stored it as
+the version's `children pid namespace`. The same value appeared on the
+`NEWPROCESS` records of children that had already exited.
+
+**Cause.** Two things. The module read the children's namespace through
+`pidns_for_children_operations`, whose `get()` (`pidns_for_children_get` in
+Linux `kernel/pid_namespace.c`) returns no namespace while the namespace has
+no child reaper, that is, until its first process exists. So right after
+unshare(CLONE_NEWPID), it hid exactly the namespace just created, and the
+module recorded -1. Second, the namespace inode numbers are `unsigned int`
+and were printed with `%u`, so -1 came out as `4294967295`, which reads like
+a real ID; the Audit reporter's value for an unobserved namespace is `-1`.
+
+**Fix.** The module reads the children's namespace from the task's `nsproxy`
+(`pid_ns_for_children`, under `task_lock`), which points to the new namespace
+as soon as unshare returns; its inode number is allocated when the namespace
+is created. The serializer prints an unreadable namespace as `-1`.
+`test/ns-pid/ns-ab-analyze.py` now judges `ns_inum_pid_children` too, which
+Part A of the earlier checks had not.
+
+**Checked.** The in-kernel test module (`spade_audit_test`, via
+`bin/test/spade_audit_test/run.sh --dry-run`) has a new serializer case for
+-1 next to inode numbers above `INT_MAX`; all 188 in-kernel tests pass.
+`test/ns-pid`, base `d36e055a` against fixed `2728115f`: `UNSHARE` records
+with a wrong `ns_inum_pid_children` went from 7 of 10 to 0 of 10, and every
+judged one named the namespace `/proc` showed as the caller's
+`pid_for_children`. No namespace record of the fixed build holds
+`4294967295`; its -1 values are all in `NEWPROCESS` records whose mount,
+network, IPC and cgroup namespaces are -1 too, as for a child that has
+already exited. Results are in `test/ns-pid/README.md`.
+
+**Older traces.** Every unshare(CLONE_NEWPID) version has `children pid
+namespace` `4294967295`, and some processes have `4294967295` for namespaces
+that could not be read. The container methods on `clarity-of-container` count
+`4294967295` as unobserved and take a new namespace's ID from the first
+process created after the unshare, so they work on traces from either module.
+
+**Files.** `audit/kernel/helper/namespace.c`,
+`audit/msg/namespace/serialize/audit.c`; tests
+`pkg/linux/kernel_modules/test/kernel/audit/msg.c`,
+`pkg/linux/kernel_modules/test/ns-pid/ns-ab-analyze.py`.
+
+## Running the checks
+
+| Check | How | Needs |
+|---|---|---|
+| Java unit tests (F4, F5) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,PostgreSQLTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
+| In-kernel tests (F7) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
+| ns pid A/B (F1, F2, F7) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
+| netfilter (F3) | `pkg/linux/kernel_modules/test/netfilter-atomic/README.md` | a disposable VM: without the fix it freezes |
+
+## Noticed, not changed
+
+These came up during the same work. None of them affects the container
+methods' results on the traces checked, so they are left for the maintainers.
+
+| # | Component | What |
+|---|---|---|
+| N1 | kernel module | In `nf_handle_packet`, a packet that was logged also falls through to `discard_and_exit` and is counted as discarded. |
+| N2 | kernel module | The module still pads `comm` with NULs; F4 handles that in the reader. Encoding `strnlen(comm)` bytes would fix it at the source. |
+| N3 | kernel module | `kernel_helper_namespace_populate_msg` calls `pid_task()` after `rcu_read_unlock()` and without a reference on the `struct pid`; `pid_task()` needs the RCU read lock. A process exiting at that moment could make it read freed memory. It is in upstream `prov-query` as well. Found by reading the code; never observed. |
+| N4 | kernel module, reporter | `clone3` is not hooked, so a child created with it (glibc's `posix_spawn` uses it) has no creation record. runc 1.3.3 uses `clone`. `test/ns-pid/clone3-test.sh` shows it. |
+| N5 | Audit reporter | After unshare or setns, a later execve or setuid/setgid gives the process the namespace labels it was created with, because unshare and setns don't update the per-process namespace state (`ProcessManager.handleNamespaceUpdateFromSyscall`). |
+| N6 | Audit reporter | When `spadeAuditBridge` cannot connect to auditd's socket ("Permission denied"), SPADE logs it at INFO level and still reports the reporter as added; nothing is recorded. |
+| N7 | build | `make` replaces `bin/spadeAuditBridge` without the setuid bit `bin/allowAuditAccess` gives it, so the bridge then fails as in N6. Run `bin/allowAuditAccess` after every build. |
+| N8 | SPADE kernel | On shutdown, SPADE saves its running configuration to `cfg/spade.client.Control.config` and replays it at the next start, storage arguments included. A storage added with `reset=true` is therefore reset again by a plain restart. |
+| N9 | QuickGrail | `stat` on a variable whose assignment failed: PostgreSQL reports a failed query on a missing table, Neo4j prints 0 vertices and 0 edges. |
+
+## Open
+
+| # | Component | What | Status |
+|---|---|---|---|
+| O1 | Audit reporter or bridge | On a trace with no lost records and no reported error, SPADE's graph lacked the creation of 4 of the 10 container inits runc made, although auditd's log has their `clone` records with the `NEWPROCESS` records in the same event (e.g. event 858667). Those processes appear only as first seen later, with `-1` labels. | Being traced: comparing auditd's log with what the reporter receives (`outputLog`). |
