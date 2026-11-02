@@ -362,8 +362,10 @@ keeps accepting queries.
   reach `getContainerBoundary` either way, since `open`, `creat`, `rename` and
   the like are always audited; `fileIO` adds read and write edges. With the
   kernel module loaded, network I/O is reported by the module and gated by
-  `netIO` (`AuditControlManager`), so with `netIO=false` sockets may be
-  missing from the boundary. Part B of `TRACE_VALIDATION.md` checks this.
+  `netIO` (`AuditControlManager`). With `netIO=false` a container's
+  connections still reach its boundary, through `connect` and `close`, but
+  no `send`, `recv`, `read` or `write` over them, and no unconnected UDP
+  traffic such as DNS queries (`TRACE_VALIDATION.md`, B9).
 - `networkAddressTranslation=true` turns on the kernel module's netfilter hook
   (`nf_hooks`). Without F3, that hook could sleep in atomic context and freeze
   the system while the audit backlog was full; it did while recording Part B.
