@@ -297,6 +297,46 @@ the unshare version's `children pid namespace` is X holds only for a module
 with F7; with an older one that label is `4294967295`. The expectation stays
 as committed, and the results say which module recorded each trace.
 
+The sixth attempt used a module with F7 and passed the completeness checks
+above, but it was not used either. This time the reporter wrote everything it
+read (`outputLog`), and auditd's log was compared with it by serial number:
+58,526 of the 151,096 events auditd logged (39%) never reached SPADE. They
+went in runs of up to 1,291 consecutive serials during container starts, with
+no message from auditd, its plugin or SPADE. auditd's af_unix plugin drops an
+event its client cannot take at once, and the audit bridge read the socket
+only between handling events (`BUG_FIXES.md` F8).
+
+- **The seventh attempt recorded nothing.** To see whether the plugin drops
+  per client, a second client read the same socket during the trace. The
+  plugin serves one client and closes any other, so the bridge was the one
+  refused ("Server closed the connection"). The second client was also root,
+  and its writes were audited, so it read its own records back. The harness
+  now also stops on that message.
+- **The eighth attempt** ran the bridge with F8: 427 of 164,642 events were
+  missing, all during B6 and B7, and the bridge's own count of missing
+  serials agreed exactly.
+- **The ninth attempt** also raised `net.core.wmem_default`, which sizes the
+  plugin's socket buffer when the bridge connects, from 212,992 bytes to
+  16 MB: none of the 166,639 events was missing. It was the first complete
+  trace, but it was queried on PostgreSQL and Neo4j only, and it showed that
+  B5 tested the harness rather than the methods: `sudo` keeps the real uid of
+  the user SPADE runs as, the audit rules leave that uid out, so the
+  `unshare` process sudo forked was not recorded as created and its unshare
+  counted as joining (L3; `BUG_FIXES.md` N11).
+
+The harness changed for the tenth attempt:
+
+- Quickstep, the third storage QuickGrail can query, is attached as well,
+  with a fresh database for each trace, and every query runs on all three.
+  Its storage sends a batch only when the batch is full or a timer fires,
+  and queries don't flush it, so the timer is 10 s instead of 180 s.
+- B5 and B8 run their command through a root shell, `sudo sh -c '...'`, so
+  that the process that unshares is created by an audited process. The
+  commands themselves are unchanged.
+- `trace.sh` saves auditd's log for the trace and the reporter's input, and
+  the completeness check compares them; `net.core.wmem_default` is raised as
+  in the ninth attempt.
+
 ### Scenarios and expectations
 
 PIDs and namespace IDs are not known in advance, so expectations name
