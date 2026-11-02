@@ -76,8 +76,8 @@ struct kernel_function_hook_process_context
 
 #define KERNEL_FUNCTION_HOOK_PROCESS_CONTEXT_CURRENT \
     &(const struct kernel_function_hook_process_context){ \
-        .pid = kernel_helper_task_task_view_current_pid(), \
-        .ppid = kernel_helper_task_task_view_current_ppid(), \
+        .pid = kernel_helper_task_task_view_current_tgid(), /* the process, as the rules' pid */ \
+        .ppid = kernel_helper_task_task_view_current_parent_tgid(), \
         .uid = kernel_helper_task_host_view_current_euid() /* the effective uid, as the audit rules */ \
     } \
 

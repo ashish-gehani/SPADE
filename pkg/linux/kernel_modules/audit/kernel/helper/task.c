@@ -107,6 +107,21 @@ pid_t kernel_helper_task_task_view_current_pid()
     return current->pid;
 }
 
+pid_t kernel_helper_task_task_view_current_tgid()
+{
+    return task_tgid_nr(current);
+}
+
+pid_t kernel_helper_task_task_view_current_parent_tgid()
+{
+    pid_t ppid;
+
+    rcu_read_lock();
+    ppid = task_ppid_nr(current);
+    rcu_read_unlock();
+    return ppid;
+}
+
 pid_t kernel_helper_task_ns_view_current_pid()
 {
     return task_pid_vnr(current);

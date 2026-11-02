@@ -118,6 +118,25 @@ pid_t kernel_helper_task_task_view_current_ppid(void);
 pid_t kernel_helper_task_task_view_current_pid(void);
 
 /*
+    Get the process (thread group) id of the current task in the host PID namespace: the pid
+    filters name processes, as audit's pid= field and the rules' -F pid do, so every thread
+    of a process left out is left out.
+
+    Returns:
+        tgid -> Always
+*/
+pid_t kernel_helper_task_task_view_current_tgid(void);
+
+/*
+    Get the process id of the current task's parent in the host PID namespace, as audit's
+    ppid= field: the parent process, not the thread of it that created this task.
+
+    Returns:
+        ppid -> Always
+*/
+pid_t kernel_helper_task_task_view_current_parent_tgid(void);
+
+/*
     Get PID of the current task in its own PID namespace, as the task sees itself.
 
     Returns:
