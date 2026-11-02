@@ -81,6 +81,9 @@ public abstract class QueryInstructionExecutor{
 
 	public abstract AbstractStorage getStorage();
 
+	/** Called before each query; a storage that buffers what it receives stores it here. */
+	public void beforeQuery(){}
+
 	public abstract void collapseEdge(final Graph targetGraph, final Graph sourceGraph, final ArrayList<String> fields);
 
 	public abstract void createEmptyGraph(final Graph graph);

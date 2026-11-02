@@ -100,6 +100,11 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
+	public void beforeQuery(){
+		qs.storeBatchAndWait(); // the query sees everything received so far
+	}
+
+	@Override
 	public AbstractStorage getStorage(){
 		return qs;
 	}

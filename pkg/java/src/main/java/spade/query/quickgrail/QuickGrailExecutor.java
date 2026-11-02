@@ -172,6 +172,9 @@ public class QuickGrailExecutor{
 		}
 
 		try {
+			if (ctx.getExecutor() != null) {
+				ctx.getExecutor().beforeQuery();
+			}
 			final ParseProgram parseProgram = parseProgram(query);
 			final Program program = resolveProgram(
 				ctx.getExecutor(),
