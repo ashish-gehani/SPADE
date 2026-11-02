@@ -34,6 +34,8 @@ done
 echo "reused: ${#reused[@]} calls, first runs: ${#first[@]} calls"
 
 STORAGES=PostgreSQL ONLY_EXTRA=1 bash "$HERE/query.sh" "$TRACE" "${reused[@]}" "${first[@]}"
+# SUBSET=0: PostgreSQL only (the Neo4j subset takes about an hour)
+[ "${SUBSET:-1}" = 1 ] || exit 0
 
 # the run with the dropped clone record (TRACE_VALIDATION.md, trace 3)
 dropped=4026533315
