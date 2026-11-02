@@ -460,4 +460,49 @@ container's init host PID and PID namespace from `docker inspect` and
 
 ### Results
 
-To be filled in from the traces.
+All results below come from the final build: `bug-fixes` with F1 to F10
+(`BUG_FIXES.md`) and the container methods on top, the kernel module with
+F7 and F9, three storages attached, and every query run on each. Each trace
+passed the completeness checks: the kernel's `lost` counter did not move,
+and every event auditd logged reached the reporter.
+
+#### Trace 1 (B1-B7)
+
+Recorded 2026-11-02 at 01:37 (the eleventh attempt), from
+`clarity-of-container` at `b26bdf7e`. auditd logged 174,656 events and SPADE
+read all of them. PostgreSQL, Neo4j and Quickstep each held 32,755 vertices
+and 99,257 edges, and returned the same vertices and edges, and the same
+errors, for all 19 queries.
+
+`getContainerInit()` found 12 starts: two in 4026532410 (B1, B2), eight in
+4026532474 (B4's outer container, the six B6 runs, B7), and one each in
+4026532534 (B4's nested namespace) and 4026532472 (B5). Every init's host
+PID matches the kernel's where the harness recorded it (B2, B4).
+
+| Scenario | Expectation | Result |
+|---|---|---|
+| B1 | One start for X: stage 1 before and after its unshare, the unshare version's `children pid namespace` X, a fork with `CLONE_PARENT` to the init in X, the init's cgroup-unshare version, its execve to `sh` | Held, except the cgroup-unshare version: runc 1.3.3 creates the cgroup namespace before forking the init, so the init is born in it and never calls unshare (no UNSHARE record, no unshare syscall). The `children pid namespace` is X only with F7. |
+| B1 | Nothing above stage 1, not the `sleep` child, no later execve, no file, no exit edge | Held. Not foreseen: the inits' setuid and setgid self-loops (67 of each) are in the result, since with `agents=false` they are versions (§4.1, corrected). |
+| B1 | Boundary: the init's versions, `sh`, `sleep` and their files, the creating runc process as a neighbour, no host process further out | Held. Also members: runc init's threads (`runc:[2:INIT]`, 4 or 5 per container), created through glibc's `pthread_create`, that is clone3, and so recorded only with F9. |
+| B2 | A start for the `sleep 60` container, nothing for the exec | Held: the second start in 4026532410 is the container's init, host PID 91666. |
+| B2 | Boundary adds the exec'd `sh` and its `sleep`, with the entering runc process as a neighbour | Held: `('4026532410', 2)` holds both, and two `runc:[0:PARENT]` neighbours, the creator and the one that entered. |
+| B3 | No start; the pre-existing shell (`-1`) is a neighbour; its `sleep`s are members; one container | Held: 23 `sleep`s (with their `sh` versions); the shell is the only outside neighbour; no numbered list. |
+| B4 | Two starts, X by runc and Y by busybox `unshare` inside X | Held. |
+| B4 | X's boundary includes Y's processes; Y's only its own | Held: `('4026532474', 1)` has 8 processes of X and 6 of Y; Y's boundary has its 6 and the creating `unshare` as a neighbour. |
+| B5 | One start: the `unshare` step, its child, the child's execve to `sh` | Held, with B5 run through a root shell. Run directly under `sudo`, the `unshare` process is not recorded as created, and its unshare counts as a join (recording notes; `BUG_FIXES.md` N11). |
+| B6 | The numbered list, one entry per container with start time and host PID; `(X, n)` exactly container n; `()` all | Held: 8 entries for 4026532474 and 2 for 4026532410; each numbered form returns one container's processes and its creator; `(X, 9)` and `(4026532410, 3)` fail with the out-of-range message. |
+| B7 | A network artifact connected to `wget` (`netIO=true`) | Held: 14 network sockets, all connected to `wget`. |
+
+#### Trace 2 (B8-B10)
+
+Recorded 2026-11-02 at 01:48 with `namespaces=true` only. auditd logged
+13,990 events and SPADE read all of them. The three storages returned the
+same results for all 7 queries. B9 and B10 ran in the same PID namespace,
+4026532324, one after the other, so the ID has two containers.
+
+| Scenario | Expectation | Result |
+|---|---|---|
+| B8 | `getContainerInit()` fails, naming the reaper | Held: "1 container init process(es) never reached execve in this trace: bwrap (host pid 101821, pid namespace 4026532322)". The message's suggestion that the trace may have ended too early does not fit a sandbox whose PID 1 never calls execve (L10). |
+| B8 | `getContainerBoundary()` still works and holds the sandbox's processes | Held: Y's boundary holds `bwrap`'s PID 1 and the `sh`, `readlink` and `sleep` it started, with the outer `bwrap` as a neighbour. |
+| B9 | Does a network artifact reach the boundary with `netIO=false`? (§6) | Yes, partly. `('4026532324', 1)` holds 10 sockets joined to `wget` by `connect` and `close` only. With `netIO=true` (B7) the same download also had `send`, `recv`, `read` and `write` edges, and 4 more sockets, its DNS queries to 10.0.2.3:53, which use no `connect`. So with `netIO=false` a container's connections show, but no data that crossed them, and no unconnected UDP traffic. |
+| B10 | The clone3 child is a member of X, created by an edge with `CLONE_VFORK` (`fork` with `simplify=true`) | Held: `('4026532324', 2)` has `spawn-child` -> `spawn-child` (the child, host PID 102064) with `fork`, flags `SIGCHLD|CLONE_VM|CLONE_VFORK`, then its execve to `true`. runc init's threads, also created with clone3, carry their flags (`CLONE_THREAD|CLONE_VM|...`). |
