@@ -75,8 +75,10 @@ public class AuditControlManager{
 				throw new Exception("NULL user mode");
 			}else{
 				switch(userMode){
-					case IGNORE: userField = ("-F uid!=" + userId); break;
-					case CAPTURE: userField = ("-F uid=" + userId); break;
+					// The effective uid: a process sudo starts for this user acts as root, and is
+					// recorded (with uid, the real one, its creation was left out).
+					case IGNORE: userField = ("-F euid!=" + userId); break;
+					case CAPTURE: userField = ("-F euid=" + userId); break;
 					default: throw new Exception("Unexpected user mode: '" + userMode + "'");
 				}
 			}

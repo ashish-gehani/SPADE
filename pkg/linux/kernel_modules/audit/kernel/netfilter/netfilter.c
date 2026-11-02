@@ -89,7 +89,7 @@ static bool packet_can_be_handled_based_on_user(const struct sk_buff *skb)
     struct sock *sk = skb_to_full_sk(skb);
     if (sk && sk->sk_socket && sk->sk_socket->file && sk->sk_socket->file->f_cred)
     {
-        uid_t uid = from_kuid(&init_user_ns, sk->sk_socket->file->f_cred->uid);
+        uid_t uid = from_kuid(&init_user_ns, sk->sk_socket->file->f_cred->euid); /* as the user filter */
         return global_filter_netfilter_user_is_actionable(uid);
     }
     else
