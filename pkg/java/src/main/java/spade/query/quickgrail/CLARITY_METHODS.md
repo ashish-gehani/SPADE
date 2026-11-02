@@ -12,13 +12,24 @@ page.
 Status: implemented on branch `clarity-of-container`, which sits on branch
 `bug-fixes`. `bug-fixes` starts from upstream `prov-query` and holds every fix
 the work needed outside the methods themselves, in the kernel module, the
-audit bridge, the Audit reporter and the storages. `BUG_FIXES.md`, beside
-this file, describes each of them (F1 to F10) and how it was checked; this
-file refers to them by those numbers. Fixes found later go on `bug-fixes` too,
+audit bridge, the Audit reporter, the SPADE kernel, QuickGrail and the
+storages. `BUG_FIXES.md`, beside this file, describes each of them (F1 to
+F29), how it was checked, and which of them the methods need; this file
+refers to them by those numbers. Fixes found later go on `bug-fixes` too,
 and `clarity-of-container` is rebased onto it.
-The tests use synthetic traces modeled on the Audit reporter's source code.
-The methods have run on real traces, but no trace has passed every
-completeness check yet (`TRACE_VALIDATION.md`, Part B; §8).
+The unit and integration tests use synthetic traces modeled on the Audit
+reporter's source code. The methods were also checked on real traces of
+Docker containers, bubblewrap and DeathStarBench's media microservices
+(`TRACE_VALIDATION.md`, Part B; §8, Q1). Traces 1, 2 and 4 passed every
+completeness check: no record was lost between the kernel, auditd and the
+reporter, and the three storages held the same graph. In trace 3, auditd
+dropped three records, two of them SYSCALL records (`BUG_FIXES.md` N17;
+`TRACE_VALIDATION.md` says what they changed). Three expectations
+did not hold as written, each because of a fact outside the methods: runc
+1.3.3 puts the init in its cgroup namespace without an unshare (B1), trace 3
+reused a namespace ID (M2, which the numbered forms then handled), and
+runc's mount-API descriptors leave some of its files out of the graph (B12,
+L20).
 
 Code, relative to `pkg/java/src/main/java/spade/`:
 
@@ -88,8 +99,9 @@ clone. So stage 1 appears as `runc:[0:PARENT]` and the init as
 
 In CLARION, §4.2.1 was a labeling property and §4.2.2 was an
 ingestion-time filter. Neither had a query API, so the method shapes here
-come from how §5 uses the patterns. Both methods are query-side only, and
-the reporter is unchanged.
+come from how §5 uses the patterns. Both methods are query-side only: they
+read the graph the reporter stores and add nothing to the reporter. The
+reporter fixes that make that graph right for them are in `BUG_FIXES.md`.
 
 ## 3. Decisions
 
@@ -405,7 +417,7 @@ keeps accepting queries.
 
 | # | Item | Status |
 |---|---|---|
-| Q1 | Validate on real traces: `docker run` and `docker exec` with `namespaces=true`. | Done (2026-11-02), in a VM, since Hassaan has no real traces (2026-10-11). Part A checked the kernel module's namespace records against the kernel. Part B ran the methods on three traces on PostgreSQL, Neo4j and Quickstep: B1-B10 (Docker run and exec, nesting, reused IDs, bubblewrap, clone3) and the DeathStarBench media microservices (33 containers run 46 times, a reused ID, 2.49 million events). Every expectation and result, and the refinements, are in `TRACE_VALIDATION.md`; what the traces showed about the reporter, auditd and the kernel is in `BUG_FIXES.md`. |
+| Q1 | Validate on real traces: `docker run` and `docker exec` with `namespaces=true`. | Done (2026-11-02), in a VM, since Hassaan has no real traces (2026-10-11). Part A checked the kernel module's namespace records against the kernel. Part B ran the methods on three traces on PostgreSQL, Neo4j and Quickstep: B1-B10 (Docker run and exec, nesting, reused IDs, bubblewrap, clone3) and the DeathStarBench media microservices (33 containers run 46 times, a reused ID, 2.49 million events). After F15 to F29, traces 1 and 2 were recorded again with B11 to B13 added, trace 4 (six of the media microservices' containers, S1 to S5) was recorded, and trace 3 was replayed. Every expectation and result, and the refinements, are in `TRACE_VALIDATION.md`; what the traces showed about the reporter, auditd and the kernel is in `BUG_FIXES.md`. |
 | Q2 | What is `ns pid` meant to be? | Answered by the CLARION author: the PID of the process inside its own PID namespace. The kernel module recorded something else for a namespace's first process and for processes started into a namespace from outside, and a related bug in the unshare and setns hooks lost records inside containers. F1 and F2 fix them; `TRACE_VALIDATION.md` Part A checked both on a live system. The container methods don't use `ns pid` (D2). |
 | Q3 | Where should initialization end when the init never calls execve (L10)? | Decided for now: (a) keep D11 and D13, so such starts make the query fail. A trace can't settle this: a trace without such sandboxes proves nothing. The evidence came from the tools' source instead (L10). Not chosen for now: (b) end at the first execve by the init or by any process it created in the namespace, which fixes bubblewrap and nspawn but would end runc containers at OCI `startContainer` hooks, since those run inside the container before the application; (c) prefer the init's own first execve, else the first execve by a process it created in the namespace, and fail only when no process there calls execve. |
 | Q4 | Reporter: namespace labels revert after execve or setuid/setgid (L5). | Fixed at the user's request (2026-11-02): F17 in `BUG_FIXES.md`. B13 (`TRACE_VALIDATION.md`) checks it in a live trace. |
