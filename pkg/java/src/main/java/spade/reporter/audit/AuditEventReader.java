@@ -138,6 +138,8 @@ public class AuditEventReader{
 			NS_SYSCALL_KEY = "ns_syscall",
 			NS_NS_PID = "ns_ns_pid",
 			NS_HOST_PID = "ns_host_pid",
+			// clone3 only: its flags as clone takes them, from the kernel module (the syscall record has a pointer)
+			NS_CLONE_FLAGS = "ns_clone_flags",
 			NS_INUM_MNT = "ns_inum_mnt",
 			NS_INUM_NET = "ns_inum_net",
 			NS_INUM_PID = "ns_inum_pid",
