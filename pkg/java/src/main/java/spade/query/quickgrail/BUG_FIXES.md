@@ -24,7 +24,7 @@ Paths are relative to the repository root. The kernel module is
 | F5 | PostgreSQL storage | one NUL made COPY drop a whole batch; quotes were not escaped | `ff827871` | unit tests; a real trace |
 | F6 | Neo4j storage | QuickGrail's Cypher used `exists()`, which Neo4j 5 removed | `d36e055a` | a real trace on both storages |
 | F7 | kernel module | an unshare(CLONE_NEWPID) record never named the new namespace | `2728115f`, `5c8c1db2`, `0cdc679a` | in-kernel unit test; `test/ns-pid` A/B |
-| F8 | audit bridge | auditd's af_unix plugin silently dropped events whenever SPADE fell behind | `b457bb46` | a real trace: auditd's log against SPADE's input |
+| F8 | audit bridge | auditd's af_unix plugin silently dropped events whenever SPADE fell behind | `b457bb46`, `41afaf09` | a real trace: auditd's log against SPADE's input |
 | F9 | kernel module, Audit reporter | processes and threads created with clone3 had no creation record | `cea5d23c`, `e09693b6`, `1b55e895` | in-kernel unit tests; `test/ns-pid/clone3-test.sh`; unit tests |
 | F10 | Audit reporter | `netfilterHooksLogCT=false` logged every packet instead of only new connections | `3bbb7352` | unit test |
 
@@ -297,13 +297,25 @@ Raising it before SPADE starts its Audit reporter, e.g. `sysctl -w
 net.core.wmem_default=16777216`, lost nothing. auditd's own dispatcher queue
 (`q_depth`) never overflowed; it would have logged that.
 
+The queue holds at most 1 GB by default. A busy microservice stack (the
+media microservices of trace 3) produced about 10,000 audit events a second,
+more than three times what SPADE handled with three storages attached (about
+5,800 records, some 2,900 events, a second), and filled 1 GB in four minutes; the bridge then dropped 163,482 events and said so. So
+the size is an option (`41afaf09`): the bridge takes `-q <megabytes>`, and the
+Audit reporter passes its `spadeAuditBridgeQueueMegabytes` in live mode. When
+the reporter is removed, the bridge hands SPADE the whole queue before it
+exits, which with a large backlog takes minutes.
+
 **Older traces.** A trace recorded without F8 may miss events with no sign
 of it. Comparing auditd's log over the same time with the Audit reporter's
 `outputLog`, if it was set, shows which.
 
 **Files.** `pkg/linux/audit_bridge/src/spadeAuditBridge.c`,
 `pkg/linux/audit_bridge/Makefile.am`, `pkg/linux/audit_bridge/Makefile.in`
-(`-pthread`).
+(`-pthread`); for the queue size `reporter/Audit.java`,
+`reporter/audit/SPADEAuditBridgeProcess.java`,
+`cfg/spade.reporter.Audit.config` and
+`cfg/spade.reporter.Audit-with-namespace-awareness.config`.
 
 ## F9. clone3 is recorded
 
