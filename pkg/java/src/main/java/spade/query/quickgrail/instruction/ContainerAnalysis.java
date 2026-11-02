@@ -55,6 +55,14 @@ final class ContainerAnalysis{
 	/** `pid namespace` value of processes whose namespaces the reporter never observed. */
 	static final String UNOBSERVED_NAMESPACE = "-1";
 
+	/**
+	 * The kernel module's "could not read" printed unsigned, as modules before the
+	 * fix F7 in BUG_FIXES.md wrote it. Not a namespace ID. Such a module labels every
+	 * unshare(CLONE_NEWPID) version's `children pid namespace` with it, because the
+	 * new namespace has no process yet.
+	 */
+	static final String UNREADABLE_NAMESPACE = "4294967295";
+
 	private static final String NEW_PID_NAMESPACE_FLAG = "CLONE_NEWPID";
 
 	/** A process version has one of these: `start time` if created in the trace, else `seen time`. */
@@ -128,14 +136,32 @@ final class ContainerAnalysis{
 	/** A recorded unshare that created a PID namespace for the caller's children. */
 	private static final class NamespaceCreation{
 		final String stepEdgeHash;
-		final String pidNamespace;
+		/** The new namespace's ID; null until known when the module could not name it. */
+		String pidNamespace;
+		/** Host pid of the caller. */
+		final String pid;
 		final String time;
 		final long eventId;
 
-		private NamespaceCreation(final QueriedEdge step, final String pidNamespace){
+		private NamespaceCreation(final QueriedEdge step, final String pidNamespace, final String pid){
 			final Map<String, String> annotations = step.getCopyOfAnnotations();
 			this.stepEdgeHash = step.edgeHash;
 			this.pidNamespace = pidNamespace;
+			this.pid = pid;
+			this.time = nonNull(annotations.get(OPMConstants.EDGE_TIME));
+			this.eventId = parseLong(annotations.get(OPMConstants.EDGE_EVENT_ID));
+		}
+	}
+
+	/** When a process changed where its children go: any counted unshare or setns step. */
+	private static final class NamespaceStep{
+		final String pid;
+		final String time;
+		final long eventId;
+
+		private NamespaceStep(final QueriedEdge step, final String pid){
+			final Map<String, String> annotations = step.getCopyOfAnnotations();
+			this.pid = pid;
 			this.time = nonNull(annotations.get(OPMConstants.EDGE_TIME));
 			this.eventId = parseLong(annotations.get(OPMConstants.EDGE_EVENT_ID));
 		}
@@ -212,7 +238,8 @@ final class ContainerAnalysis{
 			executor.getWhereAnnotationsExist(labeled, subject, keys);
 
 			final Graph host = verticesWithPidNamespace(labeled, hostPidNamespace);
-			final Graph unobserved = verticesWithPidNamespace(labeled, UNOBSERVED_NAMESPACE);
+			final Graph unobserved = union(verticesWithPidNamespace(labeled, UNOBSERVED_NAMESPACE),
+					verticesWithPidNamespace(labeled, UNREADABLE_NAMESPACE));
 
 			final Graph notHost = executor.createNewGraph();
 			executor.subtractGraph(notHost, labeled, host, Graph.Component.kVertex);
@@ -393,6 +420,12 @@ final class ContainerAnalysis{
 	 * `children pid namespace`, plus clones flagged CLONE_NEWPID. Processes are
 	 * linked through edges, never through reused `pid` or namespace values, and
 	 * nested containers need nothing special.
+	 *
+	 * Kernel modules without the fix F7 in BUG_FIXES.md cannot name the namespace
+	 * an unshare(CLONE_NEWPID) creates, and label the new version's `children pid
+	 * namespace` {@link #UNREADABLE_NAMESPACE}. Such a creation takes its ID from
+	 * the first process its caller creates after it, which becomes the namespace's
+	 * init (see {@link #nameUnnamedCreations}).
 	 */
 	Crossings crossings(){
 		if(crossings != null){
@@ -405,25 +438,40 @@ final class ContainerAnalysis{
 		final Set<String> joiners = new HashSet<String>();
 		final Set<String> restorers = new HashSet<String>();
 		final List<NamespaceCreation> creations = new ArrayList<NamespaceCreation>();
+		final List<NamespaceStep> steps = new ArrayList<NamespaceStep>();
 		for(final QueriedEdge step : executor.exportEdges(namespaceStepEdges)){
 			final Map<String, String> newVersion = stepVertices.get(step.childHash);
 			final Map<String, String> oldVersion = stepVertices.get(step.parentHash);
 			if(newVersion == null || oldVersion == null){
 				continue;
 			}
+			final String pid = newVersion.get(OPMConstants.PROCESS_PID);
 			final String pidNamespace = newVersion.get(OPMConstants.PROCESS_PID_NAMESPACE);
 			final String childrenPidNamespace = newVersion.get(OPMConstants.PROCESS_PID_CHILDREN_NAMESPACE);
 			final String oldChildrenPidNamespace = oldVersion.get(OPMConstants.PROCESS_PID_CHILDREN_NAMESPACE);
+			final String operation = step.getCopyOfAnnotations().get(OPMConstants.EDGE_OPERATION);
+			if(OPMConstants.OPERATION_UNSHARE.equals(operation) && isObserved(pidNamespace)
+					&& UNREADABLE_NAMESPACE.equals(childrenPidNamespace)){
+				// unshare(CLONE_NEWPID) recorded by a module that could not name the new namespace
+				if(isObserved(oldChildrenPidNamespace)){
+					unsharers.add(step.childHash);
+					creations.add(new NamespaceCreation(step, null, pid));
+				}else{
+					joiners.add(step.childHash); // as below, for a process never observed before
+				}
+				steps.add(new NamespaceStep(step, pid));
+				continue;
+			}
 			if(!isObserved(pidNamespace) || !isObserved(childrenPidNamespace)
 					|| childrenPidNamespace.equals(oldChildrenPidNamespace)){
 				continue; // e.g. unshare(CLONE_NEWNS), or setns into a non-PID namespace
 			}
-			final String operation = step.getCopyOfAnnotations().get(OPMConstants.EDGE_OPERATION);
+			steps.add(new NamespaceStep(step, pid));
 			if(pidNamespace.equals(childrenPidNamespace)){
 				restorers.add(step.childHash); // children placed back in its own namespace
 			}else if(OPMConstants.OPERATION_UNSHARE.equals(operation) && isObserved(oldChildrenPidNamespace)){
 				unsharers.add(step.childHash);
-				creations.add(new NamespaceCreation(step, childrenPidNamespace));
+				creations.add(new NamespaceCreation(step, childrenPidNamespace, pid));
 			}else{
 				// setns; or an unshare by a process whose namespaces were never observed, which may
 				// have been for another namespace type after an unshare(CLONE_NEWPID) before tracing
@@ -453,9 +501,7 @@ final class ContainerAnalysis{
 		final Set<String> newPidCloneHashes = edgeHashes(executor.exportEdges(newPidClones));
 		final Set<String> fromUnshareHashes = edgeHashes(executor.exportEdges(fromUnshare));
 
-		final List<Crossing> inits = new ArrayList<Crossing>();
-		final List<Crossing> entries = new ArrayList<Crossing>();
-		final Map<String, List<Crossing>> childrenByCreation = new LinkedHashMap<String, List<Crossing>>();
+		final List<Crossing> candidates = new ArrayList<Crossing>();
 		for(final QueriedEdge edge : executor.exportEdges(crossingEdges)){
 			final Map<String, String> child = endpoints.get(edge.childHash);
 			final Map<String, String> parent = endpoints.get(edge.parentHash);
@@ -463,10 +509,19 @@ final class ContainerAnalysis{
 					|| !isContainerNamespace(child.get(OPMConstants.PROCESS_PID_NAMESPACE))){
 				continue;
 			}
-			final Crossing crossing = new Crossing(edge, child, parent);
-			if(newPidCloneHashes.contains(edge.edgeHash)){
+			candidates.add(new Crossing(edge, child, parent));
+		}
+		Collections.sort(candidates, EVENT_ORDER);
+		nameUnnamedCreations(creations, steps, candidates, fromUnshareHashes);
+
+		final List<Crossing> inits = new ArrayList<Crossing>();
+		final List<Crossing> entries = new ArrayList<Crossing>();
+		final Map<String, List<Crossing>> childrenByCreation = new LinkedHashMap<String, List<Crossing>>();
+		for(final Crossing crossing : candidates){
+			final String edgeHash = crossing.edgeHash;
+			if(newPidCloneHashes.contains(edgeHash)){
 				inits.add(crossing);
-			}else if(fromUnshareHashes.contains(edge.edgeHash)){
+			}else if(fromUnshareHashes.contains(edgeHash)){
 				final String creation = creationBehind(crossing, creations);
 				if(!childrenByCreation.containsKey(creation)){
 					childrenByCreation.put(creation, new ArrayList<Crossing>());
@@ -505,7 +560,7 @@ final class ContainerAnalysis{
 	private static String creationBehind(final Crossing crossing, final List<NamespaceCreation> creations){
 		NamespaceCreation latest = null;
 		for(final NamespaceCreation creation : creations){
-			if(creation.pidNamespace.equals(crossing.childNamespace())
+			if(crossing.childNamespace().equals(creation.pidNamespace)
 					&& compareEvents(creation.time, creation.eventId, crossing.time, crossing.eventId) < 0
 					&& (latest == null
 						|| compareEvents(creation.time, creation.eventId, latest.time, latest.eventId) > 0)){
@@ -513,6 +568,44 @@ final class ContainerAnalysis{
 			}
 		}
 		return latest == null ? "pid namespace " + crossing.childNamespace() : latest.stepEdgeHash;
+	}
+
+	/**
+	 * Gives each creation recorded without a namespace ID the ID of the first process
+	 * its caller created after it and before the caller's next namespace step. By the
+	 * kernel's rules that process is the new namespace's init, and threads cannot be
+	 * created into another PID namespace. The caller is matched by host pid within
+	 * that window, where it is still the same process: a later process reusing the pid
+	 * reaches these candidates only through namespace steps of its own, which end the
+	 * window. A creation whose namespace never got a process stays unnamed and groups
+	 * no children.
+	 */
+	private static void nameUnnamedCreations(final List<NamespaceCreation> creations,
+			final List<NamespaceStep> steps, final List<Crossing> candidatesInEventOrder,
+			final Set<String> fromUnshareHashes){
+		for(final NamespaceCreation creation : creations){
+			if(creation.pidNamespace != null || creation.pid == null){
+				continue;
+			}
+			NamespaceStep next = null;
+			for(final NamespaceStep step : steps){
+				if(creation.pid.equals(step.pid)
+						&& compareEvents(step.time, step.eventId, creation.time, creation.eventId) > 0
+						&& (next == null || compareEvents(step.time, step.eventId, next.time, next.eventId) < 0)){
+					next = step;
+				}
+			}
+			for(final Crossing crossing : candidatesInEventOrder){
+				if(fromUnshareHashes.contains(crossing.edgeHash)
+						&& creation.pid.equals(crossing.parent.get(OPMConstants.PROCESS_PID))
+						&& compareEvents(crossing.time, crossing.eventId, creation.time, creation.eventId) > 0
+						&& (next == null
+							|| compareEvents(crossing.time, crossing.eventId, next.time, next.eventId) < 0)){
+					creation.pidNamespace = crossing.childNamespace();
+					break;
+				}
+			}
+		}
 	}
 
 	////////////////////////////////////////////////////////////////////////////
@@ -660,7 +753,8 @@ final class ContainerAnalysis{
 	// Small helpers
 
 	private static boolean isObserved(final String pidNamespace){
-		return !HelperFunctions.isNullOrEmpty(pidNamespace) && !UNOBSERVED_NAMESPACE.equals(pidNamespace);
+		return !HelperFunctions.isNullOrEmpty(pidNamespace) && !UNOBSERVED_NAMESPACE.equals(pidNamespace)
+				&& !UNREADABLE_NAMESPACE.equals(pidNamespace);
 	}
 
 	/** `start time` if the process version was created in the trace, else `seen time`. */
