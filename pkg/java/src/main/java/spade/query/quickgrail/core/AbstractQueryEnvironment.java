@@ -469,6 +469,28 @@ public abstract class AbstractQueryEnvironment extends TreeStringSerializable{
 	}
 	//////////////////
 	
+	/** The graph variables and the graphs they name, a copy. */
+	public final Map<String, Graph> getGraphSymbols(){
+		return new HashMap<String, Graph>(symbolsGraph);
+	}
+
+	/**
+	 * Puts the graph variables back as they were: a query binds its variables when it is resolved,
+	 * so one that fails left them naming graphs it never filled.
+	 */
+	public final void restoreGraphSymbols(final Map<String, Graph> before){
+		for(final String symbol : new HashMap<String, Graph>(symbolsGraph).keySet()){
+			if(!before.containsKey(symbol) && !isBaseGraphSymbol(symbol)){
+				removeGraphSymbol(symbol);
+			}
+		}
+		for(final Map.Entry<String, Graph> entry : before.entrySet()){
+			if(!isBaseGraphSymbol(entry.getKey()) && !entry.getValue().equals(symbolsGraph.get(entry.getKey()))){
+				setGraphSymbol(entry.getKey(), entry.getValue());
+			}
+		}
+	}
+
 	//////////////////
 	// SYMBOL Removers
 	public final void removeSymbol(String symbol){
