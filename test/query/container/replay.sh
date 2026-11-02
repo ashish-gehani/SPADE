@@ -14,7 +14,7 @@ N=${1:?usage: replay.sh 1|2|3|4 [NAME]}
 NAME=${2:-${N}r}
 SRC="$HOME/stage-b/trace$N"
 OUT="$HOME/stage-b/trace$NAME"
-case "$N" in
+case "${N%%[!0-9]*}" in   # the trace number: 1c is a recording of trace 1
     1|3|4) ARGS="namespaces=true fileIO=true netIO=true IPC=true inode=true networkAddressTranslation=true" ;;
     2) ARGS="namespaces=true" ;;
     *) echo "usage: replay.sh 1|2|3|4 [NAME]"; exit 2 ;;
@@ -101,6 +101,18 @@ python3 "$HERE"/compare-input.py "$SRC/spade-input.log" "$OUT/spade-input.log" |
 n=$(PGPASSWORD=12345 psql -h localhost -U spade -d spadedb -tAc 'select count(*) from vertex')
 echo "PostgreSQL vertices: $n"
 [ "${n:-0}" -gt 1000 ] || problems="$problems storage-nearly-empty:$n"
+# every storage holds the same graph (a server that stopped answering shows only here)
+counts=""
+for s in PostgreSQL Neo4j Quickstep; do
+    c=$(printf 'set storage %s\nstat $base\nexit\n' "$s" | timeout 300 bin/spade query 2>&1 \
+        | awk -F'|' '/^\| [0-9]+ +\| [0-9]+/{gsub(/ /, "", $2); gsub(/ /, "", $3); print $2 " vertices, " $3 " edges"; exit}')
+    echo "$s: ${c:-no answer in 300 s}"
+    counts="$counts ${c:-none};"
+done
+git checkout -q -- cfg/spade.client.CommandLine.config   # the client saved its last storage
+first=$(echo "$counts" | cut -d';' -f1)
+[ "$counts" = "$first;$first;$first;" ] && ! echo "$counts" | grep -q none \
+    || problems="$problems storages-differ"
 grep -E 'WARNING' "$SPADE_LOG" | grep -E 'spade\.reporter' | sed -E 's/^.*(WARNING: )/\1/' | sort | uniq -c | head -5
 if [ -z "$problems" ]; then
     echo "REPLAY: ok"
