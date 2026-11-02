@@ -489,6 +489,13 @@ public class Audit extends AbstractReporter {
 					logger.log(Level.SEVERE, "Failed to get ppids of processes to ignore", e);
 					return false;
 				}
+				// The user is left out by effective uid, and the audit bridge is setuid root: left
+				// in, its reads of the audit stream would be audited in turn. SPADE's own children
+				// may be setuid as well.
+				if(spadeAuditBridgeProcess != null && spadeAuditBridgeProcess.getPid() != null){
+					pidsToIgnore.add(spadeAuditBridgeProcess.getPid());
+				}
+				ppidsToIgnore.add(String.valueOf(ProcessHandle.current().pid()));
 				
 				if(kernelModuleConfiguration.isLocalEndpoints()){
 					try{
@@ -522,8 +529,8 @@ public class Audit extends AbstractReporter {
 						final KernelModuleArgument kmArg = KernelModuleArgument.createArgument(
 							processUserSyscallFilter.getUserId(),
 							processUserSyscallFilter.getUserMode(),
-							processUserSyscallFilter.getPidsOfProcessesToIgnore(),
-							processUserSyscallFilter.getPpidsOfProcessesToIgnore(),
+							pidsToIgnore,
+							ppidsToIgnore,
 							auditConfiguration.isNetIO(),
 							auditConfiguration.isNamespaces(),
 							kernelModuleConfiguration.isNetworkAddressTranslation(),
@@ -552,7 +559,7 @@ public class Audit extends AbstractReporter {
 				try{
 					AuditControlManager.set(processUserSyscallFilter.getSystemCallRuleType(),
 							processUserSyscallFilter.getUserId(), processUserSyscallFilter.getUserMode(),
-							processUserSyscallFilter.getPidsOfProcessesToIgnore(), processUserSyscallFilter.getPpidsOfProcessesToIgnore(),
+							pidsToIgnore, ppidsToIgnore,
 							excludeProctitle, 
 							kernelModuleConfiguration.isLocalEndpoints(), 
 							auditConfiguration.isNetIO(), auditConfiguration.isFileIO(), 
