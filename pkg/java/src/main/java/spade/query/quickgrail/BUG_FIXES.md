@@ -25,6 +25,8 @@ Paths are relative to the repository root. The kernel module is
 | F6 | Neo4j storage | QuickGrail's Cypher used `exists()`, which Neo4j 5 removed | `d36e055a` | a real trace on both storages |
 | F7 | kernel module | an unshare(CLONE_NEWPID) record never named the new namespace | `2728115f`, `5c8c1db2`, `0cdc679a` | in-kernel unit test; `test/ns-pid` A/B |
 | F8 | audit bridge | auditd's af_unix plugin silently dropped events whenever SPADE fell behind | `b457bb46` | a real trace: auditd's log against SPADE's input |
+| F9 | kernel module, Audit reporter | processes and threads created with clone3 had no creation record | `cea5d23c`, `e09693b6`, `1b55e895` | in-kernel unit tests; `test/ns-pid/clone3-test.sh`; unit tests |
+| F10 | Audit reporter | `netfilterHooksLogCT=false` logged every packet instead of only new connections | `3bbb7352` | unit test |
 
 `test/...` is `pkg/linux/kernel_modules/test/...`. All checks ran on Ubuntu
 24.04.3 with Linux 6.8.0-146-generic in VirtualBox, with Docker 29.0.0 and runc
@@ -303,6 +305,87 @@ of it. Comparing auditd's log over the same time with the Audit reporter's
 `pkg/linux/audit_bridge/Makefile.am`, `pkg/linux/audit_bridge/Makefile.in`
 (`-pthread`).
 
+## F9. clone3 is recorded
+
+**Symptom.** A process created with clone3 had no creation record: no edge
+from its parent, and with `namespaces=true` only `-1` namespace labels, so it
+dropped out of its container's boundary. glibc's `posix_spawn` uses clone3,
+and since glibc 2.34 so does `pthread_create` for threads. Found in Part A of
+the trace checks, which showed a `posix_spawn` child with no record.
+
+**Cause.** The kernel module hooked clone, fork and vfork but not clone3,
+SPADE's audit rules did not include it, and the reporter did not know
+syscall 435. clone3 also takes its flags in a `struct clone_args` in user
+memory, so its syscall record holds only a pointer where clone's holds the
+flags; the reporter needs them to tell a thread from a process and to spot
+`CLONE_NEWPID`.
+
+**Fix.**
+
+- Kernel module (`cea5d23c`): a clone3 hook writes the same `ns_NEWPROCESS`
+  record as clone. Before the call it reads `flags` and `exit_signal` from the
+  caller's `clone_args` and puts them in the record as `ns_clone_flags`, in the
+  form clone takes them: the flags with the exit signal in the low byte. It is
+  built only where `__NR_clone3` exists (Linux 5.3).
+- Audit reporter (`e09693b6`): audit syscall 435 (by number, because auditctl
+  before audit 3.0 may not know the name) and handle it as clone, with the
+  flags from `ns_clone_flags`. The reporter keeps their low 32 bits, the part
+  clone can express; the higher bits hold clone3-only flags such as
+  `CLONE_CLEAR_SIGHAND`. Without the module's record (`namespaces=false`) the
+  flags are unknown and taken as 0.
+
+**Checked.** The in-kernel tests have a serializer case for `ns_clone_flags`
+and the clone3 function in the namespace filter lists; all pass.
+`test/ns-pid/clone3-test.sh`, which starts one child with `posix_spawn` and
+one with `fork`, and compares the records with `strace`:
+
+| Build | `posix_spawn` child (clone3) | `fork` child (clone) |
+|---|---|---|
+| before `cea5d23c` | no record | recorded, `ns_syscall=56` |
+| with `cea5d23c` | recorded, `ns_syscall=435`, `ns_clone_flags=0x100004111` | recorded, `ns_syscall=56` |
+
+`strace` showed `clone3({flags=CLONE_VM|CLONE_VFORK|CLONE_CLEAR_SIGHAND,
+exit_signal=SIGCHLD, ...})`, which is 0x100004111. `Clone3FlagsTest` covers
+syscall 435 and the conversion of the flags.
+
+**Older traces.** Processes and threads created with clone3 are missing their
+creation; nothing recovers it.
+
+**Files.** `pkg/linux/kernel_modules/audit/kernel/function/sys_clone3/`,
+`audit/kernel/function/{number.h,number.c,op.c}`,
+`audit/global/function/function.c`, `audit/msg/namespace/namespace.h`,
+`audit/msg/namespace/serialize/audit.c`, `pkg/linux/kernel_modules/Kbuild`;
+`reporter/Audit.java`, `reporter/audit/{SYSCALL,OPMConstants,AuditEventReader,AuditControlManager}.java`,
+`reporter/audit/process/ProcessManager.java`; tests
+`pkg/linux/kernel_modules/test/kernel/audit/{msg,global}.c`,
+`pkg/java/src/test/java/spade/reporter/audit/process/Clone3FlagsTest.java`.
+
+## F10. netfilterHooksLogCT means what the config says
+
+**Symptom.** With `networkAddressTranslation=true` and three storages
+attached, the Audit reporter fell minutes behind: it handled 360 records a
+second, and a thread dump showed it inside `NetfilterHooksManager`'s SQL
+queries on its H2 tables, once for every packet. The module had been loaded
+with `nf_hooks_log_all_ct=all`.
+
+**Cause.** `cfg/spade.reporter.Audit.config` documents
+`netfilterHooksLogCT=true` as logging every packet and `false` as logging only
+packets that start a connection, which is what the netfilter hooks did when
+they were added (`03bbab70`). `KernelModuleArgument.createArgument` mapped the
+two the other way round, so the default, `false`, logged every packet,
+including SPADE's own loopback traffic to its storages.
+
+**Fix.** The mapping follows the config again.
+
+**Checked.** `KernelModuleArgumentTest`: `false` gives `ONLY_NEW` and `true`
+gives `ALL`.
+
+**Older traces.** Recorded with every packet: correct, but much larger, and
+slow to record.
+
+**Files.** `reporter/audit/KernelModuleArgument.java`; test
+`pkg/java/src/test/java/spade/reporter/audit/KernelModuleArgumentTest.java`.
+
 ## Running the checks
 
 | Check | How | Needs |
@@ -323,7 +406,6 @@ methods' results on the traces checked, so they are left for the maintainers.
 | N1 | kernel module | In `nf_handle_packet`, a packet that was logged also falls through to `discard_and_exit` and is counted as discarded. |
 | N2 | kernel module | The module still pads `comm` with NULs; F4 handles that in the reader. Encoding `strnlen(comm)` bytes would fix it at the source. |
 | N3 | kernel module | `kernel_helper_namespace_populate_msg` calls `pid_task()` after `rcu_read_unlock()` and without a reference on the `struct pid`; `pid_task()` needs the RCU read lock. A process exiting at that moment could make it read freed memory. It is in upstream `prov-query` as well. Found by reading the code; never observed. |
-| N4 | kernel module, reporter | `clone3` is not hooked, so a child created with it (glibc's `posix_spawn` uses it) has no creation record. runc 1.3.3 uses `clone`. `test/ns-pid/clone3-test.sh` shows it. |
 | N5 | Audit reporter | After unshare or setns, a later execve or setuid/setgid gives the process the namespace labels it was created with, because unshare and setns don't update the per-process namespace state (`ProcessManager.handleNamespaceUpdateFromSyscall`). |
 | N6 | Audit reporter | When `spadeAuditBridge` cannot connect to auditd's socket ("Permission denied"), SPADE logs it at INFO level and still reports the reporter as added; nothing is recorded. |
 | N7 | build | `make` replaces `bin/spadeAuditBridge` without the setuid bit `bin/allowAuditAccess` gives it, so the bridge then fails as in N6. Run `bin/allowAuditAccess` after every build. |
@@ -331,6 +413,8 @@ methods' results on the traces checked, so they are left for the maintainers.
 | N9 | QuickGrail | `stat` on a variable whose assignment failed: PostgreSQL reports a failed query on a missing table, Neo4j prints 0 vertices and 0 edges. |
 | N10 | auditd | The af_unix plugin (audit 3.1.2) serves one client at a time and closes any other connection without a log, and it drops events its client cannot take at once without a log (F8). The bridge works around the second; only auditd can fix it. |
 | N11 | Audit reporter | The audit rules leave out the user SPADE runs as with `-F uid!=<uid>`, which compares the real uid. sudo keeps the caller's real uid, so a process sudo forks for that user is not recorded as created: it first appears in its own later syscalls, with `-1` namespace labels. An unshare(CLONE_NEWPID) by such a process counts as joining, not creating (CLARITY_METHODS.md L3). |
+| N12 | Neo4j storage | The thread `db-pending-task-runner` (`Neo4j.java`, its pending-task loop) uses a whole CPU even when idle: 435 s of CPU in 439 s. |
+| N13 | Quickstep storage | Queries do not flush the batch being filled, which the storage sends only when it is full or its timer fires (`batchTimeIntervalInSeconds`, 180 s by default), so a query can miss the last minutes of a trace. PostgreSQL flushes before every query. |
 
 ## Open
 
