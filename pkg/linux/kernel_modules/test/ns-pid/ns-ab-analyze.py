@@ -12,6 +12,14 @@ child for NEWPROCESS and the caller for SETNS and UNSHARE.
               means the record holds the creator's view, the bug 9fd54e0c fixes).
   unverified  neither applies.
 
+ns_inum_pid_children gets its own verdict. For SETNS and UNSHARE it must be
+one of the caller's sampled pid_for_children inodes; an unreadable value
+(-1, or 4294967295 from modules that print it unsigned) is wrong, because the
+caller is alive when it calls. That is what an unshare(CLONE_NEWPID) got
+before the module read the namespace from nsproxy. For NEWPROCESS it must be
+the new child's own PID namespace; unreadable is left unverified there, since
+the child may already have exited.
+
 It also checks that every unshare/nsenter process the scenarios started got
 its UNSHARE/SETNS record, and how many processes born in each scenario got a
 NEWPROCESS record at all (creation-hook coverage).
@@ -24,6 +32,7 @@ import sys
 from collections import Counter, defaultdict
 
 HOST_PID_NS = 4026531836   # PROC_PID_INIT_INO
+UNREADABLE = {-1, 4294967295}   # the module's "could not read", signed and unsigned
 SCENARIO = re.compile(r'^S\d+:')
 
 
@@ -49,6 +58,7 @@ def load(run_dir):
                 'ns_pid': int(kv.get('ns_ns_pid', -1)),
                 'host_pid': int(kv.get('ns_host_pid', -1)),
                 'pid_ns': int(kv.get('ns_inum_pid', -1)),
+                'children_ns': int(kv.get('ns_inum_pid_children', -1)),
                 'zero_ns': sorted(k for k, v in kv.items() if k.startswith('ns_inum_') and v == '0'),
             })
     with open(f'{run_dir}/sampler.jsonl') as f:
@@ -103,6 +113,24 @@ def judge(rec, subj):
     return 'UNVERIFIED', '-', None, ''
 
 
+def judge_children(rec, subj):
+    """(verdict, reason) for ns_inum_pid_children"""
+    value = rec['children_ns']
+    if rec['op'] == 'NEWPROCESS':
+        if value in UNREADABLE:
+            return 'UNVERIFIED', 'unreadable; the child may have exited'
+        if value == rec['pid_ns']:
+            return 'OK', ''
+        return 'WRONG', f"children ns {value}, the child's pid ns is {rec['pid_ns']}"
+    if value in UNREADABLE:
+        return 'WRONG', f'unreadable ({value}) for a live caller'
+    if subj and subj['pid_for_children']:
+        if value in subj['pid_for_children']:
+            return 'OK', ''
+        return 'WRONG', f"children ns {value}, sampled {subj['pid_for_children']}"
+    return 'UNVERIFIED', 'caller not sampled'
+
+
 def names(p):
     return '/'.join(dict.fromkeys(n for n in p['names'] if n)) if p else '?'
 
@@ -119,8 +147,10 @@ def analyze(run_dir):
         scen = next((w[0] for w in wins if w[1] <= r['t'] <= w[2]), '(between)')
         subj = subject(r, by_pid)
         verdict, basis, exp, why = judge(r, subj)
+        children_verdict, children_why = judge_children(r, subj)
         rows.append({**r, 'scenario': scen, 'verdict': verdict, 'basis': basis,
-                     'expected': exp, 'why': why, 'name': names(subj)})
+                     'expected': exp, 'why': why, 'name': names(subj),
+                     'children_verdict': children_verdict, 'children_why': children_why})
 
     calls = []      # did each unshare/nsenter process get its record?
     coverage = {}   # NEWPROCESS records for processes born in each window
@@ -152,15 +182,25 @@ def report_variant(label, wins, rows, calls, coverage, lost):
         c = Counter(r['verdict'] for r in rows if r['scenario'] == scen)
         if c:
             print(f"| {scen} | {sum(c.values())} | {c['OK']} | {c['WRONG']} | {c['UNVERIFIED']} |")
+    print('\n`ns_inum_pid_children`, by operation:\n')
+    print('| op | records | OK | WRONG | unverified |')
+    print('|---|---|---|---|---|')
+    for op in ('NEWPROCESS', 'UNSHARE', 'SETNS'):
+        c = Counter(r['children_verdict'] for r in rows if r['op'] == op)
+        if c:
+            print(f"| {op} | {sum(c.values())} | {c['OK']} | {c['WRONG']} | {c['UNVERIFIED']} |")
     print('\nRecords outside the host PID namespace, SETNS/UNSHARE records, and every WRONG:\n')
-    print('| scenario | op | process | host pid | ns_ns_pid | expected | ns_inum_pid | verdict | basis | why |')
-    print('|---|---|---|---|---|---|---|---|---|---|')
+    print('| scenario | op | process | host pid | ns_ns_pid | expected | ns_inum_pid | verdict | basis | why '
+          '| ns_inum_pid_children | children verdict | why |')
+    print('|---|---|---|---|---|---|---|---|---|---|---|---|---|')
     for r in rows:
-        if interesting(r):
+        if interesting(r) or r['children_verdict'] == 'WRONG':
             ns = 'host' if r['pid_ns'] == HOST_PID_NS else r['pid_ns']
+            ch = 'host' if r['children_ns'] == HOST_PID_NS else r['children_ns']
             exp = '' if r['expected'] is None else r['expected']
             print(f"| {r['scenario']} | {r['op']} | {r['name']} | {r['host_pid']} | {r['ns_pid']} | {exp} "
-                  f"| {ns} | {r['verdict']} | {r['basis']} | {r['why']} |")
+                  f"| {ns} | {r['verdict']} | {r['basis']} | {r['why']} "
+                  f"| {ch} | {r['children_verdict']} | {r['children_why']} |")
     print('\nunshare/nsenter processes and their records:\n')
     print('| scenario | process | host pid | NSpid | expected record | found |')
     print('|---|---|---|---|---|---|')
@@ -194,8 +234,8 @@ def key_rows(rows):
 def main():
     base, fixed = (analyze(d) for d in sys.argv[1:3])
     print('# ns pid A/B: base vs fixed audit kernel module\n')
-    report_variant('base (without 9fd54e0c, d445c7cc)', *base)
-    report_variant('fixed (with 9fd54e0c, d445c7cc)', *fixed)
+    report_variant(f'base ({sys.argv[1]})', *base)
+    report_variant(f'fixed ({sys.argv[2]})', *fixed)
 
     print('## Side by side\n')
     print('Paired by scenario, operation, process name and order of appearance.\n')
