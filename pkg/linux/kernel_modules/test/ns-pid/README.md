@@ -11,6 +11,8 @@ validate three fixes:
 - `ns_inum_pid_children` must name the namespace the caller's children go
   into, also right after unshare(CLONE_NEWPID), and an unreadable namespace
   is written as -1 (`2728115f`).
+- a process created with clone3 must get a record, with its flags in
+  `ns_clone_flags` (`cea5d23c`).
 
 Records are read from auditd's log, not through SPADE, so the module is the
 only thing that differs between the two runs. A sampler reads every process's
@@ -72,6 +74,21 @@ yet.
 - `ns_ns_pid` and `ns_inum_pid` were right in every judged record of both
   builds; both include the two fixes above.
 
+### clone3 (2026-11-02)
+
+`clone3-test.sh` with modules built from `5f496a00` (base) and `cea5d23c`
+(fixed):
+
+| Build | `posix_spawn` child, created with clone3 | `fork` child, created with clone |
+|---|---|---|
+| base | no record | recorded, `ns_syscall=56` |
+| fixed | recorded, `ns_syscall=435`, `ns_clone_flags=0x100004111` | recorded, `ns_syscall=56` |
+
+strace showed `clone3({flags=CLONE_VM|CLONE_VFORK|CLONE_CLEAR_SIGHAND,
+exit_signal=SIGCHLD, ...})`: 0x100004111 is those flags with SIGCHLD (0x11) in
+the low byte. The in-kernel tests (`spade_audit_test`) passed on the fixed
+build: 132 global and 44 message tests, 2 more of each than base.
+
 ## Requirements
 
 A Linux machine you can load kernel modules on, with `sudo`, auditd running
@@ -109,4 +126,4 @@ changes, records were dropped and a missing record proves nothing.
 | `ns-ab-run.sh` | Loads one module variant, runs the sampler and the scenarios, unloads it, cuts its slice of the audit log |
 | `ns-ab-analyze.py` | Judges every namespace record against the ground truth and writes a Markdown report comparing the two variants |
 | `filter-test.sh` | Checks that the module's `pids` and `ppids` filters still match host PIDs, in both variants |
-| `clone3-test.sh` | Shows that a process created with `clone3` (glibc's `posix_spawn`) gets no creation record |
+| `clone3-test.sh` | Whether a process created with `clone3` (glibc's `posix_spawn`) gets a creation record, and with which flags |
