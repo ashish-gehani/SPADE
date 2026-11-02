@@ -692,6 +692,22 @@ public class Quickstep extends AbstractStorage {
     return true;
   }
 
+  /**
+   * Stores the batch being filled and waits until it is stored. A QuickGrail query sees only what
+   * is stored, and the batch went out only when it was full or its timer fired (180 s by default),
+   * so a query could miss the last minutes of a trace (N13). Not done in executeQuery, which the
+   * batch's own processing calls.
+   */
+  public synchronized void storeBatchAndWait() {
+    synchronized (batch) {
+      if (!batch.isEmpty()) {
+        copyManager.submitBatch(batch);
+        resetForceSubmitTimer();
+      }
+      copyManager.finalizeBatch();
+    }
+  }
+
   @Override
   public String executeQuery(String query) {
     String result = null;

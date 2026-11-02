@@ -179,6 +179,9 @@ public class QuickGrailExecutor{
 		final Map<String, Graph> symbolsBefore =
 			environment == null ? null : environment.getGraphSymbols();
 		try {
+			if (ctx.getExecutor() != null) {
+				ctx.getExecutor().beforeQuery();
+			}
 			final ParseProgram parseProgram = parseProgram(query);
 			final Program program = resolveProgram(
 				ctx.getExecutor(),
