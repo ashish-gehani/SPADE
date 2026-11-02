@@ -7,7 +7,16 @@ real traces. That turned up bugs in the kernel module, the audit bridge, the
 Audit reporter and all three storages. Branch `bug-fixes` holds their fixes, on top of upstream
 `prov-query` (`6b744f7c`), and `clarity-of-container` is rebased onto it. This
 file describes every fix on the branch: what went wrong, why, what changed,
-how it was checked, and what it means for traces recorded before it.
+how it was checked, and what it means for traces recorded before it. F1 to
+F10 came from the first traces, F11 to F14 from the media microservices
+(trace 3), and F15 to F29 from trace 3's analysis and the traces recorded
+again with them (TRACE_VALIDATION.md, after F15 to F29).
+
+The summary says which fixes the container methods need: **Required** means
+that without it the methods return wrong results (wrong or missing starts,
+members, labels or artifacts), or fail, in the case named; **Optional** fixes
+are about speed, warnings, safety or other parts of SPADE, and the methods'
+results are the same without them.
 
 Paths are relative to the repository root. The kernel module is
 `pkg/linux/kernel_modules/audit/`, and Java classes are under
@@ -15,26 +24,51 @@ Paths are relative to the repository root. The kernel module is
 
 ## Summary
 
-| # | Component | Bug | Commits | Checked by |
-|---|---|---|---|---|
-| F1 | kernel module | `ns_ns_pid` held the PID in the creator's namespace, not the process's own | `9fd54e0c` | `test/ns-pid` A/B on a live system |
-| F2 | kernel module | an unshare or setns inside a container wrote no record | `d445c7cc` | `test/ns-pid` A/B |
-| F3 | kernel module | the netfilter hook could sleep in atomic context and freeze the system | `da9c05b8`, `1527278b` | `test/netfilter-atomic` reproduction |
-| F4 | Audit reporter | process names from kernel-module records ended in NULs | `ed373f13` | unit tests; a real trace |
-| F5 | PostgreSQL storage | one NUL made COPY drop a whole batch; quotes were not escaped | `ff827871` | unit tests; a real trace |
-| F6 | Neo4j storage | QuickGrail's Cypher used `exists()`, which Neo4j 5 removed | `d36e055a` | a real trace on both storages |
-| F7 | kernel module | an unshare(CLONE_NEWPID) record never named the new namespace | `2728115f`, `5c8c1db2`, `0cdc679a` | in-kernel unit test; `test/ns-pid` A/B |
-| F8 | audit bridge | auditd's af_unix plugin silently dropped events whenever SPADE fell behind | `b457bb46`, `41afaf09` | a real trace: auditd's log against SPADE's input |
-| F9 | kernel module, Audit reporter | processes and threads created with clone3 had no creation record | `cea5d23c`, `e09693b6`, `1b55e895` | in-kernel unit tests; `test/ns-pid/clone3-test.sh`; unit tests |
-| F10 | Audit reporter | `netfilterHooksLogCT=false` logged every packet instead of only new connections | `3bbb7352` | unit test |
-| F11 | Audit reporter | a thread's exit ended its whole process's state, so multi-threaded processes split into thousands of unlabeled versions | `d997414e` | unit test; trace 3 replayed |
-| F12 | Quickstep storage | every new vertex cost a query that scanned the whole vertex table | `d0d1cf7e` | trace 3 replayed |
-| F13 | Audit reporter | settings and bridge messages that mean lost records went unnoticed | `c3b8eaa0` | unit test |
-| F14 | Audit reporter | the netfilter hooks' tables had no indexes, so every packet record scanned them | `583ec2d7` | trace 3 replayed |
+| # | Component | Bug | Container methods | Commits | Checked by |
+|---|---|---|---|---|---|
+| F1 | kernel module | `ns_ns_pid` held the PID in the creator's namespace, not the process's own | Required | `9fd54e0c` | `test/ns-pid` A/B on a live system |
+| F2 | kernel module | an unshare or setns inside a container wrote no record | Required | `d445c7cc` | `test/ns-pid` A/B |
+| F3 | kernel module | the netfilter hook could sleep in atomic context and freeze the system | Required with `networkAddressTranslation=true` | `da9c05b8`, `1527278b` | `test/netfilter-atomic` reproduction |
+| F4 | Audit reporter | process names from kernel-module records ended in NULs | Required, unless the module has F25 | `ed373f13` | unit tests; a real trace |
+| F5 | PostgreSQL storage | one NUL made COPY drop a whole batch; quotes were not escaped | Required with PostgreSQL | `ff827871` | unit tests; a real trace |
+| F6 | Neo4j storage | QuickGrail's Cypher used `exists()`, which Neo4j 5 removed | Required with Neo4j | `d36e055a` | a real trace on both storages |
+| F7 | kernel module | an unshare(CLONE_NEWPID) record never named the new namespace | Required | `2728115f`, `5c8c1db2`, `0cdc679a` | in-kernel unit test; `test/ns-pid` A/B |
+| F8 | audit bridge | auditd's af_unix plugin silently dropped events whenever SPADE fell behind | Required (live) | `b457bb46`, `41afaf09` | a real trace: auditd's log against SPADE's input |
+| F9 | kernel module, Audit reporter | processes and threads created with clone3 had no creation record | Required | `cea5d23c`, `e09693b6`, `1b55e895` | in-kernel unit tests; `test/ns-pid/clone3-test.sh`; unit tests |
+| F10 | Audit reporter | `netfilterHooksLogCT=false` logged every packet instead of only new connections | Optional | `3bbb7352` | unit test |
+| F11 | Audit reporter | a thread's exit ended its whole process's state, so multi-threaded processes split into thousands of unlabeled versions | Required | `d997414e` | unit test; trace 3 replayed |
+| F12 | Quickstep storage | every new vertex cost a query that scanned the whole vertex table | Optional (speed) | `d0d1cf7e` | trace 3 replayed |
+| F13 | Audit reporter | settings and bridge messages that mean lost records went unnoticed | Optional (warnings) | `c3b8eaa0` | unit test |
+| F14 | Audit reporter | the netfilter hooks' tables had no indexes, so every packet record scanned them | Optional (speed) | `583ec2d7` | trace 3 replayed |
+| F15 | Audit reporter | descriptors opened with openat2, closed with close_range, or closed at execve as close-on-exec were missing or kept | Required | `6516bc3b`, `9de609a7` | unit tests; traces 1, 2 and 4 recorded again |
+| F16 | Audit reporter | in playback, a network SYSCALL record first made the reporter drop every network record of the kernel module | Required to replay a log without `handleLocalEndpoints` | `1ec0956f` | trace 3 replayed without it |
+| F17 | Audit reporter | an execve or setuid after an unshare or setns labeled the process with the namespaces it was created with | Required | `98703431` | B13 in trace 2 recorded again |
+| F18 | Audit reporter, kernel module | a process sudo started for SPADE's user was not recorded as created | Required when SPADE's user starts containers with sudo | `3d9fc798` | B11 in trace 2 recorded again; `test/ns-pid/filter-test.sh` |
+| F19 | Audit reporter | a bridge that could not reach auditd's socket recorded nothing, unnoticed | Optional (refuses a broken setup) | `d7867b35` | unit tests; live |
+| F20 | SPADE kernel | a restart emptied the storages added with `reset=true` again | Optional | `a35bb81d` | unit tests; live |
+| F21 | QuickGrail | a failed query left its variables bound to graphs it never filled | Optional | `d1bb390a` | unit test; live |
+| F22 | Neo4j storage | the task runner used a whole CPU while SPADE was idle | Optional (CPU) | `9f11de78` | live |
+| F23 | Quickstep storage | a query did not see the batch not yet sent | Required with Quickstep | `f1b234e1` | live |
+| F24 | kernel module | every logged packet was also counted as discarded | Optional (a counter) | `c0a567c4` | in-kernel tests |
+| F25 | kernel module | process names were encoded with their NUL padding | Optional, given F4 | `dd2b921b` | in-kernel tests; traces recorded again |
+| F26 | kernel module | a task's namespaces were read without holding the task | Optional (safety; recommended) | `a3a35f19` | in-kernel tests; `test/ns-pid` A/B |
+| F27 | Audit reporter | a rebuilt main kernel module had no effect, silently, while an older build stayed loaded | Optional (a warning) | `2e9f1662` | unit test; live |
+| F28 | Audit reporter | a vfork child's events came before the vfork that created it, so it was first seen with unknown namespaces | Required | `afb8fb45` | unit tests; trace 2 replayed |
+| F29 | kernel module | the pid and ppid filters compared thread ids, so other threads and children of a process left out were recorded | Optional (keeps SPADE's own processes out) | `f0532696` | `test/ns-pid/filter-test.sh`; trace 1 recorded again |
 
 `test/...` is `pkg/linux/kernel_modules/test/...`. All checks ran on Ubuntu
 24.04.3 with Linux 6.8.0-146-generic in VirtualBox, with Docker 29.0.0 and runc
 1.3.3.
+
+**What the container methods need.** To record a trace for the methods, the
+kernel module needs F1, F2, F7 and F9 (its namespace records), F3 when
+`networkAddressTranslation=true` (else the system can freeze), and F18 when
+SPADE's own user starts containers through sudo; the audit bridge needs F8;
+the Audit reporter needs F11, F15, F17 and F28, and F4 unless the module has
+F25; the storage needs F5 (PostgreSQL), F6 (Neo4j) or F23 (Quickstep); and a
+replay of a log needs F16 unless it passes `handleLocalEndpoints`. The kernel
+module's fixes are in the main module (`spade_audit`), which stays loaded once
+inserted: after a rebuild, reboot to load it (F27, N22).
 
 ## F1. `ns_ns_pid` in the process's own PID namespace
 
@@ -518,43 +552,392 @@ descriptors that F11 keeps.
 
 **Files.** `reporter/audit/NetfilterHooksManager.java`.
 
+## F15. Descriptors through openat2, close_range and execve
+
+**Symptom.** Replaying trace 3, the reporter met 9,665 closes of descriptors
+it did not know, and 1,411 openat calls relative to a directory descriptor
+it did not know ("Missing directory FD"); 627 named a descriptor it took for
+a pipe, a socket or an unknown artifact.
+
+**Cause.** Three gaps in the reporter's descriptor table:
+
+- openat2 (437), which runc uses for nearly every file of a container start
+  (154 calls for `docker run --rm alpine true`, strace), was neither audited
+  nor handled.
+- close_range (436) was neither audited nor handled, so the descriptors it
+  closed stayed in the table.
+- execve kept every descriptor, also those the kernel closes because they are
+  close-on-exec. A number the new program then got from a syscall the rules
+  leave out (epoll, eventfd, ...) still named the old file, and operations on
+  it drew edges to that file.
+
+**Fix.** openat2 is audited and handled like openat, with its flags and
+resolve mode from the OPENAT2 record; under RESOLVE_IN_ROOT an absolute path
+is resolved in the directory descriptor, as the kernel does. Its edges are
+`open` edges, as openat's (`9de609a7`; with `6516bc3b` alone they had no
+operation, and SPADE warned "Unmapped syscall to operation" for each).
+close_range closes its descriptors as close does, or with
+CLOSE_RANGE_CLOEXEC marks them close-on-exec, in a table of its own with
+CLOSE_RANGE_UNSHARE. Each descriptor number carries its close-on-exec flag,
+set by O_CLOEXEC, SOCK_CLOEXEC, pipe2, dup3, F_DUPFD_CLOEXEC and F_SETFD, and
+execve drops the flagged ones. The flag belongs to the number: dup gives the
+new number the same open file but not the flag.
+
+**Checked.** `CloseOnExecTest` (5 tests), `AuditEventReaderTest`
+(`openat2RecordGivesItsHow`), `OPMConstantsTest`. In trace 1 recorded again
+(`trace1e`): 2,051 openat2 calls succeeded, and 614 of them drew `open` edges to runc's files, which earlier traces did not have at all; the other 1,437 open relative to runc's fsmount handles (N21). 158 close_range calls were handled. Of the 3,372 closes of descriptors the reporter did not know, 2,153 follow an open relative to such a handle and 1,208 were created by syscalls the rules leave out (`nofd.py`); 11 remain, 9 of them on a number the reporter still took for a unix socket. No "Unmapped syscall" warning.
+
+**Not covered.** runc also creates descriptors with syscalls the rules leave
+out (N21): opens relative to its procfs and overlay handles, which come from
+fsmount, still fail with "Missing directory FD". The kernel module's accept4
+records carry no flags, so a socket it accepts is never close-on-exec.
+
+**Older traces.** Container starts miss most of runc's files, and after an
+execve operations on reused descriptor numbers can be attributed to files
+the process no longer had open.
+
+**Files.** `reporter/Audit.java`, `reporter/audit/AuditControlManager.java`,
+`reporter/audit/AuditEventReader.java`, `reporter/audit/LinuxConstants.java`,
+`cfg/spade.reporter.audit.LinuxConstants.config`,
+`reporter/audit/PathRecord.java`, `reporter/audit/SYSCALL.java`,
+`reporter/audit/OPMConstants.java`,
+`reporter/audit/process/ProcessStateManager.java`; tests
+`pkg/java/src/test/java/spade/reporter/audit/process/CloseOnExecTest.java`,
+`.../reporter/audit/OPMConstantsTest.java`,
+`.../reporter/audit/AuditEventReaderTest.java`.
+
+## F16. Playback keeps the kernel module's network records
+
+Was N20. In playback, unless `handleLocalEndpoints` was given, the first
+network event of the log decided whether to use the kernel module's network
+records, and a network SYSCALL record first decided no, for the whole log. A
+log recorded live with the module has such records too, so trace 3's replay
+lost every socket: 72,139 in its boundaries live, none in the replay.
+
+**Fix.** A module network record decides yes even after a SYSCALL record
+decided no. `handleLocalEndpoints`, when given, still decides.
+
+**Checked.** Trace 3 replayed with F1 to F29 and without `handleLocalEndpoints` (`GIVE_HANDLE=0 replay.sh 3 3n` on `clarity-of-container`): playback set it to false at a network SYSCALL record and to true at the next network record of the module, and the 46 boundaries hold 72,283 sockets and 29,403 members, exactly as in the replay that passed `handleLocalEndpoints`; before F16, a replay without it had no socket at all.
+
+**Files.** `reporter/Audit.java`.
+
+## F17. unshare and setns update the process's namespace state
+
+Was N5. `ProcessManager.handleNamespaceUpdateFromSyscall` drew the new
+version for an unshare or a setns but did not update the per-process
+namespace state that later versions read. So an execve or a setuid after an
+unshare or setns labeled the process with the namespaces it was created with
+(CLARITY_METHODS.md L5): after `unshare --pid sh` without `--fork`, the `sh`
+version said its children stay on the host.
+
+**Fix.** The state follows the namespace step.
+
+**Checked.** B13 in trace 2 recorded again, and its replay with F28
+(`f17check.py`): both execve calls that follow an unshare or setns, (a)
+`unshare --pid sh` without `--fork` and (b) `nsenter -m` into a container,
+gave versions with the namespace step's labels (a's `children pid namespace`
+the new namespace, b's `mount namespace` the container's), and both differ
+from the labels the processes were created with, which they had before F17.
+Traces 1 and 4 have no such execve.
+
+**Files.** `reporter/audit/process/ProcessManager.java`.
+
+## F18. SPADE's user is left out by effective uid
+
+Was N11. The audit rules left out the user SPADE runs as with `-F uid!=`,
+the real uid, and so did the kernel module's user filter. sudo keeps the real
+uid, so a process sudo started for that user was not recorded as created,
+though it acts as root: it first appeared in its own later syscalls, with
+`-1` namespace labels, and an unshare(CLONE_NEWPID) by it counted as
+joining, not creating (CLARITY_METHODS.md L3).
+
+**Fix.** The rules use `-F euid!=` (`euid=` when capturing one user), and
+the module compares the effective uid, for syscalls (`hook.h`) and for
+packets (`netfilter.c`). The audit bridge is setuid root, so its pid joins
+the pids to ignore, and SPADE's own pid the ppids, in the rules and in the
+module's arguments; the reporter built these sets but did not use them. The
+module's pid filters compared thread ids until F29.
+
+**Checked.** B11 in trace 2 recorded again: `sudo unshare --pid --fork sh -c
+'...'`, run by SPADE's user directly. Its namespace has a start (run 1 of the
+reused ID 4026532203), whose first process is the `unshare` child and whose
+only host neighbour is the `unshare` process, now recorded as created.
+`test/ns-pid/filter-test.sh` gave the same results with the module as
+before.
+
+**Files.** `reporter/Audit.java`, `reporter/audit/AuditControlManager.java`,
+kernel module `audit/kernel/function/hook.h`,
+`audit/kernel/netfilter/netfilter.c`.
+
+## F19. The reporter refuses a bridge that cannot reach auditd
+
+Was N6 and N7. `make` replaces `bin/spadeAuditBridge` without the setuid
+bit `bin/allowAuditAccess` gives it. The bridge then could not connect to
+auditd's socket ("Permission denied"), SPADE logged that at INFO, and the
+reporter counted as added while recording nothing.
+
+**Fix.** In live mode the reporter refuses to start, with the reason and the
+remedy, when the bridge is not setuid root and auditd's socket is not
+writable for SPADE's user. A bridge that loses the socket later logs it as
+SEVERE.
+
+**Checked.** `AuditCompletenessTest` (`theBridgesSocketFailuresAreRecognised`,
+`aMissingBridgeCountsAsRunnable`). On the VM, right after `make`: `add
+reporter Audit` failed, the log said why and to run `bin/allowAuditAccess`,
+and no module was loaded.
+
+**Files.** `reporter/Audit.java`, `reporter/audit/AuditCompleteness.java`;
+test `pkg/java/src/test/java/spade/reporter/audit/AuditCompletenessTest.java`.
+
+## F20. A restart does not reset the storages again
+
+Was N8. At shutdown SPADE saves its running configuration to
+`cfg/spade.client.Control.config` and replays it at the next start, storage
+arguments included, so a storage added with `reset=true` was emptied again by
+a plain restart.
+
+**Fix.** The saved arguments leave `reset` out.
+
+**Checked.** `SavedConfigurationTest` (2 tests). After a trace recorded with
+`reset=true` on all three storages, the saved configuration read `add
+storage PostgreSQL`, `add storage Quickstep batchTimeIntervalInSeconds=30`,
+`add storage Neo4j`.
+
+**Files.** `core/Kernel.java`, `core/SavedConfiguration.java` (new); test
+`pkg/java/src/test/java/spade/core/SavedConfigurationTest.java`.
+
+## F21. A failed query puts its variables back
+
+Was N9. QuickGrail binds a query's variables before the query runs. When the
+query then failed, its variables stayed bound to graphs it never filled, and
+the next query on them behaved by storage: on PostgreSQL `stat` failed on a
+missing table, on Neo4j it counted 0 vertices and 0 edges.
+
+**Fix.** A failed query restores the variables as they were, so a variable
+whose assignment failed is undefined, or keeps its old graph.
+
+**Checked.** `RestoreGraphSymbolsTest`. On the VM, on PostgreSQL and Neo4j alike: after a failed first assignment the variable was undefined ("Cannot resolve Graph variable"), and after a failed reassignment it kept its graph (`getContainerInit()`'s 47 vertices and 182 edges).
+
+**Files.** `query/quickgrail/QuickGrailExecutor.java`,
+`query/quickgrail/core/AbstractQueryEnvironment.java`; test
+`pkg/java/src/test/java/spade/query/quickgrail/core/RestoreGraphSymbolsTest.java`.
+
+## F22. The Neo4j task runner waits for work
+
+Was N12. `db-pending-task-runner` polled its queue without pause when
+`mainThreadSleepWaitMillis` is 0, the default, and used a whole CPU even
+while SPADE was idle: 435 s of CPU in 439 s.
+
+**Fix.** It waits on the queue when nothing is pending, until a task
+arrives, but no longer than the next flush is due or a second, so flushes and
+shutdown happen as before. Adding a task and shutting down wake it.
+
+**Checked.** After a trace, with SPADE idle, the thread used 16 ms of CPU in
+137 s (27.5 s in its 1,401 s, the trace included).
+
+**Files.** `storage/Neo4j.java`.
+
+## F23. A Quickstep query sees the batch not yet sent
+
+Was N13. The Quickstep storage sends what it receives in batches, when a
+batch is full or its timer fires (`batchTimeIntervalInSeconds`, 180 s by
+default), and QuickGrail queries did not flush it, so a query could miss the
+last minutes of a trace. PostgreSQL flushes before every query.
+
+**Fix.** `QueryInstructionExecutor` has a `beforeQuery` hook, which
+`QuickGrailExecutor` calls; the Quickstep executor stores the batch being
+filled there and waits until it is stored.
+
+**Checked.** `test/query/container/f23check.sh` on `clarity-of-container`: trace 2's input, replayed into Quickstep alone at the default interval of 180 s, was read in 6 s, and a query right then gave 10,827 vertices and 37,657 edges, the graph all three storages hold after the same replay; before F23 that batch waited for its timer.
+
+**Files.** `query/quickgrail/core/QueryInstructionExecutor.java`,
+`query/quickgrail/QuickGrailExecutor.java`, `storage/Quickstep.java`,
+`storage/quickstep/QuickstepInstructionExecutor.java`.
+
+## F24. A logged packet is not counted as discarded
+
+Was N1. `nf_handle_packet` logged a packet and then fell through to
+`discard_and_exit`, so every logged packet was also counted as discarded.
+It returns after logging now. Only the module's discard counter changes,
+which nothing in SPADE reads.
+
+**Checked.** The in-kernel tests pass and the traces recorded again with
+the module are complete; the counter itself was not looked at.
+
+**Files.** kernel module `audit/kernel/netfilter/netfilter.c`.
+
+## F25. The module encodes a process's name without its padding
+
+Was N2. The module hex-encoded all `TASK_COMM_LEN` bytes of `comm`, the NULs
+that pad a short name included, and the reader had to cut them off (F4). It
+encodes `strnlen(comm)` bytes now. F4 stays, for logs of older modules.
+
+**Checked.** In-kernel tests (`test_msg` now expects the name alone, e.g.
+`comm=746573745f70726f63657373` for `test_process`). The module's network
+records of the first trace 1 all ended in NUL bytes (13,022 of 13,022);
+those of trace 1 recorded again none (0 of 14,433).
+
+**Files.** kernel module `audit/msg/common/serialize/audit.c`, test
+`pkg/linux/kernel_modules/test/kernel/audit/msg.c`.
+
+## F26. The module holds a task while it reads its namespaces
+
+Was N3. `kernel_helper_namespace_populate_msg` released the RCU read lock
+and then called `pid_task()`, and read the task's namespaces, without a
+reference on the task. `pid_task()` needs the RCU read lock, and a task
+exiting at that moment could be freed under the reads. Found by reading the
+code; never observed.
+
+**Fix.** The task is looked up under the lock and held with
+`get_task_struct` until its namespaces are read.
+
+**Checked.** In-kernel tests (132 global, 44 message, 9 argument, 6 context
+and 1 state test pass). The ns pid A/B (`test/ns-pid`) between the module of
+`583ec2d7` and the one with F24 to F26: no namespace record wrong in either,
+no audit record lost; `filter-test.sh` and `clone3-test.sh` gave the same
+results as before.
+
+**Files.** kernel module `audit/kernel/helper/namespace.c`.
+
+## F27. The reporter warns when the loaded main module is another build
+
+The reporter inserts the main kernel module only when it is not loaded, and
+removes only the controller, so the main module stays loaded until a reboot.
+A module rebuilt with `make KERNEL_MODULES=true` therefore had no effect,
+silently, while the older build stayed loaded, and the namespace fixes F1,
+F2, F7, F9, F18, F26 and F29 are in that module. Removing the main module is
+no remedy: it crashes every thread in one of its hooked system calls (N22).
+
+**Fix.** At start the reporter compares the loaded module's `srcversion`
+with the file's and, when they differ, logs SEVERE that it records with the
+loaded build and that a reboot loads the new one. It removes and reloads
+nothing. (A first version of this fix removed the main module with the
+reporter and reloaded a stale one; on the VM that killed the Quickstep
+server's accept thread twice, N22, and it was replaced.)
+
+**Checked.** `KernelModuleManagerTest` (3 tests). On the VM, with the
+current build loaded and the reporter pointed at an older build's file
+(`kernelModuleMain=`), the reporter logged the warning with both
+srcversions, and the main module stayed loaded after the reporter was
+removed, with no oops.
+
+**Files.** `reporter/Audit.java`, `reporter/audit/KernelModuleManager.java`;
+test `pkg/java/src/test/java/spade/reporter/audit/KernelModuleManagerTest.java`.
+
+## F28. A vfork child's creation comes before its own events
+
+**Symptom.** In trace 2 recorded again, `getContainerInit()` failed: "2
+container init process(es) never reached execve: bwrap (... 4026532322), sh
+(host pid 494957, pid namespace 4026532203)". bwrap is B8's, by design (L10);
+494957 was B13a's init, which dash had created with vfork to run `sleep 2`.
+Its `sleep` version had `-1` in every namespace label, and a second vertex,
+`sh`, stood apart from it. The same held for every vforked process: 27 in
+trace 2, 56 in trace 1, 231 in trace 3.
+
+**Cause.** vfork suspends the parent until the child calls execve or exits,
+and the parent's syscall is logged when it returns, together with the kernel
+module's record of the child. The child's execve, and anything it did before
+it, therefore reach the reporter first (B13a's init: execve serial 22575251,
+vfork 22575252) from a pid it does not know. The child was first seen there,
+with `-1` labels, its execve version took them, and when the vfork came,
+`handleForkVforkClone` removed that state and made the child anew, apart from
+the versions already drawn. The methods leave out versions with unknown
+namespaces (D5), so a vforked process dropped out of its container, and an
+init created so made `getContainerInit()` fail. dash, Ubuntu's and Debian's
+`/bin/sh`, vforks simple commands.
+
+**Fix.** `VforkOrdering`, between the event reader and the handlers: the
+events of a process the reporter does not know, whose parent it knows and saw
+start in the trace (or is holding), wait until the event that creates it has
+been handled, and then follow in their order. Events without one follow after
+a second of audit time, or once 100,000 are held; at the end of the input
+everything held follows. SPADE logs how many events and processes it
+reordered.
+
+**Checked.** `VforkOrderingTest` (5 tests). Trace 2 replayed with F28: 136
+events of 39 processes waited for their creation, none in vain; B13a's
+second run holds its init's execve (`sh` and `sleep`), and
+`getContainerInit()` fails only on B8's bubblewrap, as on the first trace 2.
+The graph has 22 fewer vertices than live (the first-seen copies).
+Trace 4: 389 events of 58 processes; trace 1 recorded again: 532 events of 110 processes, 1 without a creation. Trace 3 replayed: 3,933 events of 537 processes, 2 without one, and its 46 boundaries hold as many members (29,403) and sockets (72,283) as before F28, so its vforked processes were on the host.
+
+**Older traces.** Vforked processes are first-seen versions with `-1`
+labels, apart from their creation, and are missing from boundaries. Replaying
+the log with F28 corrects it.
+
+**Files.** `reporter/Audit.java`, `reporter/audit/VforkOrdering.java` (new),
+`reporter/audit/process/ProcessManager.java`; test
+`pkg/java/src/test/java/spade/reporter/audit/VforkOrderingTest.java`.
+
+## F29. The module's pid filters name processes
+
+**Symptom.** In trace 1 recorded again with F18, the kernel module recorded
+25 `recvfrom` calls of the audit bridge on auditd's socket, although the
+bridge's pid was among the pids to ignore.
+
+**Cause.** The module's filters compared the calling thread's id and the id
+of the thread that created its process (`current->pid`,
+`current->real_parent->pid`), while the reporter fills them with process ids,
+as the audit rules' `-F pid` and `-F ppid` compare. So only the main thread
+of a process left out was left out (the bridge reads auditd's socket in a
+thread of its own, F8), and a child of a multi-threaded process (SPADE's JVM
+starts its children from other threads) never matched its parent's entry.
+Before F18 the user filter left all of these out anyway.
+
+**Fix.** The filters compare the process id and the parent's process id
+(`task_tgid_nr`, `task_ppid_nr`), as audit's `pid=` and `ppid=` fields. The
+module's records still carry the thread id.
+
+**Checked.** `test/ns-pid/filter-test.sh` with the module of F29: the same
+results as before (a pid filter on the container init's host pid leaves its
+records out, one on its namespace pid does not, a ppid filter on
+containerd-shim leaves out its children). Trace 1 recorded again with F29 (`trace1e`): no module record from the bridge, where the recording before F29 had 25.
+
+**Files.** kernel module `audit/kernel/function/hook.h`,
+`audit/kernel/helper/task.c`, `audit/kernel/helper/task.h`.
+
 ## Running the checks
 
 | Check | How | Needs |
 |---|---|---|
-| Java unit tests (F4, F5, F9, F10, F11, F13) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,PostgreSQLTest,Clone3FlagsTest,KernelModuleArgumentTest,ThreadExitTest,AuditCompletenessTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
-| In-kernel tests (F7, F9) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
-| ns pid A/B (F1, F2, F7) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
+| Java unit tests (F4, F5, F9, F10, F11, F13, F15, F19 to F21, F27, F28) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,PostgreSQLTest,Clone3FlagsTest,KernelModuleArgumentTest,ThreadExitTest,AuditCompletenessTest,CloseOnExecTest,OPMConstantsTest,SavedConfigurationTest,RestoreGraphSymbolsTest,KernelModuleManagerTest,VforkOrderingTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
+| In-kernel tests (F7, F9, F25, F26) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
+| ns pid A/B (F1, F2, F7, F26; `filter-test.sh` for F18, F29) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
 | netfilter (F3) | `pkg/linux/kernel_modules/test/netfilter-atomic/README.md` | a disposable VM: without the fix it freezes |
 | bridge (F8) | compare auditd's log with the reporter's `outputLog` over a trace, by serial number and, within each event, by record type (N17); the bridge's own count of missing serials is in SPADE's log | auditd writing its log, enough log rotation to keep the trace |
-| replay (F11, F12, F14) | `test/query/container/replay.sh 3` on `clarity-of-container`, then its queries and `check-media.py` | a recorded trace 3 and the VM it was recorded in |
+| replay (F11, F12, F14, F16, F28) | `test/query/container/replay.sh 3` on `clarity-of-container`, then its queries and `check-media.py`; `GIVE_HANDLE=0` for F16 | a recorded trace and the VM it was recorded in |
+| traces recorded again (F15, F17, F18, F25, F28, F29) | `test/query/container/trace.sh 1|2|4`, then `query.sh`, the checkers, `fdcheck.py`, `nofd.py` and `f17check.py` (TRACE_VALIDATION.md, after F15 to F29) | the VM; trace 4 also DeathStarBench's media microservices |
+| live (F19, F20, F22, F27) | as in each entry's Checked | the VM |
 
 ## Noticed, not changed
 
 These came up during the same work. Those not fixed are left for the
-maintainers. N18, fixed as F11, was the only one that changed what the
-container methods return on the traces checked (TRACE_VALIDATION.md, trace 3).
+maintainers. Of those fixed, N5 (F17), N11 (F18), N18 (F11) and N20 (F16)
+change what the container methods return.
 
 | # | Component | What |
 |---|---|---|
-| N1 | kernel module | In `nf_handle_packet`, a packet that was logged also falls through to `discard_and_exit` and is counted as discarded. |
-| N2 | kernel module | The module still pads `comm` with NULs; F4 handles that in the reader. Encoding `strnlen(comm)` bytes would fix it at the source. |
-| N3 | kernel module | `kernel_helper_namespace_populate_msg` calls `pid_task()` after `rcu_read_unlock()` and without a reference on the `struct pid`; `pid_task()` needs the RCU read lock. A process exiting at that moment could make it read freed memory. It is in upstream `prov-query` as well. Found by reading the code; never observed. |
-| N5 | Audit reporter | After unshare or setns, a later execve or setuid/setgid gives the process the namespace labels it was created with, because unshare and setns don't update the per-process namespace state (`ProcessManager.handleNamespaceUpdateFromSyscall`). |
-| N6 | Audit reporter | When `spadeAuditBridge` cannot connect to auditd's socket ("Permission denied"), SPADE logs it at INFO level and still reports the reporter as added; nothing is recorded. |
-| N7 | build | `make` replaces `bin/spadeAuditBridge` without the setuid bit `bin/allowAuditAccess` gives it, so the bridge then fails as in N6. Run `bin/allowAuditAccess` after every build. |
-| N8 | SPADE kernel | On shutdown, SPADE saves its running configuration to `cfg/spade.client.Control.config` and replays it at the next start, storage arguments included. A storage added with `reset=true` is therefore reset again by a plain restart. |
-| N9 | QuickGrail | `stat` on a variable whose assignment failed: PostgreSQL reports a failed query on a missing table, Neo4j prints 0 vertices and 0 edges. |
+| N1 | kernel module | Fixed: F24. A logged packet was also counted as discarded. |
+| N2 | kernel module | Fixed: F25. The module padded `comm` with NULs. |
+| N3 | kernel module | Fixed: F26. `pid_task()` was called after `rcu_read_unlock()`, without a reference on the task. |
+| N5 | Audit reporter | Fixed: F17. After unshare or setns, a later execve or setuid/setgid got the namespace labels the process was created with. |
+| N6 | Audit reporter | Fixed: F19. A bridge that could not connect to auditd's socket was logged at INFO, and the reporter counted as added. |
+| N7 | build | Handled by F19, which refuses to start the reporter and names the remedy: `make` replaces `bin/spadeAuditBridge` without the setuid bit, so run `bin/allowAuditAccess` after every build. |
+| N8 | SPADE kernel | Fixed: F20. A storage added with `reset=true` was reset again by a plain restart. |
+| N9 | QuickGrail | Fixed: F21. A variable whose assignment failed stayed bound to a graph never filled. |
 | N10 | auditd | The af_unix plugin (audit 3.1.2) serves one client at a time and closes any other connection without a log, and it drops events its client cannot take at once without a log (F8). The bridge works around the second; only auditd can fix it. |
-| N11 | Audit reporter | The audit rules leave out the user SPADE runs as with `-F uid!=<uid>`, which compares the real uid. sudo keeps the caller's real uid, so a process sudo forks for that user is not recorded as created: it first appears in its own later syscalls, with `-1` namespace labels. An unshare(CLONE_NEWPID) by such a process counts as joining, not creating (CLARITY_METHODS.md L3). |
-| N12 | Neo4j storage | The thread `db-pending-task-runner` (`Neo4j.java`, its pending-task loop) uses a whole CPU even when idle: 435 s of CPU in 439 s. |
-| N13 | Quickstep storage | Queries do not flush the batch being filled, which the storage sends only when it is full or its timer fires (`batchTimeIntervalInSeconds`, 180 s by default), so a query can miss the last minutes of a trace. PostgreSQL flushes before every query. |
+| N11 | Audit reporter | Fixed: F18. The audit rules and the module left out SPADE's user by real uid, so a process sudo forked for it was not recorded as created. |
+| N12 | Neo4j storage | Fixed: F22. `db-pending-task-runner` used a whole CPU when idle. |
+| N13 | Quickstep storage | Fixed: F23. Queries did not see the batch being filled. |
 | N14 | Linux audit | Unless the kernel was booted with `audit=1`, records that `kauditd` fails to hand to auditd are dropped without being counted in `lost`. It waits 0.1 s for room in auditd's netlink socket, whose receive buffer is `net.core.rmem_default` when auditd starts (212,992 bytes; auditd has no setting for it), then gives up on the rest of its queue, and `kauditd_hold_skb` frees what fails again (`if (!audit_default) goto drop;`, `kernel/audit.c`, Linux 6.8). Under the media microservices this lost 289,000 to 599,000 events per trace attempt, in gaps of up to 184,343 serial numbers, which only the bridge's count of missing serial numbers (F8) showed. Restarting auditd while `rmem_default` is larger gives its socket room for bursts; booting with `audit=1` makes the kernel hold such records and count those it must drop. The Audit reporter warns about it at start (F13). |
 | N15 | auditd | With `log_format = ENRICHED` (Ubuntu's default), auditd (3.1.2) looks up the name of each uid and gid in each record through NSS and does not remember a failed lookup. Containers that run as uids the host does not know therefore cost it file opens and socket connections for every event: for 2,000 events of a process running as uid 11211, 12,858 `openat` and 839 `connect` calls, against none for a known uid or with `log_format = RAW`. With `nss-systemd`, `systemd` answers each lookup, and the Audit reporter records those answers as further events. It made auditd too slow for the media microservices (TRACE_VALIDATION.md, trace 3). The Audit reporter reads only the raw fields, so `log_format = RAW` loses it nothing. The Audit reporter warns when it reads such records (F13). |
 | N16 | Quickstep storage | Fixed: F12. Storing slowed down as the graph grew, a scan of the vertex table for every new vertex. |
 | N17 | auditd | auditd's queue to its plugins (`q_depth`, 2,000 by default) drops a record when it stays full for about 8 ms (`enqueue` in `audisp/queue.c`, audit 3.1.2: four tries 2 ms apart), and reports only the first five drops of each run ("queue to plugins is full - dropping event"). A record dropped from an event leaves the event's serial number in place, so the bridge's count of missing serial numbers (F8) does not see it. In trace 3, three records were dropped this way, two of them SYSCALL records (TRACE_VALIDATION.md); comparing auditd's log with the reporter's `outputLog` record by record finds them. A larger `q_depth` gives the plugins more room. |
 | N18 | Audit reporter | Fixed: F11. A thread's exit was taken for its process's exit. |
-| N20 | Audit reporter | In playback, unless `handleLocalEndpoints` is given, the reporter decides from the first network event in the log whether to use the kernel module's network records: a network SYSCALL record first means no, for the whole log. A log recorded live with the module (`localEndpoints=true`) can start that way, as trace 3's does, and its replay then silently loses every socket the module recorded: trace 3's boundaries held 72,139 live and none in the replay. Passing `handleLocalEndpoints` as the live run had it avoids it (`replay.sh` reads it from the live run's SPADE log). |
+| N20 | Audit reporter | Fixed: F16. In playback a network SYSCALL record first made the reporter drop every network record of the kernel module: trace 3's replay lost all 72,139 sockets of its boundaries. |
+| N21 | Audit reporter | runc also creates descriptors with syscalls the audit rules leave out: for `docker run --rm alpine true`, 12 fsopen, 8 fsmount, 4 open_tree, 6 pidfd_open, 9 epoll_create1, 8 eventfd2 and 1 inotify_init1 (strace). Files opened relative to its procfs and overlay handles, which come from fsmount, a mount without a path, therefore fail with "Missing directory FD" and are missing from the graph, with their closes: in trace 1 recorded again (`trace1e`), 1,393 of the 2,528 opens relative to an unknown directory descriptor name one created by a syscall the rules leave out, the other 1,135 one whose own open failed so, and 2,153 of the 2,164 closes of descriptors whose creation was recorded follow from them (`nofd.py`). They are runc's own files, in the part of a container's boundary that runc's init holds. Handling them needs names for files under a mount without a path. |
+| N22 | kernel module | Removing the main module (`rmmod spade_audit`) crashes every thread that is in one of its hooked system calls: ftrace sends the call to the module's wrapper, which calls the original, and a thread blocked in it (accept, recvmsg) returns into the freed wrapper; the kernel oopses and kills that thread, and its process runs on without it. On the trace VM this killed 292 threads in one boot: 284 MongoDB connection threads of the media microservices, 3 control-socket and 2 CommandLine-analyzer threads of SPADE, 2 accept threads of the Quickstep server and one udev worker. The Quickstep server without its accept thread takes no connection, and the Quickstep storage then waits for ever (N23). The reporter never removes the main module (F27); upstream's own test script (`bin/test/spade_audit/run.sh`, step 11) and `test/ns-pid/ns-ab-run.sh` do. A safe removal needs the module to count the threads in its wrappers (`try_module_get`/`module_put`) or to hook without a wrapper frame. |
+| N23 | Quickstep storage | A request to the Quickstep server has no timeout: when the server takes no connection (N22), the storage's batch thread and every query wait for ever, with nothing logged, and so does every query client, which first sets its last storage (`cfg/spade.client.CommandLine.config`). `test/query/container/trace.sh` and `replay.sh` now ask every storage for its counts, with a timeout. |
 
 ## Open
 
