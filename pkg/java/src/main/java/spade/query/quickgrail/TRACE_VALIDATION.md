@@ -417,6 +417,47 @@ inode number, so IDs should repeat.
 - Tests §6: whether a network artifact reaches `getContainerBoundary('X')`
   when `netIO` is off and the module is loaded.
 
+### Added scenarios
+
+Added on 2026-11-02, after the user asked for `clone3` to be fixed (F9 in
+`BUG_FIXES.md`) and for a realistic workload. Like B1–B9, these expectations
+were committed before their traces were recorded.
+
+**B10. A process created with clone3 inside a container**, in trace 2. A
+static glibc program in an alpine container starts `/bin/true` with
+`posix_spawn`, which glibc 2.39 does with clone3 (alpine's own musl would
+use clone). The program and its child are created during tracing.
+
+- With F9, `getContainerBoundary('X')` holds the child, a member of X joined
+  to the program by a creation edge whose `flags` include `CLONE_VFORK` (with
+  `simplify=true` the edge is a `fork`, §4.1).
+- Without F9 the child would appear only as first seen, with `-1` labels,
+  and not be a member (L4). The trace is recorded with F9 only.
+
+**M. The DeathStarBench media microservices**, trace 3, recorded like trace 1
+(the six keys). Its 33 containers (12 services from the
+`yg397/media-microservices` image, 8 MongoDB, 7 memcached, 3 Redis,
+OpenResty, Jaeger and a DNS proxy) exist but are stopped when tracing
+starts. During tracing, `docker compose up -d` starts them all at once; once
+the web server answers, the dataset's users and movies are registered and
+wrk2 sends `compose-review` requests for 30 s. The ground truth is each
+container's init host PID and PID namespace from `docker inspect` and
+`/proc`, and the processes a `/proc` sampler sees in each namespace.
+
+- M1: `getContainerInit()` holds exactly one start per container, 33 in all,
+  and its init is the process `docker inspect` names. The starts overlap in
+  time, which no B scenario tests: the grouping in §5.2 must still give each
+  init to its own namespace.
+- M2: For each container's namespace X, `getContainerBoundary('X')` holds
+  every process the sampler saw in X, and no process of another container.
+  Its only host neighbours are the runc processes that created or entered
+  the container. No ID is used twice while all run, so no numbered list is
+  expected.
+- M3: The services' network sockets reach their boundaries (`netIO=true`).
+- M4: All three storages return the same results.
+- M5: Not an expectation but a measurement (L17): the trace's size, how long
+  SPADE needs to store it, and how long each query takes on each storage.
+
 ### Results
 
 To be filled in from the traces.
