@@ -31,9 +31,13 @@ def truth():
 
 
 def queries(storage):
-    """name -> (call, error or None) from the client log"""
+    """name -> (call, error or None) from the client logs (client-extra.log: query.sh's ONLY_EXTRA)"""
     out, name = {}, None
-    log = open(os.path.join(T, storage, 'client.log'), errors='replace').read().split('\n')
+    log = []
+    for log_name in ('client.log', 'client-extra.log'):
+        path = os.path.join(T, storage, log_name)
+        if os.path.exists(path):
+            log += open(path, errors='replace').read().split('\n')
     for i, line in enumerate(log):
         m = re.match(r'^-> \$(\w+) = \$base\.(.*)$', line)
         if m:
