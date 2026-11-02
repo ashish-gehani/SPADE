@@ -462,6 +462,45 @@ container's init host PID and PID namespace from `docker inspect` and
 - M5: Not an expectation but a measurement (L17): the trace's size, how long
   SPADE needs to store it, and how long each query takes on each storage.
 
+**After F15 to F27.** Trace 3 led to more fixes (BUG_FIXES.md F15 to F27).
+To check that they leave every result above standing, traces 1 and 2 are
+recorded again with them, and in place of the full media stack, which takes
+hours to record and query, a subset of it (trace 4). Three scenarios check
+fixes that only a live recording shows:
+
+**B11. An unshare that sudo starts**, in trace 2: `sudo unshare --pid --fork
+sh -c '...'`, run directly by SPADE's user, without the root shell B5 needs.
+
+- With F18 (the user left out by effective uid), sudo's fork of `unshare` is
+  recorded, so `unshare` is created in the trace, its unshare(CLONE_NEWPID)
+  is a creation (L3 no longer applies), and `getContainerInit()` has a start
+  for its namespace, as B5 has.
+
+**B12. Descriptors through container starts**, in traces 1, 2 and 4.
+
+- With F15, runc's `openat2` and `close_range` are recorded and handled, and
+  execve drops close-on-exec descriptors. The reporter logs no "Missing
+  directory FD" for runc's processes, and of the closes of descriptors it
+  does not know, none has a recorded creation as the last recorded event on
+  that descriptor (`nofd.py`).
+
+**S. A subset of the media microservices**, trace 4, recorded like trace 3
+(the six keys, auditd with `log_format = RAW`): `docker compose up -d
+--no-deps` starts six of its containers at once (the DNS proxy, Jaeger,
+OpenResty, user-service, its MongoDB and its memcached), with the stack's
+`restart: always`, and 100 users are registered through OpenResty. The
+ground truth is as in trace 3.
+
+- S1: `getContainerInit()` has one start per run, with the init the kernel
+  module recorded.
+- S2: each run's boundary holds every process the sampler saw in it, and no
+  process of another run; its only host neighbour is the runc process that
+  created its init; and (F11) no version of its own processes labeled `-1`.
+- S3: user-service's and OpenResty's network sockets reach their boundaries.
+- S4: all three storages return the same results, for every query.
+- S5: Not an expectation but a measurement: the trace's size, how long SPADE
+  needs to store it, and the query times.
+
 ### Results
 
 The three traces were recorded with `bug-fixes` at F1 to F10
