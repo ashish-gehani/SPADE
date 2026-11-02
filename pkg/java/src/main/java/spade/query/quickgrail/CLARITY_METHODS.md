@@ -395,7 +395,7 @@ keeps accepting queries.
 | L14 | `getContainerBoundary()` returns one merged graph. | It is not split per container. | Use the ID or number forms per container. |
 | L15 | Starts are found from the subject graph's lineage edges. | On a subject graph missing some WasTriggeredBy edges or their endpoints, starts can be missed and containers that reuse an ID get merged. | Run on `$base` or a graph that keeps process lineage. |
 | L16 | The seed form reads the labels of its seed processes into memory. | A huge seed graph is slow. | Keep `$p` small, or use `getContainerBoundary()`. |
-| L17 | Performance has not been measured. | Each lineage step is a storage query, and container lookups run a few queries per container. | Measure on real traces. |
+| L17 | On a large trace, queries take seconds on PostgreSQL and Quickstep and minutes on Neo4j. | On trace 3 (777,310 vertices, 2.08 million edges; `TRACE_VALIDATION.md`, M5): `getContainerInit()` 23 s on PostgreSQL and Quickstep, 325 s on Neo4j; a container's boundary 12 to 23 s on PostgreSQL and Quickstep, and 210 to 237 s on Neo4j whatever its size. | Use PostgreSQL or Quickstep for large traces. Neo4j's fixed cost per query looks like a scan for a namespace label; an index on the namespace properties may remove it (not tried). |
 | L18 | Traces recorded with a kernel module without F1 and F2 (§4.1). | An unshare or setns inside a container writes no record. So containers started with unshare from inside a container (e.g. Docker in Docker) are missed: `getContainerInit` doesn't report them, and `getContainerBoundary` doesn't attach them to the outer container. `ns pid` also holds the creator's view. | Record traces with a module that has the fixes. |
 | L19 | Traces recorded with a kernel module without F7 (§4.1). | A new PID namespace's ID is not in the trace. §5.2 takes it from the first process the creator creates after the unshare, matched by host pid up to the creator's next namespace step. With lost records (L6), a later child of the creator can be taken for the init, as it can with F7. | Record traces with a module that has F7. |
 
@@ -403,7 +403,7 @@ keeps accepting queries.
 
 | # | Item | Status |
 |---|---|---|
-| Q1 | Validate on real traces: `docker run` and `docker exec` with `namespaces=true`. | Hassaan has no real traces (2026-10-11), so we collect our own in a VM (`TRACE_VALIDATION.md`). Part A, the kernel module's namespace records, is done. Part B, the methods themselves, is in progress. |
+| Q1 | Validate on real traces: `docker run` and `docker exec` with `namespaces=true`. | Done (2026-11-02), in a VM, since Hassaan has no real traces (2026-10-11). Part A checked the kernel module's namespace records against the kernel. Part B ran the methods on three traces on PostgreSQL, Neo4j and Quickstep: B1-B10 (Docker run and exec, nesting, reused IDs, bubblewrap, clone3) and the DeathStarBench media microservices (33 containers run 46 times, a reused ID, 2.49 million events). Every expectation and result, and the refinements, are in `TRACE_VALIDATION.md`; what the traces showed about the reporter, auditd and the kernel is in `BUG_FIXES.md`. |
 | Q2 | What is `ns pid` meant to be? | Answered by the CLARION author: the PID of the process inside its own PID namespace. The kernel module recorded something else for a namespace's first process and for processes started into a namespace from outside, and a related bug in the unshare and setns hooks lost records inside containers. F1 and F2 fix them; `TRACE_VALIDATION.md` Part A checked both on a live system. The container methods don't use `ns pid` (D2). |
 | Q3 | Where should initialization end when the init never calls execve (L10)? | Decided for now: (a) keep D11 and D13, so such starts make the query fail. A trace can't settle this: a trace without such sandboxes proves nothing. The evidence came from the tools' source instead (L10). Not chosen for now: (b) end at the first execve by the init or by any process it created in the namespace, which fixes bubblewrap and nspawn but would end runc containers at OCI `startContainer` hooks, since those run inside the container before the application; (c) prefer the init's own first execve, else the first execve by a process it created in the namespace, and fail only when no process there calls execve. |
 | Q4 | Reporter: namespace labels revert after execve or setuid/setgid (L5). | Not fixed; listed for the maintainers as N5 in `BUG_FIXES.md`. |
@@ -532,8 +532,8 @@ each adjacency semantics (4 for `getContainerBoundary`, 2 for
 ### 9.6 Not covered
 
 - **Real backends.** The harness mirrors PostgreSQL, Neo4j and Quickstep
-  semantics. The methods have run on PostgreSQL and Neo4j with real traces
-  (`TRACE_VALIDATION.md`, Part B), and both returned the same results, but
-  never on Quickstep.
+  semantics. The methods have also run on all three with real traces
+  (`TRACE_VALIDATION.md`, Part B), and returned the same results on each.
 - **Real traces.** See Q1 in §8.
-- **Performance and concurrency.**
+- **Performance** was measured on one large trace only (L17), and
+  **concurrency** (several queries at once) not at all.

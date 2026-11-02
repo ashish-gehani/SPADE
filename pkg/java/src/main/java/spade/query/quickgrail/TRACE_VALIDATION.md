@@ -193,13 +193,17 @@ SPADE runs in the same VM as user `vagrant`, from `clarity-of-container` with
 the fixed module packaged into `lib/kernel-modules/` (`make
 KERNEL_MODULES=true`). SPADE leaves out the activity of the user it runs as,
 so every scenario runs under `sudo` or inside containers, which root's Docker
-daemon creates. PostgreSQL and Neo4j storages are both attached, so each query
-runs on both against the same records, and the two results must agree.
+daemon creates. PostgreSQL, Neo4j and Quickstep storages are all attached, so
+each query runs on all three against the same records, and the results must
+agree. The scripts that record a trace, query it on each storage and compare
+the results with the ground truth are in `test/query/container/`, whose
+README lists them and what they need.
 
 | Trace | Audit reporter arguments | Scenarios |
 |---|---|---|
 | 1 | the six keys `cfg/spade.reporter.Audit-with-namespace-awareness.config` changes: `namespaces=true fileIO=true netIO=true IPC=true inode=true networkAddressTranslation=true` | B1–B7 |
-| 2 | `namespaces=true` only, so `netIO` stays off | B8, B9 |
+| 2 | `namespaces=true` only, so `netIO` stays off | B8, B9, B10 |
+| 3 | the six keys, as trace 1 | M |
 
 B8 is in its own trace because by Q3 (a) it makes `getContainerInit` fail for
 the whole trace.
@@ -464,7 +468,8 @@ All results below come from the final build: `bug-fixes` with F1 to F10
 (`BUG_FIXES.md`) and the container methods on top, the kernel module with
 F7 and F9, three storages attached, and every query run on each. Each trace
 passed the completeness checks: the kernel's `lost` counter did not move,
-and every event auditd logged reached the reporter.
+and every event auditd logged reached the reporter. In trace 3, two records
+of two events did not (Trace 3 below says which, and what they changed).
 
 #### Trace 1 (B1-B7)
 
@@ -506,3 +511,185 @@ same results for all 7 queries. B9 and B10 ran in the same PID namespace,
 | B8 | `getContainerBoundary()` still works and holds the sandbox's processes | Held: Y's boundary holds `bwrap`'s PID 1 and the `sh`, `readlink` and `sleep` it started, with the outer `bwrap` as a neighbour. |
 | B9 | Does a network artifact reach the boundary with `netIO=false`? (§6) | Yes, partly. `('4026532324', 1)` holds 10 sockets joined to `wget` by `connect` and `close` only. With `netIO=true` (B7) the same download also had `send`, `recv`, `read` and `write` edges, and 4 more sockets, its DNS queries to 10.0.2.3:53, which use no `connect`. So with `netIO=false` a container's connections show, but no data that crossed them, and no unconnected UDP traffic. |
 | B10 | The clone3 child is a member of X, created by an edge with `CLONE_VFORK` (`fork` with `simplify=true`) | Held: `('4026532324', 2)` has `spawn-child` -> `spawn-child` (the child, host PID 102064) with `fork`, flags `SIGCHLD|CLONE_VM|CLONE_VFORK`, then its execve to `true`. runc init's threads, also created with clone3, carry their flags (`CLONE_THREAD|CLONE_VM|...`). |
+
+#### Trace 3 (M)
+
+How it was recorded, before the results:
+
+- **The first attempt** lost events: the bridge's queue reached its fixed
+  1 GB within four minutes, and 163,482 events were missing by the end. Part
+  of them may have been lost in the kernel, as in the next attempts; auditd's
+  log of that window has since been rotated away. The stack produced about 10,000 audit events a second during
+  registration and load, more than three times what SPADE handled with three
+  storages attached. The queue size became an option (`BUG_FIXES.md` F8).
+  Also, 7 of the 12 services had exited by the end: they had started before
+  the names they connect to resolved, crashed, and were not restarted,
+  because an earlier session of this work had set every container's restart
+  policy to `no`. The harness now restores the stack's own `restart: always`
+  during the trace, so restarts are part of the trace, and records every
+  container start as it happens (`docker events`), each with its init and
+  PID namespace: M1 is judged per run, not per container.
+- **The second attempt** (queue 4 GB) lost events nonetheless: the bridge
+  had counted 209,012 missing serial numbers by the end of the workload. The
+  kernel counted 8,921 as lost (its backlog of 65,536 overflowed). I took the
+  rest for drops by auditd's af_unix plugin, and for the third attempt raised
+  the backlog limit to 262,144 and `net.core.wmem_default` to 128 MB, and ran
+  the bridge's threads at nice -10. That reading was wrong; see the third
+  attempt. This attempt's start watcher also recorded nothing: Docker 29's
+  events have no `.ID`, so the template failed; it uses `.Actor.ID` now.
+- **The third attempt** lost 354,825 events, and auditd's own log lacks every
+  one of them, in 8 gaps of up to 184,343 serial numbers, during the bursts:
+  33 containers starting at once, and the start of the load. auditd's own
+  log for the second attempt lacks 288,838 (of the part not yet rotated
+  away). So the events never reached auditd, yet the kernel counted only
+  1,387 as lost. The cause is in Linux's `kernel/audit.c` (6.8):
+  - `kauditd` waits at most 0.1 s (`sk_sndtimeo = HZ / 10`) for room in
+    auditd's netlink socket, whose receive buffer is
+    `net.core.rmem_default`, 212,992 bytes, when auditd starts. auditd has no
+    setting for it.
+  - After one failed send, `kauditd` gives up on the rest of the queue.
+    Those records go to a retry queue, and when sends from that queue fail
+    too, to `kauditd_hold_skb`.
+  - `kauditd_hold_skb` drops the record without counting it unless the
+    kernel was booted with `audit=1` (`if (!audit_default) goto drop;`).
+    This VM's kernel was not, like a default Ubuntu install.
+
+  auditd logged "Error receiving audit netlink packet (No buffer space
+  available)" during the bursts, and its socket had counted 877 overruns
+  since boot. The bridge's count of missing serial numbers (F8) is what
+  showed the loss: the kernel's `lost` counter did not. For the fourth
+  attempt, trace 3 restarts auditd while `net.core.rmem_default` is 512 MB,
+  so that its socket can absorb the bursts, and logs auditd's CPU time and
+  socket once a second (`monitor.log`). The bridge's nice -10 is gone; the
+  128 MB send buffer stays.
+- **The fourth attempt** (512 MB socket) lost more, 420,463 events. The
+  socket filled within 13 s of `docker compose up` and stayed near full, and
+  auditd's main thread used 205 s of CPU in about 200 s of tracing. auditd
+  took about 3.4 million records in that time, so it spent some 60 µs on each
+  (36 µs in system calls), which is far more than receiving and writing a
+  record costs. The trace's events, by what produced them:
+  - 51% syscall events, 61% of them from host processes: `dockerd` (22%,
+    container logs), `docker-proxy` (13%, the published ports),
+    `containerd-shim` (9%), the harness's own `docker` and `sudo` (3%);
+  - 49% records of SPADE's kernel module: half netfilter packets (many of
+    them DNS on the loopback), half intercepted network syscalls, of which
+    `systemd` made 16%, answering userdb queries on
+    `/run/systemd/userdb/io.systemd.DynamicUser` (170,000 messages).
+- **The fifth attempt** kept auditd's log on a tmpfs, because auditd had at
+  times written nothing for 10-20 s, which looked like waiting for the disk.
+  It lost 598,972 events, and the monitor showed auditd's main thread never
+  blocked on I/O (no `D` state). So the disk was not the cause either.
+- **The cause** was auditd's `log_format = ENRICHED` (Ubuntu's default),
+  which adds user and group names to each record. The services run as uids
+  the host does not know (memcached's 11211, for one). auditd looks each of
+  them up again for every record, through `/etc/nsswitch.conf` (`files
+  systemd sss`), and does not remember the failure. Tested directly with 2,000
+  events of a process running as uid 11211, auditd made 12,858 `openat` and
+  839 `connect` calls; it made none for the known uid 65534, and none with
+  `log_format = RAW`. The userdb queries `systemd` answered were these
+  lookups, and SPADE recorded them as well. SPADE's reader takes only the raw
+  fields, so the names it loses with RAW are ones it never read; but the
+  input differs from traces 1 and 2, which were recorded with ENRICHED. The
+  trace's own processes are unchanged.
+- **The sixth attempt**, with `log_format = RAW` for the trace and the 512 MB
+  socket (the tmpfs is gone), is the trace used below. No event was lost:
+  the bridge counted no missing serial numbers, the kernel's `lost` counter
+  did not move, auditd's socket never overran, and SPADE read all 2,489,681
+  events in auditd's log. auditd averaged 73% of a CPU. The socket peaked at
+  511 MB of its 512 MB, so the margin for the start of 33 containers was
+  small.
+
+  Three records were lost all the same, at 02:52:30, during registration:
+  auditd logged "queue to plugins is full - dropping event" three times.
+  When its queue to the af_unix plugin (2,000 records) stays full for about
+  8 ms, auditd drops the record (BUG_FIXES.md N17). A record dropped from an
+  event leaves the event's serial number in place, so neither the bridge's
+  count nor the harness's comparison by serial number saw it, and the
+  completeness check failed only on auditd's message. Comparing record by
+  record (`compare-input.py` does that now) finds two of the three; the
+  third was probably a record auditd does not write to its own log, such as
+  EOE.
+
+  | Serial | Process | Syscall | Records SPADE has of the event |
+  |---|---|---|---|
+  | 18,753,899 | `CastInfoService` (in a container) | clone (56) | PROCTITLE, and the kernel module's namespace record |
+  | 18,754,126 | `docker-proxy` (host) | close (3) | PROCTITLE |
+
+  The trace is used with these two records missing, rather than recorded a
+  seventh time (another 80 minutes, most of it Quickstep's drain); the
+  results below say where the missing clone shows. Traces 1 and 2, compared
+  record by record as well, miss nothing (334,416 and 37,617 records).
+
+Recorded 2026-11-02 at 02:51 (the sixth attempt), with SPADE built from
+`1d6bb929`, whose code is that of the final build (later commits changed
+only documentation and the harness). PostgreSQL, Neo4j and Quickstep each
+held 777,310 vertices and 2,083,077 edges.
+
+Three things about the ground truth differ from what the expectations
+assumed:
+
+- **Restarts.** The 33 containers ran 46 times: the first runs of 13
+  services ended within seconds (in the first attempt such services logged
+  "Error resolving address"), and Docker restarted each once. A crashed run
+  was usually gone before `docker inspect` could name its init, and the
+  start watcher then recorded the next run's init twice. So the runs come from the kernel module's own records in
+  auditd's log (Part A checked those records against the kernel): every
+  process created with ns pid 1 in a namespace other than the host's is a
+  run's init, with its host PID and namespace.
+- **A reused ID.** The kernel reused 4026532470: movie-id-service's first
+  run (init host PID 310425, 1793587902.905) and, 2.2 s after it ended,
+  nginx's first run (311812, 1793587905.097). The other 44 runs had a
+  namespace each.
+- **Members** are the processes the sampler saw in each container's cgroup
+  with a nested PID (50), each placed in a run by its own NEWPROCESS record.
+  The sampler also saw 22 processes of runc's in the cgroups, still in the
+  host's PID namespace: runc's earlier stages, above the process that
+  creates the init.
+
+PostgreSQL ran every query: `getContainerInit()`, `getContainerBoundary()`,
+and a boundary for each of the 46 runs (the 33 IDs Docker named, the 11
+other namespaces of first runs, and the reused ID's two numbered forms, plus
+its unnumbered form). Neo4j and Quickstep ran a subset of 12, since a Neo4j
+boundary takes about four minutes (Neo4j also ran 4026532661 before its full
+run was stopped): the two methods, the first five IDs, the
+reused ID's three forms, a first run, and the run with the dropped clone
+record (`query-trace3.sh`). `check-media.py` compares the results with the
+ground truth.
+
+| Expectation | Result |
+|---|---|
+| M1: one start per container, 33 in all, whose init is the one Docker names | Held per run: 46 starts for the 46 runs, each with the init the kernel recorded (host PID and namespace). The expectation said 33 because it did not foresee restarts. The starts overlap in time (33 inits within 2.4 s, all 46 within 10.2 s), and each went to its own namespace. |
+| M2: each boundary holds every process the sampler saw in X, and no process of another container | Held: none of the 50 sampled processes is missing from its run's boundary, and no boundary holds a process labeled with another run's namespace. |
+| M2: the only host neighbours are the runc processes that created or entered the container | Held: each of the 46 boundaries has exactly one host neighbour, the `runc:[0:PARENT]` whose clone made the init, found by the creation edge (runc creates the init with `CLONE_PARENT`, so its `ppid` names another runc process). Nothing entered a container. Not foreseen: the boundaries of the multi-threaded services also hold many versions of their own main process labeled `-1`, which the reporter creates after each thread exit (BUG_FIXES.md N18): 4,663 for cast-info-service, 2,013 for movie-id-service, 1,000 for user-service, 651 for compose-review-service, 643 for rating-service, 299 for movie-info-service, 267 for plot-service, 3 for each MongoDB. The methods leave `-1` processes out of the members (D5); these come in as neighbours of the threads they start. |
+| M2: no ID is used twice, so no numbered list | Did not hold, and the numbered list worked: `('4026532470')` fails with "PID namespace 4026532470 belonged to 2 containers in this trace, since the kernel reuses IDs", listing both runs with their start times and host PIDs, and `('4026532470', 1)` and `('4026532470', 2)` each hold exactly their run's processes. |
+| M3: the services' network sockets reach their boundaries | Held: 46,760 sockets in nginx's boundary, 18,364 in cast-info-service's, 2,075 in movie-id-service's, 1,130 in movie-info-service's, 1,049 in plot-service's, 1,033 in user-service's, 716 in compose-review-service's; each first run that ended at once holds 8. Jaeger's boundary has none. |
+| M4: all three storages return the same results | Held for the 12 queries all three ran: the same vertices and edges for the 11 graphs (from 199 vertices for `getContainerInit()` to 163,255 for `getContainerBoundary()`), and the same numbered-list error. |
+| (the dropped records) | The clone record auditd dropped created thread 324795 of cast-info-service. Without it, the thread appears only in four network records of the kernel module, as first seen with `-1` labels, so it is in no boundary: one thread of the 18,200 member vertices of its run, and its four receives. The dropped `close` of `docker-proxy` is on the host. |
+
+**M5, recording and storing.** One client at a time; the VM has 16 vCPUs
+and 16 GB.
+
+| What | Measured |
+|---|---|
+| Workload, reporter added to reporter removed | 175 s: `docker compose up` 10.4 s, registration 102.1 s, wrk2 30.0 s (652 requests, 21.7 a second) |
+| Trace | 2,489,681 events, 4,143,402 records, 14,200 events a second on average; SPADE's `outputLog` 1.11 GB |
+| auditd | 73% of a CPU on average, with `log_format = RAW`; its netlink socket peaked at 511 MB of its 512 MB |
+| Bridge | queue peak 836 MB, nothing dropped, no serial number missing |
+| Storing | about 2,700 events a second in the first minutes, 250 to 300 after 45 minutes, with Quickstep using three CPUs (BUG_FIXES.md N16); the bridge exited 4,013 s (67 minutes) after the reporter was asked to stop |
+| On disk | PostgreSQL 612 MB, Neo4j 8.2 GB (its `spade.graph` directory, transaction logs included), Quickstep 1.1 GB |
+
+**M5, queries,** in seconds from sending a query to the client's next
+prompt (`times.tsv`). The 46 boundaries have 206 to 73,590 vertices (median
+717) and 447 to 171,531 edges.
+
+| Query | PostgreSQL | Neo4j | Quickstep |
+|---|---|---|---|
+| `getContainerInit()` (199 vertices, 756 edges) | 22.9 | 325.3 | 22.3 |
+| `getContainerBoundary()` (163,255 vertices, 569,525 edges) | 21.9 | 104.6 | 3.4 |
+| `getContainerBoundary('X')` and `('X', n)`: shortest, median, longest | 15.5, 17.1, 22.7 (46) | 209.7, 228.5, 236.5 (10) | 12.4, 12.8, 14.3 (9) |
+| `getContainerBoundary('4026532470')`, the numbered-list error | 13.0 | 175.4 | 11.2 |
+| `dump all` into a `.dot`, longest (the boundary of everything) | 75.7 | 73.6 | 74.9 |
+
+On Neo4j a boundary takes about as long whatever its size (210 s to 237 s,
+for boundaries of 216 to 41,644 vertices), which points at a fixed cost per
+query, such as a scan of all processes for a namespace label.
