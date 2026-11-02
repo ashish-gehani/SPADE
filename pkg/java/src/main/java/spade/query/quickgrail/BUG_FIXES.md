@@ -411,8 +411,9 @@ slow to record.
 
 ## Noticed, not changed
 
-These came up during the same work. None of them affects the container
-methods' results on the traces checked, so they are left for the maintainers.
+These came up during the same work and are left for the maintainers. Only
+N18 changes what the container methods return on the traces checked
+(TRACE_VALIDATION.md, trace 3).
 
 | # | Component | What |
 |---|---|---|
@@ -432,6 +433,7 @@ methods' results on the traces checked, so they are left for the maintainers.
 | N15 | auditd | With `log_format = ENRICHED` (Ubuntu's default), auditd (3.1.2) looks up the name of each uid and gid in each record through NSS and does not remember a failed lookup. Containers that run as uids the host does not know therefore cost it file opens and socket connections for every event: for 2,000 events of a process running as uid 11211, 12,858 `openat` and 839 `connect` calls, against none for a known uid or with `log_format = RAW`. With `nss-systemd`, `systemd` answers each lookup, and the Audit reporter records those answers as further events. It made auditd too slow for the media microservices (TRACE_VALIDATION.md, trace 3). The Audit reporter reads only the raw fields, so `log_format = RAW` loses it nothing. |
 | N16 | Quickstep storage | Storing slows down as the graph grows. `processBatch` calls `getVertexId` for every vertex of a batch, and a vertex that is not in the Deduplicate screen's cache costs a query, `copy select id from vertex where md5='...'`, which scans the whole vertex table. A new vertex is never in the cache yet, so each one costs a scan. On trace 3 (2.49 million events, three storages), SPADE stored about 2,700 events a second in its first minutes, and 250 to 300 after 45 minutes, with Quickstep using three CPUs. |
 | N17 | auditd | auditd's queue to its plugins (`q_depth`, 2,000 by default) drops a record when it stays full for about 8 ms (`enqueue` in `audisp/queue.c`, audit 3.1.2: four tries 2 ms apart), and reports only the first five drops of each run ("queue to plugins is full - dropping event"). A record dropped from an event leaves the event's serial number in place, so the bridge's count of missing serial numbers (F8) does not see it. In trace 3, three records were dropped this way, two of them SYSCALL records (TRACE_VALIDATION.md); comparing auditd's log with the reporter's `outputLog` record by record finds them. A larger `q_depth` gives the plugins more room. |
+| N18 | Audit reporter | A thread's exit is taken for its process's exit. audit records a syscall's `pid=` as the thread group id, so the `exit` (60) of any thread names the process. `ProcessManager.handleExit` then removes that process's state (`removeProcessUnitState(pid)` when other threads remain), and the process's next syscall creates a new process vertex as first seen, with `-1` namespace labels and a `seen time`. In trace 3, every one of the 2,013 such versions of movie-id-service's main process followed one of its 3,963 thread exits, by 12 ms in the median; the multi-threaded services' boundaries hold thousands of them (4,663 for cast-info-service). The methods leave `-1` processes out of the members (CLARITY_METHODS.md D5), but each such version starts the next threads, which are members, so the boundary holds it as their neighbour. Keeping the state on `exit` while other threads of the group remain would avoid it; the record does not say which thread exited. |
 
 ## Open
 
