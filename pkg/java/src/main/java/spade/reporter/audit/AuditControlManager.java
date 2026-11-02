@@ -142,6 +142,7 @@ public class AuditControlManager{
 						"clone", "fork", "vfork", "execve",
 						"435", // clone3 (x86_64), by number: auditctl before audit 3.0 may not know its name
 						"open", "openat", "creat", "close", "mknod", "mknodat",
+						"436", "437", // close_range and openat2 (x86_64), by number for the same reason
 						"dup", "dup2", "dup3", "fcntl", "rename", "renameat",
 						"setuid", "setreuid", "setresuid", "setgid", "setregid", "setresgid",
 						"chmod", "fchmod", "fchmodat", "truncate", "ftruncate",

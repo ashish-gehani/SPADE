@@ -68,6 +68,9 @@ public class AuditEventReader{
 			FD = "fd",
 			FD0 = "fd0",
 			FD1 = "fd1",
+			OPENAT2_OFLAG = "openat2_oflag", // octal, from the OPENAT2 record's oflag
+			OPENAT2_MODE = "openat2_mode", // octal
+			OPENAT2_RESOLVE = "openat2_resolve", // hexadecimal
 			FSGID = "fsgid",
 			FSUID = "fsuid",
 			GID = "gid",
@@ -94,6 +97,7 @@ public class AuditEventReader{
 			RECORD_TYPE_IPC = "IPC",
 			RECORD_TYPE_MQ_SENDRECV = "MQ_SENDRECV",
 			RECORD_TYPE_MMAP = "MMAP",
+			RECORD_TYPE_OPENAT2 = "OPENAT2",
 			RECORD_TYPE_PATH = "PATH",
 			RECORD_TYPE_PROCTITLE = "PROCTITLE",
 			RECORD_TYPE_SOCKADDR = "SOCKADDR",
@@ -628,6 +632,23 @@ public class AuditEventReader{
 		return HelperFunctions.parseKeyValPairs(auditRecord.data);
 	}
 	
+	/**
+	 * openat2's how, which the syscall passes in a struct:
+	 * -> type=OPENAT2 msg=audit(1793608285.179:22096341): oflag=012000000 mode=00 resolve=0x14
+	 */
+	private final Map<String, String> parseOpenat2Record(final AuditRecord auditRecord) throws Exception{
+		return openat2How(auditRecord.data);
+	}
+
+	static Map<String, String> openat2How(final String recordData){
+		final Map<String, String> pairs = HelperFunctions.parseKeyValPairs(recordData);
+		final Map<String, String> how = new HashMap<String, String>();
+		how.put(OPENAT2_OFLAG, pairs.get("oflag"));
+		how.put(OPENAT2_MODE, pairs.get("mode"));
+		how.put(OPENAT2_RESOLVE, pairs.get("resolve"));
+		return how;
+	}
+
 	private final Map<String, String> parseAuditRecord(final AuditRecord auditRecord) throws Exception{
 		switch(auditRecord.type){
 			case RECORD_TYPE_DAEMON_START:
@@ -667,6 +688,8 @@ public class AuditEventReader{
 				return parsePathRecord(auditRecord);
 			case RECORD_TYPE_EXECVE:
 				return parseExecveRecord(auditRecord);
+			case RECORD_TYPE_OPENAT2:
+				return parseOpenat2Record(auditRecord);
 			case RECORD_TYPE_FD_PAIR:
 			case RECORD_TYPE_SOCKADDR:
 			case RECORD_TYPE_MMAP:

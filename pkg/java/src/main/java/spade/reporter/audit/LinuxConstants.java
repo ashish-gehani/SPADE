@@ -35,7 +35,8 @@ public class LinuxConstants{
 		O_RDWR = "O_RDWR",
 		O_CREAT = "O_CREAT",
 		O_TRUNC = "O_TRUNC",
-		O_APPEND = "O_APPEND";
+		O_APPEND = "O_APPEND",
+		O_CLOEXEC = "O_CLOEXEC";
 
 	public final String
 		MAP_ANONYMOUS = "MAP_ANONYMOUS";
@@ -44,7 +45,15 @@ public class LinuxConstants{
 		F_LINUX_SPECIFIC_BASE = "F_LINUX_SPECIFIC_BASE",
 		F_DUPFD = "F_DUPFD",
 		F_SETFL = "F_SETFL",
+		F_SETFD = "F_SETFD",
+		FD_CLOEXEC = "FD_CLOEXEC",
 		F_DUPFD_CLOEXEC = "F_DUPFD_CLOEXEC";
+
+	public final String
+		SOCK_CLOEXEC = "SOCK_CLOEXEC",
+		CLOSE_RANGE_UNSHARE = "CLOSE_RANGE_UNSHARE",
+		CLOSE_RANGE_CLOEXEC = "CLOSE_RANGE_CLOEXEC",
+		RESOLVE_IN_ROOT = "RESOLVE_IN_ROOT";
 
 	public final String
 		EINPROGRESS = "EINPROGRESS";
@@ -141,6 +150,7 @@ public class LinuxConstants{
 	private final Map<String, Long> openFlagsMap = new HashMap<>();
 	private final Map<String, Long> mmapFlagsMap = new HashMap<>();
 	private final Map<String, Long> fcntlFlagsMap = new HashMap<>();
+	private final Map<String, Long> descriptorFlagsMap = new HashMap<>();
 	private final Map<String, Long> errnoMap = new HashMap<>();
 	private final Map<String, Long> socketTypeMap = new HashMap<>();
 	private final Map<String, Long> addressFamilyMap = new HashMap<>();
@@ -227,6 +237,7 @@ public class LinuxConstants{
 			openFlagsMap.put(O_CREAT, parseLong(map, O_CREAT));
 			openFlagsMap.put(O_TRUNC, parseLong(map, O_TRUNC));
 			openFlagsMap.put(O_APPEND, parseLong(map, O_APPEND));
+			openFlagsMap.put(O_CLOEXEC, parseLong(map, O_CLOEXEC));
 
 			mmapFlagsMap.put(MAP_ANONYMOUS, parseLong(map, MAP_ANONYMOUS));
 
@@ -234,6 +245,13 @@ public class LinuxConstants{
 			fcntlFlagsMap.put(F_DUPFD, parseLong(map, F_DUPFD));
 			fcntlFlagsMap.put(F_SETFL, parseLong(map, F_SETFL));
 			fcntlFlagsMap.put(F_DUPFD_CLOEXEC, parseLong(map, F_DUPFD_CLOEXEC));
+			fcntlFlagsMap.put(F_SETFD, parseLong(map, F_SETFD));
+			fcntlFlagsMap.put(FD_CLOEXEC, parseLong(map, FD_CLOEXEC));
+
+			descriptorFlagsMap.put(SOCK_CLOEXEC, parseLong(map, SOCK_CLOEXEC));
+			descriptorFlagsMap.put(CLOSE_RANGE_UNSHARE, parseLong(map, CLOSE_RANGE_UNSHARE));
+			descriptorFlagsMap.put(CLOSE_RANGE_CLOEXEC, parseLong(map, CLOSE_RANGE_CLOEXEC));
+			descriptorFlagsMap.put(RESOLVE_IN_ROOT, parseLong(map, RESOLVE_IN_ROOT));
 
 			errnoMap.put(EINPROGRESS, parseLong(map, EINPROGRESS));
 
@@ -413,6 +431,44 @@ public class LinuxConstants{
 
 	public final boolean isSettingFDFlagsInFcntl(final long value){
 		return value == fcntlFlagsMap.get(F_SETFL);
+	}
+
+	// Close-on-exec: the descriptors the kernel closes at a successful execve.
+
+	public final boolean testForOpenFlagCloseOnExec(final long value){
+		return testOpenFlags(O_CLOEXEC, value);
+	}
+
+	/** fcntl(fd, F_DUPFD_CLOEXEC, ...): the new descriptor is close-on-exec. */
+	public final boolean isCloseOnExecDuplicateInFcntl(final long cmd){
+		return cmd == fcntlFlagsMap.get(F_DUPFD_CLOEXEC);
+	}
+
+	/** fcntl(fd, F_SETFD, flags): sets the descriptor flags, FD_CLOEXEC among them. */
+	public final boolean isSettingDescriptorFlagsInFcntl(final long cmd){
+		return cmd == fcntlFlagsMap.get(F_SETFD);
+	}
+
+	public final boolean testForDescriptorFlagCloseOnExec(final long flags){
+		return testBits(fcntlFlagsMap.get(FD_CLOEXEC), flags);
+	}
+
+	/** SOCK_CLOEXEC in the type of socket and socketpair, or the flags of accept4. */
+	public final boolean testForSocketFlagCloseOnExec(final long typeOrFlags){
+		return testBits(descriptorFlagsMap.get(SOCK_CLOEXEC), typeOrFlags);
+	}
+
+	public final boolean testForCloseRangeUnshare(final long flags){
+		return testBits(descriptorFlagsMap.get(CLOSE_RANGE_UNSHARE), flags);
+	}
+
+	public final boolean testForCloseRangeCloseOnExec(final long flags){
+		return testBits(descriptorFlagsMap.get(CLOSE_RANGE_CLOEXEC), flags);
+	}
+
+	/** openat2's RESOLVE_IN_ROOT: an absolute path is resolved as if the directory were the root. */
+	public final boolean testForResolveInRoot(final long resolve){
+		return testBits(descriptorFlagsMap.get(RESOLVE_IN_ROOT), resolve);
 	}
 
 	public final boolean isConnectInProgress(final long value){

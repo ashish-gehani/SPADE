@@ -1018,11 +1018,15 @@ public class Audit extends AbstractReporter {
 				break;
 			case OPEN:
 			case OPENAT:
+			case OPENAT2:
 			case CREAT:
 				handleOpen(eventData, syscall);
 				break;
 			case CLOSE:
 				handleClose(eventData);
+				break;
+			case CLOSE_RANGE:
+				handleCloseRange(eventData);
 				break;
 			case MKNOD:
 			case MKNODAT:
@@ -1047,6 +1051,11 @@ public class Audit extends AbstractReporter {
 			case ACCEPT:
 				if(!kernelModuleConfiguration.isHandleLocalEndpoints()){
 					handleAccept(eventData, syscall);
+					if(syscall == SYSCALL.ACCEPT4){ // SOCK_CLOEXEC in its flags
+						processManager.setFdCloseOnExec(eventData.get(AuditEventReader.PID), eventData.get(AuditEventReader.EXIT),
+								platformConstants.testForSocketFlagCloseOnExec(
+										HelperFunctions.parseLong(eventData.get(AuditEventReader.ARG3), 0L)));
+					}
 				}
 				break;
 			case CONNECT:
@@ -1394,6 +1403,9 @@ public class Audit extends AbstractReporter {
 		if(platformConstants.isDuplicateFDFlagInFcntl(cmd)){
 			// In eventData, there should be a pid, a0 should be fd, and exit should be the new fd 
 			handleDup(eventData, syscall);
+		}else if(platformConstants.isSettingDescriptorFlagsInFcntl(cmd)){
+			// F_SETFD: FD_CLOEXEC on or off
+			processManager.setFdCloseOnExec(pid, fd, platformConstants.testForDescriptorFlagCloseOnExec(flags));
 		}else if(platformConstants.isSettingFDFlagsInFcntl(cmd)){
 			if(platformConstants.testForOpenFlagAppend(flags)){
 				FileDescriptor fileDescriptor = processManager.getFd(pid, fd);
@@ -1547,6 +1559,22 @@ public class Audit extends AbstractReporter {
 		}
 	}
 	
+	/** A number in the given radix (16 may have a 0x prefix), or the default if there is none. */
+	static long parseInRadix(final String value, final int radix, final long defaultValue){
+		if(value == null){
+			return defaultValue;
+		}
+		String digits = value.trim();
+		if(radix == 16 && (digits.startsWith("0x") || digits.startsWith("0X"))){
+			digits = digits.substring(2);
+		}
+		try{
+			return Long.parseLong(digits, radix);
+		}catch(NumberFormatException e){
+			return defaultValue;
+		}
+	}
+
 	public final void handleOpen(Map<String, String> eventData, SYSCALL syscall){
 		// open() receives the following message(s):
 		// - SYSCALL
@@ -1587,6 +1615,20 @@ public class Audit extends AbstractReporter {
 			artifactIdentifier = resolvePath_At(pathRecord, AuditEventReader.ARG0, eventData, syscall);
 			flagsString = eventData.get(AuditEventReader.ARG2);
 			modeString = eventData.get(AuditEventReader.ARG3);
+		}else if(syscall == SYSCALL.OPENAT2){
+			// openat2 passes its flags in a struct, which audit logs in an OPENAT2 record
+			flagsString = String.valueOf(parseInRadix(eventData.get(AuditEventReader.OPENAT2_OFLAG), 8, 0L));
+			modeString = String.valueOf(parseInRadix(eventData.get(AuditEventReader.OPENAT2_MODE), 8, 0L));
+			final long resolve = parseInRadix(eventData.get(AuditEventReader.OPENAT2_RESOLVE), 16, 0L);
+			PathRecord atPathRecord = pathRecord;
+			final String path = pathRecord.getPath();
+			if(platformConstants.testForResolveInRoot(resolve) && path != null && path.startsWith("/")){
+				// RESOLVE_IN_ROOT: an absolute path is resolved in the directory, as if it were the root
+				// (runc opens the container's files so)
+				final String inRoot = path.replaceFirst("^/+", "");
+				atPathRecord = pathRecord.withPath(inRoot.isEmpty() ? "." : inRoot);
+			}
+			artifactIdentifier = resolvePath_At(atPathRecord, AuditEventReader.ARG0, eventData, syscall);
 		}else if(syscall == SYSCALL.CREAT || syscall == SYSCALL.CREATE){
 			syscall = SYSCALL.CREATE;
 			artifactIdentifier = resolvePath(pathRecord, eventData, syscall);
@@ -1655,6 +1697,7 @@ public class Audit extends AbstractReporter {
 				//everything happened successfully. add it to descriptors
 				FileDescriptor fileDescriptor = new FileDescriptor(artifactIdentifier, openedForRead);
 				processManager.setFd(pid, fd, fileDescriptor);
+				processManager.setFdCloseOnExec(pid, fd, platformConstants.testForOpenFlagCloseOnExec(flagsInt));
 
 				putEdge(edge, getOperation(syscall), eventTime, eventId, AUDIT_SYSCALL_SOURCE);
 			}
@@ -1665,10 +1708,52 @@ public class Audit extends AbstractReporter {
 		// close() receives the following message(s):
 		// - SYSCALL
 		// - EOE
-		String pid = eventData.get(AuditEventReader.PID);
 		String fd = String.valueOf(HelperFunctions.parseLong(eventData.get(AuditEventReader.ARG0), -1L));
+		closeFd(eventData, fd, true);
+	}
+
+	/**
+	 * close_range(first, last, flags) closes the process's descriptors from first to last, or with
+	 * CLOSE_RANGE_CLOEXEC marks them close-on-exec, in a table of its own with CLOSE_RANGE_UNSHARE.
+	 * Each closed descriptor ends as with close.
+	 */
+	private void handleCloseRange(Map<String, String> eventData){
+		final String pid = eventData.get(AuditEventReader.PID);
+		final long first = unsigned32(HelperFunctions.parseLong(eventData.get(AuditEventReader.ARG0), -1L));
+		final long last = unsigned32(HelperFunctions.parseLong(eventData.get(AuditEventReader.ARG1), -1L));
+		final long flags = HelperFunctions.parseLong(eventData.get(AuditEventReader.ARG2), 0L);
+		if(platformConstants.testForCloseRangeUnshare(flags)){
+			processManager.unshareFds(pid);
+		}
+		final boolean closeOnExec = platformConstants.testForCloseRangeCloseOnExec(flags);
+		for(final String fd : processManager.getFdNumbers(pid)){
+			final long number = HelperFunctions.parseLong(fd, -1L);
+			if(number < first || number > last){
+				continue;
+			}
+			if(closeOnExec){
+				processManager.setFdCloseOnExec(pid, fd, true);
+			}else{
+				closeFd(eventData, fd, false);
+			}
+		}
+	}
+
+	/** An unsigned int argument the audit record's hex made negative, e.g. close_range's ~0U. */
+	private static long unsigned32(final long value){
+		return value < 0 ? value & 0xffffffffL : value;
+	}
+
+	/**
+	 * Ends the process's descriptor fd: removes it and draws the close edge.
+	 *
+	 * @param reportUnknown whether to log a descriptor SPADE does not know (close names one;
+	 *                      close_range only the ones it knows)
+	 */
+	private void closeFd(Map<String, String> eventData, String fd, boolean reportUnknown){
+		String pid = eventData.get(AuditEventReader.PID);
 		FileDescriptor closedFileDescriptor = processManager.removeFd(pid, fd);
-		
+
 		if(auditConfiguration.isControl()){
 			SYSCALL syscall = SYSCALL.CLOSE;
 			String time = eventData.get(AuditEventReader.TIME);
@@ -1694,7 +1779,7 @@ public class Audit extends AbstractReporter {
 				if(isUdp(closedFileDescriptor.identifier)){
 					artifactManager.artifactCreated(closedFileDescriptor.identifier);
 				}
-			}else{
+			}else if(reportUnknown){
 				log(Level.INFO, "No FD with number '"+fd+"' for pid '"+pid+"'", null, time, eventId, syscall);
 			}
 		}
@@ -1757,6 +1842,18 @@ public class Audit extends AbstractReporter {
 				fileDescriptor = addUnknownFd(pid, fd);
 			}
 			processManager.setFd(pid, newFD, fileDescriptor);
+			// The new number is close-on-exec only by dup3's O_CLOEXEC or fcntl's F_DUPFD_CLOEXEC.
+			final boolean closeOnExec;
+			if(syscall == SYSCALL.DUP3){
+				closeOnExec = platformConstants.testForOpenFlagCloseOnExec(
+						HelperFunctions.parseLong(eventData.get(AuditEventReader.ARG2), 0L));
+			}else if(syscall == SYSCALL.FCNTL){
+				closeOnExec = platformConstants.isCloseOnExecDuplicateInFcntl(
+						HelperFunctions.parseLong(eventData.get(AuditEventReader.ARG1), -1L));
+			}else{
+				closeOnExec = false;
+			}
+			processManager.setFdCloseOnExec(pid, newFD, closeOnExec);
 		}
 	}
 	
@@ -2256,6 +2353,10 @@ public class Audit extends AbstractReporter {
 		if(fdIdentifier != null){
 			processManager.setFd(pid, fd0, new FileDescriptor(fdIdentifier, false));
 			processManager.setFd(pid, fd1, new FileDescriptor(fdIdentifier, false));
+			final boolean closeOnExec = platformConstants.testForSocketFlagCloseOnExec(
+					HelperFunctions.parseLong(sockTypeString, 0L));
+			processManager.setFdCloseOnExec(pid, fd0, closeOnExec);
+			processManager.setFdCloseOnExec(pid, fd1, closeOnExec);
 			
 			artifactManager.artifactCreated(fdIdentifier);
 		}
@@ -2274,6 +2375,12 @@ public class Audit extends AbstractReporter {
 		ArtifactIdentifier writePipeIdentifier = new UnnamedPipeIdentifier(fdTgid, fd0, fd1);
 		processManager.setFd(pid, fd0, new FileDescriptor(readPipeIdentifier, true));
 		processManager.setFd(pid, fd1, new FileDescriptor(writePipeIdentifier, false));
+		if(syscall == SYSCALL.PIPE2){
+			final boolean closeOnExec = platformConstants.testForOpenFlagCloseOnExec(
+					HelperFunctions.parseLong(eventData.get(AuditEventReader.ARG1), 0L));
+			processManager.setFdCloseOnExec(pid, fd0, closeOnExec);
+			processManager.setFdCloseOnExec(pid, fd1, closeOnExec);
+		}
 
 		// Since both (read, and write) pipe identifiers are the same, only need to mark epoch on one.
 		artifactManager.artifactCreated(readPipeIdentifier);
@@ -2336,6 +2443,8 @@ public class Audit extends AbstractReporter {
 			NetworkSocketIdentifier identifierForProtocol = new NetworkSocketIdentifier(
 					null, null, null, null, protocolName, getNetworkNamespaceForPid(eventData.get(AuditEventReader.PID)));
 			processManager.setFd(pid, sockFd, new FileDescriptor(identifierForProtocol, null)); // no close edge
+			processManager.setFdCloseOnExec(pid, sockFd,
+					socketType != null && platformConstants.testForSocketFlagCloseOnExec(socketType));
 		}
 	}
 	
