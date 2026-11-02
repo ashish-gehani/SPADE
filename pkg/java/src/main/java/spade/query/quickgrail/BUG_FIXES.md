@@ -4,7 +4,7 @@ The QuickGrail container methods, `getContainerInit` and
 `getContainerBoundary` (branch `clarity-of-container`, `CLARITY_METHODS.md`
 beside this file), were checked against the audit kernel module and against
 real traces. That turned up bugs in the kernel module, the audit bridge, the
-Audit reporter and both storages it was first run with. Branch `bug-fixes` holds their fixes, on top of upstream
+Audit reporter and all three storages. Branch `bug-fixes` holds their fixes, on top of upstream
 `prov-query` (`6b744f7c`), and `clarity-of-container` is rebased onto it. This
 file describes every fix on the branch: what went wrong, why, what changed,
 how it was checked, and what it means for traces recorded before it.
@@ -27,6 +27,10 @@ Paths are relative to the repository root. The kernel module is
 | F8 | audit bridge | auditd's af_unix plugin silently dropped events whenever SPADE fell behind | `b457bb46`, `41afaf09` | a real trace: auditd's log against SPADE's input |
 | F9 | kernel module, Audit reporter | processes and threads created with clone3 had no creation record | `cea5d23c`, `e09693b6`, `1b55e895` | in-kernel unit tests; `test/ns-pid/clone3-test.sh`; unit tests |
 | F10 | Audit reporter | `netfilterHooksLogCT=false` logged every packet instead of only new connections | `3bbb7352` | unit test |
+| F11 | Audit reporter | a thread's exit ended its whole process's state, so multi-threaded processes split into thousands of unlabeled versions | `d997414e` | unit test; trace 3 replayed |
+| F12 | Quickstep storage | every new vertex cost a query that scanned the whole vertex table | `d0d1cf7e` | trace 3 replayed |
+| F13 | Audit reporter | settings and bridge messages that mean lost records went unnoticed | `c3b8eaa0` | unit test |
+| F14 | Audit reporter | the netfilter hooks' tables had no indexes, so every packet record scanned them | `583ec2d7` | trace 3 replayed |
 
 `test/...` is `pkg/linux/kernel_modules/test/...`. All checks ran on Ubuntu
 24.04.3 with Linux 6.8.0-146-generic in VirtualBox, with Docker 29.0.0 and runc
@@ -399,21 +403,137 @@ slow to record.
 **Files.** `reporter/audit/KernelModuleArgument.java`; test
 `pkg/java/src/test/java/spade/reporter/audit/KernelModuleArgumentTest.java`.
 
+## F11. A thread's exit ends only that thread
+
+**Symptom.** In trace 3 the boundaries of the multi-threaded services held
+thousands of versions of their own main process labeled `-1`, first seen
+with a `seen time`: 4,663 in cast-info-service's, 2,013 in movie-id-service's.
+Each of movie-id-service's 2,013 followed one of its 3,963 thread exits, by
+12 ms in the median.
+
+**Cause.** audit records a syscall's `pid=` as the thread group id, so the
+`exit` (60) of any thread names the process. `ProcessManager.handleExit`
+took the record's pid for the thread that exited: while other threads of
+the group remained, it removed that pid's state with
+`removeProcessUnitState`, which is the group leader's. The process's next
+syscall found no state and created a new process vertex, first seen and
+without namespaces. `removeProcessUnitState` also drops the process's file
+descriptors, so later operations on them found no artifact ("No FD with
+number ...") and drew no edge.
+
+**Fix.** An exit ends the named state only when the group has no other known
+thread, or when the record names a known thread of the group by its own id
+(`ProcessManager.exitEndsState`). Otherwise the record names the group, the
+thread that exited is unknown, and every state stays until `exit_group`. A
+pid reused by a new process drops the thread group kept under it.
+
+**Checked.** `ThreadExitTest`. Trace 3 replayed with the fix (the reporter
+reads the input it read live; `test/query/container/replay.sh` on
+`clarity-of-container`): no boundary holds an unlabeled version of its own
+processes, where the live trace's held 9,564, and every expectation holds as
+live (TRACE_VALIDATION.md, trace 3 replayed). The graph has 23,317 fewer
+vertices and 22,578 more edges: SPADE knew the descriptor in 21,216 more
+`close` calls (30,881 unknown live, 9,665 in the replay), and the second runs
+of 8 multi-threaded services hold 144 more sockets.
+
+**Older traces.** Multi-threaded processes appear as many first-seen
+versions with `-1` labels, and some operations on their descriptors are
+missing. The container methods leave such versions out of the members
+(CLARITY_METHODS.md D5).
+
+**Files.** `reporter/audit/process/ProcessManager.java`; test
+`pkg/java/src/test/java/spade/reporter/audit/process/ThreadExitTest.java`.
+
+## F12. The Quickstep storage looks up a batch's vertices in one query
+
+**Symptom.** Storing trace 3 slowed down as the graph grew: SPADE stored
+about 2,700 events a second at first and 250 to 300 after 45 minutes, with
+Quickstep using three CPUs, and needed 67 minutes after the workload ended.
+
+**Cause.** `processBatch` asks `getVertexId` for every vertex of a batch and
+both ends of every edge. A vertex in neither the short-lived map nor the
+Deduplicate screen's cache cost a query, `copy select id from vertex where
+md5='...'`, which scans the whole vertex table, and a new vertex is never in
+the cache.
+
+**Fix.** The batch's unknown hashes go into a temporary table, and one query
+returns the ids of those already stored; `getVertexId` knows the rest are
+not stored. If that query fails, `getVertexId` queries per vertex as before.
+
+**Checked.** Trace 3 replayed: Quickstep used 8% to 15% of a CPU instead of
+300%, never fell back to a query per vertex, and the three storages hold
+the same graph (753,993 vertices, 2,105,655 edges). With F14 as well, the
+storages had all of trace 3 6.6 minutes after the replay started; after the
+live trace they needed 67 minutes.
+
+**Files.** `storage/Quickstep.java`.
+
+## F13. The Audit reporter warns when records may be lost
+
+Not a fix of the losses themselves, which happen outside SPADE (N14, N15),
+but of their going unnoticed:
+
+- The bridge's reports of missing serial numbers and of data dropped from
+  its queue are logged as WARNING when the count is not zero. At INFO they
+  went unnoticed, and they were what showed N14.
+- In live mode the reporter warns when the kernel was not booted with
+  `audit=1` (from `/proc/cmdline`), since the kernel then drops records
+  auditd falls behind on without counting them (N14).
+- The reporter warns, once, when its records come with auditd's ENRICHED
+  names, since auditd then looks up every unknown uid again for every
+  record (N15). SPADE's user cannot read `auditd.conf`, so the records tell.
+
+**Checked.** `AuditCompletenessTest`. A live Audit reporter on the VM of
+the traces (kernel without `audit=1`, auditd with ENRICHED) logged the
+kernel warning when it was added and the ENRICHED warning once, with the
+first such records.
+
+**Files.** `reporter/audit/AuditCompleteness.java` (new),
+`reporter/Audit.java`, `reporter/audit/AuditEventReader.java`; test
+`pkg/java/src/test/java/spade/reporter/audit/AuditCompletenessTest.java`.
+
+## F14. The netfilter hooks' tables are indexed
+
+**Symptom.** Replaying trace 3 with F11 and F12, the reporter's thread was
+the bottleneck, and every sample of its stack was in an H2 query of
+`NetfilterHooksManager`; the replay needed 36 minutes.
+
+**Cause.** `NetfilterHooksManager` keeps each hook's packets in an in-memory
+H2 table and finds a packet's earlier hooks, and a syscall's connection,
+with queries on columns that had no index; rows are updated and deleted by
+a row id that is not a key. Each table holds up to `maxPerHookEntries`
+rows (65,536) before old ones expire, so every netfilter record scanned up
+to 65,536 rows, several times.
+
+**Fix.** Indexes on the row id, the event time, the skb id and the ports the
+lookups use.
+
+**Checked.** Trace 3 replayed with F14: the reporter handled the 2.49
+million events in 190 s instead of 2,167 s, although it handled more of
+them (the replay without F14 had also left out the module's network
+records, N20). The hook tables' counts match the live trace's exactly
+(79,831 pre-routing and local-in rows, 103,026 post-routing, 68,503
+expired); the syscall table got 90 more rows, probably network syscalls on
+descriptors that F11 keeps.
+
+**Files.** `reporter/audit/NetfilterHooksManager.java`.
+
 ## Running the checks
 
 | Check | How | Needs |
 |---|---|---|
-| Java unit tests (F4, F5, F9, F10) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,PostgreSQLTest,Clone3FlagsTest,KernelModuleArgumentTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
+| Java unit tests (F4, F5, F9, F10, F11, F13) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,PostgreSQLTest,Clone3FlagsTest,KernelModuleArgumentTest,ThreadExitTest,AuditCompletenessTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
 | In-kernel tests (F7, F9) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
 | ns pid A/B (F1, F2, F7) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
 | netfilter (F3) | `pkg/linux/kernel_modules/test/netfilter-atomic/README.md` | a disposable VM: without the fix it freezes |
 | bridge (F8) | compare auditd's log with the reporter's `outputLog` over a trace, by serial number and, within each event, by record type (N17); the bridge's own count of missing serials is in SPADE's log | auditd writing its log, enough log rotation to keep the trace |
+| replay (F11, F12, F14) | `test/query/container/replay.sh 3` on `clarity-of-container`, then its queries and `check-media.py` | a recorded trace 3 and the VM it was recorded in |
 
 ## Noticed, not changed
 
-These came up during the same work and are left for the maintainers. Only
-N18 changes what the container methods return on the traces checked
-(TRACE_VALIDATION.md, trace 3).
+These came up during the same work. Those not fixed are left for the
+maintainers. N18, fixed as F11, was the only one that changed what the
+container methods return on the traces checked (TRACE_VALIDATION.md, trace 3).
 
 | # | Component | What |
 |---|---|---|
@@ -429,11 +549,12 @@ N18 changes what the container methods return on the traces checked
 | N11 | Audit reporter | The audit rules leave out the user SPADE runs as with `-F uid!=<uid>`, which compares the real uid. sudo keeps the caller's real uid, so a process sudo forks for that user is not recorded as created: it first appears in its own later syscalls, with `-1` namespace labels. An unshare(CLONE_NEWPID) by such a process counts as joining, not creating (CLARITY_METHODS.md L3). |
 | N12 | Neo4j storage | The thread `db-pending-task-runner` (`Neo4j.java`, its pending-task loop) uses a whole CPU even when idle: 435 s of CPU in 439 s. |
 | N13 | Quickstep storage | Queries do not flush the batch being filled, which the storage sends only when it is full or its timer fires (`batchTimeIntervalInSeconds`, 180 s by default), so a query can miss the last minutes of a trace. PostgreSQL flushes before every query. |
-| N14 | Linux audit | Unless the kernel was booted with `audit=1`, records that `kauditd` fails to hand to auditd are dropped without being counted in `lost`. It waits 0.1 s for room in auditd's netlink socket, whose receive buffer is `net.core.rmem_default` when auditd starts (212,992 bytes; auditd has no setting for it), then gives up on the rest of its queue, and `kauditd_hold_skb` frees what fails again (`if (!audit_default) goto drop;`, `kernel/audit.c`, Linux 6.8). Under the media microservices this lost 289,000 to 599,000 events per trace attempt, in gaps of up to 184,343 serial numbers, which only the bridge's count of missing serial numbers (F8) showed. Restarting auditd while `rmem_default` is larger gives its socket room for bursts; booting with `audit=1` makes the kernel hold such records and count those it must drop. |
-| N15 | auditd | With `log_format = ENRICHED` (Ubuntu's default), auditd (3.1.2) looks up the name of each uid and gid in each record through NSS and does not remember a failed lookup. Containers that run as uids the host does not know therefore cost it file opens and socket connections for every event: for 2,000 events of a process running as uid 11211, 12,858 `openat` and 839 `connect` calls, against none for a known uid or with `log_format = RAW`. With `nss-systemd`, `systemd` answers each lookup, and the Audit reporter records those answers as further events. It made auditd too slow for the media microservices (TRACE_VALIDATION.md, trace 3). The Audit reporter reads only the raw fields, so `log_format = RAW` loses it nothing. |
-| N16 | Quickstep storage | Storing slows down as the graph grows. `processBatch` calls `getVertexId` for every vertex of a batch, and a vertex that is not in the Deduplicate screen's cache costs a query, `copy select id from vertex where md5='...'`, which scans the whole vertex table. A new vertex is never in the cache yet, so each one costs a scan. On trace 3 (2.49 million events, three storages), SPADE stored about 2,700 events a second in its first minutes, and 250 to 300 after 45 minutes, with Quickstep using three CPUs. |
+| N14 | Linux audit | Unless the kernel was booted with `audit=1`, records that `kauditd` fails to hand to auditd are dropped without being counted in `lost`. It waits 0.1 s for room in auditd's netlink socket, whose receive buffer is `net.core.rmem_default` when auditd starts (212,992 bytes; auditd has no setting for it), then gives up on the rest of its queue, and `kauditd_hold_skb` frees what fails again (`if (!audit_default) goto drop;`, `kernel/audit.c`, Linux 6.8). Under the media microservices this lost 289,000 to 599,000 events per trace attempt, in gaps of up to 184,343 serial numbers, which only the bridge's count of missing serial numbers (F8) showed. Restarting auditd while `rmem_default` is larger gives its socket room for bursts; booting with `audit=1` makes the kernel hold such records and count those it must drop. The Audit reporter warns about it at start (F13). |
+| N15 | auditd | With `log_format = ENRICHED` (Ubuntu's default), auditd (3.1.2) looks up the name of each uid and gid in each record through NSS and does not remember a failed lookup. Containers that run as uids the host does not know therefore cost it file opens and socket connections for every event: for 2,000 events of a process running as uid 11211, 12,858 `openat` and 839 `connect` calls, against none for a known uid or with `log_format = RAW`. With `nss-systemd`, `systemd` answers each lookup, and the Audit reporter records those answers as further events. It made auditd too slow for the media microservices (TRACE_VALIDATION.md, trace 3). The Audit reporter reads only the raw fields, so `log_format = RAW` loses it nothing. The Audit reporter warns when it reads such records (F13). |
+| N16 | Quickstep storage | Fixed: F12. Storing slowed down as the graph grew, a scan of the vertex table for every new vertex. |
 | N17 | auditd | auditd's queue to its plugins (`q_depth`, 2,000 by default) drops a record when it stays full for about 8 ms (`enqueue` in `audisp/queue.c`, audit 3.1.2: four tries 2 ms apart), and reports only the first five drops of each run ("queue to plugins is full - dropping event"). A record dropped from an event leaves the event's serial number in place, so the bridge's count of missing serial numbers (F8) does not see it. In trace 3, three records were dropped this way, two of them SYSCALL records (TRACE_VALIDATION.md); comparing auditd's log with the reporter's `outputLog` record by record finds them. A larger `q_depth` gives the plugins more room. |
-| N18 | Audit reporter | A thread's exit is taken for its process's exit. audit records a syscall's `pid=` as the thread group id, so the `exit` (60) of any thread names the process. `ProcessManager.handleExit` then removes that process's state (`removeProcessUnitState(pid)` when other threads remain), and the process's next syscall creates a new process vertex as first seen, with `-1` namespace labels and a `seen time`. In trace 3, every one of the 2,013 such versions of movie-id-service's main process followed one of its 3,963 thread exits, by 12 ms in the median; the multi-threaded services' boundaries hold thousands of them (4,663 for cast-info-service). The methods leave `-1` processes out of the members (CLARITY_METHODS.md D5), but each such version starts the next threads, which are members, so the boundary holds it as their neighbour. Keeping the state on `exit` while other threads of the group remain would avoid it; the record does not say which thread exited. |
+| N18 | Audit reporter | Fixed: F11. A thread's exit was taken for its process's exit. |
+| N20 | Audit reporter | In playback, unless `handleLocalEndpoints` is given, the reporter decides from the first network event in the log whether to use the kernel module's network records: a network SYSCALL record first means no, for the whole log. A log recorded live with the module (`localEndpoints=true`) can start that way, as trace 3's does, and its replay then silently loses every socket the module recorded: trace 3's boundaries held 72,139 live and none in the replay. Passing `handleLocalEndpoints` as the live run had it avoids it (`replay.sh` reads it from the live run's SPADE log). |
 
 ## Open
 
