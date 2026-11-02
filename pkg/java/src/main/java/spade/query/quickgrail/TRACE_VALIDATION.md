@@ -464,9 +464,10 @@ container's init host PID and PID namespace from `docker inspect` and
 
 ### Results
 
-All results below come from the final build: `bug-fixes` with F1 to F10
+The three traces were recorded with `bug-fixes` at F1 to F10
 (`BUG_FIXES.md`) and the container methods on top, the kernel module with
-F7 and F9, three storages attached, and every query run on each. Each trace
+F7 and F9, and three storages attached; the replay of trace 3 at the end
+used the build with F11 to F14 as well. Each trace
 passed the completeness checks: the kernel's `lost` counter did not move,
 and every event auditd logged reached the reporter. In trace 3, two records
 of two events did not (Trace 3 below says which, and what they changed).
@@ -660,7 +661,7 @@ ground truth.
 |---|---|
 | M1: one start per container, 33 in all, whose init is the one Docker names | Held per run: 46 starts for the 46 runs, each with the init the kernel recorded (host PID and namespace). The expectation said 33 because it did not foresee restarts. The starts overlap in time (33 inits within 2.4 s, all 46 within 10.2 s), and each went to its own namespace. |
 | M2: each boundary holds every process the sampler saw in X, and no process of another container | Held: none of the 50 sampled processes is missing from its run's boundary, and no boundary holds a process labeled with another run's namespace. |
-| M2: the only host neighbours are the runc processes that created or entered the container | Held: each of the 46 boundaries has exactly one host neighbour, the `runc:[0:PARENT]` whose clone made the init, found by the creation edge (runc creates the init with `CLONE_PARENT`, so its `ppid` names another runc process). Nothing entered a container. Not foreseen: the boundaries of the multi-threaded services also hold many versions of their own main process labeled `-1`, which the reporter creates after each thread exit (BUG_FIXES.md N18): 4,663 for cast-info-service, 2,013 for movie-id-service, 1,000 for user-service, 651 for compose-review-service, 643 for rating-service, 299 for movie-info-service, 267 for plot-service, 3 for each MongoDB. The methods leave `-1` processes out of the members (D5); these come in as neighbours of the threads they start. |
+| M2: the only host neighbours are the runc processes that created or entered the container | Held: each of the 46 boundaries has exactly one host neighbour, the `runc:[0:PARENT]` whose clone made the init, found by the creation edge (runc creates the init with `CLONE_PARENT`, so its `ppid` names another runc process). Nothing entered a container. Not foreseen: the boundaries of the multi-threaded services also hold many versions of their own main process labeled `-1`, which the reporter created after each thread exit (BUG_FIXES.md N18, fixed as F11; the replay below has none): 4,663 for cast-info-service, 2,013 for movie-id-service, 1,000 for user-service, 651 for compose-review-service, 643 for rating-service, 299 for movie-info-service, 267 for plot-service, 3 for each MongoDB. The methods leave `-1` processes out of the members (D5); these come in as neighbours of the threads they start. |
 | M2: no ID is used twice, so no numbered list | Did not hold, and the numbered list worked: `('4026532470')` fails with "PID namespace 4026532470 belonged to 2 containers in this trace, since the kernel reuses IDs", listing both runs with their start times and host PIDs, and `('4026532470', 1)` and `('4026532470', 2)` each hold exactly their run's processes. |
 | M3: the services' network sockets reach their boundaries | Held: 46,760 sockets in nginx's boundary, 18,364 in cast-info-service's, 2,075 in movie-id-service's, 1,130 in movie-info-service's, 1,049 in plot-service's, 1,033 in user-service's, 716 in compose-review-service's; each first run that ended at once holds 8. Jaeger's boundary has none. |
 | M4: all three storages return the same results | Held for the 12 queries all three ran: the same vertices and edges for the 11 graphs (from 199 vertices for `getContainerInit()` to 163,255 for `getContainerBoundary()`), and the same numbered-list error. |
@@ -693,3 +694,51 @@ prompt (`times.tsv`). The 46 boundaries have 206 to 73,590 vertices (median
 On Neo4j a boundary takes about as long whatever its size (210 s to 237 s,
 for boundaries of 216 to 41,644 vertices), which points at a fixed cost per
 query, such as a scan of all processes for a namespace label.
+
+#### Trace 3 replayed with F11 to F14
+
+Trace 3 led to four more fixes on `bug-fixes` (BUG_FIXES.md): F11, a
+thread's exit no longer ends its process's state (the unlabeled versions
+above); F12, the Quickstep storage looks up a batch's vertices in one query;
+F13, warnings for settings and bridge messages that mean lost records; F14,
+indexes on the netfilter hooks' tables. To check them without recording
+again, `replay.sh` stored trace 3 a second time, into fresh storages, from
+the input the reporter read live (`spade-input.log`), with the trace's
+arguments and `handleLocalEndpoints=true` as live. Without that, playback
+leaves out the kernel module's network records (BUG_FIXES.md N20): a first
+replay had no sockets at all. The replay used the build with all four fixes
+(`583ec2d7`), and the same queries ran on it (`query.sh 3r`, `TRACE=3r
+query-trace3.sh`, with Neo4j and Quickstep on the same 12).
+
+| | Live trace | Replay with F11 to F14 |
+|---|---|---|
+| Input | the reporter read 2,489,681 events, 4,143,400 records (auditd dropped 2) | the reporter's live input, all of it read |
+| Graph | 777,310 vertices, 2,083,077 edges | 753,993 vertices, 2,105,655 edges |
+| Unlabeled versions of a boundary's own processes | 9,564 | none |
+| `close` calls on a descriptor SPADE did not know | 30,881 | 9,665 |
+| Sockets in the 46 boundaries | 72,139 | 72,283: more in the second runs of 8 multi-threaded services, from +1 (text-service) to +105 (cast-info-service) |
+| M1 | 46 starts | the same |
+| M2 | none of 50 missing; the init's creator the only host neighbour | the same |
+| M4 | the same on the 12 queries all three ran | the same on the same 12: 11 graphs and the numbered-list error |
+| Storing | 67 minutes after the workload ended | the reporter handled the input in 190 s; the storages had all of it 6.6 minutes after the replay started (PostgreSQL's last batch went out with the first query) |
+
+So F11 removes the unlabeled versions and gives the multi-threaded services
+back the operations on their descriptors that the live trace lost, with
+every expectation still holding. Of the 23,317 fewer vertices, 9,564 were
+the unlabeled versions in the boundaries; the others are in no boundary,
+and with the live graph gone they were not examined further. A replay is
+not a recording: the containers did the same, but the storing ran without
+the workload beside it.
+
+Query times on the replay, in seconds as in M5:
+
+| Query | PostgreSQL | Neo4j | Quickstep |
+|---|---|---|---|
+| `getContainerInit()` | 21.3 | 315.7 | 5.5 |
+| `getContainerBoundary()` | 21.8 | 132.6 | 1.5 |
+| `getContainerBoundary('X')` and `('X', n)`: shortest, median, longest | 15.9, 17.9, 36.1 (46) | 219.6, 230.5, 264.1 (9) | 3.4, 3.6, 4.4 (9) |
+
+PostgreSQL and Neo4j take as long as on the live trace (PostgreSQL's
+longest boundary ran beside another query on the same database).
+Quickstep answers three to four times faster than on the live trace; why
+was not examined.
