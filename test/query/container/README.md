@@ -44,7 +44,7 @@ __Steps__:
 * For trace 3, `./query.sh 3` runs on PostgreSQL only (`STORAGES=PostgreSQL`),
   then `./query-trace3.sh` adds the runs Docker could not name (they ended at
   once) and the reused IDs, and runs a subset on Neo4j and Quickstep, where
-  a Neo4j boundary takes minutes.
+  a Neo4j boundary takes minutes; `SUBSET=0` leaves that subset out.
 * `./replay.sh <N>` stores a recorded trace again, into fresh storages, from
   the input the reporter read live (`spade-input.log`), as `trace<N>r`, with
   the trace's ground truth linked next to it. It checks reporter and storage
@@ -73,6 +73,7 @@ __Files__:
 | `dotsum.py` | Summarizes a `.dot` export; used by the checkers |
 | `fdcheck.py` | B12: the reporter's warnings about descriptors it does not know, by process and syscall |
 | `nofd.py` | B12: which of those descriptors were created by a recorded syscall (a gap in SPADE) and which by one the rules leave out, and what the reporter logged at the creation |
+| `f23check.sh` | F23: replays a trace's input into Quickstep alone, at its default batch interval, and asks for the counts as soon as the input is read |
 | `f17check.py` | B13: whether every execve after an unshare or setns gives a version with the namespace step's labels (in PostgreSQL) |
 | `compare-input.py` | Compares auditd's log with everything the Audit reporter read, by serial number and, within each event, by record type |
 | `cgroup-sampler.py` | Traces 3 and 4's ground truth: which processes ran in which container, from `/proc/<pid>/cgroup` |
@@ -102,6 +103,13 @@ __Things that silently spoil a trace__ (each is handled by `trace.sh`):
   two records this way.
 * udev's and PostgreSQL's own activity floods the audit stream; they are left
   out with `ignoreProcesses` and `ignoreParentProcesses`.
-* A process that `sudo` forks for SPADE's own user is not recorded as created;
-  run such commands through `sudo sh -c '...'`.
+* Without BUG_FIXES.md F18, a process that `sudo` forks for SPADE's own user
+  is not recorded as created; run such commands through `sudo sh -c '...'`.
+* Removing the main kernel module (`rmmod spade_audit`) crashes every thread
+  then in one of its hooked system calls (BUG_FIXES.md N22). The Quickstep
+  server lost its accept thread that way, twice, and the Quickstep storage
+  then waited for ever. Never remove it while processes run; reboot to load a
+  rebuilt module (the reporter warns when the loaded one is another build).
+  `trace.sh` and `replay.sh` check that every storage answers with the same
+  counts.
 * Do not edit `trace.sh` while it runs: bash reads a script as it goes.
