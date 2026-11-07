@@ -25,7 +25,10 @@
 #include <linux/netfilter_ipv4.h>
 #include <linux/net_namespace.h>
 #include <net/net_namespace.h>
+#include <net/inet_sock.h>
+#include <net/addrconf.h>
 #include <linux/inetdevice.h>
+#include <linux/ipv6.h>
 
 #if IS_ENABLED(CONFIG_NF_CONNTRACK)
 #include <net/netfilter/nf_conntrack.h>

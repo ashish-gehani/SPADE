@@ -22,6 +22,9 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/string.h>
+#if __has_include(<linux/hex.h>)
+#include <linux/hex.h>
+#endif
 
 #include "audit/msg/common/serialize/audit.h"
 #include "audit/util/seqbuf/seqbuf.h"
