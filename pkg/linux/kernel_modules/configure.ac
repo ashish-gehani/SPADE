@@ -35,14 +35,17 @@ AC_SUBST([KERNEL_MODULE_TARGET])
 kernel_ver=`uname -r`
 kernel_major=`echo "${kernel_ver}" | cut -d. -f1`
 kernel_minor=`echo "${kernel_ver}" | cut -d. -f2`
+kernel_patch=`echo "${kernel_ver}" | cut -d. -f3 | sed 's/[[^0-9]].*$//'`
 kver_in_range=no
 if test "${kernel_major}" -eq 5 2>/dev/null && test "${kernel_minor}" -ge 4 2>/dev/null; then
     kver_in_range=yes
-elif test "${kernel_major}" -eq 6 2>/dev/null && test "${kernel_minor}" -le 17 2>/dev/null; then
+elif test "${kernel_major}" -eq 6 2>/dev/null; then
+    kver_in_range=yes
+elif test "${kernel_major}" -eq 7 2>/dev/null && test "${kernel_minor}" -eq 0 2>/dev/null && test "${kernel_patch}" -eq 0 2>/dev/null; then
     kver_in_range=yes
 fi
 if test "x${kver_in_range}" = "xno"; then
-    AC_MSG_WARN([kernel ${kernel_major}.${kernel_minor} is outside supported range @<:@5.4, 6.17@:>@])
+    AC_MSG_WARN([kernel ${kernel_ver} is outside supported range @<:@5.4, 7.0.0@:>@])
 fi
 
 arch=`uname -m`
