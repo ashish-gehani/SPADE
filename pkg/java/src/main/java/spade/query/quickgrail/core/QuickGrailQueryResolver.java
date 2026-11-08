@@ -23,7 +23,6 @@ import java.io.Serializable;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Map;
 
 import spade.core.AbstractTransformer;
 import spade.core.Settings;
@@ -43,8 +42,6 @@ import spade.query.quickgrail.instruction.EraseSymbols;
 import spade.query.quickgrail.instruction.EvaluateQuery;
 import spade.query.quickgrail.instruction.ExportGraph;
 import spade.query.quickgrail.instruction.GetAdjacentVertex;
-import spade.query.quickgrail.instruction.GetContainerBoundary;
-import spade.query.quickgrail.instruction.GetContainerInit;
 import spade.query.quickgrail.instruction.GetEdge;
 import spade.query.quickgrail.instruction.GetEdgeEndpoint;
 import spade.query.quickgrail.instruction.GetGraphStatistic;
@@ -89,8 +86,6 @@ import spade.query.quickgrail.types.TypeID;
 import spade.query.quickgrail.types.TypedValue;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree;
 import spade.query.quickgrail.utility.QuickGrailPredicateTree.PredicateNode;
-import spade.reporter.Audit;
-import spade.reporter.audit.LinuxConstants;
 import spade.utility.FileUtility;
 import spade.utility.HelperFunctions;
 import spade.utility.Result;
@@ -927,10 +922,6 @@ public class QuickGrailQueryResolver{
 			return resolveLimit(subject, arguments, ToGraph(outputEntity));
 		case "getMatch":
 			return resolveGetMatch(subject, arguments, ToGraph(outputEntity));
-		case "getContainerBoundary":
-			return resolveGetContainerBoundary(subject, arguments, ToGraph(outputEntity));
-		case "getContainerInit":
-			return resolveGetContainerInit(subject, arguments, ToGraph(outputEntity));
 		case "sample":
 			return resolveGetRandomSampleBoth(subject, arguments, ToGraph(outputEntity));
 		case "vertexSample":
@@ -1433,77 +1424,6 @@ public class QuickGrailQueryResolver{
 		Graph sourceGraph = resolveGraphExpression(arguments.get(0), null, true);
 		instructions.add(new GetSubgraph(outputGraph, sourceGraph, subjectGraph));
 		return outputGraph;
-	}
-
-	private Graph resolveGetContainerBoundary(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
-		if(arguments.size() > 2){
-			throw new RuntimeException("Invalid number of arguments for getContainerBoundary: expected 0, 1 or 2");
-		}
-
-		Graph seedGraph = null;
-		String pidNamespaceId = null;
-		Integer containerNumber = null;
-		if(arguments.size() == 1 && arguments.get(0).getExpressionType() != ParseExpression.ExpressionType.kLiteral){
-			seedGraph = resolveGraphExpression(arguments.get(0), null, true);
-		}else if(arguments.size() > 0){
-			pidNamespaceId = QueryResolverHelper.resolveString(arguments.get(0));
-			if(HelperFunctions.isNullOrEmpty(pidNamespaceId)){
-				throw new RuntimeException("Invalid blank/null PID namespace id at "
-						+ arguments.get(0).getLocationString());
-			}
-			if(arguments.size() == 2){
-				containerNumber = QueryResolverHelper.resolveInteger(arguments.get(1));
-				if(containerNumber < 1){
-					throw new RuntimeException("Invalid container number at " + arguments.get(1).getLocationString()
-							+ ": expected 1 or more");
-				}
-			}
-		}
-
-		final String hostPidNamespace = resolveHostPidNamespace();
-
-		if(outputGraph == null){
-			outputGraph = allocateEmptyGraph();
-		}
-
-		if(seedGraph != null){
-			instructions.add(new GetContainerBoundary(outputGraph, subjectGraph, hostPidNamespace, seedGraph));
-		}else if(pidNamespaceId != null){
-			instructions.add(new GetContainerBoundary(outputGraph, subjectGraph, hostPidNamespace, pidNamespaceId,
-					containerNumber));
-		}else{
-			instructions.add(new GetContainerBoundary(outputGraph, subjectGraph, hostPidNamespace));
-		}
-		return outputGraph;
-	}
-
-	private Graph resolveGetContainerInit(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
-		if(arguments.size() > 0){
-			throw new RuntimeException("Invalid number of arguments for getContainerInit: expected 0");
-		}
-
-		if(outputGraph == null){
-			outputGraph = allocateEmptyGraph();
-		}
-
-		instructions.add(new GetContainerInit(outputGraph, subjectGraph, resolveHostPidNamespace()));
-		return outputGraph;
-	}
-
-	/**
-	 * The `pid namespace` value of host processes: the kernel's PROC_PID_INIT_INO, read from
-	 * the Linux constants file that the Audit reporter's 'constantsSource' setting points to.
-	 */
-	private static String resolveHostPidNamespace(){
-		final String auditConfigPath = Settings.getDefaultConfigFilePath(Audit.class);
-		try{
-			final Map<String, String> auditConfig = FileUtility.readConfigFileAsKeyValueMap(auditConfigPath, "=");
-			final LinuxConstants constants = LinuxConstants.instance(auditConfig, "constantsSource");
-			return String.valueOf(constants.getProcPidInitIno());
-		}catch(Exception e){
-			throw new RuntimeException("Failed to read PROC_PID_INIT_INO through 'constantsSource' in '"
-					+ auditConfigPath + "'", e);
-		}
 	}
 
 	private Graph resolveGetMatch(Graph subjectGraph, ArrayList<ParseExpression> arguments, Graph outputGraph){
