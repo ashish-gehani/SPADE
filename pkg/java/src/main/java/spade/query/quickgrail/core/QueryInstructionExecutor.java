@@ -84,6 +84,13 @@ public abstract class QueryInstructionExecutor{
 	/** Called before each query; a storage that buffers what it receives stores it here. */
 	public void beforeQuery(){}
 
+	/**
+	 * Waits until everything put into the storage so far is stored and visible to queries.
+	 * {@link #putGraph} calls it between putting a graph and looking up what it put. A storage
+	 * that stores in the background overrides it.
+	 */
+	public void waitUntilStored(){}
+
 	public abstract void collapseEdge(final Graph targetGraph, final Graph sourceGraph, final ArrayList<String> fields);
 
 	public abstract void createEmptyGraph(final Graph graph);
@@ -377,6 +384,8 @@ public abstract class QueryInstructionExecutor{
 		}
 
 		storage.flushTransactions(true);
+		// So that the lookup below finds every vertex and edge just put
+		waitUntilStored();
 
 		HelperFunctions.sleepSafe(50);
 

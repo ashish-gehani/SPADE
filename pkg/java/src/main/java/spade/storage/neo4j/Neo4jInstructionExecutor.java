@@ -83,6 +83,11 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
+	public void waitUntilStored(){
+		storage.waitForQueuedTasks(); // a query goes ahead of the puts still queued
+	}
+
+	@Override
 	public void insertLiteralEdge(Graph targetGraph, ArrayList<String> edges){
 		List<String> hashes = edges;
 		if(hashes == null || hashes.isEmpty()){
