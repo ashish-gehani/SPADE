@@ -361,17 +361,13 @@ public abstract class QueryInstructionExecutor{
 		insertVertexHashesInBatches(putGraphBatchSize, verticesGraph, graph);
 		insertEdgeHashesInBatches(putGraphBatchSize, edgesGraph, graph);
 
-		// Getting the vertices/edges that were assigned to variable 'targetGraph'
-		final spade.core.Graph vertexGraph = exportGraph(verticesGraph, true);
-		final spade.core.Graph edgeGraph = exportGraph(edgesGraph, true);
-
-		// Subtracting vertices in 'targetGraph' from 'graph' to get the vertices which
-		// are not in $base
+		// Subtracting the vertices and edges found in $base from 'graph' to get those which
+		// are not in $base, one export at a time: each takes gigabytes for a large graph
 		final spade.core.Graph subgraphNotPresent = new spade.core.Graph();
 		subgraphNotPresent.vertexSet().addAll(graph.vertexSet());
+		subgraphNotPresent.vertexSet().removeAll(exportGraph(verticesGraph, true).vertexSet());
 		subgraphNotPresent.edgeSet().addAll(graph.edgeSet());
-		subgraphNotPresent.vertexSet().removeAll(vertexGraph.vertexSet());
-		subgraphNotPresent.edgeSet().removeAll(edgeGraph.edgeSet());
+		subgraphNotPresent.edgeSet().removeAll(exportGraph(edgesGraph, true).edgeSet());
 
 		// Putting the new vertices in $base
 		for(final AbstractVertex vertex : subgraphNotPresent.vertexSet()){
@@ -500,15 +496,17 @@ public abstract class QueryInstructionExecutor{
 			}
 			transformerInitialized = true;
 
-			final spade.core.Graph subjectGraphExported = exportGraph(subjectGraph, true);
+			spade.core.Graph subjectGraphExported = exportGraph(subjectGraph, true);
 			transformer.getContext().materialize(this);
-			
-			final Result<spade.core.Graph> executeResult = AbstractTransformer.execute(transformer, subjectGraphExported);
+
+			Result<spade.core.Graph> executeResult = AbstractTransformer.execute(transformer, subjectGraphExported);
+			subjectGraphExported = null; // each copy of a large graph takes gigabytes: keep only the one put
 			if(executeResult.error){
 				throw new RuntimeException(executeResult.errorMessage, executeResult.exception);
 			}
 
 			final spade.core.Graph transformedGraph = executeResult.result.copyContents();
+			executeResult = null;
 
 			putGraph(putGraphBatchSize, outputGraph, transformedGraph);
 		} catch (Exception e) {
