@@ -30,6 +30,7 @@ import spade.core.analyzer.command.exception.ServerFailure;
 import spade.core.analyzer.command.exception.UnexpectedFailure;
 import spade.query.execution.Context;
 import spade.query.quickgrail.core.AbstractQueryEnvironment;
+import spade.query.quickgrail.entities.Graph;
 import spade.query.quickgrail.core.Instruction;
 import spade.query.quickgrail.core.Program;
 import spade.query.quickgrail.core.QueryInstructionExecutor;
@@ -171,13 +172,33 @@ public class QuickGrailExecutor{
 			throw new ServerFailure("NULL context to execute");
 		}
 
+		// Resolving binds the query's variables; if the query then fails, they are put back, so
+		// that a variable whose assignment failed is not left naming a graph never filled.
+		final AbstractQueryEnvironment environment =
+			ctx.getExecutor() == null ? null : ctx.getExecutor().getQueryEnvironment();
+		final Map<String, Graph> symbolsBefore =
+			environment == null ? null : environment.getGraphSymbols();
 		try {
+			if (ctx.getExecutor() != null) {
+				ctx.getExecutor().beforeQuery();
+			}
 			final ParseProgram parseProgram = parseProgram(query);
 			final Program program = resolveProgram(
 				ctx.getExecutor(),
 				parseProgram
 			);
-			executeProgram(ctx, program);
+			try {
+				executeProgram(ctx, program);
+			} catch (ServerFailure | UnexpectedFailure | RuntimeException e) {
+				if (symbolsBefore != null) {
+					try {
+						environment.restoreGraphSymbols(symbolsBefore);
+					} catch (RuntimeException restoreFailure) {
+						logger.log(Level.WARNING, "Failed to put the query's variables back", restoreFailure);
+					}
+				}
+				throw e;
+			}
 			final Serializable result = getExecutionResult(program);
 			return result;
 		} catch (ServerFailure | CommandFailure | UnexpectedFailure e) {

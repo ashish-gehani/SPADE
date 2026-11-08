@@ -121,6 +121,11 @@ public class PathRecord implements Comparable<PathRecord>{
 	public String getPath(){
 		return path;
 	}
+
+	/** The same record with another path, e.g. openat2's absolute path resolved in its root. */
+	public PathRecord withPath(final String otherPath){
+		return new PathRecord(index, otherPath, nametype, mode, inode);
+	}
 	
 	public String getNametype(){
 		return nametype;

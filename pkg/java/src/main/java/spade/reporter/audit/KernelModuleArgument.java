@@ -257,11 +257,12 @@ public class KernelModuleArgument{
 		// Set netfilter hooks
 		k.setNfHooks(networkAddressTranslation);
 
-		// Set netfilter connection tracking mode
+		// Set netfilter connection tracking mode. netfilterHooksLogCT=true logs every packet,
+		// false only packets that start a connection (cfg/spade.reporter.Audit.config).
 		if(netfilterHooksLogCt){
-			k.setNfHooksLogAllCt(MonitorConnectionType.ONLY_NEW);
-		}else{
 			k.setNfHooksLogAllCt(MonitorConnectionType.ALL);
+		}else{
+			k.setNfHooksLogAllCt(MonitorConnectionType.ONLY_NEW);
 		}
 
 		// Set netfilter user-space handling
