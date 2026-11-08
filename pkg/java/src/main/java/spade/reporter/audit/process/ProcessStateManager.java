@@ -19,8 +19,12 @@
  */
 package spade.reporter.audit.process;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import spade.reporter.audit.LinuxPathResolver;
 import spade.utility.HelperFunctions;
@@ -151,8 +155,39 @@ public abstract class ProcessStateManager{
 		return _getProcessState(pid).fdTgid;
 	}
 	
+	/** Sets the descriptor, which is new, so not close-on-exec until setFdCloseOnExec says so. */
 	public void setFd(String pid, String fd, FileDescriptor fileDescriptor){
-		_getProcessState(pid).fds.put(fd, fileDescriptor);
+		final ProcessState state = _getProcessState(pid);
+		state.fds.put(fd, fileDescriptor);
+		state.fdsCloseOnExec.remove(fd);
+	}
+
+	/**
+	 * Whether the kernel closes the descriptor at a successful execve (O_CLOEXEC, SOCK_CLOEXEC,
+	 * F_DUPFD_CLOEXEC, FD_CLOEXEC, close_range with CLOSE_RANGE_CLOEXEC). A per-number flag, not
+	 * one of the open file: dup gives the new number the same FileDescriptor, but not the flag.
+	 */
+	public void setFdCloseOnExec(String pid, String fd, boolean closeOnExec){
+		final ProcessState state = _getProcessState(pid);
+		if(closeOnExec && state.fds.containsKey(fd)){
+			state.fdsCloseOnExec.add(fd);
+		}else{
+			state.fdsCloseOnExec.remove(fd);
+		}
+	}
+
+	public boolean isFdCloseOnExec(String pid, String fd){
+		return _getProcessState(pid).fdsCloseOnExec.contains(fd);
+	}
+
+	/** The process's descriptor numbers, a copy. */
+	public List<String> getFdNumbers(String pid){
+		return new ArrayList<String>(_getProcessState(pid).fds.keySet());
+	}
+
+	/** Gives the process a descriptor table of its own (close_range with CLOSE_RANGE_UNSHARE). */
+	public void unshareFds(String pid){
+		unlinkFds(pid);
 	}
 	
 	public FileDescriptor getFd(String pid, String fd){
@@ -160,13 +195,16 @@ public abstract class ProcessStateManager{
 	}
 	
 	public FileDescriptor removeFd(String pid, String fd){
-		return _getProcessState(pid).fds.remove(fd);
+		final ProcessState state = _getProcessState(pid);
+		state.fdsCloseOnExec.remove(fd);
+		return state.fds.remove(fd);
 	}
-	
+
 	private void copyFds(String fromPid, String toPid){
 		ProcessState fromState = _getProcessState(fromPid);
 		ProcessState toState = _getProcessState(toPid);
 		toState.fds = new HashMap<String, FileDescriptor>(fromState.fds);
+		toState.fdsCloseOnExec = new HashSet<String>(fromState.fdsCloseOnExec);
 	}
 	
 	private void copyFS(String fromPid, String toPid){
@@ -184,6 +222,7 @@ public abstract class ProcessStateManager{
 		ProcessState fromState = _getProcessState(fromPid);
 		ProcessState toState = _getProcessState(toPid);
 		toState.fds = fromState.fds;
+		toState.fdsCloseOnExec = fromState.fdsCloseOnExec;
 	}
 	
 	private void linkFS(String fromPid, String toPid){
@@ -195,6 +234,7 @@ public abstract class ProcessStateManager{
 	private void unlinkFds(String pid){
 		ProcessState state = _getProcessState(pid);
 		state.fds = new HashMap<String, FileDescriptor>(state.fds);
+		state.fdsCloseOnExec = new HashSet<String>(state.fdsCloseOnExec);
 	}
 	
 	private void unlinkFS(String pid){
@@ -260,6 +300,13 @@ public abstract class ProcessStateManager{
 		setMemoryTgid(pid, pid);
 		setFdTgid(pid, pid);
 		unlinkFds(pid);
+		// The kernel closes the close-on-exec descriptors at execve. Kept, they would name
+		// artifacts the numbers no longer refer to once the numbers are reused.
+		final ProcessState state = _getProcessState(pid);
+		for(final String fd : state.fdsCloseOnExec){
+			state.fds.remove(fd);
+		}
+		state.fdsCloseOnExec.clear();
 		unlinkFS(pid);
 		_getProcessState(pid).fs.cwd = cwd;
 		setNamespaces(pid, namespaces);
@@ -286,6 +333,7 @@ class ProcessState{
 	String memoryTgid;
 	String fdTgid;
 	Map<String, FileDescriptor> fds = new HashMap<String, FileDescriptor>();
+	Set<String> fdsCloseOnExec = new HashSet<String>(); // shared and copied with fds
 	ProcessFS fs = new ProcessFS();
 	ProcessState(String memoryTgid, String fdTgid){
 		this.memoryTgid = memoryTgid;

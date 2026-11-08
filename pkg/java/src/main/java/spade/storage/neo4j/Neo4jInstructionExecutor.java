@@ -83,18 +83,28 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
+	public void waitUntilStored(){
+		storage.waitForQueuedTasks(); // a query goes ahead of the puts still queued
+	}
+
+	/** A Cypher list of the hashes: ['a', 'b']. */
+	private static String hashList(final List<String> hashes){
+		final StringBuilder list = new StringBuilder("[");
+		for(final String hash : hashes){
+			list.append(list.length() > 1 ? ", " : "").append('\'').append(hash).append('\'');
+		}
+		return list.append(']').toString();
+	}
+
+	@Override
 	public void insertLiteralEdge(Graph targetGraph, ArrayList<String> edges){
 		List<String> hashes = edges;
 		if(hashes == null || hashes.isEmpty()){
 			// Empty graph already
 		}else{
-			String query = "match ()-[e]->() where ";
-			String whereClause = "";
-			for(String hash : hashes){
-				whereClause += "e.`"+hashKey+"`='" + hash + "' or ";
-			}
-			whereClause = whereClause.substring(0, whereClause.length() - 3);
-			query += whereClause;
+			// The relationship type and IN let Neo4j use the range index on the hash (Neo4j.createHashRangeIndexes)
+			String query = "match ()-[e:`" + storage.getConfiguration().neo4jEdgeRelationshipType.name() + "`]->() where e.`"
+					+ hashKey + "` in " + hashList(hashes);
 			query += " " + buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name) + ";";
 	 		storage.executeQuery(query);
 		}
@@ -106,13 +116,9 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		if(hashes == null || hashes.isEmpty()){
 			// Empty graph already
 		}else{
-			String query = "match (v) where ";
-			String whereClause = "";
-			for(String hash : hashes){
-				whereClause += "v.`"+hashKey+"`='" + hash + "' or ";
-			}
-			whereClause = whereClause.substring(0, whereClause.length() - 3);
-			query += whereClause;
+			// The label and IN let Neo4j use the range index on the hash (Neo4j.createHashRangeIndexes)
+			String query = "match (v:`" + storage.getConfiguration().neo4jVertexLabel.name() + "`) where v.`"
+					+ hashKey + "` in " + hashList(hashes);
 			query += " set v:" + targetGraph.name + ";";
 	 		storage.executeQuery(query);
 		}
@@ -138,15 +144,14 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		
 		for(int i = 0; i < annotationKeys.size(); i++){
 			final String annotationKey = annotationKeys.get(i);
-			query += "exists(v.`" + annotationKey + "`)";
+			query += "v.`" + annotationKey + "` is not null";
 			if(i == annotationKeys.size() - 1){ // is last
 				// don't append the 'and'
 			}else{
 				query += " and ";
 			}
 		}
-		query += " set v:" + targetGraph.name + ";";
- 		storage.executeQuery(query);
+		storage.executeUpdateInBatches(query, "v", "set v:" + targetGraph.name);
 	}
 
 	@Override
@@ -172,9 +177,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 				query += " and ";
 			}
 		}
-		query += " set a:" + targetGraph.name;
-		query += " set b:" + targetGraph.name + ";";
- 		storage.executeQuery(query);
+		storage.executeUpdateInBatches(query, "a, b", "set a:" + targetGraph.name + " set b:" + targetGraph.name);
 	}
 
 	private String buildComparison(
@@ -237,8 +240,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 				query += " where v." + buildComparison(annotationKey, operator, annotationValue);
 			}
 		}
-		query += " set v:" + targetGraph.name + ";";
- 		storage.executeQuery(query);
+		storage.executeUpdateInBatches(query, "v", "set v:" + targetGraph.name);
 	}
 
 	@Override
@@ -279,7 +281,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		targetGraphName = "'," + targetGraphName + ",'";
 		String query = "set " + edgeProperty + " = "
 				+ "case "
-				+ "when not exists(" + edgeProperty + ") then " + targetGraphName + " " // set
+				+ "when " + edgeProperty + " is null then " + targetGraphName + " " // set
 				+ "when " + edgeProperty + " contains " + targetGraphName + " then " + edgeProperty + " " // leave as is
 				+ "else " + edgeProperty + " + " + targetGraphName + " end"; // append
 		return query;
@@ -293,18 +295,15 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 			fieldsString += "e0.`" + field + "` as x" + (xxx++) + " , ";
 		}
 		
-		String vertexQuery = "match (v:" + sourceGraph.name + ") set v:" + targetGraph.name + ";";
-		
 		final String edgeProperty = "e0.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		String query = "match (x)-[e0]->(y) ";
 		if(!neo4jQueryEnvironment.isBaseGraph(sourceGraph)){
 			query += "where " + edgeProperty + " contains ',"+sourceGraph.name+",'";
 		}
-		query += " with distinct x as src, y as dst, " + fieldsString + " min(e0) as e ";
-		query += " " + buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name) + ";";
-				
-		storage.executeQuery(vertexQuery);
-		storage.executeQuery(query);
+		query += " with distinct x as src, y as dst, " + fieldsString + " min(e0) as e";
+
+		storage.executeUpdateInBatches("match (v:" + sourceGraph.name + ")", "v", "set v:" + targetGraph.name);
+		storage.executeUpdateInBatches(query, "e", buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name));
 	}
 	
 	@Override
@@ -312,9 +311,8 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 			final long toExclusive){
 		final String query = "match (v:" + sourceGraph.name + ") with v order by v.`" + hashKey
 				+ "` asc with collect(v)[" + fromInclusive + ".." + toExclusive
-				+ "] as vlist unwind vlist as vref set vref:" + targetGraph.name
-				+ ";";
-		storage.executeQuery(query);
+				+ "] as vlist unwind vlist as vref";
+		storage.executeUpdateInBatches(query, "vref", "set vref:" + targetGraph.name);
 	}
 
 	@Override
@@ -325,10 +323,9 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		if(!neo4jQueryEnvironment.isBaseGraph(sourceGraph)){
 			query += "where " + edgeProperty + " contains '," + sourceGraph.name + ",' ";
 		}
-		query += "with e0 order by e0.`" + hashKey + "` asc with collect(e0)[" + fromInclusive + ".." + toExclusive + "] " + 
-				"as e0list unwind e0list as e ";
-		query += buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name) + ";";
-		storage.executeQuery(query);
+		query += "with e0 order by e0.`" + hashKey + "` asc with collect(e0)[" + fromInclusive + ".." + toExclusive + "] " +
+				"as e0list unwind e0list as e";
+		storage.executeUpdateInBatches(query, "e", buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name));
 	}
 
 	@Override
@@ -341,7 +338,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 			query += "where " + edgeProperty + " contains ',"+subjectGraph.name+",' ";
 			if(hasArguments){
 				if(annotationKey.equals("*")){
-					query += " where " + buildWildCardComparison("v", operator, annotationValue);	
+					query += "and " + buildWildCardComparison("e", operator, annotationValue);
 				}else{
 					query += "and e." + buildComparison(annotationKey, operator, annotationValue);
 				}
@@ -349,15 +346,13 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		}else{
 			if(hasArguments){
 				if(annotationKey.equals("*")){
-					query += " where " + buildWildCardComparison("v", operator, annotationValue);	
+					query += "where " + buildWildCardComparison("e", operator, annotationValue);
 				}else{
 					query += "where e." + buildComparison(annotationKey, operator, annotationValue);
 				}
 			}
 		}
-		query += " " + buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name) + ";";
-		
-		storage.executeQuery(query);
+		storage.executeUpdateInBatches(query, "e", buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name));
 	}
 
 	@Override
@@ -368,28 +363,24 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		if(!neo4jQueryEnvironment.isBaseGraph(subjectGraph)){
 			query += "where " + edgeProperty + " contains ',"+subjectGraph.name+",' ";
 		}
+		String update = "";
 		if(component.equals(GetEdgeEndpoint.Component.kSource)
 				|| component.equals(GetEdgeEndpoint.Component.kBoth)){
-			query += "set a:" + targetGraph.name + " ";
+			update += "set a:" + targetGraph.name + " ";
 		}
 		if(component.equals(GetEdgeEndpoint.Component.kDestination)
 				|| component.equals(GetEdgeEndpoint.Component.kBoth)){
-			query += "set b:" + targetGraph.name + " ";
+			update += "set b:" + targetGraph.name + " ";
 		}
-		
-		query += ";";
-		
-		storage.executeQuery(query);
+
+		storage.executeUpdateInBatches(query, "a, b", update.trim());
 	}
 
 	@Override
 	public void intersectGraph(Graph outputGraph, Graph lhsGraph, Graph rhsGraph){
-		String vertexQuery = "";
-		vertexQuery += "match (x:" + lhsGraph.name + ":" + rhsGraph.name + ") ";
-		vertexQuery += "set x:" + outputGraph.name + ";";
-		
-		storage.executeQuery(vertexQuery);
-		
+		storage.executeUpdateInBatches("match (x:" + lhsGraph.name + ":" + rhsGraph.name + ")", "x",
+				"set x:" + outputGraph.name);
+
 		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		String edgeQuery = "";
 		edgeQuery = "match ()-[e]->()";
@@ -403,25 +394,21 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 			edgeQuery += " where " + edgeProperty + " contains '," + lhsGraph.name + ",'";
 			edgeQuery += " and " + edgeProperty + " contains '," + rhsGraph.name + ",'";
 		}
-		edgeQuery += " " + buildSubqueryForUpdatingEdgeSymbols("e", outputGraph.name);
-		
-		storage.executeQuery(edgeQuery);
+		storage.executeUpdateInBatches(edgeQuery, "e", buildSubqueryForUpdatingEdgeSymbols("e", outputGraph.name));
 	}
 
 	@Override
 	public void limitGraph(Graph targetGraph, Graph sourceGraph, int limit){
 		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
-		String vertexQuery = 
-				"match (v:" + sourceGraph.name + ") with v order by id(v) asc limit " 
-				+ limit + " set v:" + targetGraph.name + ";";
+		String vertexQuery =
+				"match (v:" + sourceGraph.name + ") with v order by id(v) asc limit " + limit;
 		String edgeQuery = "match ()-[e]->()";
 		if(!neo4jQueryEnvironment.isBaseGraph(sourceGraph)){
 			edgeQuery += " where " + edgeProperty + " contains '," + sourceGraph.name + ",'";
 		}
 		edgeQuery += " with e order by id(e) asc limit " + limit;
-		edgeQuery += " " + buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name) + ";";
-		storage.executeQuery(vertexQuery);
-		storage.executeQuery(edgeQuery);
+		storage.executeUpdateInBatches(vertexQuery, "v", "set v:" + targetGraph.name);
+		storage.executeUpdateInBatches(edgeQuery, "e", buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name));
 	}
 	
 	@Override
@@ -740,30 +727,28 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		}else if(!neo4jQueryEnvironment.isBaseGraph(minuendGraph) && neo4jQueryEnvironment.isBaseGraph(subtrahendGraph)){
 			// no resulting vertices and edges since the subtrahend is base
 		}else if(neo4jQueryEnvironment.isBaseGraph(minuendGraph) && !neo4jQueryEnvironment.isBaseGraph(subtrahendGraph)){
-			String vertexQuery = "match (n:" + minuendGraph.name + ") where not '" + subtrahendGraph.name + 
-					"' in labels(n) set n:" + outputGraph.name + ";";
+			String vertexQuery = "match (n:" + minuendGraph.name + ") where not '" + subtrahendGraph.name +
+					"' in labels(n)";
 			String edgeQuery = "match ()-[e]->()";
 			edgeQuery += " where not " + edgeProperty + " contains '," + subtrahendGraph.name + ",'";
-			edgeQuery += " " + buildSubqueryForUpdatingEdgeSymbols("e", outputGraph.name);
 			if(component == null || component == Graph.Component.kVertex){
-				storage.executeQuery(vertexQuery);
+				storage.executeUpdateInBatches(vertexQuery, "n", "set n:" + outputGraph.name);
 			}
 			if(component == null || component == Graph.Component.kEdge){
-				storage.executeQuery(edgeQuery);
+				storage.executeUpdateInBatches(edgeQuery, "e", buildSubqueryForUpdatingEdgeSymbols("e", outputGraph.name));
 			}
 		}else{
-			String vertexQuery = "match (n:" + minuendGraph.name + ") where not '" + subtrahendGraph.name + 
-					"' in labels(n) set n:" + outputGraph.name + ";";
-			
+			String vertexQuery = "match (n:" + minuendGraph.name + ") where not '" + subtrahendGraph.name +
+					"' in labels(n)";
+
 			String edgeQuery = "match ()-[e]->()";
 			edgeQuery += " where " + edgeProperty + " contains '," + minuendGraph.name + ",'";
 			edgeQuery += " and not " + edgeProperty + " contains '," + subtrahendGraph.name + ",'";
-			edgeQuery += " " + buildSubqueryForUpdatingEdgeSymbols("e", outputGraph.name);
 			if(component == null || component == Graph.Component.kVertex){
-				storage.executeQuery(vertexQuery);
+				storage.executeUpdateInBatches(vertexQuery, "n", "set n:" + outputGraph.name);
 			}
 			if(component == null || component == Graph.Component.kEdge){
-				storage.executeQuery(edgeQuery);
+				storage.executeUpdateInBatches(edgeQuery, "e", buildSubqueryForUpdatingEdgeSymbols("e", outputGraph.name));
 			}
 		}
 	}
@@ -771,43 +756,37 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 	@Override
 	public void unionGraph(Graph targetGraph, Graph sourceGraph){
 		String edgeQuery = "match ()-[e]->()";
-		String vertexQuery = "match (v:" + sourceGraph.name + ") set v:" + targetGraph.name + ";";
 		if(!neo4jQueryEnvironment.isBaseGraph(sourceGraph)){
 			final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 			edgeQuery += " where " + edgeProperty + " contains '," + sourceGraph.name + ",'";
 		}
-		edgeQuery += " " + buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name);
-		
-		storage.executeQuery(edgeQuery);
-		storage.executeQuery(vertexQuery);
+
+		storage.executeUpdateInBatches(edgeQuery, "e", buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name));
+		storage.executeUpdateInBatches("match (v:" + sourceGraph.name + ")", "v", "set v:" + targetGraph.name);
 	}
 
 	@Override
 	public void getAdjacentVertex(Graph targetGraph, Graph subjectGraph, Graph sourceGraph, GetLineage.Direction direction){
 		// TODO rename to get adjacent graph
 		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
+		final String update = "set a:" + targetGraph.name + " set b:" + targetGraph.name + " "
+				+ buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name);
 		if(direction.equals(GetLineage.Direction.kAncestor) || direction.equals(GetLineage.Direction.kBoth)){
 			String query = "match (a:"+sourceGraph.name+":"+subjectGraph.name+")-[e]->"
 					+ "(b:"+subjectGraph.name+")";
 			if(!neo4jQueryEnvironment.isBaseGraph(subjectGraph)){
 				query += " where " + edgeProperty + " contains '," + subjectGraph.name + ",'";
 			}
-			query += " set a:" + targetGraph.name;
-			query += " set b:" + targetGraph.name;
-			query += " " + buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name) + ";";
-			storage.executeQuery(query);
+			storage.executeUpdateInBatches(query, "a, b, e", update);
 		}
-		
+
 		if(direction.equals(GetLineage.Direction.kDescendant) || direction.equals(GetLineage.Direction.kBoth)){
 			String query = "match (a:"+subjectGraph.name+")-[e]->"
 					+ "(b:"+sourceGraph.name+":"+subjectGraph.name+")";
 			if(!neo4jQueryEnvironment.isBaseGraph(subjectGraph)){
 				query += " where " + edgeProperty + " contains '," + subjectGraph.name + ",'";
 			}
-			query += " set a:" + targetGraph.name;
-			query += " set b:" + targetGraph.name;
-			query += " " + buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name) + ";";
-			storage.executeQuery(query);
+			storage.executeUpdateInBatches(query, "a, b, e", update);
 		}
 	}
 	
@@ -876,11 +855,11 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 			String query;
 			switch(instruction.elementType){
 				case VERTEX:
-					query = "match ("+alias+":" + instruction.graph.name + ") where exists("+alias+".`" + instruction.annotationName + "`) ";
+					query = "match ("+alias+":" + instruction.graph.name + ") where "+alias+".`" + instruction.annotationName + "` is not null ";
 					break;
 				case EDGE:
 					final String relationshipProperty = alias + ".`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
-					query = "match ()-["+alias+"]->() where exists("+alias+".`" + instruction.annotationName + "`) ";
+					query = "match ()-["+alias+"]->() where "+alias+".`" + instruction.annotationName + "` is not null ";
 					if(!neo4jQueryEnvironment.isBaseGraph(instruction.graph)){
 						query += "and " + relationshipProperty + " contains '," + instruction.graph.name + ",' ";
 					}
@@ -955,6 +934,12 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		return storage.readEdgeSet("e", edgeQuery);
 	}
 	
+	/** Adds the nodes and edges of every path p that the query matches to the graph, in batches. */
+	private void markPaths(final String pathQuery, final Graph targetGraph){
+		storage.executeUpdateInBatches(pathQuery, "p", "foreach (n in nodes(p) | set n:" + targetGraph.name + ") "
+				+ "foreach (e in relationships(p) | " + buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name) + ")");
+	}
+
 	@Override
 	public void getLineage(Graph targetGraph, Graph subjectGraph, Graph startGraph, int depth, Direction direction){
 		final String edgeProperty = "e1.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
@@ -966,9 +951,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 			if(!neo4jQueryEnvironment.isBaseGraph(subjectGraph)){
 				query += " where all(e1 in relationships(p) where " + edgeProperty + " contains '," + subjectGraph.name + ",') ";
 			}
-			query += " foreach (n in nodes(p) | set n:" + targetGraph.name + ") ";
-			query += " foreach (e in relationships(p) | " + buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name) + ");";
-			storage.executeQuery(query);
+			markPaths(query, targetGraph);
 		}
 		
 		if(direction.equals(GetLineage.Direction.kDescendant) || direction.equals(GetLineage.Direction.kBoth)){
@@ -979,9 +962,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 			if(!neo4jQueryEnvironment.isBaseGraph(subjectGraph)){
 				query += " where all(e1 in relationships(p) where " + edgeProperty + " contains '," + subjectGraph.name + ",') ";
 			}
-			query += " foreach (n in nodes(p) | set n:" + targetGraph.name + ") ";
-			query += " foreach (e in relationships(p) | " + buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name) + ");";
-			storage.executeQuery(query);
+			markPaths(query, targetGraph);
 		}
 	}
 
@@ -995,9 +976,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		if(!neo4jQueryEnvironment.isBaseGraph(subjectGraph)){
 			query += " where all(e1 in relationships(p) where " + edgeProperty + " contains '," + subjectGraph.name + ",') ";
 		}
-		query += " foreach (n in nodes(p) | set n:" + targetGraph.name + ") ";
-		query += " foreach (e in relationships(p) | " + buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name) + ");";
-		storage.executeQuery(query);
+		markPaths(query, targetGraph);
 	}
 	
 	@Override
@@ -1010,9 +989,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		if(!neo4jQueryEnvironment.isBaseGraph(subjectGraph)){
 			query += " where all(e1 in relationships(p) where " + edgeProperty + " contains '," + subjectGraph.name + ",') ";
 		}
-		query += " foreach (n in nodes(p) | set n:" + targetGraph.name + ") ";
-		query += " foreach (e in relationships(p) | " + buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name) + ");";
-		storage.executeQuery(query);
+		markPaths(query, targetGraph);
 		
 		query = "match ";
 		query += "p=(a:"+dstGraph.name+":"+subjectGraph.name+")"
@@ -1021,9 +998,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		if(!neo4jQueryEnvironment.isBaseGraph(subjectGraph)){
 			query += " where all(e1 in relationships(p) where " + edgeProperty + " contains '," + subjectGraph.name + ",') ";
 		}
-		query += " foreach (n in nodes(p) | set n:" + targetGraph.name + ") ";
-		query += " foreach (e in relationships(p) | " + buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name) + ");";
-		storage.executeQuery(query);
+		markPaths(query, targetGraph);
 	}
 
 	@Override
@@ -1036,44 +1011,38 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		if(!neo4jQueryEnvironment.isBaseGraph(subjectGraph)){
 			query += " where all(e1 in relationships(p) where " + edgeProperty + " contains '," + subjectGraph.name + ",') ";
 		}
-		query += " foreach (n in nodes(p) | set n:" + targetGraph.name + ") ";
-		query += " foreach (e in relationships(p) | " + buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name) + ");";
-		storage.executeQuery(query);
+		markPaths(query, targetGraph);
 	}
 
 	@Override
 	public void getSubgraph(Graph targetGraph, Graph subjectGraph, Graph skeletonGraph){
 		final String edgeProperty = "e.`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
 		String vertexQuery = 
-				"match (n:" + skeletonGraph.name + ":" + subjectGraph.name + ") "
-				+ "set n:" + targetGraph.name + ";";
+				"match (n:" + skeletonGraph.name + ":" + subjectGraph.name + ")";
 		
 		String edgeQuery0 = "";
 		edgeQuery0 += "match ()-[e]->(b:"+subjectGraph.name+")";
 		if(!neo4jQueryEnvironment.isBaseGraph(skeletonGraph)){
 			edgeQuery0 += " where " + edgeProperty + " contains '," + skeletonGraph.name + ",'";
 		}
-		edgeQuery0 += " set b:" + targetGraph.name + ";";
 		
 		String edgeQuery1 = "";
 		edgeQuery1 += "match (a:"+subjectGraph.name+")-[e]->()";
 		if(!neo4jQueryEnvironment.isBaseGraph(skeletonGraph)){
 			edgeQuery1 += " where " + edgeProperty + " contains '," + skeletonGraph.name + ",'";
 		}
-		edgeQuery1 += " set a:" + targetGraph.name + ";";
 		
 		String edgeQuery2 = "";
 		edgeQuery2 += "match (a:"+targetGraph.name+")-[e]->(b:"+targetGraph.name+")";
 		if(!neo4jQueryEnvironment.isBaseGraph(subjectGraph)){
 			edgeQuery2 += " where " + edgeProperty + " contains '," + subjectGraph.name + ",'";
 		}
-		edgeQuery2 += " " + buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name) + ";";
 		
 		// order matters
-		storage.executeQuery(vertexQuery);
-		storage.executeQuery(edgeQuery0);
-		storage.executeQuery(edgeQuery1);
-		storage.executeQuery(edgeQuery2);
+		storage.executeUpdateInBatches(vertexQuery, "n", "set n:" + targetGraph.name);
+		storage.executeUpdateInBatches(edgeQuery0, "b", "set b:" + targetGraph.name);
+		storage.executeUpdateInBatches(edgeQuery1, "a", "set a:" + targetGraph.name);
+		storage.executeUpdateInBatches(edgeQuery2, "e", buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name));
 	}
 
 	@Override

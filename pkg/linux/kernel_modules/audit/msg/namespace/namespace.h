@@ -47,6 +47,12 @@ struct msg_namespace
     unsigned int ns_inum_usr;
     unsigned int ns_inum_ipc;
     unsigned int ns_inum_cgroup;
+    /*
+        clone3 only: its flags as clone takes them (clone_args.flags, with the exit
+        signal in the low byte). The syscall record has only a pointer to them.
+    */
+    bool has_clone_flags;
+    unsigned long long clone_flags;
 };
 
 #endif // SPADE_AUDIT_MSG_NAMESPACE_NAMESPACE_H

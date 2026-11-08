@@ -52,6 +52,7 @@ int global_function_number_is_actionable(bool *dst, struct context_function *ctx
         switch(func_num)
         {
             case KERN_F_NUM_SYS_CLONE:
+            case KERN_F_NUM_SYS_CLONE3:
             case KERN_F_NUM_SYS_FORK:
             case KERN_F_NUM_SYS_SETNS:
             case KERN_F_NUM_SYS_UNSHARE:

@@ -288,6 +288,20 @@ public abstract class ProcessManager extends ProcessStateManager{
 		}
 	}
 		
+	/** Whether the reporter has a process for this pid. */
+	public boolean isProcessKnown(final String pid){
+		return pid != null && getProcessUnitState(pid) != null;
+	}
+
+	/**
+	 * Whether the reporter's process for this pid has a start time: it was created, or it called
+	 * execve, in the trace, rather than first seen in some other syscall.
+	 */
+	public boolean isProcessStartedInTrace(final String pid){
+		final ProcessUnitState state = pid == null ? null : getProcessUnitState(pid);
+		return state != null && state.getProcess() != null && state.getProcess().startTime != null;
+	}
+
 	/**
 	 * Returns the process state (which might not be active anymore) by pid and start time.
 	 * 
@@ -512,10 +526,29 @@ public abstract class ProcessManager extends ProcessStateManager{
 			return new NamespaceIdentifier(null, null, null, null, null, null, null);
 		}
 	}
-	
+
+	/**
+	 * clone3's flags as the kernel module reports them (decimal, 64 bits), in the form clone's
+	 * a0 has once its hex is converted: the low 32 bits as an int. The higher bits hold
+	 * clone3-only flags, such as CLONE_CLEAR_SIGHAND, which clone cannot express.
+	 *
+	 * @param moduleFlags value of ns_clone_flags; null without the module's record (namespaces=false)
+	 * @return the flags as a decimal int, "0" when unknown
+	 */
+	static String clone3FlagsAsCloneFlags(final String moduleFlags){
+		if(moduleFlags == null){
+			return "0";
+		}
+		try{
+			return Integer.toString((int)(Long.parseUnsignedLong(moduleFlags.trim()) & 0xffffffffL));
+		}catch(NumberFormatException e){
+			return "0";
+		}
+	}
+
 	/**
 	 * Does the following:
-	 * 
+	 *
 	 * 1) Creates, adds, and puts the process vertex for the parent if not seen
 	 * 2) Removes the state (tgids, and fds) for the child process
 	 * 3) Creates, adds, and puts the child process vertex
@@ -523,12 +556,18 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 * 5) Draws the fork/vfork/clone edge
 	 * 
 	 * @param eventData system call audit event key values
-	 * @param syscall fork/vfork/clone syscall
+	 * @param syscall fork/vfork/clone/clone3 syscall
 	 * @return true
 	 */
 	public boolean handleForkVforkClone(Map<String, String> eventData, SYSCALL syscall){
 		String source = OPMConstants.SOURCE_AUDIT_SYSCALL;
 		String flagsString = eventData.get(AuditEventReader.ARG0);
+		if(syscall == SYSCALL.CLONE3){
+			// a0 points to struct clone_args. The kernel module reports the flags as clone takes
+			// them, exit signal included, so from here on clone3 is handled as clone.
+			flagsString = clone3FlagsAsCloneFlags(eventData.get(AuditEventReader.NS_CLONE_FLAGS));
+			syscall = SYSCALL.CLONE;
+		}
 		String comm = eventData.get(AuditEventReader.COMM);
 		String cwd = eventData.get(AuditEventReader.CWD);
 		String time = eventData.get(AuditEventReader.TIME);
@@ -551,6 +590,9 @@ public abstract class ProcessManager extends ProcessStateManager{
 		Process parentVertex = handleProcessFromSyscall(eventData);
 		
 		removeProcessUnitState(childPid); // Remove the existing state before continuing and adding the new one TODO
+		// A thread group of an earlier process with this pid is over: a live group's id is a live pid.
+		// Its set can outlive it, since an exit that names a group keeps the group (exitEndsState).
+		activeThreadGroups.remove(childPid);
 		
 		AgentIdentifier agentIdentifier = buildAgentIdentifierFromSyscall(eventData);
 		
@@ -637,8 +679,13 @@ public abstract class ProcessManager extends ProcessStateManager{
 		// created a process if did not exist otherwise got the existing one
 		
 		NamespaceIdentifier namespace = getNamespaceIdentifierFromEventData(eventData);
-		
+
 		handleNamespaceUpdate(time, eventId, pid, buildAgentIdentifierFromSyscall(eventData), namespace, operation);
+		// The process's later versions (an execve, a setuid) take their namespaces from this state,
+		// which still held the ones it was created with.
+		if(this.namespaces){
+			setNamespaces(pid, namespace);
+		}
 	}
 	
 	/**
@@ -691,6 +738,27 @@ public abstract class ProcessManager extends ProcessStateManager{
 	 * @param outputOPM generate OPM only if true
 	 * @return true
 	 */
+	/**
+	 * Whether an exit (not exit_group) record ends the state of the process it names.
+	 *
+	 * audit names a syscall's process by its thread group id (pid=), so the record of a thread
+	 * that exits names the whole group, and which thread it was is not known. Ending the group's
+	 * state then would make its next syscall create a new process vertex, first seen and with
+	 * unknown namespaces, once for every thread that exits. So the state ends only when the
+	 * group has no other known thread, or when the record names a known thread of the group by
+	 * its own id.
+	 *
+	 * @param named the key of the process the record names, or null if it has no state
+	 * @param otherThreads the keys of the group's other threads, without null; null if none
+	 * @return true if the named process's state ends
+	 */
+	static boolean exitEndsState(final ProcessKey named, final Set<ProcessKey> otherThreads){
+		if(otherThreads == null || otherThreads.isEmpty()){
+			return true; // the only thread exited: the process did
+		}
+		return named != null && otherThreads.contains(named); // a thread named by its own id
+	}
+
 	public boolean handleExit(Map<String, String> eventData, SYSCALL syscall, boolean outputOPM){
 		String pid = eventData.get(AuditEventReader.PID);
 		String time = eventData.get(AuditEventReader.TIME);
@@ -740,6 +808,11 @@ public abstract class ProcessManager extends ProcessStateManager{
 		}else if(syscall == SYSCALL.EXIT){
 			if(threadGroupsKeys != null){
 				threadGroupsKeys.remove(null);
+			}
+			if(!exitEndsState(activeKey, threadGroupsKeys)){
+				return true; // some thread of the group exited, but not which: keep every state
+			}
+			if(threadGroupsKeys != null){
 				threadGroupsKeys.remove(activeKey);
 				if(threadGroupsKeys.isEmpty()){
 					// remove group

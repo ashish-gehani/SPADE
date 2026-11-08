@@ -30,6 +30,9 @@
 /*
     Log msg using kernel function audit_log.
 
+    May sleep: audit_log waits for room when the audit backlog is full. Call it
+    only from process context, e.g. a syscall hook.
+
     Params:
         ctx     : Audit context (nullable).
         msg_h   : The msg to log. Cannot be null.
@@ -39,5 +42,16 @@
         -ive    -> Error code.
 */
 int kernel_helper_audit_log(struct audit_context *ctx, struct msg_common_header *msg_h);
+
+/*
+    Like kernel_helper_audit_log, but never sleeps. Use it where sleeping is
+    not allowed, e.g. in a netfilter hook, which runs in an RCU read-side
+    critical section and, for received packets, in softirq context. When the
+    audit backlog is full, the kernel drops the record and counts it as lost
+    instead of waiting.
+
+    Params and returns as for kernel_helper_audit_log.
+*/
+int kernel_helper_audit_log_atomic(struct audit_context *ctx, struct msg_common_header *msg_h);
 
 #endif // _SPADE_AUDIT_KERNEL_HELPER_AUDIT_LOG_H
