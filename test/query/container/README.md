@@ -39,9 +39,9 @@ __Steps__:
   the labeled vertices, every process vertex of the labeled copy, and every
   network socket with its neighbours as `.dot` files, timing each command
   (`times.tsv`). Query a trace before recording the next: the storages are
-  reset when a trace starts. `STORAGES` picks the storages (trace 3:
-  `STORAGES=PostgreSQL`), and `QUERY_TIMEOUT` limits each command (900 s by
-  default).
+  reset when a trace starts. `STORAGES` picks the storages, and
+  `QUERY_TIMEOUT` limits each command (900 s by default; trace 3's transform
+  takes up to 10 minutes).
 * `./replay.sh <N> [NAME]` stores a recorded trace again, into fresh storages,
   from the input the reporter read live (`spade-input.log`), as `trace<N>r`
   (or `trace<NAME>`), with the trace's ground truth linked next to it. It

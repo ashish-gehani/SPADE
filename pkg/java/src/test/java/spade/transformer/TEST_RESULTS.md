@@ -27,11 +27,11 @@ mvn test -Dtest='ContainerLabelsTest*'          177 tests, all pass
   ContainerLabelsTest$ModuleWithoutF7            43
   ContainerLabelsTest$ReporterWithoutF17         43
   ContainerLabelsTest$ModuleWithoutF7AndReporterWithoutF17  43
-mvn test (every test), Windows                  491 tests, 5 fail: FilesTest (4) and
+mvn test (every test), Windows                  503 tests, 5 fail: FilesTest (4) and
                                                 SettingTest.parsesTextFileReference, which
                                                 fail on Windows only (file permissions,
                                                 CRLF), as without this branch
-make -C pkg/java (every test), Linux            491 tests, all pass
+make -C pkg/java (every test), Linux            503 tests, all pass
 ```
 
 ## Checking the tests

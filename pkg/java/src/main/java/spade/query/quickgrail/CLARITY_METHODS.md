@@ -15,7 +15,7 @@ Branch `clarity-of-container` holds the transformer, on top of branch
 `bug-fixes`, which starts from upstream `prov-query` and holds the fixes the
 work needed in the kernel module, the audit bridge, the Audit reporter, the
 SPADE kernel, QuickGrail and the storages. `BUG_FIXES.md` describes them (F1
-to F29) and says which ones container labeling needs; this file cites them by
+to F38) and says which ones container labeling needs; this file cites them by
 number. `TRACE_VALIDATION.md` checks the kernel module's namespace records and
 the transformer on real traces.
 
@@ -309,19 +309,20 @@ labeled, 0 next to a labeled process left unlabeled as shared or ambiguous
 | L11 | Only PID namespaces define containers. | Other namespaces only qualify artifacts (D10). | Select by those labels with `getVertex`. |
 | L12 | One label per process (D7). | A nested container's processes are not labeled with the outer container. | Follow the nested start edge to its creator, which has the outer label. |
 | L13 | Labels follow the input's lineage edges (D5). | An input missing WasTriggeredBy edges or their endpoints gets fewer labels. | Transform `$base`, or a graph that keeps process lineage. |
-| L14 | The whole input is held in memory, twice while copying; QuickGrail exports it from the storage and puts the copy back. | Time and memory grow with the input (L15). | Transform a subgraph that keeps the containers' process lineage. |
-| L15 | Time. | On trace 4 (40,056 vertices, 122,462 edges), `transform` takes 60 s on PostgreSQL, 101 s on Quickstep and 1,132 s on Neo4j. Exporting and labeling take about 5 s on each; the rest is QuickGrail storing the copy (`putGraph`), which looks up every vertex and edge of the graph by hash, in batches of 100, before and after putting the new ones. | Use PostgreSQL or Quickstep, or transform a subgraph (L14). |
+| L14 | The whole input is held in memory: QuickGrail exports it, the transformer builds the labeled copy, and QuickGrail copies that and puts it back. | Time (L15) and memory grow with the input: trace 3 (754,107 vertices, 2,105,041 edges) is transformed in SPADE's 8 GB heap; with 3 GB the query fails with `Java heap space` (`BUG_FIXES.md` F34, F35). | A larger heap (`bin/spade start --mem-max`), or transform a subgraph that keeps the containers' process lineage. |
+| L15 | Time. | `transform` takes 10 s on PostgreSQL, 12 s on Quickstep and 29 s on Neo4j for trace 4 (40,056 vertices, 122,462 edges), and 372 s, 292 s and 594 s for trace 3 (754,107 vertices, 2,105,041 edges). Exporting and labeling take 5 to 10 s on trace 4 and 37 to 71 s on trace 3; the rest is QuickGrail storing the copy (`putGraph`), which looks up the copy's vertices and edges by hash, 10,000 at a time, before and after putting the new ones (`BUG_FIXES.md` F31 to F33). | Transform a subgraph (L14). |
 | L16 | runc opens some files relative to descriptors from syscalls the audit rules leave out (`BUG_FIXES.md` N21). | Those files are missing from the graph, so a boundary query misses them. Labels are not affected. | None in the transformer. |
 | L17 | A process entering a namespace is placed by time (§5.4). | If the input lacks a later start of the ID, a process entering after it gets the earlier container's label. `$base` of a complete trace has every start. | Include every start of the ID up to the processes of interest. |
-| L18 | Sockets are judged by every process connected to them in the input (D10). | A socket also used by a host process in the container's network namespace (`nsenter --net`), or by the containers of a pod, stays unlabeled. In traces 1, 2 and 4 none was: all 189 sockets next to container processes were labeled. | Select such sockets as neighbours of the labeled processes. |
+| L18 | Sockets are judged by every process connected to them in the input (D10). | A socket also used by a host process in the container's network namespace (`nsenter --net`), or by the containers of a pod, stays unlabeled. In traces 1 to 4 none was: all 72,472 sockets next to container processes were labeled. | Select such sockets as neighbours of the labeled processes. |
 
 ## 8. Status
 
 - Synthetic traces: `ContainerLabelsTest` (§9) passes, on Windows and Linux.
-- Real traces: on traces 1, 2 and 4 replayed into PostgreSQL, Neo4j and
+- Real traces: on traces 1 to 4 replayed into PostgreSQL, Neo4j and
   Quickstep, the labels match the kernel's record of every process created in
   every container run, and nothing else is labeled (`TRACE_VALIDATION.md`,
-  Part C).
+  Part C). Trace 3 is DeathStarBench's media microservices: 46 container runs,
+  754,107 vertices and 2,105,041 edges.
 - The wiki entry (`Available-transformers.md`) is in a local clone of the
   upstream wiki and goes to the maintainers with the pull request.
 
