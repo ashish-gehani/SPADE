@@ -30,7 +30,8 @@ import spade.query.quickgrail.utility.TreeStringSerializable;
 
 public class TransformGraph extends Instruction<String>{
 
-	public static final int putGraphBatchSize = 100;
+	// Hashes per lookup when putting the result; PostgreSQL and Quickstep scan the whole vertex or edge table for each
+	public static final int putGraphBatchSize = 10000;
 
 	public final String tInitArg;
 	private final AbstractTransformer transformer;

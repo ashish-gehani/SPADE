@@ -114,22 +114,27 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		return qs;
 	}
 
+	/** The hashes, one per line, as the data of a copy from stdin; empty if there are none. */
+	private static String hashLines(final ArrayList<String> hashes){
+		final StringBuilder lines = new StringBuilder();
+		for(final String hash : hashes){
+			if(hash.length() <= 32){
+				lines.append(hash).append('\n');
+			}
+		}
+		return lines.toString();
+	}
+
 	@Override
 	public void insertLiteralEdge(Graph targetGraph, ArrayList<String> edges){
 		if(!edges.isEmpty()){
-			String insertSubpart = "";
-			for(String edge : edges){
-				if(edge.length() <= 32){
-					insertSubpart += "('" + edge + "'), ";
-				}
-			}
-			
-			if(!insertSubpart.isEmpty()){
+			final String hashes = hashLines(edges);
+
+			if(!hashes.isEmpty()){
 				final String tempEdgeTable = "m_edgehash";
 				qs.executeQuery("drop table " + tempEdgeTable + ";\n");
 				qs.executeQuery("create table " + tempEdgeTable + " (md5 char(32));\n");
-				insertSubpart = insertSubpart.substring(0, insertSubpart.length() - 2);
-				qs.executeQuery("insert into " + tempEdgeTable + " values " + insertSubpart + ";\n");
+				qs.executeQuery("copy " + tempEdgeTable + " from stdin with (delimiter '|');\n", hashes);
 				
 				qs.executeQuery("insert into " + getEdgeTableName(targetGraph)
 						+ " select id from " + edgeTableName + " where md5 in (select md5 from "+tempEdgeTable+" group by md5);\n");
@@ -142,19 +147,13 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	@Override
 	public void insertLiteralVertex(Graph targetGraph, ArrayList<String> vertices){
 		if(!vertices.isEmpty()){
-			String insertSubpart = "";
-			for(String vertex : vertices){
-				if(vertex.length() <= 32){
-					insertSubpart += "('" + vertex + "'), ";
-				}
-			}
-			
-			if(!insertSubpart.isEmpty()){
+			final String hashes = hashLines(vertices);
+
+			if(!hashes.isEmpty()){
 				final String tempVertexTable = "m_vertexhash";
 				qs.executeQuery("drop table " + tempVertexTable + ";\n");
 				qs.executeQuery("create table " + tempVertexTable + " (md5 char(32));\n");
-				insertSubpart = insertSubpart.substring(0, insertSubpart.length() - 2);
-				qs.executeQuery("insert into " + tempVertexTable + " values " + insertSubpart + ";\n");
+				qs.executeQuery("copy " + tempVertexTable + " from stdin with (delimiter '|');\n", hashes);
 				
 				qs.executeQuery("insert into " + getVertexTableName(targetGraph)
 						+ " select id from " + vertexTableName + " where md5 in (select md5 from "+tempVertexTable+" group by md5);\n");
