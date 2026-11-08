@@ -1,4 +1,4 @@
-## Container method checks on real traces
+## Container label checks on real traces
 
 Scripts that record real provenance traces of containers with SPADE and check
 the `ContainerLabels` transformer's labels against the kernel's own view. The
@@ -27,7 +27,7 @@ __Steps__:
 * `./trace.sh 1|2|3|4 [NAME]` records one trace into `~/stage-b/trace<N>/`,
   or `trace<NAME>/` (e.g. `1b`, to keep an earlier recording): trace 1 is
   B1-B7, trace 2 is B8-B11 and B13 with `netIO` off, trace 3 is the media
-  microservices (M), and trace 4 is six of their containers with a small
+  microservices, and trace 4 is six of their containers with a small
   workload (S), which takes minutes where trace 3 takes hours. It starts a fresh SPADE, PostgreSQL, Neo4j and Quickstep
   storage, records the kernel's ground truth in `truth.txt`, and ends with a
   completeness check: a trace is used only if the line reads
@@ -54,10 +54,7 @@ __Steps__:
   across storages: the kernel module's records of every process it created,
   in auditd's log, and for traces 3 and 4 the cgroup sampler's processes,
   since Docker restarts crashed services faster than it can be asked about
-  them. Part B's results came from the QuickGrail methods the transformer
-  replaced, and from `check-trace1.py`, `check-media.py` and
-  `query-trace3.sh`, which went with them (in git history before the
-  transformer).
+  them.
 
 __Files__:
 
@@ -97,16 +94,15 @@ __Things that silently spoil a trace__ (each is handled by `trace.sh`):
 * auditd drops single records on their way to the plugin when its queue to
   the plugins stays full ("queue to plugins is full - dropping event", only
   the first five reported). The event's serial number stays, so only a
-  comparison record by record (`compare-input.py`) finds them; trace 3 lost
-  two records this way.
+  comparison record by record (`compare-input.py`) finds them.
 * udev's and PostgreSQL's own activity floods the audit stream; they are left
   out with `ignoreProcesses` and `ignoreParentProcesses`.
 * Without BUG_FIXES.md F18, a process that `sudo` forks for SPADE's own user
   is not recorded as created; run such commands through `sudo sh -c '...'`.
 * Removing the main kernel module (`rmmod spade_audit`) crashes every thread
-  then in one of its hooked system calls (BUG_FIXES.md N22). The Quickstep
-  server lost its accept thread that way, twice, and the Quickstep storage
-  then waited for ever. Never remove it while processes run; reboot to load a
+  then in one of its hooked system calls (BUG_FIXES.md N22); the Quickstep
+  server can lose its accept thread that way, and the Quickstep storage then
+  waits for ever. Never remove it while processes run; reboot to load a
   rebuilt module (the reporter warns when the loaded one is another build).
   `trace.sh` and `replay.sh` check that every storage answers with the same
   counts.
