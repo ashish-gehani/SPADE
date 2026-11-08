@@ -384,7 +384,15 @@ public class DatabaseManager{
 		}
 		return getGraphDatabaseService().beginTx();
 	}
-	
+
+	/** Runs the query in an implicit transaction, the only kind that can hold "call { ... } in transactions". */
+	public final void executeInImplicitTransaction(final String query){
+		if(!isUsable()){
+			throw new RuntimeException("Database not initialized or already shutdown");
+		}
+		getGraphDatabaseService().executeTransactionally(query);
+	}
+
 	public final Set<String> getAllLabels(){
 		try(final Transaction tx = beginANewTransaction()){
 			final Iterable<Label> labelIterable = tx.getAllLabelsInUse();
