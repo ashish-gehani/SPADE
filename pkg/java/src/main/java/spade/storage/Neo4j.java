@@ -323,6 +323,30 @@ public class Neo4j extends AbstractStorage{
 
 	private final LinkedList<StorageTask<?>> neo4jDbTasksPending = new LinkedList<StorageTask<?>>();
 
+	/**
+	 * Waits until every task queued so far has run and been committed. A query task goes to the
+	 * front of the queue, so without this a query right after puts can run before them
+	 * (QueryInstructionExecutor.putGraph).
+	 */
+	public final void waitForQueuedTasks(){
+		if(isShutdown() || !isMainThreadRunning()){
+			return;
+		}
+		final StorageTask<Void> marker = new StorageTask<Void>(false, true){
+			@Override
+			public Void execute(final Neo4j storage, final Transaction tx){
+				return null;
+			}
+		};
+		appendPendingTask(marker);
+		while(!marker.isCompleted()){
+			if(!isMainThreadRunning()){
+				throw new RuntimeException("Task execution thread exited while waiting for queued tasks");
+			}
+			HelperFunctions.sleepSafe(configuration.sleepWaitMillis);
+		}
+	}
+
 	public final int getPendingTasksSize(){
 		synchronized(neo4jDbTasksPending){
 			return neo4jDbTasksPending.size();

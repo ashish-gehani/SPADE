@@ -105,6 +105,11 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 
 	@Override
+	public void waitUntilStored(){
+		qs.storeBatchAndWait(); // flushTransactions only hands the batch to the batch thread
+	}
+
+	@Override
 	public AbstractStorage getStorage(){
 		return qs;
 	}
