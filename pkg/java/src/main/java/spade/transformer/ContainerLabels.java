@@ -677,10 +677,19 @@ public class ContainerLabels extends AbstractTransformer{
 				if(unambiguous){
 					labels.put(entry.getKey(), containerId);
 					labeledArtifacts++;
-				}else{
-					ambiguousArtifacts++;
+				}else if(nextToALabeledProcess(entry.getValue())){
+					ambiguousArtifacts++; // a container's artifact, but shared or ambiguous
 				}
 			}
+		}
+
+		private boolean nextToALabeledProcess(final Set<String> processHashes){
+			for(final String processHash : processHashes){
+				if(labelOf(processHash) != null){
+					return true;
+				}
+			}
+			return false;
 		}
 
 		/** This run's label of the vertex, or the one it already had. */
@@ -749,7 +758,7 @@ public class ContainerLabels extends AbstractTransformer{
 					+ " in a container's PID namespace left unlabeled (no recorded start, or not linked to one)"
 					+ (conflictingProcesses > 0 ? ", " + conflictingProcesses + " claimed by two containers" : "")
 					+ "; " + labeledArtifacts + " artifacts labeled, " + ambiguousArtifacts
-					+ " namespaced artifacts left unlabeled as shared or ambiguous";
+					+ " next to a labeled process left unlabeled as shared or ambiguous";
 		}
 
 		////////////////////////////////////////////////////////////////////////
