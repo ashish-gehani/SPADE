@@ -1,10 +1,10 @@
 ## Container method checks on real traces
 
 Scripts that record real provenance traces of containers with SPADE and check
-the QuickGrail methods `getContainerInit` and `getContainerBoundary` against
-the kernel's own view. The scenarios, what each should show, and the results
-are in `pkg/java/src/main/java/spade/query/quickgrail/TRACE_VALIDATION.md`,
-Part B; the fixes the traces needed are in `BUG_FIXES.md` beside it.
+the `ContainerLabels` transformer's labels against the kernel's own view. The
+scenarios, what each should show, and the results are in
+`pkg/java/src/main/java/spade/query/quickgrail/TRACE_VALIDATION.md`, Parts B
+and C; the fixes the traces needed are in `BUG_FIXES.md` beside it.
 
 __Requirements__:
 
@@ -34,42 +34,40 @@ __Steps__:
   `COMPLETENESS: ok`. Traces 3 and 4 change auditd's settings for their duration
   (see below) and puts them back at the end, also when it stops early; it
   also writes `monitor.log`, auditd's CPU time and socket once a second.
-* `./query.sh <N> [method calls]` runs the methods on all three storages and
-  exports every result as a `.dot` file, timing each command (`times.tsv`).
-  Query a trace before recording the next: the storages are reset when a
-  trace starts. Numbered forms for reused IDs are passed as extra calls, e.g.
-  `"getContainerBoundary('4026532474', 2)"`. `STORAGES` picks the storages,
-  `ONLY_EXTRA=1` runs only the extra calls and adds them to an earlier run's
-  results, and `QUERY_TIMEOUT` limits each command (900 s by default).
-* For trace 3, `./query.sh 3` runs on PostgreSQL only (`STORAGES=PostgreSQL`),
-  then `./query-trace3.sh` adds the runs Docker could not name (they ended at
-  once) and the reused IDs, and runs a subset on Neo4j and Quickstep, where
-  a Neo4j boundary takes minutes; `SUBSET=0` leaves that subset out.
-* `./replay.sh <N>` stores a recorded trace again, into fresh storages, from
-  the input the reporter read live (`spade-input.log`), as `trace<N>r`, with
-  the trace's ground truth linked next to it. It checks reporter and storage
-  fixes on a trace without recording it again; query and check the replay
-  as `3r` (`./query.sh 3r`, `TRACE=3r ./query-trace3.sh`). It passes
-  `handleLocalEndpoints` as the live trace had it, since playback without F16
-  may drop every network record of the kernel module (BUG_FIXES.md N20);
-  `GIVE_HANDLE=0` leaves it out, to check F16.
-* `./check-trace1.py [dir]` (traces 1 and 2) and `./check-media.py [dir]`
-  (traces 3 and 4) compare the results across storages and with the ground truth.
-  For trace 3 that is the kernel module's records of the container inits in
-  auditd's log and the cgroup sampler's processes, since Docker restarts
-  crashed services faster than it can be asked about them.
+* `./query.sh <N>` runs the `ContainerLabels` transformer on all three
+  storages (`$labeled = $base.transform(ContainerLabels, '')`) and exports
+  the labeled vertices, every process vertex of the labeled copy, and every
+  network socket with its neighbours as `.dot` files, timing each command
+  (`times.tsv`). Query a trace before recording the next: the storages are
+  reset when a trace starts. `STORAGES` picks the storages (trace 3:
+  `STORAGES=PostgreSQL`), and `QUERY_TIMEOUT` limits each command (900 s by
+  default).
+* `./replay.sh <N> [NAME]` stores a recorded trace again, into fresh storages,
+  from the input the reporter read live (`spade-input.log`), as `trace<N>r`
+  (or `trace<NAME>`), with the trace's ground truth linked next to it. It
+  checks reporter, storage and transformer changes on a trace without
+  recording it again; query and check the replay by its name
+  (`./query.sh 4r`). It passes `handleLocalEndpoints` as the live trace had
+  it, since playback without F16 may drop every network record of the kernel
+  module (BUG_FIXES.md N20); `GIVE_HANDLE=0` leaves it out, to check F16.
+* `./check-labels.py [dir]` compares the labels with the ground truth and
+  across storages: the kernel module's records of every process it created,
+  in auditd's log, and for traces 3 and 4 the cgroup sampler's processes,
+  since Docker restarts crashed services faster than it can be asked about
+  them. Part B's results came from the QuickGrail methods the transformer
+  replaced, and from `check-trace1.py`, `check-media.py` and
+  `query-trace3.sh`, which went with them (in git history before the
+  transformer).
 
 __Files__:
 
 | File | Does |
 |---|---|
 | `trace.sh` | Records a trace; see the comments for every setting it changes and why |
-| `query.sh` | Runs the methods on every storage and exports the results |
+| `query.sh` | Runs the transformer on every storage and exports the labels |
 | `timed-client.py` | Used by `query.sh`: sends the queries to `bin/spade query` one at a time and times each (`times.tsv`) |
-| `query-trace3.sh` | Trace 3's queries after `query.sh 3`: the namespaces of runs Docker could not name, the reused IDs in all their forms, and the subset for Neo4j and Quickstep |
 | `replay.sh` | Stores a recorded trace again from the reporter's saved input, for checking fixes without recording again |
-| `check-trace1.py` | Facts for B1-B10: starts, numbered lists, boundaries, sockets, storage agreement |
-| `check-media.py` | M1-M4: one start per container run (restarts included), each boundary against the sampler, storage agreement |
+| `check-labels.py` | C1-C6 (TRACE_VALIDATION.md, Part C): one container per kernel run, every process the kernel created in a run (and every sampled one) labeled with it and nothing else, the socket rule, storage agreement, the transform's time |
 | `dotsum.py` | Summarizes a `.dot` export; used by the checkers |
 | `fdcheck.py` | B12: the reporter's warnings about descriptors it does not know, by process and syscall |
 | `nofd.py` | B12: which of those descriptors were created by a recorded syscall (a gap in SPADE) and which by one the rules leave out, and what the reporter logged at the creation |

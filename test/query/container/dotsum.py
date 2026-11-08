@@ -2,7 +2,7 @@
 """Summarize a SPADE .dot export: processes, artifacts and edges.
 
 Usage: dotsum.py FILE.dot [--edges]
-Processes are listed in time order with the labels the container methods use.
+Processes are listed in time order with the namespace labels the ContainerLabels transformer reads.
 """
 import re
 import sys

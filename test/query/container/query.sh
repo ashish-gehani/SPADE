@@ -1,61 +1,51 @@
 #!/bin/bash
-# Stage B: run the container methods on a recorded trace, on PostgreSQL, Neo4j and Quickstep.
-# The IDs to query come from the kernel's ground truth (truth.txt), not from the
-# methods' own output. Extra queries (e.g. numbered forms) can be appended as
-# arguments: query.sh 1 "getContainerBoundary('4026532353', 2)" ...
-# Output: ~/stage-b/trace<N>/<storage>/{queries.txt,client.log,*.dot}
-# Each command is timed (<storage>/times.tsv) and may take QUERY_TIMEOUT seconds
-# (900 by default). STORAGES names the storages to query (all three by default).
-# ONLY_EXTRA=1 runs only the extra calls, adding their results to an earlier run's
-# (queries-extra.txt, client-extra.log, times-extra.tsv). A boundary call is named
-# after its ID: id_<id>.dot, or id_<id>_<n>.dot for the numbered form.
+# Run the ContainerLabels transformer on a recorded trace, on PostgreSQL, Neo4j and
+# Quickstep, and export what the checkers compare with the kernel's ground truth:
+#   containers.dot  the vertices the transformer labeled (container_id)
+#   processes.dot   every process vertex of the labeled copy, labeled or not
+#   sockets.dot     every network socket of the labeled copy, with the vertices and
+#                   edges next to it
+# Output: ~/stage-b/trace<N>/<storage>/{queries.txt,client.log,times.tsv,*.dot}
+# Each command is timed (times.tsv) and may take QUERY_TIMEOUT seconds (900 by
+# default). STORAGES names the storages to query (all three by default).
+# The transform puts its labeled copy into the storage (QueryInstructionExecutor.
+# transformGraph), so $base grows by the labeled vertices and their edges.
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)   # this directory
-N=${1:?usage: query.sh 1|2|3 [extra method calls]}
-shift
+N=${1:?usage: query.sh 1|2|3|4|<name>}
 T="$HOME/stage-b/trace$N"
 # the SPADE tree these scripts are in, unless SPADE_HOME names another
 SPADE_HOME=${SPADE_HOME:-$(cd "$HERE/../../.." && pwd)}
 cd "$SPADE_HOME" || exit 1
 
-ids=$(grep -oE '\b[XY]=[0-9]+' "$T/truth.txt" | cut -d= -f2 | sort -u)
-
 for storage in ${STORAGES:-PostgreSQL Neo4j Quickstep}; do
     D="$T/$storage"
-    if [ "${ONLY_EXTRA:-0}" = 1 ]; then
-        sfx=-extra; mkdir -p "$D"
-    else
-        sfx=; rm -rf "$D"; mkdir -p "$D"
-    fi
-    Q="$D/queries$sfx.txt"
-    {
-        echo "set storage $storage"
-        echo "stat \$base"
-        k=0
-        add() {   # add NAME CALL: assign, count, export
-            echo "\$$1 = \$base.$2"
-            echo "stat \$$1"
-            echo "export > $D/$1.dot"
-            echo "dump all \$$1"   # into the file export named
-        }
-        if [ "${ONLY_EXTRA:-0}" != 1 ]; then
-            add init "getContainerInit()"
-            add all "getContainerBoundary()"
-            for id in $ids; do add "id_$id" "getContainerBoundary('$id')"; done
-        fi
-        for call in "$@"; do
-            name=$(echo "$call" | sed -nE "s/^getContainerBoundary\('([0-9]+)'(, *([0-9]+))?\)$/id_\1_\3/p" | sed 's/_$//')
-            case "$call" in
-                "getContainerInit()") name=init ;;
-                "getContainerBoundary()") name=all ;;
-            esac
-            [ -n "$name" ] || { k=$((k + 1)); name="extra_$k"; }
-            add "$name" "$call"
-        done
-        echo "exit"
-    } > "$Q"
+    rm -rf "$D"; mkdir -p "$D"
+    Q="$D/queries.txt"
+    cat > "$Q" <<EOF
+set storage $storage
+stat \$base
+\$labeled = \$base.transform(ContainerLabels, '')
+stat \$labeled
+stat \$base
+\$containers = \$labeled.getVertex(container_id like '%')
+stat \$containers
+export > $D/containers.dot
+dump all \$containers
+\$processes = \$labeled.getVertex(type = 'Process')
+stat \$processes
+export > $D/processes.dot
+dump all \$processes
+\$sockets = \$labeled.getVertex(subtype = 'network socket')
+\$socketsAround = \$labeled.getLineage(\$sockets, 1, 'both')
+stat \$socketsAround
+export > $D/sockets.dot
+dump all \$socketsAround
+exit
+EOF
     echo "=== $storage: $(grep -c '^\$' "$Q") queries"
     s=$(date +%s)
-    python3 "$HERE"/timed-client.py "$PWD" "$Q" "$D/client$sfx.log" "$D/times$sfx.tsv" "${QUERY_TIMEOUT:-900}"
+    python3 "$HERE"/timed-client.py "$PWD" "$Q" "$D/client.log" "$D/times.tsv" "${QUERY_TIMEOUT:-900}"
     echo "client exit=$?, $(ls "$D"/*.dot 2>/dev/null | wc -l) graphs exported in $(( $(date +%s) - s )) s"
 done
+git checkout -q -- cfg/spade.client.CommandLine.config 2>/dev/null   # the client saved its last storage

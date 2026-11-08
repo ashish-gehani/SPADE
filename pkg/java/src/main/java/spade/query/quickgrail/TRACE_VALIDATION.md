@@ -899,3 +899,46 @@ Two fixes came out of these recordings themselves: F28, a vfork child seen
 before its creation, which made B13a's start fail, and F29, the module's pid
 filters naming threads. A first version of F27 crashed threads (N22) and was
 replaced before the recordings above.
+
+## Part C: the ContainerLabels transformer on real traces
+
+The maintainer asked (2026-11-03) for the two QuickGrail methods to become
+one SPADE transformer, `ContainerLabels`, that labels container processes in
+memory (`CLARITY_METHODS.md`). Part C checks it on the recordings of Part B,
+replayed into fresh storages with the transformer's build (`87e38e49`; the
+reporter, the module and the storages are unchanged since F29, so a replay
+gives the graph a recording would). Traces 1, 2 and 4 are replayed and
+queried on all three storages; trace 3, whose replay takes hours, on
+PostgreSQL only if at all.
+
+The expectations below were written and committed before the replays. They
+follow `CLARITY_METHODS.md` §1 and §5 as rewritten for the transformer.
+
+**Ground truth.** The kernel module's NEWPROCESS records in auditd's log,
+which Part A checked against the kernel: for every process created in the
+trace, its host pid, its pid in its own namespace and its PID namespace. A
+container run is a record with ns pid 1 in a namespace other than the host's;
+runs of a reused ID are told apart by time. Traces 3 and 4 add the cgroup
+sampler's processes. `query.sh` runs `$labeled = $base.transform(ContainerLabels, '')`
+on each storage and exports the labeled vertices, every process vertex of
+the copy, and every network socket with its neighbours; `check-labels.py`
+compares them with the ground truth.
+
+| # | Expectation |
+|---|---|
+| C1 | One `container_id` per kernel run whose init's creation is in the trace, naming the run's namespace and the time and event id of that creation; the init is labeled. No `container_id` without a kernel run. |
+| C2 | Every process version that the kernel recorded as created in a run is labeled with that run's `container_id`, and so is every sampled process (traces 3 and 4). A version the reporter first saw without its creation is not linked to the start and stays unlabeled; none is expected in these traces, whose input was complete. |
+| C3 | Nothing else is labeled: no host process (runc's stages, the shim, `unshare`, `bwrap` outside), no process of B3's container, which started before tracing (a change from the methods, where it was a container "running when tracing started"), and no process with another run's label. |
+| C4 | A labeled socket's processes all have its label and its `net namespace`. B7's 14 sockets and B9's 10, used only by `wget` in its own network namespace, are labeled. For the other sockets next to container processes, the reason each is left is reported; no rule is broken. |
+| C5 | The same labeled vertices, with the same `container_id`s, on every storage. |
+| C6 | A measurement: the transform's time on each storage, which exports the graph, labels it in memory, and puts the labeled copy back. |
+
+Per scenario, these mean: B1 one container per `docker run`, its init, `sh`
+and `sleep` labeled and runc's stage 1 not; B2 the `docker exec`'d `sh` and
+`sleep` labeled with the `sleep 60` container's ID; B3 nothing labeled; B4 X's
+processes with X's ID and the nested Y's with Y's; B5 the `unshare` child and
+its `sh`; B6 eight different IDs for the eight runs of the reused namespace;
+B8 bubblewrap's sandbox labeled, where `getContainerInit()` failed; B10 the
+clone3 child; B11 the container started through sudo; B13 the processes
+after an unshare or setns and execve. S1 to S3 and M1 to M3 become C1, C2
+and C4 on traces 4 and 3.
