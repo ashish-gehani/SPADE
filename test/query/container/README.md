@@ -106,4 +106,10 @@ __Things that silently spoil a trace__ (each is handled by `trace.sh`):
   rebuilt module (the reporter warns when the loaded one is another build).
   `trace.sh` and `replay.sh` check that every storage answers with the same
   counts.
-* Do not edit `trace.sh` while it runs: bash reads a script as it goes.
+* `set storage` naming a storage SPADE does not have fails, and the query
+  client goes on with its last storage, which then answers the queries.
+  `trace.sh` and `replay.sh` stop when a storage cannot be added, `query.sh`
+  skips a storage SPADE does not have, and `check-labels.py` reports errors in
+  the queries.
+* Do not edit `trace.sh` or `replay.sh` while it runs: bash reads a script as
+  it goes.

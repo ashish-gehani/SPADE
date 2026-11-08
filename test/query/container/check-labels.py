@@ -35,6 +35,9 @@ from dotsum import read  # noqa: E402
 T = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser('~/stage-b/trace4')
 STORAGES = [s for s in ('PostgreSQL', 'Neo4j', 'Quickstep')
             if os.path.exists(os.path.join(T, s, 'processes.dot'))]
+# queried (query.sh made the directory) but without results: the client failed
+NO_RESULTS = [s for s in ('PostgreSQL', 'Neo4j', 'Quickstep')
+              if os.path.isdir(os.path.join(T, s)) and s not in STORAGES]
 HOST = '4026531836'
 NEWPROC = re.compile(r'msg=audit\((\d+\.\d+):\d+\): .*ns_operation=ns_NEWPROCESS ns_ns_pid=(\d+) '
                      r'ns_host_pid=(\d+) .*ns_inum_pid=(\d+) ')
@@ -123,6 +126,8 @@ def main():
         return f'{x} run {n}' + (f' ({names})' if names else '')
 
     print(f'trace: {T}\nstorages: {", ".join(STORAGES)}')
+    if NO_RESULTS:
+        print(f'NO RESULTS from {", ".join(NO_RESULTS)}: see its client.log')
     print(f'kernel: {len(procs)} processes created, {len(inits)} container runs in {len(runs_of_x)} namespaces, '
           f'reused IDs: { {x: len(r) for x, r in runs_of_x.items() if len(r) > 1} }; sampled: {len(samples)}')
     if not STORAGES:
@@ -142,6 +147,9 @@ def main():
         print(f'  {s}: {len(containers)} labeled vertices, {len({v.get("container_id") for v in containers.values()})} '
               f'container ids; transform {", ".join(times(s)) or "?"}; errors: {errors(s) or "none"}')
     print(f'  {"the same on every storage" if len(set(sigs.values())) == 1 else "DIFFERENT between storages"}')
+    failed = [s for s in STORAGES if errors(s)]
+    if failed:
+        print(f'  ERRORS in the queries on {", ".join(failed)}: their results may be another storage\'s')
 
     s0 = STORAGES[0]
     containers, processes, (snodes, sedges) = results[s0]

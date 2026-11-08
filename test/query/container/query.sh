@@ -21,7 +21,13 @@ cd "$SPADE_HOME" || exit 1
 
 for storage in ${STORAGES:-PostgreSQL Neo4j Quickstep}; do
     D="$T/$storage"
-    rm -rf "$D"; mkdir -p "$D"
+    rm -rf "$D"
+    # A storage SPADE does not have would leave the client on its last storage.
+    if ! printf 'set storage %s\nexit\n' "$storage" | timeout 300 bin/spade query 2>&1 \
+            | grep -q "Storage '$storage' successfully set"; then
+        echo "=== $storage: not added to SPADE, skipped"; continue
+    fi
+    mkdir -p "$D"
     Q="$D/queries.txt"
     cat > "$Q" <<EOF
 set storage $storage

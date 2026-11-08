@@ -56,6 +56,12 @@ ctl() {
         | sed -n '/^-> /,$p' | grep -vE '^-> exit|^\s*$'
 }
 mark() { echo "MARK $(date +%s.%3N) $*"; }
+# Add a storage or abort: queries to a storage SPADE does not have run on the
+# client's last storage instead.
+add_storage() {
+    local out; out=$(ctl "add storage $*"); echo "$out"
+    echo "$out" | grep -q "Adding storage $1\.\.\. done" || { echo "ABORT: storage $1 not added"; exit 1; }
+}
 
 echo "replay of trace $N as trace$NAME  start=$(date -Is)  commit=$(git log --oneline -1)"
 # The same fresh SPADE and storages as trace.sh.
@@ -70,15 +76,18 @@ if ! printf 'list all\nexit\n' | timeout 60 bin/spade control 2>&1 | grep -q 'No
     echo "ABORT: SPADE started with storages already added"; exit 1
 fi
 ctl "add analyzer CommandLine"
-ctl "add storage PostgreSQL reset=true"
-ctl "add storage Neo4j reset=true"
+add_storage PostgreSQL reset=true
+add_storage Neo4j reset=true
 QS_DB="$HOME/stage-b/quickstep-db"
 bin/manage-quickstep.sh stop >/dev/null 2>&1
+# The stop is a kill -9 that returns before the old server exits and frees port 3000.
+for i in $(seq 60); do pgrep -f '[b]in/quickstep ' >/dev/null || break; sleep 1; done
+pgrep -f '[b]in/quickstep ' >/dev/null && { echo "ABORT: the old Quickstep server is still running"; exit 1; }
 rm -rf "$QS_DB"
 bin/manage-quickstep.sh start --path "$QS_DB" --memory 2048 >/dev/null 2>&1
 for i in $(seq 60); do ss -ltn | grep -q ':3000 ' && break; sleep 1; done
 ss -ltn | grep -q ':3000 ' || { echo "ABORT: the Quickstep server is not listening on port 3000"; exit 1; }
-ctl "add storage Quickstep reset=true batchTimeIntervalInSeconds=30"
+add_storage Quickstep reset=true batchTimeIntervalInSeconds=30
 
 mark "reporter add"
 ctl "add reporter Audit $ARGS"
@@ -108,8 +117,8 @@ echo "PostgreSQL vertices: $n"
 counts=""
 for s in PostgreSQL Neo4j Quickstep; do
     c=$(printf 'set storage %s\nstat $base\nexit\n' "$s" | timeout 300 bin/spade query 2>&1 \
-        | awk -F'|' '/^\| [0-9]+ +\| [0-9]+/{gsub(/ /, "", $2); gsub(/ /, "", $3); print $2 " vertices, " $3 " edges"; exit}')
-    echo "$s: ${c:-no answer in 300 s}"
+        | awk -F'|' '/successfully set/{set=1} set && /^\| [0-9]+ +\| [0-9]+/{gsub(/ /, "", $2); gsub(/ /, "", $3); print $2 " vertices, " $3 " edges"; exit}')
+    echo "$s: ${c:-not set, or no answer in 300 s}"
     counts="$counts ${c:-none};"
 done
 git checkout -q -- cfg/spade.client.CommandLine.config   # the client saved its last storage
