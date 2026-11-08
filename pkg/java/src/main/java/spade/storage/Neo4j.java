@@ -34,6 +34,7 @@ import java.util.logging.Logger;
 
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.schema.IndexDefinition;
+import org.neo4j.graphdb.schema.IndexType;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
@@ -283,6 +284,47 @@ public class Neo4j extends AbstractStorage{
 		}
 	}
 
+	/**
+	 * Creates the range indexes on the hash property of vertices and edges if they are missing.
+	 * QuickGrail looks vertices and edges up by hash (Neo4jInstructionExecutor.insertLiteralVertex
+	 * and insertLiteralEdge, which QueryInstructionExecutor.putGraph calls for every vertex and edge
+	 * it puts); without these indexes each lookup scans the database. The per-key indexes may be
+	 * turned off (index.vertex, index.edge), and those on edges are full-text, which an equality
+	 * lookup cannot use.
+	 *
+	 * @return true if an index was created
+	 */
+	private final boolean createHashRangeIndexes(final Transaction tx){
+		final String hashKey = configuration.hashPropertyName;
+		boolean vertexIndexed = false, edgeIndexed = false;
+		for(final IndexDefinition index : tx.schema().getIndexes()){
+			if(index.getIndexType() != IndexType.RANGE
+					|| !Arrays.asList(hashKey).equals(HelperFunctions.listify(index.getPropertyKeys()))){
+				continue;
+			}
+			if(index.isNodeIndex()
+					&& HelperFunctions.listify(index.getLabels()).contains(configuration.neo4jVertexLabel)){
+				vertexIndexed = true;
+			}
+			if(index.isRelationshipIndex()
+					&& HelperFunctions.listify(index.getRelationshipTypes()).contains(configuration.neo4jEdgeRelationshipType)){
+				edgeIndexed = true;
+			}
+		}
+		if(!vertexIndexed){
+			tx.schema().indexFor(configuration.neo4jVertexLabel).on(hashKey).withIndexType(IndexType.RANGE)
+					.withName(configuration.indexNamePrefix + "vertex_hash_range").create();
+			synchronized(nodePropertyNamesIndexed){
+				nodePropertyNamesIndexed.add(hashKey); // so that no other index is made on it
+			}
+		}
+		if(!edgeIndexed){
+			tx.schema().indexFor(configuration.neo4jEdgeRelationshipType).on(hashKey).withIndexType(IndexType.RANGE)
+					.withName(configuration.indexNamePrefix + "edge_hash_range").create();
+		}
+		return !vertexIndexed || !edgeIndexed;
+	}
+
 	private final void loadGlobalPropertyKeysAndIndexedKeys(final Transaction tx) throws Exception{
 		final Set<String> vertexKeys = getAllNodeKeys(tx);
 		final Set<String> edgeKeys = getAllRelationshipKeys(tx);
@@ -506,6 +548,17 @@ public class Neo4j extends AbstractStorage{
 			}catch(Exception e){
 				logger.log(Level.SEVERE, "Failed to load properties and indexes. Storage not in usable state.", e);
 				runTheMainLoop = false;
+			}
+
+			if(runTheMainLoop){
+				try(final Transaction indexTx = getDatabaseManager().beginANewTransaction()){
+					if(createHashRangeIndexes(indexTx)){
+						indexTx.commit();
+					}
+				}catch(Exception e){
+					logger.log(Level.WARNING, "Failed to create the range indexes on '"
+							+ configuration.hashPropertyName + "'. Lookups by hash scan the database.", e);
+				}
 			}
 
 			if(runTheMainLoop){
