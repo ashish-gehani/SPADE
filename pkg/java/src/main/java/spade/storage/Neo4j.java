@@ -54,6 +54,7 @@ import spade.storage.neo4j.StorageTask;
 import spade.storage.neo4j.StorageTest;
 import spade.storage.neo4j.TaskCreateIndex;
 import spade.storage.neo4j.TaskExecuteQuery;
+import spade.storage.neo4j.TaskExecuteUpdateInBatches;
 import spade.storage.neo4j.TaskGetHashToVertexMap;
 import spade.storage.neo4j.TaskGetQueriedEdgeSet;
 import spade.storage.neo4j.TaskPutEdge;
@@ -837,6 +838,14 @@ public class Neo4j extends AbstractStorage{
 		return queryObject.getResult();
 	}
 
+	/**
+	 * Runs an update of a graph's vertices or edges in batches (TaskExecuteUpdateInBatches): "&lt;match&gt; call {
+	 * with &lt;variables&gt; &lt;update&gt; } in transactions".
+	 */
+	public final void executeUpdateInBatches(final String match, final String variables, final String update){
+		executeQueryAndBlockForResult(new TaskExecuteUpdateInBatches(match, variables, update));
+	}
+
 	public final Map<String, Map<String, String>> readHashToVertexMap(String vertexAliasInQuery, String query){
 		final TaskGetHashToVertexMap queryObject = new TaskGetHashToVertexMap(query, vertexAliasInQuery);
 		executeQueryAndBlockForResult(queryObject);
@@ -856,7 +865,10 @@ public class Neo4j extends AbstractStorage{
 		}
 
 		if(!isShutdown() && isMainThreadRunning()){
-			queryObject.setTransactionTimeoutInSeconds(getConfiguration().transactionTimeoutInSeconds);
+			if(!(queryObject instanceof TaskExecuteUpdateInBatches)){
+				// The timeout ends the task's transaction; an update in batches commits transactions of its own
+				queryObject.setTransactionTimeoutInSeconds(getConfiguration().transactionTimeoutInSeconds);
+			}
 			prependPendingTask(queryObject);
 			// Block until complete
 			while(!queryObject.isCompleted()){
