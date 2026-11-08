@@ -635,8 +635,61 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		}
 	}
 
+	/** The rows of a copy ... to stdout with (delimiter ','), split at the commas not escaped, each field unescaped. */
 	private static List<String[]> getResultAsTable(final String result){
-		return HelperFunctions.parseAsList(result, "\\n", ",");
+		final List<String[]> rows = new ArrayList<String[]>();
+		for(final String line : result.split("\n")){
+			if(!line.isEmpty()){
+				rows.add(splitCopyRow(line, ','));
+			}
+		}
+		return rows;
+	}
+
+	/**
+	 * A field as copy ... to stdout writes it: a backslash, newline, tab, carriage return or the delimiter has a
+	 * backslash before it (\\, \n, \t, \r, \|), so a value with a backslash would otherwise come back with two.
+	 */
+	static String unescapeCopyField(final String field){
+		if(field.indexOf('\\') < 0){
+			return field;
+		}
+		final StringBuilder sb = new StringBuilder(field.length());
+		for(int i = 0; i < field.length(); i++){
+			final char c = field.charAt(i);
+			if(c == '\\' && i + 1 < field.length()){
+				final char next = field.charAt(++i);
+				switch(next){
+					case 'n': sb.append('\n'); break;
+					case 't': sb.append('\t'); break;
+					case 'r': sb.append('\r'); break;
+					case 'b': sb.append('\b'); break;
+					case 'f': sb.append('\f'); break;
+					case 'v': sb.append('\u000B'); break;
+					default: sb.append(next); break; // \\ and the delimiter
+				}
+			}else{
+				sb.append(c);
+			}
+		}
+		return sb.toString();
+	}
+
+	/** A row of copy ... to stdout split at the delimiters that are not escaped, each field unescaped. */
+	static String[] splitCopyRow(final String row, final char delimiter){
+		final List<String> fields = new ArrayList<String>();
+		int start = 0;
+		for(int i = 0; i < row.length(); i++){
+			final char c = row.charAt(i);
+			if(c == '\\'){
+				i++; // the escaped character is part of the field
+			}else if(c == delimiter){
+				fields.add(unescapeCopyField(row.substring(start, i)));
+				start = i + 1;
+			}
+		}
+		fields.add(unescapeCopyField(row.substring(start)));
+		return fields.toArray(new String[0]);
 	}
 
 	private static int getIteratorBatchSize(){
@@ -1051,7 +1104,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 					annos = new HashMap<String, String>();
 					idToAnnos.put(idLine, annos);
 				}
-				annos.put(keyLine, valueLine);
+				annos.put(unescapeCopyField(keyLine), unescapeCopyField(valueLine));
 			}
 		}
 
