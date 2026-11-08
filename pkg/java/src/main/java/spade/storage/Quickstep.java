@@ -719,6 +719,17 @@ public class Quickstep extends AbstractStorage {
     return result;
   }
 
+  /** Runs a query that reads data, such as copy ... from stdin. */
+  public String executeQuery(String query, String data) {
+    String result = null;
+    try {
+      result = qs.executeQuery(query, data);
+    } catch (QuickstepFailure e) {
+      logger.log(Level.SEVERE, "Query execution failed", e);
+    }
+    return result;
+  }
+
 	public long executeQueryForLongResult(String query){
 		return qs.executeQueryForLongResult(query);
 	}

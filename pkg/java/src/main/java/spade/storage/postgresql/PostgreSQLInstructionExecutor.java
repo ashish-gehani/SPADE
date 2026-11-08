@@ -179,21 +179,26 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		return result;
 	}
 
+	/** The hashes as the rows of a values list, such as ('a'), ('b'); empty if there are none. */
+	private static String valuesList(final ArrayList<String> hashes){
+		final StringBuilder rows = new StringBuilder();
+		for(final String hash : hashes){
+			if(hash.length() <= 32){
+				rows.append(rows.length() > 0 ? ", " : "").append("('").append(hash).append("')");
+			}
+		}
+		return rows.toString();
+	}
+
 	@Override
 	public void insertLiteralEdge(Graph targetGraph, ArrayList<String> edges){
 		if(!edges.isEmpty()){
-			String insertSubpart = "";
-			for(String edge : edges){
-				if(edge.length() <= 32){
-					insertSubpart += "('" + edge + "'), ";
-				}
-			}
+			final String insertSubpart = valuesList(edges);
 
 			if(!insertSubpart.isEmpty()){
 				final String tempEdgeTable = "m_edgehash";
 				executeQueryForResult("drop table if exists " + tempEdgeTable + ";\n", false);
 				executeQueryForResult("create table " + tempEdgeTable + " (" + getIdColumnName() + " uuid);\n", false);
-				insertSubpart = insertSubpart.substring(0, insertSubpart.length() - 2);
 				executeQueryForResult("insert into " + tempEdgeTable + " values " + insertSubpart + ";\n", false);
 
 				executeQueryForResult("insert into " + getEdgeTableName(targetGraph) + " select "
@@ -209,18 +214,12 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 	@Override
 	public void insertLiteralVertex(Graph targetGraph, ArrayList<String> vertices){
 		if(!vertices.isEmpty()){
-			String insertSubpart = "";
-			for(String vertex : vertices){
-				if(vertex.length() <= 32){
-					insertSubpart += "('" + vertex + "'), ";
-				}
-			}
+			final String insertSubpart = valuesList(vertices);
 
 			if(!insertSubpart.isEmpty()){
 				final String tempVertexTable = "m_vertexhash";
 				executeQueryForResult("drop table if exists " + tempVertexTable + ";\n", false);
 				executeQueryForResult("create table " + tempVertexTable + " (" + getIdColumnName() + " uuid);\n", false);
-				insertSubpart = insertSubpart.substring(0, insertSubpart.length() - 2);
 				executeQueryForResult("insert into " + tempVertexTable + " values " + insertSubpart + ";\n", false);
 
 				executeQueryForResult("insert into " + getVertexTableName(targetGraph) + " select "
