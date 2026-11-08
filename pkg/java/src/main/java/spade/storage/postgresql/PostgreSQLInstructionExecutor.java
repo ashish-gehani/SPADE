@@ -1138,8 +1138,8 @@ public class PostgreSQLInstructionExecutor extends QueryInstructionExecutor{
 		final String idColumnName = getIdColumnName();
 		executeQueryForResult("insert into " + targetTable + " select " + idColumnName + " from " + "(select distinct "
 				+ idColumnName + ", dense_rank() over (order by " + idColumnName + ") as rn from " + sourceTable + ") "
-				+ "as temp_table where "
-				+ "temp_table.rn >= " + fromInclusive + " and temp_table.rn < " + toExclusive, false);
+				+ "as temp_table where " // rank r is position r - 1
+				+ "temp_table.rn > " + fromInclusive + " and temp_table.rn <= " + toExclusive, false);
 	}
 
 	@Override
