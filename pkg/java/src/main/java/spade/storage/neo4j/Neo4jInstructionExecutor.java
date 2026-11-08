@@ -87,19 +87,24 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		storage.waitForQueuedTasks(); // a query goes ahead of the puts still queued
 	}
 
+	/** A Cypher list of the hashes: ['a', 'b']. */
+	private static String hashList(final List<String> hashes){
+		final StringBuilder list = new StringBuilder("[");
+		for(final String hash : hashes){
+			list.append(list.length() > 1 ? ", " : "").append('\'').append(hash).append('\'');
+		}
+		return list.append(']').toString();
+	}
+
 	@Override
 	public void insertLiteralEdge(Graph targetGraph, ArrayList<String> edges){
 		List<String> hashes = edges;
 		if(hashes == null || hashes.isEmpty()){
 			// Empty graph already
 		}else{
-			String query = "match ()-[e]->() where ";
-			String whereClause = "";
-			for(String hash : hashes){
-				whereClause += "e.`"+hashKey+"`='" + hash + "' or ";
-			}
-			whereClause = whereClause.substring(0, whereClause.length() - 3);
-			query += whereClause;
+			// The relationship type and IN let Neo4j use the range index on the hash (Neo4j.createHashRangeIndexes)
+			String query = "match ()-[e:`" + storage.getConfiguration().neo4jEdgeRelationshipType.name() + "`]->() where e.`"
+					+ hashKey + "` in " + hashList(hashes);
 			query += " " + buildSubqueryForUpdatingEdgeSymbols("e", targetGraph.name) + ";";
 	 		storage.executeQuery(query);
 		}
@@ -111,13 +116,9 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		if(hashes == null || hashes.isEmpty()){
 			// Empty graph already
 		}else{
-			String query = "match (v) where ";
-			String whereClause = "";
-			for(String hash : hashes){
-				whereClause += "v.`"+hashKey+"`='" + hash + "' or ";
-			}
-			whereClause = whereClause.substring(0, whereClause.length() - 3);
-			query += whereClause;
+			// The label and IN let Neo4j use the range index on the hash (Neo4j.createHashRangeIndexes)
+			String query = "match (v:`" + storage.getConfiguration().neo4jVertexLabel.name() + "`) where v.`"
+					+ hashKey + "` in " + hashList(hashes);
 			query += " set v:" + targetGraph.name + ";";
 	 		storage.executeQuery(query);
 		}
