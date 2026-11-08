@@ -151,7 +151,10 @@ def main():
     id_of_run = {}
     for cid in ids:
         x, t, event = cid.split(':')
-        match = [(n, ti, h) for n, (ti, h) in enumerate(runs_of_x.get(x, []), 1) if abs(ti - float(t)) < 1.0]
+        # the run whose init record is nearest in time: the clone and the module's record of it
+        # are one audit event, so they have the same time; runs of a reused ID can be < 1 s apart
+        near = sorted((abs(ti - float(t)), n, ti, h) for n, (ti, h) in enumerate(runs_of_x.get(x, []), 1))
+        match = [(n, ti, h) for d, n, ti, h in near[:1] if d < 0.01]
         if len(match) == 1:
             n, ti, h = match[0]
             init = [v for v in containers.values() if v.get('container_id') == cid and v.get('pid') == h
