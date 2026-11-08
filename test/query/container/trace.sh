@@ -66,7 +66,10 @@ echo "kernel module has F7: $(strings lib/kernel-modules/spade_audit.ko | grep -
 # defaults (-Xms8G -Xmx16G) starved an 8 GB guest. Query a trace before
 # recording the next one: the storages are reset when they are added.
 bin/spade stop >/dev/null 2>&1
-sleep 3
+# SPADE saves its configuration once stopped, minutes after a large query: wait for it,
+# or the start below reads the storages it saved.
+for i in $(seq 600); do pgrep -f '[s]pade.core.Kernel' >/dev/null || break; sleep 1; done
+pgrep -f '[s]pade.core.Kernel' >/dev/null && { echo "ABORT: SPADE did not stop in 600 s"; exit 1; }
 # SPADE saves its running configuration on shutdown and replays it on start,
 # reset=true included. Start from the tracked file, which adds nothing.
 git checkout -- cfg/spade.client.Control.config

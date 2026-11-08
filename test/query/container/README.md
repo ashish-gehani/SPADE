@@ -65,6 +65,8 @@ __Files__:
 | `timed-client.py` | Used by `query.sh`: sends the queries to `bin/spade query` one at a time and times each (`times.tsv`) |
 | `replay.sh` | Stores a recorded trace again from the reporter's saved input, for checking fixes without recording again |
 | `check-labels.py` | C1-C6 (TRACE_VALIDATION.md, Part C): one container per kernel run, every process the kernel created in a run (and every sampled one) labeled with it and nothing else, the socket rule, storage agreement, the transform's time |
+| `compare-labels.py` | Compares the labeled and the process vertices of two query results (two builds, or a second transform) |
+| `qg-ops.sh` | Runs 19 QuickGrail operations on every storage's `$base` and prints each result's vertex and edge counts, to compare storages and builds |
 | `dotsum.py` | Summarizes a `.dot` export; used by the checkers |
 | `fdcheck.py` | B12: the reporter's warnings about descriptors it does not know, by process and syscall |
 | `nofd.py` | B12: which of those descriptors were created by a recorded syscall (a gap in SPADE) and which by one the rules leave out, and what the reporter logged at the creation |

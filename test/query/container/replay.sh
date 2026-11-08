@@ -66,7 +66,10 @@ add_storage() {
 echo "replay of trace $N as trace$NAME  start=$(date -Is)  commit=$(git log --oneline -1)"
 # The same fresh SPADE and storages as trace.sh.
 bin/spade stop >/dev/null 2>&1
-sleep 3
+# SPADE saves its configuration once stopped, minutes after a large query: wait for it,
+# or the start below reads the storages it saved.
+for i in $(seq 600); do pgrep -f '[s]pade.core.Kernel' >/dev/null || break; sleep 1; done
+pgrep -f '[s]pade.core.Kernel' >/dev/null && { echo "ABORT: SPADE did not stop in 600 s"; exit 1; }
 git checkout -- cfg/spade.client.Control.config
 bin/spade start --mem-min 2g --mem-max 8g
 sleep 10
