@@ -3,8 +3,8 @@
 Container labeling (the `ContainerLabels` transformer on branch
 `clarity-of-container`, `CLARITY_METHODS.md` beside this file) was checked
 against the audit kernel module and against real traces. That turned up bugs
-in the kernel module, the audit bridge, the Audit reporter, the SPADE kernel,
-QuickGrail and all three storages. Branch `bug-fixes` holds their fixes, on
+in the kernel module, the audit bridge, the Audit reporter, the SPADE kernel
+and its query server, QuickGrail and all three storages. Branch `bug-fixes` holds their fixes, on
 top of upstream `prov-query` (`6b744f7c`), and `clarity-of-container` is
 rebased onto it. This file describes every fix: what went wrong, why, what
 changed, how it was checked, and what it means for traces recorded before it.
@@ -52,6 +52,14 @@ Paths are relative to the repository root. The kernel module is
 | F28 | Audit reporter | a vfork child's events came before the vfork that created it, so it was first seen with unknown namespaces | Required | `afb8fb45` | unit tests; trace 2 replayed |
 | F29 | kernel module | the pid and ppid filters compared thread ids, so other threads and children of a process left out were recorded | Optional (keeps SPADE's own processes out) | `f0532696` | `test/ns-pid/filter-test.sh`; trace 1 |
 | F30 | QuickGrail | `transform` on Quickstep or Neo4j missed part of the result it had just stored | Required for the transformer with Quickstep or Neo4j | `cc3f1651` | trace 4 |
+| F31 | Neo4j storage | every lookup of vertices or edges by hash scanned the database, so `transform` took time growing with the square of the graph | Optional (speed) | `5c049d46` | traces 4 and 3 replayed |
+| F32 | QuickGrail, PostgreSQL and Quickstep storages | `transform` looked its result up 100 hashes at a time, and each lookup scanned the whole vertex or edge table | Optional (speed) | `f288b933` | traces 4 and 3 replayed |
+| F33 | Neo4j storage | QuickGrail updated a whole graph in one transaction, which ran out of memory or past the transaction timeout on large graphs | Required for the transformer on Neo4j with graphs the size of trace 3 | `5764869c` | unit tests; traces 4 and 3 replayed |
+| F34 | QuickGrail | `transform` held up to four copies of the graph while putting its result | Required for the transformer with graphs the size of trace 3 in an 8 GB heap | `a4fff2c6` | trace 3 replayed |
+| F35 | query server | a query that ended in an `Error`, such as running out of memory, closed the client's connection without a log line | Optional (an error message) | `980b3a37` | trace 3 replayed |
+| F36 | Neo4j storage | `getEdge` with the key `*` failed | Optional (not used by container labeling) | `a093c86f` | trace 4 |
+| F37 | PostgreSQL storage | `vertexSubset` and `edgeSubset` returned one element too few | Optional (not used by container labeling) | `f9b874ef` | trace 4 |
+| F38 | Quickstep storage | an exported value with a backslash came back with the backslash doubled | Required with Quickstep when values have backslashes | `775c355f` | unit tests; trace 3 replayed |
 
 `test/...` is `pkg/linux/kernel_modules/test/...`. All checks ran on Ubuntu
 24.04.3 with Linux 6.8.0-146-generic in VirtualBox, with Docker 29.0.0 and runc
@@ -62,8 +70,9 @@ kernel module needs F1, F2, F7 and F9 (its namespace records), F3 when
 `networkAddressTranslation=true` (else the system can freeze), and F18 when
 SPADE's own user starts containers through sudo; the audit bridge needs F8;
 the Audit reporter needs F11, F15, F17 and F28, and F4 unless the module has
-F25; the storage needs F5 (PostgreSQL), F6 (Neo4j) or F23 (Quickstep), and
-F30 for QuickGrail's `transform` on Quickstep or Neo4j; and a
+F25; the storage needs F5 (PostgreSQL), F6 (Neo4j) or F23 and F38 (Quickstep), and
+F30 for QuickGrail's `transform` on Quickstep or Neo4j, with F34 and, on
+Neo4j, F33 for graphs the size of trace 3; and a
 replay of a log needs F16 unless it passes `handleLocalEndpoints`. The kernel
 module's fixes are in the main module (`spade_audit`), which stays loaded once
 inserted: after a rebuild, reboot to load it (F27, N22).
@@ -914,16 +923,196 @@ Without F30, Quickstep's `$labeled` held 40,040.
 `storage/quickstep/QuickstepInstructionExecutor.java`,
 `storage/neo4j/Neo4jInstructionExecutor.java`, `storage/Neo4j.java`.
 
+## F31. Neo4j looks vertices and edges up by hash through an index
+
+**Symptom.** On trace 4 (40,056 vertices, 122,462 edges), `transform` took
+1,132 s on Neo4j, against 60 s on PostgreSQL.
+
+**Cause.** QuickGrail looks vertices and edges up by hash
+(`insertLiteralVertex`, `insertLiteralEdge`), and `putGraph` does that for
+every vertex and edge of the graph it puts, before and after putting the new
+ones. On Neo4j the lookup named no label or relationship type and chained the
+hashes with OR (`match (v) where v.hash='a' or v.hash='b' ...`), and the
+storage's indexes on edges are full-text, which such a match does not use. So
+every lookup scanned the database, and the time grew with the square of the
+graph.
+
+**Fix.** The lookups match `VERTEX` nodes and `EDGE` relationships with
+`hash in [...]`, and the storage creates range indexes on the hash of both at
+start when they are missing.
+
+**Checked.** Trace 4 replayed with F31 and F32: `transform` on Neo4j took 33 s
+(1,132 s before), with the same labels as on PostgreSQL. Trace 3 (754,107
+vertices, 2,105,041 edges) needs F33 as well: 594 s with F31 to F38.
+
+**Files.** `storage/Neo4j.java`, `storage/neo4j/Neo4jInstructionExecutor.java`.
+
+## F32. QuickGrail's transform looks its result up 10,000 hashes at a time
+
+**Symptom.** On trace 3, `transform` took 12,986 s on PostgreSQL. Exporting
+the graph and labeling it took about 35 s; the rest was `putGraph`.
+
+**Cause.** `putGraph` looks the result's hashes up in batches of 100
+(`TransformGraph.putGraphBatchSize`), twice. PostgreSQL and Quickstep answer
+each batch by scanning the whole vertex or edge table: PostgreSQL has no index
+on the edge hash (`secondaryIndexes=true` indexes only the vertex hash and the
+edges' endpoints), and Quickstep has no indexes. On trace 3 that is 42,102
+scans of an edge table of 2.1 to 2.9 million rows, and the time grows with the
+square of the graph.
+
+**Fix.** Batches of 10,000 hashes. PostgreSQL builds the list of hashes with a
+`StringBuilder` (concatenating strings took time growing with the square of
+the batch), and Quickstep loads them with `copy ... from stdin` instead of an
+insert with a row per hash.
+
+**Checked.** Traces replayed with F31 and F32: `transform` on PostgreSQL took
+12 s on trace 4 (60 s before) and 457 s on trace 3 (12,986 s before), with the
+same labels as before F32. Quickstep needs F34 and F38 as well on trace 3:
+with F31 to F38 it took 12 s on trace 4 (101 s before) and 292 s on trace 3.
+
+**Files.** `query/quickgrail/instruction/TransformGraph.java`,
+`storage/postgresql/PostgreSQLInstructionExecutor.java`,
+`storage/quickstep/QuickstepInstructionExecutor.java`, `storage/Quickstep.java`.
+
+## F33. Neo4j: QuickGrail updates a graph in batches
+
+**Symptom.** On trace 3, `transform` on Neo4j failed after 2,112 s: SPADE ran
+out of its 8 GB heap committing a transaction, and later queries were ended
+by the 300 s transaction timeout (`transactionTimeoutInSeconds`).
+
+**Cause.** On Neo4j, QuickGrail marks a graph's vertices with a label and its
+edges in the edge symbols property (`spade_edge_symbols`). Each operation that
+builds or empties a graph (union, getVertex, getSubgraph, emptying a graph
+and the clean-up after each query, among others) updated all of it in one
+transaction: the union of the transform's result changed 2.1 million edges at
+once, and emptying a graph (`match(n) remove n:<label>`) took a lock on every
+node of the database.
+
+**Fix.** Such updates run as `<match> call { with <variables> <update> } in
+transactions of 10000 rows` (`TaskExecuteUpdateInBatches`), in an implicit
+transaction of their own, the only kind that can hold `in transactions`, after
+the storage commits its open transaction. Neo4j commits every 10,000 rows. The
+transaction timeout ends the task's own transaction, so it does not apply to
+these updates. Emptying a graph matches only the nodes with its label.
+
+**Checked.** `TaskExecuteUpdateInBatchesTest` (7 tests, embedded Neo4j, batches
+smaller than the graph): union, removing the label a query matches on, adding
+and dropping an edge symbol, endpoints and paths, an ordered slice; an
+explicit transaction cannot run such a query. On trace 4, 19 QuickGrail
+operations (getVertex, getEdge, the endpoints, `+`, `&`, `-`, getLineage,
+getSubgraph, getPath, collapseEdge, getMatch, vertexSubset, edgeSubset) gave
+the same vertices and edges as before F33, and as PostgreSQL and Quickstep.
+Trace 3 replayed with F31 to F38: `transform` took 594 s on Neo4j, with the
+same labels as on PostgreSQL and Quickstep.
+
+**Files.** `storage/neo4j/TaskExecuteUpdateInBatches.java`,
+`storage/neo4j/DatabaseManager.java`, `storage/Neo4j.java`,
+`storage/neo4j/Neo4jInstructionExecutor.java`,
+`storage/neo4j/Neo4jQueryEnvironment.java`.
+
+## F34. QuickGrail's transform keeps one copy of the graph while putting it
+
+**Symptom.** On trace 3, `transform` on Quickstep ended after 443 s with the
+client's connection closed (F35); SPADE's heap was at 7.9 of 8 GB.
+
+**Cause.** `transformGraph` held the exported input, the transformer's result
+and its copy (`copyContents`) until `putGraph` returned, and `putGraph` held
+both of its exports, of the vertices and the edges `$base` already had, while
+it put the new ones: three copies of the graph and most of a fourth.
+Quickstep's export also builds its whole result as one string.
+
+**Fix.** The input and the transformer's result are released once copied,
+and each export of `putGraph` once its part is subtracted.
+
+**Checked.** Trace 3 replayed with F31 to F38: `transform` took 292 s on
+Quickstep, 372 s on PostgreSQL and 594 s on Neo4j in SPADE's 8 GB heap, with
+the same labels on all three. Without F34, Quickstep's transform ended after
+443 s with the heap at 7.9 of 8 GB and the connection closed, which is what an
+`OutOfMemoryError` does without F35.
+
+**Files.** `query/quickgrail/core/QueryInstructionExecutor.java`.
+
+## F35. A query that ends in an Error fails, with the error logged
+
+**Symptom.** When `transform` ran out of memory (F34), the query client printed
+`Error: null`, its connection closed, and SPADE's log had nothing about it.
+
+**Cause.** The query server's `Connection.executeQuery` caught only
+`Exception`. An `Error` such as `OutOfMemoryError` ended the connection's
+thread, and nothing logged it.
+
+**Fix.** An `Error` is logged and returned to the client as the query's
+failure; the connection stays open.
+
+**Checked.** Trace 3 replayed, then SPADE started again with a 3 GB heap:
+`transform` on PostgreSQL failed with `Error: Java heap space.`, SPADE's log
+has the `OutOfMemoryError` with the query, and `stat $base` on the same
+connection answered (754,107 vertices and 2,105,041 edges, unchanged).
+
+**Files.** `analyzer/commandline/client/Connection.java`.
+
+## F36. Neo4j: getEdge with `*` compares the edge's annotations
+
+**Symptom.** `$base.getEdge(* = 'write')` failed on Neo4j ("Variable `v` not
+defined"); PostgreSQL and Quickstep returned 11,233 edges on trace 4.
+
+**Cause.** With the key `*`, `getEdge` added a second `where` and compared the
+annotations of `v`, a variable the query does not have.
+
+**Fix.** The comparison joins the `where` clause and reads `e`.
+
+**Checked.** Trace 4: 11,233 edges on Neo4j too.
+
+**Files.** `storage/neo4j/Neo4jInstructionExecutor.java`.
+
+## F37. PostgreSQL: vertexSubset and edgeSubset return `to - from` elements
+
+**Symptom.** On trace 4, `$p.vertexSubset(0, 100)` held 99 vertices on
+PostgreSQL and 100 on Neo4j and Quickstep; `edgeSubset(0, 100)` likewise.
+
+**Cause.** The rows kept were those whose `dense_rank()`, which starts at 1,
+was `from` or more and less than `to`.
+
+**Fix.** Rank r is position r - 1: the rows kept are ranked above `from` and
+up to `to`.
+
+**Checked.** Trace 4: 100 vertices and 100 edges on PostgreSQL.
+
+**Files.** `storage/postgresql/PostgreSQLInstructionExecutor.java`.
+
+## F38. Quickstep: an exported value with a backslash comes back as it was
+
+**Symptom.** On trace 3, 12 process vertices of Quickstep's labeled copy, 9 of
+them labeled, had other hashes than on PostgreSQL and Neo4j. Their command
+lines have a backslash, such as `grep -q Capability bounding
+set:.*\bsetuid\b`, and in Quickstep's copy each backslash was four.
+
+**Cause.** Quickstep's `copy ... to stdout` writes a backslash as `\\`, a
+newline, tab or carriage return as `\n`, `\t`, `\r`, and the delimiter with a
+backslash before it. The export read each annotation key and value as written.
+The transformer's copy of such a vertex therefore had other annotations and
+another hash, and was put into `$base` as a vertex of its own.
+
+**Fix.** The export and the histogram undo the escapes, and the histogram
+splits a row only at the commas not escaped.
+
+**Checked.** `QuickstepCopyOutputTest` (5 tests), from Quickstep's output of
+such values in its local mode. Trace 3 replayed with F38: Quickstep's labeled
+and process vertices are the same as PostgreSQL's and Neo4j's.
+
+**Files.** `storage/quickstep/QuickstepInstructionExecutor.java`.
+
 ## Running the checks
 
 | Check | How | Needs |
 |---|---|---|
-| Java unit tests (F4, F5, F9, F10, F11, F13, F15, F19 to F21, F27, F28) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,PostgreSQLTest,Clone3FlagsTest,KernelModuleArgumentTest,ThreadExitTest,AuditCompletenessTest,CloseOnExecTest,OPMConstantsTest,SavedConfigurationTest,RestoreGraphSymbolsTest,KernelModuleManagerTest,VforkOrderingTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
+| Java unit tests (F4, F5, F9, F10, F11, F13, F15, F19 to F21, F27, F28, F33, F38) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,PostgreSQLTest,Clone3FlagsTest,KernelModuleArgumentTest,ThreadExitTest,AuditCompletenessTest,CloseOnExecTest,OPMConstantsTest,SavedConfigurationTest,RestoreGraphSymbolsTest,KernelModuleManagerTest,VforkOrderingTest,TaskExecuteUpdateInBatchesTest,QuickstepCopyOutputTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
 | In-kernel tests (F7, F9, F25, F26) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
 | ns pid A/B (F1, F2, F7, F26; `filter-test.sh` for F18, F29) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
 | netfilter (F3) | `pkg/linux/kernel_modules/test/netfilter-atomic/README.md` | a disposable VM: without the fix it freezes |
 | bridge (F8) | compare auditd's log with the reporter's `outputLog` over a trace, by serial number and, within each event, by record type (N17); the bridge's own count of missing serials is in SPADE's log | auditd writing its log, enough log rotation to keep the trace |
-| replay (F11, F12, F14, F16, F28) | `test/query/container/replay.sh 3` on `clarity-of-container`, then `query.sh` and `check-labels.py`; `GIVE_HANDLE=0` for F16 | a recorded trace and the VM it was recorded in |
+| replay (F11, F12, F14, F16, F28, F31 to F35) | `test/query/container/replay.sh 3` on `clarity-of-container`, then `query.sh` and `check-labels.py`; `GIVE_HANDLE=0` for F16 | a recorded trace and the VM it was recorded in |
+| QuickGrail operations (F33, F36, F37) | `test/query/container/qg-ops.sh` on a replayed trace, before and after a change: each operation's vertex and edge counts on every storage | as replay |
 | traces (F15, F17, F18, F25, F28, F29) | `test/query/container/trace.sh 1|2|4`, then `query.sh`, `check-labels.py`, `fdcheck.py`, `nofd.py` and `f17check.py` (TRACE_VALIDATION.md) | the VM; trace 4 also DeathStarBench's media microservices |
 | live (F19, F20, F22, F27, F30) | as in each entry's Checked | the VM |
 
