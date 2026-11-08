@@ -341,7 +341,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 			query += "where " + edgeProperty + " contains ',"+subjectGraph.name+",' ";
 			if(hasArguments){
 				if(annotationKey.equals("*")){
-					query += " where " + buildWildCardComparison("v", operator, annotationValue);	
+					query += "and " + buildWildCardComparison("e", operator, annotationValue);
 				}else{
 					query += "and e." + buildComparison(annotationKey, operator, annotationValue);
 				}
@@ -349,7 +349,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		}else{
 			if(hasArguments){
 				if(annotationKey.equals("*")){
-					query += " where " + buildWildCardComparison("v", operator, annotationValue);	
+					query += "where " + buildWildCardComparison("e", operator, annotationValue);
 				}else{
 					query += "where e." + buildComparison(annotationKey, operator, annotationValue);
 				}
