@@ -3,8 +3,9 @@
 # Quickstep, and export what the checkers compare with the kernel's ground truth:
 #   containers.dot  the vertices the transformer labeled (container_id)
 #   processes.dot   every process vertex of the labeled copy, labeled or not
-#   sockets.dot     every network socket of the labeled copy, with the vertices and
-#                   edges next to it
+#   sockets.dot     every network socket and process of the labeled copy, with the
+#                   edges between them (getSubgraph: getLineage on sockets would try
+#                   a remote SPADE server for each one)
 # Output: ~/stage-b/trace<N>/<storage>/{queries.txt,client.log,times.tsv,*.dot}
 # Each command is timed (times.tsv) and may take QUERY_TIMEOUT seconds (900 by
 # default). STORAGES names the storages to query (all three by default).
@@ -37,7 +38,8 @@ stat \$processes
 export > $D/processes.dot
 dump all \$processes
 \$sockets = \$labeled.getVertex(subtype = 'network socket')
-\$socketsAround = \$labeled.getLineage(\$sockets, 1, 'both')
+\$skeleton = \$sockets + \$processes
+\$socketsAround = \$labeled.getSubgraph(\$skeleton)
 stat \$socketsAround
 export > $D/sockets.dot
 dump all \$socketsAround

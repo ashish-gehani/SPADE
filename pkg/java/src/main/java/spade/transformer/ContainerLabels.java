@@ -74,7 +74,10 @@ import spade.utility.HelperFunctions;
  * enough, and a shared or ambiguous artifact is left as it is.
  *
  * The result is a copy of the whole input graph: the same vertices and edges,
- * with `container_id` added to those identified. See CLARITY_METHODS.md in
+ * with `container_id` added to those identified. Vertices that already have a
+ * `container_id` are copied as they are and not used to identify containers:
+ * QuickGrail's transform stores its result, so a later $base holds labeled
+ * copies next to the originals, and transforming it again adds nothing. See CLARITY_METHODS.md in
  * spade/query/quickgrail for the design, the kernel rules it relies on, and its
  * limits.
  *
@@ -326,8 +329,8 @@ public class ContainerLabels extends AbstractTransformer{
 				final AbstractVertex child = vertexOf(edge.getChildVertex());
 				final AbstractVertex parent = vertexOf(edge.getParentVertex());
 				if(child == null || parent == null || !OPMConstants.WAS_TRIGGERED_BY.equals(edge.type())
-						|| !isProcess(child) || !isProcess(parent)){
-					continue;
+						|| !isProcess(child) || !isProcess(parent) || isLabeled(child) || isLabeled(parent)){
+					continue; // labeled copies from an earlier run are not used to identify containers
 				}
 				final String operation = edge.getAnnotation(OPMConstants.EDGE_OPERATION);
 				if(CREATION_OPERATIONS.contains(operation)){
@@ -591,7 +594,8 @@ public class ContainerLabels extends AbstractTransformer{
 			}
 			conflictingProcesses = conflicts.size();
 			for(final AbstractVertex vertex : vertices.values()){
-				if(isProcess(vertex) && isContainerNamespace(vertex.getAnnotation(OPMConstants.PROCESS_PID_NAMESPACE))
+				if(isProcess(vertex) && !isLabeled(vertex)
+						&& isContainerNamespace(vertex.getAnnotation(OPMConstants.PROCESS_PID_NAMESPACE))
 						&& !labels.containsKey(vertex.bigHashCode())){
 					unlabeledContainerProcesses++;
 				}
@@ -627,7 +631,7 @@ public class ContainerLabels extends AbstractTransformer{
 
 		private boolean isMember(final Container container, final String hash){
 			final AbstractVertex vertex = vertices.get(hash);
-			return vertex != null && isProcess(vertex)
+			return vertex != null && isProcess(vertex) && !isLabeled(vertex)
 					&& container.pidNamespace.equals(vertex.getAnnotation(OPMConstants.PROCESS_PID_NAMESPACE))
 					&& container.contains(processTime(vertex));
 		}
@@ -662,7 +666,7 @@ public class ContainerLabels extends AbstractTransformer{
 				String containerId = null;
 				boolean unambiguous = true;
 				for(final String processHash : entry.getValue()){
-					final String label = labels.get(processHash);
+					final String label = labelOf(processHash);
 					if(label == null || (containerId != null && !containerId.equals(label))
 							|| !namespace.equals(vertices.get(processHash).getAnnotation(key))){
 						unambiguous = false;
@@ -679,9 +683,15 @@ public class ContainerLabels extends AbstractTransformer{
 			}
 		}
 
-		/** The namespace annotation that may tie this artifact to processes, or null. */
+		/** This run's label of the vertex, or the one it already had. */
+		private String labelOf(final String hash){
+			final String label = labels.get(hash);
+			return label != null ? label : vertices.get(hash).getAnnotation(CONTAINER_ID);
+		}
+
+		/** The namespace annotation that may tie this unlabeled artifact to processes, or null. */
 		private static String namespaceKey(final AbstractVertex vertex){
-			if(!OPMConstants.ARTIFACT.equals(vertex.type())){
+			if(!OPMConstants.ARTIFACT.equals(vertex.type()) || isLabeled(vertex)){
 				return null;
 			}
 			final String key = NAMESPACED_ARTIFACTS.get(vertex.getAnnotation(OPMConstants.ARTIFACT_SUBTYPE));
@@ -752,6 +762,11 @@ public class ContainerLabels extends AbstractTransformer{
 
 	private static boolean isProcess(final AbstractVertex vertex){
 		return OPMConstants.PROCESS.equals(vertex.type());
+	}
+
+	/** Labeled by an earlier run: QuickGrail's transform stores its result, so $base holds such copies. */
+	private static boolean isLabeled(final AbstractVertex vertex){
+		return vertex.getAnnotation(CONTAINER_ID) != null;
 	}
 
 	private static boolean isObserved(final String pidNamespace){

@@ -738,6 +738,38 @@ public class ContainerLabelsTest{
 		}
 
 		@Test
+		void output_transformedAgain_isTheSame(){
+			final DockerRun run = trace.dockerRun(shim, CONTAINER, 4100, "wget");
+			trace.connects(run.application, "93.184.216.34", run.application.netNamespace);
+			trace.dockerExec(shim, run.application, 4200, "sh");
+			final Graph once = transform(trace.graph);
+
+			assertTrue(transform(once).equals(once));
+		}
+
+		@Test
+		void inputWithItsLabeledCopy_asQuickGrailStoresIt_givesTheSameLabelsAndNothingNew(){
+			final DockerRun first = trace.dockerRun(shim, CONTAINER, 4100, "wget");
+			trace.connects(first.application, "93.184.216.34", first.application.netNamespace);
+			trace.exit(first.application);
+			trace.dockerRun(shim, CONTAINER, 4300, "redis");
+			// A clone(CLONE_NEWPID) start: its labeled copy is a second start at the same instant
+			final Process lxc = trace.hostProgram("lxc-start", 5000);
+			final Process init = trace.execve(trace.spawn(lxc, "lxc-start", "5001",
+					"CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWNET|SIGCHLD", OTHER_CONTAINER), "init");
+			trace.spawn(init, "init", "5002", "SIGCHLD", OTHER_CONTAINER);
+			final Graph once = transform(trace.graph);
+			final Graph base = new Graph();
+			base.union(trace.graph);
+			base.union(once);
+
+			final Graph again = transform(base);
+
+			assertEquals(new TreeMap<String, String>(), difference(once, again));
+			assertEquals(once.edgeSet(), again.edgeSet());
+		}
+
+		@Test
 		void output_isTheSameEveryTime(){
 			trace.dockerRun(shim, CONTAINER, 4100, "wget");
 			trace.dockerRun(shim, CONTAINER, 4200, "wget");
@@ -753,6 +785,22 @@ public class ContainerLabelsTest{
 		final ContainerLabels transformer = new ContainerLabels();
 		assertTrue(transformer.initialize(ContainerLabels.ARGUMENT_HOST_PID_NAMESPACE + "=" + HOST));
 		return transformer.transform(input);
+	}
+
+	/** The vertices in only one of the graphs: hash to "only in first/second: annotations". */
+	static Map<String, String> difference(final Graph first, final Graph second){
+		final Map<String, String> result = new TreeMap<String, String>();
+		for(final AbstractVertex vertex : first.vertexSet()){
+			if(!second.vertexSet().contains(vertex)){
+				result.put(vertex.bigHashCode(), "only in first: " + vertex.getCopyOfAnnotations());
+			}
+		}
+		for(final AbstractVertex vertex : second.vertexSet()){
+			if(!first.vertexSet().contains(vertex)){
+				result.put(vertex.bigHashCode(), "only in second: " + vertex.getCopyOfAnnotations());
+			}
+		}
+		return result;
 	}
 
 	/** Original vertex hash (without container_id) to the container_id the output gives it. */
