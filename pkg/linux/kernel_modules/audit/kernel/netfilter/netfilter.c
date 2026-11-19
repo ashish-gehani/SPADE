@@ -89,7 +89,7 @@ static bool packet_can_be_handled_based_on_user(const struct sk_buff *skb)
     struct sock *sk = skb_to_full_sk(skb);
     if (sk && sk->sk_socket && sk->sk_socket->file && sk->sk_socket->file->f_cred)
     {
-        uid_t uid = from_kuid(&init_user_ns, sk->sk_socket->file->f_cred->uid);
+        uid_t uid = from_kuid(&init_user_ns, sk->sk_socket->file->f_cred->euid); /* as the user filter */
         return global_filter_netfilter_user_is_actionable(uid);
     }
     else
@@ -277,7 +277,9 @@ static void nf_handle_packet(enum nf_ip_hook_priorities prio, const struct sk_bu
         goto discard_and_exit;
     }
 
-    kernel_helper_audit_log(audit_ctx, &msg.header);
+    // Netfilter hooks must not sleep, so a full audit backlog drops the record.
+    kernel_helper_audit_log_atomic(audit_ctx, &msg.header);
+    goto exit; /* logged, not discarded */
 
 discard_and_exit:
     _inc_discarded_event_count();

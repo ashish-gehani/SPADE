@@ -245,7 +245,7 @@ public class Neo4jQueryEnvironment extends AbstractQueryEnvironment{
 				"match (" + vertexAlias + ":" + remoteSymbolNodeLabel + ") "
 				+ "set " + propertyName + " = "
 				+ "case "
-				+ "when not exists(" + propertyName + ") then " + propertyValue + " " // set
+				+ "when " + propertyName + " is null then " + propertyValue + " " // set
 				+ "when " + propertyName + " contains " + propertyValue + " then " + propertyName + " " // leave as is
 				+ "else " + propertyName + " + " + propertyValue + " end";
 		storage.executeQuery(query);
@@ -407,29 +407,24 @@ public class Neo4jQueryEnvironment extends AbstractQueryEnvironment{
 	
 	public final void dropVertexLabels(String... labels){
 		if(labels != null){
-			String queryLabels = "";
 			for(String label : labels){
 				if(!HelperFunctions.isNullOrEmpty(label)){
-					queryLabels += ":" + label.trim();
+					label = label.trim();
+					// Only the nodes with the label, in batches (TaskExecuteUpdateInBatches)
+					storage.executeUpdateInBatches("match (n:" + label + ")", "n", "remove n:" + label);
 				}
-			}
-			queryLabels = queryLabels.trim(); // format = ":<a>:<b>"
-			
-			if(!queryLabels.isEmpty()){
-				storage.executeQueryForSmallResult("match(n) remove n" + queryLabels + " ;");
 			}
 		}
 	}
-	
+
 	public final void dropEdgeSymbol(String symbol){
 		if(!HelperFunctions.isNullOrEmpty(symbol)){
 			symbol = symbol.trim();
 			String matchClause = "match ()-[e]->()";
 			String whereClause = "where e." + edgeLabelsPropertyName + " contains ',"+symbol+",'";
 			String setClause = "set e." + edgeLabelsPropertyName + " = replace(e." + edgeLabelsPropertyName+ ", "
-					+ "',"+symbol+",', '');";
-			String query = matchClause + " " + whereClause + " " + setClause;
-			storage.executeQuery(query);
+					+ "',"+symbol+",', '')";
+			storage.executeUpdateInBatches(matchClause + " " + whereClause, "e", setClause);
 		}
 	}
 }

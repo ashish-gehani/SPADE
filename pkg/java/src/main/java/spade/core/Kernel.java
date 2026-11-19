@@ -734,7 +734,7 @@ public class Kernel
                     }
                     for (AbstractStorage storage : storages)
                     {
-                        String arguments = storage.arguments;
+                        String arguments = SavedConfiguration.storageArgumentsToSave(storage.arguments);
                         configWriter.write("add storage " + storage.getClass().getName().split("\\.")[2]);
                         if (arguments != null)
                         {
