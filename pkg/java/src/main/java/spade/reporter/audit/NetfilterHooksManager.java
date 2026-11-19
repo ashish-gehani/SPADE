@@ -172,7 +172,8 @@ public class NetfilterHooksManager{
 		sqlCreatePostRoutingTable();
 		sqlCreatePreRoutingTable();
 		sqlCreateSyscallTable();
-		
+		sqlCreateIndexes();
+
 		initializePreparedStatements();
 
 		perTableCurrentCounts.put(sqlGetLocalInTableName(), 0L);
@@ -1298,6 +1299,36 @@ public class NetfilterHooksManager{
 	// ***************** CREATE **********************
 	//////////////////////////////////////////////////////////////////////////////////
 	
+	/**
+	 * Indexes for the columns the prepared statements look rows up by. Without them every
+	 * lookup, update and delete scanned its table, which holds up to maxPerHookEntries rows
+	 * (65536 by default) before old ones expire, once for every netfilter record.
+	 */
+	private final void sqlCreateIndexes() throws Exception{
+		final String[] allTables = {sqlGetSyscallTableName(), sqlGetLocalOutTableName(), sqlGetPostRoutingTableName(),
+				sqlGetLocalInTableName(), sqlGetPreRoutingTableName()};
+		final String[] hookTables = {sqlGetLocalOutTableName(), sqlGetPostRoutingTableName(),
+				sqlGetLocalInTableName(), sqlGetPreRoutingTableName()};
+		try(Statement statement = connection.createStatement()){
+			for(final String table : allTables){
+				// updates and deletes by row, expiry and eviction by event time
+				statement.execute("create index " + table + "_BY_ROW on " + table + " (" + sqlColumnNameRowId + ")");
+				statement.execute("create index " + table + "_BY_TIME on " + table + " (" + sqlColumnNameEventTime + ")");
+			}
+			for(final String table : hookTables){
+				// a packet's later hooks find its earlier ones by skb id
+				statement.execute("create index " + table + "_BY_SKB on " + table + " (" + sqlColumnNameSkbId + ")");
+			}
+			// a syscall's connection, and a packet's connection as the syscall saw it
+			for(final String table : new String[]{sqlGetSyscallTableName(), sqlGetLocalOutTableName()}){
+				statement.execute("create index " + table + "_BY_PORTS on " + table
+						+ " (" + sqlColumnNameLocalPort + ", " + sqlColumnNameRemotePort + ")");
+			}
+			statement.execute("create index " + sqlGetLocalInTableName() + "_BY_LAST_PORTS on " + sqlGetLocalInTableName()
+					+ " (" + sqlColumnNameLocalPortLast + ", " + sqlColumnNameRemotePortLast + ")");
+		}
+	}
+
 	private final void sqlCreateSyscallTable() throws Exception{
 		try(Statement statement = connection.createStatement()){
 			statement.execute(

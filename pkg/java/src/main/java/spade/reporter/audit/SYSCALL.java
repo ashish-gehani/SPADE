@@ -21,7 +21,7 @@ package spade.reporter.audit;
 
 public enum SYSCALL{
 
-	FORK, VFORK, CLONE, EXECVE, 
+	FORK, VFORK, CLONE, CLONE3, EXECVE, 
 	UNIT, // Used for beep unit creation (not an actual system call)
 	LOAD, // Used for linked libraries when an execve happens (not an actual system call)
 	SETUID, SETREUID, SETRESUID, SETFSUID,
@@ -33,7 +33,7 @@ public enum SYSCALL{
 	RECV, // Used for grouping RECVFROM and RECVMSG system call (not an actual system call)
 	CHMOD, FCHMOD, FCHMODAT,
 	TRUNCATE, FTRUNCATE, 
-	OPEN, OPENAT, MKNOD, MKNODAT, CREAT, CLOSE, 
+	OPEN, OPENAT, OPENAT2, MKNOD, MKNODAT, CREAT, CLOSE, CLOSE_RANGE,
 	FCNTL,
 	CREATE, // Used for grouping CREAT and OPEN system call where OPEN creates the file (not an actual system call) 
 	UPDATE, // Used for version update edges between artifacts
@@ -102,6 +102,9 @@ public enum SYSCALL{
 			case 85:	return CREAT;
 			case 3:		return CLOSE;
 			case 56:	return CLONE;
+			case 435:	return CLONE3;
+			case 436:	return CLOSE_RANGE;
+			case 437:	return OPENAT2;
 			case 42:	return CONNECT;
 			case 32:	return DUP;
 			case 33:	return DUP2;
