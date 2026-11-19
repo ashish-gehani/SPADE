@@ -408,8 +408,19 @@ public class Audit extends AbstractReporter {
 			}
 		}
 		
+		// How much the bridge may hold while SPADE falls behind a live trace (megabytes; bridge default if unset)
+		final String queueMegabytesValue = map.get(SPADEAuditBridgeProcess.KEY_QUEUE_MEGABYTES);
+		final Long bridgeQueueMegabytes = HelperFunctions.isNullOrEmpty(queueMegabytesValue) ? null
+				: HelperFunctions.parseLong(queueMegabytesValue.trim(), null);
+		if(!HelperFunctions.isNullOrEmpty(queueMegabytesValue) && (bridgeQueueMegabytes == null || bridgeQueueMegabytes <= 0)){
+			logger.log(Level.SEVERE, "Invalid value for '" + SPADEAuditBridgeProcess.KEY_QUEUE_MEGABYTES + "': '"
+					+ queueMegabytesValue + "'. Expected a positive number of megabytes");
+			return false;
+		}
+
 		try{
-			this.spadeAuditBridgeProcess = SPADEAuditBridgeProcess.launch(this.input, auditConfiguration.isUnits(), auditConfiguration.getMergeUnit());
+			this.spadeAuditBridgeProcess = SPADEAuditBridgeProcess.launch(this.input, auditConfiguration.isUnits(),
+					auditConfiguration.getMergeUnit(), bridgeQueueMegabytes);
 			logger.log(Level.INFO, "Launched SPADE audit bridge process with pid '" + spadeAuditBridgeProcess.getPid() + "' using command:"
 					+ " " + spadeAuditBridgeProcess.getCommand());
 			this.spadeAuditBridgeProcess.consumeStdErr(new BiConsumer<String, Exception>(){
@@ -468,6 +479,13 @@ public class Audit extends AbstractReporter {
 					logger.log(Level.SEVERE, "Failed to get ppids of processes to ignore", e);
 					return false;
 				}
+				// The user is left out by effective uid, and the audit bridge is setuid root: left
+				// in, its reads of the audit stream would be audited in turn. SPADE's own children
+				// may be setuid as well.
+				if(spadeAuditBridgeProcess != null && spadeAuditBridgeProcess.getPid() != null){
+					pidsToIgnore.add(spadeAuditBridgeProcess.getPid());
+				}
+				ppidsToIgnore.add(String.valueOf(ProcessHandle.current().pid()));
 				
 				if(kernelModuleConfiguration.isLocalEndpoints()){
 					try{
@@ -501,8 +519,8 @@ public class Audit extends AbstractReporter {
 						final KernelModuleArgument kmArg = KernelModuleArgument.createArgument(
 							processUserSyscallFilter.getUserId(),
 							processUserSyscallFilter.getUserMode(),
-							processUserSyscallFilter.getPidsOfProcessesToIgnore(),
-							processUserSyscallFilter.getPpidsOfProcessesToIgnore(),
+							pidsToIgnore,
+							ppidsToIgnore,
 							auditConfiguration.isNetIO(),
 							auditConfiguration.isNamespaces(),
 							kernelModuleConfiguration.isNetworkAddressTranslation(),
@@ -531,7 +549,7 @@ public class Audit extends AbstractReporter {
 				try{
 					AuditControlManager.set(processUserSyscallFilter.getSystemCallRuleType(),
 							processUserSyscallFilter.getUserId(), processUserSyscallFilter.getUserMode(),
-							processUserSyscallFilter.getPidsOfProcessesToIgnore(), processUserSyscallFilter.getPpidsOfProcessesToIgnore(),
+							pidsToIgnore, ppidsToIgnore,
 							excludeProctitle, 
 							kernelModuleConfiguration.isLocalEndpoints(), 
 							auditConfiguration.isNetIO(), auditConfiguration.isFileIO(), 
@@ -992,6 +1010,7 @@ public class Audit extends AbstractReporter {
 			case VFORK:
 			case FORK:
 			case CLONE:
+			case CLONE3:
 				processManager.handleForkVforkClone(eventData, syscall);
 				break;
 			case EXECVE:
