@@ -28,6 +28,7 @@ Paths are relative to the repository root. The kernel module is
 | F2 | kernel module | an unshare or setns inside a container wrote no record | Required | `d445c7cc` | `test/ns-pid` A/B |
 | F3 | kernel module | the netfilter hook could sleep in atomic context and freeze the system | Required with `networkAddressTranslation=true` | `da9c05b8`, `1527278b` | `test/netfilter-atomic` reproduction |
 | F4 | Audit reporter | process names from kernel-module records ended in NULs | Required, unless the module has F25 | `ed373f13` | unit tests; a real trace |
+| F5 | PostgreSQL storage | one NUL made COPY drop a whole batch; quotes were not escaped | Required with PostgreSQL | `ff827871` | unit tests; a real trace |
 | F7 | kernel module | an unshare(CLONE_NEWPID) record never named the new namespace | Required | `2728115f`, `5c8c1db2`, `0cdc679a` | in-kernel unit test; `test/ns-pid` A/B |
 | F8 | audit bridge | auditd's af_unix plugin silently dropped events whenever SPADE fell behind | Required (live) | `b457bb46`, `41afaf09` | a real trace: auditd's log against SPADE's input |
 | F9 | kernel module, Audit reporter | processes and threads created with clone3 had no creation record | Required | `cea5d23c`, `e09693b6`, `1b55e895` | in-kernel unit tests; `test/ns-pid/clone3-test.sh`; unit tests |
@@ -46,6 +47,7 @@ Paths are relative to the repository root. The kernel module is
 | F27 | Audit reporter | a rebuilt main kernel module had no effect, silently, while an older build stayed loaded | Optional (a warning) | `2e9f1662` | unit test; live |
 | F28 | Audit reporter | a vfork child's events came before the vfork that created it, so it was first seen with unknown namespaces | Required | `afb8fb45` | unit tests; trace 2 replayed |
 | F29 | kernel module | the pid and ppid filters compared thread ids, so other threads and children of a process left out were recorded | Optional (keeps SPADE's own processes out) | `f0532696` | `test/ns-pid/filter-test.sh`; trace 1 |
+| F37 | PostgreSQL storage | `vertexSubset` and `edgeSubset` returned one element too few | Optional (not used by container labeling) | `f9b874ef` | trace 4 |
 
 `test/...` is `pkg/linux/kernel_modules/test/...`. All checks ran on Ubuntu
 24.04.3 with Linux 6.8.0-146-generic in VirtualBox, with Docker 29.0.0 and runc
@@ -167,6 +169,36 @@ in Neo4j, and miss whole vertex batches in PostgreSQL.
 
 **Files.** `reporter/audit/AuditEventReader.java`; test
 `pkg/java/src/test/java/spade/reporter/audit/AuditEventReaderTest.java`.
+
+## F5. PostgreSQL COPY values escaped
+
+**Symptom.** PostgreSQL silently lost whole batches of vertices: the log
+showed `Failed to persist N vertices` with `invalid byte sequence for encoding
+"UTF8": 0x00`. In one trace, 13,211 of the 31,429 vertices that edges point
+to were missing.
+
+**Cause.** `PostgreSQL.persist` loads vertices and edges in batches with COPY
+in CSV format, and `formatToCSV` quotes each value. PostgreSQL text cannot
+hold NUL, so a single value with a NUL (F4) failed the whole batch. Also,
+`formatToCSV` meant to escape quotes with `item.replace('"', '\"')`, but
+`'\"'` is the same character in Java, so the call changed nothing. CSV needs
+the quote doubled; an undoubled one ends the field early. No batch in the
+trace failed on a quote; that bug was found by reading the code.
+
+**Fix.** `formatToCSV` drops NULs and doubles quotes.
+
+**Checked.** `PostgreSQLTest` (6 tests: NULL, empty string, plain value,
+quotes, delimiter and newline, NULs). On a real trace recorded with F4 to F6,
+PostgreSQL and Neo4j held the same 21,164 vertices and 58,135 edges. For all
+19 container-method queries they returned the same counts and the same error
+messages, and the five non-empty results compared vertex by vertex were
+identical.
+
+**Older traces.** A PostgreSQL database filled before the fix may miss whole
+batches; replaying the audit log fills them in.
+
+**Files.** `storage/PostgreSQL.java`; test
+`pkg/java/src/test/java/spade/storage/PostgreSQLTest.java`.
 
 ## F7. The unshare record names the new PID namespace
 
@@ -724,16 +756,32 @@ containerd-shim leaves out its children). In trace 1 recorded with F29 (`trace1e
 **Files.** kernel module `audit/kernel/function/hook.h`,
 `audit/kernel/helper/task.c`, `audit/kernel/helper/task.h`.
 
+## F37. PostgreSQL: vertexSubset and edgeSubset return `to - from` elements
+
+**Symptom.** On trace 4, `$p.vertexSubset(0, 100)` held 99 vertices on
+PostgreSQL and 100 on Neo4j and Quickstep; `edgeSubset(0, 100)` likewise.
+
+**Cause.** The rows kept were those whose `dense_rank()`, which starts at 1,
+was `from` or more and less than `to`.
+
+**Fix.** Rank r is position r - 1: the rows kept are ranked above `from` and
+up to `to`.
+
+**Checked.** Trace 4: 100 vertices and 100 edges on PostgreSQL.
+
+**Files.** `storage/postgresql/PostgreSQLInstructionExecutor.java`.
+
 ## Running the checks
 
 | Check | How | Needs |
 |---|---|---|
-| Java unit tests (F4, F9, F10, F11, F13, F15, F19, F27, F28) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,Clone3FlagsTest,KernelModuleArgumentTest,ThreadExitTest,AuditCompletenessTest,CloseOnExecTest,OPMConstantsTest,KernelModuleManagerTest,VforkOrderingTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
+| Java unit tests (F4, F5, F9, F10, F11, F13, F15, F19, F27, F28) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,PostgreSQLTest,Clone3FlagsTest,KernelModuleArgumentTest,ThreadExitTest,AuditCompletenessTest,CloseOnExecTest,OPMConstantsTest,KernelModuleManagerTest,VforkOrderingTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
 | In-kernel tests (F7, F9, F25, F26) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
 | ns pid A/B (F1, F2, F7, F26; `filter-test.sh` for F18, F29) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
 | netfilter (F3) | `pkg/linux/kernel_modules/test/netfilter-atomic/README.md` | a disposable VM: without the fix it freezes |
 | bridge (F8) | compare auditd's log with the reporter's `outputLog` over a trace, by serial number and, within each event, by record type (N17); the bridge's own count of missing serials is in SPADE's log | auditd writing its log, enough log rotation to keep the trace |
 | replay (F11, F14, F16, F28) | `test/query/container/replay.sh 3` on `clarity-of-container`, then `query.sh` and `check-labels.py`; `GIVE_HANDLE=0` for F16 | a recorded trace and the VM it was recorded in |
+| QuickGrail operations (F37) | `test/query/container/qg-ops.sh` on a replayed trace, before and after a change: each operation's vertex and edge counts on every storage | as replay |
 | traces (F15, F17, F18, F25, F28, F29) | `test/query/container/trace.sh 1|2|4`, then `query.sh`, `check-labels.py`, `fdcheck.py`, `nofd.py` and `f17check.py` (TRACE_VALIDATION.md) | the VM; trace 4 also DeathStarBench's media microservices |
 | live (F19, F27) | as in each entry's Checked | the VM |
 
