@@ -75,8 +75,10 @@ public class AuditControlManager{
 				throw new Exception("NULL user mode");
 			}else{
 				switch(userMode){
-					case IGNORE: userField = ("-F uid!=" + userId); break;
-					case CAPTURE: userField = ("-F uid=" + userId); break;
+					// The effective uid: a process sudo starts for this user acts as root, and is
+					// recorded (with uid, the real one, its creation was left out).
+					case IGNORE: userField = ("-F euid!=" + userId); break;
+					case CAPTURE: userField = ("-F euid=" + userId); break;
 					default: throw new Exception("Unexpected user mode: '" + userMode + "'");
 				}
 			}
@@ -140,7 +142,9 @@ public class AuditControlManager{
 				systemCallsWithSuccess.addAll(Arrays.asList(
 						"unlink", "unlinkat", "link", "linkat", "symlink", "symlinkat",
 						"clone", "fork", "vfork", "execve",
+						"435", // clone3 (x86_64), by number: auditctl before audit 3.0 may not know its name
 						"open", "openat", "creat", "close", "mknod", "mknodat",
+						"436", "437", // close_range and openat2 (x86_64), by number for the same reason
 						"dup", "dup2", "dup3", "fcntl", "rename", "renameat",
 						"setuid", "setreuid", "setresuid", "setgid", "setregid", "setresgid",
 						"chmod", "fchmod", "fchmodat", "truncate", "ftruncate",
