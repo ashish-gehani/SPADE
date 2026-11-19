@@ -71,14 +71,14 @@ struct kernel_function_hook_process_context
 {
     const pid_t pid;
     const pid_t ppid;
-    const uid_t uid;
+    const uid_t uid; /* effective: the user filter compares it, like the rules' euid */
 };
 
 #define KERNEL_FUNCTION_HOOK_PROCESS_CONTEXT_CURRENT \
     &(const struct kernel_function_hook_process_context){ \
-        .pid = kernel_helper_task_task_view_current_pid(), \
-        .ppid = kernel_helper_task_task_view_current_ppid(), \
-        .uid = kernel_helper_task_host_view_current_uid() \
+        .pid = kernel_helper_task_task_view_current_tgid(), /* the process, as the rules' pid */ \
+        .ppid = kernel_helper_task_task_view_current_parent_tgid(), \
+        .uid = kernel_helper_task_host_view_current_euid() /* the effective uid, as the audit rules */ \
     } \
 
 struct kernel_function_hook_context

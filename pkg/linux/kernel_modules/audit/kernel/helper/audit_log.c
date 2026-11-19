@@ -28,7 +28,7 @@
 #include "audit/util/log/log.h"
 
 
-int kernel_helper_audit_log(struct audit_context *ctx, struct msg_common_header *msg_h)
+static int _audit_log(struct audit_context *ctx, struct msg_common_header *msg_h, gfp_t gfp_mask)
 {
     const char *log_id = "kernel_helper_audit_log";
     int err;
@@ -53,7 +53,20 @@ int kernel_helper_audit_log(struct audit_context *ctx, struct msg_common_header 
         return -ENOMEM;
     }
 
-    audit_log(ctx, GFP_KERNEL, AUDIT_USER, "%s", &buf_msg[0]);
+    // With a gfp_mask that allows blocking, audit_log sleeps while the audit
+    // backlog is full. That is a kernel BUG ("scheduling while atomic") in a
+    // context that must not sleep, so those callers pass GFP_ATOMIC.
+    audit_log(ctx, gfp_mask, AUDIT_USER, "%s", &buf_msg[0]);
 
     return 0;
+}
+
+int kernel_helper_audit_log(struct audit_context *ctx, struct msg_common_header *msg_h)
+{
+    return _audit_log(ctx, msg_h, GFP_KERNEL);
+}
+
+int kernel_helper_audit_log_atomic(struct audit_context *ctx, struct msg_common_header *msg_h)
+{
+    return _audit_log(ctx, msg_h, GFP_ATOMIC);
 }

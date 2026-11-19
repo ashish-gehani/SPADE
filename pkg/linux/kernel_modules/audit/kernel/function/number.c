@@ -19,6 +19,7 @@
  */
 
 #include <asm/syscall.h>
+#include <asm/unistd.h>
 
 #include "audit/kernel/function/number.h"
 
@@ -75,6 +76,11 @@ int kernel_function_number_to_system_call_number(
     case KERN_F_NUM_SYS_VFORK:
         *dst = __NR_vfork;
         break;
+#ifdef __NR_clone3
+    case KERN_F_NUM_SYS_CLONE3:
+        *dst = __NR_clone3;
+        break;
+#endif
     default:
         if (default_to_func_num)
         {

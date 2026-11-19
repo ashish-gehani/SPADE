@@ -523,13 +523,19 @@ public class PostgreSQL extends SQL{
 		return str.toString();
 	}
 
-	private String formatToCSV(String item){
+	/**
+	 * Quotes a value for COPY in CSV format. A quote inside the value is doubled.
+	 * PostgreSQL text cannot hold NUL, and a single value with a NUL makes COPY
+	 * reject the whole batch, so NULs are dropped.
+	 *
+	 * @param item value, or null for NULL
+	 * @return the CSV field
+	 */
+	static String formatToCSV(final String item){
 		if(item == null){
 			return ""; // NULL
 		}
-		item = item.replace('"', '\"');
-		item = '"' + item + '"';
-		return item;
+		return '"' + item.replace("\0", "").replace("\"", "\"\"") + '"';
 	}
 
 	@Override
