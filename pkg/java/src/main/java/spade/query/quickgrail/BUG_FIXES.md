@@ -32,11 +32,14 @@ Paths are relative to the repository root. The kernel module is
 | F8 | audit bridge | auditd's af_unix plugin silently dropped events whenever SPADE fell behind | Required (live) | `b457bb46`, `41afaf09` | a real trace: auditd's log against SPADE's input |
 | F9 | kernel module, Audit reporter | processes and threads created with clone3 had no creation record | Required | `cea5d23c`, `e09693b6`, `1b55e895` | in-kernel unit tests; `test/ns-pid/clone3-test.sh`; unit tests |
 | F10 | Audit reporter | `netfilterHooksLogCT=false` logged every packet instead of only new connections | Optional | `3bbb7352` | unit test |
+| F11 | Audit reporter | a thread's exit ended its whole process's state, so multi-threaded processes split into thousands of unlabeled versions | Required | `d997414e` | unit test; trace 3 replayed |
 | F14 | Audit reporter | the netfilter hooks' tables had no indexes, so every packet record scanned them | Optional (speed) | `583ec2d7` | trace 3 replayed |
+| F17 | Audit reporter | an execve or setuid after an unshare or setns labeled the process with the namespaces it was created with | Required | `98703431` | B13 in trace 2 |
 | F18 | Audit reporter, kernel module | a process sudo started for SPADE's user was not recorded as created | Required when SPADE's user starts containers with sudo | `3d9fc798` | B11 in trace 2; `test/ns-pid/filter-test.sh` |
 | F24 | kernel module | every logged packet was also counted as discarded | Optional (a counter) | `c0a567c4` | in-kernel tests |
 | F25 | kernel module | process names were encoded with their NUL padding | Optional, given F4 | `dd2b921b` | in-kernel tests; trace 1 |
 | F26 | kernel module | a task's namespaces were read without holding the task | Optional (safety; recommended) | `a3a35f19` | in-kernel tests; `test/ns-pid` A/B |
+| F28 | Audit reporter | a vfork child's events came before the vfork that created it, so it was first seen with unknown namespaces | Required | `afb8fb45` | unit tests; trace 2 replayed |
 | F29 | kernel module | the pid and ppid filters compared thread ids, so other threads and children of a process left out were recorded | Optional (keeps SPADE's own processes out) | `f0532696` | `test/ns-pid/filter-test.sh`; trace 1 |
 
 `test/...` is `pkg/linux/kernel_modules/test/...`. All checks ran on Ubuntu
@@ -353,6 +356,43 @@ slow to record.
 **Files.** `reporter/audit/KernelModuleArgument.java`; test
 `pkg/java/src/test/java/spade/reporter/audit/KernelModuleArgumentTest.java`.
 
+## F11. A thread's exit ends only that thread
+
+**Symptom.** In trace 3 the main processes of the multi-threaded services
+had thousands of versions labeled `-1`, first seen with a `seen time`: 4,663 in cast-info-service's, 2,013 in movie-id-service's.
+Each of movie-id-service's 2,013 followed one of its 3,963 thread exits, by
+12 ms in the median.
+
+**Cause.** audit records a syscall's `pid=` as the thread group id, so the
+`exit` (60) of any thread names the process. `ProcessManager.handleExit`
+took the record's pid for the thread that exited: while other threads of
+the group remained, it removed that pid's state with
+`removeProcessUnitState`, which is the group leader's. The process's next
+syscall found no state and created a new process vertex, first seen and
+without namespaces. `removeProcessUnitState` also drops the process's file
+descriptors, so later operations on them found no artifact ("No FD with
+number ...") and drew no edge.
+
+**Fix.** An exit ends the named state only when the group has no other known
+thread, or when the record names a known thread of the group by its own id
+(`ProcessManager.exitEndsState`). Otherwise the record names the group, the
+thread that exited is unknown, and every state stays until `exit_group`. A
+pid reused by a new process drops the thread group kept under it.
+
+**Checked.** `ThreadExitTest`. Trace 3 replayed with the fix (`test/query/container/replay.sh`,
+which stores a trace again from the input the reporter read live): no
+container process has a version labeled `-1`, where the live trace had 9,564. The graph has 23,317 fewer
+vertices and 22,578 more edges: SPADE knew the descriptor in 21,216 more
+`close` calls (30,881 unknown live, 9,665 in the replay), and the second runs
+of 8 multi-threaded services hold 144 more sockets.
+
+**Older traces.** Multi-threaded processes appear as many first-seen
+versions with `-1` labels, and some operations on their descriptors are
+missing. Such versions are not labeled (CLARITY_METHODS.md D5).
+
+**Files.** `reporter/audit/process/ProcessManager.java`; test
+`pkg/java/src/test/java/spade/reporter/audit/process/ThreadExitTest.java`.
+
 ## F14. The netfilter hooks' tables are indexed
 
 **Symptom.** Replaying trace 3 with F11 and F12, the reporter's thread was
@@ -378,6 +418,27 @@ expired); the syscall table got 90 more rows, probably network syscalls on
 descriptors that F11 keeps.
 
 **Files.** `reporter/audit/NetfilterHooksManager.java`.
+
+## F17. unshare and setns update the process's namespace state
+
+`ProcessManager.handleNamespaceUpdateFromSyscall` drew the new
+version for an unshare or a setns but did not update the per-process
+namespace state that later versions read. So an execve or a setuid after an
+unshare or setns labeled the process with the namespaces it was created with
+(CLARITY_METHODS.md D15): after `unshare --pid sh` without `--fork`, the `sh`
+version said its children stay on the host.
+
+**Fix.** The state follows the namespace step.
+
+**Checked.** B13 in trace 2, and its replay with F28
+(`f17check.py`): both execve calls that follow an unshare or setns, (a)
+`unshare --pid sh` without `--fork` and (b) `nsenter -m` into a container,
+gave versions with the namespace step's labels (a's `children pid namespace`
+the new namespace, b's `mount namespace` the container's), and both differ
+from the labels the processes were created with, which they had before F17.
+Traces 1 and 4 have no such execve.
+
+**Files.** `reporter/audit/process/ProcessManager.java`.
 
 ## F18. SPADE's user is left out by effective uid
 
@@ -451,6 +512,47 @@ results as before.
 
 **Files.** kernel module `audit/kernel/helper/namespace.c`.
 
+## F28. A vfork child's creation comes before its own events
+
+**Symptom.** A process created with vfork, such as B13a's container init,
+which dash (Ubuntu's and Debian's `/bin/sh`) vforked to run `sleep 2`, had
+`-1` in every namespace label after its execve, and a second vertex, `sh`,
+stood apart from it, so it was not linked to its creation or its container:
+27 such processes in trace 2, 56 in trace 1, 231 in trace 3.
+
+**Cause.** vfork suspends the parent until the child calls execve or exits,
+and the parent's syscall is logged when it returns, together with the kernel
+module's record of the child. The child's execve, and anything it did before
+it, therefore reach the reporter first (B13a's init: execve serial 22575251,
+vfork 22575252) from a pid it does not know. The child was first seen there,
+with `-1` labels, its execve version took them, and when the vfork came,
+`handleForkVforkClone` removed that state and made the child anew, apart from
+the versions already drawn, so container labeling cannot reach it
+(CLARITY_METHODS.md D5).
+
+**Fix.** `VforkOrdering`, between the event reader and the handlers: the
+events of a process the reporter does not know, whose parent it knows and saw
+start in the trace (or is holding), wait until the event that creates it has
+been handled, and then follow in their order. Events without one follow after
+a second of audit time, or once 100,000 are held; at the end of the input
+everything held follows. SPADE logs how many events and processes it
+reordered.
+
+**Checked.** `VforkOrderingTest` (5 tests). Trace 2 replayed with F28: 136
+events of 39 processes waited for their creation, none in vain; B13a's init
+is linked to its creation, with its execve to `sleep`, and the graph has 22
+fewer vertices (the first-seen copies). Trace 4: 389 events of 58 processes;
+trace 1: 532 events of 110 processes, 1 without a creation; trace 3: 3,933
+events of 537 processes, 2 without one.
+
+**Older traces.** Vforked processes are first-seen versions with `-1`
+labels, apart from their creation, and are not labeled. Replaying
+the log with F28 corrects it.
+
+**Files.** `reporter/Audit.java`, `reporter/audit/VforkOrdering.java` (new),
+`reporter/audit/process/ProcessManager.java`; test
+`pkg/java/src/test/java/spade/reporter/audit/VforkOrderingTest.java`.
+
 ## F29. The module's pid filters name processes
 
 **Symptom.** In a recording of trace 1 with F18, the kernel module recorded
@@ -482,13 +584,13 @@ containerd-shim leaves out its children). In trace 1 recorded with F29 (`trace1e
 
 | Check | How | Needs |
 |---|---|---|
-| Java unit tests (F4, F9, F10) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,Clone3FlagsTest,KernelModuleArgumentTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
+| Java unit tests (F4, F9, F10, F11, F28) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,Clone3FlagsTest,KernelModuleArgumentTest,ThreadExitTest,VforkOrderingTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
 | In-kernel tests (F7, F9, F25, F26) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
 | ns pid A/B (F1, F2, F7, F26; `filter-test.sh` for F18, F29) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
 | netfilter (F3) | `pkg/linux/kernel_modules/test/netfilter-atomic/README.md` | a disposable VM: without the fix it freezes |
 | bridge (F8) | compare auditd's log with the reporter's `outputLog` over a trace, by serial number and, within each event, by record type (N17); the bridge's own count of missing serials is in SPADE's log | auditd writing its log, enough log rotation to keep the trace |
-| replay (F14) | `test/query/container/replay.sh 3` on `clarity-of-container`, then `query.sh` and `check-labels.py` | a recorded trace and the VM it was recorded in |
-| traces (F18, F25, F29) | `test/query/container/trace.sh 1|2|4`, then `query.sh`, `check-labels.py`, `fdcheck.py`, `nofd.py` and `f17check.py` (TRACE_VALIDATION.md) | the VM; trace 4 also DeathStarBench's media microservices |
+| replay (F11, F14, F28) | `test/query/container/replay.sh 3` on `clarity-of-container`, then `query.sh` and `check-labels.py` | a recorded trace and the VM it was recorded in |
+| traces (F17, F18, F25, F28, F29) | `test/query/container/trace.sh 1|2|4`, then `query.sh`, `check-labels.py`, `fdcheck.py`, `nofd.py` and `f17check.py` (TRACE_VALIDATION.md) | the VM; trace 4 also DeathStarBench's media microservices |
 
 ## Noticed, not changed
 
