@@ -36,6 +36,7 @@ Paths are relative to the repository root. The kernel module is
 | F13 | Audit reporter | settings and bridge messages that mean lost records went unnoticed | Optional (warnings) | `c3b8eaa0` | unit test |
 | F14 | Audit reporter | the netfilter hooks' tables had no indexes, so every packet record scanned them | Optional (speed) | `583ec2d7` | trace 3 replayed |
 | F15 | Audit reporter | descriptors opened with openat2, closed with close_range, or closed at execve as close-on-exec were missing or kept | Required | `6516bc3b`, `9de609a7` | unit tests; traces 1, 2 and 4 |
+| F16 | Audit reporter | in playback, a network SYSCALL record first made the reporter drop every network record of the kernel module | Required to replay a log without `handleLocalEndpoints` | `1ec0956f` | trace 3 replayed without it |
 | F17 | Audit reporter | an execve or setuid after an unshare or setns labeled the process with the namespaces it was created with | Required | `98703431` | B13 in trace 2 |
 | F18 | Audit reporter, kernel module | a process sudo started for SPADE's user was not recorded as created | Required when SPADE's user starts containers with sudo | `3d9fc798` | B11 in trace 2; `test/ns-pid/filter-test.sh` |
 | F19 | Audit reporter | a bridge that could not reach auditd's socket recorded nothing, unnoticed | Optional (refuses a broken setup) | `d7867b35` | unit tests; live |
@@ -501,6 +502,22 @@ the process no longer had open.
 `.../reporter/audit/OPMConstantsTest.java`,
 `.../reporter/audit/AuditEventReaderTest.java`.
 
+## F16. Playback keeps the kernel module's network records
+
+In playback, unless `handleLocalEndpoints` was given, the first
+network event of the log decided whether to use the kernel module's network
+records, and a network SYSCALL record first decided no, for the whole log. A
+log recorded live with the module has such records too, so trace 3's replay
+lost every socket of the module: 72,139 next to container processes live, none
+in the replay.
+
+**Fix.** A module network record decides yes even after a SYSCALL record
+decided no. `handleLocalEndpoints`, when given, still decides.
+
+**Checked.** Trace 3 replayed with F1 to F29 and without `handleLocalEndpoints` (`GIVE_HANDLE=0 replay.sh 3 3n`): playback set it to false at a network SYSCALL record and to true at the next network record of the module, and the containers' processes are connected to 72,283 sockets, as in a replay given `handleLocalEndpoints`; before F16, a replay without it had none.
+
+**Files.** `reporter/Audit.java`.
+
 ## F17. unshare and setns update the process's namespace state
 
 `ProcessManager.handleNamespaceUpdateFromSyscall` drew the new
@@ -716,7 +733,7 @@ containerd-shim leaves out its children). In trace 1 recorded with F29 (`trace1e
 | ns pid A/B (F1, F2, F7, F26; `filter-test.sh` for F18, F29) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
 | netfilter (F3) | `pkg/linux/kernel_modules/test/netfilter-atomic/README.md` | a disposable VM: without the fix it freezes |
 | bridge (F8) | compare auditd's log with the reporter's `outputLog` over a trace, by serial number and, within each event, by record type (N17); the bridge's own count of missing serials is in SPADE's log | auditd writing its log, enough log rotation to keep the trace |
-| replay (F11, F14, F28) | `test/query/container/replay.sh 3` on `clarity-of-container`, then `query.sh` and `check-labels.py` | a recorded trace and the VM it was recorded in |
+| replay (F11, F14, F16, F28) | `test/query/container/replay.sh 3` on `clarity-of-container`, then `query.sh` and `check-labels.py`; `GIVE_HANDLE=0` for F16 | a recorded trace and the VM it was recorded in |
 | traces (F15, F17, F18, F25, F28, F29) | `test/query/container/trace.sh 1|2|4`, then `query.sh`, `check-labels.py`, `fdcheck.py`, `nofd.py` and `f17check.py` (TRACE_VALIDATION.md) | the VM; trace 4 also DeathStarBench's media microservices |
 | live (F19, F27) | as in each entry's Checked | the VM |
 
