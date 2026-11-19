@@ -39,7 +39,7 @@
 #include "audit/util/seqbuf/seqbuf.h"
 
 
-#define MSG_TEST_SERIALIZE_CONFIG_LEN 3
+#define MSG_TEST_SERIALIZE_CONFIG_LEN 4
 #define MSG_AUDIT_STR_LEN 512
 
 
@@ -147,6 +147,69 @@ static void msg_test_serialize_config_test_expected_ns_1(
                            "ns_ns_pid=9 ns_host_pid=1 ns_inum_mnt=4 ns_inum_net=5 "
                            "ns_inum_pid=6 ns_inum_pid_children=7 ns_inum_usr=8 "
                            "ns_inum_ipc=3 ns_inum_cgroup=2";
+    msg_test_serialize_config_common_equals_expected(
+        stats, test_name, m_type, actual, expected
+    );
+}
+
+static void msg_test_serialize_config_set_expected_ns_2(struct msg_common_header *m)
+{
+    // A task that has already exited has no nsproxy, so its children namespace could not be read.
+    struct msg_namespace *n = (struct msg_namespace *)m;
+    n->host_pid = 4242;
+    n->ns_inum_cgroup = 4026531835;
+    n->ns_inum_ipc = 4026531839;
+    n->ns_inum_mnt = 4026531841;
+    n->ns_inum_net = 4026531840;
+    n->ns_inum_pid = 4026531836;
+    n->ns_inum_pid_children = (unsigned int)-1;
+    n->ns_inum_usr = 4026531837;
+    n->ns_pid = 4242;
+    n->op = NS_OP_UNSHARE;
+    n->syscall_number = 272;
+}
+
+static void msg_test_serialize_config_test_expected_ns_2(
+    struct test_stats *stats, const char *test_name, enum msg_common_type m_type, const char *actual
+)
+{
+    // Inode numbers above INT_MAX stay unsigned; only the unreadable value prints as -1.
+    const char *expected = "ns_syscall=272 ns_subtype=ns_namespaces ns_operation=ns_UNSHARE "
+                           "ns_ns_pid=4242 ns_host_pid=4242 ns_inum_mnt=4026531841 ns_inum_net=4026531840 "
+                           "ns_inum_pid=4026531836 ns_inum_pid_children=-1 ns_inum_usr=4026531837 "
+                           "ns_inum_ipc=4026531839 ns_inum_cgroup=4026531835";
+    msg_test_serialize_config_common_equals_expected(
+        stats, test_name, m_type, actual, expected
+    );
+}
+
+static void msg_test_serialize_config_set_expected_ns_3(struct msg_common_header *m)
+{
+    // A process created by clone3: the record carries its flags.
+    struct msg_namespace *n = (struct msg_namespace *)m;
+    n->host_pid = 5151;
+    n->ns_inum_cgroup = 4026531835;
+    n->ns_inum_ipc = 4026531839;
+    n->ns_inum_mnt = 4026531841;
+    n->ns_inum_net = 4026531840;
+    n->ns_inum_pid = 4026531836;
+    n->ns_inum_pid_children = 4026531836;
+    n->ns_inum_usr = 4026531837;
+    n->ns_pid = 5151;
+    n->op = NS_OP_NEW_PROCESS;
+    n->syscall_number = 435;
+    n->has_clone_flags = true;
+    n->clone_flags = 0x4111; // CLONE_VM|CLONE_VFORK|SIGCHLD, as glibc's posix_spawn asks
+}
+
+static void msg_test_serialize_config_test_expected_ns_3(
+    struct test_stats *stats, const char *test_name, enum msg_common_type m_type, const char *actual
+)
+{
+    const char *expected = "ns_syscall=435 ns_subtype=ns_namespaces ns_operation=ns_NEWPROCESS "
+                           "ns_ns_pid=5151 ns_host_pid=5151 ns_inum_mnt=4026531841 ns_inum_net=4026531840 "
+                           "ns_inum_pid=4026531836 ns_inum_pid_children=4026531836 ns_inum_usr=4026531837 "
+                           "ns_inum_ipc=4026531839 ns_inum_cgroup=4026531835 ns_clone_flags=16657";
     msg_test_serialize_config_common_equals_expected(
         stats, test_name, m_type, actual, expected
     );
@@ -436,7 +499,14 @@ static const struct msg_test_config MSG_TEST_CONFIGS[] = {
                 .set_expected = msg_test_serialize_config_set_expected_ns_1,
                 .test_expected = msg_test_serialize_config_test_expected_ns_1
             },
-            {0}
+            {
+                .set_expected = msg_test_serialize_config_set_expected_ns_2,
+                .test_expected = msg_test_serialize_config_test_expected_ns_2
+            },
+            {
+                .set_expected = msg_test_serialize_config_set_expected_ns_3,
+                .test_expected = msg_test_serialize_config_test_expected_ns_3
+            }
         }
     },
     {

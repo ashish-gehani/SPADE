@@ -45,6 +45,7 @@ HOOKED_FUNCTION_NAMES := \
   sys_accept4 \
   sys_bind \
   sys_clone \
+  sys_clone3 \
   sys_connect \
   sys_fork \
   sys_kill \
@@ -60,6 +61,7 @@ HOOKED_FUNCTION_ACTION_AUDIT_NAMES := \
   sys_accept4 \
   sys_bind \
   sys_clone \
+  sys_clone3 \
   sys_connect \
   sys_fork \
   sys_kill \
