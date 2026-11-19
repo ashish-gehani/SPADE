@@ -87,7 +87,7 @@ public class Connection implements Runnable {
             Thread.currentThread().interrupt();
         } catch (EOFException e) {
             logger.log(Level.WARNING, "Closed query client connection because of EOF", e);
-        } catch (Exception e) {
+        } catch (Exception | Error e) {
             logger.log(Level.WARNING, "Closed query client connection because of error", e);
         } finally {
             cleanup();
@@ -156,7 +156,11 @@ public class Connection implements Runnable {
             );
             queryResult.querySucceeded(result);
             return queryResult;
-        } catch (Exception e) {
+        } catch (Exception | Error e) {
+            if (e instanceof Error) {
+                // Such as OutOfMemoryError, which nothing else logs; the client gets the failure, not a closed connection
+                logger.log(Level.SEVERE, "Query failed: " + rawQuery, e);
+            }
             final Query queryResult = new Query(
                 query.localName,
                 query.remoteName,

@@ -34,6 +34,7 @@ import java.util.logging.Logger;
 
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.schema.IndexDefinition;
+import org.neo4j.graphdb.schema.IndexType;
 
 import spade.core.AbstractEdge;
 import spade.core.AbstractStorage;
@@ -53,6 +54,7 @@ import spade.storage.neo4j.StorageTask;
 import spade.storage.neo4j.StorageTest;
 import spade.storage.neo4j.TaskCreateIndex;
 import spade.storage.neo4j.TaskExecuteQuery;
+import spade.storage.neo4j.TaskExecuteUpdateInBatches;
 import spade.storage.neo4j.TaskGetHashToVertexMap;
 import spade.storage.neo4j.TaskGetQueriedEdgeSet;
 import spade.storage.neo4j.TaskPutEdge;
@@ -283,6 +285,47 @@ public class Neo4j extends AbstractStorage{
 		}
 	}
 
+	/**
+	 * Creates the range indexes on the hash property of vertices and edges if they are missing.
+	 * QuickGrail looks vertices and edges up by hash (Neo4jInstructionExecutor.insertLiteralVertex
+	 * and insertLiteralEdge, which QueryInstructionExecutor.putGraph calls for every vertex and edge
+	 * it puts); without these indexes each lookup scans the database. The per-key indexes may be
+	 * turned off (index.vertex, index.edge), and those on edges are full-text, which an equality
+	 * lookup cannot use.
+	 *
+	 * @return true if an index was created
+	 */
+	private final boolean createHashRangeIndexes(final Transaction tx){
+		final String hashKey = configuration.hashPropertyName;
+		boolean vertexIndexed = false, edgeIndexed = false;
+		for(final IndexDefinition index : tx.schema().getIndexes()){
+			if(index.getIndexType() != IndexType.RANGE
+					|| !Arrays.asList(hashKey).equals(HelperFunctions.listify(index.getPropertyKeys()))){
+				continue;
+			}
+			if(index.isNodeIndex()
+					&& HelperFunctions.listify(index.getLabels()).contains(configuration.neo4jVertexLabel)){
+				vertexIndexed = true;
+			}
+			if(index.isRelationshipIndex()
+					&& HelperFunctions.listify(index.getRelationshipTypes()).contains(configuration.neo4jEdgeRelationshipType)){
+				edgeIndexed = true;
+			}
+		}
+		if(!vertexIndexed){
+			tx.schema().indexFor(configuration.neo4jVertexLabel).on(hashKey).withIndexType(IndexType.RANGE)
+					.withName(configuration.indexNamePrefix + "vertex_hash_range").create();
+			synchronized(nodePropertyNamesIndexed){
+				nodePropertyNamesIndexed.add(hashKey); // so that no other index is made on it
+			}
+		}
+		if(!edgeIndexed){
+			tx.schema().indexFor(configuration.neo4jEdgeRelationshipType).on(hashKey).withIndexType(IndexType.RANGE)
+					.withName(configuration.indexNamePrefix + "edge_hash_range").create();
+		}
+		return !vertexIndexed || !edgeIndexed;
+	}
+
 	private final void loadGlobalPropertyKeysAndIndexedKeys(final Transaction tx) throws Exception{
 		final Set<String> vertexKeys = getAllNodeKeys(tx);
 		final Set<String> edgeKeys = getAllRelationshipKeys(tx);
@@ -323,6 +366,30 @@ public class Neo4j extends AbstractStorage{
 
 	private final LinkedList<StorageTask<?>> neo4jDbTasksPending = new LinkedList<StorageTask<?>>();
 
+	/**
+	 * Waits until every task queued so far has run and been committed. A query task goes to the
+	 * front of the queue, so without this a query right after puts can run before them
+	 * (QueryInstructionExecutor.putGraph).
+	 */
+	public final void waitForQueuedTasks(){
+		if(isShutdown() || !isMainThreadRunning()){
+			return;
+		}
+		final StorageTask<Void> marker = new StorageTask<Void>(false, true){
+			@Override
+			public Void execute(final Neo4j storage, final Transaction tx){
+				return null;
+			}
+		};
+		appendPendingTask(marker);
+		while(!marker.isCompleted()){
+			if(!isMainThreadRunning()){
+				throw new RuntimeException("Task execution thread exited while waiting for queued tasks");
+			}
+			HelperFunctions.sleepSafe(configuration.sleepWaitMillis);
+		}
+	}
+
 	public final int getPendingTasksSize(){
 		synchronized(neo4jDbTasksPending){
 			return neo4jDbTasksPending.size();
@@ -349,6 +416,7 @@ public class Neo4j extends AbstractStorage{
 				synchronized(neo4jDbTasksPending){
 					getStorageStats().pendingTasksIncoming.increment();
 					neo4jDbTasksPending.addLast(task);
+					neo4jDbTasksPending.notifyAll(); // wakes the runner waiting in awaitPendingTask
 				}
 			}
 		}
@@ -361,6 +429,27 @@ public class Neo4j extends AbstractStorage{
 				synchronized(neo4jDbTasksPending){
 					getStorageStats().pendingTasksIncoming.increment();
 					neo4jDbTasksPending.addFirst(task);
+					neo4jDbTasksPending.notifyAll();
+				}
+			}
+		}
+	}
+
+	/**
+	 * Waits, at most waitMillis, for a task to be pending. Without it the runner polled the queue
+	 * without pause when mainThreadSleepWaitMillis is 0 (the default), and used a whole CPU while
+	 * SPADE was idle.
+	 */
+	private final void awaitPendingTask(final long waitMillis){
+		if(waitMillis <= 0){
+			return;
+		}
+		synchronized(neo4jDbTasksPending){
+			if(neo4jDbTasksPending.isEmpty() && !isShutdown()){
+				try{
+					neo4jDbTasksPending.wait(waitMillis);
+				}catch(InterruptedException e){
+					Thread.currentThread().interrupt();
 				}
 			}
 		}
@@ -460,6 +549,17 @@ public class Neo4j extends AbstractStorage{
 			}catch(Exception e){
 				logger.log(Level.SEVERE, "Failed to load properties and indexes. Storage not in usable state.", e);
 				runTheMainLoop = false;
+			}
+
+			if(runTheMainLoop){
+				try(final Transaction indexTx = getDatabaseManager().beginANewTransaction()){
+					if(createHashRangeIndexes(indexTx)){
+						indexTx.commit();
+					}
+				}catch(Exception e){
+					logger.log(Level.WARNING, "Failed to create the range indexes on '"
+							+ configuration.hashPropertyName + "'. Lookups by hash scan the database.", e);
+				}
 			}
 
 			if(runTheMainLoop){
@@ -564,6 +664,18 @@ public class Neo4j extends AbstractStorage{
 					if(getConfiguration().mainThreadSleepWaitMillis > 0){
 						HelperFunctions.sleepSafe(getConfiguration().mainThreadSleepWaitMillis);
 					}
+					if(task == null){
+						// Nothing to do: wait for a task, but not past the next flush, nor longer than a
+						// second, so that the flush and a shutdown still happen in time.
+						long waitMillis = 1000;
+						if(tx != null && tasksExecutedSinceLastFlush > 0){
+							final long untilFlush = getConfiguration().flushAfterSeconds * 1000L
+									- (System.currentTimeMillis() - timeInMillisOfLastFlush);
+							waitMillis = Math.min(waitMillis, Math.max(1, untilFlush));
+						}
+						awaitPendingTask(waitMillis);
+					}
+					task = null;
 				}
 
 				if(tx != null){
@@ -592,6 +704,9 @@ public class Neo4j extends AbstractStorage{
 	public synchronized final boolean shutdown(){
 		if(!isShutdown()){
 			setShutdown(true);
+			synchronized(neo4jDbTasksPending){
+				neo4jDbTasksPending.notifyAll(); // the runner may be waiting for a task
+			}
 
 			logger.log(Level.INFO,
 					"Shutdown called. Waiting for " + getPendingTasksSize() + " pending task(s) to complete");
@@ -723,6 +838,14 @@ public class Neo4j extends AbstractStorage{
 		return queryObject.getResult();
 	}
 
+	/**
+	 * Runs an update of a graph's vertices or edges in batches (TaskExecuteUpdateInBatches): "&lt;match&gt; call {
+	 * with &lt;variables&gt; &lt;update&gt; } in transactions".
+	 */
+	public final void executeUpdateInBatches(final String match, final String variables, final String update){
+		executeQueryAndBlockForResult(new TaskExecuteUpdateInBatches(match, variables, update));
+	}
+
 	public final Map<String, Map<String, String>> readHashToVertexMap(String vertexAliasInQuery, String query){
 		final TaskGetHashToVertexMap queryObject = new TaskGetHashToVertexMap(query, vertexAliasInQuery);
 		executeQueryAndBlockForResult(queryObject);
@@ -742,7 +865,10 @@ public class Neo4j extends AbstractStorage{
 		}
 
 		if(!isShutdown() && isMainThreadRunning()){
-			queryObject.setTransactionTimeoutInSeconds(getConfiguration().transactionTimeoutInSeconds);
+			if(!(queryObject instanceof TaskExecuteUpdateInBatches)){
+				// The timeout ends the task's transaction; an update in batches commits transactions of its own
+				queryObject.setTransactionTimeoutInSeconds(getConfiguration().transactionTimeoutInSeconds);
+			}
 			prependPendingTask(queryObject);
 			// Block until complete
 			while(!queryObject.isCompleted()){

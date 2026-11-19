@@ -100,26 +100,41 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	}
 	
 	@Override
+	public void beforeQuery(){
+		qs.storeBatchAndWait(); // the query sees everything received so far
+	}
+
+	@Override
+	public void waitUntilStored(){
+		qs.storeBatchAndWait(); // flushTransactions only hands the batch to the batch thread
+	}
+
+	@Override
 	public AbstractStorage getStorage(){
 		return qs;
+	}
+
+	/** The hashes, one per line, as the data of a copy from stdin; empty if there are none. */
+	private static String hashLines(final ArrayList<String> hashes){
+		final StringBuilder lines = new StringBuilder();
+		for(final String hash : hashes){
+			if(hash.length() <= 32){
+				lines.append(hash).append('\n');
+			}
+		}
+		return lines.toString();
 	}
 
 	@Override
 	public void insertLiteralEdge(Graph targetGraph, ArrayList<String> edges){
 		if(!edges.isEmpty()){
-			String insertSubpart = "";
-			for(String edge : edges){
-				if(edge.length() <= 32){
-					insertSubpart += "('" + edge + "'), ";
-				}
-			}
-			
-			if(!insertSubpart.isEmpty()){
+			final String hashes = hashLines(edges);
+
+			if(!hashes.isEmpty()){
 				final String tempEdgeTable = "m_edgehash";
 				qs.executeQuery("drop table " + tempEdgeTable + ";\n");
 				qs.executeQuery("create table " + tempEdgeTable + " (md5 char(32));\n");
-				insertSubpart = insertSubpart.substring(0, insertSubpart.length() - 2);
-				qs.executeQuery("insert into " + tempEdgeTable + " values " + insertSubpart + ";\n");
+				qs.executeQuery("copy " + tempEdgeTable + " from stdin with (delimiter '|');\n", hashes);
 				
 				qs.executeQuery("insert into " + getEdgeTableName(targetGraph)
 						+ " select id from " + edgeTableName + " where md5 in (select md5 from "+tempEdgeTable+" group by md5);\n");
@@ -132,19 +147,13 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 	@Override
 	public void insertLiteralVertex(Graph targetGraph, ArrayList<String> vertices){
 		if(!vertices.isEmpty()){
-			String insertSubpart = "";
-			for(String vertex : vertices){
-				if(vertex.length() <= 32){
-					insertSubpart += "('" + vertex + "'), ";
-				}
-			}
-			
-			if(!insertSubpart.isEmpty()){
+			final String hashes = hashLines(vertices);
+
+			if(!hashes.isEmpty()){
 				final String tempVertexTable = "m_vertexhash";
 				qs.executeQuery("drop table " + tempVertexTable + ";\n");
 				qs.executeQuery("create table " + tempVertexTable + " (md5 char(32));\n");
-				insertSubpart = insertSubpart.substring(0, insertSubpart.length() - 2);
-				qs.executeQuery("insert into " + tempVertexTable + " values " + insertSubpart + ";\n");
+				qs.executeQuery("copy " + tempVertexTable + " from stdin with (delimiter '|');\n", hashes);
 				
 				qs.executeQuery("insert into " + getVertexTableName(targetGraph)
 						+ " select id from " + vertexTableName + " where md5 in (select md5 from "+tempVertexTable+" group by md5);\n");
@@ -626,8 +635,61 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 		}
 	}
 
+	/** The rows of a copy ... to stdout with (delimiter ','), split at the commas not escaped, each field unescaped. */
 	private static List<String[]> getResultAsTable(final String result){
-		return HelperFunctions.parseAsList(result, "\\n", ",");
+		final List<String[]> rows = new ArrayList<String[]>();
+		for(final String line : result.split("\n")){
+			if(!line.isEmpty()){
+				rows.add(splitCopyRow(line, ','));
+			}
+		}
+		return rows;
+	}
+
+	/**
+	 * A field as copy ... to stdout writes it: a backslash, newline, tab, carriage return or the delimiter has a
+	 * backslash before it (\\, \n, \t, \r, \|), so a value with a backslash would otherwise come back with two.
+	 */
+	static String unescapeCopyField(final String field){
+		if(field.indexOf('\\') < 0){
+			return field;
+		}
+		final StringBuilder sb = new StringBuilder(field.length());
+		for(int i = 0; i < field.length(); i++){
+			final char c = field.charAt(i);
+			if(c == '\\' && i + 1 < field.length()){
+				final char next = field.charAt(++i);
+				switch(next){
+					case 'n': sb.append('\n'); break;
+					case 't': sb.append('\t'); break;
+					case 'r': sb.append('\r'); break;
+					case 'b': sb.append('\b'); break;
+					case 'f': sb.append('\f'); break;
+					case 'v': sb.append('\u000B'); break;
+					default: sb.append(next); break; // \\ and the delimiter
+				}
+			}else{
+				sb.append(c);
+			}
+		}
+		return sb.toString();
+	}
+
+	/** A row of copy ... to stdout split at the delimiters that are not escaped, each field unescaped. */
+	static String[] splitCopyRow(final String row, final char delimiter){
+		final List<String> fields = new ArrayList<String>();
+		int start = 0;
+		for(int i = 0; i < row.length(); i++){
+			final char c = row.charAt(i);
+			if(c == '\\'){
+				i++; // the escaped character is part of the field
+			}else if(c == delimiter){
+				fields.add(unescapeCopyField(row.substring(start, i)));
+				start = i + 1;
+			}
+		}
+		fields.add(unescapeCopyField(row.substring(start)));
+		return fields.toArray(new String[0]);
 	}
 
 	private static int getIteratorBatchSize(){
@@ -1042,7 +1104,7 @@ public class QuickstepInstructionExecutor extends QueryInstructionExecutor{
 					annos = new HashMap<String, String>();
 					idToAnnos.put(idLine, annos);
 				}
-				annos.put(keyLine, valueLine);
+				annos.put(unescapeCopyField(keyLine), unescapeCopyField(valueLine));
 			}
 		}
 
