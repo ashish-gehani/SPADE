@@ -147,6 +147,9 @@ public class LinuxConstants{
 		CLONE_VM = "CLONE_VM",
 		SIGCHLD = "SIGCHLD";
 
+	public final String
+		PROC_PID_INIT_INO = "PROC_PID_INIT_INO";
+
 	private final Map<String, Long> openFlagsMap = new HashMap<>();
 	private final Map<String, Long> mmapFlagsMap = new HashMap<>();
 	private final Map<String, Long> fcntlFlagsMap = new HashMap<>();
@@ -159,10 +162,26 @@ public class LinuxConstants{
 	private final Map<String, Long> lseekWhenceMap = new HashMap<>();
 	private final Map<String, Long> cloneFlagsMap = new HashMap<>();
 
+	// Optional so that constants files without it still load for the Audit reporter
+	private Long procPidInitIno;
+
 	private String configFilePath;
-	
+
 	public String getConfigFilePath(){
 		return configFilePath;
+	}
+
+	/**
+	 * Inode number of the initial (host) PID namespace, i.e. the kernel's PROC_PID_INIT_INO.
+	 *
+	 * @return the inode number
+	 * @throws Exception if the constants file does not define PROC_PID_INIT_INO
+	 */
+	public final long getProcPidInitIno() throws Exception{
+		if(procPidInitIno == null){
+			throw new Exception("Missing key '" + PROC_PID_INIT_INO + "' in constants file '" + configFilePath + "'");
+		}
+		return procPidInitIno;
 	}
 	
 	private final long parseLong(final Map<String, String> map, final String key) throws Exception{
@@ -337,6 +356,10 @@ public class LinuxConstants{
 			cloneFlagsMap.put(CLONE_VFORK, parseLong(map, CLONE_VFORK));
 			cloneFlagsMap.put(CLONE_VM, parseLong(map, CLONE_VM));
 			cloneFlagsMap.put(SIGCHLD, parseLong(map, SIGCHLD));
+
+			if(map.containsKey(PROC_PID_INIT_INO)){
+				procPidInitIno = parseLong(map, PROC_PID_INIT_INO);
+			}
 
 		}catch(Exception e){
 			throw new Exception("Failed to initialize from file '" + filePath + "'", e);
