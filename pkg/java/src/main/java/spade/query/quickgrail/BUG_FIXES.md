@@ -31,8 +31,10 @@ Paths are relative to the repository root. The kernel module is
 | F9 | kernel module, Audit reporter | processes and threads created with clone3 had no creation record | Required | `cea5d23c`, `e09693b6`, `1b55e895` | in-kernel unit tests; `test/ns-pid/clone3-test.sh`; unit tests |
 | F10 | Audit reporter | `netfilterHooksLogCT=false` logged every packet instead of only new connections | Optional | `3bbb7352` | unit test |
 | F14 | Audit reporter | the netfilter hooks' tables had no indexes, so every packet record scanned them | Optional (speed) | `583ec2d7` | trace 3 replayed |
+| F18 | Audit reporter, kernel module | a process sudo started for SPADE's user was not recorded as created | Required when SPADE's user starts containers with sudo | `3d9fc798` | B11 in trace 2; `test/ns-pid/filter-test.sh` |
 | F24 | kernel module | every logged packet was also counted as discarded | Optional (a counter) | `c0a567c4` | in-kernel tests |
 | F26 | kernel module | a task's namespaces were read without holding the task | Optional (safety; recommended) | `a3a35f19` | in-kernel tests; `test/ns-pid` A/B |
+| F29 | kernel module | the pid and ppid filters compared thread ids, so other threads and children of a process left out were recorded | Optional (keeps SPADE's own processes out) | `f0532696` | `test/ns-pid/filter-test.sh`; trace 1 |
 
 `test/...` is `pkg/linux/kernel_modules/test/...`. All checks ran on Ubuntu
 24.04.3 with Linux 6.8.0-146-generic in VirtualBox, with Docker 29.0.0 and runc
@@ -279,6 +281,33 @@ descriptors that F11 keeps.
 
 **Files.** `reporter/audit/NetfilterHooksManager.java`.
 
+## F18. SPADE's user is left out by effective uid
+
+The audit rules left out the user SPADE runs as with `-F uid!=`,
+the real uid, and so did the kernel module's user filter. sudo keeps the real
+uid, so a process sudo started for that user was not recorded as created,
+though it acts as root: it first appeared in its own later syscalls, with
+`-1` namespace labels, and an unshare(CLONE_NEWPID) by it counted as
+joining, not creating (CLARITY_METHODS.md L3).
+
+**Fix.** The rules use `-F euid!=` (`euid=` when capturing one user), and
+the module compares the effective uid, for syscalls (`hook.h`) and for
+packets (`netfilter.c`). The audit bridge is setuid root, so its pid joins
+the pids to ignore, and SPADE's own pid the ppids, in the rules and in the
+module's arguments; the reporter built these sets but did not use them. The
+module's pid filters compared thread ids until F29.
+
+**Checked.** B11 in trace 2: `sudo unshare --pid --fork sh -c '...'`, run by
+SPADE's user directly. The `unshare` process is recorded as created, and its
+namespace (the first run of 4026532203) has a start whose init is the
+`unshare` child.
+`test/ns-pid/filter-test.sh` gave the same results with the module as
+before.
+
+**Files.** `reporter/Audit.java`, `reporter/audit/AuditControlManager.java`,
+kernel module `audit/kernel/function/hook.h`,
+`audit/kernel/netfilter/netfilter.c`.
+
 ## F24. A logged packet is not counted as discarded
 
 `nf_handle_packet` logged a packet and then fell through to
@@ -310,12 +339,40 @@ results as before.
 
 **Files.** kernel module `audit/kernel/helper/namespace.c`.
 
+## F29. The module's pid filters name processes
+
+**Symptom.** In a recording of trace 1 with F18, the kernel module recorded
+25 `recvfrom` calls of the audit bridge on auditd's socket, although the
+bridge's pid was among the pids to ignore.
+
+**Cause.** The module's filters compared the calling thread's id and the id
+of the thread that created its process (`current->pid`,
+`current->real_parent->pid`), while the reporter fills them with process ids,
+as the audit rules' `-F pid` and `-F ppid` compare. So only the main thread
+of a process left out was left out (the bridge reads auditd's socket in a
+thread of its own, F8), and a child of a multi-threaded process (SPADE's JVM
+starts its children from other threads) never matched its parent's entry.
+Before F18 the user filter left all of these out anyway.
+
+**Fix.** The filters compare the process id and the parent's process id
+(`task_tgid_nr`, `task_ppid_nr`), as audit's `pid=` and `ppid=` fields. The
+module's records still carry the thread id.
+
+**Checked.** `test/ns-pid/filter-test.sh` with the module of F29: the same
+results as before (a pid filter on the container init's host pid leaves its
+records out, one on its namespace pid does not, a ppid filter on
+containerd-shim leaves out its children). In trace 1 recorded with F29 (`trace1e`), no module record of the bridge, where the recording before F29 had 25.
+
+**Files.** kernel module `audit/kernel/function/hook.h`,
+`audit/kernel/helper/task.c`, `audit/kernel/helper/task.h`.
+
 ## Running the checks
 
 | Check | How | Needs |
 |---|---|---|
 | Java unit tests (F9, F10) | in `pkg/java`: `mvn test -Dtest='Clone3FlagsTest,KernelModuleArgumentTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
 | In-kernel tests (F7, F9, F26) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
-| ns pid A/B (F1, F2, F7, F26) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
+| ns pid A/B (F1, F2, F7, F26; `filter-test.sh` for F18, F29) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
 | netfilter (F3) | `pkg/linux/kernel_modules/test/netfilter-atomic/README.md` | a disposable VM: without the fix it freezes |
 | replay (F14) | `test/query/container/replay.sh 3` on `clarity-of-container`, then `query.sh` and `check-labels.py` | a recorded trace and the VM it was recorded in |
+| traces (F18, F29) | `test/query/container/trace.sh 1|2|4`, then `query.sh`, `check-labels.py`, `fdcheck.py`, `nofd.py` and `f17check.py` (TRACE_VALIDATION.md) | the VM; trace 4 also DeathStarBench's media microservices |
