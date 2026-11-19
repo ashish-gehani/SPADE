@@ -27,12 +27,19 @@ import java.util.function.BiConsumer;
 import spade.utility.HelperFunctions;
 
 public class SPADEAuditBridgeProcess{
-	
-	private static String buildArguments(
+
+	/**
+	 * Audit reporter key: in a live trace, the most audit data, in megabytes, the bridge may
+	 * hold while SPADE falls behind (its option -q; 1024 if unset). Beyond that the bridge
+	 * drops events and counts them.
+	 */
+	public static final String KEY_QUEUE_MEGABYTES = "spadeAuditBridgeQueueMegabytes";
+
+	static String buildArguments(
 			final Input input,
-			final boolean units, final Integer mergeUnit) throws Exception{
+			final boolean units, final Integer mergeUnit, final Long queueMegabytes) throws Exception{
 		final Input.Mode mode = input.getMode();
-		
+
 		String arguments = "";
 
 		if(mode == Input.Mode.FILE){
@@ -44,6 +51,9 @@ public class SPADEAuditBridgeProcess{
 			}
 		}else if(mode == Input.Mode.LIVE){
 			arguments += " -s " + input.getLinuxAuditSocketPath();
+			if(queueMegabytes != null){
+				arguments += " -q " + queueMegabytes;
+			}
 		}else{
 			throw new Exception("Unexpected input mode: " + mode);
 		}
@@ -63,12 +73,12 @@ public class SPADEAuditBridgeProcess{
 		return arguments;
 	}
 
-	public static SPADEAuditBridgeProcess launch(final Input input, final boolean units, final Integer mergeUnit
-			) throws Exception{
+	public static SPADEAuditBridgeProcess launch(final Input input, final boolean units, final Integer mergeUnit,
+			final Long queueMegabytes) throws Exception{
 
 		final String arguments;
 		try{
-			arguments = buildArguments(input, units, mergeUnit);
+			arguments = buildArguments(input, units, mergeUnit, queueMegabytes);
 		}catch(Exception e){
 			throw new Exception("Failed to build SPADE audit bridge arguments", e);
 		}

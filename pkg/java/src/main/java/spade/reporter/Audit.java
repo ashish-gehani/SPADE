@@ -58,6 +58,7 @@ import spade.reporter.audit.ProcessUserSyscallFilter;
 import spade.reporter.audit.ProcessUserSyscallFilter.SystemCallRuleType;
 import spade.reporter.audit.SPADEAuditBridgeProcess;
 import spade.reporter.audit.SYSCALL;
+import spade.reporter.audit.VforkOrdering;
 import spade.reporter.audit.artifact.ArtifactIdentifier;
 import spade.reporter.audit.artifact.ArtifactManager;
 import spade.reporter.audit.artifact.DirectoryIdentifier;
@@ -92,6 +93,11 @@ public class Audit extends AbstractReporter {
 	/********************** PROCESS STATE - START *************************/
 	
 	private ProcessManager processManager;
+	/** Puts a vfork child's creation before its own events; see VforkOrdering. */
+	private VforkOrdering vforkOrdering;
+	/** How long, in audit time, a process's events may wait for the event that creates it. */
+	private static final long VFORK_ORDERING_WINDOW_MILLIS = 1000;
+	private static final int VFORK_ORDERING_MAX_HELD = 100000;
 
 	/********************** PROCESS STATE - END *************************/
 	
@@ -136,21 +142,30 @@ public class Audit extends AbstractReporter {
 		@Override
 		public void run(){
 			isMainEventLoopThreadRunning = true;
+			final boolean[] failed = {false};
+			final java.util.function.Consumer<Map<String, String>> handler = event -> {
+				try{
+					finishEvent(event);
+				}catch(Exception e){
+					logger.log(Level.SEVERE, "Failed to handle event: " + event, e);
+					failed[0] = true;
+				}
+			};
 			while(true){
 				Map<String, String> eventData = null;
 				try{
 					eventData = auditEventReader.readEventData();
 					if(eventData == null){
-						// EOF
+						// EOF: the events still waiting for their process's creation
+						vforkOrdering.flush(handler);
+						logger.log(Level.INFO, "Events of vfork children reordered: " + vforkOrdering.getHeldTotal()
+								+ " held, " + vforkOrdering.getReleasedByCreation() + " processes after their creation, "
+								+ vforkOrdering.getReleasedByWindow() + " without one");
 						break;
 					}else{
-						try{
-							finishEvent(eventData);
-						}catch(Exception e){
-							logger.log(Level.SEVERE, "Failed to handle event: " + eventData, e);
-							if(auditConfiguration.isFailfast()){
-								break;
-							}
+						vforkOrdering.accept(eventData, handler);
+						if(failed[0] && auditConfiguration.isFailfast()){
+							break;
 						}
 					}
 				}catch(MalformedAuditDataException made){
@@ -398,7 +413,12 @@ public class Audit extends AbstractReporter {
 			logger.log(Level.SEVERE, "Failed to instantiate process manager", e);
 			return false;
 		}
-		
+		// A vfork child's events arrive before the vfork that creates it (VforkOrdering).
+		vforkOrdering = new VforkOrdering(
+				pid -> processManager.isProcessKnown(pid),
+				pid -> processManager.isProcessStartedInTrace(pid),
+				this::getCreatedPid, VFORK_ORDERING_WINDOW_MILLIS, VFORK_ORDERING_MAX_HELD);
+
 		if(kernelModuleConfiguration.isHandleNetworkAddressTranslation()){
 			try{
 				netfilterHooksManager = new NetfilterHooksManager(this, auditConfiguration.isNamespaces());
@@ -408,8 +428,19 @@ public class Audit extends AbstractReporter {
 			}
 		}
 		
+		// How much the bridge may hold while SPADE falls behind a live trace (megabytes; bridge default if unset)
+		final String queueMegabytesValue = map.get(SPADEAuditBridgeProcess.KEY_QUEUE_MEGABYTES);
+		final Long bridgeQueueMegabytes = HelperFunctions.isNullOrEmpty(queueMegabytesValue) ? null
+				: HelperFunctions.parseLong(queueMegabytesValue.trim(), null);
+		if(!HelperFunctions.isNullOrEmpty(queueMegabytesValue) && (bridgeQueueMegabytes == null || bridgeQueueMegabytes <= 0)){
+			logger.log(Level.SEVERE, "Invalid value for '" + SPADEAuditBridgeProcess.KEY_QUEUE_MEGABYTES + "': '"
+					+ queueMegabytesValue + "'. Expected a positive number of megabytes");
+			return false;
+		}
+
 		try{
-			this.spadeAuditBridgeProcess = SPADEAuditBridgeProcess.launch(this.input, auditConfiguration.isUnits(), auditConfiguration.getMergeUnit());
+			this.spadeAuditBridgeProcess = SPADEAuditBridgeProcess.launch(this.input, auditConfiguration.isUnits(),
+					auditConfiguration.getMergeUnit(), bridgeQueueMegabytes);
 			logger.log(Level.INFO, "Launched SPADE audit bridge process with pid '" + spadeAuditBridgeProcess.getPid() + "' using command:"
 					+ " " + spadeAuditBridgeProcess.getCommand());
 			this.spadeAuditBridgeProcess.consumeStdErr(new BiConsumer<String, Exception>(){
@@ -468,6 +499,13 @@ public class Audit extends AbstractReporter {
 					logger.log(Level.SEVERE, "Failed to get ppids of processes to ignore", e);
 					return false;
 				}
+				// The user is left out by effective uid, and the audit bridge is setuid root: left
+				// in, its reads of the audit stream would be audited in turn. SPADE's own children
+				// may be setuid as well.
+				if(spadeAuditBridgeProcess != null && spadeAuditBridgeProcess.getPid() != null){
+					pidsToIgnore.add(spadeAuditBridgeProcess.getPid());
+				}
+				ppidsToIgnore.add(String.valueOf(ProcessHandle.current().pid()));
 				
 				if(kernelModuleConfiguration.isLocalEndpoints()){
 					try{
@@ -501,8 +539,8 @@ public class Audit extends AbstractReporter {
 						final KernelModuleArgument kmArg = KernelModuleArgument.createArgument(
 							processUserSyscallFilter.getUserId(),
 							processUserSyscallFilter.getUserMode(),
-							processUserSyscallFilter.getPidsOfProcessesToIgnore(),
-							processUserSyscallFilter.getPpidsOfProcessesToIgnore(),
+							pidsToIgnore,
+							ppidsToIgnore,
 							auditConfiguration.isNetIO(),
 							auditConfiguration.isNamespaces(),
 							kernelModuleConfiguration.isNetworkAddressTranslation(),
@@ -531,7 +569,7 @@ public class Audit extends AbstractReporter {
 				try{
 					AuditControlManager.set(processUserSyscallFilter.getSystemCallRuleType(),
 							processUserSyscallFilter.getUserId(), processUserSyscallFilter.getUserMode(),
-							processUserSyscallFilter.getPidsOfProcessesToIgnore(), processUserSyscallFilter.getPpidsOfProcessesToIgnore(),
+							pidsToIgnore, ppidsToIgnore,
 							excludeProctitle, 
 							kernelModuleConfiguration.isLocalEndpoints(), 
 							auditConfiguration.isNetIO(), auditConfiguration.isFileIO(), 
@@ -754,6 +792,29 @@ public class Audit extends AbstractReporter {
 	
 	private SYSCALL getSyscall(int syscallNumber){
 		return SYSCALL.get64BitSyscall(syscallNumber);
+	}
+
+	/**
+	 * The pid of the process a successful fork, vfork, clone or clone3 event creates, as
+	 * ProcessManager.handleForkVforkClone takes it (the kernel module's host pid with namespaces),
+	 * or null for any other event.
+	 */
+	private String getCreatedPid(final Map<String, String> eventData){
+		final String recordType = eventData.get(AuditEventReader.RECORD_TYPE_KEY);
+		if(AuditEventReader.KMODULE_RECORD_TYPE.equals(recordType)
+				|| AuditEventReader.RECORD_TYPE_NETFILTER_HOOK.equals(recordType)){
+			return null; // the module's network records, not a syscall event
+		}
+		if(!AuditEventReader.SUCCESS_YES.equals(eventData.get(AuditEventReader.SUCCESS))){
+			return null;
+		}
+		final int number = HelperFunctions.parseInt(eventData.get(AuditEventReader.SYSCALL), -1);
+		final SYSCALL syscall = number < 0 ? null : getSyscall(number);
+		if(syscall != SYSCALL.FORK && syscall != SYSCALL.VFORK && syscall != SYSCALL.CLONE && syscall != SYSCALL.CLONE3){
+			return null;
+		}
+		final String child = auditConfiguration.isNamespaces() ? eventData.get(AuditEventReader.NS_HOST_PID) : null;
+		return child != null ? child : eventData.get(AuditEventReader.EXIT);
 	}
 	
 	/**
@@ -992,6 +1053,7 @@ public class Audit extends AbstractReporter {
 			case VFORK:
 			case FORK:
 			case CLONE:
+			case CLONE3:
 				processManager.handleForkVforkClone(eventData, syscall);
 				break;
 			case EXECVE:
