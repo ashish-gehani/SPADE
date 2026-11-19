@@ -27,6 +27,7 @@ Paths are relative to the repository root. The kernel module is
 | F1 | kernel module | `ns_ns_pid` held the PID in the creator's namespace, not the process's own | Required | `9fd54e0c` | `test/ns-pid` A/B on a live system |
 | F2 | kernel module | an unshare or setns inside a container wrote no record | Required | `d445c7cc` | `test/ns-pid` A/B |
 | F7 | kernel module | an unshare(CLONE_NEWPID) record never named the new namespace | Required | `2728115f`, `5c8c1db2`, `0cdc679a` | in-kernel unit test; `test/ns-pid` A/B |
+| F9 | kernel module, Audit reporter | processes and threads created with clone3 had no creation record | Required | `cea5d23c`, `e09693b6`, `1b55e895` | in-kernel unit tests; `test/ns-pid/clone3-test.sh`; unit tests |
 | F26 | kernel module | a task's namespaces were read without holding the task | Optional (safety; recommended) | `a3a35f19` | in-kernel tests; `test/ns-pid` A/B |
 
 `test/...` is `pkg/linux/kernel_modules/test/...`. All checks ran on Ubuntu
@@ -136,6 +137,60 @@ process created after the unshare, so it works on traces from either module.
 `pkg/linux/kernel_modules/test/kernel/audit/msg.c`,
 `pkg/linux/kernel_modules/test/ns-pid/ns-ab-analyze.py`.
 
+## F9. clone3 is recorded
+
+**Symptom.** A process created with clone3 had no creation record: no edge
+from its parent, and with `namespaces=true` only `-1` namespace labels, so it
+lost its container. glibc's `posix_spawn` uses clone3,
+and since glibc 2.34 so does `pthread_create` for threads.
+
+**Cause.** The kernel module hooked clone, fork and vfork but not clone3,
+SPADE's audit rules did not include it, and the reporter did not know
+syscall 435. clone3 also takes its flags in a `struct clone_args` in user
+memory, so its syscall record holds only a pointer where clone's holds the
+flags; the reporter needs them to tell a thread from a process and to spot
+`CLONE_NEWPID`.
+
+**Fix.**
+
+- Kernel module (`cea5d23c`): a clone3 hook writes the same `ns_NEWPROCESS`
+  record as clone. Before the call it reads `flags` and `exit_signal` from the
+  caller's `clone_args` and puts them in the record as `ns_clone_flags`, in the
+  form clone takes them: the flags with the exit signal in the low byte. It is
+  built only where `__NR_clone3` exists (Linux 5.3).
+- Audit reporter (`e09693b6`): audit syscall 435 (by number, because auditctl
+  before audit 3.0 may not know the name) and handle it as clone, with the
+  flags from `ns_clone_flags`. The reporter keeps their low 32 bits, the part
+  clone can express; the higher bits hold clone3-only flags such as
+  `CLONE_CLEAR_SIGHAND`. Without the module's record (`namespaces=false`) the
+  flags are unknown and taken as 0.
+
+**Checked.** The in-kernel tests have a serializer case for `ns_clone_flags`
+and the clone3 function in the namespace filter lists; all pass.
+`test/ns-pid/clone3-test.sh`, which starts one child with `posix_spawn` and
+one with `fork`, and compares the records with `strace`:
+
+| Build | `posix_spawn` child (clone3) | `fork` child (clone) |
+|---|---|---|
+| before `cea5d23c` | no record | recorded, `ns_syscall=56` |
+| with `cea5d23c` | recorded, `ns_syscall=435`, `ns_clone_flags=0x100004111` | recorded, `ns_syscall=56` |
+
+`strace` showed `clone3({flags=CLONE_VM|CLONE_VFORK|CLONE_CLEAR_SIGHAND,
+exit_signal=SIGCHLD, ...})`, which is 0x100004111. `Clone3FlagsTest` covers
+syscall 435 and the conversion of the flags.
+
+**Older traces.** Processes and threads created with clone3 are missing their
+creation; nothing recovers it.
+
+**Files.** `pkg/linux/kernel_modules/audit/kernel/function/sys_clone3/`,
+`audit/kernel/function/{number.h,number.c,op.c}`,
+`audit/global/function/function.c`, `audit/msg/namespace/namespace.h`,
+`audit/msg/namespace/serialize/audit.c`, `pkg/linux/kernel_modules/Kbuild`;
+`reporter/Audit.java`, `reporter/audit/{SYSCALL,OPMConstants,AuditEventReader,AuditControlManager}.java`,
+`reporter/audit/process/ProcessManager.java`; tests
+`pkg/linux/kernel_modules/test/kernel/audit/{msg,global}.c`,
+`pkg/java/src/test/java/spade/reporter/audit/process/Clone3FlagsTest.java`.
+
 ## F26. The module holds a task while it reads its namespaces
 
 `kernel_helper_namespace_populate_msg` released the RCU read lock
@@ -159,5 +214,6 @@ results as before.
 
 | Check | How | Needs |
 |---|---|---|
-| In-kernel tests (F7, F26) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
+| Java unit tests (F9) | in `pkg/java`: `mvn test -Dtest='Clone3FlagsTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
+| In-kernel tests (F7, F9, F26) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
 | ns pid A/B (F1, F2, F7, F26) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
