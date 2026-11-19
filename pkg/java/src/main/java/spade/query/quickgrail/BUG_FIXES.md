@@ -35,6 +35,7 @@ Paths are relative to the repository root. The kernel module is
 | F9 | kernel module, Audit reporter | processes and threads created with clone3 had no creation record | Required | `cea5d23c`, `e09693b6`, `1b55e895` | in-kernel unit tests; `test/ns-pid/clone3-test.sh`; unit tests |
 | F10 | Audit reporter | `netfilterHooksLogCT=false` logged every packet instead of only new connections | Optional | `3bbb7352` | unit test |
 | F11 | Audit reporter | a thread's exit ended its whole process's state, so multi-threaded processes split into thousands of unlabeled versions | Required | `d997414e` | unit test; trace 3 replayed |
+| F12 | Quickstep storage | every new vertex cost a query that scanned the whole vertex table | Optional (speed) | `d0d1cf7e` | trace 3 replayed |
 | F13 | Audit reporter | settings and bridge messages that mean lost records went unnoticed | Optional (warnings) | `c3b8eaa0` | unit test |
 | F14 | Audit reporter | the netfilter hooks' tables had no indexes, so every packet record scanned them | Optional (speed) | `583ec2d7` | trace 3 replayed |
 | F15 | Audit reporter | descriptors opened with openat2, closed with close_range, or closed at execve as close-on-exec were missing or kept | Required | `6516bc3b`, `9de609a7` | unit tests; traces 1, 2 and 4 |
@@ -51,6 +52,7 @@ Paths are relative to the repository root. The kernel module is
 | F29 | kernel module | the pid and ppid filters compared thread ids, so other threads and children of a process left out were recorded | Optional (keeps SPADE's own processes out) | `f0532696` | `test/ns-pid/filter-test.sh`; trace 1 |
 | F36 | Neo4j storage | `getEdge` with the key `*` failed | Optional (not used by container labeling) | `a093c86f` | trace 4 |
 | F37 | PostgreSQL storage | `vertexSubset` and `edgeSubset` returned one element too few | Optional (not used by container labeling) | `f9b874ef` | trace 4 |
+| F38 | Quickstep storage | an exported value with a backslash came back with the backslash doubled | Required with Quickstep when values have backslashes | `775c355f` | unit tests; trace 3 replayed |
 
 `test/...` is `pkg/linux/kernel_modules/test/...`. All checks ran on Ubuntu
 24.04.3 with Linux 6.8.0-146-generic in VirtualBox, with Docker 29.0.0 and runc
@@ -458,6 +460,30 @@ missing. Such versions are not labeled (CLARITY_METHODS.md D5).
 **Files.** `reporter/audit/process/ProcessManager.java`; test
 `pkg/java/src/test/java/spade/reporter/audit/process/ThreadExitTest.java`.
 
+## F12. The Quickstep storage looks up a batch's vertices in one query
+
+**Symptom.** Storing trace 3 slowed down as the graph grew: SPADE stored
+about 2,700 events a second at first and 250 to 300 after 45 minutes, with
+Quickstep using three CPUs, and needed 67 minutes after the workload ended.
+
+**Cause.** `processBatch` asks `getVertexId` for every vertex of a batch and
+both ends of every edge. A vertex in neither the short-lived map nor the
+Deduplicate screen's cache cost a query, `copy select id from vertex where
+md5='...'`, which scans the whole vertex table, and a new vertex is never in
+the cache.
+
+**Fix.** The batch's unknown hashes go into a temporary table, and one query
+returns the ids of those already stored; `getVertexId` knows the rest are
+not stored. If that query fails, `getVertexId` queries per vertex as before.
+
+**Checked.** Trace 3 replayed: Quickstep used 8% to 15% of a CPU instead of
+300%, never fell back to a query per vertex, and the three storages hold
+the same graph (753,993 vertices, 2,105,655 edges). With F14 as well, the
+storages had all of trace 3 6.6 minutes after the replay started; after the
+live trace they needed 67 minutes.
+
+**Files.** `storage/Quickstep.java`.
+
 ## F13. The Audit reporter warns when records may be lost
 
 Not a fix of the losses themselves, which happen outside SPADE (N14, N15),
@@ -828,16 +854,38 @@ up to `to`.
 
 **Files.** `storage/postgresql/PostgreSQLInstructionExecutor.java`.
 
+## F38. Quickstep: an exported value with a backslash comes back as it was
+
+**Symptom.** On trace 3, 12 process vertices of Quickstep's labeled copy, 9 of
+them labeled, had other hashes than on PostgreSQL and Neo4j. Their command
+lines have a backslash, such as `grep -q Capability bounding
+set:.*\bsetuid\b`, and in Quickstep's copy each backslash was four.
+
+**Cause.** Quickstep's `copy ... to stdout` writes a backslash as `\\`, a
+newline, tab or carriage return as `\n`, `\t`, `\r`, and the delimiter with a
+backslash before it. The export read each annotation key and value as written.
+The transformer's copy of such a vertex therefore had other annotations and
+another hash, and was put into `$base` as a vertex of its own.
+
+**Fix.** The export and the histogram undo the escapes, and the histogram
+splits a row only at the commas not escaped.
+
+**Checked.** `QuickstepCopyOutputTest` (5 tests), from Quickstep's output of
+such values in its local mode. Trace 3 replayed with F38: Quickstep's labeled
+and process vertices are the same as PostgreSQL's and Neo4j's.
+
+**Files.** `storage/quickstep/QuickstepInstructionExecutor.java`.
+
 ## Running the checks
 
 | Check | How | Needs |
 |---|---|---|
-| Java unit tests (F4, F5, F9, F10, F11, F13, F15, F19, F27, F28) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,PostgreSQLTest,Clone3FlagsTest,KernelModuleArgumentTest,ThreadExitTest,AuditCompletenessTest,CloseOnExecTest,OPMConstantsTest,KernelModuleManagerTest,VforkOrderingTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
+| Java unit tests (F4, F5, F9, F10, F11, F13, F15, F19, F27, F28, F38) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,PostgreSQLTest,Clone3FlagsTest,KernelModuleArgumentTest,ThreadExitTest,AuditCompletenessTest,CloseOnExecTest,OPMConstantsTest,KernelModuleManagerTest,VforkOrderingTest,QuickstepCopyOutputTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
 | In-kernel tests (F7, F9, F25, F26) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
 | ns pid A/B (F1, F2, F7, F26; `filter-test.sh` for F18, F29) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
 | netfilter (F3) | `pkg/linux/kernel_modules/test/netfilter-atomic/README.md` | a disposable VM: without the fix it freezes |
 | bridge (F8) | compare auditd's log with the reporter's `outputLog` over a trace, by serial number and, within each event, by record type (N17); the bridge's own count of missing serials is in SPADE's log | auditd writing its log, enough log rotation to keep the trace |
-| replay (F11, F14, F16, F28) | `test/query/container/replay.sh 3` on `clarity-of-container`, then `query.sh` and `check-labels.py`; `GIVE_HANDLE=0` for F16 | a recorded trace and the VM it was recorded in |
+| replay (F11, F12, F14, F16, F28) | `test/query/container/replay.sh 3` on `clarity-of-container`, then `query.sh` and `check-labels.py`; `GIVE_HANDLE=0` for F16 | a recorded trace and the VM it was recorded in |
 | QuickGrail operations (F36, F37) | `test/query/container/qg-ops.sh` on a replayed trace, before and after a change: each operation's vertex and edge counts on every storage | as replay |
 | traces (F15, F17, F18, F25, F28, F29) | `test/query/container/trace.sh 1|2|4`, then `query.sh`, `check-labels.py`, `fdcheck.py`, `nofd.py` and `f17check.py` (TRACE_VALIDATION.md) | the VM; trace 4 also DeathStarBench's media microservices |
 | live (F19, F22, F27) | as in each entry's Checked | the VM |
@@ -855,3 +903,4 @@ Problems found during the work and not fixed here, left for the maintainers.
 | N17 | auditd | auditd's queue to its plugins (`q_depth`, 2,000 by default) drops a record when it stays full for about 8 ms (`enqueue` in `audisp/queue.c`, audit 3.1.2: four tries 2 ms apart), and reports only the first five drops of each run ("queue to plugins is full - dropping event"). A record dropped from an event leaves the event's serial number in place, so the bridge's count of missing serial numbers (F8) does not see it. In trace 3, three records were dropped this way, two of them SYSCALL records; comparing auditd's log with the reporter's `outputLog` record by record finds them. A larger `q_depth` gives the plugins more room. |
 | N21 | Audit reporter | runc also creates descriptors with syscalls the audit rules leave out: for `docker run --rm alpine true`, 12 fsopen, 8 fsmount, 4 open_tree, 6 pidfd_open, 9 epoll_create1, 8 eventfd2 and 1 inotify_init1 (strace). Files opened relative to its procfs and overlay handles, which come from fsmount, a mount without a path, therefore fail with "Missing directory FD" and are missing from the graph, with their closes: in trace 1 recorded again (`trace1e`), 1,393 of the 2,528 opens relative to an unknown directory descriptor name one created by a syscall the rules leave out, the other 1,135 one whose own open failed so, and 2,153 of the 2,164 closes of descriptors whose creation was recorded follow from them (`nofd.py`). They are runc's own files, in the part of a container's boundary that runc's init holds. Handling them needs names for files under a mount without a path. |
 | N22 | kernel module | Removing the main module (`rmmod spade_audit`) crashes every thread that is in one of its hooked system calls: ftrace sends the call to the module's wrapper, which calls the original, and a thread blocked in it (accept, recvmsg) returns into the freed wrapper; the kernel oopses and kills that thread, and its process runs on without it. On the trace VM this killed 292 threads in one boot: 284 MongoDB connection threads of the media microservices, 3 control-socket and 2 CommandLine-analyzer threads of SPADE, 2 accept threads of the Quickstep server and one udev worker. The Quickstep server without its accept thread takes no connection, and the Quickstep storage then waits for ever (N23). The reporter never removes the main module (F27); upstream's own test script (`bin/test/spade_audit/run.sh`, step 11) and `test/ns-pid/ns-ab-run.sh` do. A safe removal needs the module to count the threads in its wrappers (`try_module_get`/`module_put`) or to hook without a wrapper frame. |
+| N23 | Quickstep storage | A request to the Quickstep server has no timeout: when the server takes no connection (N22), the storage's batch thread and every query wait for ever, with nothing logged, and so does every query client, which first sets its last storage (`cfg/spade.client.CommandLine.config`). `test/query/container/trace.sh` and `replay.sh` now ask every storage for its counts, with a timeout. |
