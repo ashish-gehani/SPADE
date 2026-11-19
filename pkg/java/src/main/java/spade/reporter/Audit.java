@@ -992,6 +992,7 @@ public class Audit extends AbstractReporter {
 			case VFORK:
 			case FORK:
 			case CLONE:
+			case CLONE3:
 				processManager.handleForkVforkClone(eventData, syscall);
 				break;
 			case EXECVE:
