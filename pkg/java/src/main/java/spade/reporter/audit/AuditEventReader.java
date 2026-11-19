@@ -68,6 +68,9 @@ public class AuditEventReader{
 			FD = "fd",
 			FD0 = "fd0",
 			FD1 = "fd1",
+			OPENAT2_OFLAG = "openat2_oflag", // octal, from the OPENAT2 record's oflag
+			OPENAT2_MODE = "openat2_mode", // octal
+			OPENAT2_RESOLVE = "openat2_resolve", // hexadecimal
 			FSGID = "fsgid",
 			FSUID = "fsuid",
 			GID = "gid",
@@ -94,6 +97,7 @@ public class AuditEventReader{
 			RECORD_TYPE_IPC = "IPC",
 			RECORD_TYPE_MQ_SENDRECV = "MQ_SENDRECV",
 			RECORD_TYPE_MMAP = "MMAP",
+			RECORD_TYPE_OPENAT2 = "OPENAT2",
 			RECORD_TYPE_PATH = "PATH",
 			RECORD_TYPE_PROCTITLE = "PROCTITLE",
 			RECORD_TYPE_SOCKADDR = "SOCKADDR",
@@ -138,6 +142,8 @@ public class AuditEventReader{
 			NS_SYSCALL_KEY = "ns_syscall",
 			NS_NS_PID = "ns_ns_pid",
 			NS_HOST_PID = "ns_host_pid",
+			// clone3 only: its flags as clone takes them, from the kernel module (the syscall record has a pointer)
+			NS_CLONE_FLAGS = "ns_clone_flags",
 			NS_INUM_MNT = "ns_inum_mnt",
 			NS_INUM_NET = "ns_inum_net",
 			NS_INUM_PID = "ns_inum_pid",
@@ -204,6 +210,7 @@ public class AuditEventReader{
 	 * Flag to keep track of end of file/stream
 	 */
 	private boolean EOF = false;
+	private boolean enrichedWarned = false;
 
 	/**
 	 * Create instance of the class that reads from the given stream
@@ -332,6 +339,11 @@ public class AuditEventReader{
 				break;
 			}
 			writeToOutputLog(line);
+
+			if(!enrichedWarned && AuditCompleteness.isEnrichedRecord(line)){
+				enrichedWarned = true;
+				logger.log(Level.WARNING, AuditCompleteness.ENRICHED_WARNING);
+			}
 
 			if(reportingEnabled){
 				recordCount++;
@@ -620,6 +632,23 @@ public class AuditEventReader{
 		return HelperFunctions.parseKeyValPairs(auditRecord.data);
 	}
 	
+	/**
+	 * openat2's how, which the syscall passes in a struct:
+	 * -> type=OPENAT2 msg=audit(1793608285.179:22096341): oflag=012000000 mode=00 resolve=0x14
+	 */
+	private final Map<String, String> parseOpenat2Record(final AuditRecord auditRecord) throws Exception{
+		return openat2How(auditRecord.data);
+	}
+
+	static Map<String, String> openat2How(final String recordData){
+		final Map<String, String> pairs = HelperFunctions.parseKeyValPairs(recordData);
+		final Map<String, String> how = new HashMap<String, String>();
+		how.put(OPENAT2_OFLAG, pairs.get("oflag"));
+		how.put(OPENAT2_MODE, pairs.get("mode"));
+		how.put(OPENAT2_RESOLVE, pairs.get("resolve"));
+		return how;
+	}
+
 	private final Map<String, String> parseAuditRecord(final AuditRecord auditRecord) throws Exception{
 		switch(auditRecord.type){
 			case RECORD_TYPE_DAEMON_START:
@@ -659,6 +688,8 @@ public class AuditEventReader{
 				return parsePathRecord(auditRecord);
 			case RECORD_TYPE_EXECVE:
 				return parseExecveRecord(auditRecord);
+			case RECORD_TYPE_OPENAT2:
+				return parseOpenat2Record(auditRecord);
 			case RECORD_TYPE_FD_PAIR:
 			case RECORD_TYPE_SOCKADDR:
 			case RECORD_TYPE_MMAP:
@@ -769,9 +800,29 @@ public class AuditEventReader{
 						valueEndIndex = recordData.length();
 					}
 					final String hexValue = recordData.substring(valueStartIndex, valueEndIndex);
-					return HelperFunctions.decodeHex(hexValue);
+					return decodeHexValue(hexValue);
 				}
 			}
 		}
+	}
+
+	/**
+	 * Decodes a hex-encoded audit value. The values parsed here (comm, cwd, name,
+	 * execve arguments) are C strings, so a NUL ends the value. The kernel encodes
+	 * only the string, but the audit kernel module encodes the whole comm buffer
+	 * (TASK_COMM_LEN bytes), so a short name comes padded with NULs. Kept, they
+	 * would make the name differ from the same process's name in syscall records,
+	 * and PostgreSQL rejects NUL in text.
+	 *
+	 * @param hexValue hex string
+	 * @return the decoded value up to the first NUL, or null if it is not valid hex
+	 */
+	static String decodeHexValue(final String hexValue){
+		final String value = HelperFunctions.decodeHex(hexValue);
+		if(value == null){
+			return null;
+		}
+		final int nulIndex = value.indexOf('\0');
+		return nulIndex < 0 ? value : value.substring(0, nulIndex);
 	}
 }

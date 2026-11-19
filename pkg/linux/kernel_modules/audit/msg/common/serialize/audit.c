@@ -62,7 +62,8 @@ static void seqbuf_comm_as_hex_to_string(struct seqbuf *b, char *comm, size_t co
     char hex_comm[HEX_TASK_COMM_LEN];
 
     memset(&hex_comm[0], 0, HEX_TASK_COMM_LEN);
-    bin2hex(&hex_comm[0], comm, comm_len);
+    /* the name only: comm is NUL-padded to TASK_COMM_LEN, and the padding is not part of it */
+    bin2hex(&hex_comm[0], comm, strnlen(comm, comm_len));
     util_seqbuf_printf(b, "comm=%s", &hex_comm[0]);
 }
 
