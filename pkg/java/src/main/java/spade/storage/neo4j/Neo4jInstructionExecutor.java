@@ -138,7 +138,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		
 		for(int i = 0; i < annotationKeys.size(); i++){
 			final String annotationKey = annotationKeys.get(i);
-			query += "exists(v.`" + annotationKey + "`)";
+			query += "v.`" + annotationKey + "` is not null";
 			if(i == annotationKeys.size() - 1){ // is last
 				// don't append the 'and'
 			}else{
@@ -279,7 +279,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		targetGraphName = "'," + targetGraphName + ",'";
 		String query = "set " + edgeProperty + " = "
 				+ "case "
-				+ "when not exists(" + edgeProperty + ") then " + targetGraphName + " " // set
+				+ "when " + edgeProperty + " is null then " + targetGraphName + " " // set
 				+ "when " + edgeProperty + " contains " + targetGraphName + " then " + edgeProperty + " " // leave as is
 				+ "else " + edgeProperty + " + " + targetGraphName + " end"; // append
 		return query;
@@ -341,7 +341,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 			query += "where " + edgeProperty + " contains ',"+subjectGraph.name+",' ";
 			if(hasArguments){
 				if(annotationKey.equals("*")){
-					query += " where " + buildWildCardComparison("v", operator, annotationValue);	
+					query += "and " + buildWildCardComparison("e", operator, annotationValue);
 				}else{
 					query += "and e." + buildComparison(annotationKey, operator, annotationValue);
 				}
@@ -349,7 +349,7 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 		}else{
 			if(hasArguments){
 				if(annotationKey.equals("*")){
-					query += " where " + buildWildCardComparison("v", operator, annotationValue);	
+					query += "where " + buildWildCardComparison("e", operator, annotationValue);
 				}else{
 					query += "where e." + buildComparison(annotationKey, operator, annotationValue);
 				}
@@ -876,11 +876,11 @@ public class Neo4jInstructionExecutor extends QueryInstructionExecutor{
 			String query;
 			switch(instruction.elementType){
 				case VERTEX:
-					query = "match ("+alias+":" + instruction.graph.name + ") where exists("+alias+".`" + instruction.annotationName + "`) ";
+					query = "match ("+alias+":" + instruction.graph.name + ") where "+alias+".`" + instruction.annotationName + "` is not null ";
 					break;
 				case EDGE:
 					final String relationshipProperty = alias + ".`"+neo4jQueryEnvironment.edgeLabelsPropertyName+"`";
-					query = "match ()-["+alias+"]->() where exists("+alias+".`" + instruction.annotationName + "`) ";
+					query = "match ()-["+alias+"]->() where "+alias+".`" + instruction.annotationName + "` is not null ";
 					if(!neo4jQueryEnvironment.isBaseGraph(instruction.graph)){
 						query += "and " + relationshipProperty + " contains '," + instruction.graph.name + ",' ";
 					}

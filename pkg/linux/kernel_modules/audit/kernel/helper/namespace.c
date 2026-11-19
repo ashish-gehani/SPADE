@@ -19,7 +19,9 @@
  */
 
 #include <linux/errno.h>
+#include <linux/nsproxy.h>
 #include <linux/pid_namespace.h>
+#include <linux/sched/task.h>
 
 #include "audit/kernel/helper/namespace.h"
 
@@ -55,6 +57,28 @@ static long _get_ns_inum(
 	return inum;
 }
 
+/*
+ * The PID namespace the task's next children go into. Read from nsproxy rather
+ * than through pidns_for_children_operations: its get() returns no namespace
+ * until the namespace has a child reaper, so right after unshare(CLONE_NEWPID)
+ * it hides the very namespace the caller just created. nsproxy already points
+ * to it, and its inode number is allocated when it is created.
+ */
+static long _get_pid_for_children_ns_inum(struct task_struct *struct_task_struct)
+{
+	long inum = -1;
+
+	if (!struct_task_struct)
+		return inum;
+
+	task_lock(struct_task_struct);
+	if (struct_task_struct->nsproxy && struct_task_struct->nsproxy->pid_ns_for_children)
+		inum = struct_task_struct->nsproxy->pid_ns_for_children->ns.inum;
+	task_unlock(struct_task_struct);
+
+	return inum;
+}
+
 int kernel_helper_namespace_populate_msg(
     struct msg_namespace *msg,
     enum kernel_function_number func_num, long target_pid, bool sys_success,
@@ -63,9 +87,10 @@ int kernel_helper_namespace_populate_msg(
 {
     const char *log_id = "kernel_helper_namespace_populate_msg";
 	struct pid *pid_struct;
-	struct task_struct *pid_task_struct;
+	struct task_struct *pid_task_struct = NULL;
     struct kernel_namespace_pointers *k_ns_op_ptrs;
-    long host_pid;
+    long host_pid = 0;
+    pid_t ns_pid = 0;
     int err;
     int sys_num;
     bool sys_num_default_to_func_num = false;
@@ -90,6 +115,18 @@ int kernel_helper_namespace_populate_msg(
 
 	rcu_read_lock();
 	pid_struct = find_vpid(target_pid);
+	// target_pid is seen from the caller's PID namespace (e.g. clone's return value). A child created
+	// into another PID namespace has a different pid in its own, e.g. 1 for that namespace's first process.
+	if (pid_struct)
+	{
+		ns_pid = pid_nr_ns(pid_struct, ns_of_pid(pid_struct));
+		host_pid = pid_nr(pid_struct);
+		// pid_task needs the RCU read lock, and the task may exit once it is released: hold a
+		// reference to it while its namespaces are read below.
+		pid_task_struct = pid_task(pid_struct, PIDTYPE_PID);
+		if (pid_task_struct)
+			get_task_struct(pid_task_struct);
+	}
     rcu_read_unlock();
 
 	if (!pid_struct)
@@ -98,7 +135,6 @@ int kernel_helper_namespace_populate_msg(
         return -ESRCH;
     }
 	
-    pid_task_struct = pid_task(pid_struct, PIDTYPE_PID);
     if (!pid_task_struct)
     {
         util_log_debug(log_id, "NULL pid_task_struct");
@@ -110,22 +146,22 @@ int kernel_helper_namespace_populate_msg(
     );
     if (err != 0)
     {
+        put_task_struct(pid_task_struct);
         util_log_debug(log_id, "Failed to get syscall number from function number: %d. Err: %d", func_num, err);
         return err;
     }
 
-    host_pid = pid_nr(pid_struct);
-
     msg->ns_inum_pid = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_pid);
-    msg->ns_inum_pid_children = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_pid_children);
+    msg->ns_inum_pid_children = _get_pid_for_children_ns_inum(pid_task_struct);
 	msg->ns_inum_mnt = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_mnt);
 	msg->ns_inum_net = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_net);
 	msg->ns_inum_usr = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_user);
 	msg->ns_inum_ipc = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_ipc);
 	msg->ns_inum_cgroup = _get_ns_inum(pid_task_struct, k_ns_op_ptrs->ops_cgroup);
+    put_task_struct(pid_task_struct);
 
     msg->host_pid = host_pid;
-    msg->ns_pid = target_pid;
+    msg->ns_pid = ns_pid;
     msg->op = op;
     msg->syscall_number = sys_num;
 
