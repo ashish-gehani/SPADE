@@ -33,13 +33,16 @@ Paths are relative to the repository root. The kernel module is
 | F9 | kernel module, Audit reporter | processes and threads created with clone3 had no creation record | Required | `cea5d23c`, `e09693b6`, `1b55e895` | in-kernel unit tests; `test/ns-pid/clone3-test.sh`; unit tests |
 | F10 | Audit reporter | `netfilterHooksLogCT=false` logged every packet instead of only new connections | Optional | `3bbb7352` | unit test |
 | F11 | Audit reporter | a thread's exit ended its whole process's state, so multi-threaded processes split into thousands of unlabeled versions | Required | `d997414e` | unit test; trace 3 replayed |
+| F13 | Audit reporter | settings and bridge messages that mean lost records went unnoticed | Optional (warnings) | `c3b8eaa0` | unit test |
 | F14 | Audit reporter | the netfilter hooks' tables had no indexes, so every packet record scanned them | Optional (speed) | `583ec2d7` | trace 3 replayed |
 | F15 | Audit reporter | descriptors opened with openat2, closed with close_range, or closed at execve as close-on-exec were missing or kept | Required | `6516bc3b`, `9de609a7` | unit tests; traces 1, 2 and 4 |
 | F17 | Audit reporter | an execve or setuid after an unshare or setns labeled the process with the namespaces it was created with | Required | `98703431` | B13 in trace 2 |
 | F18 | Audit reporter, kernel module | a process sudo started for SPADE's user was not recorded as created | Required when SPADE's user starts containers with sudo | `3d9fc798` | B11 in trace 2; `test/ns-pid/filter-test.sh` |
+| F19 | Audit reporter | a bridge that could not reach auditd's socket recorded nothing, unnoticed | Optional (refuses a broken setup) | `d7867b35` | unit tests; live |
 | F24 | kernel module | every logged packet was also counted as discarded | Optional (a counter) | `c0a567c4` | in-kernel tests |
 | F25 | kernel module | process names were encoded with their NUL padding | Optional, given F4 | `dd2b921b` | in-kernel tests; trace 1 |
 | F26 | kernel module | a task's namespaces were read without holding the task | Optional (safety; recommended) | `a3a35f19` | in-kernel tests; `test/ns-pid` A/B |
+| F27 | Audit reporter | a rebuilt main kernel module had no effect, silently, while an older build stayed loaded | Optional (a warning) | `2e9f1662` | unit test; live |
 | F28 | Audit reporter | a vfork child's events came before the vfork that created it, so it was first seen with unknown namespaces | Required | `afb8fb45` | unit tests; trace 2 replayed |
 | F29 | kernel module | the pid and ppid filters compared thread ids, so other threads and children of a process left out were recorded | Optional (keeps SPADE's own processes out) | `f0532696` | `test/ns-pid/filter-test.sh`; trace 1 |
 
@@ -394,6 +397,30 @@ missing. Such versions are not labeled (CLARITY_METHODS.md D5).
 **Files.** `reporter/audit/process/ProcessManager.java`; test
 `pkg/java/src/test/java/spade/reporter/audit/process/ThreadExitTest.java`.
 
+## F13. The Audit reporter warns when records may be lost
+
+Not a fix of the losses themselves, which happen outside SPADE (N14, N15),
+but of their going unnoticed:
+
+- The bridge's reports of missing serial numbers and of data dropped from
+  its queue are logged as WARNING when the count is not zero. At INFO they
+  went unnoticed, and they were what showed N14.
+- In live mode the reporter warns when the kernel was not booted with
+  `audit=1` (from `/proc/cmdline`), since the kernel then drops records
+  auditd falls behind on without counting them (N14).
+- The reporter warns, once, when its records come with auditd's ENRICHED
+  names, since auditd then looks up every unknown uid again for every
+  record (N15). SPADE's user cannot read `auditd.conf`, so the records tell.
+
+**Checked.** `AuditCompletenessTest`. A live Audit reporter on the VM of
+the traces (kernel without `audit=1`, auditd with ENRICHED) logged the
+kernel warning when it was added and the ENRICHED warning once, with the
+first such records.
+
+**Files.** `reporter/audit/AuditCompleteness.java` (new),
+`reporter/Audit.java`, `reporter/audit/AuditEventReader.java`; test
+`pkg/java/src/test/java/spade/reporter/audit/AuditCompletenessTest.java`.
+
 ## F14. The netfilter hooks' tables are indexed
 
 **Symptom.** Replaying trace 3 with F11 and F12, the reporter's thread was
@@ -522,6 +549,26 @@ before.
 kernel module `audit/kernel/function/hook.h`,
 `audit/kernel/netfilter/netfilter.c`.
 
+## F19. The reporter refuses a bridge that cannot reach auditd
+
+`make` replaces `bin/spadeAuditBridge` without the setuid
+bit `bin/allowAuditAccess` gives it. The bridge then could not connect to
+auditd's socket ("Permission denied"), SPADE logged that at INFO, and the
+reporter counted as added while recording nothing.
+
+**Fix.** In live mode the reporter refuses to start, with the reason and the
+remedy, when the bridge is not setuid root and auditd's socket is not
+writable for SPADE's user. A bridge that loses the socket later logs it as
+SEVERE.
+
+**Checked.** `AuditCompletenessTest` (`theBridgesSocketFailuresAreRecognised`,
+`aMissingBridgeCountsAsRunnable`). On the VM, right after `make`: `add
+reporter Audit` failed, the log said why and to run `bin/allowAuditAccess`,
+and no module was loaded.
+
+**Files.** `reporter/Audit.java`, `reporter/audit/AuditCompleteness.java`;
+test `pkg/java/src/test/java/spade/reporter/audit/AuditCompletenessTest.java`.
+
 ## F24. A logged packet is not counted as discarded
 
 `nf_handle_packet` logged a packet and then fell through to
@@ -566,6 +613,31 @@ no audit record lost; `filter-test.sh` and `clone3-test.sh` gave the same
 results as before.
 
 **Files.** kernel module `audit/kernel/helper/namespace.c`.
+
+## F27. The reporter warns when the loaded main module is another build
+
+The reporter inserts the main kernel module only when it is not loaded, and
+removes only the controller, so the main module stays loaded until a reboot.
+A module rebuilt with `make KERNEL_MODULES=true` therefore had no effect,
+silently, while the older build stayed loaded, and the namespace fixes F1,
+F2, F7, F9, F18, F26 and F29 are in that module. Removing the main module is
+no remedy: it crashes every thread in one of its hooked system calls (N22).
+
+**Fix.** At start the reporter compares the loaded module's `srcversion`
+with the file's and, when they differ, logs SEVERE that it records with the
+loaded build and that a reboot loads the new one. It removes and reloads
+nothing. (A first version of this fix removed the main module with the
+reporter and reloaded a stale one; on the VM that killed the Quickstep
+server's accept thread twice, N22, and it was replaced.)
+
+**Checked.** `KernelModuleManagerTest` (3 tests). On the VM, with the
+current build loaded and the reporter pointed at an older build's file
+(`kernelModuleMain=`), the reporter logged the warning with both
+srcversions, and the main module stayed loaded after the reporter was
+removed, with no oops.
+
+**Files.** `reporter/Audit.java`, `reporter/audit/KernelModuleManager.java`;
+test `pkg/java/src/test/java/spade/reporter/audit/KernelModuleManagerTest.java`.
 
 ## F28. A vfork child's creation comes before its own events
 
@@ -639,13 +711,14 @@ containerd-shim leaves out its children). In trace 1 recorded with F29 (`trace1e
 
 | Check | How | Needs |
 |---|---|---|
-| Java unit tests (F4, F9, F10, F11, F15, F28) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,Clone3FlagsTest,KernelModuleArgumentTest,ThreadExitTest,CloseOnExecTest,OPMConstantsTest,VforkOrderingTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
+| Java unit tests (F4, F9, F10, F11, F13, F15, F19, F27, F28) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,Clone3FlagsTest,KernelModuleArgumentTest,ThreadExitTest,AuditCompletenessTest,CloseOnExecTest,OPMConstantsTest,KernelModuleManagerTest,VforkOrderingTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
 | In-kernel tests (F7, F9, F25, F26) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
 | ns pid A/B (F1, F2, F7, F26; `filter-test.sh` for F18, F29) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
 | netfilter (F3) | `pkg/linux/kernel_modules/test/netfilter-atomic/README.md` | a disposable VM: without the fix it freezes |
 | bridge (F8) | compare auditd's log with the reporter's `outputLog` over a trace, by serial number and, within each event, by record type (N17); the bridge's own count of missing serials is in SPADE's log | auditd writing its log, enough log rotation to keep the trace |
 | replay (F11, F14, F28) | `test/query/container/replay.sh 3` on `clarity-of-container`, then `query.sh` and `check-labels.py` | a recorded trace and the VM it was recorded in |
 | traces (F15, F17, F18, F25, F28, F29) | `test/query/container/trace.sh 1|2|4`, then `query.sh`, `check-labels.py`, `fdcheck.py`, `nofd.py` and `f17check.py` (TRACE_VALIDATION.md) | the VM; trace 4 also DeathStarBench's media microservices |
+| live (F19, F27) | as in each entry's Checked | the VM |
 
 ## Noticed, not changed
 
@@ -653,6 +726,10 @@ Problems found during the work and not fixed here, left for the maintainers.
 
 | # | Component | What |
 |---|---|---|
+| N7 | build | `make` replaces `bin/spadeAuditBridge` without the setuid bit; run `bin/allowAuditAccess` after every build. F19 makes the reporter refuse to start without it and say so. |
 | N10 | auditd | The af_unix plugin (audit 3.1.2) serves one client at a time and closes any other connection without a log, and it drops events its client cannot take at once without a log (F8). The bridge works around the second; only auditd can fix it. |
+| N14 | Linux audit | Unless the kernel was booted with `audit=1`, records that `kauditd` fails to hand to auditd are dropped without being counted in `lost`. It waits 0.1 s for room in auditd's netlink socket, whose receive buffer is `net.core.rmem_default` when auditd starts (212,992 bytes; auditd has no setting for it), then gives up on the rest of its queue, and `kauditd_hold_skb` frees what fails again (`if (!audit_default) goto drop;`, `kernel/audit.c`, Linux 6.8). Under the media microservices this lost 289,000 to 599,000 events per recording of trace 3, in gaps of up to 184,343 serial numbers, which only the bridge's count of missing serial numbers (F8) showed. Restarting auditd while `rmem_default` is larger gives its socket room for bursts; booting with `audit=1` makes the kernel hold such records and count those it must drop. The Audit reporter warns about it at start (F13). |
+| N15 | auditd | With `log_format = ENRICHED` (Ubuntu's default), auditd (3.1.2) looks up the name of each uid and gid in each record through NSS and does not remember a failed lookup. Containers that run as uids the host does not know therefore cost it file opens and socket connections for every event: for 2,000 events of a process running as uid 11211, 12,858 `openat` and 839 `connect` calls, against none for a known uid or with `log_format = RAW`. With `nss-systemd`, `systemd` answers each lookup, and the Audit reporter records those answers as further events. It made auditd too slow for the media microservices (trace 3). The Audit reporter reads only the raw fields, so `log_format = RAW` loses it nothing. The Audit reporter warns when it reads such records (F13). |
 | N17 | auditd | auditd's queue to its plugins (`q_depth`, 2,000 by default) drops a record when it stays full for about 8 ms (`enqueue` in `audisp/queue.c`, audit 3.1.2: four tries 2 ms apart), and reports only the first five drops of each run ("queue to plugins is full - dropping event"). A record dropped from an event leaves the event's serial number in place, so the bridge's count of missing serial numbers (F8) does not see it. In trace 3, three records were dropped this way, two of them SYSCALL records; comparing auditd's log with the reporter's `outputLog` record by record finds them. A larger `q_depth` gives the plugins more room. |
 | N21 | Audit reporter | runc also creates descriptors with syscalls the audit rules leave out: for `docker run --rm alpine true`, 12 fsopen, 8 fsmount, 4 open_tree, 6 pidfd_open, 9 epoll_create1, 8 eventfd2 and 1 inotify_init1 (strace). Files opened relative to its procfs and overlay handles, which come from fsmount, a mount without a path, therefore fail with "Missing directory FD" and are missing from the graph, with their closes: in trace 1 recorded again (`trace1e`), 1,393 of the 2,528 opens relative to an unknown directory descriptor name one created by a syscall the rules leave out, the other 1,135 one whose own open failed so, and 2,153 of the 2,164 closes of descriptors whose creation was recorded follow from them (`nofd.py`). They are runc's own files, in the part of a container's boundary that runc's init holds. Handling them needs names for files under a mount without a path. |
+| N22 | kernel module | Removing the main module (`rmmod spade_audit`) crashes every thread that is in one of its hooked system calls: ftrace sends the call to the module's wrapper, which calls the original, and a thread blocked in it (accept, recvmsg) returns into the freed wrapper; the kernel oopses and kills that thread, and its process runs on without it. On the trace VM this killed 292 threads in one boot: 284 MongoDB connection threads of the media microservices, 3 control-socket and 2 CommandLine-analyzer threads of SPADE, 2 accept threads of the Quickstep server and one udev worker. The Quickstep server without its accept thread takes no connection, and the Quickstep storage then waits for ever (N23). The reporter never removes the main module (F27); upstream's own test script (`bin/test/spade_audit/run.sh`, step 11) and `test/ns-pid/ns-ab-run.sh` do. A safe removal needs the module to count the threads in its wrappers (`try_module_get`/`module_put`) or to hook without a wrapper frame. |
