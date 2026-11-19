@@ -29,6 +29,7 @@ Paths are relative to the repository root. The kernel module is
 | F3 | kernel module | the netfilter hook could sleep in atomic context and freeze the system | Required with `networkAddressTranslation=true` | `da9c05b8`, `1527278b` | `test/netfilter-atomic` reproduction |
 | F4 | Audit reporter | process names from kernel-module records ended in NULs | Required, unless the module has F25 | `ed373f13` | unit tests; a real trace |
 | F7 | kernel module | an unshare(CLONE_NEWPID) record never named the new namespace | Required | `2728115f`, `5c8c1db2`, `0cdc679a` | in-kernel unit test; `test/ns-pid` A/B |
+| F8 | audit bridge | auditd's af_unix plugin silently dropped events whenever SPADE fell behind | Required (live) | `b457bb46`, `41afaf09` | a real trace: auditd's log against SPADE's input |
 | F9 | kernel module, Audit reporter | processes and threads created with clone3 had no creation record | Required | `cea5d23c`, `e09693b6`, `1b55e895` | in-kernel unit tests; `test/ns-pid/clone3-test.sh`; unit tests |
 | F10 | Audit reporter | `netfilterHooksLogCT=false` logged every packet instead of only new connections | Optional | `3bbb7352` | unit test |
 | F14 | Audit reporter | the netfilter hooks' tables had no indexes, so every packet record scanned them | Optional (speed) | `583ec2d7` | trace 3 replayed |
@@ -203,6 +204,74 @@ process created after the unshare, so it works on traces from either module.
 `audit/msg/namespace/serialize/audit.c`; tests
 `pkg/linux/kernel_modules/test/kernel/audit/msg.c`,
 `pkg/linux/kernel_modules/test/ns-pid/ns-ab-analyze.py`.
+
+## F8. The bridge reads auditd's socket in a thread of its own
+
+**Symptom.** Traces missed events that auditd had logged, with no error
+anywhere. In one trace, 58,526 of the 151,096 events in auditd's log (39%)
+never reached SPADE's Audit reporter, in runs of up to 1,291 consecutive
+serial numbers during container starts. The graph then lacked, for example,
+the creation of 4 of 10 container inits; those processes showed up only as
+first seen later, with `-1` labels. The kernel's `lost` counter did not move,
+and auditd reported nothing.
+
+**Cause.** SPADE reads audit events from auditd's af_unix plugin
+(`/sbin/audisp-af_unix`, audit 3.1.2) through `spadeAuditBridge`. The plugin
+writes each event to its one client on a non-blocking socket and ignores
+`EAGAIN` and short writes, so an event that does not fit drops without a
+trace (`read_audit_record` in `audisp/plugins/af_unix/audisp-af_unix.c`). The
+bridge called `recv` only between processing events and writing them to
+SPADE, so whenever SPADE was slower than the event rate, the socket filled
+and events were lost. On a Unix stream socket the sender's send buffer
+limits what can wait, so the bridge cannot enlarge it from its side.
+
+**Fix.** A thread of the bridge only reads the socket and queues what
+arrives, in memory (at most 1 GB; beyond that it counts what it drops), and
+the main thread processes the queue. On SIGINT or SIGTERM the bridge
+processes what it has received, then flushes and exits. Audit serial numbers
+count the events the kernel sends, so the bridge also counts serials it never
+received and reports them on stderr, which SPADE logs: "Audit events not
+received so far (missing serial numbers)", and a total when it stops.
+
+**Checked.** A log with serials 100, 101, 103, 105, 104, 106, read with
+`spadeAuditBridge -F`, gives the same output as before the fix and reports 1
+missing event. On real traces, auditd's log was compared with everything the
+reporter read (`outputLog`):
+
+| Trace | Events in auditd's log | Missing from SPADE | Bridge's count |
+|---|---|---|---|
+| without F8 | 151,096 | 58,526 | - |
+| with F8 | 164,642 | 427 | 427 |
+| with F8 and `net.core.wmem_default` 16 MB | 166,639 | 0 | 0 |
+
+With F8 the bridge's queue peaked at 24 MB, which is how far SPADE fell
+behind. The 427 events still lost went in bursts while the bridge's reader
+thread lagged, because the plugin's socket can hold only one send buffer:
+`net.core.wmem_default` when the bridge connects, 212,992 bytes by default.
+Raising it before SPADE starts its Audit reporter, e.g. `sysctl -w
+net.core.wmem_default=16777216`, lost nothing. auditd's own dispatcher queue
+(`q_depth`) never overflowed; it would have logged that.
+
+The queue holds at most 1 GB by default, which a busy microservice stack
+can fill. The media microservices of trace 3 produced 2.49 million audit
+events in under three minutes, 14,000 a second on average, while SPADE
+stored at most about 2,700 a second with three storages attached, and fewer
+as Quickstep's tables grew (N16). The bridge's queue peaked at 836 MB. So the
+size is an option (`41afaf09`): the bridge takes `-q <megabytes>`, and the
+Audit reporter passes its `spadeAuditBridgeQueueMegabytes` in live mode.
+When the reporter is removed, the bridge hands SPADE the whole queue before
+it exits, which took an hour for trace 3.
+
+**Older traces.** A trace recorded without F8 may miss events with no sign
+of it. Comparing auditd's log over the same time with the Audit reporter's
+`outputLog`, if it was set, shows which.
+
+**Files.** `pkg/linux/audit_bridge/src/spadeAuditBridge.c`,
+`pkg/linux/audit_bridge/Makefile.am`, `pkg/linux/audit_bridge/Makefile.in`
+(`-pthread`); for the queue size `reporter/Audit.java`,
+`reporter/audit/SPADEAuditBridgeProcess.java`,
+`cfg/spade.reporter.Audit.config` and
+`cfg/spade.reporter.Audit-with-namespace-awareness.config`.
 
 ## F9. clone3 is recorded
 
@@ -417,5 +486,15 @@ containerd-shim leaves out its children). In trace 1 recorded with F29 (`trace1e
 | In-kernel tests (F7, F9, F25, F26) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
 | ns pid A/B (F1, F2, F7, F26; `filter-test.sh` for F18, F29) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
 | netfilter (F3) | `pkg/linux/kernel_modules/test/netfilter-atomic/README.md` | a disposable VM: without the fix it freezes |
+| bridge (F8) | compare auditd's log with the reporter's `outputLog` over a trace, by serial number and, within each event, by record type (N17); the bridge's own count of missing serials is in SPADE's log | auditd writing its log, enough log rotation to keep the trace |
 | replay (F14) | `test/query/container/replay.sh 3` on `clarity-of-container`, then `query.sh` and `check-labels.py` | a recorded trace and the VM it was recorded in |
 | traces (F18, F25, F29) | `test/query/container/trace.sh 1|2|4`, then `query.sh`, `check-labels.py`, `fdcheck.py`, `nofd.py` and `f17check.py` (TRACE_VALIDATION.md) | the VM; trace 4 also DeathStarBench's media microservices |
+
+## Noticed, not changed
+
+Problems found during the work and not fixed here, left for the maintainers.
+
+| # | Component | What |
+|---|---|---|
+| N10 | auditd | The af_unix plugin (audit 3.1.2) serves one client at a time and closes any other connection without a log, and it drops events its client cannot take at once without a log (F8). The bridge works around the second; only auditd can fix it. |
+| N17 | auditd | auditd's queue to its plugins (`q_depth`, 2,000 by default) drops a record when it stays full for about 8 ms (`enqueue` in `audisp/queue.c`, audit 3.1.2: four tries 2 ms apart), and reports only the first five drops of each run ("queue to plugins is full - dropping event"). A record dropped from an event leaves the event's serial number in place, so the bridge's count of missing serial numbers (F8) does not see it. In trace 3, three records were dropped this way, two of them SYSCALL records; comparing auditd's log with the reporter's `outputLog` record by record finds them. A larger `q_depth` gives the plugins more room. |
