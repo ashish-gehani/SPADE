@@ -26,8 +26,12 @@ Paths are relative to the repository root. The kernel module is
 |---|---|---|---|---|---|
 | F1 | kernel module | `ns_ns_pid` held the PID in the creator's namespace, not the process's own | Required | `9fd54e0c` | `test/ns-pid` A/B on a live system |
 | F2 | kernel module | an unshare or setns inside a container wrote no record | Required | `d445c7cc` | `test/ns-pid` A/B |
+| F3 | kernel module | the netfilter hook could sleep in atomic context and freeze the system | Required with `networkAddressTranslation=true` | `da9c05b8`, `1527278b` | `test/netfilter-atomic` reproduction |
 | F7 | kernel module | an unshare(CLONE_NEWPID) record never named the new namespace | Required | `2728115f`, `5c8c1db2`, `0cdc679a` | in-kernel unit test; `test/ns-pid` A/B |
 | F9 | kernel module, Audit reporter | processes and threads created with clone3 had no creation record | Required | `cea5d23c`, `e09693b6`, `1b55e895` | in-kernel unit tests; `test/ns-pid/clone3-test.sh`; unit tests |
+| F10 | Audit reporter | `netfilterHooksLogCT=false` logged every packet instead of only new connections | Optional | `3bbb7352` | unit test |
+| F14 | Audit reporter | the netfilter hooks' tables had no indexes, so every packet record scanned them | Optional (speed) | `583ec2d7` | trace 3 replayed |
+| F24 | kernel module | every logged packet was also counted as discarded | Optional (a counter) | `c0a567c4` | in-kernel tests |
 | F26 | kernel module | a task's namespaces were read without holding the task | Optional (safety; recommended) | `a3a35f19` | in-kernel tests; `test/ns-pid` A/B |
 
 `test/...` is `pkg/linux/kernel_modules/test/...`. All checks ran on Ubuntu
@@ -91,6 +95,38 @@ keeps its old namespace labels, so a container started inside a container
 **Files.** `audit/kernel/function/sys_unshare/action/audit.c`,
 `audit/kernel/function/sys_setns/action/audit.c`, `audit/kernel/helper/task.c`,
 `audit/kernel/helper/task.h`.
+
+## F3. The netfilter hook must not sleep
+
+**Symptom.** With `networkAddressTranslation=true` (as in
+`cfg/spade.reporter.Audit-with-namespace-awareness.config`), recording a trace
+froze the VM. The serial console showed `BUG: scheduling while atomic` in
+`nf_handle_packet`, then soft lockups and an RCU stall. The process
+interrupted was PostgreSQL, SPADE's storage, whose loopback traffic went
+through the hook.
+
+**Cause.** `networkAddressTranslation=true` turns on the module's netfilter
+hook (`nf_hooks`), which logs packets with `kernel_helper_audit_log`.
+That passed `GFP_KERNEL` to `audit_log`, which waits for room while the audit
+backlog is full. A netfilter hook runs in an RCU read-side section and, for
+received packets, in softirq, where it must never sleep.
+
+**Fix.** `kernel_helper_audit_log_atomic` passes `GFP_ATOMIC`, and the
+netfilter hook uses it. With a full backlog, the kernel now drops the packet
+record and counts it in the audit `lost` counter. The syscall hooks run in
+process context and keep the waiting variant.
+
+**Checked.** `test/netfilter-atomic/nf-repro.sh` fills the backlog (limit 64,
+auditd stopped) and sends loopback TCP traffic. Without the fix the guest
+froze within a second, with 5 `BUG` reports. With it, 15 connections lost 908
+records and 10 s of traffic lost 235,690, with no BUG, warning or lockup. The
+script was run as committed. Results are in `test/netfilter-atomic/README.md`.
+
+**Older traces.** None are affected: without the fix, the system froze
+instead.
+
+**Files.** `audit/kernel/helper/audit_log.c`, `audit/kernel/helper/audit_log.h`,
+`audit/kernel/netfilter/netfilter.c`.
 
 ## F7. The unshare record names the new PID namespace
 
@@ -191,6 +227,70 @@ creation; nothing recovers it.
 `pkg/linux/kernel_modules/test/kernel/audit/{msg,global}.c`,
 `pkg/java/src/test/java/spade/reporter/audit/process/Clone3FlagsTest.java`.
 
+## F10. netfilterHooksLogCT means what the config says
+
+**Symptom.** With `networkAddressTranslation=true` and three storages
+attached, the Audit reporter fell minutes behind: it handled 360 records a
+second, and a thread dump showed it inside `NetfilterHooksManager`'s SQL
+queries on its H2 tables, once for every packet. The module had been loaded
+with `nf_hooks_log_all_ct=all`.
+
+**Cause.** `cfg/spade.reporter.Audit.config` documents
+`netfilterHooksLogCT=true` as logging every packet and `false` as logging only
+packets that start a connection, which is what the netfilter hooks did when
+they were added (`03bbab70`). `KernelModuleArgument.createArgument` mapped the
+two the other way round, so the default, `false`, logged every packet,
+including SPADE's own loopback traffic to its storages.
+
+**Fix.** The mapping follows the config again.
+
+**Checked.** `KernelModuleArgumentTest`: `false` gives `ONLY_NEW` and `true`
+gives `ALL`.
+
+**Older traces.** Recorded with every packet: correct, but much larger, and
+slow to record.
+
+**Files.** `reporter/audit/KernelModuleArgument.java`; test
+`pkg/java/src/test/java/spade/reporter/audit/KernelModuleArgumentTest.java`.
+
+## F14. The netfilter hooks' tables are indexed
+
+**Symptom.** Replaying trace 3 with F11 and F12, the reporter's thread was
+the bottleneck, and every sample of its stack was in an H2 query of
+`NetfilterHooksManager`; the replay needed 36 minutes.
+
+**Cause.** `NetfilterHooksManager` keeps each hook's packets in an in-memory
+H2 table and finds a packet's earlier hooks, and a syscall's connection,
+with queries on columns that had no index; rows are updated and deleted by
+a row id that is not a key. Each table holds up to `maxPerHookEntries`
+rows (65,536) before old ones expire, so every netfilter record scanned up
+to 65,536 rows, several times.
+
+**Fix.** Indexes on the row id, the event time, the skb id and the ports the
+lookups use.
+
+**Checked.** Trace 3 replayed with F14: the reporter handled the 2.49
+million events in 190 s instead of 2,167 s, although it handled more of
+them (the replay without F14 had also left out the module's network
+records, N20). The hook tables' counts match the live trace's exactly
+(79,831 pre-routing and local-in rows, 103,026 post-routing, 68,503
+expired); the syscall table got 90 more rows, probably network syscalls on
+descriptors that F11 keeps.
+
+**Files.** `reporter/audit/NetfilterHooksManager.java`.
+
+## F24. A logged packet is not counted as discarded
+
+`nf_handle_packet` logged a packet and then fell through to
+`discard_and_exit`, so every logged packet was also counted as discarded.
+It returns after logging now. Only the module's discard counter changes,
+which nothing in SPADE reads.
+
+**Checked.** The in-kernel tests pass and traces 1, 2 and 4, recorded with
+the module, are complete; the counter itself was not looked at.
+
+**Files.** kernel module `audit/kernel/netfilter/netfilter.c`.
+
 ## F26. The module holds a task while it reads its namespaces
 
 `kernel_helper_namespace_populate_msg` released the RCU read lock
@@ -214,6 +314,8 @@ results as before.
 
 | Check | How | Needs |
 |---|---|---|
-| Java unit tests (F9) | in `pkg/java`: `mvn test -Dtest='Clone3FlagsTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
+| Java unit tests (F9, F10) | in `pkg/java`: `mvn test -Dtest='Clone3FlagsTest,KernelModuleArgumentTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
 | In-kernel tests (F7, F9, F26) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
 | ns pid A/B (F1, F2, F7, F26) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
+| netfilter (F3) | `pkg/linux/kernel_modules/test/netfilter-atomic/README.md` | a disposable VM: without the fix it freezes |
+| replay (F14) | `test/query/container/replay.sh 3` on `clarity-of-container`, then `query.sh` and `check-labels.py` | a recorded trace and the VM it was recorded in |
