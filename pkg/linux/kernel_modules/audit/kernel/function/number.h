@@ -38,7 +38,8 @@ enum kernel_function_number
     KERN_F_NUM_SYS_SENDTO,
     KERN_F_NUM_SYS_SETNS,
     KERN_F_NUM_SYS_UNSHARE,
-    KERN_F_NUM_SYS_VFORK
+    KERN_F_NUM_SYS_VFORK,
+    KERN_F_NUM_SYS_CLONE3
     // Start next func num after 500+ to skip all system calls.
 };
 

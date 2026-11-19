@@ -102,7 +102,7 @@ gid_t kernel_helper_task_host_view_current_fsgid(void);
 pid_t kernel_helper_task_task_view_get_tgid(pid_t pid);
 
 /*
-    Get PPID of the current task from the current task namespace view.
+    Get PPID of the current task in the host PID namespace (the pid filters compare it with host PIDs).
 
     Returns:
         ppid -> Always
@@ -110,12 +110,20 @@ pid_t kernel_helper_task_task_view_get_tgid(pid_t pid);
 pid_t kernel_helper_task_task_view_current_ppid(void);
 
 /*
-    Get PID of the current task from the current task namespace view.
+    Get PID of the current task in the host PID namespace (the pid filters compare it with host PIDs).
 
     Returns:
         pid -> Always
 */
 pid_t kernel_helper_task_task_view_current_pid(void);
+
+/*
+    Get PID of the current task in its own PID namespace, as the task sees itself.
+
+    Returns:
+        pid -> Always
+*/
+pid_t kernel_helper_task_ns_view_current_pid(void);
 
 /*
     Get audit_context of the current task.
