@@ -43,6 +43,8 @@ Paths are relative to the repository root. The kernel module is
 | F17 | Audit reporter | an execve or setuid after an unshare or setns labeled the process with the namespaces it was created with | Required | `98703431` | B13 in trace 2 |
 | F18 | Audit reporter, kernel module | a process sudo started for SPADE's user was not recorded as created | Required when SPADE's user starts containers with sudo | `3d9fc798` | B11 in trace 2; `test/ns-pid/filter-test.sh` |
 | F19 | Audit reporter | a bridge that could not reach auditd's socket recorded nothing, unnoticed | Optional (refuses a broken setup) | `d7867b35` | unit tests; live |
+| F20 | SPADE kernel | a restart emptied the storages added with `reset=true` again | Optional | `a35bb81d` | unit tests; live |
+| F21 | QuickGrail | a failed query left its variables bound to graphs it never filled | Optional | `d1bb390a` | unit test; live |
 | F22 | Neo4j storage | the task runner used a whole CPU while SPADE was idle | Optional (CPU) | `9f11de78` | live |
 | F23 | Quickstep storage | a query did not see the batch not yet sent | Required with Quickstep | `f1b234e1` | live |
 | F24 | kernel module | every logged packet was also counted as discarded | Optional (a counter) | `c0a567c4` | in-kernel tests |
@@ -56,6 +58,7 @@ Paths are relative to the repository root. The kernel module is
 | F32 | QuickGrail, PostgreSQL and Quickstep storages | `transform` looked its result up 100 hashes at a time, and each lookup scanned the whole vertex or edge table | Optional (speed) | `f288b933` | traces 4 and 3 replayed |
 | F33 | Neo4j storage | QuickGrail updated a whole graph in one transaction, which ran out of memory or past the transaction timeout on large graphs | Required for the transformer on Neo4j with graphs the size of trace 3 | `5764869c` | unit tests; traces 4 and 3 replayed |
 | F34 | QuickGrail | `transform` held up to four copies of the graph while putting its result | Required for the transformer with graphs the size of trace 3 in an 8 GB heap | `a4fff2c6` | trace 3 replayed |
+| F35 | query server | a query that ended in an `Error`, such as running out of memory, closed the client's connection without a log line | Optional (an error message) | `980b3a37` | trace 3 replayed |
 | F36 | Neo4j storage | `getEdge` with the key `*` failed | Optional (not used by container labeling) | `a093c86f` | trace 4 |
 | F37 | PostgreSQL storage | `vertexSubset` and `edgeSubset` returned one element too few | Optional (not used by container labeling) | `f9b874ef` | trace 4 |
 | F38 | Quickstep storage | an exported value with a backslash came back with the backslash doubled | Required with Quickstep when values have backslashes | `775c355f` | unit tests; trace 3 replayed |
@@ -63,6 +66,18 @@ Paths are relative to the repository root. The kernel module is
 `test/...` is `pkg/linux/kernel_modules/test/...`. All checks ran on Ubuntu
 24.04.3 with Linux 6.8.0-146-generic in VirtualBox, with Docker 29.0.0 and runc
 1.3.3.
+
+**What container labeling needs.** To record a trace for it, the
+kernel module needs F1, F2, F7 and F9 (its namespace records), F3 when
+`networkAddressTranslation=true` (else the system can freeze), and F18 when
+SPADE's own user starts containers through sudo; the audit bridge needs F8;
+the Audit reporter needs F11, F15, F17 and F28, and F4 unless the module has
+F25; the storage needs F5 (PostgreSQL), F6 (Neo4j) or F23 and F38 (Quickstep), and
+F30 for QuickGrail's `transform` on Quickstep or Neo4j, with F34 and, on
+Neo4j, F33 for graphs the size of trace 3; and a
+replay of a log needs F16 unless it passes `handleLocalEndpoints`. The kernel
+module's fixes are in the main module (`spade_audit`), which stays loaded once
+inserted: after a rebuild, reboot to load it (F27, N22).
 
 ## F1. `ns_ns_pid` in the process's own PID namespace
 
@@ -678,6 +693,39 @@ and no module was loaded.
 **Files.** `reporter/Audit.java`, `reporter/audit/AuditCompleteness.java`;
 test `pkg/java/src/test/java/spade/reporter/audit/AuditCompletenessTest.java`.
 
+## F20. A restart does not reset the storages again
+
+At shutdown SPADE saves its running configuration to
+`cfg/spade.client.Control.config` and replays it at the next start, storage
+arguments included, so a storage added with `reset=true` was emptied again by
+a plain restart.
+
+**Fix.** The saved arguments leave `reset` out.
+
+**Checked.** `SavedConfigurationTest` (2 tests). After a trace recorded with
+`reset=true` on all three storages, the saved configuration read `add
+storage PostgreSQL`, `add storage Quickstep batchTimeIntervalInSeconds=30`,
+`add storage Neo4j`.
+
+**Files.** `core/Kernel.java`, `core/SavedConfiguration.java` (new); test
+`pkg/java/src/test/java/spade/core/SavedConfigurationTest.java`.
+
+## F21. A failed query puts its variables back
+
+QuickGrail binds a query's variables before the query runs. When the
+query then failed, its variables stayed bound to graphs it never filled, and
+the next query on them behaved by storage: on PostgreSQL `stat` failed on a
+missing table, on Neo4j it counted 0 vertices and 0 edges.
+
+**Fix.** A failed query restores the variables as they were, so a variable
+whose assignment failed is undefined, or keeps its old graph.
+
+**Checked.** `RestoreGraphSymbolsTest`. On the VM, on PostgreSQL and Neo4j alike: after a failed first assignment the variable was undefined ("Cannot resolve Graph variable"), and after a failed reassignment it kept its graph (`getContainerInit()`'s 47 vertices and 182 edges).
+
+**Files.** `query/quickgrail/QuickGrailExecutor.java`,
+`query/quickgrail/core/AbstractQueryEnvironment.java`; test
+`pkg/java/src/test/java/spade/query/quickgrail/core/RestoreGraphSymbolsTest.java`.
+
 ## F22. The Neo4j task runner waits for work
 
 `db-pending-task-runner` polled its queue without pause when
@@ -986,6 +1034,25 @@ the same labels on all three. Without F34, Quickstep's transform ended after
 
 **Files.** `query/quickgrail/core/QueryInstructionExecutor.java`.
 
+## F35. A query that ends in an Error fails, with the error logged
+
+**Symptom.** When `transform` ran out of memory (F34), the query client printed
+`Error: null`, its connection closed, and SPADE's log had nothing about it.
+
+**Cause.** The query server's `Connection.executeQuery` caught only
+`Exception`. An `Error` such as `OutOfMemoryError` ended the connection's
+thread, and nothing logged it.
+
+**Fix.** An `Error` is logged and returned to the client as the query's
+failure; the connection stays open.
+
+**Checked.** Trace 3 replayed, then SPADE started again with a 3 GB heap:
+`transform` on PostgreSQL failed with `Error: Java heap space.`, SPADE's log
+has the `OutOfMemoryError` with the query, and `stat $base` on the same
+connection answered (754,107 vertices and 2,105,041 edges, unchanged).
+
+**Files.** `analyzer/commandline/client/Connection.java`.
+
 ## F36. Neo4j: getEdge with `*` compares the edge's annotations
 
 **Symptom.** `$base.getEdge(* = 'write')` failed on Neo4j ("Variable `v` not
@@ -1041,15 +1108,15 @@ and process vertices are the same as PostgreSQL's and Neo4j's.
 
 | Check | How | Needs |
 |---|---|---|
-| Java unit tests (F4, F5, F9, F10, F11, F13, F15, F19, F27, F28, F33, F38) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,PostgreSQLTest,Clone3FlagsTest,KernelModuleArgumentTest,ThreadExitTest,AuditCompletenessTest,CloseOnExecTest,OPMConstantsTest,KernelModuleManagerTest,VforkOrderingTest,TaskExecuteUpdateInBatchesTest,QuickstepCopyOutputTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
+| Java unit tests (F4, F5, F9, F10, F11, F13, F15, F19 to F21, F27, F28, F33, F38) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,PostgreSQLTest,Clone3FlagsTest,KernelModuleArgumentTest,ThreadExitTest,AuditCompletenessTest,CloseOnExecTest,OPMConstantsTest,SavedConfigurationTest,RestoreGraphSymbolsTest,KernelModuleManagerTest,VforkOrderingTest,TaskExecuteUpdateInBatchesTest,QuickstepCopyOutputTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
 | In-kernel tests (F7, F9, F25, F26) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
 | ns pid A/B (F1, F2, F7, F26; `filter-test.sh` for F18, F29) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
 | netfilter (F3) | `pkg/linux/kernel_modules/test/netfilter-atomic/README.md` | a disposable VM: without the fix it freezes |
 | bridge (F8) | compare auditd's log with the reporter's `outputLog` over a trace, by serial number and, within each event, by record type (N17); the bridge's own count of missing serials is in SPADE's log | auditd writing its log, enough log rotation to keep the trace |
-| replay (F11, F12, F14, F16, F28, F31, F32, F33, F34) | `test/query/container/replay.sh 3` on `clarity-of-container`, then `query.sh` and `check-labels.py`; `GIVE_HANDLE=0` for F16 | a recorded trace and the VM it was recorded in |
+| replay (F11, F12, F14, F16, F28, F31 to F35) | `test/query/container/replay.sh 3` on `clarity-of-container`, then `query.sh` and `check-labels.py`; `GIVE_HANDLE=0` for F16 | a recorded trace and the VM it was recorded in |
 | QuickGrail operations (F33, F36, F37) | `test/query/container/qg-ops.sh` on a replayed trace, before and after a change: each operation's vertex and edge counts on every storage | as replay |
 | traces (F15, F17, F18, F25, F28, F29) | `test/query/container/trace.sh 1|2|4`, then `query.sh`, `check-labels.py`, `fdcheck.py`, `nofd.py` and `f17check.py` (TRACE_VALIDATION.md) | the VM; trace 4 also DeathStarBench's media microservices |
-| live (F19, F22, F27, F30) | as in each entry's Checked | the VM |
+| live (F19, F20, F22, F27, F30) | as in each entry's Checked | the VM |
 
 ## Noticed, not changed
 
