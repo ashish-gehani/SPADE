@@ -1,15 +1,13 @@
 # Fixes for Container Labeling
 
-Container labeling (CLARION §4.2, the `ContainerLabels` transformer) was
-checked against the audit kernel module and against real traces. That turned
-up bugs in the kernel module, the audit bridge, the Audit reporter, the SPADE
-kernel and its query server, QuickGrail and all three storages. A stack of pull
-requests on upstream `prov-query` (`6b744f7c`) fixes them, one area at a time,
-and adds the transformer last. This file describes each fix in the summary
-below: what went wrong, why, what changed, how it was checked, and what it
-means for traces recorded before it. Fixes are numbered in the order they were
-found, so an entry can name a fix that a later pull request of the stack adds.
-The commits named are on branch `bug-fixes`, where the fixes were first made.
+Container labeling (the `ContainerLabels` transformer on branch
+`clarity-of-container`, `CLARITY_METHODS.md` beside this file) was checked
+against the audit kernel module and against real traces. That turned up bugs
+in the kernel module, the audit bridge, the Audit reporter, the SPADE kernel
+and its query server, QuickGrail and all three storages. Branch `bug-fixes` holds their fixes, on
+top of upstream `prov-query` (`6b744f7c`), and `clarity-of-container` is
+rebased onto it. This file describes every fix: what went wrong, why, what
+changed, how it was checked, and what it means for traces recorded before it.
 
 The summary says which fixes container labeling needs: **Required** means
 that without it, in the case named, labels are wrong or missing, or the graph
