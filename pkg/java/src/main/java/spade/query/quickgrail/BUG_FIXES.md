@@ -29,6 +29,7 @@ Paths are relative to the repository root. The kernel module is
 | F3 | kernel module | the netfilter hook could sleep in atomic context and freeze the system | Required with `networkAddressTranslation=true` | `da9c05b8`, `1527278b` | `test/netfilter-atomic` reproduction |
 | F4 | Audit reporter | process names from kernel-module records ended in NULs | Required, unless the module has F25 | `ed373f13` | unit tests; a real trace |
 | F5 | PostgreSQL storage | one NUL made COPY drop a whole batch; quotes were not escaped | Required with PostgreSQL | `ff827871` | unit tests; a real trace |
+| F6 | Neo4j storage | QuickGrail's Cypher used `exists()`, which Neo4j 5 removed | Required with Neo4j | `d36e055a` | a real trace on both storages |
 | F7 | kernel module | an unshare(CLONE_NEWPID) record never named the new namespace | Required | `2728115f`, `5c8c1db2`, `0cdc679a` | in-kernel unit test; `test/ns-pid` A/B |
 | F8 | audit bridge | auditd's af_unix plugin silently dropped events whenever SPADE fell behind | Required (live) | `b457bb46`, `41afaf09` | a real trace: auditd's log against SPADE's input |
 | F9 | kernel module, Audit reporter | processes and threads created with clone3 had no creation record | Required | `cea5d23c`, `e09693b6`, `1b55e895` | in-kernel unit tests; `test/ns-pid/clone3-test.sh`; unit tests |
@@ -41,12 +42,14 @@ Paths are relative to the repository root. The kernel module is
 | F17 | Audit reporter | an execve or setuid after an unshare or setns labeled the process with the namespaces it was created with | Required | `98703431` | B13 in trace 2 |
 | F18 | Audit reporter, kernel module | a process sudo started for SPADE's user was not recorded as created | Required when SPADE's user starts containers with sudo | `3d9fc798` | B11 in trace 2; `test/ns-pid/filter-test.sh` |
 | F19 | Audit reporter | a bridge that could not reach auditd's socket recorded nothing, unnoticed | Optional (refuses a broken setup) | `d7867b35` | unit tests; live |
+| F22 | Neo4j storage | the task runner used a whole CPU while SPADE was idle | Optional (CPU) | `9f11de78` | live |
 | F24 | kernel module | every logged packet was also counted as discarded | Optional (a counter) | `c0a567c4` | in-kernel tests |
 | F25 | kernel module | process names were encoded with their NUL padding | Optional, given F4 | `dd2b921b` | in-kernel tests; trace 1 |
 | F26 | kernel module | a task's namespaces were read without holding the task | Optional (safety; recommended) | `a3a35f19` | in-kernel tests; `test/ns-pid` A/B |
 | F27 | Audit reporter | a rebuilt main kernel module had no effect, silently, while an older build stayed loaded | Optional (a warning) | `2e9f1662` | unit test; live |
 | F28 | Audit reporter | a vfork child's events came before the vfork that created it, so it was first seen with unknown namespaces | Required | `afb8fb45` | unit tests; trace 2 replayed |
 | F29 | kernel module | the pid and ppid filters compared thread ids, so other threads and children of a process left out were recorded | Optional (keeps SPADE's own processes out) | `f0532696` | `test/ns-pid/filter-test.sh`; trace 1 |
+| F36 | Neo4j storage | `getEdge` with the key `*` failed | Optional (not used by container labeling) | `a093c86f` | trace 4 |
 | F37 | PostgreSQL storage | `vertexSubset` and `edgeSubset` returned one element too few | Optional (not used by container labeling) | `f9b874ef` | trace 4 |
 
 `test/...` is `pkg/linux/kernel_modules/test/...`. All checks ran on Ubuntu
@@ -199,6 +202,31 @@ batches; replaying the audit log fills them in.
 
 **Files.** `storage/PostgreSQL.java`; test
 `pkg/java/src/test/java/spade/storage/PostgreSQLTest.java`.
+
+## F6. Neo4j Cypher without `exists()`
+
+**Symptom.** On Neo4j, every QuickGrail instruction that builds a graph
+failed, even `$base.getVertex(type = 'Process')`, with "The property existence
+syntax `... exists(variable.property)` is no longer supported". The container
+methods returned empty graphs.
+
+**Cause.** SPADE bundles Neo4j 5.26 (`pkg/java/pom.xml`), and Neo4j 5 removed
+`exists(variable.property)`. The executor uses it when it records which graphs
+an edge belongs to, a step of every graph-building instruction, and in
+`getWhereAnnotationsExist`, the vertex and edge cases of `describeGraph`, and
+`saveRemoteSymbol`.
+
+**Fix.** `x IS NULL` and `x IS NOT NULL` replace `not exists(x)` and
+`exists(x)` at those five places. They work in Neo4j 3, 4 and 5.
+
+**Checked.** On the real trace of F5, Neo4j and PostgreSQL returned the same
+results.
+
+**Older traces.** None are affected: the fix is in the queries, so Neo4j
+databases filled before it can be queried now.
+
+**Files.** `storage/neo4j/Neo4jInstructionExecutor.java`,
+`storage/neo4j/Neo4jQueryEnvironment.java`.
 
 ## F7. The unshare record names the new PID namespace
 
@@ -618,6 +646,21 @@ and no module was loaded.
 **Files.** `reporter/Audit.java`, `reporter/audit/AuditCompleteness.java`;
 test `pkg/java/src/test/java/spade/reporter/audit/AuditCompletenessTest.java`.
 
+## F22. The Neo4j task runner waits for work
+
+`db-pending-task-runner` polled its queue without pause when
+`mainThreadSleepWaitMillis` is 0, the default, and used a whole CPU even
+while SPADE was idle: 435 s of CPU in 439 s.
+
+**Fix.** It waits on the queue when nothing is pending, until a task
+arrives, but no longer than the next flush is due or a second, so flushes and
+shutdown happen as before. Adding a task and shutting down wake it.
+
+**Checked.** After a trace, with SPADE idle, the thread used 16 ms of CPU in
+137 s (27.5 s in its 1,401 s, the trace included).
+
+**Files.** `storage/Neo4j.java`.
+
 ## F24. A logged packet is not counted as discarded
 
 `nf_handle_packet` logged a packet and then fell through to
@@ -756,6 +799,20 @@ containerd-shim leaves out its children). In trace 1 recorded with F29 (`trace1e
 **Files.** kernel module `audit/kernel/function/hook.h`,
 `audit/kernel/helper/task.c`, `audit/kernel/helper/task.h`.
 
+## F36. Neo4j: getEdge with `*` compares the edge's annotations
+
+**Symptom.** `$base.getEdge(* = 'write')` failed on Neo4j ("Variable `v` not
+defined"); PostgreSQL and Quickstep returned 11,233 edges on trace 4.
+
+**Cause.** With the key `*`, `getEdge` added a second `where` and compared the
+annotations of `v`, a variable the query does not have.
+
+**Fix.** The comparison joins the `where` clause and reads `e`.
+
+**Checked.** Trace 4: 11,233 edges on Neo4j too.
+
+**Files.** `storage/neo4j/Neo4jInstructionExecutor.java`.
+
 ## F37. PostgreSQL: vertexSubset and edgeSubset return `to - from` elements
 
 **Symptom.** On trace 4, `$p.vertexSubset(0, 100)` held 99 vertices on
@@ -781,9 +838,9 @@ up to `to`.
 | netfilter (F3) | `pkg/linux/kernel_modules/test/netfilter-atomic/README.md` | a disposable VM: without the fix it freezes |
 | bridge (F8) | compare auditd's log with the reporter's `outputLog` over a trace, by serial number and, within each event, by record type (N17); the bridge's own count of missing serials is in SPADE's log | auditd writing its log, enough log rotation to keep the trace |
 | replay (F11, F14, F16, F28) | `test/query/container/replay.sh 3` on `clarity-of-container`, then `query.sh` and `check-labels.py`; `GIVE_HANDLE=0` for F16 | a recorded trace and the VM it was recorded in |
-| QuickGrail operations (F37) | `test/query/container/qg-ops.sh` on a replayed trace, before and after a change: each operation's vertex and edge counts on every storage | as replay |
+| QuickGrail operations (F36, F37) | `test/query/container/qg-ops.sh` on a replayed trace, before and after a change: each operation's vertex and edge counts on every storage | as replay |
 | traces (F15, F17, F18, F25, F28, F29) | `test/query/container/trace.sh 1|2|4`, then `query.sh`, `check-labels.py`, `fdcheck.py`, `nofd.py` and `f17check.py` (TRACE_VALIDATION.md) | the VM; trace 4 also DeathStarBench's media microservices |
-| live (F19, F27) | as in each entry's Checked | the VM |
+| live (F19, F22, F27) | as in each entry's Checked | the VM |
 
 ## Noticed, not changed
 
