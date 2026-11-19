@@ -27,12 +27,14 @@ Paths are relative to the repository root. The kernel module is
 | F1 | kernel module | `ns_ns_pid` held the PID in the creator's namespace, not the process's own | Required | `9fd54e0c` | `test/ns-pid` A/B on a live system |
 | F2 | kernel module | an unshare or setns inside a container wrote no record | Required | `d445c7cc` | `test/ns-pid` A/B |
 | F3 | kernel module | the netfilter hook could sleep in atomic context and freeze the system | Required with `networkAddressTranslation=true` | `da9c05b8`, `1527278b` | `test/netfilter-atomic` reproduction |
+| F4 | Audit reporter | process names from kernel-module records ended in NULs | Required, unless the module has F25 | `ed373f13` | unit tests; a real trace |
 | F7 | kernel module | an unshare(CLONE_NEWPID) record never named the new namespace | Required | `2728115f`, `5c8c1db2`, `0cdc679a` | in-kernel unit test; `test/ns-pid` A/B |
 | F9 | kernel module, Audit reporter | processes and threads created with clone3 had no creation record | Required | `cea5d23c`, `e09693b6`, `1b55e895` | in-kernel unit tests; `test/ns-pid/clone3-test.sh`; unit tests |
 | F10 | Audit reporter | `netfilterHooksLogCT=false` logged every packet instead of only new connections | Optional | `3bbb7352` | unit test |
 | F14 | Audit reporter | the netfilter hooks' tables had no indexes, so every packet record scanned them | Optional (speed) | `583ec2d7` | trace 3 replayed |
 | F18 | Audit reporter, kernel module | a process sudo started for SPADE's user was not recorded as created | Required when SPADE's user starts containers with sudo | `3d9fc798` | B11 in trace 2; `test/ns-pid/filter-test.sh` |
 | F24 | kernel module | every logged packet was also counted as discarded | Optional (a counter) | `c0a567c4` | in-kernel tests |
+| F25 | kernel module | process names were encoded with their NUL padding | Optional, given F4 | `dd2b921b` | in-kernel tests; trace 1 |
 | F26 | kernel module | a task's namespaces were read without holding the task | Optional (safety; recommended) | `a3a35f19` | in-kernel tests; `test/ns-pid` A/B |
 | F29 | kernel module | the pid and ppid filters compared thread ids, so other threads and children of a process left out were recorded | Optional (keeps SPADE's own processes out) | `f0532696` | `test/ns-pid/filter-test.sh`; trace 1 |
 
@@ -129,6 +131,33 @@ instead.
 
 **Files.** `audit/kernel/helper/audit_log.c`, `audit/kernel/helper/audit_log.h`,
 `audit/kernel/netfilter/netfilter.c`.
+
+## F4. Process names cut at the first NUL
+
+**Symptom.** Process names from kernel-module records carried trailing NULs:
+`gdbus` arrived as `gdbus` followed by 11 NUL bytes. Such a vertex differed
+from the same process's vertex built from a syscall record, and PostgreSQL
+rejected it (F5). In one trace, 13,264 vertices were lost that way.
+
+**Cause.** The module hex-encodes the whole `comm` buffer, all
+`TASK_COMM_LEN` (16) bytes, so every name from its records ends in at least
+one NUL. `AuditEventReader` decoded the hex as is.
+
+**Fix.** The reader cuts hex-encoded values at the first NUL
+(`AuditEventReader.decodeHexValue`). The values decoded there (`comm`, `cwd`,
+`name`, execve arguments) are C strings, so a NUL always ends them, and the
+kernel's own hex encoding never contains one.
+
+**Checked.** `AuditEventReaderTest` (5 tests: padded, full-length and
+all-NUL names, kernel hex without NUL, invalid hex). With F4 and F5, a real
+trace stored 21,164 vertices in PostgreSQL with no failed batch.
+
+**Older traces.** Audit logs recorded before the fix are read correctly,
+since the fix is in the reader. Graphs stored before it have names with NULs
+in Neo4j, and miss whole vertex batches in PostgreSQL.
+
+**Files.** `reporter/audit/AuditEventReader.java`; test
+`pkg/java/src/test/java/spade/reporter/audit/AuditEventReaderTest.java`.
 
 ## F7. The unshare record names the new PID namespace
 
@@ -320,6 +349,20 @@ the module, are complete; the counter itself was not looked at.
 
 **Files.** kernel module `audit/kernel/netfilter/netfilter.c`.
 
+## F25. The module encodes a process's name without its padding
+
+The module hex-encoded all `TASK_COMM_LEN` bytes of `comm`, the NULs
+that pad a short name included, and the reader had to cut them off (F4). It
+encodes `strnlen(comm)` bytes now. F4 stays, for logs of older modules.
+
+**Checked.** In-kernel tests (`test_msg` now expects the name alone, e.g.
+`comm=746573745f70726f63657373` for `test_process`). None of the
+module's 14,433 network records in trace 1 (`trace1e`) has the padding; an
+earlier recording without F25 had it in all 13,022.
+
+**Files.** kernel module `audit/msg/common/serialize/audit.c`, test
+`pkg/linux/kernel_modules/test/kernel/audit/msg.c`.
+
 ## F26. The module holds a task while it reads its namespaces
 
 `kernel_helper_namespace_populate_msg` released the RCU read lock
@@ -370,9 +413,9 @@ containerd-shim leaves out its children). In trace 1 recorded with F29 (`trace1e
 
 | Check | How | Needs |
 |---|---|---|
-| Java unit tests (F9, F10) | in `pkg/java`: `mvn test -Dtest='Clone3FlagsTest,KernelModuleArgumentTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
-| In-kernel tests (F7, F9, F26) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
+| Java unit tests (F4, F9, F10) | in `pkg/java`: `mvn test -Dtest='AuditEventReaderTest,Clone3FlagsTest,KernelModuleArgumentTest'` | JDK 21, Maven, SPADE's `cfg/` reachable from `pkg/java` |
+| In-kernel tests (F7, F9, F25, F26) | `make KERNEL_MODULES=true`, then `pkg/linux/kernel_modules/bin/test/spade_audit_test/run.sh --dry-run` | kernel headers; no other SPADE module loaded |
 | ns pid A/B (F1, F2, F7, F26; `filter-test.sh` for F18, F29) | `pkg/linux/kernel_modules/test/ns-pid/README.md` | a disposable Linux VM with Docker |
 | netfilter (F3) | `pkg/linux/kernel_modules/test/netfilter-atomic/README.md` | a disposable VM: without the fix it freezes |
 | replay (F14) | `test/query/container/replay.sh 3` on `clarity-of-container`, then `query.sh` and `check-labels.py` | a recorded trace and the VM it was recorded in |
-| traces (F18, F29) | `test/query/container/trace.sh 1|2|4`, then `query.sh`, `check-labels.py`, `fdcheck.py`, `nofd.py` and `f17check.py` (TRACE_VALIDATION.md) | the VM; trace 4 also DeathStarBench's media microservices |
+| traces (F18, F25, F29) | `test/query/container/trace.sh 1|2|4`, then `query.sh`, `check-labels.py`, `fdcheck.py`, `nofd.py` and `f17check.py` (TRACE_VALIDATION.md) | the VM; trace 4 also DeathStarBench's media microservices |
