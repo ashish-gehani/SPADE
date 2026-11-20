@@ -9,6 +9,9 @@
 #
 # Usage: bin/convert-storage-output-to-json.sh <input>.bin
 
+# Disable HotSpot Base64 intrinsics to mitigate Java4Shell. https://calif.io/java4shell
+JAVA_BASE64_INTRINSICS_FLAG="-XX:-UseBASE64Intrinsics"
+
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TRACE_HOME="$(dirname "${BIN_DIR}")"
 
@@ -34,7 +37,7 @@ function main() {
     avro_tools_jar="$(util_require_avro_tools_jar)"
     output_file="${input_file%.bin}.json"
 
-    java -jar "${avro_tools_jar}" tojson "${input_file}" > "${output_file}"
+    java "${JAVA_BASE64_INTRINSICS_FLAG}" -jar "${avro_tools_jar}" tojson "${input_file}" > "${output_file}"
 
     echo "Wrote: ${output_file}"
 }
