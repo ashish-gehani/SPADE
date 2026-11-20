@@ -578,8 +578,6 @@ uninstall-am:
 .PRECIOUS: Makefile
 
 
-# pkg/java/.mvn/jvm.config supplies the Maven JVM flag.
-# Disable HotSpot Base64 intrinsics to mitigate Java4Shell. https://calif.io/java4shell
 all-local:
 	@$(MVN) $(MAVEN_DEBUG_FLAGS) $(MVN_SPADE_VARS) \
 		package
