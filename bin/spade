@@ -68,8 +68,6 @@ fi
 
 CLASSPATH=$(${SPADE_ROOT}/bin/classpath.sh)
 
-# Disable HotSpot Base64 intrinsics to mitigate Java4Shell. https://calif.io/java4shell
-JAVA_BASE64_INTRINSICS_FLAG="-XX:-UseBASE64Intrinsics"
 JVMARGS="-server -Xms8G -Xmx16G"
 JVMARGSDEBUG="-server -Xms8G -Xmx16G -XX:+UseConcMarkSweepGC"
 
@@ -79,19 +77,19 @@ if [ $# -eq 0 ] ; then
 	print_help
 else
 	if [ $1 = "java-start" ] || [ $1 = "java-stop" ] || [ $1 = "java-kill" ] ; then
-		java "${JAVA_BASE64_INTRINSICS_FLAG}" -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.utility.Daemonizer "$@"
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.utility.Daemonizer "$@"
 	elif [ $1 = "query" ] ; then
-		java "${JAVA_BASE64_INTRINSICS_FLAG}" -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $CYGWIN_JVM_JLINE_ARGS spade.client.CommandLine "$@"
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $CYGWIN_JVM_JLINE_ARGS spade.client.CommandLine "$@"
 	elif [ $1 = "control" ] ; then
 		output=$(is_spade_running)
 		if [ "$output" -eq 1 ]
 		then
-			java "${JAVA_BASE64_INTRINSICS_FLAG}" -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $CYGWIN_JVM_JLINE_ARGS spade.client.Control
+			java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $CYGWIN_JVM_JLINE_ARGS spade.client.Control
 		else
 			echo "SPADE is not running"
 		fi
 	elif [ $1 = "debug" ] ; then
-		java "${JAVA_BASE64_INTRINSICS_FLAG}" -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGSDEBUG spade.core.Kernel
+		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGSDEBUG spade.core.Kernel
 	elif [ $1 = "start" ]  || [ $1 = "remote-debug" ] || [ $1 = "unikernel" ] ; then
 		remote_debugging_flags=
 		if [ $1 = "remote-debug" ] ; then
@@ -111,7 +109,7 @@ else
 			mainClassName="spade.core.Unikernel"
 		fi
 		if [ "$running" -eq 0 ] ; then
-			nohup java "${JAVA_BASE64_INTRINSICS_FLAG}" $remote_debugging_flags -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS $mainClassName 2>&1 > /dev/null &
+			nohup java $remote_debugging_flags -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS $mainClassName 2>&1 > /dev/null &
 			spadePid=$!
 			if [ $1 = "unikernel" ]; then
 				sleep 1 # wait for it to try to start up
@@ -175,7 +173,7 @@ else
 			remote_debugging_flags="-Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=8000,suspend=n"
 		fi
 		mainClassName="spade.utility.${2}"
-		java "${JAVA_BASE64_INTRINSICS_FLAG}" ${remote_debugging_flags} -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS $mainClassName "${@:3}"
+		java ${remote_debugging_flags} -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS $mainClassName "${@:3}"
 	else
 		print_help
 	fi
