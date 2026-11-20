@@ -17,8 +17,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /*
- * Disable HotSpot Base64 intrinsics to mitigate Java4Shell. https://calif.io/java4shell
- * Usage: java -XX:-UseBASE64Intrinsics -cp . CheckIDSequence [<flags>] [<log_file>]
+ * Usage: java -cp . CheckIDSequence [<flags>] [<log_file>]
  *
  *   --raw         input data are raw audit records
  *    -R
@@ -58,12 +57,12 @@ import java.util.regex.Pattern;
  *
  * Performance:
  *
- *   $ time java -XX:-UseBASE64Intrinsics -cp . CheckIDSequence -S /data/unsorted_backdoor.txt > /data/bd_id.txt
+ *   $ time java -cp . CheckIDSequence -S /data/unsorted_backdoor.txt > /data/bd_id.txt
  *   real	0m1.337s
  *   user	0m1.857s
  *   sys	0m0.250s
  *
- *   $ time java -XX:-UseBASE64Intrinsics -cp . CheckIDSequence -S -R /data/backdoor.log > /data/bd_id_raw.txt
+ *   $ time java -cp . CheckIDSequence -S -R /data/backdoor.log > /data/bd_id_raw.txt
  *   real	0m22.920s
  *   user	0m22.593s
  *   sys	0m0.658s

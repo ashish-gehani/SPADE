@@ -402,10 +402,6 @@
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
           <version>3.5.5</version>
-          <configuration>
-            <!-- Disable HotSpot Base64 intrinsics to mitigate Java4Shell. https://calif.io/java4shell -->
-            <argLine>-XX:-UseBASE64Intrinsics</argLine>
-          </configuration>
         </plugin>
         <plugin>
           <artifactId>maven-resources-plugin</artifactId>

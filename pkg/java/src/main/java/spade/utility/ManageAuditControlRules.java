@@ -149,8 +149,7 @@ public class ManageAuditControlRules {
         System.out.println(
             "ManageAuditControlRules - set/unset Audit reporter auditctl rules\n\n" +
             "USAGE:\n" +
-            // Disable HotSpot Base64 intrinsics to mitigate Java4Shell. https://calif.io/java4shell
-            "  java -XX:-UseBASE64Intrinsics <classpath> spade.utility.ManageAuditControlRules [options]\n\n" +
+            "  java <classpath> spade.utility.ManageAuditControlRules [options]\n\n" +
             "OPTIONS:\n" +
             "  --user=USERNAME               capture only this user; empty => IGNORE mode (self)\n" +
             "  --syscall=default|all|none    System calls to set/unset (default: default)\n" +
@@ -170,9 +169,9 @@ public class ManageAuditControlRules {
             "  --help=true                   Show this help message\n\n" +
             "EXAMPLES:\n" +
             "  Apply default audit rules:\n" +
-            "    java -XX:-UseBASE64Intrinsics <classpath> spade.utility.ManageAuditControlRules --netIO=true --fileIO=true\n\n" +
+            "    java <classpath> spade.utility.ManageAuditControlRules --netIO=true --fileIO=true\n\n" +
             "  Remove audit rules:\n" +
-            "    java -XX:-UseBASE64Intrinsics <classpath> spade.utility.ManageAuditControlRules --remove=true\n"
+            "    java <classpath> spade.utility.ManageAuditControlRules --remove=true\n"
         );
     }
 }
