@@ -11,8 +11,6 @@ MVN_SPADE_VARS = -Dspade.package.lib.dir="$(SPADE_PACKAGE_LIB_DIR)" \
 	-Dspade.package.jar.path="$(OUTPUT_SPADE_PACKAGE_JAR_FILE)" \
 	-Dspade.package.header.include.java.dir="$(SPADE_PACKAGE_HEADER_INCLUDE_JAVA_DIR)"
 
-# pkg/java/.mvn/jvm.config supplies the Maven JVM flag.
-# Disable HotSpot Base64 intrinsics to mitigate Java4Shell. https://calif.io/java4shell
 all-local:
 	@$(MVN) $(MAVEN_DEBUG_FLAGS) $(MVN_SPADE_VARS) \
 		package
