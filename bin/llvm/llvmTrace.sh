@@ -1,4 +1,6 @@
 #!/bin/bash
+# Disable HotSpot Base64 intrinsics to mitigate Java4Shell. https://calif.io/java4shell
+JAVA_BASE64_INTRINSICS_FLAG="-XX:-UseBASE64Intrinsics"
 REPLIB_OSFLAG=-D_LLVMREPORTER_LINUX
 LLVM_SOURCE=$1
 FUNCTION_FILE=$2
@@ -23,7 +25,7 @@ llvm-link ${LLVM_Instrumented}.bc $BASE/flush.bc -o $BASE/linked.bc
 
 if [ "$FUNCTION_FILE" != "-monitor-all" ]; then
 	opt -dot-callgraph $BASE/linked.bc -o $BASE/callgraph.bc	
-	java -cp $BASE/../../build  spade/utility/FunctionMonitor $BASE/callgraph.dot ${FUNCTION_FILE} functionsOut
+	java "${JAVA_BASE64_INTRINSICS_FLAG}" -cp $BASE/../../build  spade/utility/FunctionMonitor $BASE/callgraph.dot ${FUNCTION_FILE} functionsOut
 	opt -load $BASE/LLVMTrace.so -provenance -FunctionNames-input functionsOut $BASE/linked.bc -o ${LLVM_TARGET}.bc 
 else
 	opt -load $BASE/LLVMTrace.so -provenance -FunctionNames-input "-monitor-all" $BASE/linked.bc -o ${LLVM_TARGET}.bc 
