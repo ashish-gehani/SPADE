@@ -44,6 +44,9 @@ function log() {
 
 # java command construction
 
+# Disable HotSpot Base64 intrinsics to mitigate Java4Shell. https://calif.io/java4shell
+JAVA_BASE64_INTRINSICS_FLAG="-XX:-UseBASE64Intrinsics"
+
 function adjust_for_cygwin() {
     if [[ "$(uname)" == *"CYGWIN"* ]]; then
         SPADE_ROOT="$(cygpath -w "${SPADE_ROOT}")"
@@ -65,11 +68,11 @@ function get_jvm_non_server_flags() {
 }
 
 function build_java_server_cmd() {
-    echo "java $(get_jvm_server_flags) -Djava.library.path=${JAVALIBPATH} -cp ${SPADE_JAR}"
+    echo "java $(get_jvm_server_flags) ${JAVA_BASE64_INTRINSICS_FLAG} -Djava.library.path=${JAVALIBPATH} -cp ${SPADE_JAR}"
 }
 
 function build_java_non_server_cmd() {
-    echo "java $(get_jvm_non_server_flags) -Djava.library.path=${JAVALIBPATH} -cp ${SPADE_JAR}"
+    echo "java $(get_jvm_non_server_flags) ${JAVA_BASE64_INTRINSICS_FLAG} -Djava.library.path=${JAVALIBPATH} -cp ${SPADE_JAR}"
 }
 
 function build_jvm_debug_remote_flags() {
