@@ -29,6 +29,8 @@ print_help(){
 SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
 CLASSPATH="$SPADE_ROOT/build:$SPADE_ROOT/lib/*"
 JAVALIBPATH="$SPADE_ROOT/lib/"
+# Disable HotSpot Base64 intrinsics to mitigate Java4Shell. https://calif.io/java4shell
+JAVA_BASE64_INTRINSICS_FLAG="-XX:-UseBASE64Intrinsics"
 JVMARGS="-Xms128M"
 
 pushd "${SPADE_ROOT}" > /dev/null
@@ -37,7 +39,7 @@ if [ $# -ne 2 ] ; then
 	print_help
 else
 	if [ $1 = "-o" ] || [ $1 = "-p" ] ; then
-		java -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.utility.HostInfo "$@"
+		java "${JAVA_BASE64_INTRINSICS_FLAG}" -Djava.library.path="$JAVALIBPATH" -cp "$CLASSPATH" $JVMARGS spade.utility.HostInfo "$@"
 	else
 		print_help
 	fi
