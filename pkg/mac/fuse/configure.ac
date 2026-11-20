@@ -15,7 +15,9 @@ if test "x${JAVA}" = "x:"; then
     AC_MSG_ERROR([java not found])
 fi
 
-JAVA_HOME=`"${JAVA}" -XshowSettings:all 2>&1 | awk '/java.home/{print $3}'`
+# Disable HotSpot Base64 intrinsics to mitigate Java4Shell. https://calif.io/java4shell
+JAVA_BASE64_INTRINSICS_FLAG="-XX:-UseBASE64Intrinsics"
+JAVA_HOME=`"${JAVA}" "${JAVA_BASE64_INTRINSICS_FLAG}" -XshowSettings:all 2>&1 | awk '/java.home/{print $3}'`
 if test "x${JAVA_HOME}" = "x"; then
     AC_MSG_ERROR([could not determine JAVA_HOME from java -XshowSettings:all])
 fi
