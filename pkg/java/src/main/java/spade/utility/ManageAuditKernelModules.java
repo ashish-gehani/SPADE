@@ -194,8 +194,7 @@ public class ManageAuditKernelModules {
         System.out.println(
             "ManageAuditKernelModules - load/unload Audit reporter kernel modules\n\n" +
             "USAGE:\n" +
-            // Disable HotSpot Base64 intrinsics to mitigate Java4Shell. https://calif.io/java4shell
-            "  java -XX:-UseBASE64Intrinsics <classpath> spade.utility.ManageAuditKernelModules \\\n" +
+            "  java <classpath> spade.utility.ManageAuditKernelModules \\\n" +
             "    --controller=/path/to/controller.ko \\\n" +
             "    --main=/path/to/main.ko \\\n" +
             "    [--user=<username>] \\\n" +
@@ -225,16 +224,16 @@ public class ManageAuditKernelModules {
             "  --help=true                 show this help\n\n" +
             "EXAMPLES:\n" +
             "  Insert:\n" +
-            "    java -XX:-UseBASE64Intrinsics <classpath> spade.utility.ManageAuditKernelModules \\\n" +
+            "    java <classpath> spade.utility.ManageAuditKernelModules \\\n" +
             "      --controller=/lib/modules/ctrl.ko --main=/lib/modules/main.ko \\\n" +
             "      --user=myuser --ignoreProcesses=sshd,bash --netIO=true\n\n" +
             "  Insert with hardening:\n" +
-            "    java -XX:-UseBASE64Intrinsics <classpath> spade.utility.ManageAuditKernelModules \\\n" +
+            "    java <classpath> spade.utility.ManageAuditKernelModules \\\n" +
             "      --controller=/lib/modules/ctrl.ko --main=/lib/modules/main.ko \\\n" +
             "      --harden=true --hardenTgids=spade,important-app \\\n" +
             "      --authorizedUsers=root,admin\n\n" +
             "  Remove:\n" +
-            "    java -XX:-UseBASE64Intrinsics <classpath> spade.utility.ManageAuditKernelModules --controller=/lib/modules/ctrl.ko --remove=true\n"
+            "    java <classpath> spade.utility.ManageAuditKernelModules --controller=/lib/modules/ctrl.ko --remove=true\n"
         );
     }
 }

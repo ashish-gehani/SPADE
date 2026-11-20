@@ -22,9 +22,7 @@ curl -O https://www.antlr.org/download/antlr-4.13.2-complete.jar
 **2. Run the ANTLR tool on `DSL.g4`** from the repo root:
 
 ```bash
-# Disable HotSpot Base64 intrinsics to mitigate Java4Shell. https://calif.io/java4shell
-JAVA_BASE64_INTRINSICS_FLAG="-XX:-UseBASE64Intrinsics"
-java "${JAVA_BASE64_INTRINSICS_FLAG}" -jar antlr-4.13.2-complete.jar \
+java -jar antlr-4.13.2-complete.jar \
   -package spade.query.quickgrail.parser \
   -o src/spade/query/quickgrail/parser \
   src/spade/query/quickgrail/parser/DSL.g4
