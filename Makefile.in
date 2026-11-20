@@ -4,8 +4,6 @@
 JAVAC=@JAVAC@
 CC=@CC@
 JAR=@JAR@
-# Disable HotSpot Base64 intrinsics to mitigate Java4Shell. https://calif.io/java4shell
-JAVA_BASE64_INTRINSICS_FLAG = -XX:-UseBASE64Intrinsics
 JAVAC_CP = $(shell ./bin/classpath.sh)
 JAVAC_OPTIONS =$(EXTRA_JAVAC_OPTIONS) -Xlint:none -proc:none
 ANDROID_BUILD_TOOLS = @ANDROID_BUILD_TOOLS@
@@ -163,7 +161,7 @@ src/spade/reporter/spade_reporter_LinuxFUSE.h: build/spade/reporter/LinuxFUSE.cl
 	$(JAVAC) -classpath 'build:lib/*' -h src/spade/reporter src/spade/reporter/LinuxFUSE.java
 lib/libLinuxFUSE.so: src/spade/reporter/libLinuxFUSE.c utilities
 	export PKG_CONFIG_PATH=$(OS_CONFIG_PATH);\
-	gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java $(JAVA_BASE64_INTRINSICS_FLAG) -classpath build spade.utility.JavaHome) -I$(shell java $(JAVA_BASE64_INTRINSICS_FLAG) -classpath build spade.utility.JavaHome)/linux -Wall src/spade/reporter/libLinuxFUSE.c `pkg-config fuse --cflags --libs` -o lib/libLinuxFUSE.so
+	gcc -fPIC -shared -Wl,-soname,libLinuxFUSE.so -I$(shell java -classpath build spade.utility.JavaHome) -I$(shell java -classpath build spade.utility.JavaHome)/linux -Wall src/spade/reporter/libLinuxFUSE.c `pkg-config fuse --cflags --libs` -o lib/libLinuxFUSE.so
  
 # Build the OpenBSM reporter.
 build-openbsm: build/spade/reporter/OpenBSM.class src/spade/reporter/spadeOpenBSM.c lib/spadeOpenBSM
@@ -177,7 +175,7 @@ lib/spadeOpenBSM: src/spade/reporter/spadeOpenBSM.c
 # Build the MacFUSE reporter.
 build-macfuse: build/spade/reporter/MacFUSE.class src/spade/reporter/MacFUSE.java src/spade/reporter/libMacFUSE.c
 	$(JAVAC) -classpath 'build:lib/*' -h src/spade/reporter src/spade/reporter/MacFUSE.java
-	gcc -dynamiclib -I$(shell java $(JAVA_BASE64_INTRINSICS_FLAG) -classpath build spade.utility.JavaHome) -I$(shell java $(JAVA_BASE64_INTRINSICS_FLAG) -classpath build spade.utility.JavaHome)/darwin src/spade/reporter/libMacFUSE.c `pkg-config fuse --cflags --libs` -o lib/libMacFUSE.jnilib
+	gcc -dynamiclib -I$(shell java -classpath build spade.utility.JavaHome) -I$(shell java -classpath build spade.utility.JavaHome)/darwin src/spade/reporter/libMacFUSE.c `pkg-config fuse --cflags --libs` -o lib/libMacFUSE.jnilib
  
 llvm:
 	@make $(LLVM_RULE)
@@ -252,7 +250,7 @@ android-stop:
 	$(ANDROID_SDK_TOOLS)/adb shell "cd /sdcard/spade; dalvikvm -cp android-spade.jar spade.client.Android shutdown"
  
 graph-utility:
-	java $(JAVA_BASE64_INTRINSICS_FLAG) -cp 'build:lib/*' spade.utility.GraphUtility
+	java -cp 'build:lib/*' spade.utility.GraphUtility
  
 # ---------- Removing files ----------
 # Remove Java classes and native libraries, executables that we compiled.
