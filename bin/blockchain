@@ -35,6 +35,8 @@ print_help ()
 	echo "'$0 help' : Prints this message."
 }
 
+# Disable HotSpot Base64 intrinsics to mitigate Java4Shell. https://calif.io/java4shell
+JAVA_BASE64_INTRINSICS_FLAG="-XX:-UseBASE64Intrinsics"
 JAVA_ARGS="-server -Xms30G -Xmx30G"
 SPADE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/../ && pwd )"
 BITCOIN_STAGING_DIR=$SPADE_ROOT/tmp/bitcoin/
@@ -44,23 +46,23 @@ download_blocks()
 	if [ ! -z "$1" ]; then
 		upto=" upto=$1"
 	fi
-	java -Djava.library.path="./lib/" -cp "./build:./lib/*" $JAVA_ARGS -XX:+UseConcMarkSweepGC spade.utility.BitcoinTools mode=downloadBlocksOnly $upto
+	java "${JAVA_BASE64_INTRINSICS_FLAG}" -Djava.library.path="./lib/" -cp "./build:./lib/*" $JAVA_ARGS -XX:+UseConcMarkSweepGC spade.utility.BitcoinTools mode=downloadBlocksOnly $upto
 }
 
 create_csv()
 {
 	mkdir -p $BITCOIN_STAGING_DIR/CSV/
-	java -Djava.library.path="./lib/" -cp "./build:./lib/*" $JAVA_ARGS -XX:+UseConcMarkSweepGC spade.utility.BitcoinTools mode=createCSVes upto=$1	
+	java "${JAVA_BASE64_INTRINSICS_FLAG}" -Djava.library.path="./lib/" -cp "./build:./lib/*" $JAVA_ARGS -XX:+UseConcMarkSweepGC spade.utility.BitcoinTools mode=createCSVes upto=$1
 }
 
 create_db()
 {
-	java -Dfile.encoding=UTF-8  -Djava.library.path="./lib/" -cp "./build:./lib/*" org.neo4j.tooling.ImportTool  --into $2 --nodes $BITCOIN_STAGING_DIR/CSV/addresses_0_$1.csv --nodes $BITCOIN_STAGING_DIR/CSV/blocks_0_$1.csv --nodes $BITCOIN_STAGING_DIR/CSV/payments_0_$1.csv --nodes  $BITCOIN_STAGING_DIR/CSV/txes_0_$1.csv --relationships $BITCOIN_STAGING_DIR/CSV/edges_0_$1.csv
+	java "${JAVA_BASE64_INTRINSICS_FLAG}" -Dfile.encoding=UTF-8  -Djava.library.path="./lib/" -cp "./build:./lib/*" org.neo4j.tooling.ImportTool  --into $2 --nodes $BITCOIN_STAGING_DIR/CSV/addresses_0_$1.csv --nodes $BITCOIN_STAGING_DIR/CSV/blocks_0_$1.csv --nodes $BITCOIN_STAGING_DIR/CSV/payments_0_$1.csv --nodes  $BITCOIN_STAGING_DIR/CSV/txes_0_$1.csv --relationships $BITCOIN_STAGING_DIR/CSV/edges_0_$1.csv
 }
 
 index_db()
 {
-	java -Djava.library.path="./lib/" -cp "./build:./lib/*" $JAVA_ARGS -XX:+UseConcMarkSweepGC spade.utility.BitcoinTools mode=createIndexes path=$1
+	java "${JAVA_BASE64_INTRINSICS_FLAG}" -Djava.library.path="./lib/" -cp "./build:./lib/*" $JAVA_ARGS -XX:+UseConcMarkSweepGC spade.utility.BitcoinTools mode=createIndexes path=$1
 }
 
 pushd ${SPADE_ROOT} > /dev/null
